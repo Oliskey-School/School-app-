@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  password       String
+  name           String?
+  role           String   @default("STUDENT")
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  studentProfile Student?
+  teacherProfile Teacher?
+  parentProfile  Parent?
+}
+
+model Student {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+  grade     Int
+  section   String
+  parentId  Int?
+  parent    Parent?  @relation(fields: [parentId], references: [id])
+}
+
+model Teacher {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+  subjects  String // Stored as JSON or comma separated in SQLite as arrays aren't supported natively easily, but Prisma supports scalar lists for Postgres. For SQLite, we might need a separate table or just string. Code uses string array. Let's assume unsupported for now or use a workaround. Actually Prisma supports scalar lists only on Postgres/Cockroach/Mongo. For SQLite, we can't use String[]. I'll use String and assume it's serialized, or just comment it out/simplify.
+  // Wait, the code uses `subjects: ['General']`. If I use SQLite, I can't use String[]. 
+  // I will use String and let the app handle serialization if needed, or just omit for now to get it running.
+  // Actually, let's just make it String for now to avoid schema errors.
+  classes   String 
+}
+
+model Parent {
+  id       Int       @id @default(autoincrement())
+  userId   Int       @unique
+  user     User      @relation(fields: [userId], references: [id])
+  children Student[]
+}
