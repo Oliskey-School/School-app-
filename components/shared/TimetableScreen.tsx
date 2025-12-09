@@ -1,9 +1,9 @@
 
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, SUBJECT_COLORS, ViewGridIcon, ViewDayIcon } from '../../constants';
-import { mockTimetableData, mockStudents, mockTeachers } from '../../data';
-import { TimetableEntry, Student, Teacher } from '../../types';
+// mock data removed
+import { TimetableEntry } from '../../types';
+import { supabase } from '../../lib/supabase';
 
 const formatTime12Hour = (timeStr: string) => {
     if (!timeStr) return '';
@@ -39,43 +39,83 @@ interface TimetableScreenProps {
 
 const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
     const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
-    const [selectedDay, setSelectedDay] = useState<TimetableEntry['day']>(daysOfWeek[new Date().getDay() - 1] || 'Monday');
-    
-    const { filteredData, themeColor } = useMemo(() => {
-        if (context.userType === 'student') {
-            const student = mockStudents.find(s => s.id === context.userId);
-            if (!student) return { filteredData: [], themeColor: 'orange' };
-            const studentClass = `Grade ${student.grade}${student.section}`;
-            return {
-                filteredData: mockTimetableData.filter(entry => entry.className.includes(studentClass)),
-                themeColor: 'orange'
-            };
-        }
-        if (context.userType === 'teacher') {
-            const teacher = mockTeachers.find(t => t.id === context.userId);
-            if (!teacher) return { filteredData: [], themeColor: 'purple' };
-            return {
-                filteredData: mockTimetableData.filter(entry => teacher.classes.includes(entry.className.replace('Grade ','')) && teacher.subjects.includes(entry.subject)),
-                themeColor: 'purple'
-            };
-        }
-        return { filteredData: [], themeColor: 'gray' };
+    const [selectedDay, setSelectedDay] = useState<TimetableEntry['day']>(daysOfWeek[(new Date().getDay() - 1)] || 'Monday');
+    const [timetableData, setTimetableData] = useState<TimetableEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const themeColor = context.userType === 'student' ? 'orange' : 'purple';
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                if (context.userType === 'student') {
+                    // 1. Get Student Class
+                    const { data: student } = await supabase
+                        .from('students')
+                        .select('grade, section')
+                        .eq('id', context.userId)
+                        .single();
+
+                    if (student) {
+                        const classPattern = `${student.grade}${student.section}`; // Matches "10A" or "9A"
+                        // 2. Get Timetable for class
+                        const { data } = await supabase
+                            .from('timetable')
+                            .select('*')
+                            .ilike('class_name', `%${classPattern}%`);
+
+                        if (data) {
+                            setTimetableData(data.map((d: any) => ({
+                                day: d.day,
+                                startTime: d.start_time,
+                                endTime: d.end_time,
+                                subject: d.subject,
+                                className: d.class_name
+                            })));
+                        }
+                    }
+                } else if (context.userType === 'teacher') {
+                    // Get Teacher Timetable
+                    const { data } = await supabase
+                        .from('timetable')
+                        .select('*')
+                        .eq('teacher_id', context.userId);
+
+                    if (data) {
+                        setTimetableData(data.map((d: any) => ({
+                            day: d.day,
+                            startTime: d.start_time,
+                            endTime: d.end_time,
+                            subject: d.subject,
+                            className: d.class_name
+                        })));
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching timetable:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
     }, [context]);
-    
+
+
     const timetableGrid = useMemo(() => {
         const grid: { [key: string]: TimetableEntry } = {};
-        filteredData.forEach(entry => {
+        timetableData.forEach(entry => {
             grid[`${entry.day}-${entry.startTime}`] = entry;
         });
         return grid;
-    }, [filteredData]);
+    }, [timetableData]);
 
     const renderWeekView = () => (
         <div className="overflow-auto p-2">
-            <div className="grid gap-1 min-w-[1200px]" style={{ gridTemplateColumns: `100px repeat(${PERIODS.length}, 1fr)`}}>
+            <div className="grid gap-1 min-w-[1200px]" style={{ gridTemplateColumns: `100px repeat(${PERIODS.length}, 1fr)` }}>
                 {/* Top-left empty cell */}
                 <div className="sticky top-0 left-0 bg-white z-30 border-b border-r border-gray-200"></div>
-                
+
                 {/* Period headers */}
                 {PERIODS.map(period => (
                     <div key={period.name} className="text-center font-bold text-gray-600 text-sm py-2 sticky top-0 bg-white z-20 border-b border-gray-200">
@@ -83,7 +123,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
                         <div className="font-normal text-xs text-gray-500">{formatTime12Hour(period.start)} - {formatTime12Hour(period.end)}</div>
                     </div>
                 ))}
-                
+
                 {/* Rows for each day */}
                 {daysOfWeek.map(day => (
                     <React.Fragment key={day}>
@@ -91,7 +131,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
                         {PERIODS.map(period => {
                             const key = `${day}-${period.start}`;
                             const entry = timetableGrid[key];
-                            
+
                             if (period.isBreak) {
                                 return <div key={key} className="h-20 bg-gray-200 rounded-lg flex items-center justify-center font-semibold text-gray-500">{period.name}</div>;
                             }
@@ -99,7 +139,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
                             if (!entry) {
                                 return <div key={key} className="h-20 bg-white rounded-lg border border-gray-100"></div>;
                             }
-                            
+
                             const colorClass = SUBJECT_COLORS[entry.subject] || 'bg-gray-200 text-gray-800';
                             return (
                                 <div key={key} className={`h-20 p-1`}>
@@ -115,26 +155,26 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
             </div>
         </div>
     );
-    
+
     const renderDayView = () => {
-        const dayEntries = filteredData
+        const dayEntries = timetableData
             .filter(e => e.day === selectedDay)
-            .sort((a,b) => a.startTime.localeCompare(b.startTime));
-        
+            .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
         return (
             <div className="p-2 space-y-3">
-                 <div className="flex space-x-1">
+                <div className="flex space-x-1">
                     {daysOfWeek.map(day => (
                         <button key={day} onClick={() => setSelectedDay(day)} className={`flex-1 py-2 text-xs font-semibold rounded-md transition-colors ${selectedDay === day ? `bg-${themeColor}-500 text-white shadow` : 'bg-white text-gray-600'}`}>
-                            {day.substring(0,3)}
+                            {day.substring(0, 3)}
                         </button>
                     ))}
                 </div>
                 {dayEntries.length > 0 ? dayEntries.map((entry, i) => {
-                     const colorClass = SUBJECT_COLORS[entry.subject] || 'bg-gray-200 text-gray-800';
-                     const bgColorClass = colorClass.replace(/bg-\w+-\d+/, `bg-${themeColor}-50`);
-                     const borderColorClass = colorClass.replace(/bg-\w+-\d+/, `border-${themeColor}-300`);
-                     return (
+                    const colorClass = SUBJECT_COLORS[entry.subject] || 'bg-gray-200 text-gray-800';
+                    const bgColorClass = colorClass.replace(/bg-\w+-\d+/, `bg-${themeColor}-50`);
+                    const borderColorClass = colorClass.replace(/bg-\w+-\d+/, `border-${themeColor}-300`);
+                    return (
                         <div key={`${selectedDay}-${i}`} className={`p-4 rounded-lg flex items-center space-x-4 shadow-sm ${bgColorClass} border-l-4 ${borderColorClass}`}>
                             <div className="text-center w-16 flex-shrink-0">
                                 <p className="font-bold text-sm text-gray-800">{formatTime12Hour(entry.startTime)}</p>
@@ -146,9 +186,9 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
                                 {context.userType === 'teacher' && <p className="text-sm text-gray-600">{entry.className}</p>}
                             </div>
                         </div>
-                     )
+                    )
                 }) : (
-                     <div className="text-center py-10 bg-white rounded-lg">
+                    <div className="text-center py-10 bg-white rounded-lg">
                         <p className="font-semibold text-gray-500">No classes scheduled for {selectedDay}.</p>
                     </div>
                 )}
@@ -156,10 +196,12 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
         )
     };
 
+    if (loading) return <div className="p-10 text-center">Loading timetable...</div>;
+
     return (
         <div className="flex flex-col h-full bg-white rounded-t-3xl overflow-hidden">
             <div className="p-3 bg-gray-50 border-b border-gray-200">
-                 <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
+                <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
                     <button onClick={() => setViewMode('week')} className={`w-1/2 py-2 text-sm font-semibold rounded-md flex items-center justify-center space-x-2 transition-colors ${viewMode === 'week' ? `bg-white text-${themeColor}-600 shadow-sm` : 'text-gray-600'}`}>
                         <ViewGridIcon /><span>Week</span>
                     </button>

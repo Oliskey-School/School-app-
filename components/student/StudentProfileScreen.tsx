@@ -1,13 +1,13 @@
-
 import React, { useState } from 'react';
 import { Student } from '../../types';
-import { mockStudents } from '../../data';
+// mockStudents removed
 import { BookOpenIcon, ClipboardListIcon, SUBJECT_COLORS, CakeIcon, UserIcon, NotificationIcon, SecurityIcon, LogoutIcon, SettingsIcon, ChevronLeftIcon, ChevronRightIcon, CameraIcon, LockIcon, ExamIcon } from '../../constants';
 
 interface StudentProfileScreenProps {
-  studentId: number;
-  onLogout: () => void;
-  navigateTo: (view: string, title: string, props?: any) => void;
+    studentId: number;
+    student: Student; // Added prop
+    onLogout: () => void;
+    navigateTo: (view: string, title: string, props?: any) => void;
 }
 
 // --- INLINE SETTINGS COMPONENTS ---
@@ -47,7 +47,7 @@ const StudentNotifications: React.FC = () => {
             <div className="flex justify-between items-center p-4 bg-white rounded-lg shadow-sm">
                 <p className="font-semibold text-gray-800">Enable Push Notifications</p>
                 <button role="switch" aria-checked={enabled} onClick={() => setEnabled(!enabled)} className={`relative inline-flex items-center h-6 w-11 rounded-full transition-colors ${enabled ? 'bg-orange-500' : 'bg-gray-300'}`}>
-                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`}/>
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
             </div>
         </div>
@@ -59,7 +59,7 @@ const StudentSecurity: React.FC = () => (
         <div className="bg-white p-4 rounded-lg shadow-sm">
             <button className="w-full flex justify-between items-center p-2 rounded-lg hover:bg-gray-50">
                 <div className="flex items-center space-x-3">
-                    <LockIcon className="w-5 h-5 text-gray-500"/>
+                    <LockIcon className="w-5 h-5 text-gray-500" />
                     <span className="font-semibold text-gray-700">Change Password</span>
                 </div>
                 <ChevronRightIcon />
@@ -81,8 +81,8 @@ const SettingsPlaceholder: React.FC = () => (
     </div>
 );
 
-const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ studentId, onLogout, navigateTo }) => {
-    const student = mockStudents.find(s => s.id === studentId)!;
+const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ studentId, student, onLogout, navigateTo }) => {
+    // const student = mockStudents... removed
     const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
     const settingsItems = [
@@ -115,7 +115,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ studentId, 
             <div className={`w-full md:w-[400px] md:flex-shrink-0 bg-gray-50 flex flex-col ${activeSetting ? 'hidden md:flex' : 'flex'}`}>
                 <div className="flex-grow p-4 space-y-4 overflow-y-auto">
                     <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
-                        <img src={student.avatarUrl} alt={student.name} className="w-20 h-20 rounded-full object-cover border-4 border-orange-100 flex-shrink-0 aspect-square"/>
+                        <img src={student.avatarUrl} alt={student.name} className="w-20 h-20 rounded-full object-cover border-4 border-orange-100 flex-shrink-0 aspect-square" />
                         <div>
                             <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
                             <p className="text-gray-500 font-medium">Grade {student.grade}{student.section}</p>
@@ -127,9 +127,9 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ studentId, 
                             )}
                         </div>
                     </div>
-                     <div className="bg-white rounded-xl shadow-sm p-2">
+                    <div className="bg-white rounded-xl shadow-sm p-2">
                         {settingsItems.map(item => (
-                             <button key={item.id} onClick={() => handleItemClick(item)} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
+                            <button key={item.id} onClick={() => handleItemClick(item)} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
                                 <div className="flex items-center space-x-4">
                                     <div className={`p-2 rounded-lg ${item.color}`}>{item.icon}</div>
                                     <span className="font-semibold text-gray-700">{item.label}</span>
@@ -146,13 +146,13 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ studentId, 
                     </button>
                 </div>
             </div>
-            
+
             {/* Right Pane */}
             <div className={`flex-1 flex-col bg-gray-50 ${activeSetting ? 'flex' : 'hidden md:flex'}`}>
                 {activeSetting && (
                     <div className="md:hidden p-2 bg-white border-b flex items-center">
                         <button onClick={() => setActiveSetting(null)} className="p-2 rounded-full hover:bg-gray-100">
-                            <ChevronLeftIcon className="w-6 h-6 text-gray-600"/>
+                            <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
                         </button>
                         <h2 className="font-bold text-lg text-gray-800 ml-2">
                             {settingsItems.find(i => i.id === activeSetting)?.label}
