@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { SchoolLogoIcon, UserIcon, LockIcon, EyeIcon, EyeOffIcon } from '../../constants';
 import { DashboardType } from '../../types';
 import { checkSupabaseConnection } from '../../lib/database';
+import { authenticateUser } from '../../lib/auth';
 
 interface LoginProps {
   onLogin: (dashboard: DashboardType) => void;
@@ -14,6 +15,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     checkSupabaseConnection().then(connected => {
@@ -21,23 +23,57 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     });
   }, []);
 
-  const handleLoginClick = (e: React.FormEvent) => {
+  const getDashboardTypeFromUserType = (userType: string): DashboardType => {
+    switch (userType) {
+      case 'Admin':
+        return DashboardType.Admin;
+      case 'Teacher':
+        return DashboardType.Teacher;
+      case 'Parent':
+        return DashboardType.Parent;
+      case 'Student':
+        return DashboardType.Student;
+      default:
+        return DashboardType.Student;
+    }
+  };
+
+  const handleLoginClick = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
-    const user = username.trim().toLowerCase();
-    const pass = password.trim().toLowerCase();
+    try {
+      const user = username.trim().toLowerCase();
+      const pass = password.trim().toLowerCase();
 
-    if (user === 'admin' && pass === 'admin') {
-      onLogin(DashboardType.Admin);
-    } else if (user === 'teacher' && pass === 'teacher') {
-      onLogin(DashboardType.Teacher);
-    } else if (user === 'parent' && pass === 'parent') {
-      onLogin(DashboardType.Parent);
-    } else if (user === 'student' && pass === 'student') {
-      onLogin(DashboardType.Student);
-    } else {
-      setError('Invalid credentials. Please try again.');
+      // Try database authentication first
+      if (isSupabaseConnected) {
+        const result = await authenticateUser(user, pass);
+        if (result.success && result.userType) {
+          const dashboardType = getDashboardTypeFromUserType(result.userType);
+          onLogin(dashboardType);
+          return;
+        }
+      }
+
+      // Fallback to demo credentials
+      if (user === 'admin' && pass === 'admin') {
+        onLogin(DashboardType.Admin);
+      } else if (user === 'teacher' && pass === 'teacher') {
+        onLogin(DashboardType.Teacher);
+      } else if (user === 'parent' && pass === 'parent') {
+        onLogin(DashboardType.Parent);
+      } else if (user === 'student' && pass === 'student') {
+        onLogin(DashboardType.Student);
+      } else {
+        setError('Invalid credentials. Please try again.');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An error occurred during login. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -133,9 +169,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div>
             <button
               type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-all transform hover:scale-105"
+              disabled={isLoading}
+              className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isLoading ? 'bg-gray-400' : 'bg-sky-600 hover:bg-sky-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-all transform hover:scale-105`}
             >
-              Login
+              {isLoading ? 'Logging in...' : 'Login'}
             </button>
           </div>
         </form>

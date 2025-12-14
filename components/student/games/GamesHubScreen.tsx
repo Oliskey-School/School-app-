@@ -21,11 +21,11 @@ const GameCard: React.FC<{ game: EducationalGame | (AIGame & { mode: 'Online' })
         Offline: 'bg-orange-100 text-orange-800',
         Both: 'bg-sky-100 text-sky-800'
     };
-    
+
     const Wrapper = onClick ? 'button' : 'div';
-    
+
     return (
-        <Wrapper 
+        <Wrapper
             onClick={onClick}
             className={`w-full text-left bg-white p-4 rounded-lg shadow-sm border border-gray-200 ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-orange-300' : ''}`}
         >
@@ -36,8 +36,8 @@ const GameCard: React.FC<{ game: EducationalGame | (AIGame & { mode: 'Online' })
             <div className="mt-3 flex justify-between items-center">
                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${modeStyle[game.mode]}`}>{game.mode} Activity</span>
                 {onClick && (
-                     <div className="px-3 py-1.5 text-xs font-semibold text-white bg-green-500 rounded-full flex items-center space-x-1">
-                        <PlayIcon className="w-3 h-3"/>
+                    <div className="px-3 py-1.5 text-xs font-semibold text-white bg-green-500 rounded-full flex items-center space-x-1">
+                        <PlayIcon className="w-3 h-3" />
                         <span>Play</span>
                     </div>
                 )}
@@ -67,9 +67,9 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
                     {games.map((game, index) => {
                         const isPlayable = game.gameName === 'Math Sprint';
                         return (
-                            <GameCard 
-                                key={index} 
-                                game={game} 
+                            <GameCard
+                                key={index}
+                                game={game}
                                 onClick={isPlayable ? () => navigateTo('mathSprintLobby', 'Math Sprint', {}) : undefined}
                             />
                         )
@@ -119,27 +119,27 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo }) => {
         'Junior Secondary (12-14 years)',
         'Senior Secondary (15-18 years)'
     ];
-    
+
     const featuredGames = [
-        { 
-            title: 'Math Sprint', 
-            description: 'Test your calculation speed!', 
+        {
+            title: 'Math Sprint',
+            description: 'Test your calculation speed!',
             icon: <div className="text-2xl font-bold text-white">123</div>,
-            bgColor: 'bg-gradient-to-br from-sky-500 to-blue-600',
-            action: () => navigateTo('mathSprintLobby', 'Math Sprint', {}) 
+            bgColor: 'bg-sky-500 bg-gradient-to-br from-sky-500 to-blue-600',
+            action: () => navigateTo('mathSprintLobby', 'Math Sprint', {})
         },
-        { 
-            title: 'GeoGuesser', 
-            description: 'Guess locations around the world.', 
+        {
+            title: 'GeoGuesser',
+            description: 'Guess locations around the world.',
             icon: <SearchIcon className="w-7 h-7 text-white" />,
-            bgColor: 'bg-gradient-to-br from-green-500 to-teal-600',
+            bgColor: 'bg-green-500 bg-gradient-to-br from-green-500 to-teal-600',
             action: () => alert('GeoGuesser is coming soon!')
         },
-        { 
-            title: 'Code Challenge', 
-            description: 'Learn logic with fun code blocks.', 
+        {
+            title: 'Code Challenge',
+            description: 'Learn logic with fun code blocks.',
             icon: <BriefcaseIcon className="w-7 h-7 text-white" />,
-            bgColor: 'bg-gradient-to-br from-purple-500 to-indigo-600',
+            bgColor: 'bg-purple-500 bg-gradient-to-br from-purple-500 to-indigo-600',
             action: () => alert('Code Challenge is coming soon!')
         },
     ];
@@ -147,16 +147,16 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo }) => {
     return (
         <div className="p-4 space-y-5 bg-gray-50 h-full overflow-y-auto">
             <div className="bg-orange-50 p-4 rounded-xl text-center border border-orange-200">
-                <GameControllerIcon className="h-10 w-10 mx-auto text-orange-400 mb-2"/>
+                <GameControllerIcon className="h-10 w-10 mx-auto text-orange-400 mb-2" />
                 <h3 className="font-bold text-lg text-orange-800">Games Hub</h3>
                 <p className="text-sm text-orange-700">Learn and have fun with these educational games!</p>
             </div>
-            
+
             <div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Featured Games</h3>
                 <div className="flex space-x-4 overflow-x-auto pb-4 -mb-4">
                     {featuredGames.map(game => (
-                        <FeaturedGameCard 
+                        <FeaturedGameCard
                             key={game.title}
                             title={game.title}
                             description={game.description}
@@ -167,7 +167,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo }) => {
                     ))}
                 </div>
             </div>
-            
+
             {customGamesForLevel.length > 0 && (
                 <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Teacher-Created Games</h3>
@@ -188,10 +188,10 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo }) => {
                 <div className="space-y-3">
                     {levels.map((level) => (
                         gamesByLevel[level] && (
-                            <LevelAccordion 
-                                key={level} 
-                                level={level} 
-                                games={gamesByLevel[level]} 
+                            <LevelAccordion
+                                key={level}
+                                level={level}
+                                games={gamesByLevel[level]}
                                 defaultOpen={level === studentLevel}
                                 navigateTo={navigateTo}
                             />

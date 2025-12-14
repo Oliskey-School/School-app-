@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon } from '../../constants';
 import { Teacher } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
+import CredentialsModal from '../ui/CredentialsModal';
 
 interface AddTeacherScreenProps {
     teacherToEdit?: Teacher;
@@ -68,6 +70,12 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
     const [avatar, setAvatar] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [credentials, setCredentials] = useState<{
+        username: string;
+        password: string;
+        email: string;
+    } | null>(null);
 
     useEffect(() => {
         if (teacherToEdit) {
@@ -75,7 +83,17 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             setEmail(teacherToEdit.email);
             setPhone(teacherToEdit.phone);
             setSubjects(teacherToEdit.subjects);
-            setClasses(teacherToEdit.classes);
+            // Normalize incoming class strings so they match the app format (e.g. `10A`)
+            const normalize = (s: string) => {
+                if (!s) return s;
+                let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
+                const m = cleaned.match(/(\d+)([A-Z]+)/i);
+                if (m) return `${parseInt(m[1], 10)}${m[2]}`;
+                const m2 = cleaned.match(/(\d+)/);
+                if (m2) return `${parseInt(m2[1], 10)}`;
+                return cleaned;
+            };
+            setClasses((teacherToEdit.classes || []).map(normalize));
             setStatus(teacherToEdit.status);
             setAvatar(teacherToEdit.avatarUrl);
         }
@@ -112,12 +130,28 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 if (updateError) throw updateError;
                 alert('Teacher updated successfully!');
             } else {
-                // CREATE MODE
-                // 1. Create User
+                // CREATE MODE - Check if email already exists in users or auth_accounts
+                const teacherEmail = email || `teacher${Date.now()}@school.com`;
+                const exists = await checkEmailExists(teacherEmail);
+                if (exists.error) {
+                    console.warn('Email check error:', exists.error);
+                    throw new Error('Could not validate email uniqueness');
+                }
+
+                if (exists.inUsers || exists.inAuthAccounts) {
+                    let whereFound: string[] = [];
+                    if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
+                    if (exists.inAuthAccounts) whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
+                    alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // 2. Create User
                 const { data: userData, error: userError } = await supabase
                     .from('users')
                     .insert([{
-                        email: email || `teacher${Date.now()}@school.com`,
+                        email: teacherEmail,
                         name: name,
                         role: 'Teacher',
                         avatar_url: avatarUrl
@@ -127,13 +161,13 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
                 if (userError) throw userError;
 
-                // 2. Create Teacher Profile
+                // 3. Create Teacher Profile
                 const { data: teacherData, error: teacherError } = await supabase
                     .from('teachers')
                     .insert([{
                         user_id: userData.id,
                         name,
-                        email,
+                        email: teacherEmail,
                         phone,
                         avatar_url: avatarUrl,
                         status
@@ -154,18 +188,53 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
                 // 4. Add classes
                 if (classes.length > 0) {
-                    const classInserts = classes.map(className => ({
+                    // Normalize classes to a canonical format (e.g. `10A`) before inserting
+                    const normalize = (s: string) => {
+                        if (!s) return s;
+                        let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
+                        const m = cleaned.match(/(\d+)([A-Z]+)/i);
+                        if (m) return `${parseInt(m[1], 10)}${m[2]}`;
+                        const m2 = cleaned.match(/(\d+)/);
+                        if (m2) return `${parseInt(m2[1], 10)}`;
+                        return cleaned;
+                    };
+
+                    const normalized = Array.from(new Set(classes.map(normalize).filter(Boolean)));
+                    const classInserts = normalized.map(className => ({
                         teacher_id: teacherData.id,
                         class_name: className
                     }));
                     await supabase.from('teacher_classes').insert(classInserts);
                 }
 
-                alert('Teacher created successfully!');
+                // 5. Create login credentials
+                const authResult = await createUserAccount(
+                    name, 
+                    'Teacher', 
+                    teacherEmail,
+                    userData.id
+                );
+                
+                if (authResult.error) {
+                    console.warn('Warning: Auth account created with error:', authResult.error);
+                }
+
+                // Send verification email
+                const emailResult = await sendVerificationEmail(name, teacherEmail, 'School App');
+                if (!emailResult.success) {
+                    console.warn('Warning: Email verification notification failed:', emailResult.error);
+                }
+
+                // Show credentials modal instead of alert
+                setCredentials({
+                    username: authResult.username,
+                    password: authResult.password,
+                    email: teacherEmail
+                });
+                setShowCredentialsModal(true);
             }
 
-            forceUpdate();
-            handleBack();
+            // Don't call forceUpdate/handleBack here - let modal handle it
         } catch (error: any) {
             console.error('Error saving teacher:', error);
             alert('Failed to save teacher: ' + (error.message || 'Unknown error'));
@@ -216,6 +285,23 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     </button>
                 </div>
             </form>
+
+            {/* Credentials Modal */}
+            {credentials && (
+                <CredentialsModal
+                    isOpen={showCredentialsModal}
+                    userName={name}
+                    username={credentials.username}
+                    password={credentials.password}
+                    email={credentials.email}
+                    userType="Teacher"
+                    onClose={() => {
+                        setShowCredentialsModal(false);
+                        forceUpdate();
+                        handleBack();
+                    }}
+                />
+            )}
         </div>
     );
 };
@@ -229,5 +315,10 @@ const InputField: React.FC<{ id: string, label: string, value: string, onChange:
         </div>
     </div>
 );
+
+// Credentials Modal
+interface AddTeacherScreenWithModal extends React.FC<any> {
+    (props: any): React.ReactElement;
+}
 
 export default AddTeacherScreen;

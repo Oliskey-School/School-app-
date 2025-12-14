@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, StudentsIcon } from '../../constants';
 import { Parent } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
+import CredentialsModal from '../ui/CredentialsModal';
 
 interface AddParentScreenProps {
     parentToEdit?: Parent;
@@ -17,6 +19,12 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
     const [childIds, setChildIds] = useState('');
     const [avatar, setAvatar] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [credentials, setCredentials] = useState<{
+        username: string;
+        password: string;
+        email: string;
+    } | null>(null);
 
     useEffect(() => {
         if (parentToEdit) {
@@ -60,11 +68,27 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 alert('Parent updated successfully!');
             } else {
                 // CREATE MODE
-                // 1. Create User
+                // 1. Check if email already exists in users or auth_accounts
+                const exists = await checkEmailExists(email);
+                if (exists.error) {
+                    console.warn('Email check error:', exists.error);
+                    throw new Error('Could not validate email uniqueness');
+                }
+
+                if (exists.inUsers || exists.inAuthAccounts) {
+                    let whereFound: string[] = [];
+                    if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
+                    if (exists.inAuthAccounts) whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
+                    alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // 2. Create User
                 const { data: userData, error: userError } = await supabase
                     .from('users')
                     .insert([{
-                        email: email || `parent${Date.now()}@school.com`,
+                        email: email,
                         name: name,
                         role: 'Parent',
                         avatar_url: avatarUrl
@@ -74,13 +98,13 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
 
                 if (userError) throw userError;
 
-                // 2. Create Parent Profile
+                // 3. Create Parent Profile
                 const { data: parentData, error: parentError } = await supabase
                     .from('parents')
                     .insert([{
                         user_id: userData.id,
                         name,
-                        email,
+                        email: email,
                         phone,
                         avatar_url: avatarUrl
                     }])
@@ -89,7 +113,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
 
                 if (parentError) throw parentError;
 
-                // 3. Link Students to Parent
+                // 4. Link Students to Parent
                 if (childIdArray.length > 0) {
                     const relations = childIdArray.map(childId => ({
                         parent_id: parentData.id,
@@ -103,11 +127,34 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     if (relationError) console.warn("Could not link all students:", relationError.message);
                 }
 
-                alert('Parent created successfully!');
+                // 5. Create login credentials
+                const authResult = await createUserAccount(
+                    name,
+                    'Parent',
+                    email,
+                    userData.id
+                );
+
+                if (authResult.error) {
+                    console.warn('Warning: Auth account created with error:', authResult.error);
+                }
+
+                // Send verification email
+                const emailResult = await sendVerificationEmail(name, email, 'School App');
+                if (!emailResult.success) {
+                    console.warn('Warning: Email verification notification failed:', emailResult.error);
+                }
+
+                // Show credentials modal instead of alert
+                setCredentials({
+                    username: authResult.username,
+                    password: authResult.password,
+                    email: email
+                });
+                setShowCredentialsModal(true);
             }
 
-            forceUpdate();
-            handleBack();
+            // Don't call forceUpdate/handleBack here - let modal handle it
         } catch (error: any) {
             console.error('Error saving parent:', error);
             alert('Failed to save parent: ' + (error.message || 'Unknown error'));
@@ -148,6 +195,23 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     </button>
                 </div>
             </form>
+
+            {/* Credentials Modal */}
+            {credentials && (
+                <CredentialsModal
+                    isOpen={showCredentialsModal}
+                    userName={name}
+                    username={credentials.username}
+                    password={credentials.password}
+                    email={credentials.email}
+                    userType="Parent"
+                    onClose={() => {
+                        setShowCredentialsModal(false);
+                        forceUpdate();
+                        handleBack();
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">School App</string>
+    <string name="title_activity_main">School App</string>
+    <string name="package_name">com.schoolapp.android</string>
+    <string name="custom_url_scheme">com.schoolapp.android</string>
+</resources>

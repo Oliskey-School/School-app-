@@ -1,7 +1,6 @@
-
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Assignment, Submission, StudentAssignment } from '../../types';
-import { mockAssignments, mockSubmissions } from '../../data';
+import { supabase } from '../../lib/supabase';
 import { CheckCircleIcon, ClockIcon, ExclamationCircleIcon, DocumentTextIcon, SUBJECT_COLORS } from '../../constants';
 
 interface StudentAssignmentsScreenProps {
@@ -11,21 +10,79 @@ interface StudentAssignmentsScreenProps {
 }
 
 const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId, subjectFilter, navigateTo }) => {
-    
-    const studentAssignments = useMemo(() => {
-        const studentSubmissionsMap = new Map<number, Submission>();
-        mockSubmissions
-            .filter(s => s.student.id === studentId)
-            .forEach(s => studentSubmissionsMap.set(s.assignmentId, s));
 
-        return mockAssignments
+    const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAssignments = async () => {
+            try {
+                // Fetch all assignments (or filtered by class/grade if we had that info, 
+                // but we might need to assume all assignments or fetch based on some criteria)
+                // For now, fetching all assignments.Ideally should filter by grade.
+
+                const { data: assignmentsData, error: assignError } = await supabase
+                    .from('assignments')
+                    .select('*')
+                    .order('due_date', { ascending: true });
+
+                if (assignError) throw assignError;
+
+                const { data: submissionsData, error: subError } = await supabase
+                    .from('assignment_submissions')
+                    .select('*')
+                    .eq('student_id', studentId);
+
+                // If submissions table doesn't exist or error, we just assume no submissions or handle gracefully
+                // but we will throw if real error to see it.
+
+                const studentSubmissionsMap = new Map<number, Submission>();
+                if (submissionsData) {
+                    submissionsData.forEach((s: any) => {
+                        studentSubmissionsMap.set(s.assignment_id, {
+                            id: s.id,
+                            assignmentId: s.assignment_id,
+                            student: { id: studentId, name: 'You', avatarUrl: '' }, // minimal mock or fetch
+                            submittedAt: s.submission_date || s.submitted_at || new Date().toISOString(),
+                            isLate: s.is_late || false,
+                            files: s.file_url ? [{ name: 'Submission', size: 0 }] : [],
+                            status: s.status || 'Ungraded',
+                            grade: s.grade,
+                            feedback: s.feedback
+                        });
+                    });
+                }
+
+                if (assignmentsData) {
+                    const mapped: StudentAssignment[] = assignmentsData.map((a: any) => ({
+                        id: a.id,
+                        title: a.title,
+                        subject: a.subject,
+                        description: a.description,
+                        dueDate: a.due_date,
+                        className: a.class_name || 'General',
+                        totalStudents: a.total_students || 0,
+                        submissionsCount: a.submissions_count || 0,
+                        submission: studentSubmissionsMap.get(a.id)
+                    }));
+                    setAssignments(mapped);
+                }
+
+            } catch (err) {
+                console.error('Error fetching assignments:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAssignments();
+    }, [studentId]);
+
+    const filteredAssignments = useMemo(() => {
+        return assignments
             .filter(assignment => !subjectFilter || assignment.subject === subjectFilter)
-            .map(assignment => ({
-                ...assignment,
-                submission: studentSubmissionsMap.get(assignment.id)
-            }))
             .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-    }, [studentId, subjectFilter]);
+    }, [assignments, subjectFilter]);
 
     const getStatus = (assignment: StudentAssignment) => {
         const dueDate = new Date(assignment.dueDate);
@@ -46,7 +103,7 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
 
     const getButtonInfo = (assignment: StudentAssignment) => {
         const isOverdue = new Date(assignment.dueDate) < new Date() && !assignment.submission;
-        
+
         if (assignment.submission?.status === 'Graded') {
             return { text: 'View Grade', style: 'bg-green-100 text-green-700 hover:bg-green-200' };
         }
@@ -60,13 +117,14 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
     };
 
     const handleButtonClick = (assignment: StudentAssignment, buttonText: string) => {
-        switch(buttonText) {
+        switch (buttonText) {
             case 'View Grade':
                 navigateTo('assignmentFeedback', 'View Feedback', { assignment });
                 break;
             case 'Submit Now':
             case 'Submit Late':
             case 'View Submission':
+                // Assuming we want to facilitate submission.
                 navigateTo('assignmentSubmission', 'Submit Assignment', { assignment });
                 break;
             default:
@@ -74,13 +132,14 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
         }
     };
 
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading assignments...</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 overflow-y-auto">
-                {studentAssignments.length > 0 ? (
+                {filteredAssignments.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {studentAssignments.map(assignment => {
+                        {filteredAssignments.map(assignment => {
                             const status = getStatus(assignment);
                             const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
                             const buttonInfo = getButtonInfo(assignment);
@@ -106,9 +165,9 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                                             <span>{status.text}</span>
                                         </div>
 
-                                        <button 
-                                        onClick={() => handleButtonClick(assignment, buttonInfo.text)}
-                                        className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${buttonInfo.style}`}
+                                        <button
+                                            onClick={() => handleButtonClick(assignment, buttonInfo.text)}
+                                            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${buttonInfo.style}`}
                                         >
                                             {buttonInfo.text}
                                         </button>

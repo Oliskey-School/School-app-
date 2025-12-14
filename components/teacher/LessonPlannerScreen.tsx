@@ -299,106 +299,48 @@ For EACH term that has topics provided in the user's scheme, generate the corres
 Return a single JSON object matching the required schema. Ensure 'schemeOfWork' is a simplified list of week/topic, and that each assessment has a 'week' number.`;
 
 
-            const responseSchema = {
-                type: Type.OBJECT,
-                properties: {
-                    subject: { type: Type.STRING },
-                    className: { type: Type.STRING },
-                    terms: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                term: { type: Type.STRING },
-                                schemeOfWork: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: { week: { type: Type.INTEGER }, topic: { type: Type.STRING } },
-                                        required: ['week', 'topic']
-                                    }
-                                },
-                                lessonPlans: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: {
-                                            week: { type: Type.INTEGER },
-                                            topic: { type: Type.STRING },
-                                            objectives: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                            materials: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                            teachingSteps: {
-                                                type: Type.ARRAY,
-                                                items: {
-                                                    type: Type.OBJECT,
-                                                    properties: { step: { type: Type.STRING }, description: { type: Type.STRING } },
-                                                    required: ['step', 'description']
-                                                }
-                                            },
-                                            duration: { type: Type.STRING },
-                                            keyVocabulary: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                            assessmentMethods: { type: Type.ARRAY, items: { type: Type.STRING } }
-                                        },
-                                        required: ['week', 'topic', 'objectives', 'materials', 'teachingSteps', 'duration', 'keyVocabulary', 'assessmentMethods']
-                                    }
-                                },
-                                assessments: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: {
-                                            week: { type: Type.INTEGER },
-                                            type: { type: Type.STRING },
-                                            totalMarks: { type: Type.INTEGER },
-                                            questions: {
-                                                type: Type.ARRAY,
-                                                items: {
-                                                    type: Type.OBJECT,
-                                                    properties: {
-                                                        id: { type: Type.INTEGER },
-                                                        question: { type: Type.STRING },
-                                                        type: { type: Type.STRING },
-                                                        options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                                        answer: { type: Type.STRING },
-                                                        explanation: { type: Type.STRING },
-                                                        marks: { type: Type.INTEGER }
-                                                    },
-                                                    required: ['id', 'question', 'type', 'answer', 'marks']
-                                                }
-                                            }
-                                        },
-                                        required: ['week', 'type', 'totalMarks', 'questions']
-                                    }
-                                }
-                            },
-                            required: ['term', 'schemeOfWork', 'lessonPlans', 'assessments']
-                        }
-                    },
-                    detailedNotes: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                topic: { type: Type.STRING },
-                                note: { type: Type.STRING }
-                            },
-                            required: ['topic', 'note']
-                        }
-                    }
-                },
-                required: ['subject', 'className', 'terms', 'detailedNotes']
-            };
-
+            // NOTE: Strict response schemas and forcing `application/json` can cause
+            // schema-validation failures on the model side and make debugging hard.
+            // For reliability, request a normal text response, log the raw output,
+            // and parse with a resilient fallback so we surface errors instead of
+            // silently failing.
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: responseSchema,
-                }
             });
 
-            const resources: GeneratedResources = JSON.parse(response.text.trim());
+            // Log raw response for debugging (inspect in browser console)
+            console.debug('AI raw response object:', response);
+            console.debug('AI raw response.text:', response.text);
+
+            let resources: GeneratedResources | null = null;
+            const raw = response.text ? response.text.trim() : '';
+            try {
+                resources = JSON.parse(raw);
+            } catch (parseError) {
+                console.error('Failed to JSON.parse AI response. Attempting fallback extraction.', parseError);
+                // Try to extract the first JSON object in the text as a fallback
+                const firstBrace = raw.indexOf('{');
+                if (firstBrace > -1) {
+                    const possibleJson = raw.slice(firstBrace);
+                    try {
+                        resources = JSON.parse(possibleJson);
+                    } catch (secondError) {
+                        console.error('Fallback JSON parse also failed.', secondError);
+                        // Surface the raw response so the developer can inspect it
+                        alert('AI returned an unexpected response. See console for the raw output.');
+                        throw secondError;
+                    }
+                } else {
+                    console.error('No JSON-like content found in AI response. Raw response:', raw);
+                    alert('AI returned an unexpected response. See console for the raw output.');
+                    throw parseError;
+                }
+            }
+
+            if (!resources) {
+                throw new Error('Failed to obtain generated resources from AI response.');
+            }
             
             const newGeneratedEntry: GeneratedHistoryEntry = {
                 subject: resources.subject,

@@ -5,6 +5,7 @@ import { AdminBottomNav } from '../ui/DashboardBottomNav';
 import { mockNotifications } from '../../data';
 import { DashboardType } from '../../types';
 import MessagingLayout from '../shared/MessagingLayout';
+import { useProfile } from '../../context/ProfileContext';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -86,6 +87,7 @@ const DashboardSuspenseFallback = () => (
 );
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage }) => {
+    const { profile } = useProfile();
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
     const [version, setVersion] = useState(0);
@@ -206,7 +208,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         <div className="flex flex-col h-full bg-gray-100 relative">
             <Header
                 title={currentNavigation.title}
-                avatarUrl="https://i.pravatar.cc/150?u=admin"
+                avatarUrl={profile.avatarUrl}
                 bgColor="bg-indigo-800"
                 onLogout={onLogout}
                 onBack={viewStack.length > 1 ? handleBack : undefined}

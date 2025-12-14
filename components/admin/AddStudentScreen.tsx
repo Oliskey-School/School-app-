@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon } from '../../constants';
 import { Student, Department } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
+import CredentialsModal from '../ui/CredentialsModal';
 
 interface AddStudentScreenProps {
     studentToEdit?: Student;
@@ -20,6 +22,12 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [section, setSection] = useState('');
     const [department, setDepartment] = useState<Department | ''>('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [credentials, setCredentials] = useState<{
+        username: string;
+        password: string;
+        email: string;
+    } | null>(null);
 
     const [guardianName, setGuardianName] = useState('');
     const [guardianPhone, setGuardianPhone] = useState('');
@@ -58,7 +66,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
         try {
             // Generate email for the student
-            const generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com`;
+            let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com`;
             const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
 
             if (studentToEdit) {
@@ -78,8 +86,23 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 if (updateError) throw updateError;
                 alert('Student updated successfully!');
             } else {
-                // CREATE MODE - Create new student in Supabase
-                // 1. Create User account
+                // CREATE MODE - Check if email already exists in users or auth_accounts
+                const exists = await checkEmailExists(generatedEmail);
+                if (exists.error) {
+                    console.warn('Email check error:', exists.error);
+                    throw new Error('Could not validate email uniqueness');
+                }
+
+                if (exists.inUsers || exists.inAuthAccounts) {
+                    let whereFound: string[] = [];
+                    if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
+                    if (exists.inAuthAccounts) whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
+                    alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different name or email.`);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // 2. Create User account
                 const { data: userData, error: userError } = await supabase
                     .from('users')
                     .insert([{
@@ -93,8 +116,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
                 if (userError) throw userError;
 
-                // 2. Create Student Profile
-                const { error: studentError } = await supabase
+                // 3. Create Student Profile
+                const { data: studentData, error: studentError } = await supabase
                     .from('students')
                     .insert([{
                         user_id: userData.id,
@@ -105,10 +128,32 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                         department: department || null,
                         birthday: birthday || null,
                         attendance_status: 'Present'
-                    }]);
+                    }])
+                    .select()
+                    .single();
 
                 if (studentError) throw studentError;
-                alert('Student created successfully!');
+
+                // 4. Create login credentials
+                const authResult = await createUserAccount(fullName, 'Student', generatedEmail, userData.id);
+                
+                if (authResult.error) {
+                    console.warn('Warning: Auth account created with error:', authResult.error);
+                }
+
+                // Send verification email
+                const emailResult = await sendVerificationEmail(fullName, generatedEmail, 'School App');
+                if (!emailResult.success) {
+                    console.warn('Warning: Email verification notification failed:', emailResult.error);
+                }
+
+                // Show credentials modal instead of alert
+                setCredentials({
+                    username: authResult.username,
+                    password: authResult.password,
+                    email: generatedEmail
+                });
+                setShowCredentialsModal(true);
             }
 
             // Trigger parent component to refresh data from Supabase
@@ -237,6 +282,23 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     </button>
                 </div>
             </form>
+
+            {/* Credentials Modal */}
+            {credentials && (
+                <CredentialsModal
+                    isOpen={showCredentialsModal}
+                    userName={fullName}
+                    username={credentials.username}
+                    password={credentials.password}
+                    email={credentials.email}
+                    userType="Student"
+                    onClose={() => {
+                        setShowCredentialsModal(false);
+                        forceUpdate();
+                        handleBack();
+                    }}
+                />
+            )}
         </div>
     );
 };

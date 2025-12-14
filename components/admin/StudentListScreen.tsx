@@ -130,6 +130,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   const [searchTerm, setSearchTerm] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Fetch students from Supabase
   useEffect(() => {
@@ -138,11 +139,15 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
   const fetchStudents = async () => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       const { data, error } = await supabase
         .from('students')
         .select('*')
         .order('grade', { ascending: false });
+
+      // log response for debugging
+      console.debug('fetchStudents response', { data, error });
 
       if (error) throw error;
 
@@ -161,6 +166,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       setStudents(transformedData);
     } catch (error) {
       console.error('Error fetching students:', error);
+      setFetchError((error as any)?.message || String(error));
       setStudents([]);
     } finally {
       setIsLoading(false);

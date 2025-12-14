@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Student, Teacher, Conversation, RoleName } from '../../types';
-import { mockStudents, mockTeachers, mockParents, mockConversations } from '../../data';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Student } from '../../types';
+import { supabase } from '../../lib/supabase';
 import { SearchIcon } from '../../constants';
 
 type UserListItem = {
@@ -12,14 +12,13 @@ type UserListItem = {
 };
 
 interface StudentNewChatScreenProps {
-  navigateTo: (view: string, title: string, props: any) => void;
+    navigateTo: (view: string, title: string, props: any) => void;
+    student: Student; // Passed from dashboard
 }
-
-const loggedInStudent = mockStudents.find(s => s.id === 4)!;
 
 const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user, onSelect }) => (
     <button onClick={onSelect} className="w-full flex items-center p-3 space-x-4 text-left bg-white rounded-lg hover:bg-gray-50 transition-colors">
-        <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
+        <img src={user.avatarUrl || 'https://via.placeholder.com/150'} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
         <div className="flex-grow">
             <p className="font-bold text-gray-800">{user.name}</p>
             <p className="text-sm text-gray-500">{user.subtitle}</p>
@@ -27,58 +26,154 @@ const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user,
     </button>
 );
 
-const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo }) => {
+const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo, student }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'Teachers' | 'Classmates'>('Teachers');
+    const [teachers, setTeachers] = useState<UserListItem[]>([]);
+    const [classmates, setClassmates] = useState<UserListItem[]>([]);
+    const [loading, setLoading] = useState(false);
 
-    const classmates = useMemo((): UserListItem[] => 
-        mockStudents
-            .filter(s => s.grade === loggedInStudent.grade && s.section === loggedInStudent.section && s.id !== loggedInStudent.id)
-            .map(s => ({
-                id: s.id,
-                name: s.name,
-                avatarUrl: s.avatarUrl,
-                subtitle: `Grade ${s.grade}${s.section}`,
-                userType: 'Student'
-            })), 
-        []
-    );
+    useEffect(() => {
+        const fetchUsers = async () => {
+            setLoading(true);
+            try {
+                // Fetch Teachers
+                const { data: teacherData } = await supabase
+                    .from('users')
+                    .select('id, name, avatar_url')
+                    .eq('role', 'Teacher');
 
-    const teachers = useMemo((): UserListItem[] => 
-        mockTeachers.filter(t => t.status === 'Active').map(t => ({
-            id: t.id,
-            name: t.name,
-            avatarUrl: t.avatarUrl,
-            subtitle: `${t.subjects[0]} Teacher`,
-            userType: 'Teacher'
-        })),
-        []
-    );
+                if (teacherData) {
+                    setTeachers(teacherData.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        avatarUrl: t.avatar_url,
+                        subtitle: 'Teacher',
+                        userType: 'Teacher'
+                    })));
+                }
+
+                // Fetch Classmates
+                if (student) {
+                    // Start with students table to filter by grade/section
+                    const { data: studentData } = await supabase
+                        .from('students')
+                        .select(`
+                            grade, section,
+                            users!inner (id, name, avatar_url)
+                        `)
+                        .eq('grade', student.grade)
+                        //.eq('section', student.section) // strict section matching? maybe just grade for now or both.
+                        .neq('user_id', student.id); // Exclude self
+
+                    if (studentData) {
+                        const mappedStudents: UserListItem[] = studentData.map((s: any) => {
+                            // users is single object due to !inner join on FK unique?
+                            // supabase-js might return array if 1:1 not enforced in types?
+                            // Let's safe access
+                            const u = Array.isArray(s.users) ? s.users[0] : s.users;
+                            return {
+                                id: u.id,
+                                name: u.name,
+                                avatarUrl: u.avatar_url,
+                                subtitle: `Grade ${s.grade} ${s.section}`,
+                                userType: 'Student'
+                            };
+                        });
+                        setClassmates(mappedStudents);
+                    }
+                }
+
+            } catch (e) {
+                console.error("Error fetching users", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUsers();
+    }, [student]);
 
     const filteredUsers = useMemo(() => {
         const sourceList = activeTab === 'Teachers' ? teachers : classmates;
-        return sourceList.filter(user => 
+        return sourceList.filter(user =>
             user.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [searchTerm, activeTab, teachers, classmates]);
-    
-    const handleSelectUser = (user: UserListItem) => {
-        const role: RoleName = user.userType;
-        let conversation = mockConversations.find(c => c.participant.id === user.id && c.participant.role === role);
 
-        if (!conversation) {
-            const newConversation: Conversation = {
-                id: `conv-student-${Date.now()}`,
-                participant: { id: user.id, name: user.name, avatarUrl: user.avatarUrl, role: role as 'Student' | 'Teacher' },
-                lastMessage: { text: `You can now chat with ${user.name}.`, timestamp: new Date().toISOString() },
-                unreadCount: 0,
-                messages: [],
-            };
-            mockConversations.push(newConversation);
-            conversation = newConversation;
+    const handleSelectUser = async (user: UserListItem) => {
+        try {
+            // Check for existing direct chat
+            // 1. Get my rooms
+            const { data: myRooms } = await supabase
+                .from('chat_participants')
+                .select('room_id')
+                .eq('user_id', student.id);
+
+            const myRoomIds = myRooms?.map(r => r.room_id) || [];
+
+            if (myRoomIds.length > 0) {
+                // 2. Check if user is in any of these rooms which are direct
+                const { data: commonRooms } = await supabase
+                    .from('chat_participants')
+                    .select('room_id, chat_rooms(type)')
+                    .eq('user_id', user.id)
+                    .in('room_id', myRoomIds);
+
+                // Filter for 'direct' type from checking chat_rooms
+                // But we can't easily filter joined property in JS easily if structure is nested.
+                // Or use inner join filter.
+
+                // Let's try to query chat_rooms directly with participants check? Harder.
+                // Direct approach:
+                // Find a room where (user_id = me OR user_id = them) GROUP BY room_id HAVING count(*) = 2 AND type = 'direct'
+
+                // Simplest: Iterate found common rooms and check type if we fetched it.
+                // We fetched chat_rooms(type).
+
+                const existingRoom = commonRooms?.find((r: any) => r.chat_rooms?.type === 'direct');
+
+                if (existingRoom) {
+                    navigateTo('chat', user.name, { conversationId: existingRoom.room_id });
+                    return;
+                }
+            }
+
+            // Create new room
+            const { data: newRoom, error: createError } = await supabase
+                .from('chat_rooms')
+                .insert({
+                    type: 'direct',
+                    is_group: false,
+                    creator_id: student.id,
+                    // Name is often null for direct chats, or we can set it for easy debugging
+                })
+                .select()
+                .single();
+
+            if (createError || !newRoom) {
+                console.error('Error creating room:', createError);
+                return;
+            }
+
+            // ADD participants
+            const { error: partError } = await supabase
+                .from('chat_participants')
+                .insert([
+                    { room_id: newRoom.id, user_id: student.id, role: 'member' },
+                    { room_id: newRoom.id, user_id: user.id, role: 'member' }
+                ]);
+
+            if (partError) {
+                console.error('Error adding participants:', partError);
+                return;
+            }
+
+            navigateTo('chat', user.name, { conversationId: newRoom.id });
+
+        } catch (e) {
+            console.error('Error starting chat:', e);
         }
-        
-        navigateTo('chat', user.name, { conversation });
     };
 
     return (
@@ -86,14 +181,14 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo 
             <div className="p-4 bg-gray-100/80 backdrop-blur-sm sticky top-0 z-10 border-b border-gray-200">
                 <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <SearchIcon className="text-gray-400" />
+                        <SearchIcon className="text-gray-400 w-5 h-5" />
                     </span>
                     <input
                         type="text"
                         placeholder={`Search for a ${activeTab.slice(0, -1).toLowerCase()}...`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500 outline-none"
                     />
                 </div>
             </div>
@@ -102,9 +197,8 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo 
                 <div className="flex space-x-2 border-b border-gray-200">
                     {(['Teachers', 'Classmates'] as const).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                                activeTab === tab ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'
-                            }`}>
+                            className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === tab ? 'border-b-2 border-orange-500 text-orange-600' : 'text-gray-500 hover:text-gray-700'
+                                }`}>
                             {tab}
                         </button>
                     ))}
@@ -112,7 +206,9 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo 
             </div>
 
             <main className="flex-grow p-4 space-y-2 overflow-y-auto">
-                {filteredUsers.length > 0 ? (
+                {loading ? (
+                    <div className="text-center text-gray-400 mt-10">Loading users...</div>
+                ) : filteredUsers.length > 0 ? (
                     filteredUsers.map(user => (
                         <UserRow key={user.id} user={user} onSelect={() => handleSelectUser(user)} />
                     ))

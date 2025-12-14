@@ -7,6 +7,7 @@ import Header from '../ui/Header';
 import { StudentBottomNav } from '../ui/DashboardBottomNav';
 import { mockStudents, mockTimetableData, mockAssignments, mockSubmissions, mockNotices, mockNotifications } from '../../data';
 import ErrorBoundary from '../ui/ErrorBoundary';
+import { useProfile } from '../../context/ProfileContext';
 
 // Lazy load all view components
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -26,7 +27,7 @@ const ResultsScreen = lazy(() => import('../student/ResultsScreen'));
 const StudentFinanceScreen = lazy(() => import('../student/StudentFinanceScreen'));
 const AchievementsScreen = lazy(() => import('../student/AchievementsScreen'));
 const StudentMessagesScreen = lazy(() => import('../student/StudentMessagesScreen'));
-const StudentNewChatScreen = lazy(() => import('../student/StudentNewChatScreen'));
+const StudentNewChatScreen = lazy(() => import('../student/NewMessageScreen'));
 const StudentProfileScreen = lazy(() => import('../student/StudentProfileScreen'));
 const VideoLessonScreen = lazy(() => import('../student/VideoLessonScreen'));
 const AssignmentSubmissionScreen = lazy(() => import('../student/AssignmentSubmissionScreen'));
@@ -174,8 +175,8 @@ const Overview: React.FC<{ navigateTo: (view: string, title: string, props?: any
     ];
 
     const aiTools = [
-        { label: 'AI Study Buddy', description: 'Stuck on a problem?', color: 'from-purple-500 to-indigo-600', action: () => navigateTo('studyBuddy', 'Study Buddy') },
-        { label: 'AI Adventure Quest', description: 'Turn any text into a fun quiz!', color: 'from-teal-400 to-blue-500', action: () => navigateTo('adventureQuest', 'AI Adventure Quest', {}) },
+        { label: 'AI Study Buddy', description: 'Stuck on a problem?', color: 'bg-purple-500 from-purple-500 to-indigo-600', action: () => navigateTo('studyBuddy', 'Study Buddy') },
+        { label: 'AI Adventure Quest', description: 'Turn any text into a fun quiz!', color: 'bg-teal-400 from-teal-400 to-blue-500', action: () => navigateTo('adventureQuest', 'AI Adventure Quest', {}) },
     ];
 
     if (loading) return <div className="p-10 text-center">Loading dashboard...</div>;
@@ -224,6 +225,7 @@ interface StudentDashboardProps {
 }
 
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHomePage }) => {
+    const { profile } = useProfile();
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Student Dashboard' }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [version, setVersion] = useState(0);
@@ -234,22 +236,51 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     useEffect(() => {
         const fetchStudent = async () => {
-            // Hardcoded login simulation
-            // In real app, we get user from auth context
-            const { data } = await supabase
-                .from('students')
-                .select('*')
-                // Using a student that likely exists from our seed data or creates one. 
-                // We inserted 'adebayo@student.school.com' in schema. Let's try to fetch him.
-                // We need to fetch by userId from users table or direct join if we had user context.
-                // For demo, let's fetch the first student or specific one.
-                .limit(1)
-                .single();
+            try {
+                // Hardcoded login simulation
+                // In real app, we get user from auth context
+                const { data, error } = await supabase
+                    .from('students')
+                    .select('*')
+                    .limit(1);
 
-            if (data) {
+                if (error) {
+                    console.error('Error fetching student:', error);
+                    // Set default student for demo
+                    setStudent({
+                        id: 'demo-student-1',
+                        name: 'Demo Student',
+                        grade: '10',
+                        section: 'A',
+                        avatarUrl: 'https://i.pravatar.cc/150?u=student'
+                    });
+                    return;
+                }
+
+                if (data && data.length > 0) {
+                    setStudent({
+                        ...data[0],
+                        avatarUrl: data[0].avatar_url || 'https://i.pravatar.cc/150?u=student'
+                    });
+                } else {
+                    // Set default student for demo
+                    setStudent({
+                        id: 'demo-student-1',
+                        name: 'Demo Student',
+                        grade: '10',
+                        section: 'A',
+                        avatarUrl: 'https://i.pravatar.cc/150?u=student'
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading student:', err);
+                // Set default student for demo
                 setStudent({
-                    ...data,
-                    avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=student'
+                    id: 'demo-student-1',
+                    name: 'Demo Student',
+                    grade: '10',
+                    section: 'A',
+                    avatarUrl: 'https://i.pravatar.cc/150?u=student'
                 });
             }
         };
@@ -315,7 +346,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         results: ResultsScreen,
         finances: StudentFinanceScreen,
         achievements: AchievementsScreen,
-        messages: (props: any) => <MessagingLayout {...props} dashboardType={DashboardType.Student} />,
+        messages: StudentMessagesScreen,
         newChat: StudentNewChatScreen,
         profile: StudentProfileScreen,
         videoLesson: VideoLessonScreen,
@@ -352,7 +383,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         <div className="flex flex-col h-full bg-gray-100 relative">
             <Header
                 title={currentNavigation.title}
-                avatarUrl={student.avatarUrl}
+                avatarUrl={profile.avatarUrl}
                 bgColor={THEME_CONFIG[DashboardType.Student].mainBg}
                 onLogout={onLogout}
                 onBack={viewStack.length > 1 ? handleBack : undefined}

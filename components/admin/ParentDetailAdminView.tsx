@@ -3,6 +3,7 @@ import React from 'react';
 import { Parent } from '../../types';
 import { MailIcon, PhoneIcon, EditIcon, TrashIcon, StudentsIcon } from '../../constants';
 import { mockStudents, mockParents } from '../../data';
+import { supabase } from '../../lib/supabase';
 
 interface ParentDetailAdminViewProps {
   parent: Parent;
@@ -16,13 +17,47 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
   // Note: Ideally this would be fetched from DB, here using mock for simplicity if parent.childIds exists
   const linkedChildren = mockStudents.filter(s => parent.childIds?.includes(s.id));
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm(`Are you sure you want to delete the account for ${parent.name}? This action cannot be undone.`)) {
-        const index = mockParents.findIndex(p => p.id === parent.id);
-        if (index > -1) {
-            mockParents.splice(index, 1);
+        try {
+            // Delete from database first
+            const { error: deleteParentError } = await supabase
+                .from('parents')
+                .delete()
+                .eq('id', parent.id);
+
+            if (deleteParentError) throw deleteParentError;
+
+            // Delete associated user account if exists
+            if (parent.user_id) {
+                const { error: deleteUserError } = await supabase
+                    .from('users')
+                    .delete()
+                    .eq('id', parent.user_id);
+
+                if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
+            }
+
+            // Delete login credentials
+            const { error: deleteAuthError } = await supabase
+                .from('auth_accounts')
+                .delete()
+                .eq('user_id', parent.user_id);
+
+            if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
+
+            // Also update mock data for consistency
+            const index = mockParents.findIndex(p => p.id === parent.id);
+            if (index > -1) {
+                mockParents.splice(index, 1);
+            }
+
+            alert(`${parent.name} has been successfully deleted from the database.`);
             forceUpdate();
             handleBack();
+        } catch (error: any) {
+            console.error('Error deleting parent:', error);
+            alert('Failed to delete parent: ' + (error.message || 'Unknown error'));
         }
     }
   };

@@ -5,6 +5,7 @@ import Login from './components/auth/Login';
 import AIChatScreen from './components/shared/AIChatScreen';
 import { requestNotificationPermission, showNotification } from './components/shared/notifications';
 import { mockNotices, mockTeachers, mockStudents } from './data';
+import { ProfileProvider } from './context/ProfileContext';
 
 
 const AdminDashboard = lazy(() => import('./components/dashboards/AdminDashboard'));
@@ -155,11 +156,13 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="font-sans w-screen h-screen bg-[#F0F2F5] flex flex-col items-center justify-center">
-      <div className="relative w-full h-full flex flex-col shadow-2xl">
-          {appContent}
+    <ProfileProvider>
+      <div className="font-sans w-screen h-screen bg-[#F0F2F5] flex flex-col items-center justify-center">
+        <div className="relative w-full h-full flex flex-col shadow-2xl">
+            {appContent}
+        </div>
       </div>
-    </div>
+    </ProfileProvider>
   );
 };
 

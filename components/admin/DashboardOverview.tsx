@@ -31,15 +31,6 @@ import { AuditLog } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { supabase } from '../../lib/supabase';
 
-// --- Import components for inline view ---
-import SelectUserTypeToAddScreen from './SelectUserTypeToAddScreen';
-import ReportCardPublishing from './ReportCardPublishing';
-import TimetableGeneratorScreen from './TimetableGeneratorScreen';
-import TimetableEditor from './TimetableEditor';
-import CommunicationHub from './CommunicationHub';
-import BusDutyRosterScreen from './BusDutyRosterScreen';
-import HealthLogScreen from './HealthLogScreen';
-
 
 // --- NEW, REFINED UI/UX COMPONENTS ---
 
@@ -453,37 +444,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
     };
 
-    const [activeActionView, setActiveActionView] = useState<string | null>(null);
 
-    const handleActionClick = (actionKey: string) => {
-        setActiveActionView(prev => (prev === actionKey ? null : actionKey));
-    };
-
-    const actionComponents: { [key: string]: React.ComponentType<any> } = {
-        addUser: SelectUserTypeToAddScreen,
-        publishReports: ReportCardPublishing,
-        timetable: TimetableGeneratorScreen,
-        timetableEditor: TimetableEditor,
-        announce: CommunicationHub,
-        busRoster: BusDutyRosterScreen,
-        healthLog: HealthLogScreen,
-    };
-
-    const ActiveComponent = activeActionView ? actionComponents[activeActionView] : null;
-
-    const getActionTitle = (key: string | null) => {
-        if (!key) return '';
-        const titles: { [key: string]: string } = {
-            addUser: 'Add New User',
-            publishReports: 'Publish Reports',
-            timetable: 'AI Timetable Generator',
-            timetableEditor: 'Timetable Editor',
-            announce: 'Send Announcement',
-            busRoster: 'Bus Duty Roster',
-            healthLog: 'Health Log',
-        };
-        return titles[key] || 'View';
-    };
 
     return (
         <div className="p-4 lg:p-6 bg-gray-50 min-h-full">
@@ -514,37 +475,13 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
                         {/* Desktop view */}
                         <div className="hidden lg:grid grid-cols-2 xl:grid-cols-3 gap-4">
-                            <AddUserWidget onClick={() => handleActionClick('addUser')} />
-                            <PublishReportsWidget onClick={() => handleActionClick('publishReports')} count={unpublishedReports} />
-                            <TimetableWidget onClick={() => handleActionClick('timetable')} schedule={timetablePreview} />
-                            <AnnounceWidget onClick={() => handleActionClick('announce')} />
-                            <BusRosterWidget onClick={() => handleActionClick('busRoster')} assigned={busRosterAssigned} total={busRosterTotal} />
-                            <HealthLogWidget onClick={() => handleActionClick('healthLog')} latestLog={latestHealthLog} />
+                            <AddUserWidget onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} />
+                            <PublishReportsWidget onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} count={unpublishedReports} />
+                            <TimetableWidget onClick={() => navigateTo('timetable', 'Timetable Management')} schedule={timetablePreview} />
+                            <AnnounceWidget onClick={() => navigateTo('communicationHub', 'Communication Hub')} />
+                            <BusRosterWidget onClick={() => navigateTo('busDutyRoster', 'Bus Duty Roster')} assigned={busRosterAssigned} total={busRosterTotal} />
+                            <HealthLogWidget onClick={() => navigateTo('healthLog', 'Health Log')} latestLog={latestHealthLog} />
                         </div>
-
-                        {/* Display area for active action on large screens */}
-                        {ActiveComponent && (
-                            <div className="hidden lg:block mt-6 animate-fade-in">
-                                <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                                    <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-                                        <h3 className="font-bold text-lg text-gray-800">
-                                            {getActionTitle(activeActionView)}
-                                        </h3>
-                                        <button onClick={() => setActiveActionView(null)} className="p-1 rounded-full hover:bg-gray-200" aria-label="Close view">
-                                            <XCircleIcon className="w-6 h-6 text-gray-500" />
-                                        </button>
-                                    </div>
-                                    <div className="max-h-[80vh] overflow-y-auto">
-                                        <ActiveComponent
-                                            navigateTo={navigateTo}
-                                            handleBack={() => setActiveActionView(null)}
-                                            forceUpdate={forceUpdate}
-                                        // timetableData={activeActionView === 'timetableEditor' ? mockSavedTimetable.current : undefined}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
 
                 </div>

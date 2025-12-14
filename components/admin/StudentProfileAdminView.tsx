@@ -7,6 +7,7 @@ import { mockStudents } from '../../data';
 import { GoogleGenAI } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { supabase } from '../../lib/supabase';
 
 interface StudentProfileAdminViewProps {
   student: Student;
@@ -40,28 +41,104 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
     const [summary, setSummary] = useState('');
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [attendanceData, setAttendanceData] = useState({
+        present: 0,
+        absent: 0,
+        late: 0,
+        leave: 0,
+    });
+    const [loading, setLoading] = useState(true);
     
     const academicPerformance = student.academicPerformance || [];
     const averageScore = academicPerformance.length > 0
         ? Math.round(academicPerformance.reduce((sum, record) => sum + record.score, 0) / academicPerformance.length)
         : 0;
-        
-    const attendanceData = {
-        present: 175,
-        absent: 5,
-        late: 2,
-        leave: 3,
-    };
-    const totalDays = Object.values(attendanceData).reduce((sum, val) => sum + val, 0);
-    const presentPercentage = totalDays > 0 ? Math.round(((attendanceData.present + attendanceData.late) / totalDays) * 100) : 0;
+    
     const formattedClassName = getFormattedClassName(student.grade, student.section);
 
-    const handleDelete = () => {
-        const index = mockStudents.findIndex(s => s.id === student.id);
-        if (index > -1) {
-            mockStudents.splice(index, 1);
+    // Fetch attendance data from database
+    React.useEffect(() => {
+        const fetchAttendance = async () => {
+            try {
+                const { data: attendanceRecords, error } = await supabase
+                    .from('student_attendance')
+                    .select('status')
+                    .eq('student_id', student.id);
+
+                if (error) {
+                    console.error('Error fetching attendance:', error);
+                    setLoading(false);
+                    return;
+                }
+
+                if (attendanceRecords && attendanceRecords.length > 0) {
+                    const counts = {
+                        present: 0,
+                        absent: 0,
+                        late: 0,
+                        leave: 0,
+                    };
+
+                    attendanceRecords.forEach((record: any) => {
+                        const status = record.status.toLowerCase();
+                        if (status === 'present') counts.present++;
+                        else if (status === 'absent') counts.absent++;
+                        else if (status === 'late') counts.late++;
+                        else if (status === 'leave' || status === 'on leave') counts.leave++;
+                    });
+
+                    setAttendanceData(counts);
+                }
+            } catch (err) {
+                console.error('Error:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAttendance();
+    }, [student.id]);
+
+    const handleDelete = async () => {
+        try {
+            // Delete from database first
+            const { error: deleteStudentError } = await supabase
+                .from('students')
+                .delete()
+                .eq('id', student.id);
+
+            if (deleteStudentError) throw deleteStudentError;
+
+            // Delete associated user account if exists
+            if (student.user_id) {
+                const { error: deleteUserError } = await supabase
+                    .from('users')
+                    .delete()
+                    .eq('id', student.user_id);
+
+                if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
+            }
+
+            // Delete login credentials
+            const { error: deleteAuthError } = await supabase
+                .from('auth_accounts')
+                .delete()
+                .eq('user_id', student.user_id);
+
+            if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
+
+            // Also update mock data for consistency
+            const index = mockStudents.findIndex(s => s.id === student.id);
+            if (index > -1) {
+                mockStudents.splice(index, 1);
+            }
+
+            alert(`${student.name} has been successfully deleted from the database.`);
             forceUpdate();
-            handleBack(); // Go back to student list
+            handleBack();
+        } catch (error: any) {
+            console.error('Error deleting student:', error);
+            alert('Failed to delete student: ' + (error.message || 'Unknown error'));
         }
     };
 
@@ -161,33 +238,44 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                     <h4 className="font-bold text-gray-800">Attendance Summary</h4>
                                 </div>
                             </div>
-                            <div className="flex items-center justify-between px-2">
-                                <div className="relative">
-                                    <DonutChart percentage={presentPercentage} color="#16a34a" size={100} strokeWidth={10} />
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-2xl font-bold text-gray-800">{presentPercentage}%</span>
-                                        <span className="text-xs text-gray-500">Present</span>
+                            {loading ? (
+                                <div className="flex justify-center py-4">
+                                    <div className="w-6 h-6 border-3 border-gray-300 border-t-green-600 rounded-full animate-spin"></div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-between px-2">
+                                    <div className="relative">
+                                        <DonutChart 
+                                            percentage={Object.values(attendanceData).reduce((a, b) => a + b, 0) > 0 ? Math.round(((attendanceData.present + attendanceData.late) / Object.values(attendanceData).reduce((a, b) => a + b, 0)) * 100) : 0} 
+                                            color="#16a34a" 
+                                            size={100} 
+                                            strokeWidth={10} 
+                                        />
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-2xl font-bold text-gray-800">{Object.values(attendanceData).reduce((a, b) => a + b, 0) > 0 ? Math.round(((attendanceData.present + attendanceData.late) / Object.values(attendanceData).reduce((a, b) => a + b, 0)) * 100) : 0}%</span>
+                                            <span className="text-xs text-gray-500">Present</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2 text-sm font-medium border-l pl-6 border-gray-100 min-w-[140px]">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Present</span>
+                                            <span className="font-bold text-green-600">{attendanceData.present}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Absent</span>
+                                            <span className="font-bold text-red-600">{attendanceData.absent}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">Late</span>
+                                            <span className="font-bold text-blue-600">{attendanceData.late}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-500">On Leave</span>
+                                            <span className="font-bold text-amber-600">{attendanceData.leave}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-2 text-sm font-medium border-l pl-6 border-gray-100 min-w-[140px]">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">Present</span>
-                                        <span className="font-bold text-green-600">{attendanceData.present}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">Absent</span>
-                                        <span className="font-bold text-red-600">{attendanceData.absent}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">Late</span>
-                                        <span className="font-bold text-blue-600">{attendanceData.late}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-500">On Leave</span>
-                                        <span className="font-bold text-amber-600">{attendanceData.leave}</span>
-                                    </div>
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Behavioral Notes */}

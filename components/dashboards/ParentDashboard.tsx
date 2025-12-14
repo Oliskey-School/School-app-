@@ -28,6 +28,7 @@ import {
 } from '../../constants';
 import Header from '../ui/Header';
 import { ParentBottomNav } from '../ui/DashboardBottomNav';
+import { useProfile } from '../../context/ProfileContext';
 import { 
     mockStudentFees, 
     mockStudents, 
@@ -485,6 +486,7 @@ interface ParentDashboardProps {
 const LOGGED_IN_PARENT_ID = 1002; // Mrs. Bello
 
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage }) => {
+    const { profile } = useProfile();
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'dashboard', title: 'Parent Dashboard' }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [version, setVersion] = useState(0);
@@ -577,7 +579,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         <div className="flex flex-col h-full bg-gray-100 relative">
              <Header
                 title={currentNavigation.title}
-                avatarUrl="https://i.pravatar.cc/150?u=parent1"
+                avatarUrl={profile.avatarUrl}
                 bgColor={THEME_CONFIG[DashboardType.Parent].mainBg}
                 onLogout={onLogout}
                 onBack={viewStack.length > 1 ? handleBack : undefined}

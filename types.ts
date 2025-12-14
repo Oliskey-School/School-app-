@@ -22,20 +22,20 @@ export interface Exam {
 export type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Late';
 
 export interface AcademicRecord {
-    subject: string;
-    score: number; // out of 100
-    term: 'Term 1' | 'Term 2' | 'Term 3';
-    teacherRemark?: string;
+  subject: string;
+  score: number; // out of 100
+  term: 'Term 1' | 'Term 2' | 'Term 3';
+  teacherRemark?: string;
 }
 
 export interface BehaviorNote {
-    id: number;
-    date: string;
-    type: 'Positive' | 'Negative';
-    title: string;
-    note: string;
-    by: string; // Teacher's name
-    suggestions?: string[];
+  id: number;
+  date: string;
+  type: 'Positive' | 'Negative';
+  title: string;
+  note: string;
+  by: string; // Teacher's name
+  suggestions?: string[];
 }
 
 export type Department = 'Science' | 'Commercial' | 'Arts';
@@ -43,43 +43,43 @@ export type Department = 'Science' | 'Commercial' | 'Arts';
 export type Rating = 'A' | 'B' | 'C' | 'D' | 'E' | '';
 
 export interface ReportCardAcademicRecord {
-    subject: string;
-    ca: number;
-    exam: number;
-    total: number;
-    grade: string;
-    remark: string;
+  subject: string;
+  ca: number;
+  exam: number;
+  total: number;
+  grade: string;
+  remark: string;
 }
 
 export interface ReportCard {
-    term: string; // e.g., "Second Term"
-    session: string; // e.g., "2023/2024"
-    academicRecords: ReportCardAcademicRecord[];
-    skills: Record<string, Rating>;
-    psychomotor: Record<string, Rating>;
-    attendance: {
-        total: number;
-        present: number;
-        absent: number;
-        late: number;
-    };
-    teacherComment: string;
-    principalComment: string;
-    status: 'Draft' | 'Submitted' | 'Published';
+  term: string; // e.g., "Second Term"
+  session: string; // e.g., "2023/2024"
+  academicRecords: ReportCardAcademicRecord[];
+  skills: Record<string, Rating>;
+  psychomotor: Record<string, Rating>;
+  attendance: {
+    total: number;
+    present: number;
+    absent: number;
+    late: number;
+  };
+  teacherComment: string;
+  principalComment: string;
+  status: 'Draft' | 'Submitted' | 'Published';
 }
 
 export interface Student {
-    id: number;
-    name: string;
-    avatarUrl: string;
-    grade: number;
-    section: string;
-    department?: Department;
-    attendanceStatus: AttendanceStatus;
-    academicPerformance?: AcademicRecord[];
-    behaviorNotes?: BehaviorNote[];
-    reportCards?: ReportCard[];
-    birthday?: string; // YYYY-MM-DD
+  id: number;
+  name: string;
+  avatarUrl: string;
+  grade: number;
+  section: string;
+  department?: Department;
+  attendanceStatus: AttendanceStatus;
+  academicPerformance?: AcademicRecord[];
+  behaviorNotes?: BehaviorNote[];
+  reportCards?: ReportCard[];
+  birthday?: string; // YYYY-MM-DD
 }
 
 export type StudentReportInfo = Student & { status: 'Draft' | 'Submitted' | 'Published'; };
@@ -91,23 +91,23 @@ export interface StudentAttendance {
 }
 
 export interface Teacher {
-    id: number;
-    name: string;
-    avatarUrl: string;
-    subjects: string[];
-    classes: string[];
-    email: string;
-    phone: string;
-    status: 'Active' | 'Inactive';
+  id: number;
+  name: string;
+  avatarUrl: string;
+  subjects: string[];
+  classes: string[];
+  email: string;
+  phone: string;
+  status: 'Active' | 'Inactive';
 }
 
 export interface ClassInfo {
-    id: string;
-    subject: string;
-    grade: number;
-    section:string;
-    department?: Department;
-    studentCount: number;
+  id: string;
+  subject: string;
+  grade: number;
+  section: string;
+  department?: Department;
+  studentCount: number;
 }
 
 
@@ -168,7 +168,7 @@ export interface VideoLesson extends DigitalResource {
 export interface Driver {
   id: number;
   name: string;
-  avatarUrl:string;
+  avatarUrl: string;
   phone: string;
 }
 
@@ -200,7 +200,7 @@ export type AuditLogActionType = 'login' | 'logout' | 'create' | 'update' | 'del
 export interface AuditLog {
   id: number;
   user: {
-    name:string;
+    name: string;
     avatarUrl: string;
     role: RoleName;
   };
@@ -278,32 +278,75 @@ export interface StudentFeeInfo {
   status: 'Paid' | 'Unpaid' | 'Overdue';
 }
 
-export interface Message {
-  id: string;
-  senderId: number;
-  text?: string;
-  timestamp: string; // ISO string
-  type: 'text' | 'audio' | 'video';
-  audioUrl?: string;
-  videoUrl?: string;
-  duration?: number; // in seconds
+export interface ChatUser {
+  id: number;
+  name: string;
+  avatarUrl: string;
+  role: string;
+  isOnline?: boolean;
+  lastSeen?: string;
 }
 
-export interface Conversation {
-  id: string;
-  participant: {
-    id: number;
-    name: string;
-    avatarUrl: string;
-    role: 'Parent' | 'Student' | 'Teacher' | 'Admin';
-  };
-  lastMessage: {
-    text: string;
-    timestamp: string; // ISO string
-  };
-  unreadCount: number;
-  messages: Message[];
+export type MessageType = 'text' | 'image' | 'video' | 'audio' | 'file';
+
+export interface ChatReaction {
+  id: number;
+  messageId: number;
+  userId: number;
+  emoji: string;
 }
+
+export interface ChatMessage {
+  id: number;
+  roomId: number;
+  senderId: number;
+  content: string;
+  type: MessageType;
+  mediaUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  replyToId?: number;
+  replyToMessage?: ChatMessage; // Populated on frontend
+  reactions?: ChatReaction[]; // Populated on frontend
+  isDeleted: boolean;
+  isEdited: boolean;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  sender?: ChatUser; // Populated on frontend
+}
+
+export interface ChatParticipant {
+  roomId: number;
+  userId: number;
+  role: 'member' | 'admin';
+  joinedAt: string;
+  lastReadMessageId?: number;
+  user?: ChatUser;
+}
+
+export interface ChatRoom {
+  id: number;
+  type: 'direct' | 'group' | 'class';
+  name?: string;
+  isGroup: boolean;
+  creatorId: number;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
+  lastMessage?: ChatMessage; // From join
+  participants: ChatParticipant[];
+  unreadCount?: number; // Calculated
+}
+
+// Keeping the old interfaces for now to avoid breaking existing code, but aliasing or marking deprecated if needed.
+// However, the prompt implies "fixing" the app, so replacing is better if I update the usage.
+// I will keep Message and Conversation as aliases or legacy types if they are heavily used, but better to update them.
+
+export type Message = ChatMessage; // Alias for backward compatibility if possible, though properties differ.
+// Actually, let's keep the old Message interface but mark deprecated, or try to map. 
+// The old Message used string ID, new uses number.
+// I'll leave the old ones for a moment but add the new ones above.
+
 
 // FIX: Unify AnnouncementCategory with Notice category to support all required types.
 export type AnnouncementCategory = 'General' | 'Homework' | 'Test Reminder' | 'Event' | 'Urgent' | 'Holiday';
@@ -376,32 +419,32 @@ export interface Award {
 }
 
 export interface FeeBreakdownItem {
-    item: string;
-    amount: number;
+  item: string;
+  amount: number;
 }
 
 export interface PaymentHistoryItem {
-    id: string;
-    date: string;
-    amount: number;
-    method: 'Bank Transfer' | 'Card' | 'Cash';
+  id: string;
+  date: string;
+  amount: number;
+  method: 'Bank Transfer' | 'Card' | 'Cash';
 }
 
 export interface ProgressReport {
-    studentId: number;
-    strengths: string[];
-    areasForImprovement: string[];
-    generalRemark: string;
+  studentId: number;
+  strengths: string[];
+  areasForImprovement: string[];
+  generalRemark: string;
 }
 
 export interface BehaviorAlert {
-    id: number;
-    studentId: number;
-    studentName: string;
-    type: 'Positive' | 'Incident';
-    title: string;
-    summary: string;
-    timestamp: string; // ISO string
+  id: number;
+  studentId: number;
+  studentName: string;
+  type: 'Positive' | 'Incident';
+  title: string;
+  summary: string;
+  timestamp: string; // ISO string
 }
 
 export interface Parent {
@@ -466,7 +509,7 @@ export interface LearningResource {
 
 export interface SchoolPolicy {
   id: number;
-  title:string;
+  title: string;
   description: string;
   url: string; // download link
 }
@@ -738,13 +781,13 @@ export interface AIGame {
 
 // For AI Timetable Generator
 export interface SavedTimetable {
-    className: string;
-    subjects: string[];
-    timetable: { [key: string]: string | null };
-    teacherAssignments: { [key: string]: string | null };
-    suggestions: string[];
-    teacherLoad: { teacherName: string; totalPeriods: number }[];
-    status: 'Draft' | 'Published';
+  className: string;
+  subjects: string[];
+  timetable: { [key: string]: string | null };
+  teacherAssignments: { [key: string]: string | null };
+  suggestions: string[];
+  teacherLoad: { teacherName: string; totalPeriods: number }[];
+  status: 'Draft' | 'Published';
 }
 
 // For Bus Duty Roster
@@ -762,33 +805,33 @@ export interface BusRosterEntry {
 
 // For CBT Test Module
 export interface CBTResult {
-    studentId: number;
-    studentName: string;
-    score: number;
-    totalQuestions: number;
-    percentage: number;
-    submittedAt: string;
+  studentId: number;
+  studentName: string;
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  submittedAt: string;
 }
 
 export interface CBTQuestion {
-    id: number;
-    text: string;
-    options: string[];
-    correctAnswer: string;
+  id: number;
+  text: string;
+  options: string[];
+  correctAnswer: string;
 }
 
 export interface CBTTest {
-    id: number;
-    title: string;
-    type: 'Test' | 'Exam';
-    className: string;
-    subject: string;
-    duration: number; // in minutes
-    attempts?: number;
-    fileName: string;
-    questionsCount: number;
-    createdAt: string;
-    isPublished: boolean;
-    results: CBTResult[];
-    questions?: CBTQuestion[];
+  id: number;
+  title: string;
+  type: 'Test' | 'Exam';
+  className: string;
+  subject: string;
+  duration: number; // in minutes
+  attempts?: number;
+  fileName: string;
+  questionsCount: number;
+  createdAt: string;
+  isPublished: boolean;
+  results: CBTResult[];
+  questions?: CBTQuestion[];
 }

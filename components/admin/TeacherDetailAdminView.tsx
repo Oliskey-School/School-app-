@@ -5,6 +5,7 @@ import { MailIcon, PhoneIcon, ChartBarIcon, CalendarIcon, EditIcon, gradeColors,
 import DonutChart from '../ui/DonutChart';
 import { mockClasses, mockTeachers } from '../../data';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { supabase } from '../../lib/supabase';
 
 interface TeacherDetailAdminViewProps {
   teacher: Teacher;
@@ -17,12 +18,46 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const teacherClasses = mockClasses.filter(c => teacher.classes.includes(c.grade + c.section));
     
-    const handleDelete = () => {
-        const index = mockTeachers.findIndex(t => t.id === teacher.id);
-        if (index > -1) {
-            mockTeachers.splice(index, 1);
+    const handleDelete = async () => {
+        try {
+            // Delete from database first
+            const { error: deleteTeacherError } = await supabase
+                .from('teachers')
+                .delete()
+                .eq('id', teacher.id);
+
+            if (deleteTeacherError) throw deleteTeacherError;
+
+            // Delete associated user account if exists
+            if (teacher.user_id) {
+                const { error: deleteUserError } = await supabase
+                    .from('users')
+                    .delete()
+                    .eq('id', teacher.user_id);
+
+                if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
+            }
+
+            // Delete login credentials
+            const { error: deleteAuthError } = await supabase
+                .from('auth_accounts')
+                .delete()
+                .eq('user_id', teacher.user_id);
+
+            if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
+
+            // Also update mock data for consistency
+            const index = mockTeachers.findIndex(t => t.id === teacher.id);
+            if (index > -1) {
+                mockTeachers.splice(index, 1);
+            }
+
+            alert(`${teacher.name} has been successfully deleted from the database.`);
             forceUpdate();
             handleBack();
+        } catch (error: any) {
+            console.error('Error deleting teacher:', error);
+            alert('Failed to delete teacher: ' + (error.message || 'Unknown error'));
         }
     };
 

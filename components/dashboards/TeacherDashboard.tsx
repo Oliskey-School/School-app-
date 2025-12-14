@@ -5,6 +5,7 @@ import { THEME_CONFIG } from '../../constants';
 import Header from '../ui/Header';
 import { TeacherBottomNav } from '../ui/DashboardBottomNav';
 import { mockNotifications } from '../../data';
+import { useProfile } from '../../context/ProfileContext';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -83,6 +84,7 @@ interface TeacherDashboardProps {
 const LOGGED_IN_TEACHER_ID = 2;
 
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHomePage }) => {
+  const { profile } = useProfile();
   const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
   const [activeBottomNav, setActiveBottomNav] = useState('home');
   const [version, setVersion] = useState(0);
@@ -201,7 +203,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     <div className="flex flex-col h-full bg-gray-100 relative">
        <Header
         title={currentNavigation.title}
-        avatarUrl="https://i.pravatar.cc/150?u=teacher"
+        avatarUrl={profile.avatarUrl}
         bgColor={THEME_CONFIG[DashboardType.Teacher].mainBg}
         onLogout={onLogout}
         onBack={viewStack.length > 1 ? handleBack : undefined}

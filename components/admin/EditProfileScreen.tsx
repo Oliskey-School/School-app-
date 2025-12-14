@@ -1,12 +1,23 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserIcon, MailIcon, PhoneIcon, CameraIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
 
 const EditProfileScreen: React.FC = () => {
-    const [name, setName] = useState('Adekunle Ciroma');
-    const [email, setEmail] = useState('admin@school.com');
-    const [phone, setPhone] = useState('+234 801 234 5678');
-    const [avatar, setAvatar] = useState('https://i.pravatar.cc/150?u=admin');
+    const { profile, updateProfile, isLoading } = useProfile();
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
+    const [avatar, setAvatar] = useState('');
+    const [saveMessage, setSaveMessage] = useState('');
+
+    // Initialize form with profile data
+    useEffect(() => {
+        setName(profile.name);
+        setEmail(profile.email);
+        setPhone(profile.phone);
+        setAvatar(profile.avatarUrl);
+    }, [profile]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
@@ -19,9 +30,26 @@ const EditProfileScreen: React.FC = () => {
         }
     };
 
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaveMessage('');
+        try {
+            await updateProfile({
+                name,
+                email,
+                phone,
+                avatarUrl: avatar,
+            });
+            setSaveMessage('Profile saved successfully!');
+            setTimeout(() => setSaveMessage(''), 3000);
+        } catch (err) {
+            setSaveMessage('Failed to save profile. Please try again.');
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
-            <form onSubmit={(e) => { e.preventDefault(); alert('Profile saved!'); }} className="flex-grow flex flex-col">
+            <form onSubmit={handleSave} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 space-y-6 overflow-y-auto">
                     {/* Photo Upload */}
                     <div className="flex justify-center">
@@ -68,11 +96,23 @@ const EditProfileScreen: React.FC = () => {
 
                 {/* Action Button */}
                 <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
+                    {saveMessage && (
+                        <div className={`mb-3 p-3 rounded-lg text-center text-sm font-medium ${
+                            saveMessage.includes('successfully')
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                        }`}>
+                            {saveMessage}
+                        </div>
+                    )}
                     <button
                         type="submit"
-                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                        disabled={isLoading}
+                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${
+                            isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-600'
+                        } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500`}
                     >
-                        Save
+                        {isLoading ? 'Saving...' : 'Save'}
                     </button>
                 </div>
             </form>
