@@ -70,18 +70,57 @@ Visit: https://your-school-app.com/login
   if (!isOpen) return null;
 
   // PDF download handler
-  const downloadPDF = () => {
-    if (modalRef.current) {
-      html2pdf()
-        .set({
-          margin: 0.5,
-          filename: `${userType.toLowerCase()}_credentials.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-        })
-        .from(modalRef.current)
-        .save();
+  const downloadPDF = async () => {
+    if (!modalRef.current) return;
+
+    try {
+      // 1. Clone the element to avoid messing with the UI and to strip conflicting styles
+      const element = modalRef.current.cloneNode(true) as HTMLElement;
+
+      // 2. Simplify styles for the PDF export
+      // We position it off-screen but visible so html2canvas can render it
+      Object.assign(element.style, {
+        position: 'absolute',
+        left: '-9999px',
+        top: '0',
+        width: '600px', // Fixed width for A4
+        height: 'auto',
+        maxHeight: 'none',
+        overflow: 'visible',
+        boxShadow: 'none',
+        borderRadius: '0',
+        backgroundColor: '#ffffff',
+        zIndex: '-1000',
+        padding: '20px' // Add some padding
+      });
+
+      // 3. Remove the footer (buttons) from the clone
+      // We look for the div with the specific attribute we added
+      const footer = element.querySelector('[data-html2canvas-ignore="true"]');
+      if (footer) footer.remove();
+
+      // 4. Append to body
+      document.body.appendChild(element);
+
+      // 5. Generate PDF
+      const opt = {
+        margin: 0.5,
+        filename: `${userType.toLowerCase()}_credentials.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+
+      // 6. Cleanup
+      document.body.removeChild(element);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert('Could not generate PDF. Please try the "Download TXT" option.');
+      // Attempt cleanup if it exists in body
+      const clones = document.querySelectorAll('[style*="left: -9999px"]');
+      clones.forEach(c => c.remove());
     }
   };
 

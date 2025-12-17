@@ -86,9 +86,9 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ paren
             alert('Profile saved successfully!');
             if (onProfileUpdate) onProfileUpdate();
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating profile:', error);
-            alert('Failed to update profile.');
+            alert(`Failed to update profile: ${error.message || 'Unknown error'}`);
         } finally {
             setSaving(false);
         }

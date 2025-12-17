@@ -96,7 +96,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (userId && !isNaN(Number(userId))) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, phone')
+          .select('id, name, email, avatar_url')
           .eq('id', Number(userId))
           .single();
         userData = result.data;
@@ -104,7 +104,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (email) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, phone')
+          .select('id, name, email, avatar_url')
           .eq('email', email)
           .single();
         userData = result.data;
@@ -116,7 +116,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           id: userData.id,
           name: userData.name || profile.name,
           email: userData.email,
-          phone: userData.phone || profile.phone,
+          phone: profile.phone, // Keep existing phone from role-specific store or local
           avatarUrl: userData.avatar_url || profile.avatarUrl,
           role: profile.role,
         };
@@ -147,8 +147,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .update({
             name: updated.name,
             email: updated.email,
-            avatar_url: updated.avatarUrl,
-            phone: updated.phone
+            avatar_url: updated.avatarUrl
+            // phone removed as it is not in users table
           })
           .eq('id', Number(updated.id));
 
@@ -163,8 +163,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .from('users')
           .update({
             name: updated.name,
-            avatar_url: updated.avatarUrl,
-            phone: updated.phone
+            avatar_url: updated.avatarUrl
+            // phone removed as it is not in users table
           })
           .eq('email', updated.email);
 

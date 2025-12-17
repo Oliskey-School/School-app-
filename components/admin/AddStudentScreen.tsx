@@ -46,6 +46,47 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
             setClassName(`Grade ${studentToEdit.grade}`);
             setSection(studentToEdit.section);
             setDepartment(studentToEdit.department || '');
+
+            // Fetch Guardian Info
+            const fetchGuardian = async () => {
+                if (isSupabaseConfigured) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('parent_children')
+                            .select(`
+                                parents (
+                                    name,
+                                    email,
+                                    phone
+                                )
+                            `)
+                            .eq('student_id', studentToEdit.id)
+                            .maybeSingle();
+
+                        if (!error && data && data.parents) {
+                            // Supabase returns the joined resource. Typescript might view it as array or object.
+                            // In a singular select like this from a join table, it's usually an object if the FK is correct.
+                            const p: any = Array.isArray(data.parents) ? data.parents[0] : data.parents;
+                            if (p) {
+                                setGuardianName(p.name || '');
+                                setGuardianEmail(p.email || '');
+                                setGuardianPhone(p.phone || '');
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Error fetching guardian:", err);
+                    }
+                } else {
+                    // Mock Mode Lookup
+                    const parent = mockParents.find(p => p.childIds?.includes(studentToEdit.id));
+                    if (parent) {
+                        setGuardianName(parent.name);
+                        setGuardianEmail(parent.email);
+                        setGuardianPhone(parent.phone);
+                    }
+                }
+            };
+            fetchGuardian();
         }
     }, [studentToEdit]);
 
@@ -65,6 +106,16 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         setIsLoading(true);
 
         try {
+            // Normalize inputs
+            const gEmail = guardianEmail.trim().toLowerCase();
+            const gName = guardianName.trim();
+
+            if (gName && !gEmail) {
+                alert("Guardian Email is required to create or link guardian details.");
+                setIsLoading(false);
+                return;
+            }
+
             // Generate email for the student
             let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com`;
             const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
@@ -106,27 +157,27 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     let successMessage = `Student account created for ${fullName}.\nCredentials: ${generatedEmail.split('@')[0]} / password123\n\n`;
 
                     // Handle Guardian in Mock Mode
-                    if (guardianEmail && guardianName) {
-                        const existingParent = mockParents.find(p => p.email === guardianEmail);
+                    if (gEmail && gName) {
+                        const existingParent = mockParents.find(p => p.email === gEmail);
                         if (existingParent) {
                             // Link to existing parent
                             if (!existingParent.childIds) existingParent.childIds = [];
                             if (!existingParent.childIds.includes(newId)) {
                                 existingParent.childIds.push(newId);
                             }
-                            successMessage += `Linked to existing guardian: ${existingParent.name}.\nNotification sent to ${guardianEmail}.`;
+                            successMessage += `Linked to existing guardian: ${existingParent.name}.\nNotification sent to ${gEmail}.`;
                         } else {
                             // Create new parent
                             const newParentId = mockParents.length > 0 ? Math.max(...mockParents.map(p => p.id)) + 1 : 1;
                             mockParents.push({
                                 id: newParentId,
-                                name: guardianName,
-                                email: guardianEmail,
+                                name: gName,
+                                email: gEmail,
                                 phone: guardianPhone,
-                                avatarUrl: `https://i.pravatar.cc/150?u=${guardianName.replace(' ', '')}`,
+                                avatarUrl: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
                                 childIds: [newId]
                             });
-                            successMessage += `New Guardian account created for ${guardianName}.\nCredentials sent to ${guardianEmail}.`;
+                            successMessage += `New Guardian account created for ${gName}.\nCredentials sent to ${gEmail}.`;
                         }
                     } else {
                         successMessage += "No guardian linked.";
@@ -165,7 +216,112 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     .eq('id', studentToEdit.id);
 
                 if (updateError) throw updateError;
-                alert('Student updated successfully!');
+
+                let guardianMessage = '';
+
+                // --- GUARDIAN HANDLING FOR UPDATE ---
+                if (gEmail && gName) {
+                    try {
+                        // 1. Check if User exists first (to handle cases where User exists but Parent profile doesn't)
+                        const { data: existingUser } = await supabase
+                            .from('users')
+                            .select('id, name, email')
+                            .eq('email', gEmail)
+                            .maybeSingle();
+
+                        let parentIdToLink: number | null = null;
+                        let parentNameForMsg = gName;
+
+                        if (existingUser) {
+                            // User exists. Check if Parent profile exists.
+                            const { data: existingParent } = await supabase
+                                .from('parents')
+                                .select('id')
+                                .eq('user_id', existingUser.id)
+                                .maybeSingle();
+
+                            if (existingParent) {
+                                parentIdToLink = existingParent.id;
+                                // Update phone/name if needed? Optional.
+                            } else {
+                                // User exists, create Parent profile
+                                const { data: newProfile, error: profileErr } = await supabase
+                                    .from('parents')
+                                    .insert([{
+                                        user_id: existingUser.id,
+                                        name: gName,
+                                        email: gEmail,
+                                        phone: guardianPhone || null,
+                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                    }])
+                                    .select()
+                                    .single();
+
+                                if (profileErr) throw profileErr;
+                                parentIdToLink = newProfile.id;
+                            }
+                        } else {
+                            // Create Fresh User & Parent
+                            const { data: newUser, error: uErr } = await supabase
+                                .from('users')
+                                .insert([{
+                                    email: gEmail,
+                                    name: gName,
+                                    role: 'Parent',
+                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                }])
+                                .select()
+                                .single();
+
+                            if (uErr) throw uErr;
+
+                            const { data: newParent, error: pErr } = await supabase
+                                .from('parents')
+                                .insert([{
+                                    user_id: newUser.id,
+                                    name: gName,
+                                    email: gEmail,
+                                    phone: guardianPhone || null,
+                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                }])
+                                .select()
+                                .single();
+
+                            if (pErr) throw pErr;
+                            parentIdToLink = newParent.id;
+
+                            // Create Auth
+                            await createUserAccount(gName, 'Parent', gEmail, newUser.id);
+                            await sendVerificationEmail(gName, gEmail, 'School App Account Created');
+                            guardianMessage += `\nNew Guardian account created for ${gName}.`;
+                        }
+
+                        // 2. Link if we have a Parent ID
+                        if (parentIdToLink) {
+                            // Check if already linked
+                            const { data: link } = await supabase
+                                .from('parent_children')
+                                .select('*')
+                                .eq('parent_id', parentIdToLink)
+                                .eq('student_id', studentToEdit.id)
+                                .maybeSingle();
+
+                            if (!link) {
+                                await supabase.from('parent_children').insert({
+                                    parent_id: parentIdToLink,
+                                    student_id: studentToEdit.id
+                                });
+                                guardianMessage += `\nLinked to guardian: ${parentNameForMsg}.`;
+                            }
+                        }
+
+                    } catch (gErr: any) {
+                        console.error('Error updating guardian:', gErr);
+                        guardianMessage += `\nError updating guardian: ${gErr.message || 'Unknown error'}`;
+                    }
+                }
+
+                alert(`Student updated successfully!${guardianMessage}`);
             } else {
                 // CREATE MODE - Check if email already exists in users or auth_accounts
                 const exists = await checkEmailExists(generatedEmail);
@@ -278,81 +434,94 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 }
 
                 // --- GUARDIAN ACCOUNT AUTOMATION ---
-                if (guardianEmail && guardianName) {
+                if (gEmail && gName) {
                     try {
-                        const { data: existingParent } = await supabase
-                            .from('parents')
-                            .select('id, user_id, email')
-                            .eq('email', guardianEmail)
+                        const { data: existingUser } = await supabase
+                            .from('users')
+                            .select('id, name, email')
+                            .eq('email', gEmail)
                             .maybeSingle();
 
-                        if (existingParent) {
-                            // Link existing parent to new student
-                            await supabase.from('parent_children').insert({
-                                parent_id: existingParent.id,
-                                student_id: studentData.id
-                            });
-                            // Notify existing guardian
-                            console.log(`Linked existing guardian ${guardianEmail} to student.`);
-                            await sendVerificationEmail(guardianName, guardianEmail, 'Student Added');
-                            alert(`Linked to existing guardian: ${guardianName}.\nStudent credentials sent to ${guardianEmail}.`);
+                        let parentIdToLink: number | null = null;
 
-                        } else {
-                            // Create NEW Guardian Account
-                            // 1. Create User
-                            const { data: gUser, error: gUserError } = await supabase
-                                .from('users')
-                                .insert([{
-                                    email: guardianEmail,
-                                    name: guardianName,
-                                    role: 'Parent',
-                                    avatar_url: `https://i.pravatar.cc/150?u=${guardianName.replace(' ', '')}`
-                                }])
-                                .select()
-                                .single();
+                        if (existingUser) {
+                            // User exists, find/create Parent
+                            const { data: existingParent } = await supabase
+                                .from('parents')
+                                .select('id')
+                                .eq('user_id', existingUser.id)
+                                .maybeSingle();
 
-                            if (gUserError) {
-                                console.warn("Failed to create Guardian User:", gUserError);
+                            if (existingParent) {
+                                parentIdToLink = existingParent.id;
                             } else {
-                                // 2. Create Parent Profile linked to User
-                                const { data: gParent, error: gParentError } = await supabase
+                                // Create Parent Profile for existing User
+                                const { data: newProfile, error: profileErr } = await supabase
                                     .from('parents')
                                     .insert([{
-                                        user_id: gUser.id,
-                                        name: guardianName,
-                                        email: guardianEmail,
+                                        user_id: existingUser.id,
+                                        name: gName,
+                                        email: gEmail,
                                         phone: guardianPhone || null,
-                                        avatar_url: `https://i.pravatar.cc/150?u=${guardianName.replace(' ', '')}`
+                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
                                     }])
                                     .select()
                                     .single();
 
-                                if (gParentError) {
-                                    console.warn("Failed to create Guardian Profile:", gParentError);
-                                } else {
-                                    // 3. Link to Student
-                                    await supabase.from('parent_children').insert({
-                                        parent_id: gParent.id,
-                                        student_id: studentData.id
-                                    });
+                                if (!profileErr) parentIdToLink = newProfile.id;
+                            }
+                        } else {
+                            // Create New User & Parent
+                            const { data: newUser, error: uErr } = await supabase
+                                .from('users')
+                                .insert([{
+                                    email: gEmail,
+                                    name: gName,
+                                    role: 'Parent',
+                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                }])
+                                .select()
+                                .single();
 
-                                    // 4. Create Auth Credentials
-                                    const gAuth = await createUserAccount(guardianName, 'Parent', guardianEmail, gUser.id);
+                            if (!uErr) {
+                                const { data: newParent, error: pErr } = await supabase
+                                    .from('parents')
+                                    .insert([{
+                                        user_id: newUser.id,
+                                        name: gName,
+                                        email: gEmail,
+                                        phone: guardianPhone || null,
+                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                    }])
+                                    .select()
+                                    .single();
 
-                                    // 5. Send Credentials Email
-                                    if (gAuth.error) console.warn("Guardian Auth Error:", gAuth.error);
-                                    else {
-                                        // TODO: Send specific email with credentials?
-                                        // For now, verification email is sent by Supabase or our helper
-                                        await sendVerificationEmail(guardianName, guardianEmail, 'School App Account Created');
-                                        alert(`Guardian account created for ${guardianName}.\nParent & Student credentials sent to ${guardianEmail}.`);
-                                    }
+                                if (!pErr) {
+                                    parentIdToLink = newParent.id;
+                                    // Create Auth & Send Email
+                                    await createUserAccount(gName, 'Parent', gEmail, newUser.id);
+                                    await sendVerificationEmail(gName, gEmail, 'School App Account Created');
+                                    alert(`Guardian account created for ${gName}.\nCredentials sent to ${gEmail}.`);
                                 }
                             }
                         }
+
+                        if (parentIdToLink) {
+                            await supabase.from('parent_children').insert({
+                                parent_id: parentIdToLink,
+                                student_id: studentData.id
+                            });
+                            // Don't alert here if we already alerted for creation, maybe just log or small toast?
+                            // Standard flow:
+                            if (existingUser) {
+                                alert(`Linked to existing guardian: ${gName}.\nNotification sent to ${gEmail}.`);
+                                await sendVerificationEmail(gName, gEmail, 'Student Added');
+                            }
+                        }
+
                     } catch (gErr) {
                         console.error("Error processing guardian:", gErr);
-                        // Do not fail the whole student creation if guardian fails
+                        alert("Student created, but failed to link Guardian: " + (gErr as any).message);
                     }
                 }
                 // -----------------------------------

@@ -66,13 +66,14 @@ import AddTeacherScreen from '../admin/AddTeacherScreen';
 import AddParentScreen from '../admin/AddParentScreen';
 import ParentListScreen from '../admin/ParentListScreen';
 import ParentDetailAdminView from '../admin/ParentDetailAdminView';
+import UserAccountsScreen from '../admin/UserAccountsScreen';
 
 
 // Type for navigation stack item
 interface ViewStackItem {
-  view: string;
-  props: any;
-  title: string;
+    view: string;
+    props: any;
+    title: string;
 }
 
 interface AdminDashboardProps {
@@ -109,11 +110,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             setViewStack(stack => stack.slice(0, -1));
         }
     };
-    
+
     const handleBottomNavClick = (screen: string) => {
         setActiveBottomNav(screen);
         // Reset stack based on bottom nav selection
-        switch(screen) {
+        switch (screen) {
             case 'home':
                 setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
                 break;
@@ -124,7 +125,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 setViewStack([{ view: 'communicationHub', props: {}, title: 'Communication Hub' }]);
                 break;
             case 'analytics':
-                 setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]);
+                setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]);
                 break;
             case 'settings':
                 setViewStack([{ view: 'profileSettings', props: { onLogout }, title: 'Profile Settings' }]);
@@ -191,12 +192,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         addParent: AddParentScreen,
         parentList: ParentListScreen,
         parentDetailAdminView: ParentDetailAdminView,
+        userAccounts: UserAccountsScreen,
     }), []);
-    
+
     const currentNavigation = viewStack[viewStack.length - 1];
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
     const isMessagesView = currentNavigation.view === 'messages';
-    
+
     const commonProps = {
         navigateTo,
         onLogout,
@@ -224,7 +226,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             <AdminBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
             <Suspense fallback={<DashboardSuspenseFallback />}>
                 {isSearchOpen && (
-                    <GlobalSearchScreen 
+                    <GlobalSearchScreen
                         dashboardType={DashboardType.Admin}
                         navigateTo={navigateTo}
                         onClose={() => setIsSearchOpen(false)}

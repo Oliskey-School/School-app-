@@ -75,6 +75,7 @@ import ManagePermissionSlipsScreen from './ManagePermissionSlipsScreen';
 import ManageLearningResourcesScreen from './ManageLearningResourcesScreen';
 import ManagePTAMeetingsScreen from './ManagePTAMeetingsScreen';
 import SchoolInfoScreen from './SchoolInfoScreen';
+import UserAccountsScreen from './UserAccountsScreen';
 
 interface ViewStackItem {
     view: string;
@@ -201,6 +202,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         manageLearningResources: ManageLearningResourcesScreen,
         managePTAMeetings: ManagePTAMeetingsScreen,
         manageSchoolInfo: SchoolInfoScreen,
+        userAccounts: UserAccountsScreen,
     };
 
     const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('admin')).length;

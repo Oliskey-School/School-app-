@@ -232,12 +232,16 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [student, setStudent] = useState<any>(null); // Use explicit type if available
+    const [isLoading, setIsLoading] = useState(true);
     const forceUpdate = () => setVersion(v => v + 1);
     const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('student')).length;
 
     useEffect(() => {
         const fetchStudent = async () => {
-            if (!profile.email) return;
+            if (!profile.email) {
+                setIsLoading(false);
+                return;
+            }
 
             try {
                 const data = await fetchStudentByEmail(profile.email);
@@ -262,6 +266,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 }
             } catch (err) {
                 console.error('Error loading student:', err);
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchStudent();
@@ -355,8 +361,34 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         forceUpdate,
     };
 
-    if (!student) {
+    if (isLoading) {
         return <DashboardSuspenseFallback />;
+    }
+
+    if (!student) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50">
+                <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+                    <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">🎓</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Student Profile Not Found</h2>
+                    <p className="text-gray-600 mb-6">
+                        We couldn't find a student record linked to <strong>{profile.email}</strong>.
+                        Please contact the school administrator to set up your student profile.
+                    </p>
+                    <button
+                        onClick={onLogout}
+                        className="w-full py-3 px-4 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition-colors shadow-sm"
+                    >
+                        Back to Login
+                    </button>
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                        <p className="text-xs text-gray-400">User ID: {profile.id || 'N/A'}</p>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (

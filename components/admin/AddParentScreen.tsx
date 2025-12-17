@@ -28,13 +28,36 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
     } | null>(null);
 
     useEffect(() => {
-        if (parentToEdit) {
-            setName(parentToEdit.name);
-            setEmail(parentToEdit.email);
-            setPhone(parentToEdit.phone);
-            setChildIds((parentToEdit.childIds || []).join(', '));
-            setAvatar(parentToEdit.avatarUrl);
-        }
+        const loadParentData = async () => {
+            if (parentToEdit) {
+                setName(parentToEdit.name);
+                setEmail(parentToEdit.email);
+                setPhone(parentToEdit.phone);
+                setAvatar(parentToEdit.avatarUrl);
+
+                if (isSupabaseConfigured) {
+                    try {
+                        const { data: links } = await supabase
+                            .from('parent_children')
+                            .select('student_id')
+                            .eq('parent_id', parentToEdit.id);
+
+                        if (links && links.length > 0) {
+                            setChildIds(links.map(l => l.student_id).join(', '));
+                        } else {
+                            // Fallback to prop if DB fetch empty (or just empty)
+                            setChildIds((parentToEdit.childIds || []).join(', '));
+                        }
+                    } catch (err) {
+                        console.error("Error loading child links:", err);
+                        setChildIds((parentToEdit.childIds || []).join(', '));
+                    }
+                } else {
+                    setChildIds((parentToEdit.childIds || []).join(', '));
+                }
+            }
+        };
+        loadParentData();
     }, [parentToEdit]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,8 +87,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             email,
                             phone,
                             avatarUrl,
-                            childIds: childIdArray,
-                            children: [] // In mock mode we might not easily link objects, so leave empty or resolve later
+                            childIds: childIdArray
                         };
                     }
                     alert('Parent updated successfully (Mock Mode - Session Only)');
@@ -77,8 +99,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                         email,
                         phone,
                         avatarUrl,
-                        childIds: childIdArray,
-                        children: [],
+                        childIds: childIdArray
                     });
                     // Simulate credentials generation
                     setCredentials({
@@ -108,125 +129,148 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     .eq('id', parentToEdit.id);
 
                 if (updateError) throw updateError;
-                alert('Parent updated successfully!');
-            } else {
-                // CREATE MODE
-                // 1. Check if email already exists in users or auth_accounts
-                const exists = await checkEmailExists(email);
-                if (exists.error) {
-                    console.warn('Email check error:', exists.error);
-                    throw new Error('Could not validate email uniqueness');
-                }
 
-                let userIdToUse: number | null = null;
-                if (exists.inAuthAccounts) {
-                    let whereFound: string[] = [];
-                    if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
-                    whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                    alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
-                    setIsLoading(false);
-                    return;
-                } else if (exists.inUsers) {
-                    // Exists in DB (users table) but NOT in Auth. Reuse the User ID.
-                    console.log(`Email ${email} found in 'users' but missing Auth. Attempting to repair/reuse User ID: ${exists.userRow.id}`);
-                    userIdToUse = exists.userRow.id;
-                }
-
-                // 2. Create User (Only if not reusing)
-                let userData = { id: userIdToUse };
-
-                if (!userIdToUse) {
-                    const { data: newUserData, error: userError } = await supabase
+                // Also update the core User record to keep name/avatar in sync
+                if (parentToEdit.user_id) {
+                    await supabase
                         .from('users')
-                        .insert([{
-                            email: email,
-                            name: name,
-                            role: 'Parent',
-                            avatar_url: avatarUrl
-                        }])
-                        .select()
-                        .single();
-
-                    if (userError) throw userError;
-                    userData = newUserData;
+                        .update({ name: name, avatar_url: avatarUrl })
+                        .eq('id', parentToEdit.user_id);
                 }
 
+                // Sync Children Relations
+                // 1. Remove all existing links for this parent
+                await supabase.from('parent_children').delete().eq('parent_id', parentToEdit.id);
 
-                // 3. Create Parent Profile
-                let parentData = null;
-
-                // If reusing user, check if parent profile also exists
-                if (userIdToUse) {
-                    const { data: existingParent, error: existingParentError } = await supabase
-                        .from('parents')
-                        .select('*')
-                        .eq('user_id', userIdToUse)
-                        .maybeSingle();
-
-                    if (existingParent) {
-                        console.log("Parent profile also exists. Reusing it.");
-                        parentData = existingParent;
-                    }
-                }
-
-                if (!parentData) {
-                    const { data: newParentData, error: parentError } = await supabase
-                        .from('parents')
-                        .insert([{
-                            user_id: userData.id,
-                            name,
-                            email: email,
-                            phone,
-                            avatar_url: avatarUrl
-                        }])
-                        .select()
-                        .single();
-
-                    if (parentError) throw parentError;
-                    parentData = newParentData;
-                }
-
-                // 4. Link Students to Parent
+                // 2. Add new links if any
                 if (childIdArray.length > 0) {
                     const relations = childIdArray.map(childId => ({
-                        parent_id: parentData.id,
+                        parent_id: parentToEdit.id,
                         student_id: childId
                     }));
-
-                    const { error: relationError } = await supabase
-                        .from('parent_children')
-                        .insert(relations);
-
-                    if (relationError) console.warn("Could not link all students:", relationError.message);
+                    await supabase.from('parent_children').insert(relations);
                 }
 
-                // 5. Create login credentials
-                const authResult = await createUserAccount(
-                    name,
-                    'Parent',
-                    email,
-                    userData.id
-                );
-
-                if (authResult.error) {
-                    console.warn('Warning: Auth account created with error:', authResult.error);
-                }
-
-                // Send verification email
-                const emailResult = await sendVerificationEmail(name, email, 'School App');
-                if (!emailResult.success) {
-                    console.warn('Warning: Email verification notification failed:', emailResult.error);
-                }
-
-                // Show credentials modal instead of alert
-                setCredentials({
-                    username: authResult.username,
-                    password: authResult.password,
-                    email: email
-                });
-                setShowCredentialsModal(true);
+                alert('Parent updated successfully!');
+                forceUpdate();
+                handleBack();
+                return; // Stop execution here
+            }
+            // CREATE MODE
+            // 1. Check if email already exists in users or auth_accounts
+            const exists = await checkEmailExists(email);
+            if (exists.error) {
+                console.warn('Email check error:', exists.error);
+                throw new Error('Could not validate email uniqueness');
             }
 
+            let userIdToUse: number | null = null;
+            if (exists.inAuthAccounts) {
+                let whereFound: string[] = [];
+                if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
+                whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
+                alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
+                setIsLoading(false);
+                return;
+            } else if (exists.inUsers) {
+                // Exists in DB (users table) but NOT in Auth. Reuse the User ID.
+                console.log(`Email ${email} found in 'users' but missing Auth. Attempting to repair/reuse User ID: ${exists.userRow.id}`);
+                userIdToUse = exists.userRow.id;
+            }
+
+            // 2. Create User (Only if not reusing)
+            let userData = { id: userIdToUse };
+
+            if (!userIdToUse) {
+                const { data: newUserData, error: userError } = await supabase
+                    .from('users')
+                    .insert([{
+                        email: email,
+                        name: name,
+                        role: 'Parent',
+                        avatar_url: avatarUrl
+                    }])
+                    .select()
+                    .single();
+
+                if (userError) throw userError;
+                userData = newUserData;
+            }
+
+
+            // 3. Create Parent Profile
+            let parentData = null;
+
+            // If reusing user, check if parent profile also exists
+            if (userIdToUse) {
+                const { data: existingParent, error: existingParentError } = await supabase
+                    .from('parents')
+                    .select('*')
+                    .eq('user_id', userIdToUse)
+                    .maybeSingle();
+
+                if (existingParent) {
+                    console.log("Parent profile also exists. Reusing it.");
+                    parentData = existingParent;
+                }
+            }
+
+            if (!parentData) {
+                const { data: newParentData, error: parentError } = await supabase
+                    .from('parents')
+                    .insert([{
+                        user_id: userData.id,
+                        name,
+                        email: email,
+                        phone,
+                        avatar_url: avatarUrl
+                    }])
+                    .select()
+                    .single();
+
+                if (parentError) throw parentError;
+                parentData = newParentData;
+            }
+
+            // 4. Link Students to Parent
+            if (childIdArray.length > 0) {
+                const relations = childIdArray.map(childId => ({
+                    parent_id: parentData.id,
+                    student_id: childId
+                }));
+
+                const { error: relationError } = await supabase
+                    .from('parent_children')
+                    .insert(relations);
+
+                if (relationError) console.warn("Could not link all students:", relationError.message);
+            }
+
+            // 5. Create login credentials
+            const authResult = await createUserAccount(
+                name,
+                'Parent',
+                email,
+                userData.id
+            );
+
+            if (authResult.error) {
+                console.warn('Warning: Auth account created with error:', authResult.error);
+            }
+
+            // Send verification email
+            const emailResult = await sendVerificationEmail(name, email, 'School App');
+            if (!emailResult.success) {
+                console.warn('Warning: Email verification notification failed:', emailResult.error);
+            }
+
+            // Show credentials modal instead of alert
+            setCredentials({
+                username: authResult.username,
+                password: authResult.password,
+                email: email
+            });
+            setShowCredentialsModal(true);
             // Don't call forceUpdate/handleBack here - let modal handle it
         } catch (error: any) {
             console.error('Error saving parent:', error);

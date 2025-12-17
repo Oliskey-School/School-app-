@@ -10,10 +10,10 @@ import ConfirmationModal from '../ui/ConfirmationModal';
 import { supabase } from '../../lib/supabase';
 
 interface StudentProfileAdminViewProps {
-  student: Student;
-  navigateTo: (view: string, title: string, props?: any) => void;
-  forceUpdate: () => void;
-  handleBack: () => void;
+    student: Student;
+    navigateTo: (view: string, title: string, props?: any) => void;
+    forceUpdate: () => void;
+    handleBack: () => void;
 }
 
 const SimpleBarChart = ({ data }: { data: { subject: string, score: number }[] }) => {
@@ -48,12 +48,12 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         leave: 0,
     });
     const [loading, setLoading] = useState(true);
-    
+
     const academicPerformance = student.academicPerformance || [];
     const averageScore = academicPerformance.length > 0
         ? Math.round(academicPerformance.reduce((sum, record) => sum + record.score, 0) / academicPerformance.length)
         : 0;
-    
+
     const formattedClassName = getFormattedClassName(student.grade, student.section);
 
     // Fetch attendance data from database
@@ -101,7 +101,18 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
 
     const handleDelete = async () => {
         try {
-            // Delete from database first
+            // 1. Fetch user email (needed for Auth deletion)
+            let userEmail = '';
+            if (student.user_id) {
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('email')
+                    .eq('id', student.user_id)
+                    .single();
+                if (userData) userEmail = userData.email;
+            }
+
+            // 2. Delete from database first (Students)
             const { error: deleteStudentError } = await supabase
                 .from('students')
                 .delete()
@@ -109,7 +120,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
 
             if (deleteStudentError) throw deleteStudentError;
 
-            // Delete associated user account if exists
+            // 3. Delete associated user account if exists
             if (student.user_id) {
                 const { error: deleteUserError } = await supabase
                     .from('users')
@@ -119,13 +130,22 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                 if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
             }
 
-            // Delete login credentials
+            // 4. Delete login credentials (local table)
             const { error: deleteAuthError } = await supabase
                 .from('auth_accounts')
                 .delete()
                 .eq('user_id', student.user_id);
 
             if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
+
+            // 5. Delete from Supabase Auth (RPC) - requires 'delete_auth_user_by_email' function
+            if (userEmail) {
+                const { error: rpcError } = await supabase.rpc('delete_auth_user_by_email', { email_input: userEmail });
+                if (rpcError) {
+                    // Don't throw here, as it might just be that the function isn't set up yet
+                    console.warn('Note: Could not delete from Supabase Auth (likely missing RPC function):', rpcError.message);
+                }
+            }
 
             // Also update mock data for consistency
             const index = mockStudents.findIndex(s => s.id === student.id);
@@ -149,16 +169,16 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const academicSummary = student.academicPerformance?.map(p => `${p.subject}: ${p.score}%`).join(', ') || 'N/A';
             const behaviorSummary = student.behaviorNotes?.map(n => `${n.type} - ${n.title}: ${n.note}`).join('; ') || 'No notes';
-            
+
             const prompt = `Generate a concise, professional summary for a school administrator about the student ${student.name}. Highlight key academic strengths, areas needing attention, and any notable behavioral patterns. Keep it to 2-3 short paragraphs. Base this summary on the following data:\n- Academic Performance: ${academicSummary}\n- Behavioral Notes: ${behaviorSummary}`;
-    
+
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt
             });
-            
+
             setSummary(response.text);
-    
+
         } catch (error) {
             console.error("Error generating student summary:", error);
             setSummary("Could not generate summary at this time.");
@@ -174,7 +194,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                     {/* Student Header */}
                     <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                            <img src={student.avatarUrl} alt={student.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100"/>
+                            <img src={student.avatarUrl} alt={student.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100" />
                             <div>
                                 <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
                                 <p className="text-gray-500 font-medium">{formattedClassName}{student.department && `, ${student.department}`}</p>
@@ -229,7 +249,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                                 </button>
                             )}
                         </div>
-                        
+
                         {/* Attendance Summary */}
                         <div className="bg-white p-4 rounded-xl shadow-sm">
                             <div className="flex items-center justify-between mb-3">
@@ -245,11 +265,11 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                             ) : (
                                 <div className="flex items-center justify-between px-2">
                                     <div className="relative">
-                                        <DonutChart 
-                                            percentage={Object.values(attendanceData).reduce((a, b) => a + b, 0) > 0 ? Math.round(((attendanceData.present + attendanceData.late) / Object.values(attendanceData).reduce((a, b) => a + b, 0)) * 100) : 0} 
-                                            color="#16a34a" 
-                                            size={100} 
-                                            strokeWidth={10} 
+                                        <DonutChart
+                                            percentage={Object.values(attendanceData).reduce((a, b) => a + b, 0) > 0 ? Math.round(((attendanceData.present + attendanceData.late) / Object.values(attendanceData).reduce((a, b) => a + b, 0)) * 100) : 0}
+                                            color="#16a34a"
+                                            size={100}
+                                            strokeWidth={10}
                                         />
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                                             <span className="text-2xl font-bold text-gray-800">{Object.values(attendanceData).reduce((a, b) => a + b, 0) > 0 ? Math.round(((attendanceData.present + attendanceData.late) / Object.values(attendanceData).reduce((a, b) => a + b, 0)) * 100) : 0}%</span>
@@ -298,7 +318,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             </main>
             <div className="p-4 mt-auto bg-white border-t space-y-2 print:hidden">
                 <h3 className="text-sm font-bold text-gray-500 text-center uppercase tracking-wider">Admin Actions</h3>
-                 <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                     <button onClick={() => navigateTo('addStudent', `Edit ${student.name}`, { studentToEdit: student })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><EditIcon className="w-5 h-5" /><span>Edit</span></button>
                     <button onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student.name}`, { student })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><DocumentTextIcon className="w-5 h-5" /><span>Reports</span></button>
                     <button onClick={() => alert('ID Card Generation module would open.')} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><DocumentTextIcon className="w-5 h-5" /><span>ID Card</span></button>
@@ -306,7 +326,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                 </div>
             </div>
 
-            <ConfirmationModal 
+            <ConfirmationModal
                 isOpen={showDeleteModal}
                 onClose={() => setShowDeleteModal(false)}
                 onConfirm={handleDelete}

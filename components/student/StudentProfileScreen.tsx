@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Student } from '../../types';
-// mockStudents removed
+import { fetchParentsForStudent } from '../../lib/database';
+import { Student, Parent } from '../../types';
 import { BookOpenIcon, ClipboardListIcon, SUBJECT_COLORS, CakeIcon, UserIcon, NotificationIcon, SecurityIcon, LogoutIcon, SettingsIcon, ChevronLeftIcon, ChevronRightIcon, CameraIcon, LockIcon, ExamIcon } from '../../constants';
 
 interface StudentProfileScreenProps {
@@ -115,6 +115,17 @@ const SettingsPlaceholder: React.FC = () => (
 const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ studentId, student, onLogout, navigateTo }) => {
     // const student = mockStudents... removed
     const [activeSetting, setActiveSetting] = useState<SettingView>(null);
+    const [parents, setParents] = useState<Parent[]>([]);
+
+    useEffect(() => {
+        const loadParents = async () => {
+            if (studentId) {
+                const data = await fetchParentsForStudent(studentId);
+                setParents(data);
+            }
+        };
+        loadParents();
+    }, [studentId]);
 
     const settingsItems = [
         { id: 'cbtPortal', label: 'CBT & Exams', icon: <ExamIcon />, color: 'bg-indigo-100 text-indigo-500', action: () => navigateTo('cbtPortal', 'CBT Portal', {}) },
@@ -158,6 +169,25 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ studentId, 
                             )}
                         </div>
                     </div>
+
+                    {/* Guardians Section */}
+                    {parents.length > 0 && (
+                        <div className="bg-white p-4 rounded-xl shadow-sm">
+                            <h4 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider">Guardians</h4>
+                            <div className="space-y-3">
+                                {parents.map(parent => (
+                                    <div key={parent.id} className="flex items-center space-x-3 pb-2 border-b border-gray-50 last:border-0 last:pb-0">
+                                        <img src={parent.avatarUrl} alt={parent.name} className="w-10 h-10 rounded-full bg-gray-200 object-cover" />
+                                        <div>
+                                            <p className="font-semibold text-gray-800 text-sm">{parent.name}</p>
+                                            <p className="text-xs text-gray-500">{parent.phone || parent.email}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-white rounded-xl shadow-sm p-2">
                         {settingsItems.map(item => (
                             <button key={item.id} onClick={() => handleItemClick(item)} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>

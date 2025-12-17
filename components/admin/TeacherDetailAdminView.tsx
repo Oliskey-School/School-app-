@@ -8,16 +8,48 @@ import ConfirmationModal from '../ui/ConfirmationModal';
 import { supabase } from '../../lib/supabase';
 
 interface TeacherDetailAdminViewProps {
-  teacher: Teacher;
-  navigateTo: (view: string, title: string, props?: any) => void;
-  forceUpdate: () => void;
-  handleBack: () => void;
+    teacher: Teacher;
+    navigateTo: (view: string, title: string, props?: any) => void;
+    forceUpdate: () => void;
+    handleBack: () => void;
 }
 
-const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher, navigateTo, forceUpdate, handleBack }) => {
+import { fetchTeacherById } from '../../lib/database';
+
+const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher: initialTeacher, navigateTo, forceUpdate, handleBack }) => {
+    const [teacher, setTeacher] = useState<Teacher>(initialTeacher);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const teacherClasses = mockClasses.filter(c => teacher.classes.includes(c.grade + c.section));
-    
+
+    // Fetch latest data on mount
+    React.useEffect(() => {
+        const loadTeacher = async () => {
+            const freshData = await fetchTeacherById(initialTeacher.id);
+            if (freshData) {
+                setTeacher(freshData);
+            }
+        };
+        loadTeacher();
+    }, [initialTeacher.id]);
+
+    // Computed classes visualization
+    // If we have detailed class info in mockClasses, use it. Otherwise, create a placeholder.
+    const displayClasses = teacher.classes.map(className => {
+        // Try to parse grade/section from string "10A" or "Grade 10A"
+        const normalized = className.replace(/Grade\s*/i, '').trim();
+        const match = mockClasses.find(c => (c.grade + c.section) === normalized);
+
+        if (match) return match;
+
+        // Fallback for classes not in mock data
+        return {
+            id: Math.random(), // temp id
+            grade: parseInt(normalized.match(/\d+/)?.[0] || '0'),
+            section: normalized.replace(/\d+/, '') || '',
+            subject: teacher.subjects[0] || 'General', // Guess subject
+            studentCount: 0 // Unknown
+        };
+    });
+
     const handleDelete = async () => {
         try {
             // Delete from database first
@@ -67,7 +99,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Teacher Info */}
                     <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
-                        <img src={teacher.avatarUrl} alt={teacher.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100"/>
+                        <img src={teacher.avatarUrl} alt={teacher.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100" />
                         <div className="flex-grow">
                             <div className="flex items-center space-x-2">
                                 <h3 className="text-xl font-bold text-gray-800">{teacher.name}</h3>
@@ -77,8 +109,8 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                             </div>
                             <p className={`text-sm font-semibold inline-block px-2 py-0.5 rounded ${SUBJECT_COLORS[teacher.subjects[0]] || 'bg-gray-200'}`}>{teacher.subjects.join(', ')}</p>
                             <div className="flex space-x-4 mt-2">
-                                <a href={`mailto:${teacher.email}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><MailIcon className="w-4 h-4"/><span>Email</span></a>
-                                <a href={`tel:${teacher.phone}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><PhoneIcon className="w-4 h-4"/><span>Call</span></a>
+                                <a href={`mailto:${teacher.email}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><MailIcon className="w-4 h-4" /><span>Email</span></a>
+                                <a href={`tel:${teacher.phone}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>
                             </div>
                         </div>
                     </div>
@@ -104,12 +136,12 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                         <div className="bg-white p-4 rounded-xl shadow-sm">
                             <h4 className="font-bold text-gray-800 mb-2">Assigned Classes</h4>
                             <div className="space-y-2">
-                                {teacherClasses.map(c => (
-                                    <div key={c.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                                {displayClasses.length > 0 ? displayClasses.map((c, idx) => (
+                                    <div key={idx} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
                                         <p className="font-semibold text-gray-700">Grade {c.grade}{c.section} - {c.subject}</p>
-                                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${gradeColors[c.grade] || 'bg-gray-200'}`}>{c.studentCount} students</span>
+                                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${gradeColors[c.grade] || 'bg-gray-200'}`}>{c.studentCount > 0 ? `${c.studentCount} students` : 'Class Info'}</span>
                                     </div>
-                                ))}
+                                )) : <p className="text-gray-500 text-sm italic">No classes assigned.</p>}
                             </div>
                         </div>
                     </div>
@@ -118,19 +150,19 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                     <div className="lg:col-span-1">
                         {/* Actions */}
                         <div className="bg-white p-4 rounded-xl shadow-sm space-y-2">
-                             <button onClick={() => navigateTo('teacherPerformance', 'Performance Evaluation', { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg">
-                                <ChartBarIcon className="w-6 h-6 text-indigo-500"/>
+                            <button onClick={() => navigateTo('teacherPerformance', 'Performance Evaluation', { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg">
+                                <ChartBarIcon className="w-6 h-6 text-indigo-500" />
                                 <span className="font-semibold text-gray-700">Performance Evaluation</span>
                             </button>
                             <button onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.name}'s Attendance`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg">
-                                <CalendarIcon className="w-6 h-6 text-indigo-500"/>
+                                <CalendarIcon className="w-6 h-6 text-indigo-500" />
                                 <span className="font-semibold text-gray-700">Full Attendance Record</span>
                             </button>
                         </div>
                     </div>
                 </div>
             </main>
-             <div className="p-4 mt-auto bg-white border-t space-y-2">
+            <div className="p-4 mt-auto bg-white border-t space-y-2">
                 <h3 className="text-sm font-bold text-gray-500 text-center uppercase">Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => navigateTo('addTeacher', `Edit ${teacher.name}`, { teacherToEdit: teacher })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold"><EditIcon /><span>Edit Profile</span></button>
@@ -138,7 +170,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                 </div>
             </div>
 
-            <ConfirmationModal 
+            <ConfirmationModal
                 isOpen={showDeleteModal}
                 onClose={() => setShowDeleteModal(false)}
                 onConfirm={handleDelete}

@@ -248,6 +248,34 @@ export async function fetchParentByEmail(email: string): Promise<Parent | null> 
     }
 }
 
+export async function fetchParentByUserId(userId: number | string): Promise<Parent | null> {
+    try {
+        const { data, error } = await supabase
+            .from('parents')
+            .select(`
+        *,
+        parent_children(student_id)
+      `)
+            .eq('user_id', userId)
+            .single();
+
+        if (error) throw error;
+        if (!data) return null;
+
+        return {
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            phone: data.phone || '',
+            avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent',
+            childIds: (data.parent_children || []).map((c: any) => c.student_id)
+        };
+    } catch (err) {
+        console.error('Error fetching parent by user id:', err);
+        return null;
+    }
+}
+
 export async function fetchChildrenForParent(parentId: number): Promise<Student[]> {
     try {
         // 1. Get student IDs
@@ -282,6 +310,42 @@ export async function fetchChildrenForParent(parentId: number): Promise<Student[
 
     } catch (err) {
         console.error('Error fetching children for parent:', err);
+        return [];
+    }
+}
+
+export async function fetchParentsForStudent(studentId: number): Promise<Parent[]> {
+    try {
+        // 1. Get parent IDs
+        const { data: relations, error: relError } = await supabase
+            .from('parent_children')
+            .select('parent_id')
+            .eq('student_id', studentId);
+
+        if (relError) throw relError;
+        if (!relations || relations.length === 0) return [];
+
+        const parentIds = relations.map((r: any) => r.parent_id);
+
+        // 2. Fetch parents
+        const { data: parents, error: parError } = await supabase
+            .from('parents')
+            .select('*')
+            .in('id', parentIds);
+
+        if (parError) throw parError;
+
+        return (parents || []).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            phone: p.phone || '',
+            avatarUrl: p.avatar_url || 'https://i.pravatar.cc/150?u=parent',
+            childIds: [] // We don't necessarily need child IDs here, or we could fetch them if needed
+        }));
+
+    } catch (err) {
+        console.error('Error fetching parents for student:', err);
         return [];
     }
 }

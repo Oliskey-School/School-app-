@@ -16,7 +16,7 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void 
         <p className="font-bold text-lg text-gray-800">{parent.name}</p>
         <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1">
           <StudentsIcon className="w-4 h-4" />
-          <span>Children IDs: {(parent.childIds || []).join(', ')}</span>
+          <span>Children: {(parent.childIds || []).join(', ')}</span>
         </div>
       </div>
     </div>

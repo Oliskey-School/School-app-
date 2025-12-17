@@ -40,7 +40,8 @@ import {
     mockNotifications,
     mockProgressReports,
 } from '../../data';
-import { fetchParentByEmail, fetchChildrenForParent } from '../../lib/database';
+import { fetchParentByEmail, fetchChildrenForParent, fetchParentByUserId } from '../../lib/database';
+
 import DonutChart from '../ui/DonutChart';
 import GlobalSearchScreen from '../shared/GlobalSearchScreen';
 
@@ -463,9 +464,17 @@ const Dashboard = ({ navigateTo, children, parentId }: { navigateTo: (view: stri
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
-                    {childrenData.map((data, index) => (
-                        <ChildStatCard key={data.student.id} data={data} navigateTo={navigateTo} colorTheme={childColorThemes[index % childColorThemes.length]} />
-                    ))}
+                    {childrenData.length === 0 ? (
+                        <div className="bg-white p-8 rounded-2xl shadow-sm text-center">
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">No Children Linked</h3>
+                            <p className="text-gray-600 mb-4">You have not been linked to any students yet.</p>
+                            <p className="text-sm text-gray-500">Please contact the school administrator to link your account to your child.</p>
+                        </div>
+                    ) : (
+                        childrenData.map((data, index) => (
+                            <ChildStatCard key={data.student.id} data={data} navigateTo={navigateTo} colorTheme={childColorThemes[index % childColorThemes.length]} />
+                        ))
+                    )}
                 </div>
                 {/* Sidebar */}
                 <div className="lg:col-span-1 space-y-6">
@@ -511,22 +520,28 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             if (!profile.email) return;
             setIsLoadingData(true);
             try {
-                const parentData = await fetchParentByEmail(profile.email);
+                let parentData = null;
+
+                // 1. Try fetching by User ID (Reliable)
+                if (profile.id) {
+                    parentData = await fetchParentByUserId(profile.id);
+                }
+
+                // 2. Fallback to Email (Legacy/Auth-less)
+                if (!parentData && profile.email) {
+                    console.log("Fetching parent by email fallback...");
+                    parentData = await fetchParentByEmail(profile.email);
+                }
+
                 if (parentData) {
                     setParent(parentData);
                     const childrenData = await fetchChildrenForParent(parentData.id);
                     setChildren(childrenData);
                 } else {
-                    // Fallback to demo parent if not found in DB (for development/demo consistency)
-                    console.warn("Parent not found in DB, using fallback mock ID 1002");
-                    // We could set a mock parent here or just leave it empty.
-                    // For "Production Ready", we should probably handle the error or redirect to setup.
-                    // But for this session, let's try to map the demo user.
+                    console.warn("Parent profile not found for user:", profile.email);
+                    // Fallback to demo for development
                     if (profile.email === 'parent@school.com') {
                         setParent({ id: 1002, name: 'Mrs. Bello', email: 'parent@school.com', avatarUrl: 'https://i.pravatar.cc/150?u=parent' });
-                        // Mock children for demo user
-                        // children are handled by Dashboard logic usually, but here we need them.
-                        // Let's assume the mock students 3 and 4.
                         const mockKids = mockStudents.filter(s => [3, 4].includes(s.id));
                         setChildren(mockKids);
                     }

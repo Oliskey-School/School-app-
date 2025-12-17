@@ -13,15 +13,44 @@ interface AddTeacherScreenProps {
     handleBack: () => void;
 }
 
-const TagInput: React.FC<{ label: string; tags: string[]; setTags: React.Dispatch<React.SetStateAction<string[]>>; placeholder: string }> = ({ label, tags, setTags, placeholder }) => {
+const TagInput: React.FC<{
+    label: string;
+    tags: string[];
+    setTags: React.Dispatch<React.SetStateAction<string[]>>;
+    placeholder: string;
+    validOptions?: string[];
+    validationMessage?: string;
+}> = ({ label, tags, setTags, placeholder, validOptions, validationMessage }) => {
     const [input, setInput] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
     const handleAddTag = () => {
         const newTag = input.trim();
-        if (newTag && !tags.includes(newTag)) {
-            setTags([...tags, newTag]);
+        if (!newTag) return;
+
+        if (tags.includes(newTag)) {
             setInput('');
+            setError(null);
+            return;
         }
+
+        // VALIDATION LOGIC
+        if (validOptions && validOptions.length > 0) {
+            // Case-insensitive check
+            const match = validOptions.find(opt => opt.toLowerCase() === newTag.toLowerCase());
+            if (!match) {
+                setError(validationMessage || `Invalid value. Please select from the list.`);
+                // Optional: Show valid options in console or UI suggestion
+                return;
+            }
+            // Use the canonical casing from validOptions
+            setTags([...tags, match]);
+        } else {
+            setTags([...tags, newTag]);
+        }
+
+        setInput('');
+        setError(null);
     };
 
     const handleRemoveTag = (tagToRemove: string) => {
@@ -38,7 +67,7 @@ const TagInput: React.FC<{ label: string; tags: string[]; setTags: React.Dispatc
     return (
         <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-            <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-lg bg-gray-50">
+            <div className={`flex flex-wrap items-center gap-2 p-2 border rounded-lg bg-gray-50 ${error ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-300'}`}>
                 {tags.map(tag => (
                     <span key={tag} className="flex items-center gap-1.5 bg-sky-100 text-sky-800 text-sm font-semibold px-2 py-1 rounded-md">
                         {tag}
@@ -50,12 +79,21 @@ const TagInput: React.FC<{ label: string; tags: string[]; setTags: React.Dispatc
                 <input
                     type="text"
                     value={input}
-                    onChange={e => setInput(e.target.value)}
+                    onChange={e => { setInput(e.target.value); setError(null); }}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     className="flex-grow bg-transparent p-1 text-gray-700 focus:outline-none"
+                    list={`list-${label.replace(/\s/g, '')}`}
                 />
             </div>
+            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+
+            {/* Datalist for suggestions */}
+            {validOptions && (
+                <datalist id={`list-${label.replace(/\s/g, '')}`}>
+                    {validOptions.map(opt => <option key={opt} value={opt} />)}
+                </datalist>
+            )}
         </div>
     );
 };
@@ -71,11 +109,46 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [avatar, setAvatar] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+
+    // Validation Lists
+    const [validSubjects, setValidSubjects] = useState<string[]>([]);
+    const [validClasses, setValidClasses] = useState<string[]>([]);
+    const [loadingRefs, setLoadingRefs] = useState(true);
+
     const [credentials, setCredentials] = useState<{
         username: string;
         password: string;
         email: string;
     } | null>(null);
+
+    // Fetch Reference Data
+    useEffect(() => {
+        const fetchRefs = async () => {
+            if (!isSupabaseConfigured) {
+                // Mock reference data
+                setValidSubjects(['Math', 'English', 'Science', 'History', 'Geography', 'Art', 'Music', 'PE', 'Physics', 'Chemistry', 'Biology']);
+                setValidClasses(['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']);
+                setLoadingRefs(false);
+                return;
+            }
+
+            try {
+                // Fetch Subjects
+                const { data: sData } = await supabase.from('subjects').select('name');
+                if (sData) setValidSubjects(sData.map(d => d.name));
+
+                // Fetch Classes
+                const { data: cData } = await supabase.from('classes').select('class_name');
+                if (cData) setValidClasses(cData.map(d => d.class_name));
+
+            } catch (err) {
+                console.error("Error fetching reference data:", err);
+            } finally {
+                setLoadingRefs(false);
+            }
+        };
+        fetchRefs();
+    }, []);
 
     useEffect(() => {
         if (teacherToEdit) {
@@ -161,6 +234,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
             if (teacherToEdit) {
                 // UPDATE MODE
+                // 1. Update basic info
                 const { error: updateError } = await supabase
                     .from('teachers')
                     .update({
@@ -173,7 +247,39 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     .eq('id', teacherToEdit.id);
 
                 if (updateError) throw updateError;
-                // Update relations (simplified for now: just re-insert or similar could be better but sticking to main update)
+
+                // 2. Update Subjects (Delete all, re-insert)
+                await supabase.from('teacher_subjects').delete().eq('teacher_id', teacherToEdit.id);
+                if (subjects.length > 0) {
+                    const subjectInserts = subjects.map(subject => ({
+                        teacher_id: teacherToEdit.id,
+                        subject
+                    }));
+                    await supabase.from('teacher_subjects').insert(subjectInserts);
+                }
+
+                // 3. Update Classes (Delete all, re-insert)
+                await supabase.from('teacher_classes').delete().eq('teacher_id', teacherToEdit.id);
+                if (classes.length > 0) {
+                    // Normalize classes to a canonical format (e.g. `10A`) before inserting
+                    const normalize = (s: string) => {
+                        if (!s) return s;
+                        let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
+                        const m = cleaned.match(/(\d+)([A-Z]+)/i);
+                        if (m) return `${parseInt(m[1], 10)}${m[2]}`;
+                        const m2 = cleaned.match(/(\d+)/);
+                        if (m2) return `${parseInt(m2[1], 10)}`;
+                        return cleaned;
+                    };
+
+                    const normalized = Array.from(new Set(classes.map(normalize).filter(Boolean)));
+                    const classInserts = normalized.map(className => ({
+                        teacher_id: teacherToEdit.id,
+                        class_name: className
+                    }));
+                    await supabase.from('teacher_classes').insert(classInserts);
+                }
+
                 alert('Teacher updated successfully!');
             } else {
                 // CREATE MODE - Check if email already exists in users or auth_accounts
@@ -338,8 +444,22 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         <InputField id="email" label="Email" value={email} onChange={setEmail} icon={<MailIcon className="w-5 h-5" />} type="email" />
                         <InputField id="phone" label="Phone" value={phone} onChange={setPhone} icon={<PhoneIcon className="w-5 h-5" />} type="tel" />
 
-                        <TagInput label="Subjects" tags={subjects} setTags={setSubjects} placeholder="Add subject & press Enter" />
-                        <TagInput label="Classes" tags={classes} setTags={setClasses} placeholder="Add class (e.g., 7A) & press Enter" />
+                        <TagInput
+                            label="Subjects"
+                            tags={subjects}
+                            setTags={setSubjects}
+                            placeholder={loadingRefs ? "Loading subjects..." : "Add subject & press Enter"}
+                            validOptions={validSubjects}
+                            validationMessage="Subject not found in database. Please ask admin to add it."
+                        />
+                        <TagInput
+                            label="Classes"
+                            tags={classes}
+                            setTags={setClasses}
+                            placeholder={loadingRefs ? "Loading classes..." : "Add class (e.g., 7A) & press Enter"}
+                            validOptions={validClasses}
+                            validationMessage="Class not found in database. Please ask admin to add it."
+                        />
 
                         <div>
                             <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
