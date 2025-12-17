@@ -75,43 +75,74 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     throw new Error('Could not validate email uniqueness');
                 }
 
-                if (exists.inUsers || exists.inAuthAccounts) {
+                let userIdToUse: number | null = null;
+
+                if (exists.inAuthAccounts) {
                     let whereFound: string[] = [];
                     if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
-                    if (exists.inAuthAccounts) whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
+                    whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
                     alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
                     setIsLoading(false);
                     return;
+                } else if (exists.inUsers) {
+                    // Exists in DB (users table) but NOT in Auth. Reuse the User ID.
+                    console.log(`Email ${email} found in 'users' but missing Auth. Attempting to repair/reuse User ID: ${exists.userRow.id}`);
+                    userIdToUse = exists.userRow.id;
                 }
 
-                // 2. Create User
-                const { data: userData, error: userError } = await supabase
-                    .from('users')
-                    .insert([{
-                        email: email,
-                        name: name,
-                        role: 'Parent',
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
+                // 2. Create User (Only if not reusing)
+                let userData = { id: userIdToUse };
 
-                if (userError) throw userError;
+                if (!userIdToUse) {
+                    const { data: newUserData, error: userError } = await supabase
+                        .from('users')
+                        .insert([{
+                            email: email,
+                            name: name,
+                            role: 'Parent',
+                            avatar_url: avatarUrl
+                        }])
+                        .select()
+                        .single();
+
+                    if (userError) throw userError;
+                    userData = newUserData;
+                }
+
 
                 // 3. Create Parent Profile
-                const { data: parentData, error: parentError } = await supabase
-                    .from('parents')
-                    .insert([{
-                        user_id: userData.id,
-                        name,
-                        email: email,
-                        phone,
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
+                let parentData = null;
 
-                if (parentError) throw parentError;
+                // If reusing user, check if parent profile also exists
+                if (userIdToUse) {
+                    const { data: existingParent, error: existingParentError } = await supabase
+                        .from('parents')
+                        .select('*')
+                        .eq('user_id', userIdToUse)
+                        .maybeSingle();
+
+                    if (existingParent) {
+                        console.log("Parent profile also exists. Reusing it.");
+                        parentData = existingParent;
+                    }
+                }
+
+                if (!parentData) {
+                    const { data: newParentData, error: parentError } = await supabase
+                        .from('parents')
+                        .insert([{
+                            user_id: userData.id,
+                            name,
+                            email: email,
+                            phone,
+                            avatar_url: avatarUrl
+                        }])
+                        .select()
+                        .single();
+
+                    if (parentError) throw parentError;
+                    parentData = newParentData;
+                }
 
                 // 4. Link Students to Parent
                 if (childIdArray.length > 0) {

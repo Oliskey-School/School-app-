@@ -349,6 +349,27 @@ CREATE POLICY "Allow authenticated update on store_orders" ON public.store_order
 CREATE POLICY "Allow authenticated delete on store_orders" ON public.store_orders
   FOR DELETE TO authenticated USING (true);
 
+
+ALTER TABLE IF EXISTS public.report_cards ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated select on report_cards" ON public.report_cards
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow authenticated insert on report_cards" ON public.report_cards
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Allow authenticated update on report_cards" ON public.report_cards
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated delete on report_cards" ON public.report_cards
+  FOR DELETE TO authenticated USING (true);
+
+ALTER TABLE IF EXISTS public.fee_payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated select on fee_payments" ON public.fee_payments
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow authenticated insert on fee_payments" ON public.fee_payments
+  FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Allow authenticated update on fee_payments" ON public.fee_payments
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated delete on fee_payments" ON public.fee_payments
+  FOR DELETE TO authenticated USING (true);
+
 COMMIT;
 
 -- Notes:

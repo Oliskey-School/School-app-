@@ -2,6 +2,13 @@
 -- CHAT SYSTEM SCHEMA UPDATE
 -- ============================================
 
+-- 0. CLEANUP
+DROP TABLE IF EXISTS user_presence CASCADE;
+DROP TABLE IF EXISTS chat_message_reactions CASCADE;
+DROP TABLE IF EXISTS chat_messages CASCADE;
+DROP TABLE IF EXISTS chat_participants CASCADE;
+DROP TABLE IF EXISTS chat_rooms CASCADE;
+
 -- 1. CHAT ROOMS
 CREATE TABLE IF NOT EXISTS chat_rooms (
     id SERIAL PRIMARY KEY,

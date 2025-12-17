@@ -1,6 +1,6 @@
-
-import React from 'react';
-import { CBTTest } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { CBTTest, CBTResult } from '../../types';
 import { CheckCircleIcon, XCircleIcon } from '../../constants';
 
 interface CBTScoresScreenProps {
@@ -8,6 +8,50 @@ interface CBTScoresScreenProps {
 }
 
 const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
+    const [results, setResults] = useState<CBTResult[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchScores = async () => {
+            setLoading(true);
+            try {
+                // Fetch submissions with student details
+                const { data, error } = await supabase
+                    .from('cbt_submissions')
+                    .select('*, students(name)')
+                    .eq('test_id', test.id)
+                    .order('submitted_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (data) {
+                    const formattedResults: CBTResult[] = data.map((sub: any) => {
+                        const score = parseFloat(sub.score);
+                        const total = sub.total_questions || test.questionsCount || 10;
+                        const percentage = Math.round((score / total) * 100);
+
+                        return {
+                            studentId: sub.student_id,
+                            studentName: sub.students?.name || 'Unknown',
+                            score: score,
+                            totalQuestions: total,
+                            percentage: percentage,
+                            submittedAt: sub.submitted_at,
+                            status: percentage >= 50 ? 'Passed' : 'Failed'
+                        };
+                    });
+                    setResults(formattedResults);
+                }
+            } catch (err) {
+                console.error("Error fetching scores:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchScores();
+    }, [test.id]);
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <div className="p-4 bg-white border-b shadow-sm">
@@ -15,12 +59,14 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                 <div className="flex space-x-4 mt-2 text-sm text-gray-600">
                     <p>Total Questions: <strong>{test.questionsCount}</strong></p>
                     <p>Class: <strong>{test.className}</strong></p>
-                    <p>Participants: <strong>{test.results.length}</strong></p>
+                    <p>Participants: <strong>{results.length}</strong></p>
                 </div>
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto">
-                {test.results.length === 0 ? (
+                {loading ? (
+                    <div className="text-center py-10 text-gray-500">Loading scores...</div>
+                ) : results.length === 0 ? (
                     <div className="text-center py-10 text-gray-500">
                         <p>No students have submitted this test yet.</p>
                     </div>
@@ -37,7 +83,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {test.results.map((result, idx) => (
+                                {results.map((result, idx) => (
                                     <tr key={idx}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{result.studentName}</div>

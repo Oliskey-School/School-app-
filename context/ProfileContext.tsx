@@ -96,7 +96,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (userId && !isNaN(Number(userId))) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url')
+          .select('id, name, email, avatar_url, phone')
           .eq('id', Number(userId))
           .single();
         userData = result.data;
@@ -104,7 +104,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (email) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url')
+          .select('id, name, email, avatar_url, phone')
           .eq('email', email)
           .single();
         userData = result.data;
@@ -116,7 +116,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           id: userData.id,
           name: userData.name || profile.name,
           email: userData.email,
-          phone: profile.phone,
+          phone: userData.phone || profile.phone,
           avatarUrl: userData.avatar_url || profile.avatarUrl,
           role: profile.role,
         };
@@ -148,6 +148,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             name: updated.name,
             email: updated.email,
             avatar_url: updated.avatarUrl,
+            phone: updated.phone
           })
           .eq('id', Number(updated.id));
 
@@ -163,6 +164,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .update({
             name: updated.name,
             avatar_url: updated.avatarUrl,
+            phone: updated.phone
           })
           .eq('email', updated.email);
 
@@ -196,7 +198,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (profile.id && !isNaN(Number(profile.id))) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url')
+          .select('id, name, email, avatar_url, phone')
           .eq('id', Number(profile.id))
           .single();
 
@@ -205,7 +207,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             id: data.id,
             name: data.name || profile.name,
             email: data.email,
-            phone: profile.phone,
+            phone: data.phone || profile.phone,
             avatarUrl: data.avatar_url || profile.avatarUrl,
             role: profile.role,
           };
@@ -216,7 +218,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (profile.email) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url')
+          .select('id, name, email, avatar_url, phone')
           .eq('email', profile.email)
           .single();
 

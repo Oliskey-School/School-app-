@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Assignment, Teacher } from '../../types';
-import { mockAssignments, mockTeachers } from '../../data';
+import { Assignment } from '../../types';
 import { ChevronRightIcon, PlusIcon, CheckCircleIcon, ClipboardListIcon } from '../../constants';
+import { supabase } from '../../lib/supabase';
 
 interface TeacherAssignmentsListScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
@@ -9,11 +9,10 @@ interface TeacherAssignmentsListScreenProps {
     forceUpdate: () => void;
 }
 
-const LOGGED_IN_TEACHER_ID = 2;
-
 const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> = ({ navigateTo, handleBack, forceUpdate }) => {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    const teacher = useMemo(() => mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!, []);
+    const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (successMessage) {
@@ -22,23 +21,53 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
         }
     }, [successMessage]);
 
+    // Fetch assignments from Supabase
+    const fetchAssignments = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('assignments')
+                .select('*')
+                .order('id', { ascending: false });
+
+            if (error) throw error;
+
+            if (data) {
+                // Map DB columns (snake_case) to TypeScript interface (camelCase)
+                const mappedAssignments: Assignment[] = data.map((item: any) => ({
+                    id: item.id,
+                    title: item.title,
+                    description: item.description,
+                    className: item.class_name,
+                    subject: item.subject,
+                    dueDate: item.due_date,
+                    totalStudents: item.total_students || 0,
+                    submissionsCount: item.submissions_count || 0
+                }));
+                setAssignments(mappedAssignments);
+            }
+        } catch (error) {
+            console.error('Error fetching assignments:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAssignments();
+    }, [forceUpdate]); // Re-fetch when forceUpdate changes
+
     const handleAssignmentAdded = (newAssignmentData: Omit<Assignment, 'id'>) => {
-        const newAssignment: Assignment = {
-            id: Date.now(),
-            ...newAssignmentData,
-        };
-        mockAssignments.unshift(newAssignment);
-        forceUpdate();
+        // Optimistic update or simple re-fetch
         setSuccessMessage('Assignment added successfully!');
+        fetchAssignments();
         handleBack();
     };
 
     const assignmentsByClass = useMemo(() => {
-        const teacherAssignments = mockAssignments.filter(a => 
-            teacher.subjects.includes(a.subject) && 
-            teacher.classes.some(c => a.className.includes(c))
-        );
-        return teacherAssignments.reduce((acc, assignment) => {
+        // Simple grouping without strict teacher subject/class filtering for now
+        // to ensure created assignments appear.
+        return assignments.reduce((acc, assignment) => {
             const className = assignment.className;
             if (!acc[className]) {
                 acc[className] = [];
@@ -46,11 +75,20 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
             acc[className].push(assignment);
             return acc;
         }, {} as Record<string, Assignment[]>);
-    }, [teacher, forceUpdate]); // Depend on forceUpdate to re-calculate
+    }, [assignments]);
 
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">
             <main className="flex-grow p-4 overflow-y-auto pb-24">
+                {/* Empty State */}
+                {!loading && assignments.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                        <ClipboardListIcon className="w-16 h-16 text-gray-300 mb-4" />
+                        <p className="text-lg font-medium">No assignments found</p>
+                        <p className="text-sm">Create one to get started!</p>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(assignmentsByClass).map(([className, classAssignments]: [string, Assignment[]]) => {
                         const totalSubmissions = classAssignments.reduce((sum, a) => sum + a.submissionsCount, 0);
@@ -64,7 +102,7 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
                             >
                                 <div className="flex items-center space-x-4">
                                     <div className="p-3 bg-purple-100 rounded-lg">
-                                        <ClipboardListIcon className="h-6 w-6 text-purple-600"/>
+                                        <ClipboardListIcon className="h-6 w-6 text-purple-600" />
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-gray-800">{className}</h3>

@@ -93,59 +93,187 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     throw new Error('Could not validate email uniqueness');
                 }
 
-                if (exists.inUsers || exists.inAuthAccounts) {
+                let userIdToUse: number | null = null;
+
+                if (exists.inAuthAccounts) {
+                    // Fully exists in Auth. This is a duplicate.
                     let whereFound: string[] = [];
                     if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
-                    if (exists.inAuthAccounts) whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                    alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different name or email.`);
+                    whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
+                    alert(`Student with email ${generatedEmail} already exists in: ${whereFound.join(', ')}. Please use a different name to generate a unique email.`);
                     setIsLoading(false);
                     return;
+                } else if (exists.inUsers) {
+                    // Exists in DB but NOT in Auth. This is a "Zombie" record.
+                    // We should attempt to repair this by reusing the User ID and creating Auth.
+                    console.log(`Email ${generatedEmail} found in 'users' but missing Auth. Attempting to repair/reuse User ID: ${exists.userRow.id}`);
+                    userIdToUse = exists.userRow.id;
                 }
 
-                // 2. Create User account
-                const { data: userData, error: userError } = await supabase
-                    .from('users')
-                    .insert([{
-                        email: generatedEmail,
-                        name: fullName,
-                        role: 'Student',
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
+                // 2. Create User account (Only if not reusing)
+                let userData = { id: userIdToUse };
 
-                if (userError) throw userError;
+                if (!userIdToUse) {
+                    const { data: newUserData, error: userError } = await supabase
+                        .from('users')
+                        .insert([{
+                            email: generatedEmail,
+                            name: fullName,
+                            role: 'Student',
+                            avatar_url: avatarUrl
+                        }])
+                        .select()
+                        .single();
+
+                    if (userError) throw userError;
+                    userData = newUserData;
+                }
 
                 // 3. Create Student Profile
-                const { data: studentData, error: studentError } = await supabase
+                // Check if student profile already exists (if we are reusing user)
+                if (userIdToUse) {
+                    const { data: existingStudent, error: existingStudentError } = await supabase
+                        .from('students')
+                        .select('id')
+                        .eq('user_id', userIdToUse)
+                        .maybeSingle();
+
+                    if (existingStudent) {
+                        // Student profile also exists. We just need to fix Auth.
+                        console.log("Student profile also exists. Updates skipped, proceeding to Auth fix.");
+                    } else {
+                        // User exists, but Student profile missing. Create it.
+                        const { error: studentError } = await supabase
+                            .from('students')
+                            .insert([{
+                                user_id: userData.id,
+                                name: fullName,
+                                avatar_url: avatarUrl,
+                                grade: grade,
+                                section: section,
+                                department: department || null,
+                                birthday: birthday || null,
+                                attendance_status: 'Present'
+                            }]);
+                        if (studentError) throw studentError;
+                    }
+                } else {
+                    // Fresh User, Fresh Student
+                    const { error: studentError } = await supabase
+                        .from('students')
+                        .insert([{
+                            user_id: userData.id,
+                            name: fullName,
+                            avatar_url: avatarUrl,
+                            grade: grade,
+                            section: section,
+                            department: department || null,
+                            birthday: birthday || null,
+                            attendance_status: 'Present'
+                        }]);
+                    if (studentError) throw studentError;
+                }
+
+                // Fetch the student ID for linking (whether new or existing)
+                const { data: studentData, error: fetchStudentError } = await supabase
                     .from('students')
-                    .insert([{
-                        user_id: userData.id,
-                        name: fullName,
-                        avatar_url: avatarUrl,
-                        grade: grade,
-                        section: section,
-                        department: department || null,
-                        birthday: birthday || null,
-                        attendance_status: 'Present'
-                    }])
-                    .select()
+                    .select('id')
+                    .eq('user_id', userData.id)
                     .single();
 
-                if (studentError) throw studentError;
+                if (fetchStudentError) throw fetchStudentError;
 
-                // 4. Create login credentials
+                // 4. Create login credentials (Supabase Auth)
                 const authResult = await createUserAccount(fullName, 'Student', generatedEmail, userData.id);
-                
+
                 if (authResult.error) {
                     console.warn('Warning: Auth account created with error:', authResult.error);
                 }
 
-                // Send verification email
+                // 5. Send verification email (Student)
                 const emailResult = await sendVerificationEmail(fullName, generatedEmail, 'School App');
                 if (!emailResult.success) {
                     console.warn('Warning: Email verification notification failed:', emailResult.error);
                 }
+
+                // --- GUARDIAN ACCOUNT AUTOMATION ---
+                if (guardianEmail && guardianName) {
+                    try {
+                        const { data: existingParent } = await supabase
+                            .from('parents')
+                            .select('id, user_id, email')
+                            .eq('email', guardianEmail)
+                            .maybeSingle();
+
+                        if (existingParent) {
+                            // Link existing parent to new student
+                            await supabase.from('parent_children').insert({
+                                parent_id: existingParent.id,
+                                student_id: studentData.id
+                            });
+                            // Notify existing guardian
+                            console.log(`Linked existing guardian ${guardianEmail} to student.`);
+                            await sendVerificationEmail(guardianName, guardianEmail, 'Student Added');
+
+                        } else {
+                            // Create NEW Guardian Account
+                            // 1. Create User
+                            const { data: gUser, error: gUserError } = await supabase
+                                .from('users')
+                                .insert([{
+                                    email: guardianEmail,
+                                    name: guardianName,
+                                    role: 'Parent',
+                                    avatar_url: `https://i.pravatar.cc/150?u=${guardianName.replace(' ', '')}`
+                                }])
+                                .select()
+                                .single();
+
+                            if (gUserError) {
+                                console.warn("Failed to create Guardian User:", gUserError);
+                            } else {
+                                // 2. Create Parent Profile linked to User
+                                const { data: gParent, error: gParentError } = await supabase
+                                    .from('parents')
+                                    .insert([{
+                                        user_id: gUser.id,
+                                        name: guardianName,
+                                        email: guardianEmail,
+                                        phone: guardianPhone || null,
+                                        avatar_url: `https://i.pravatar.cc/150?u=${guardianName.replace(' ', '')}`
+                                    }])
+                                    .select()
+                                    .single();
+
+                                if (gParentError) {
+                                    console.warn("Failed to create Guardian Profile:", gParentError);
+                                } else {
+                                    // 3. Link to Student
+                                    await supabase.from('parent_children').insert({
+                                        parent_id: gParent.id,
+                                        student_id: studentData.id
+                                    });
+
+                                    // 4. Create Auth Credentials
+                                    const gAuth = await createUserAccount(guardianName, 'Parent', guardianEmail, gUser.id);
+
+                                    // 5. Send Credentials Email
+                                    if (gAuth.error) console.warn("Guardian Auth Error:", gAuth.error);
+                                    else {
+                                        // TODO: Send specific email with credentials?
+                                        // For now, verification email is sent by Supabase or our helper
+                                        await sendVerificationEmail(guardianName, guardianEmail, 'School App Account Created');
+                                        alert(`Guardian account created for ${guardianName}.\nCredentials sent to ${guardianEmail}.`);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (gErr) {
+                        console.error("Error processing guardian:", gErr);
+                        // Do not fail the whole student creation if guardian fails
+                    }
+                }
+                // -----------------------------------
 
                 // Show credentials modal instead of alert
                 setCredentials({

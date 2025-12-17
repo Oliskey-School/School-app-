@@ -34,7 +34,7 @@ export const createUserAccount = async (
     // Extract surname (last name)
     const nameParts = fullName.trim().split(/\s+/);
     const surname = nameParts[nameParts.length - 1];
-    
+
     // Generate username and password
     const username = generateUsername(fullName, userType);
     const password = generatePassword(surname);
@@ -148,11 +148,11 @@ export const sendVerificationEmail = async (
   try {
     // Get the confirmation link from Supabase Auth
     // Note: Supabase automatically sends a confirmation email, but we can customize the content
-    
+
     // For now, we'll log that we attempted to send the email
     // Supabase handles the actual email sending automatically when signUp is called
     console.log(`Verification email automatically sent to ${email} by Supabase Auth`);
-    
+
     // Optionally: Store email sending attempt in database
     const { error: emailLogError } = await supabase
       .from('email_logs')
@@ -164,8 +164,7 @@ export const sendVerificationEmail = async (
           sent_at: new Date().toISOString(),
           status: 'sent'
         }
-      ])
-      .catch(() => ({ error: null })); // Ignore if table doesn't exist
+      ]);
 
     if (emailLogError) {
       console.warn('Warning: Could not log email sending:', emailLogError);
@@ -186,12 +185,12 @@ export const sendVerificationEmail = async (
 export const authenticateUser = async (
   username: string,
   password: string
-): Promise<{ 
-  success: boolean; 
-  userType?: 'Student' | 'Teacher' | 'Parent' | 'Admin'; 
+): Promise<{
+  success: boolean;
+  userType?: 'Student' | 'Teacher' | 'Parent' | 'Admin';
   userId?: string;
   email?: string;
-  error?: string 
+  error?: string
 }> => {
   try {
     // First, try to find the email from our auth_accounts table using username
@@ -237,7 +236,7 @@ export const authenticateUser = async (
 
       if (!emailConfirmed && !authAccount.is_verified) {
         // sign out the session we just created
-        try { await supabase.auth.signOut(); } catch (_) {}
+        try { await supabase.auth.signOut(); } catch (_) { }
         return { success: false, error: 'Email not verified. Please confirm your email before logging in. The account may be deactivated if not verified within 7 days.' };
       }
 

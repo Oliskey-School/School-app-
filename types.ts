@@ -347,6 +347,8 @@ export type Message = ChatMessage; // Alias for backward compatibility if possib
 // The old Message used string ID, new uses number.
 // I'll leave the old ones for a moment but add the new ones above.
 
+export type Conversation = ChatRoom; // Backward compatibility alias
+
 
 // FIX: Unify AnnouncementCategory with Notice category to support all required types.
 export type AnnouncementCategory = 'General' | 'Homework' | 'Test Reminder' | 'Event' | 'Urgent' | 'Holiday';
@@ -687,6 +689,12 @@ export interface SchemeTopic {
   topic: string;
 }
 
+export interface DetailedNote {
+  topic: string;
+  note: string;
+  imageSuggestions?: string[]; // Descriptions of images to illustrate key concepts
+}
+
 export interface GeneratedLessonPlan {
   week: number;
   topic: string;
@@ -696,35 +704,7 @@ export interface GeneratedLessonPlan {
   duration: string;
   keyVocabulary: string[];
   assessmentMethods: string[];
-}
-
-export interface AssessmentQuestion {
-  id: number;
-  question: string;
-  type: 'multiple-choice' | 'short-answer' | 'theory' | 'practical';
-  options?: string[];
-  answer: string;
-  explanation?: string;
-  marks: number;
-}
-
-export interface GeneratedAssessment {
-  week: number;
-  type: string;
-  totalMarks: number;
-  questions: AssessmentQuestion[];
-}
-
-export interface TermResources {
-  term: 'First Term' | 'Second Term' | 'Third Term';
-  schemeOfWork: SchemeTopic[];
-  lessonPlans: GeneratedLessonPlan[];
-  assessments: GeneratedAssessment[];
-}
-
-export interface DetailedNote {
-  topic: string;
-  note: string;
+  visualAidSuggestions?: string[]; // Descriptions of potential diagrams/images
 }
 
 export interface GeneratedResources {

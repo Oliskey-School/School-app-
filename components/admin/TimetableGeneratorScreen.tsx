@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
-import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, ChevronRightIcon } from '../../constants';
+import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, ChevronRightIcon, CalendarIcon, UserGroupIcon, BookOpenIcon, ClockIcon, EditIcon } from '../../constants';
 import { mockSavedTimetable } from '../../data';
 import { supabase } from '../../lib/supabase';
+import { checkTimetableExists, fetchTimetableForClass, fetchTeachers } from '../../lib/database';
 
 // --- TYPES ---
 interface TeacherInfo {
@@ -19,10 +20,13 @@ interface TimetableGeneratorScreenProps {
 
 // --- SUB-COMPONENTS ---
 const GeneratingScreen: React.FC = () => (
-    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-50">
-        <SparklesIcon className="w-16 h-16 text-white animate-spin" />
-        <p className="text-white font-semibold mt-4 text-lg">Generating Timetable...</p>
-        <p className="text-white/80 mt-2 text-sm max-w-xs text-center">This may take a moment. The AI is arranging over 40 classes!</p>
+    <div className="absolute inset-0 bg-white/80 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-fade-in">
+        <div className="relative">
+            <div className="absolute inset-0 bg-indigo-500 rounded-full blur-xl opacity-20 animate-pulse"></div>
+            <SparklesIcon className="w-16 h-16 text-indigo-600 animate-spin-slow relative z-10" />
+        </div>
+        <h3 className="text-2xl font-bold mt-6 text-gray-800 tracking-tight">Crafting Schedule...</h3>
+        <p className="text-gray-500 mt-2 text-center max-w-sm px-4">Our AI is analyzing constraints, balancing teacher loads, and optimizing the timetable for Class success.</p>
     </div>
 );
 
@@ -49,12 +53,12 @@ const TagInput: React.FC<{ tags: string[]; setTags: (newTags: string[]) => void;
     };
 
     return (
-        <div className="flex flex-wrap items-center gap-2 p-3 border border-gray-200 rounded-xl bg-white shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all min-h-[50px]">
+        <div className="flex flex-wrap items-center gap-2 p-3 border border-gray-200 rounded-xl bg-gray-50/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all min-h-[50px]">
             {tags.map(tag => (
-                <span key={tag} className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-indigo-50 text-indigo-700 text-sm font-bold rounded-lg border border-indigo-100 group">
+                <span key={tag} className="flex items-center gap-1.5 pl-3 pr-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full group">
                     {tag}
-                    <button type="button" onClick={() => handleRemoveTag(tag)} className="p-0.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-full transition-colors">
-                        <XCircleIcon className="w-4 h-4" />
+                    <button type="button" onClick={() => handleRemoveTag(tag)} className="p-0.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-200 rounded-full transition-colors">
+                        <XCircleIcon className="w-3.5 h-3.5" />
                     </button>
                 </span>
             ))}
@@ -65,7 +69,7 @@ const TagInput: React.FC<{ tags: string[]; setTags: (newTags: string[]) => void;
                 onKeyDown={handleKeyDown}
                 onBlur={handleAddTag}
                 placeholder={tags.length === 0 ? placeholder : ''}
-                className="flex-grow bg-transparent p-1 text-sm focus:outline-none min-w-[140px] placeholder:text-gray-400"
+                className="flex-grow bg-transparent p-1 text-sm focus:outline-none min-w-[120px] placeholder:text-gray-400 text-gray-700"
             />
         </div>
     );
@@ -77,6 +81,10 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     const [classes, setClasses] = useState<{ id: string; name: string; grade: number; section: string; }[]>([]);
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [showClassPicker, setShowClassPicker] = useState(false);
+
+    // Existing timetable state
+    const [existingTimetableFound, setExistingTimetableFound] = useState(false);
+    const [isLoadingExisting, setIsLoadingExisting] = useState(false);
 
     const [teachers, setTeachers] = useState<TeacherInfo[]>([
         { name: 'Mr. Adeoye', subjects: ['Mathematics'] },
@@ -131,8 +139,87 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
         fetchClasses();
     }, []);
 
+    // Check for existing timetable when className changes
+    useEffect(() => {
+        if (className) {
+            checkTimetableExists(className).then(exists => {
+                setExistingTimetableFound(exists);
+            });
+        }
+    }, [className]);
+
+    const handleLoadExisting = async () => {
+        setIsLoadingExisting(true);
+        try {
+            const data = await fetchTimetableForClass(className);
+            const dbTeachers = await fetchTeachers();
+
+            // Reconstruct timetable map
+            const timetableMap: { [key: string]: string } = {};
+            const teacherAssignmentsMap: { [key: string]: string } = {};
+            const subjectsSet = new Set<string>();
+
+            // Helper to find teacher name
+            const getTeacherName = (id: number) => {
+                const t = dbTeachers.find(dt => dt.id === id);
+                return t ? t.name : 'Unknown Teacher';
+            };
+
+            data.forEach((entry) => {
+                // Map database format to UI format: "Monday-Period 1"
+                // Assuming entry has day, start_time/end_time in periods format
+                // We need to map time to Period Name or use logic
+                // Simple mapping based on index or time for now, or just use stored values if we align schema.
+                // Since we store strict starts, we can match.
+
+                const PERIODS = [
+                    { name: 'Period 1', start: '09:00' },
+                    { name: 'Period 2', start: '09:45' },
+                    { name: 'Period 3', start: '10:30' },
+                    { name: 'Period 4', start: '11:30' },
+                    { name: 'Period 5', start: '12:15' },
+                    { name: 'Period 6', start: '13:45' },
+                    { name: 'Period 7', start: '14:30' },
+                    { name: 'Period 8', start: '15:15' },
+                ];
+
+                const period = PERIODS.find(p => p.start === entry.start_time);
+                if (period) {
+                    const key = `${entry.day}-${period.name}`;
+                    timetableMap[key] = entry.subject;
+                    subjectsSet.add(entry.subject);
+
+                    if (entry.teacher_id) {
+                        teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
+                    }
+                }
+            });
+
+            const timetableData = {
+                className,
+                subjects: Array.from(subjectsSet),
+                timetable: timetableMap,
+                teacherAssignments: teacherAssignmentsMap,
+                suggestions: [],
+                teacherLoad: [],
+                status: data.length > 0 ? data[0].status : 'Draft',
+                teachers: dbTeachers.map(t => ({ name: t.name, subjects: t.subjects }))
+            };
+
+            mockSavedTimetable.current = timetableData;
+            navigateTo('timetableEditor', 'Edit Timetable', { timetableData: mockSavedTimetable.current });
+
+        } catch (error) {
+            console.error("Error loading existing timetable:", error);
+            alert("Failed to load existing timetable.");
+        } finally {
+            setIsLoadingExisting(false);
+        }
+    };
+
     const handleGenerate = async () => {
         setIsGenerating(true);
+        // ... (existing generation logic) ...
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const prompt = `
@@ -225,9 +312,11 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
                 ...rawData,
                 timetable: timetableMap,
                 teacherAssignments: teacherAssignmentsMap,
+                // Pass full teacher objects for reference
+                teachers: teachers
             };
 
-            mockSavedTimetable.current = { ...timetableData, status: 'Draft', teachers };
+            mockSavedTimetable.current = { ...timetableData, status: 'Draft' };
             navigateTo('timetableEditor', 'Edit Timetable', { timetableData: mockSavedTimetable.current });
 
         } catch (error) {
@@ -255,191 +344,262 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-100 relative">
+        <div className="flex flex-col h-full bg-gray-50/50 relative">
             {isGenerating && <GeneratingScreen />}
-            <main className="flex-grow p-4 space-y-5 overflow-y-auto pb-24">
-                <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
-                    <h3 className="text-lg font-bold text-gray-800">1. Class Details</h3>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setShowClassPicker(!showClassPicker)}
-                            className="w-full p-3 text-left text-gray-700 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-between"
-                        >
-                            <span className={className ? 'text-gray-800 font-medium' : 'text-gray-400'}>
-                                {isLoadingClasses ? 'Loading classes...' : (className || 'Select a class')}
-                            </span>
-                            <ChevronRightIcon className={`w-5 h-5 text-gray-400 transition-transform ${showClassPicker ? 'rotate-90' : ''}`} />
-                        </button>
+            <main className="flex-grow p-4 md:p-8 space-y-8 overflow-y-auto pb-32">
 
-                        {/* Class Picker Dropdown */}
-                        {showClassPicker && (
-                            <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
-                                {isLoadingClasses ? (
-                                    <div className="p-4 text-center text-gray-500">
-                                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-500 border-t-transparent mx-auto mb-2"></div>
-                                        Loading classes...
+                {/* Header Section */}
+                <div className="flex items-center space-x-4 mb-4">
+                    <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 rounded-2xl shadow-lg shadow-indigo-200">
+                        <CalendarIcon className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">AI Timetable Creator</h1>
+                        <p className="text-gray-500">Intelligent scheduling optimized for your school.</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* STEP 1: CLASS SELECTION */}
+                    <div className="bg-white p-6 rounded-3xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] transition-all duration-300 border border-gray-100/50">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-3">
+                            <span className="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">1</span>
+                            Target Class
+                        </h3>
+
+
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowClassPicker(!showClassPicker)}
+                                className={`w-full p-4 text-left border rounded-2xl flex items-center justify-between group transition-all duration-200 ${showClassPicker
+                                    ? 'border-indigo-500 ring-4 ring-indigo-500/10 bg-white shadow-md'
+                                    : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <UserGroupIcon className={`w-5 h-5 ${className ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                    <span className={className ? 'text-gray-900 font-bold text-base' : 'text-gray-400 font-medium'}>
+                                        {isLoadingClasses ? 'Loading classes...' : (className || 'Select a class')}
+                                    </span>
+                                </div>
+                                <ChevronRightIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${showClassPicker ? 'rotate-90 text-indigo-500' : 'group-hover:text-gray-600'}`} />
+                            </button>
+
+                            {/* Class Picker Dropdown */}
+                            {showClassPicker && (
+                                <div className="absolute z-20 mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl shadow-indigo-900/10 max-h-80 overflow-y-auto animate-slide-in-up origin-top p-2">
+                                    {isLoadingClasses ? (
+                                        <div className="p-8 text-center text-gray-500">
+                                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-500 border-t-transparent mx-auto mb-2"></div>
+                                            <p className="text-xs font-medium">Loading...</p>
+                                        </div>
+                                    ) : classes.length === 0 ? (
+                                        <div className="p-6 text-center text-gray-500">
+                                            <p className="font-bold text-gray-800 text-sm">No classes found</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            {classes.map((cls) => (
+                                                <button
+                                                    key={cls.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setClassName(cls.name);
+                                                        setShowClassPicker(false);
+                                                    }}
+                                                    className={`w-full px-4 py-3 text-left rounded-xl transition-all flex items-center justify-between group ${className === cls.name
+                                                        ? 'bg-indigo-50 text-indigo-700'
+                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <div>
+                                                        <p className="font-bold text-sm tracking-tight">{cls.name}</p>
+                                                        <p className="text-[10px] text-gray-400 font-medium uppercase mt-0.5 group-hover:text-gray-500 tracking-wide">Grade {cls.grade} • Section {cls.section}</p>
+                                                    </div>
+                                                    {className === cls.name && (
+                                                        <CheckCircleIcon className="w-5 h-5 text-indigo-600" />
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Existing Timetable Alert */}
+                        {existingTimetableFound && (
+                            <div className="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-slide-in-up">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-white border border-indigo-100 flex items-center justify-center flex-shrink-0">
+                                        <CalendarIcon className="w-5 h-5 text-indigo-600" />
                                     </div>
-                                ) : classes.length === 0 ? (
-                                    <div className="p-4 text-center text-gray-500">
-                                        <p className="font-medium">No classes found</p>
-                                        <p className="text-sm mt-1">Please add classes in the system first.</p>
+                                    <div>
+                                        <h4 className="font-bold text-gray-800 text-sm">Timetable Exists</h4>
+                                        <p className="text-xs text-gray-500">A timetable is already saved for this class.</p>
                                     </div>
-                                ) : (
-                                    <div className="py-2">
-                                        {classes.map((cls) => (
-                                            <button
-                                                key={cls.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    setClassName(cls.name);
-                                                    setShowClassPicker(false);
-                                                }}
-                                                className={`w-full px-4 py-3 text-left hover:bg-indigo-50 transition-colors flex items-center justify-between ${className === cls.name ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'
-                                                    }`}
-                                            >
-                                                <div>
-                                                    <p className="font-medium">{cls.name}</p>
-                                                    <p className="text-xs text-gray-500">Grade {cls.grade} • Section {cls.section}</p>
-                                                </div>
-                                                {className === cls.name && (
-                                                    <span className="text-indigo-600 font-bold">✓</span>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                                </div>
+                                <button
+                                    onClick={handleLoadExisting}
+                                    disabled={isLoadingExisting}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 whitespace-nowrap w-full sm:w-auto justify-center disabled:opacity-70"
+                                >
+                                    {isLoadingExisting ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <EditIcon className="w-4 h-4" />
+                                    )}
+                                    Edit Existing
+                                </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Show selected class info */}
-                    {className && !showClassPicker && (
-                        <p className="text-sm text-gray-500">
-                            Timetable will be generated for <span className="font-semibold text-indigo-600">{className}</span>
-                        </p>
-                    )}
+                    {/* STEP 4: CUSTOM RULES */}
+                    <div className="bg-white p-6 rounded-3xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] transition-all duration-300 border border-gray-100/50 flex flex-col">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-3">
+                            <span className="bg-pink-100 text-pink-600 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">4</span>
+                            Rules & Constraints
+                        </h3>
+                        <div className="flex-grow flex flex-col">
+                            <p className="text-xs text-gray-400 mb-3 ml-1">Instruct the AI on specific school policies.</p>
+                            <textarea
+                                value={customRules}
+                                onChange={e => setCustomRules(e.target.value)}
+                                className="flex-grow w-full p-4 text-gray-700 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all placeholder:text-gray-400 resize-none text-sm leading-relaxed min-h-[140px]"
+                                placeholder="e.g. No math after lunch..."
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                            <span className="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-sm">2</span>
-                            Teachers & Subjects
-                        </h3>
-                        <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">{teachers.length} added</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* STEP 2: TEACHERS */}
+                    <div className="bg-white p-6 rounded-3xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] transition-all duration-300 border border-gray-100/50 col-span-1 md:col-span-2">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-3">
+                                <span className="bg-emerald-100 text-emerald-600 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">2</span>
+                                Faculty & Subjects
+                            </h3>
+                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">{teachers.length} Teachers</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {teachers.map((teacher, index) => (
+                                <div key={index} className="p-4 bg-gray-50/50 border border-gray-200 rounded-2xl space-y-4 relative transition-all hover:bg-white hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-900/5 group">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 flex-shrink-0 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm shadow-sm border border-emerald-200">
+                                            {index + 1}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={teacher.name}
+                                            onChange={e => handleTeacherChange(index, 'name', e.target.value)}
+                                            placeholder="Teacher Name"
+                                            className="flex-1 p-2 bg-transparent text-gray-800 font-bold placeholder:text-gray-400 placeholder:font-normal focus:outline-none border-b-2 border-transparent focus:border-emerald-500 transition-all"
+                                        />
+                                        <button
+                                            onClick={() => handleRemoveTeacher(index)}
+                                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    <div className="pl-14">
+                                        <TagInput
+                                            tags={teacher.subjects}
+                                            setTags={(newSubjects) => handleTeacherChange(index, 'subjects', newSubjects)}
+                                            placeholder="Type subject..."
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+
+                            <button
+                                onClick={handleAddTeacher}
+                                className="p-6 border-2 border-dashed border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-emerald-300 hover:text-emerald-600 transition-all flex flex-col items-center justify-center gap-2 text-gray-400 font-bold group min-h-[140px]"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-gray-100 group-hover:bg-emerald-100 group-hover:text-emerald-600 flex items-center justify-center transition-colors">
+                                    <PlusIcon className="w-5 h-5" />
+                                </div>
+                                <span>Add Teacher</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                        {teachers.map((teacher, index) => (
-                            <div key={index} className="p-4 bg-gray-50/50 border border-gray-200 rounded-2xl space-y-3 relative transition-colors hover:bg-white hover:border-indigo-200 hover:shadow-sm group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-400 shadow-sm font-bold text-xs group-hover:border-indigo-100 group-hover:text-indigo-500 transition-colors">
+                    {/* STEP 3: SUBJECT LOAD */}
+                    <div className="bg-white p-6 rounded-3xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] transition-all duration-300 border border-gray-100/50 col-span-1 md:col-span-2">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-3">
+                                <span className="bg-orange-100 text-orange-600 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">3</span>
+                                Subject Distribution
+                            </h3>
+                            <p className="text-xs text-gray-400 mt-1 ml-11">Sessions per week for each subject.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {subjectPeriods.map((subject, index) => (
+                                <div key={index} className="flex items-center gap-2 p-2 pr-3 bg-gray-50 rounded-xl border border-gray-100 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-400 transition-all hover:bg-white hover:shadow-sm group">
+                                    <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 text-orange-400 flex flex-shrink-0 items-center justify-center font-bold text-xs">
                                         {index + 1}
                                     </div>
                                     <input
                                         type="text"
-                                        value={teacher.name}
-                                        onChange={e => handleTeacherChange(index, 'name', e.target.value)}
-                                        placeholder="Teacher's Name (e.g. Mr. Smith)"
-                                        className="flex-1 p-2 bg-transparent text-gray-800 font-bold placeholder:text-gray-400 placeholder:font-normal focus:outline-none border-b border-gray-200 focus:border-indigo-500 transition-all"
+                                        value={subject.name}
+                                        onChange={e => handleSubjectPeriodChange(index, 'name', e.target.value)}
+                                        placeholder="Subject"
+                                        className="flex-grow w-full bg-transparent font-semibold text-gray-700 outline-none text-sm placeholder:font-normal"
                                     />
-                                    <button
-                                        onClick={() => handleRemoveTeacher(index)}
-                                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                        title="Remove Teacher"
-                                    >
-                                        <TrashIcon className="w-5 h-5" />
-                                    </button>
+                                    <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-200 px-2 py-1 shadow-sm">
+                                        <ClockIcon className="w-3 h-3 text-gray-400" />
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={subject.periods}
+                                            onChange={e => handleSubjectPeriodChange(index, 'periods', parseInt(e.target.value, 10) || 1)}
+                                            className="w-6 text-center font-bold text-gray-800 outline-none bg-transparent text-sm"
+                                        />
+                                    </div>
+                                    <button onClick={() => handleRemoveSubjectPeriod(index)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon className="w-3.5 h-3.5" /></button>
                                 </div>
-
-                                <div className="pl-[3.25rem]">
-                                    <TagInput
-                                        tags={teacher.subjects}
-                                        setTags={(newSubjects) => handleTeacherChange(index, 'subjects', newSubjects)}
-                                        placeholder="Add subjects..."
-                                    />
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                            <button
+                                onClick={handleAddSubjectPeriod}
+                                className="h-full min-h-[50px] border-2 border-dashed border-gray-200 text-gray-400 font-bold rounded-xl hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 transition-all flex items-center justify-center gap-2 text-sm"
+                            >
+                                <PlusIcon className="w-4 h-4" />
+                                <span>Add Subject</span>
+                            </button>
+                        </div>
                     </div>
-
-                    <button
-                        onClick={handleAddTeacher}
-                        className="mt-4 w-full py-3.5 border-2 border-dashed border-gray-200 text-gray-500 font-bold rounded-xl hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
-                    >
-                        <PlusIcon className="w-5 h-5" />
-                        <span>Add Another Teacher</span>
-                    </button>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <span className="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-sm">3</span>
-                        Subject Load
-                    </h3>
-                    <div className="space-y-3">
-                        {subjectPeriods.map((subject, index) => (
-                            <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-300 transition-all">
-                                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs ring-2 ring-white">
-                                    {subject.periods}
-                                </div>
-                                <input
-                                    type="text"
-                                    value={subject.name}
-                                    onChange={e => handleSubjectPeriodChange(index, 'name', e.target.value)}
-                                    placeholder="Subject Name"
-                                    className="flex-grow bg-transparent font-medium text-gray-700 outline-none placeholder:text-gray-400 placeholder:font-normal"
-                                />
-                                <div className="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 px-2 py-1 shadow-sm">
-                                    <span className="text-[10px] uppercase font-bold text-gray-400">Prds</span>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={subject.periods}
-                                        onChange={e => handleSubjectPeriodChange(index, 'periods', parseInt(e.target.value, 10) || 1)}
-                                        className="w-8 text-center font-bold text-gray-800 outline-none"
-                                    />
-                                </div>
-                                <button onClick={() => handleRemoveSubjectPeriod(index)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><TrashIcon className="w-4 h-4" /></button>
-                            </div>
-                        ))}
-                    </div>
-                    <button
-                        onClick={handleAddSubjectPeriod}
-                        className="mt-4 w-full py-3.5 border-2 border-dashed border-gray-200 text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:border-indigo-300 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
-                    >
-                        <PlusIcon className="w-5 h-5" />
-                        <span>Add Subject</span>
-                    </button>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-3">
-                        <span className="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-sm">4</span>
-                        Custom Rules
-                    </h3>
-                    <textarea
-                        value={customRules}
-                        onChange={e => setCustomRules(e.target.value)}
-                        rows={4}
-                        className="w-full p-4 text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400 resize-none text-sm leading-relaxed"
-                        placeholder="e.g. No math after lunch..."
-                    />
                 </div>
 
             </main>
-            <footer className="p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 sticky bottom-0 z-30">
-                <button
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={isGenerating}
-                    className="w-full flex justify-center items-center space-x-2 py-4 px-4 font-bold text-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 active:scale-[0.98] disabled:from-indigo-400 disabled:to-indigo-400 rounded-2xl shadow-lg shadow-indigo-200 transition-all disabled:shadow-none">
-                    <SparklesIcon className="w-6 h-6 animate-pulse" /><span>Generate Timetable</span>
-                </button>
+
+            <footer className="p-4 bg-white/80 backdrop-blur-xl border-t border-gray-200 sticky bottom-0 z-30">
+                <div className="max-w-4xl mx-auto">
+                    <button
+                        type="button"
+                        onClick={handleGenerate}
+                        disabled={isGenerating}
+                        className="w-full flex justify-center items-center space-x-3 py-4 px-6 font-bold text-lg text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:via-purple-500 hover:to-indigo-600 active:scale-[0.99] disabled:opacity-70 disabled:grayscale rounded-2xl shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-300 border border-white/20"
+                    >
+                        <SparklesIcon className={`w-6 h-6 ${isGenerating ? 'animate-spin' : 'animate-pulse'}`} />
+                        <span>{isGenerating ? 'Generating Magic...' : 'Generate Optimized Timetable'}</span>
+                    </button>
+                </div>
             </footer>
         </div>
     );
 };
+
+// Simple icon wrapper if needed for specific icons not in constants
+const CheckCircleIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
 
 export default TimetableGeneratorScreen;

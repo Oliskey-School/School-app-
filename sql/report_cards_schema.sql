@@ -3,6 +3,8 @@
 -- Run this to add report cards functionality
 -- ============================================
 
+DROP TABLE IF EXISTS report_cards CASCADE;
+
 CREATE TABLE report_cards (
   id SERIAL PRIMARY KEY,
   student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
