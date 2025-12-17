@@ -5,7 +5,7 @@ import { Student, Department } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
-import { mockStudents } from '../../data';
+import { mockStudents, mockParents } from '../../data';
 
 interface AddStudentScreenProps {
     studentToEdit?: Student;
@@ -89,24 +89,58 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 } else {
                     // Create new mock student
                     const newId = mockStudents.length > 0 ? Math.max(...mockStudents.map(s => s.id)) + 1 : 1;
-                    mockStudents.push({
+                    const newStudent = {
                         id: newId,
                         name: fullName,
                         avatarUrl: avatarUrl,
                         grade: grade,
                         section: section,
                         department: department || undefined,
-                        attendanceStatus: 'Present',
+                        attendanceStatus: 'Present' as const,
                         birthday: birthday || undefined,
                         academicPerformance: [], // Empty for now
                         behaviorNotes: []
-                    });
-                    // Simulate credentials generation
+                    };
+                    mockStudents.push(newStudent);
+
+                    let successMessage = `Student account created for ${fullName}.\nCredentials: ${generatedEmail.split('@')[0]} / password123\n\n`;
+
+                    // Handle Guardian in Mock Mode
+                    if (guardianEmail && guardianName) {
+                        const existingParent = mockParents.find(p => p.email === guardianEmail);
+                        if (existingParent) {
+                            // Link to existing parent
+                            if (!existingParent.childIds) existingParent.childIds = [];
+                            if (!existingParent.childIds.includes(newId)) {
+                                existingParent.childIds.push(newId);
+                            }
+                            successMessage += `Linked to existing guardian: ${existingParent.name}.\nNotification sent to ${guardianEmail}.`;
+                        } else {
+                            // Create new parent
+                            const newParentId = mockParents.length > 0 ? Math.max(...mockParents.map(p => p.id)) + 1 : 1;
+                            mockParents.push({
+                                id: newParentId,
+                                name: guardianName,
+                                email: guardianEmail,
+                                phone: guardianPhone,
+                                avatarUrl: `https://i.pravatar.cc/150?u=${guardianName.replace(' ', '')}`,
+                                childIds: [newId]
+                            });
+                            successMessage += `New Guardian account created for ${guardianName}.\nCredentials sent to ${guardianEmail}.`;
+                        }
+                    } else {
+                        successMessage += "No guardian linked.";
+                    }
+
+                    alert(successMessage);
+
+                    // Simulate credentials generation for display
                     setCredentials({
                         username: generatedEmail.split('@')[0],
                         password: 'password123',
                         email: generatedEmail
                     });
+                    // We show the modal for the Student's credentials
                     setShowCredentialsModal(true);
                     setIsLoading(false);
                     return; // Don't close immediately, wait for modal
@@ -261,6 +295,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                             // Notify existing guardian
                             console.log(`Linked existing guardian ${guardianEmail} to student.`);
                             await sendVerificationEmail(guardianName, guardianEmail, 'Student Added');
+                            alert(`Linked to existing guardian: ${guardianName}.\nStudent credentials sent to ${guardianEmail}.`);
 
                         } else {
                             // Create NEW Guardian Account
@@ -310,7 +345,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                         // TODO: Send specific email with credentials?
                                         // For now, verification email is sent by Supabase or our helper
                                         await sendVerificationEmail(guardianName, guardianEmail, 'School App Account Created');
-                                        alert(`Guardian account created for ${guardianName}.\nCredentials sent to ${guardianEmail}.`);
+                                        alert(`Guardian account created for ${guardianName}.\nParent & Student credentials sent to ${guardianEmail}.`);
                                     }
                                 }
                             }
