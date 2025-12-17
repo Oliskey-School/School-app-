@@ -63,10 +63,10 @@ import CBTScoresScreen from '../teacher/CBTScoresScreen';
 
 
 const DashboardSuspenseFallback = () => (
-    <div className="flex justify-center items-center h-full p-8 pt-20">
-      <div className="w-10 h-10 border-4 border-t-4 border-gray-200 border-t-purple-600 rounded-full animate-spin"></div>
-    </div>
-  );
+  <div className="flex justify-center items-center h-full p-8 pt-20">
+    <div className="w-10 h-10 border-4 border-t-4 border-gray-200 border-t-purple-600 rounded-full animate-spin"></div>
+  </div>
+);
 
 interface ViewStackItem {
   view: string;
@@ -75,17 +75,64 @@ interface ViewStackItem {
 }
 
 interface TeacherDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
+  onLogout: () => void;
+  setIsHomePage: (isHome: boolean) => void;
 }
 
 const LOGGED_IN_TEACHER_ID = 2;
+
+import { supabase } from '../../lib/supabase';
+
+// ... (imports remain)
 
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHomePage }) => {
   const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
   const [activeBottomNav, setActiveBottomNav] = useState('home');
   const [version, setVersion] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Profile State
+  const [teacherProfile, setTeacherProfile] = useState({
+    name: 'Teacher',
+    avatarUrl: 'https://i.pravatar.cc/150?u=teacher'
+  });
+
+  const fetchProfile = async (optimisticData?: { name: string; avatarUrl: string }) => {
+    if (optimisticData) {
+      setTeacherProfile(optimisticData);
+      // Trust the optimistic update and updated DB from the child component.
+      // Skip fetching to avoid race conditions with potential stale reads.
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('name, avatar_url')
+        .eq('id', LOGGED_IN_TEACHER_ID)
+        .single();
+      // ... (rest of fetch logic)
+
+      if (error) {
+        console.error('Error fetching dashboard profile:', error);
+        return;
+      }
+
+      if (data) {
+        setTeacherProfile({
+          name: data.name || 'Teacher',
+          avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=teacher'
+        });
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching profile:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
   const forceUpdate = () => setVersion(v => v + 1);
 
   useEffect(() => {
@@ -104,36 +151,37 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       setViewStack(stack => stack.slice(0, -1));
     }
   };
-  
+
   const handleBottomNavClick = (screen: string) => {
     setActiveBottomNav(screen);
     let props = {};
-    switch(screen) {
-        case 'home':
-            setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
-            break;
-        case 'reports':
-             setViewStack([{ view: 'reports', title: 'Student Reports', props }]);
-            break;
-        case 'forum':
-            setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]);
-            break;
-        case 'messages':
-            setViewStack([{ view: 'messages', title: 'Messages', props: {} }]);
-            break;
-        case 'settings':
-            setViewStack([{ view: 'settings', props, title: 'Settings' }]);
-            break;
-        default:
-            setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
-     }
+    switch (screen) {
+      case 'home':
+        setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
+        break;
+      case 'reports':
+        setViewStack([{ view: 'reports', title: 'Student Reports', props }]);
+        break;
+      case 'forum':
+        setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]);
+        break;
+      case 'messages':
+        setViewStack([{ view: 'messages', title: 'Messages', props: {} }]);
+        break;
+      case 'settings':
+        setViewStack([{ view: 'settings', props, title: 'Settings' }]);
+        break;
+      default:
+        setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
+    }
   };
 
   const handleNotificationClick = () => {
     navigateTo('notifications', 'Notifications', {});
   };
 
-  const viewComponents = React.useMemo(() => ({
+  // Removed useMemo to ensure fresh props (especially teacherProfile) are always passed down
+  const viewComponents = {
     overview: TeacherOverview,
     classDetail: ClassDetailScreen,
     studentProfile: StudentProfileScreen,
@@ -162,8 +210,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     chat: (props: any) => <ChatScreen {...props} currentUserId={LOGGED_IN_TEACHER_ID} />,
     reports: TeacherReportsScreen,
     reportCardPreview: TeacherReportCardPreviewScreen,
-    settings: TeacherSettingsScreen,
-    editTeacherProfile: EditTeacherProfileScreen,
+    settings: (props: any) => <TeacherSettingsScreen {...props} dashboardProfile={teacherProfile} refreshDashboardProfile={fetchProfile} />,
+    editTeacherProfile: (props: any) => <EditTeacherProfileScreen {...props} onProfileUpdate={fetchProfile} />,
     teacherNotificationSettings: TeacherNotificationSettingsScreen,
     teacherSecurity: TeacherSecurityScreen,
     teacherChangePassword: TeacherChangePasswordScreen,
@@ -184,23 +232,25 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
     cbtManagement: CBTManagementScreen,
-  }), []);
+  };
 
   const currentNavigation = viewStack[viewStack.length - 1];
   const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
-  
+
   const commonProps = {
     navigateTo,
     handleBack,
     onLogout,
     forceUpdate,
+    teacherProfile, // Make profile available to all screens
+    refreshProfile: fetchProfile // Allow any screen to trigger refresh
   };
 
   return (
     <div className="flex flex-col h-full bg-gray-100 relative">
-       <Header
+      <Header
         title={currentNavigation.title}
-        avatarUrl="https://i.pravatar.cc/150?u=teacher"
+        avatarUrl={teacherProfile.avatarUrl}
         bgColor={THEME_CONFIG[DashboardType.Teacher].mainBg}
         onLogout={onLogout}
         onBack={viewStack.length > 1 ? handleBack : undefined}
@@ -208,25 +258,25 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         notificationCount={notificationCount}
         onSearchClick={() => setIsSearchOpen(true)}
       />
-      <div className="flex-grow overflow-y-auto" style={{marginTop: '-5rem'}}>
+      <div className="flex-grow overflow-y-auto" style={{ marginTop: '-5rem' }}>
         <main className="min-h-full pt-20">
-            <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up">
+          <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up">
             {ComponentToRender ? (
-                <ComponentToRender {...currentNavigation.props} {...commonProps} />
+              <ComponentToRender {...currentNavigation.props} {...commonProps} />
             ) : (
-                <div className="p-6">View not found: {currentNavigation.view}</div>
+              <div className="p-6">View not found: {currentNavigation.view}</div>
             )}
-            </div>
+          </div>
         </main>
       </div>
       <TeacherBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
       <Suspense fallback={<DashboardSuspenseFallback />}>
         {isSearchOpen && (
-            <GlobalSearchScreen 
-                dashboardType={DashboardType.Teacher}
-                navigateTo={navigateTo}
-                onClose={() => setIsSearchOpen(false)}
-            />
+          <GlobalSearchScreen
+            dashboardType={DashboardType.Teacher}
+            navigateTo={navigateTo}
+            onClose={() => setIsSearchOpen(false)}
+          />
         )}
       </Suspense>
     </div>

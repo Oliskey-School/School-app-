@@ -25,6 +25,10 @@ import {
     ClockIcon,
     SUBJECT_COLORS,
     XCircleIcon,
+    DocumentTextIcon,
+    HelpingHandIcon,
+    ElearningIcon,
+    SchoolLogoIcon,
 } from '../../constants';
 // import { mockSavedTimetable } from '../../data'; // Mock removed
 import { AuditLog } from '../../types';
@@ -473,8 +477,52 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <QuickActionCard label="Health Log" icon={<HeartIcon />} onClick={() => navigateTo('healthLog', 'Health Log')} color="bg-red-500" />
                         </div>
 
+
+                        {/* Content Management Section */}
+                        <div className="mt-8">
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Content Management</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <QuickActionCard
+                                    label="School Policies"
+                                    icon={<DocumentTextIcon />}
+                                    onClick={() => navigateTo('managePolicies', 'Manage Policies')}
+                                    color="bg-pink-500"
+                                />
+                                <QuickActionCard
+                                    label="Volunteering"
+                                    icon={<HelpingHandIcon />}
+                                    onClick={() => navigateTo('manageVolunteering', 'Manage Volunteering')}
+                                    color="bg-emerald-500"
+                                />
+                                <QuickActionCard
+                                    label="Permission Slips"
+                                    icon={<ClipboardListIcon />}
+                                    onClick={() => navigateTo('managePermissionSlips', 'Manage Permission Slips')}
+                                    color="bg-cyan-500"
+                                />
+                                <QuickActionCard
+                                    label="Learning Resources"
+                                    icon={<ElearningIcon />}
+                                    onClick={() => navigateTo('manageLearningResources', 'Manage Learning Resources')}
+                                    color="bg-blue-500"
+                                />
+                                <QuickActionCard
+                                    label="PTA Meetings"
+                                    icon={<UsersIcon />}
+                                    onClick={() => navigateTo('managePTAMeetings', 'Manage PTA Meetings')}
+                                    color="bg-purple-500"
+                                />
+                                <QuickActionCard
+                                    label="School Info"
+                                    icon={<SchoolLogoIcon />}
+                                    onClick={() => navigateTo('manageSchoolInfo', 'School Information')}
+                                    color="bg-pink-600"
+                                />
+                            </div>
+                        </div>
+
                         {/* Desktop view */}
-                        <div className="hidden lg:grid grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="hidden lg:grid grid-cols-2 xl:grid-cols-3 gap-4 mt-8">
                             <AddUserWidget onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} />
                             <PublishReportsWidget onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} count={unpublishedReports} />
                             <TimetableWidget onClick={() => navigateTo('timetable', 'Timetable Management')} schedule={timetablePreview} />

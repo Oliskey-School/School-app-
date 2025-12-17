@@ -707,6 +707,12 @@ export interface GeneratedLessonPlan {
   visualAidSuggestions?: string[]; // Descriptions of potential diagrams/images
 }
 
+export interface TermResources {
+  term: string;
+  scheme: SchemeWeek[];
+  lessonPlans: GeneratedLessonPlan[];
+}
+
 export interface GeneratedResources {
   subject: string;
   className: string;
@@ -814,4 +820,5 @@ export interface CBTTest {
   isPublished: boolean;
   results: CBTResult[];
   questions?: CBTQuestion[];
+  totalMarks?: number;
 }

@@ -109,22 +109,11 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo }) => {
         setTodaySchedule(timetable || []);
 
         // 5. Get Ungraded Assignments
-        // Fetch assignments created by this teacher
-        // Then check submissions... (Simplified: just fetch assignments for now or mock the 'ungraded' aspect if table complex)
-        // Real fetch:
-        /*
-        const { data: assignments } = await supabase
-            .from('assignments')
-            .select('id, title, class_name, subject')
-            .eq('teacher_id', teacher.id) // Assuming assignments have teacher_id? Schema says NO teacher_id on assignments table in CLEAN_SCHEMA... 
-            // Schema: class_name, subject.
-            // We can fetch assignments matching teacher's subject/class.
-        */
         // Let's use a simpler query for action items based on assignments table
         const { data: recentAssignments } = await supabase
           .from('assignments')
           .select('*')
-          .limit(2); // Just showing some for now as 'Recent'
+          .limit(3);
 
         setUngradedAssignments(recentAssignments || []);
 
@@ -175,9 +164,16 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo }) => {
         <div className="lg:col-span-2 space-y-6">
           {/* Priority Actions */}
           <div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Recent Assignments</h3>
+            <div className="flex justify-between items-end mb-2 px-1">
+              <h3 className="text-lg font-bold text-gray-800">Recent Assignments</h3>
+              {ungradedAssignments.length > 2 && (
+                <button onClick={() => navigateTo('assignmentsList', 'Manage Assignments', {})} className="text-sm font-bold text-purple-600 hover:text-purple-800">
+                  More
+                </button>
+              )}
+            </div>
             <div className="space-y-3">
-              {ungradedAssignments.length > 0 ? ungradedAssignments.map(a => (
+              {ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 2).map(a => (
                 <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-gray-800">{a.title}</p>

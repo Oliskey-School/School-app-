@@ -1,0 +1,2 @@
+ALTER TABLE teachers ALTER COLUMN avatar_url TYPE TEXT;
+ALTER TABLE teachers ALTER COLUMN avatar_url SET DEFAULT NULL;

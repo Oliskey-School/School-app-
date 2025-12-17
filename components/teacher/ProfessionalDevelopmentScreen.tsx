@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { PDResource } from '../../types';
-import { mockPdResources } from '../../data';
 import { BriefcaseIcon, AIIcon } from '../../constants';
+import { supabase } from '../../lib/supabase';
 
 const ResourceCard: React.FC<{ resource: PDResource }> = ({ resource }) => {
     const typeStyles = {
@@ -14,7 +14,7 @@ const ResourceCard: React.FC<{ resource: PDResource }> = ({ resource }) => {
     };
     return (
         <a href={resource.url} target="_blank" rel="noopener noreferrer" className="block bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-            <span className={`text-xs font-bold px-2 py-1 rounded-full ${typeStyles[resource.type]}`}>{resource.type}</span>
+            <span className={`text-xs font-bold px-2 py-1 rounded-full ${typeStyles[resource.type] || 'bg-gray-100 text-gray-800'}`}>{resource.type}</span>
             <h4 className="font-bold text-gray-800 mt-2">{resource.title}</h4>
             <p className="text-sm text-gray-600 mt-1">{resource.summary}</p>
             <p className="text-xs text-gray-400 mt-2">Source: {resource.source}</p>
@@ -26,6 +26,24 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
     const [challenge, setChallenge] = useState('');
     const [suggestions, setSuggestions] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [resources, setResources] = useState<PDResource[]>([]);
+    const [loadingResources, setLoadingResources] = useState(true);
+
+    // Initial Fetch of Resources
+    useEffect(() => {
+        const fetchResources = async () => {
+            const { data, error } = await supabase
+                .from('pd_resources')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                setResources(data as PDResource[]);
+            }
+            setLoadingResources(false);
+        };
+        fetchResources();
+    }, []);
 
     const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.API_KEY }), []);
 
@@ -79,7 +97,7 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
                     </form>
                     {suggestions && (
                         <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                             <div className="prose prose-sm max-w-none prose-p:my-2 prose-ul:my-2 text-gray-800">
+                            <div className="prose prose-sm max-w-none prose-p:my-2 prose-ul:my-2 text-gray-800">
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{suggestions}</ReactMarkdown>
                             </div>
                         </div>
@@ -89,11 +107,17 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
                 {/* Curated Resources */}
                 <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Curated Resources</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {mockPdResources.map(resource => (
-                            <ResourceCard key={resource.id} resource={resource} />
-                        ))}
-                    </div>
+                    {loadingResources ? (
+                        <p className="text-gray-500 text-center py-4">Loading resources...</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {resources.length > 0 ? resources.map(resource => (
+                                <ResourceCard key={resource.id} resource={resource} />
+                            )) : (
+                                <p className="text-gray-500 col-span-2 text-center py-4">No resources available at the moment.</p>
+                            )}
+                        </div>
+                    )}
                 </div>
             </main>
         </div>

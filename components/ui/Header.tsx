@@ -15,6 +15,27 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onNotificationClick, notificationCount, onSearchClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isDropdownOpen &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   const Avatar = () => (
     <div className="w-10 h-10 sm:w-12 sm:w-12 rounded-full bg-white/30 p-1 flex-shrink-0">
@@ -35,7 +56,7 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
         </div>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           {onSearchClick && (
-             <button onClick={onSearchClick} className="relative p-1.5 sm:p-2 rounded-full hover:bg-white/10" aria-label="Search">
+            <button onClick={onSearchClick} className="relative p-1.5 sm:p-2 rounded-full hover:bg-white/10" aria-label="Search">
               <SearchIcon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
             </button>
           )}
@@ -52,7 +73,14 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
             </button>
           )}
           {onLogout ? (
-            <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} aria-expanded={isDropdownOpen} aria-haspopup="true" aria-label="Open user menu">
+            <button
+              ref={buttonRef}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              aria-expanded={isDropdownOpen}
+              aria-haspopup="true"
+              aria-label="Open user menu"
+              className="focus:outline-none"
+            >
               <Avatar />
             </button>
           ) : (
@@ -60,23 +88,24 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
           )}
         </div>
       </div>
-       {isDropdownOpen && onLogout && (
-          <div 
-            className="absolute right-4 sm:right-6 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5"
-            role="menu"
-            aria-orientation="vertical"
-            aria-labelledby="user-menu-button"
+      {isDropdownOpen && onLogout && (
+        <div
+          ref={dropdownRef}
+          className="absolute right-4 sm:right-6 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5"
+          role="menu"
+          aria-orientation="vertical"
+          aria-labelledby="user-menu-button"
+        >
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            role="menuitem"
           >
-            <button
-              onClick={onLogout}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              role="menuitem"
-            >
-              <LogoutIcon className="mr-3 h-5 w-5 text-gray-500" />
-              <span>Logout</span>
-            </button>
-          </div>
-        )}
+            <LogoutIcon className="mr-3 h-5 w-5 text-gray-500" />
+            <span>Logout</span>
+          </button>
+        </div>
+      )}
     </header>
   );
 };

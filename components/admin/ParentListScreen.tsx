@@ -9,22 +9,22 @@ interface ParentListScreenProps {
 }
 
 const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void }> = ({ parent, onSelect }) => (
-    <button onClick={() => onSelect(parent)} className="w-full bg-white rounded-xl shadow-sm p-4 flex flex-col space-y-3 text-left hover:shadow-md hover:ring-2 hover:ring-sky-200 transition-all">
-        <div className="flex items-center space-x-4">
-            <img src={parent.avatarUrl} alt={parent.name} className="w-16 h-16 rounded-full object-cover" />
-            <div className="flex-grow">
-                <p className="font-bold text-lg text-gray-800">{parent.name}</p>
-                <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1">
-                    <StudentsIcon className="w-4 h-4" />
-                    <span>Children IDs: {(parent.childIds || []).join(', ')}</span>
-                </div>
-            </div>
+  <button onClick={() => onSelect(parent)} className="w-full bg-white rounded-xl shadow-sm p-4 flex flex-col space-y-3 text-left hover:shadow-md hover:ring-2 hover:ring-sky-200 transition-all">
+    <div className="flex items-center space-x-4">
+      <img src={parent.avatarUrl} alt={parent.name} className="w-16 h-16 rounded-full object-cover" />
+      <div className="flex-grow">
+        <p className="font-bold text-lg text-gray-800">{parent.name}</p>
+        <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1">
+          <StudentsIcon className="w-4 h-4" />
+          <span>Children IDs: {(parent.childIds || []).join(', ')}</span>
         </div>
-        <div className="border-t border-gray-100 pt-3 flex justify-end items-center space-x-2">
-            <a href={`mailto:${parent.email}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-sky-100"><MailIcon className="h-5 w-5 text-gray-500" /></a>
-            <a href={`tel:${parent.phone}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-green-100"><PhoneIcon className="h-5 w-5 text-gray-500" /></a>
-        </div>
-    </button>
+      </div>
+    </div>
+    <div className="border-t border-gray-100 pt-3 flex justify-end items-center space-x-2">
+      <a href={`mailto:${parent.email}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-sky-100"><MailIcon className="h-5 w-5 text-gray-500" /></a>
+      <a href={`tel:${parent.phone}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-green-100"><PhoneIcon className="h-5 w-5 text-gray-500" /></a>
+    </div>
+  </button>
 );
 
 const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
@@ -34,36 +34,49 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
 
   useEffect(() => {
     const fetchParents = async () => {
+      try {
         const { data, error } = await supabase
-            .from('parents')
-            .select(`
+          .from('parents')
+          .select(`
                 id,
                 phone,
                 user:users (
                     name,
                     email,
                     avatar_url
+                ),
+                parent_children (
+                    student:students (
+                        id,
+                        name
+                    )
                 )
             `);
-        
+
+        if (error) throw error;
+
         if (data) {
-            const mappedParents: Parent[] = data.map((p: any) => ({
-                id: p.id,
-                name: p.user.name,
-                email: p.user.email,
-                avatarUrl: p.user.avatar_url,
-                phone: p.phone,
-                childIds: [] 
-            }));
-            setParents(mappedParents);
+          const mappedParents: Parent[] = data.map((p: any) => ({
+            id: p.id,
+            name: p.user?.name || 'Unknown',
+            email: p.user?.email || '',
+            avatarUrl: p.user?.avatar_url || 'https://via.placeholder.com/150',
+            phone: p.phone,
+            childIds: p.parent_children?.map((pc: any) => pc.student?.name || pc.student?.id) || []
+          }));
+          setParents(mappedParents);
         }
+      } catch (err) {
+        console.error("Error fetching parents:", err);
+      } finally {
         setLoading(false);
+      }
     };
 
     fetchParents();
   }, []);
 
-  const filteredParents = useMemo(() => 
+  const filteredParents = useMemo(() =>
     parents.filter(parent => parent.name.toLowerCase().includes(searchTerm.toLowerCase())),
     [searchTerm, parents]
   );
@@ -89,9 +102,9 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
           {filteredParents.map(parent => <ParentCard key={parent.id} parent={parent} onSelect={handleSelectParent} />)}
         </div>
         {filteredParents.length === 0 && (
-             <div className="text-center py-10">
-                <p className="text-gray-500">No parents found.</p>
-            </div>
+          <div className="text-center py-10">
+            <p className="text-gray-500">No parents found.</p>
+          </div>
         )}
       </main>
       <div className="absolute bottom-6 right-6">
