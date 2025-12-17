@@ -193,7 +193,10 @@ Visit: https://your-school-app.com/login
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row gap-2 sm:gap-3 border-t border-gray-200">
+        <div
+          data-html2canvas-ignore="true"
+          className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row gap-2 sm:gap-3 border-t border-gray-200"
+        >
           <button
             onClick={downloadCredentials}
             className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-sm"
