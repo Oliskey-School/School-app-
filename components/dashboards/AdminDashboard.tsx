@@ -69,6 +69,14 @@ import ParentListScreen from '../admin/ParentListScreen';
 import ParentDetailAdminView from '../admin/ParentDetailAdminView';
 import UserAccountsScreen from '../admin/UserAccountsScreen';
 
+// Content Management Screens
+import ManagePoliciesScreen from '../admin/ManagePoliciesScreen';
+import ManageVolunteeringScreen from '../admin/ManageVolunteeringScreen';
+import ManagePermissionSlipsScreen from '../admin/ManagePermissionSlipsScreen';
+import ManageLearningResourcesScreen from '../admin/ManageLearningResourcesScreen';
+import ManagePTAMeetingsScreen from '../admin/ManagePTAMeetingsScreen';
+import SchoolInfoScreen from '../admin/SchoolInfoScreen';
+
 
 // Type for navigation stack item
 interface ViewStackItem {
@@ -186,6 +194,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         adminReportCardInput: (props: any) => <ReportCardInputScreen {...props} isAdmin={true} />,
         messages: (props: any) => <MessagingLayout {...props} dashboardType={DashboardType.Admin} />,
         healthLog: HealthLogScreen,
+        newChat: AdminNewChatScreen,
         busDutyRoster: BusDutyRosterScreen,
         // User Management
         selectUserTypeToAdd: SelectUserTypeToAddScreen,
@@ -194,6 +203,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         parentList: ParentListScreen,
         parentDetailAdminView: ParentDetailAdminView,
         userAccounts: UserAccountsScreen,
+        // Content Management
+        managePolicies: ManagePoliciesScreen,
+        manageVolunteering: ManageVolunteeringScreen,
+        managePermissionSlips: ManagePermissionSlipsScreen,
+        manageLearningResources: ManageLearningResourcesScreen,
+        managePTAMeetings: ManagePTAMeetingsScreen,
+        manageSchoolInfo: SchoolInfoScreen,
     }), []);
 
     const currentNavigation = viewStack[viewStack.length - 1];

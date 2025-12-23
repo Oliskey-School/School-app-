@@ -105,34 +105,64 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     // Fetch classes from database
     useEffect(() => {
         const fetchClasses = async () => {
+            console.log('🔍 Fetching classes from database...');
             setIsLoadingClasses(true);
             try {
+                console.log('📡 Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+                console.log('🔑 Supabase Key exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+
                 const { data, error } = await supabase
                     .from('classes')
                     .select('id, subject, grade, section, department')
                     .order('grade', { ascending: true })
                     .order('section', { ascending: true });
 
-                if (error) throw error;
+                console.log('📊 Query result:', { data, error });
+
+                if (error) {
+                    console.error('❌ Supabase error:', error);
+                    throw error;
+                }
 
                 if (data) {
-                    const formattedClasses = data.map((cls: any) => ({
-                        id: cls.id,
-                        name: `Grade ${cls.grade}${cls.section}${cls.department ? ` (${cls.department})` : ''}`,
-                        grade: cls.grade,
-                        section: cls.section,
-                    }));
+                    console.log(`✅ Found ${data.length} classes in database`);
+
+                    // Import the helper function
+                    const { getGradeDisplayName } = await import('../../lib/schoolSystem');
+
+                    const formattedClasses = data.map((cls: any) => {
+                        const gradeName = getGradeDisplayName(cls.grade);
+                        let displayName = `${gradeName} - Section ${cls.section}`;
+
+                        // Add department for SSS classes
+                        if (cls.department && cls.grade >= 12) {
+                            displayName += ` (${cls.department})`;
+                        }
+
+                        return {
+                            id: cls.id,
+                            name: displayName,
+                            grade: cls.grade,
+                            section: cls.section,
+                        };
+                    });
+
+                    console.log('📝 Formatted classes:', formattedClasses.slice(0, 5));
                     setClasses(formattedClasses);
 
                     // Set first class as default if available
                     if (formattedClasses.length > 0 && !className) {
                         setClassName(formattedClasses[0].name);
+                        console.log('✅ Set default class:', formattedClasses[0].name);
                     }
+                } else {
+                    console.warn('⚠️ No data returned from query');
                 }
             } catch (error) {
-                console.error('Error fetching classes:', error);
+                console.error('💥 Error fetching classes:', error);
             } finally {
                 setIsLoadingClasses(false);
+                console.log('✅ Finished loading classes');
             }
         };
 

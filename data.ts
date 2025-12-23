@@ -75,12 +75,9 @@ export const daysAgo = (days: number) => {
 };
 
 export const getSubjectsForStudent = (student: Student): string[] => {
-    if (student.grade >= 10) {
-        if (student.department === 'Science') return ['Mathematics', 'English', 'Physics', 'Chemistry', 'Biology', 'Civic Education'];
-        if (student.department === 'Arts') return ['Mathematics', 'English', 'Literature', 'Government', 'History', 'Civic Education'];
-        if (student.department === 'Commercial') return ['Mathematics', 'English', 'Accounting', 'Commerce', 'Economics', 'Civic Education'];
-    }
-    return ['Mathematics', 'English', 'Basic Science', 'Basic Technology', 'Social Studies', 'Civic Education'];
+    // Import from schoolSystem for accurate Nigerian curriculum
+    const { getSubjectsForGrade } = require('./lib/schoolSystem');
+    return getSubjectsForGrade(student.grade, student.department);
 };
 
 export const mockClasses: ClassInfo[] = [];

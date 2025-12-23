@@ -42,11 +42,12 @@ export const createUserAccount = async (
     // Hash the password before saving to auth_accounts (for production security)
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 1. Create Supabase Auth user
+    // 1. Create Supabase Auth user (with auto-confirm for development)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email,
       password: password,
       options: {
+        emailRedirectTo: 'http://localhost:5173',
         data: {
           full_name: fullName,
           user_type: userType,
@@ -60,10 +61,24 @@ export const createUserAccount = async (
       return { username, password, error: authError.message };
     }
 
+    // 2. Insert into auth_accounts table to store username mapping
+    const { error: dbError } = await supabase
+      .from('auth_accounts')
+      .insert([{
+        username: username,
+        email: email,
+        password: hashedPassword,
+        user_type: userType,
+        user_id: userId,
+        is_verified: true,  // Auto-verify for development
+        verification_sent_at: new Date().toISOString(),
+        verification_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+      }]);
 
-    // 2. (Removed) We no longer insert into auth_accounts manually as it is now a View managed by the sync script.
-    // The previous logic attempted to insert into 'auth_accounts' which caused an error. 
-    // The Sync Script (03_setup_auth.sql) handles the view population.
+    if (dbError) {
+      console.error('Error inserting into auth_accounts:', dbError);
+      return { username, password, error: `Auth created but DB save failed: ${dbError.message}` };
+    }
 
     return { username, password };
   } catch (err: any) {
@@ -182,8 +197,20 @@ export const authenticateUser = async (
       .eq('username', username.toLowerCase())
       .single();
 
-    if (lookupError || !authAccount) {
-      console.error('Username not found:', lookupError);
+    if (lookupError) {
+      // PGRST116: The result contains 0 rows (User not found)
+      // We handle this gracefully as "Invalid credentials"
+      if (lookupError.code === 'PGRST116') {
+        // Only log this if it's NOT a standard failure (optional, can be removed to be silent)
+        // console.warn('Authentication attempt with non-existent username:', username);
+        return { success: false, error: 'Invalid credentials' };
+      }
+
+      console.error('Database lookup error:', lookupError);
+      return { success: false, error: 'Invalid credentials' };
+    }
+
+    if (!authAccount) {
       return { success: false, error: 'Invalid credentials' };
     }
 

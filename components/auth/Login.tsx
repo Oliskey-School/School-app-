@@ -47,7 +47,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const user = username.trim().toLowerCase();
       const pass = password.trim().toLowerCase();
 
-      // Try database authentication first
+      // 1. Check Demo Credentials First (to avoid database errors for demo users)
+      if (user === 'admin' && pass === 'admin') {
+        onLogin(DashboardType.Admin, { userId: 'admin', email: 'admin@school.com', userType: 'Admin' });
+        return;
+      } else if (user === 'teacher' && pass === 'teacher') {
+        onLogin(DashboardType.Teacher, { userId: 'teacher', email: 'teacher@school.com', userType: 'Teacher' });
+        return;
+      } else if (user === 'parent' && pass === 'parent') {
+        onLogin(DashboardType.Parent, { userId: 'parent', email: 'parent@school.com', userType: 'Parent' });
+        return;
+      } else if (user === 'student' && pass === 'student') {
+        onLogin(DashboardType.Student, { userId: 'student', email: 'student@school.com', userType: 'Student' });
+        return;
+      }
+
+      // 2. Try database authentication
       if (isSupabaseConnected) {
         const result = await authenticateUser(user, pass);
         if (result.success && result.userType) {
@@ -57,18 +72,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
       }
 
-      // Fallback to demo credentials
-      if (user === 'admin' && pass === 'admin') {
-        onLogin(DashboardType.Admin, { userId: 'admin', email: 'admin@school.com', userType: 'Admin' });
-      } else if (user === 'teacher' && pass === 'teacher') {
-        onLogin(DashboardType.Teacher, { userId: 'teacher', email: 'teacher@school.com', userType: 'Teacher' });
-      } else if (user === 'parent' && pass === 'parent') {
-        onLogin(DashboardType.Parent, { userId: 'parent', email: 'parent@school.com', userType: 'Parent' });
-      } else if (user === 'student' && pass === 'student') {
-        onLogin(DashboardType.Student, { userId: 'student', email: 'student@school.com', userType: 'Student' });
-      } else {
-        setError('Invalid credentials. Please try again.');
-      }
+      // If we get here, neither worked
+      setError('Invalid credentials. Please try again.');
     } catch (err) {
       console.error('Login error:', err);
       setError('An error occurred during login. Please try again.');

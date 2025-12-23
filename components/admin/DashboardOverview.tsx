@@ -345,24 +345,27 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
 
         try {
-            // Fetch student count
+            // Fetch student count (FROM USERS TABLE to match User Accounts)
             const { count: studentCount, error: studentError } = await supabase
-                .from('students')
-                .select('*', { count: 'exact', head: true });
+                .from('users')
+                .select('*', { count: 'exact', head: true })
+                .eq('role', 'Student');
 
             if (!studentError) setTotalStudents(studentCount || 0);
 
-            // Fetch teacher count
+            // Fetch staff count (Teachers + Admins from USERS table)
             const { count: teacherCount, error: teacherError } = await supabase
-                .from('teachers')
-                .select('*', { count: 'exact', head: true });
+                .from('users')
+                .select('*', { count: 'exact', head: true })
+                .in('role', ['Teacher', 'Admin']); // Counting Admins as staff too for completeness
 
             if (!teacherError) setTotalStaff(teacherCount || 0);
 
-            // Fetch parent count
+            // Fetch parent count (FROM USERS TABLE)
             const { count: parentCount, error: parentError } = await supabase
-                .from('parents')
-                .select('*', { count: 'exact', head: true });
+                .from('users')
+                .select('*', { count: 'exact', head: true })
+                .eq('role', 'Parent');
 
             if (!parentError) setTotalParents(parentCount || 0);
         } catch (err) {

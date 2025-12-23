@@ -4,6 +4,7 @@ import { CameraIcon, UserIcon, MailIcon, PhoneIcon, StudentsIcon } from '../../c
 import { Parent } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
+import { sendWelcomeEmail } from '../../lib/emailService';
 import CredentialsModal from '../ui/CredentialsModal';
 import { mockParents } from '../../data';
 
@@ -258,10 +259,24 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 console.warn('Warning: Auth account created with error:', authResult.error);
             }
 
-            // Send verification email
-            const emailResult = await sendVerificationEmail(name, email, 'School App');
-            if (!emailResult.success) {
-                console.warn('Warning: Email verification notification failed:', emailResult.error);
+            // Send professional welcome email with credentials (Best effort - doesn't block creation)
+            try {
+                const emailResult = await sendWelcomeEmail({
+                    toEmail: email,
+                    userName: name,
+                    username: authResult.username,
+                    password: authResult.password,
+                    userType: 'Parent'
+                });
+
+                if (!emailResult.success) {
+                    console.warn('⚠️ Email not sent:', emailResult.error);
+                } else {
+                    console.log('✅ Welcome email sent to:', email);
+                }
+            } catch (emailError: any) {
+                console.warn('⚠️ Email sending skipped (CORS - needs backend):', emailError.message);
+                // Account was created successfully - email is optional
             }
 
             // Show credentials modal instead of alert

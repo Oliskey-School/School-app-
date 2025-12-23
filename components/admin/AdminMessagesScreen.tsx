@@ -106,7 +106,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                         <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Messages</h1>
                         <div className="flex items-center space-x-1">
                             <button
-                                onClick={() => onNewChat ? onNewChat() : navigateTo?.('newChat', 'New Message')}
+                                onClick={() => navigateTo?.('newChat', 'New Message', {})}
                                 className="p-2 rounded-full hover:bg-indigo-100 text-indigo-600 transition-colors"
                                 title="New Message">
                                 <PlusIcon className="w-6 h-6" />

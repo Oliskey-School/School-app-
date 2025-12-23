@@ -168,7 +168,7 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
                     <div className="flex justify-between items-center mb-4">
                         <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Messages</h1>
                         <div className="flex items-center space-x-1">
-                            <button className="p-2 rounded-full hover:bg-purple-100 text-purple-600 transition-colors" title="New Message">
+                            <button onClick={() => navigateTo('newChat', 'New Message', {})} className="p-2 rounded-full hover:bg-purple-100 text-purple-600 transition-colors" title="New Message">
                                 <PlusIcon className="w-6 h-6" />
                             </button>
                         </div>
