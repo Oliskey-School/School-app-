@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { Submission, Assignment, Student } from '../../types';
 import { CheckCircleIcon, ClockIcon, MailIcon } from '../../constants';
@@ -169,7 +170,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
             handleBack(); // Go back to summary
         } catch (err) {
             console.error("Error saving grade:", err);
-            alert("Failed to save grade. Please try again.");
+            toast.error("Failed to save grade. Please try again.");
         }
     };
 

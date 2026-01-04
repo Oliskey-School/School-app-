@@ -10,6 +10,7 @@ import { StudentSideNav } from '../ui/DashboardSideNav';
 import { mockStudents, mockTimetableData, mockAssignments, mockSubmissions, mockNotices, mockNotifications } from '../../data';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 // Lazy load all view components
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -228,6 +229,7 @@ interface StudentDashboardProps {
 
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHomePage }) => {
     const { profile } = useProfile();
+    const { user } = useAuth();
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Student Dashboard' }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [version, setVersion] = useState(0);
@@ -238,43 +240,58 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const forceUpdate = () => setVersion(v => v + 1);
     const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('student')).length;
 
+    // Get email from profile or fallback to auth user email
+    const userEmail = profile.email || user?.email || '';
+
     useEffect(() => {
         const fetchStudent = async () => {
-            if (!profile.email) {
+            if (!userEmail) {
                 setIsLoading(false);
                 return;
             }
 
+            // Helper to create demo student fallback
+            const createDemoStudent = () => ({
+                id: 1,
+                name: profile.name || user?.user_metadata?.full_name || 'Demo Student',
+                grade: 10,
+                section: 'A',
+                avatarUrl: profile.avatarUrl || 'https://i.pravatar.cc/150?img=1',
+                email: userEmail,
+                department: 'Science'
+            });
+
+            // Check if this looks like a demo/quick login email
+            const isDemoEmail = userEmail?.endsWith('@school.com') ||
+                userEmail?.includes('student') ||
+                userEmail?.includes('demo');
+
             try {
-                const data = await fetchStudentByEmail(profile.email);
+                const data = await fetchStudentByEmail(userEmail);
 
                 if (data) {
                     setStudent(data);
                 } else {
-                    console.warn("Student not found for email:", profile.email);
+                    console.warn("Student not found for email:", userEmail);
                     // Fallback to demo student for testing purposes
-                    // Match any demo email pattern (@school.com domain for quick login)
-                    if (profile.email?.endsWith('@school.com') || profile.email?.includes('student') || profile.email?.includes('demo')) {
-                        console.log('Using demo student fallback for:', profile.email);
-                        setStudent({
-                            id: 1, // Use first student from sample data (John Doe)
-                            name: 'John Doe',
-                            grade: 10,
-                            section: 'A',
-                            avatarUrl: 'https://i.pravatar.cc/150?img=1',
-                            email: profile.email,
-                            department: 'Science'
-                        });
+                    if (isDemoEmail) {
+                        console.log('Using demo student fallback for:', userEmail);
+                        setStudent(createDemoStudent());
                     }
                 }
             } catch (err) {
                 console.error('Error loading student:', err);
+                // Also apply fallback on error for demo emails
+                if (isDemoEmail) {
+                    console.log('Database error, using demo student fallback for:', userEmail);
+                    setStudent(createDemoStudent());
+                }
             } finally {
                 setIsLoading(false);
             }
         };
         fetchStudent();
-    }, [profile]);
+    }, [userEmail, profile, user]);
 
     useEffect(() => {
         const currentView = viewStack[viewStack.length - 1];
@@ -388,11 +405,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 // Refresh page to ensure everything loads correctly
                 window.location.reload();
             } else {
-                alert('Failed to create profile. Please check your connection.');
+                toast.error('Failed to create profile. Please check your connection.');
             }
         } catch (error) {
             console.error('Error creating profile:', error);
-            alert('An error occurred while creating your profile.');
+            toast.error('An error occurred while creating your profile.');
         } finally {
             setIsCreatingProfile(false);
         }

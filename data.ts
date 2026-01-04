@@ -43,6 +43,7 @@ import {
     Activity,
     ExtracurricularEvent,
     ProgressReport,
+    GamifiedQuiz,
     Quiz,
     Appointment,
     ClassInfo,
@@ -129,7 +130,7 @@ export const mockStoreOrders: StoreOrder[] = [];
 export const mockForumTopics: ForumTopic[] = [];
 export const mockAppointmentSlots: AppointmentSlot[] = []; // Migrated/Pending
 export const mockAppointments: Appointment[] = [];
-export const mockQuizzes: Quiz[] = [];
+export const mockQuizzes: GamifiedQuiz[] = [];
 export const mockPdResources: PDResource[] = [];
 export const mockCustomAIGames: AIGame[] = [];
 export const mockActivities: Activity[] = [];

@@ -73,7 +73,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
 
   const handleItemClick = (id: string) => {
     if (id === 'help') {
-      alert('Help Center clicked');
+      toast('Help Center coming soon!', { icon: 'ℹ️' });
     } else {
       setActiveSetting(id as SettingView);
     }

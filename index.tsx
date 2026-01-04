@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
 
@@ -11,6 +13,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: idbPersister }}>
+      <App />
+    </PersistQueryClientProvider>
   </React.StrictMode>
 );

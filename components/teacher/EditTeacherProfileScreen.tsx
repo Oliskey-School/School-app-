@@ -93,14 +93,14 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                 phone
             });
 
-            alert('Profile updated successfully!');
+            toast.success('Profile updated successfully!');
 
             if (onProfileUpdate) {
                 onProfileUpdate({ name, avatarUrl: avatar });
             }
         } catch (error: any) {
             console.error('Error updating profile:', error);
-            alert(`Failed to update profile: ${error.message || error}`);
+            toast.error(`Failed to update profile: ${error.message || error}`);
         } finally {
             setSaving(false);
         }

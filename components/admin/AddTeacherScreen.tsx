@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon } from '../../constants';
+import { toast } from 'react-hot-toast';
+import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon, CheckCircleIcon } from '../../constants';
 import { Teacher } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
@@ -109,6 +110,10 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [avatar, setAvatar] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+
+    // Phase 7: Curriculum & Compliance
+    const [curriculumEligibility, setCurriculumEligibility] = useState<string[]>(['NIGERIAN']); // Default to Nigerian
+    const [uploadedDocs, setUploadedDocs] = useState<File[]>([]);
 
     // Validation Lists
     const [validSubjects, setValidSubjects] = useState<string[]>([]);
@@ -280,7 +285,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     await supabase.from('teacher_classes').insert(classInserts);
                 }
 
-                alert('Teacher updated successfully!');
+                toast.success('Teacher updated successfully!');
             } else {
                 // CREATE MODE - Check if email already exists in users or auth_accounts
                 const teacherEmail = email || `teacher${Date.now()}@school.com`;
@@ -295,7 +300,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     let whereFound: string[] = [];
                     if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
                     whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                    alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
+                    toast.error(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
                     setIsLoading(false);
                     return;
                 } else if (exists.inUsers) {
@@ -418,7 +423,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             // Don't call forceUpdate/handleBack here - let modal handle it
         } catch (error: any) {
             console.error('Error saving teacher:', error);
-            alert('Failed to save teacher: ' + (error.message || 'Unknown error'));
+            toast.error('Failed to save teacher: ' + (error.message || 'Unknown error'));
         } finally {
             setIsLoading(false);
         }
@@ -460,6 +465,65 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                             validOptions={validClasses}
                             validationMessage="Class not found in database. Please ask admin to add it."
                         />
+
+
+                        {/* Phase 7: Curriculum & Compliance Section */}
+                        <div className="pt-2 border-t border-gray-100">
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Curriculum Eligibility <span className="text-red-500">*</span></label>
+                            <div className="flex gap-4 mb-4">
+                                <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${curriculumEligibility.includes('NIGERIAN') ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={curriculumEligibility.includes('NIGERIAN')}
+                                        onChange={e => {
+                                            if (e.target.checked) setCurriculumEligibility([...curriculumEligibility, 'NIGERIAN']);
+                                            else setCurriculumEligibility(curriculumEligibility.filter(c => c !== 'NIGERIAN'));
+                                        }}
+                                        className="rounded text-green-600 focus:ring-green-500"
+                                    />
+                                    <div>
+                                        <span className="font-semibold text-gray-800 text-sm">Nigerian</span>
+                                        <p className="text-[10px] text-gray-500">Requires TRCN</p>
+                                    </div>
+                                </label>
+
+                                <label className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${curriculumEligibility.includes('BRITISH') ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={curriculumEligibility.includes('BRITISH')}
+                                        onChange={e => {
+                                            if (e.target.checked) setCurriculumEligibility([...curriculumEligibility, 'BRITISH']);
+                                            else setCurriculumEligibility(curriculumEligibility.filter(c => c !== 'BRITISH'));
+                                        }}
+                                        className="rounded text-red-600 focus:ring-red-500"
+                                    />
+                                    <div>
+                                        <span className="font-semibold text-gray-800 text-sm">British</span>
+                                        <p className="text-[10px] text-gray-500">Requires QTS/Intl Cert</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Compliance Documents</label>
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer">
+                                <UsersIcon className="mx-auto h-8 w-8 text-gray-400" />
+                                <p className="mt-1 text-sm text-gray-600">Click to upload TRCN / Certificates</p>
+                                <p className="text-xs text-gray-400 mt-1">(PDF, JPG, PNG)</p>
+                                <input type="file" multiple className="hidden" onChange={(e) => {
+                                    if (e.target.files) setUploadedDocs(Array.from(e.target.files));
+                                    toast.success("Documents selected (Mock Upload)");
+                                }} />
+                                {uploadedDocs.length > 0 && (
+                                    <div className="mt-2 text-left space-y-1">
+                                        {uploadedDocs.map((file, i) => (
+                                            <p key={i} className="text-xs text-green-600 flex items-center gap-1">
+                                                <CheckCircleIcon className="w-3 h-3" /> {file.name}
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                         <div>
                             <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">Status</label>

@@ -29,11 +29,16 @@ import {
     HelpingHandIcon,
     ElearningIcon,
     SchoolLogoIcon,
+    BookOpenIcon,
+    SecurityIcon,
+    FileTextIcon,
 } from '../../constants';
 // Mock data removed
 import { AuditLog } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp } from 'lucide-react';
 
 
 // --- NEW, REFINED UI/UX COMPONENTS ---
@@ -76,6 +81,7 @@ const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ clas
     </button>
 );
 
+// Added Register Exams button locally since previous edit failed
 const AlertCard: React.FC<{ label: string; value: string | number; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, value, icon, onClick, color }) => (
     <button onClick={onClick} className={`w-full bg-white p-3 rounded-xl shadow-sm flex items-center space-x-3 text-left border-l-4 ${color.replace('text-', 'border-')} hover:bg-gray-50 transition-colors`}>
         <div className={`${color.replace('text-', 'bg-').replace('-500', '-100')} p-2 rounded-lg`}>
@@ -283,6 +289,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const [timetablePreview, setTimetablePreview] = useState<any[]>([]);
     const [attendancePercentage, setAttendancePercentage] = useState(0);
 
+    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
+
     // Fetch real counts from Supabase
     useEffect(() => {
         fetchCounts();
@@ -344,29 +352,34 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
 
         try {
-            // Fetch student count (FROM USERS TABLE to match User Accounts)
+            // Fetch student count (FROM STUDENTS TABLE)
             const { count: studentCount, error: studentError } = await supabase
-                .from('users')
-                .select('*', { count: 'exact', head: true })
-                .eq('role', 'Student');
+                .from('students')
+                .select('*', { count: 'exact', head: true });
 
             if (!studentError) setTotalStudents(studentCount || 0);
 
-            // Fetch staff count (Teachers + Admins from USERS table)
+            // Fetch staff count (TEACHERS TABLE + Admins from USERS)
+            // 1. Teachers
             const { count: teacherCount, error: teacherError } = await supabase
+                .from('teachers')
+                .select('*', { count: 'exact', head: true });
+
+            // 2. Admins (from users)
+            const { count: adminCount, error: adminError } = await supabase
                 .from('users')
                 .select('*', { count: 'exact', head: true })
-                .in('role', ['Teacher', 'Admin']); // Counting Admins as staff too for completeness
+                .eq('role', 'Admin');
 
-            if (!teacherError) setTotalStaff(teacherCount || 0);
+            if (!teacherError) setTotalStaff((teacherCount || 0) + (adminCount || 0));
 
-            // Fetch parent count (FROM USERS TABLE)
+            // Fetch parent count (FROM PARENTS TABLE)
             const { count: parentCount, error: parentError } = await supabase
-                .from('users')
-                .select('*', { count: 'exact', head: true })
-                .eq('role', 'Parent');
+                .from('parents')
+                .select('*', { count: 'exact', head: true });
 
             if (!parentError) setTotalParents(parentCount || 0);
+
         } catch (err) {
             console.error('Error fetching counts:', err);
         } finally {
@@ -523,6 +536,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         {/* Mobile/Tablet view */}
                         <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-3">
                             <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-sky-500" />
+                            <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
+                            <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enhancedEnrollment', 'New Student Enrollment')} color="bg-emerald-600" />
+                            <QuickActionCard label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
                             <QuickActionCard label="Publish Reports" icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} color="bg-purple-500" />
                             <QuickActionCard label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
                             <QuickActionCard label="Announce" icon={<MegaphoneIcon />} onClick={() => navigateTo('communicationHub', 'Communication Hub')} color="bg-teal-500" />
@@ -530,6 +546,11 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <QuickActionCard label="Health Log" icon={<HeartIcon />} onClick={() => navigateTo('healthLog', 'Health Log')} color="bg-red-500" />
                             <QuickActionCard label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
                             <QuickActionCard label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
+                            <QuickActionCard label="Compliance" icon={<Shield />} onClick={() => navigateTo('complianceOnboarding', 'School Compliance')} color="bg-violet-600" />
+                            <QuickActionCard label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
+                            <QuickActionCard label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
+                            <QuickActionCard label="Launch Hub" icon={<Rocket className="animate-bounce" />} onClick={() => navigateTo('onboardingWizard', 'Pilot Onboarding')} color="bg-gray-900" />
+                            <QuickActionCard label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
                         </div>
 
 
@@ -568,12 +589,99 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                     color="bg-purple-500"
                                 />
                                 <QuickActionCard
-                                    label="School Info"
-                                    icon={<SchoolLogoIcon />}
-                                    onClick={() => navigateTo('manageSchoolInfo', 'School Information')}
-                                    color="bg-pink-600"
+                                    label="Curriculum"
+                                    icon={<BookOpenIcon />}
+                                    onClick={() => navigateTo('manageCurriculum', 'Curriculum Configuration')}
+                                    color="bg-indigo-600"
                                 />
 
+                            </div>
+                        </div>
+
+                        {/* Infrastructure & Facilities Section - STEP 11 */}
+                        <div className="mt-8">
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Infrastructure & Facilities</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <QuickActionCard
+                                    label="Facility Register"
+                                    icon={<SchoolLogoIcon />}
+                                    onClick={() => navigateTo('facilityRegister', 'Facility Register')}
+                                    color="bg-indigo-700"
+                                />
+                                <QuickActionCard
+                                    label="Asset Inventory"
+                                    icon={<ClipboardListIcon />}
+                                    onClick={() => navigateTo('equipmentInventory', 'Equipment Inventory')}
+                                    color="bg-sky-700"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Phase 8: Step 12 Safety & Wellbeing Section */}
+                        <div className="mt-8">
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🛡️ Safety & Wellbeing</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                <QuickActionCard
+                                    label="Emergency Alerts"
+                                    icon={<AlertTriangle className="animate-pulse" />}
+                                    onClick={() => navigateTo('emergencyAlert', 'Emergency Alerts')}
+                                    color="bg-red-600"
+                                />
+                                <QuickActionCard
+                                    label="Health & Incidents"
+                                    icon={<Activity />}
+                                    onClick={() => navigateTo('safetyHealthLogs', 'Safety & Health')}
+                                    color="bg-emerald-600"
+                                />
+                                <QuickActionCard
+                                    label="Emergency Drills"
+                                    icon={<Flame />}
+                                    onClick={() => navigateTo('safetyHealthLogs', 'Safety & Health')}
+                                    color="bg-orange-600"
+                                />
+                                <QuickActionCard
+                                    label="Safeguarding"
+                                    icon={<ShieldCheck />}
+                                    onClick={() => navigateTo('safetyHealthLogs', 'Safety & Health')}
+                                    color="bg-indigo-600"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Phase 9: Step 13 Governance & Ministry Section */}
+                        <div className="mt-8">
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🏛️ Governance & Ministry</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                <QuickActionCard
+                                    label="Quality Assurance"
+                                    icon={<Shield className="animate-pulse" />}
+                                    onClick={() => navigateTo('inspectionHub', 'Inspection Hub')}
+                                    color="bg-slate-800"
+                                />
+                                <QuickActionCard
+                                    label="Ministry Reports"
+                                    icon={<FileText />}
+                                    onClick={() => navigateTo('inspectionHub', 'Inspection Hub')}
+                                    color="bg-slate-700"
+                                />
+                                <QuickActionCard
+                                    label="Live Compliance"
+                                    icon={<Activity className="text-emerald-400" />}
+                                    onClick={() => navigateTo('complianceDashboard', 'Compliance Dashboard')}
+                                    color="bg-slate-900 shadow-xl shadow-slate-200"
+                                />
+                                <QuickActionCard
+                                    label="Governance Hub"
+                                    icon={<Shield className="text-yellow-400" />}
+                                    onClick={() => navigateTo('governanceHub', 'Unified Governance')}
+                                    color="bg-black shadow-xl"
+                                />
+                                <QuickActionCard
+                                    label="System Validation"
+                                    icon={<Beaker />}
+                                    onClick={() => navigateTo('validationConsole', 'Validation Console')}
+                                    color="bg-indigo-900"
+                                />
                             </div>
                         </div>
 
@@ -634,8 +742,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

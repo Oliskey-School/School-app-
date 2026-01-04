@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { toast } from 'react-hot-toast';
 import { mockNotifications } from '../../data';
 import { mockStudents, mockFees } from '../../data';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
@@ -53,7 +54,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
           navigateTo('calendar', 'School Calendar', {});
           break;
         case 'Message':
-          alert("Navigating to messages...");
+          toast("Navigating to messages...", { icon: '✉️' });
           break;
         default:
           break;

@@ -5,6 +5,7 @@ import {
     getTodayAttendanceStatus,
     TeacherAttendance,
 } from '../../lib/teacherAttendanceService';
+import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, ClockIcon, XCircleIcon, CalendarIcon } from '../../constants';
 
 interface TeacherSelfAttendanceProps {
@@ -54,14 +55,14 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
         try {
             const result = await submitTeacherAttendance(teacherId);
             if (result.success) {
-                // alert('Attendance submitted successfully! Waiting for admin approval.');
+                toast.success('Attendance submitted successfully! Waiting for admin approval.');
                 loadAttendanceData();
             } else {
-                alert(`Failed to submit attendance: ${result.error}`);
+                toast.error(`Failed to submit attendance: ${result.error}`);
             }
         } catch (error) {
             console.error('Error submitting attendance:', error);
-            alert('An error occurred while submitting attendance.');
+            toast.error('An error occurred while submitting attendance.');
         } finally {
             setSubmitting(false);
         }

@@ -53,12 +53,12 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
                 phone
             });
 
-            alert('Profile saved successfully!');
+            toast.success('Profile saved successfully!');
             if (onProfileUpdate) onProfileUpdate({ name, avatarUrl: avatar });
 
         } catch (error: any) {
             console.error('Error updating profile:', error);
-            alert(`Failed to update profile: ${error.message || 'Unknown error'}`);
+            toast.error(`Failed to update profile: ${error.message || 'Unknown error'}`);
         } finally {
             setSaving(false);
         }

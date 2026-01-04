@@ -1,6 +1,8 @@
+import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { TrashIcon, PlusIcon, CalendarIcon, MapIcon, ClockIcon, SearchIcon, CheckCircleIcon, XCircleIcon, UserIcon } from '../../constants';
+import { TrashIcon, PlusIcon, CalendarIcon, UsersIcon, VideoIcon, UserIcon } from '../../constants';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const ManagePTAMeetingsScreen: React.FC = () => {
     const [meetings, setMeetings] = useState<any[]>([]);
@@ -10,24 +12,21 @@ const ManagePTAMeetingsScreen: React.FC = () => {
         date: '',
         time: '',
         location: '',
-        agenda: ''
+        description: '',
+        type: 'In-Person',
+        target_group: 'All Parents'
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
+
+    // Deletion State
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [meetingToDelete, setMeetingToDelete] = useState<number | null>(null);
 
     useEffect(() => {
-        fetchData();
+        fetchMeetings();
     }, []);
 
-    useEffect(() => {
-        if (statusMessage) {
-            const timer = setTimeout(() => setStatusMessage(null), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [statusMessage]);
-
-    const fetchData = async () => {
+    const fetchMeetings = async () => {
         try {
             const { data, error } = await supabase
                 .from('pta_meetings')
@@ -37,8 +36,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
             if (error) throw error;
             setMeetings(data || []);
         } catch (err) {
-            console.error('Error fetching data:', err);
-            setStatusMessage({ type: 'error', text: 'Failed to load meetings.' });
+            console.error('Error fetching meetings:', err);
         } finally {
             setLoading(false);
         }
@@ -47,7 +45,6 @@ const ManagePTAMeetingsScreen: React.FC = () => {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        setStatusMessage(null);
         try {
             const { error } = await supabase
                 .from('pta_meetings')
@@ -55,42 +52,53 @@ const ManagePTAMeetingsScreen: React.FC = () => {
 
             if (error) throw error;
 
-            setNewItem({ title: '', date: '', time: '', location: '', agenda: '' });
-            fetchData();
-            setStatusMessage({ type: 'success', text: 'Meeting scheduled successfully!' });
+            setNewItem({
+                title: '',
+                date: '',
+                time: '',
+                location: '',
+                description: '',
+                type: 'In-Person',
+                target_group: 'All Parents'
+            });
+            fetchMeetings();
+            toast.success('Meeting scheduled successfully!');
         } catch (err) {
-            console.error('Error creating meeting:', err);
-            setStatusMessage({ type: 'error', text: 'Failed to schedule meeting.' });
+            console.error('Error scheduling meeting:', err);
+            toast.error('Failed to schedule meeting.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Cancel this meeting?')) return;
+    const confirmDelete = (id: number) => {
+        setMeetingToDelete(id);
+        setShowDeleteModal(true);
+    };
+
+    const handleDelete = async () => {
+        if (meetingToDelete === null) return;
+        const id = meetingToDelete;
+        setShowDeleteModal(false);
+        setMeetingToDelete(null);
+
         try {
             const { error } = await supabase.from('pta_meetings').delete().eq('id', id);
             if (error) throw error;
-            fetchData();
-            setStatusMessage({ type: 'success', text: 'Meeting cancelled.' });
+            fetchMeetings();
+            toast.success('Meeting cancelled.');
         } catch (err) {
             console.error('Error deleting:', err);
-            setStatusMessage({ type: 'error', text: 'Failed to cancel meeting.' });
+            toast.error('Failed to cancel meeting.');
         }
     };
 
-    const isPast = (dateStr: string) => {
-        return new Date(dateStr) < new Date();
+    const isUpcoming = (dateString: string) => {
+        return new Date(dateString) >= new Date(new Date().setHours(0, 0, 0, 0));
     };
 
-    const filteredMeetings = meetings.filter(m =>
-        m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.agenda?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.location?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const upcomingMeetings = filteredMeetings.filter(m => !isPast(m.date));
-    const pastMeetings = filteredMeetings.filter(m => isPast(m.date));
+    const upcomingMeetings = meetings.filter(m => isUpcoming(m.date));
+    const pastMeetings = meetings.filter(m => !isUpcoming(m.date));
 
     return (
         <div className="flex flex-col h-full bg-gray-50 p-6 space-y-6 overflow-y-auto">
@@ -99,12 +107,6 @@ const ManagePTAMeetingsScreen: React.FC = () => {
             <div className="flex flex-col space-y-2">
                 <h1 className="text-2xl font-bold text-gray-800">PTA Meetings</h1>
                 <p className="text-gray-500 text-sm">Schedule and manage Parent-Teacher Association meetings.</p>
-                {statusMessage && (
-                    <div className={`p-4 rounded-lg flex items-center space-x-2 animate-fade-in-down ${statusMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {statusMessage.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : <XCircleIcon className="w-5 h-5" />}
-                        <span>{statusMessage.text}</span>
-                    </div>
-                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -118,7 +120,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
                         </h2>
                         <form onSubmit={handleCreate} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Title</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                                 <input
                                     type="text"
                                     placeholder="e.g. Annual General Meeting"
@@ -150,24 +152,51 @@ const ManagePTAMeetingsScreen: React.FC = () => {
                                     />
                                 </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                    <select
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all bg-white"
+                                        value={newItem.type}
+                                        onChange={e => setNewItem({ ...newItem, type: e.target.value })}
+                                    >
+                                        <option value="In-Person">In-Person</option>
+                                        <option value="Virtual">Virtual</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Audience</label>
+                                    <select
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all bg-white"
+                                        value={newItem.target_group}
+                                        onChange={e => setNewItem({ ...newItem, target_group: e.target.value })}
+                                    >
+                                        <option value="All Parents">All Parents</option>
+                                        <option value="Committee">Committee Only</option>
+                                        <option value="Class Reps">Class Reps</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Location / Link</label>
                                 <input
                                     type="text"
-                                    placeholder="e.g. School Hall or Zoom Link"
+                                    placeholder={newItem.type === 'Virtual' ? 'Meeting Link' : 'e.g. School Auditorium'}
                                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
                                     value={newItem.location}
                                     onChange={e => setNewItem({ ...newItem, location: e.target.value })}
                                     required
                                 />
                             </div>
+
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Agenda / Topics</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Agenda / Description</label>
                                 <textarea
-                                    placeholder="List main discussion points..."
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all h-28 resize-none"
-                                    value={newItem.agenda}
-                                    onChange={e => setNewItem({ ...newItem, agenda: e.target.value })}
+                                    placeholder="Topics to discuss..."
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all h-24 resize-none"
+                                    value={newItem.description}
+                                    onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                                 />
                             </div>
                             <button
@@ -183,99 +212,91 @@ const ManagePTAMeetingsScreen: React.FC = () => {
 
                 {/* List Section */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-h-[500px] flex flex-col">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                            <h2 className="text-lg font-bold text-gray-800">Meeting Schedule</h2>
-                            <div className="relative w-full sm:w-64">
-                                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search meetings..."
-                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-purple-500 outline-none transition-all text-sm"
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                        </div>
 
+                    {/* Upcoming Meetings */}
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <CalendarIcon className="w-5 h-5 mr-2 text-purple-600" />
+                            Upcoming Meetings
+                        </h2>
                         {loading ? (
-                            <div className="flex-grow flex justify-center items-center">
+                            <div className="flex justify-center items-center py-12">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
                             </div>
-                        ) : meetings.length === 0 ? (
-                            <div className="flex-grow flex flex-col justify-center items-center text-gray-400 py-12">
-                                <UserIcon className="w-12 h-12 mb-3 opacity-20" />
-                                <p>No meetings scheduled.</p>
+                        ) : upcomingMeetings.length === 0 ? (
+                            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center text-gray-400">
+                                <p>No upcoming meetings scheduled.</p>
                             </div>
                         ) : (
-                            <div className="space-y-8">
-                                {/* Upcoming */}
-                                {upcomingMeetings.length > 0 && (
-                                    <div className="space-y-4">
-                                        <h3 className="uppercase text-xs font-bold text-gray-400 tracking-wider">Upcoming</h3>
-                                        {upcomingMeetings.map(meeting => (
-                                            <div key={meeting.id} className="relative flex flex-col md:flex-row p-5 bg-white border border-purple-100 rounded-xl shadow-sm hover:shadow-md transition-all group border-l-4 border-l-purple-500">
-                                                <div className="flex-shrink-0 flex md:flex-col items-center justify-center md:mr-6 mb-4 md:mb-0 md:w-20 bg-purple-50 rounded-lg p-3 text-purple-700">
-                                                    <span className="text-xs font-bold uppercase">{new Date(meeting.date).toLocaleString('default', { month: 'short' })}</span>
-                                                    <span className="text-2xl font-bold">{new Date(meeting.date).getDate()}</span>
-                                                    <span className="text-xs opacity-75">{new Date(meeting.date).toLocaleString('default', { weekday: 'short' })}</span>
-                                                </div>
-                                                <div className="flex-grow">
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h3 className="text-lg font-bold text-gray-800">{meeting.title}</h3>
-                                                            <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                                                                <div className="flex items-center">
-                                                                    <ClockIcon className="w-4 h-4 mr-1.5 text-purple-400" />
-                                                                    {meeting.time}
-                                                                </div>
-                                                                <div className="flex items-center">
-                                                                    <MapIcon className="w-4 h-4 mr-1.5 text-purple-400" />
-                                                                    {meeting.location}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => handleDelete(meeting.id)}
-                                                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                                        >
-                                                            <TrashIcon className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                    <p className="mt-3 text-gray-600 text-sm">{meeting.agenda}</p>
-                                                </div>
+                            <div className="space-y-4">
+                                {upcomingMeetings.map(meeting => (
+                                    <div key={meeting.id} className="flex flex-col md:flex-row p-4 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition-all">
+                                        <div className="flex-shrink-0 w-24 text-gray-500 text-sm font-medium mb-2 md:mb-0">
+                                            {new Date(meeting.date).toLocaleDateString()}
+                                        </div>
+                                        <div className="flex-grow">
+                                            <div className="flex justify-between items-start">
+                                                <h4 className="font-bold text-gray-700">{meeting.title}</h4>
+                                                <button onClick={() => confirmDelete(meeting.id)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Past */}
-                                {pastMeetings.length > 0 && (
-                                    <div className="space-y-4">
-                                        <h3 className="uppercase text-xs font-bold text-gray-400 tracking-wider">Past History</h3>
-                                        {pastMeetings.map(meeting => (
-                                            <div key={meeting.id} className="flex flex-col md:flex-row p-4 bg-gray-50 border border-gray-100 rounded-xl opacity-70 hover:opacity-100 transition-opacity">
-                                                <div className="flex-shrink-0 w-24 text-gray-500 text-sm font-medium mb-2 md:mb-0">
-                                                    {new Date(meeting.date).toLocaleDateString()}
-                                                </div>
-                                                <div className="flex-grow">
-                                                    <div className="flex justify-between items-start">
-                                                        <h4 className="font-bold text-gray-700">{meeting.title}</h4>
-                                                        <button onClick={() => handleDelete(meeting.id)} className="text-gray-300 hover:text-red-500">
-                                                            <TrashIcon className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                    <p className="text-sm text-gray-500 mt-1">{meeting.agenda}</p>
-                                                </div>
+                                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{meeting.description || meeting.agenda}</p>
+                                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400">
+                                                <span className="flex items-center">
+                                                    <UsersIcon className="w-3 h-3 mr-1" />
+                                                    {meeting.target_group}
+                                                </span>
+                                                <span className="flex items-center">
+                                                    {meeting.type === 'Virtual' ? <VideoIcon className="w-3 h-3 mr-1" /> : <UsersIcon className="w-3 h-3 mr-1" />}
+                                                    {meeting.location}
+                                                </span>
                                             </div>
-                                        ))}
+                                        </div>
                                     </div>
-                                )}
+                                ))}
                             </div>
                         )}
                     </div>
+
+                    {/* Past Meetings Section */}
+                    {pastMeetings.length > 0 && (
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-400 mb-4 flex items-center">
+                                <CalendarIcon className="w-5 h-5 mr-2" />
+                                Past Meetings
+                            </h2>
+                            <div className="space-y-4 opacity-70 grayscale hover:grayscale-0 transition-all">
+                                {pastMeetings.map(meeting => (
+                                    <div key={meeting.id} className="flex flex-col md:flex-row p-4 bg-gray-50 border border-gray-100 rounded-xl">
+                                        <div className="flex-shrink-0 w-24 text-gray-400 text-sm font-medium mb-2 md:mb-0">
+                                            {new Date(meeting.date).toLocaleDateString()}
+                                        </div>
+                                        <div className="flex-grow">
+                                            <div className="flex justify-between items-start">
+                                                <h4 className="font-bold text-gray-600">{meeting.title}</h4>
+                                                <button onClick={() => confirmDelete(meeting.id)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={handleDelete}
+                title="Cancel Meeting"
+                message="Are you sure you want to cancel this meeting? This action cannot be undone."
+                confirmText="Yes, Cancel"
+                isDanger={true}
+            />
         </div>
     );
 };

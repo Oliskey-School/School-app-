@@ -316,7 +316,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                 <div className="grid grid-cols-4 gap-4">
                     <button onClick={() => navigateTo('addStudent', `Edit ${student.name}`, { studentToEdit: student })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><EditIcon className="w-5 h-5" /><span>Edit</span></button>
                     <button onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student.name}`, { student })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><DocumentTextIcon className="w-5 h-5" /><span>Reports</span></button>
-                    <button onClick={() => alert('ID Card Generation module would open.')} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><DocumentTextIcon className="w-5 h-5" /><span>ID Card</span></button>
+                    <button onClick={() => toast('ID Card module coming soon!', { icon: '🆔' })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><DocumentTextIcon className="w-5 h-5" /><span>ID Card</span></button>
                     <button onClick={() => setShowDeleteModal(true)} className="flex flex-col items-center justify-center space-y-1 py-3 bg-red-100 text-red-700 font-semibold rounded-xl hover:bg-red-200"><TrashIcon className="w-5 h-5" /><span>Delete</span></button>
                 </div>
             </div>

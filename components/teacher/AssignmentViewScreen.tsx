@@ -1,4 +1,4 @@
-import React from 'react';
+import { toast } from 'react-hot-toast';
 import { GeneratedAssessment } from '../../types';
 import { SchoolLogoIcon, DocumentTextIcon, ShareIcon } from '../../constants';
 
@@ -8,7 +8,7 @@ interface AssignmentViewScreenProps {
 }
 
 const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment }) => {
-    
+
     const handlePrint = () => {
         window.print();
     };
@@ -23,12 +23,12 @@ const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment 
             }).catch((error) => console.log('Error sharing:', error));
         } else {
             // Fallback for browsers that do not support the Web Share API
-            alert('To share this assignment, please use the print option and save as a PDF, or take a screenshot.');
+            toast.error('To share, please print/save as PDF or take a screenshot.', { duration: 4000 });
         }
     };
 
     // Example: subject and class info would be available from the parent component in a real app
-    const subject = "Generated Assessment"; 
+    const subject = "Generated Assessment";
     const className = "Class";
 
     return (
@@ -36,15 +36,15 @@ const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment 
             <div className="p-3 border-b border-gray-200 flex justify-between items-center flex-shrink-0 bg-white print:hidden">
                 <h2 className="text-lg font-bold text-gray-800">Assignment Preview</h2>
                 <div className="flex items-center space-x-2">
-                     <button onClick={handleShare} className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-sky-700 bg-sky-100 rounded-md hover:bg-sky-200">
-                        <ShareIcon className="w-4 h-4"/><span>Share</span>
+                    <button onClick={handleShare} className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-sky-700 bg-sky-100 rounded-md hover:bg-sky-200">
+                        <ShareIcon className="w-4 h-4" /><span>Share</span>
                     </button>
                     <button onClick={handlePrint} className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-purple-700 bg-purple-100 rounded-md hover:bg-purple-200">
-                        <DocumentTextIcon className="w-4 h-4"/><span>Print</span>
+                        <DocumentTextIcon className="w-4 h-4" /><span>Print</span>
                     </button>
                 </div>
             </div>
-            
+
             <main className="flex-grow overflow-y-auto p-4">
                 <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg printable-area font-sans">
                     <header className="flex justify-between items-center border-b-2 border-gray-300 pb-4 mb-6">
@@ -53,11 +53,11 @@ const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment 
                             <p className="font-semibold text-gray-600">{subject} - {className}</p>
                         </div>
                         <div className="text-right">
-                             <h2 className="text-xl font-bold text-gray-800">{assessment.type}</h2>
-                             <p className="font-semibold text-gray-600">Total Marks: {assessment.totalMarks}</p>
+                            <h2 className="text-xl font-bold text-gray-800">{assessment.type}</h2>
+                            <p className="font-semibold text-gray-600">Total Marks: {assessment.totalMarks}</p>
                         </div>
                     </header>
-                    
+
                     <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-8 text-lg">
                         <div className="flex items-center">
                             <label className="font-bold mr-2">Name:</label>
@@ -65,7 +65,7 @@ const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment 
                         </div>
                         <div className="flex items-center">
                             <label className="font-bold mr-2">Date:</label>
-                             <div className="flex-grow border-b-2 border-gray-400"></div>
+                            <div className="flex-grow border-b-2 border-gray-400"></div>
                         </div>
                     </div>
 

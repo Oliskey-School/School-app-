@@ -12,6 +12,7 @@ const settingsCategories = [
   { view: 'communicationSettings', title: 'Communication Settings', description: 'Configure notifications and channels.', icon: <MegaphoneIcon />, color: 'text-amber-500 bg-amber-100' },
   { view: 'securitySettings', title: 'Security & Compliance', description: 'Password policies, 2FA, audit logs.', icon: <ShieldCheckIcon />, color: 'text-red-500 bg-red-100' },
   { view: 'brandingSettings', title: 'Branding & Customization', description: 'Customize the look and feel.', icon: <PaintBrushIcon />, color: 'text-purple-500 bg-purple-100' },
+  { view: 'analyticsAdminTools', title: 'Analytics & Admin Tools', description: 'Advanced analytics, budgets, integrations.', icon: <BriefcaseIcon />, color: 'text-teal-500 bg-teal-100' },
 ];
 
 const SystemSettingsScreen: React.FC<SystemSettingsScreenProps> = ({ navigateTo }) => {

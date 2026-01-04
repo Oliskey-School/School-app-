@@ -158,6 +158,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             case 'analytics':
                 setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]);
                 break;
+            case 'feeManagement':
+                setViewStack([{ view: 'feeManagement', props: {}, title: 'Fee Management' }]);
+                break;
             case 'settings':
                 setViewStack([{ view: 'profileSettings', props: { onLogout }, title: 'Profile Settings' }]);
                 break;

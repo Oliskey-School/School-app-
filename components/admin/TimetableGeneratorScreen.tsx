@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
+import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, ChevronRightIcon, CalendarIcon, UserGroupIcon, BookOpenIcon, ClockIcon, EditIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { checkTimetableExists, fetchTimetableForClass, fetchTeachers } from '../../lib/database';
@@ -129,22 +129,33 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
                     // Import the helper function
                     const { getGradeDisplayName } = await import('../../lib/schoolSystem');
 
-                    const formattedClasses = data.map((cls: any) => {
+                    const uniqueClassesMap = new Map();
+
+                    data.forEach((cls: any) => {
                         const gradeName = getGradeDisplayName(cls.grade);
                         let displayName = `${gradeName} - Section ${cls.section}`;
 
                         // Add department for SSS classes
-                        if (cls.department && cls.grade >= 12) {
+                        if (cls.department && cls.grade >= 10) {
+                            // Only append department if strictly needed for distinction, 
+                            // but usually for timetable generation we want the Class entity (10A Science).
                             displayName += ` (${cls.department})`;
                         }
 
-                        return {
-                            id: cls.id,
-                            name: displayName,
-                            grade: cls.grade,
-                            section: cls.section,
-                        };
+                        // Use a composite key to ensure uniqueness
+                        const key = `${cls.grade}-${cls.section}-${cls.department || ''}`;
+
+                        if (!uniqueClassesMap.has(key)) {
+                            uniqueClassesMap.set(key, {
+                                id: cls.id, // Use the first ID found for this group
+                                name: displayName,
+                                grade: cls.grade,
+                                section: cls.section,
+                            });
+                        }
                     });
+
+                    const formattedClasses = Array.from(uniqueClassesMap.values());
 
                     console.log('📝 Formatted classes:', formattedClasses.slice(0, 5));
                     setClasses(formattedClasses);
@@ -240,7 +251,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
 
         } catch (error) {
             console.error("Error loading existing timetable:", error);
-            alert("Failed to load existing timetable.");
+            toast.error("Failed to load existing timetable.");
         } finally {
             setIsLoadingExisting(false);
         }

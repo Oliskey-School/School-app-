@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { Student, BehaviorNote } from '../../types';
 import { DocumentTextIcon, BookOpenIcon, ClipboardListIcon, CheckCircleIcon, PlusIcon, SUBJECT_COLORS, ReportIcon } from '../../constants';
 
 interface StudentProfileScreenProps {
-  student: Student;
-  navigateTo: (view: string, title: string, props: any) => void;
-  handleBack: () => void;
+    student: Student;
+    navigateTo: (view: string, title: string, props: any) => void;
+    handleBack: () => void;
 }
 
 const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack }) => {
@@ -17,7 +18,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
 
     const handleAddNote = () => {
         if (!newNote.trim() || !newNoteTitle.trim()) {
-            alert('Please fill in both a title and a note.');
+            toast.error('Please fill in both a title and a note.');
             return;
         }
         const noteToAdd: BehaviorNote = {
@@ -40,13 +41,13 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Student Header */}
                 <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
-                    <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-purple-100"/>
+                    <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-purple-100" />
                     <div>
                         <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
                         <p className="text-gray-500 font-medium">Grade {student.grade}{student.section}</p>
                     </div>
                 </div>
-                
+
                 <div className="lg:col-span-3">
                     <button
                         onClick={() => navigateTo('selectTermForReport', 'Select Term', { student })}
@@ -115,7 +116,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                     )}
 
                     <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                        {behaviorNotes.length > 0 ? [...behaviorNotes].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => {
+                        {behaviorNotes.length > 0 ? [...behaviorNotes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => {
                             const isPositive = note.type === 'Positive';
                             return (
                                 <div key={note.id} className={`p-3 rounded-lg border-l-4 ${isPositive ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>

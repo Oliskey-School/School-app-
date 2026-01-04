@@ -1,11 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Conversation } from '../../types';
 import ChatScreen from '../shared/ChatScreen';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
 import { THEME_CONFIG } from '../../constants';
 
-const LOGGED_IN_TEACHER_ID = 2; // Temporary mock ID until Auth is fully ready
 
 const formatTimestamp = (isoDate: string): string => {
     if (!isoDate) return '';
@@ -26,96 +25,173 @@ const formatTimestamp = (isoDate: string): string => {
 interface TeacherMessagesScreenProps {
     onSelectChat?: (conversation: Conversation) => void;
     navigateTo: (view: string, title: string, props?: any) => void;
+    teacherId?: number | null;
+    currentUser?: any;
 }
 
-const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateTo, onSelectChat }) => {
+interface LocalConversation {
+    id: number;
+    participant: {
+        id: number;
+        name: string;
+        avatarUrl: string;
+        role: string;
+    };
+    lastMessage: {
+        text: string;
+        timestamp: string;
+    };
+    unreadCount: number;
+    messages: any[];
+}
+
+const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateTo, onSelectChat, teacherId, currentUser }) => {
+    // Determine current user ID logic (fallback to 2 if missing)
+    const myId = teacherId || (currentUser?.userId ? parseInt(currentUser.userId) : null) || 2;
+
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState<'All' | 'Unread'>('All');
-    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [conversations, setConversations] = useState<LocalConversation[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchConversations = async () => {
-            setLoading(true);
-            const { data: convos, error } = await supabase
-                .from('conversations')
-                .select('*')
-                .order('last_message_time', { ascending: false });
+    const fetchConversations = useCallback(async () => {
+        setLoading(true);
+        try {
+            // 1. Get IDs of conversations I am in
+            const { data: myParticipations, error: partError } = await supabase
+                .from('conversation_participants')
+                .select('conversation_id')
+                .eq('user_id', myId);
 
-            if (error) {
-                console.error("Error fetching conversations:", error);
-                setLoading(false);
-                return;
-            }
-
-            if (!convos) {
+            if (partError) throw partError;
+            if (!myParticipations || myParticipations.length === 0) {
                 setConversations([]);
                 setLoading(false);
                 return;
             }
 
-            // Enrich with participant details
-            const enrichedConversations: any[] = await Promise.all(convos.map(async (c: any) => {
-                let participantName = 'Unknown';
-                let participantAvatar = '';
+            const conversationIds = myParticipations.map(p => p.conversation_id);
 
-                if (c.participant_role === 'Student') {
-                    const { data: student } = await supabase.from('students').select('name, avatar_url').eq('id', c.participant_id).single();
-                    if (student) {
-                        participantName = student.name;
-                        participantAvatar = student.avatar_url;
-                    }
-                } else if (c.participant_role === 'Parent') {
-                    const { data: parent } = await supabase.from('parents').select('name, avatar_url').eq('id', c.participant_id).single();
-                    if (parent) {
-                        participantName = parent.name;
-                        participantAvatar = parent.avatar_url;
-                    }
-                }
+            // 2. Fetch the conversation metadata (last message, etc.)
+            const { data: conversationList, error: convoError } = await supabase
+                .from('conversations')
+                .select('*')
+                .in('id', conversationIds)
+                .order('last_message_at', { ascending: false });
+
+            if (convoError) throw convoError;
+
+            // 3. Fetch the OTHER participants for these conversations to get name/avatar
+            const { data: otherParticipants, error: otherPartError } = await supabase
+                .from('conversation_participants')
+                .select(`
+                        conversation_id,
+                        user:users!user_id (id, name, avatar_url, role)
+                    `)
+                .in('conversation_id', conversationIds)
+                .neq('user_id', myId); // Exclude me
+
+            if (otherPartError) throw otherPartError;
+
+            // 4. Merge Data
+            const enrichedConversations: LocalConversation[] = conversationList.map((c: any) => {
+                // Find the other participant for this conversation
+                const pData = otherParticipants?.find((p: any) => p.conversation_id === c.id);
+                // Safely access user, handling potential array return from join
+                const userData = (pData as any)?.user;
+                const other = Array.isArray(userData) ? userData[0] : userData;
+
+                // Fallback if no other participant (e.g. self chat or formatting error)
+                const participantName = other?.name || c.name || 'Unknown User';
+                const participantAvatar = other?.avatar_url || '';
+                const participantRole = other?.role || 'User';
+                const participantId = other?.id || 0;
 
                 return {
                     id: c.id,
                     participant: {
-                        id: c.participant_id,
+                        id: participantId,
                         name: participantName,
                         avatarUrl: participantAvatar,
-                        role: c.participant_role as any
+                        role: participantRole
                     },
                     lastMessage: {
-                        text: c.last_message || 'No messages yet',
-                        timestamp: c.last_message_time || new Date().toISOString()
+                        text: c.last_message_text || c.last_message || 'Start a conversation',
+                        timestamp: c.last_message_at || new Date().toISOString()
                     },
-                    unreadCount: c.unread_count || 0,
-                    messages: [] // We fetch messages only when opening the chat
+                    unreadCount: 0, // Need to implement read count logic later
+                    messages: []
                 };
-            }));
+            });
 
             setConversations(enrichedConversations);
-            setLoading(false);
-        };
 
+        } catch (err) {
+            console.error("Error fetching conversations:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [myId]);
+
+    useEffect(() => {
         fetchConversations();
-    }, []);
+
+        // Realtime Subscription
+        const channel = supabase
+            .channel('public:conversations')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'conversations' },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        fetchConversations();
+                    } else if (payload.eventType === 'UPDATE') {
+                        const updated = payload.new;
+                        setConversations(prev => {
+                            const exists = prev.find(c => c.id === updated.id);
+                            if (exists) {
+                                const others = prev.filter(c => c.id !== updated.id);
+                                return [{
+                                    ...exists,
+                                    lastMessage: {
+                                        text: updated.last_message_text || exists.lastMessage.text,
+                                        timestamp: updated.last_message_at || exists.lastMessage.timestamp
+                                    }
+                                }, ...others];
+                            } else {
+                                fetchConversations();
+                                return prev;
+                            }
+                        });
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [fetchConversations]);
 
 
     // Map for UI consistency
     const rooms = useMemo(() => {
         return conversations.map(c => ({
-            id: c.id,
+            id: typeof c.id === 'string' && !isNaN(Number(c.id)) ? Number(c.id) : c.id, // Ensure consistent ID type (number preferred for ChatScreen)
             displayName: c.participant.name,
             displayAvatar: c.participant.avatarUrl,
             lastMessage: {
                 content: c.lastMessage.text,
                 created_at: c.lastMessage.timestamp,
-                sender_id: c.lastMessage.senderId || 0
+                sender_id: 0 // Not strictly needed for list view
             },
             unreadCount: c.unreadCount,
-            is_group: false // Default
+            is_group: false
         }));
     }, [conversations]);
 
     const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
-    const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+    const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
 
     useEffect(() => {
         const handleResize = () => setIsDesktop(window.innerWidth >= 768);
@@ -137,25 +213,23 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
     }, [searchTerm, activeFilter, rooms]);
 
     const handleChatClick = (convo: any) => {
-        // Find original conversation object if needed or just use the mapped one
-        // We'll reconstruct a basic conversation object for the callback
-        const originalConvo = conversations.find(c => c.id === convo.id);
+        const originalConvo = conversations.find(c => (c.id).toString() === (convo.id).toString());
 
         if (onSelectChat && originalConvo) {
             onSelectChat(originalConvo);
-            setSelectedConversation(originalConvo);
+            setSelectedConversation(convo);
             return;
         }
 
         if (isDesktop && originalConvo) {
-            setSelectedConversation(originalConvo);
+            setSelectedConversation(convo);
         } else {
             navigateTo('chat', convo.displayName, {
-                conversationId: convo.id,
-                participantId: originalConvo?.participant.id, // Fallback
-                participantRole: originalConvo?.participant.role,
-                participantName: convo.displayName,
-                participantAvatar: convo.displayAvatar
+                conversationId: Number(convo.id), // Ensure it's passed as ID for new ChatScreen logic
+                roomDetails: {
+                    displayName: convo.displayName,
+                    displayAvatar: convo.displayAvatar
+                }
             });
         }
     };
@@ -268,7 +342,7 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
                     {selectedConversation ? (
                         <div className="h-full">
                             <ChatScreen
-                                currentUserId={LOGGED_IN_TEACHER_ID}
+                                currentUserId={myId}
                                 conversationId={selectedConversation.id}
                                 roomDetails={rooms.find(r => r.id === selectedConversation.id)}
                             />

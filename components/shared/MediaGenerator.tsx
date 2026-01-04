@@ -1,5 +1,6 @@
 
 import React, { useState, useRef } from 'react';
+import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import { SparklesIcon, VideoIcon, CameraIcon, PhotoIcon, XCircleIcon, DownloadIcon } from '../../constants';
 
@@ -112,7 +113,7 @@ const MediaGenerator: React.FC = () => {
 
         } catch (error) {
             console.error("Generation failed:", error);
-            alert("Failed to generate media. Please try again.");
+            toast.error("Failed to generate media. Please try again.");
         } finally {
             setIsLoading(false);
         }

@@ -29,7 +29,7 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                 if (assignError) throw assignError;
 
                 const { data: submissionsData, error: subError } = await supabase
-                    .from('assignment_submissions')
+                    .from('submissions')
                     .select('*')
                     .eq('student_id', studentId);
 

@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { LockIcon, EyeIcon, EyeOffIcon } from '../../constants';
 
 const PasswordInput = ({ id, label, value, onChange }: { id: string, label: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) => {
@@ -38,10 +39,10 @@ const TeacherChangePasswordScreen: React.FC = () => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (newPassword !== confirmPassword) {
-            alert("New passwords do not match.");
+            toast.error("New passwords do not match.");
             return;
         }
-        alert("Password changed successfully!");
+        toast.success("Password changed successfully!");
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');

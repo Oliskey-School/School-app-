@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { ShieldCheckIcon, LoginIcon, ChevronRightIcon, LockIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 
@@ -50,7 +51,7 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
         } catch (err) {
             console.error('Error updating 2FA:', err);
             setTwoFactor(!newValue); // Revert on error
-            alert('Failed to update 2FA setting.');
+            toast.error('Failed to update 2FA setting.');
         }
     };
 

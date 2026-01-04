@@ -8,32 +8,32 @@ const FROM_EMAIL = import.meta.env.VITE_FROM_EMAIL || 'onboarding@resend.dev';
 const SCHOOL_NAME = 'Oliskey School App';
 
 interface SendWelcomeEmailParams {
-    toEmail: string;
-    userName: string;
-    username: string;
-    password: string;
-    userType: string;
+  toEmail: string;
+  userName: string;
+  username: string;
+  password: string;
+  userType: string;
 }
 
 /**
  * Sends a welcome email with login credentials
  */
 export const sendWelcomeEmail = async ({
-    toEmail,
-    userName,
-    username,
-    password,
-    userType
+  toEmail,
+  userName,
+  username,
+  password,
+  userType
 }: SendWelcomeEmailParams): Promise<{ success: boolean; error?: string }> => {
 
-    // If no API key is configured, skip email sending (development mode)
-    if (!RESEND_API_KEY || RESEND_API_KEY === '') {
-        console.warn('⚠️ Resend API key not configured. Skipping email send. Set VITE_RESEND_API_KEY in .env');
-        return { success: true }; // Don't fail the account creation
-    }
+  // If no API key is configured, skip email sending (development mode)
+  if (!RESEND_API_KEY || RESEND_API_KEY === '') {
+    console.warn('⚠️ Resend API key not configured. Skipping email send. Set VITE_RESEND_API_KEY in .env');
+    return { success: true }; // Don't fail the account creation
+  }
 
-    try {
-        const emailHtml = `
+  try {
+    const emailHtml = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -107,54 +107,54 @@ export const sendWelcomeEmail = async ({
       </html>
     `;
 
-        const response = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${RESEND_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                from: FROM_EMAIL,
-                to: toEmail,
-                subject: `🎓 Welcome to ${SCHOOL_NAME} - Your Account is Ready!`,
-                html: emailHtml
-            })
-        });
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: toEmail,
+        subject: `🎓 Welcome to ${SCHOOL_NAME} - Your Account is Ready!`,
+        html: emailHtml
+      })
+    });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Resend API error:', errorData);
-            return { success: false, error: `Email service error: ${errorData.message || 'Unknown error'}` };
-        }
-
-        const result = await response.json();
-        console.log('✅ Welcome email sent successfully:', result.id);
-
-        return { success: true };
-    } catch (err: any) {
-        console.error('Error sending welcome email:', err);
-        return { success: false, error: err.message };
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Resend API error:', errorData);
+      return { success: false, error: `Email service error: ${errorData.message || 'Unknown error'}` };
     }
+
+    const result = await response.json();
+    console.log('✅ Welcome email sent successfully:', result.id);
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error sending welcome email:', err);
+    return { success: false, error: err.message };
+  }
 };
 
 /**
  * Sends a password reset email
  */
 export const sendPasswordResetEmail = async (
-    toEmail: string,
-    userName: string,
-    resetToken: string
+  toEmail: string,
+  userName: string,
+  resetToken: string
 ): Promise<{ success: boolean; error?: string }> => {
 
-    if (!RESEND_API_KEY || RESEND_API_KEY === '') {
-        console.warn('⚠️ Resend API key not configured. Skipping email send.');
-        return { success: true };
-    }
+  if (!RESEND_API_KEY || RESEND_API_KEY === '') {
+    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+    return { success: true };
+  }
 
-    try {
-        const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
+  try {
+    const resetLink = `http://localhost:5173/reset-password?token=${resetToken}`;
 
-        const emailHtml = `
+    const emailHtml = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -202,28 +202,214 @@ export const sendPasswordResetEmail = async (
       </html>
     `;
 
-        const response = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${RESEND_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                from: FROM_EMAIL,
-                to: toEmail,
-                subject: `🔐 Password Reset - ${SCHOOL_NAME}`,
-                html: emailHtml
-            })
-        });
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: toEmail,
+        subject: `🔐 Password Reset - ${SCHOOL_NAME}`,
+        html: emailHtml
+      })
+    });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            return { success: false, error: errorData.message };
-        }
-
-        return { success: true };
-    } catch (err: any) {
-        console.error('Error sending password reset email:', err);
-        return { success: false, error: err.message };
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, error: errorData.message };
     }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error sending password reset email:', err);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Import email templates
+ */
+import {
+  generateFeeAssignmentEmail,
+  generatePaymentConfirmationEmail,
+  generateAbsenceNotificationEmail,
+  generateEmergencyBroadcastEmail,
+  type FeeAssignmentEmailData,
+  type PaymentConfirmationEmailData,
+  type AbsenceNotificationEmailData,
+  type EmergencyBroadcastEmailData
+} from './email-templates';
+
+/**
+ * Send fee assignment notification email to parent
+ */
+export const sendFeeAssignmentEmail = async (
+  data: FeeAssignmentEmailData & { toEmail: string }
+): Promise<{ success: boolean; error?: string }> => {
+  if (!RESEND_API_KEY || RESEND_API_KEY === '') {
+    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+    return { success: true };
+  }
+
+  try {
+    const emailHtml = generateFeeAssignmentEmail(data);
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: data.toEmail,
+        subject: `💰 New Fee Assigned - ${data.feeTitle}`,
+        html: emailHtml
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Resend API error:', errorData);
+      return { success: false, error: errorData.message };
+    }
+
+    const result = await response.json();
+    console.log('✅ Fee assignment email sent:', result.id);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error sending fee assignment email:', err);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Send payment confirmation email to parent
+ */
+export const sendPaymentConfirmationEmail = async (
+  data: PaymentConfirmationEmailData & { toEmail: string }
+): Promise<{ success: boolean; error?: string }> => {
+  if (!RESEND_API_KEY || RESEND_API_KEY === '') {
+    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+    return { success: true };
+  }
+
+  try {
+    const emailHtml = generatePaymentConfirmationEmail(data);
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: data.toEmail,
+        subject: `✅ Payment Received - ${data.feeTitle}`,
+        html: emailHtml
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Resend API error:', errorData);
+      return { success: false, error: errorData.message };
+    }
+
+    const result = await response.json();
+    console.log('✅ Payment confirmation email sent:', result.id);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error sending payment confirmation email:', err);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Send absence notification email to parent
+ */
+export const sendAbsenceNotificationEmail = async (
+  data: AbsenceNotificationEmailData & { toEmail: string }
+): Promise<{ success: boolean; error?: string }> => {
+  if (!RESEND_API_KEY || RESEND_API_KEY === '') {
+    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+    return { success: true };
+  }
+
+  try {
+    const emailHtml = generateAbsenceNotificationEmail(data);
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: data.toEmail,
+        subject: `⚠️ Absence Notification - ${data.studentName}`,
+        html: emailHtml
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Resend API error:', errorData);
+      return { success: false, error: errorData.message };
+    }
+
+    const result = await response.json();
+    console.log('✅ Absence notification email sent:', result.id);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error sending absence notification email:', err);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Send emergency broadcast email
+ */
+export const sendEmergencyBroadcastEmail = async (
+  data: EmergencyBroadcastEmailData & { toEmail: string }
+): Promise<{ success: boolean; error?: string }> => {
+  if (!RESEND_API_KEY || RESEND_API_KEY === '') {
+    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+    return { success: true };
+  }
+
+  try {
+    const emailHtml = generateEmergencyBroadcastEmail(data);
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: data.toEmail,
+        subject: `🚨 ${data.urgencyLevel.toUpperCase()} ALERT: ${data.title}`,
+        html: emailHtml
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Resend API error:', errorData);
+      return { success: false, error: errorData.message };
+    }
+
+    const result = await response.json();
+    console.log('✅ Emergency broadcast email sent:', result.id);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error sending emergency broadcast email:', err);
+    return { success: false, error: err.message };
+  }
 };

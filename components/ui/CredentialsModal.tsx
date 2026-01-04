@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 // Add html2pdf.js for PDF export
 // Install with: npm install html2pdf.js
 import html2pdf from 'html2pdf.js';
+import { toast } from 'react-hot-toast';
 import { DownloadIcon, CheckCircleIcon } from '../../constants';
 
 interface CredentialsModalProps {
@@ -106,9 +107,9 @@ Visit: https://your-school-app.com/login
       const opt = {
         margin: 0.5,
         filename: `${userType.toLowerCase()}_credentials.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
       };
 
       await html2pdf().set(opt).from(element).save();
@@ -117,7 +118,7 @@ Visit: https://your-school-app.com/login
       document.body.removeChild(element);
     } catch (err) {
       console.error('PDF generation failed:', err);
-      alert('Could not generate PDF. Please try the "Download TXT" option.');
+      toast.error('Could not generate PDF. Please try the "Download TXT" option.');
       // Attempt cleanup if it exists in body
       const clones = document.querySelectorAll('[style*="left: -9999px"]');
       clones.forEach(c => c.remove());

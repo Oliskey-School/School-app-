@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import { Student, Teacher, Rating, ReportCard, ReportCardAcademicRecord } from '../../types';
 import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon } from '../../constants';
 import { mockTeachers, mockStudents } from '../../data';
 import { getSubjectsForStudent } from '../../data';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface ReportCardInputScreenProps {
     student: Student;
@@ -61,6 +63,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const [teacherComment, setTeacherComment] = useState('');
     const [principalComment, setPrincipalComment] = useState('');
     const [generatingRemarkIndex, setGeneratingRemarkIndex] = useState<number | null>(null);
+    const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
     const existingReport = useMemo(() => student.reportCards?.find(rc => rc.term === term), [student, term]);
     const isLocked = !isAdmin && (existingReport?.status === 'Submitted' || existingReport?.status === 'Published');
@@ -183,7 +186,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const handleGenerateRemark = async (index: number) => {
         const record = academicData[index];
         if (!record || record.ca === '' || record.exam === '') {
-            alert("Please enter CA and Exam scores first.");
+            toast.error("Please enter CA and Exam scores first.");
             return;
         }
 
@@ -207,20 +210,16 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
         } catch (error) {
             console.error("AI Remark Generation Error:", error);
-            alert("Failed to generate remark.");
+            toast.error("Failed to generate remark.");
         } finally {
             setGeneratingRemarkIndex(null);
         }
     };
 
-    const handleSave = (status: 'Draft' | 'Submitted') => {
-        if (status === 'Submitted' && !window.confirm('Are you sure you want to submit this for review? You will not be able to edit it after submission.')) {
-            return;
-        }
-
+    const processSave = (status: 'Draft' | 'Submitted') => {
         const studentIndex = mockStudents.findIndex(s => s.id === student.id);
         if (studentIndex === -1) {
-            alert("Error: Student not found.");
+            toast.error("Error: Student not found.");
             return;
         }
 
@@ -260,8 +259,16 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
         mockStudents[studentIndex] = updatedStudent;
 
-        alert(`Report card has been ${status === 'Draft' ? 'saved as a draft' : 'submitted for review'}.`);
+        toast.success(`Report card has been ${status === 'Draft' ? 'saved as a draft' : 'submitted for review'}.`);
         handleBack();
+    };
+
+    const handleSave = (status: 'Draft' | 'Submitted') => {
+        if (status === 'Submitted') {
+            setIsSubmitModalOpen(true);
+        } else {
+            processSave('Draft');
+        }
     };
 
     return (
@@ -335,6 +342,18 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                     )}
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={isSubmitModalOpen}
+                onClose={() => setIsSubmitModalOpen(false)}
+                onConfirm={() => {
+                    processSave('Submitted');
+                    setIsSubmitModalOpen(false);
+                }}
+                title="Submit Report Card"
+                message="Are you sure you want to submit this for review? You will not be able to edit it after submission."
+                confirmText="Submit"
+            />
         </div>
     );
 };

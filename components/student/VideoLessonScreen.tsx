@@ -104,7 +104,7 @@ const VideoLessonScreen: React.FC<VideoLessonScreenProps> = ({ lessonId, navigat
             navigateTo('videoLesson', resource.title, { lessonId: resource.id });
         } else {
             window.open(resource.url, '_blank');
-            // alert(`Opening ${resource.type}: ${resource.title}`);
+            toast(`Opening ${resource.type}: ${resource.title}`, { icon: '🔗' });
         }
     };
 

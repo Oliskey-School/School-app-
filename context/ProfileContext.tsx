@@ -7,7 +7,7 @@ interface UserProfile {
   email: string;
   phone: string;
   avatarUrl: string;
-  role?: 'Student' | 'Teacher' | 'Parent' | 'Admin';
+  role?: 'Student' | 'Teacher' | 'Parent' | 'Admin' | 'Proprietor' | 'Inspector' | 'Exam Officer' | 'Compliance Officer';
   supabaseId?: string;
 }
 
@@ -43,7 +43,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           // Fetch user profile from users table by email
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, name, email, avatar_url')
+            .select('id, name, email, avatar_url, role')
             .eq('email', authData.user.email)
             .single();
 
@@ -54,7 +54,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
               email: userData.email,
               phone: profile.phone, // Keep existing or fetch if added to DB
               avatarUrl: userData.avatar_url || 'https://i.pravatar.cc/150?u=user',
-              role: profile.role,
+              role: (userData.role as any) || profile.role,
             };
             setProfileState(dbProfile);
             return;
@@ -96,7 +96,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (userId && !isNaN(Number(userId))) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url')
+          .select('id, name, email, avatar_url, role')
           .eq('id', Number(userId))
           .single();
         userData = result.data;
@@ -104,7 +104,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (email) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url')
+          .select('id, name, email, avatar_url, role')
           .eq('email', email)
           .single();
         userData = result.data;
@@ -116,9 +116,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           id: userData.id,
           name: userData.name || profile.name,
           email: userData.email,
-          phone: profile.phone, // Keep existing phone from role-specific store or local
+          phone: profile.phone,
           avatarUrl: userData.avatar_url || profile.avatarUrl,
-          role: profile.role,
+          role: (userData.role as any) || profile.role,
         };
         setProfileState(dbProfile);
         sessionStorage.setItem('userProfile', JSON.stringify(dbProfile));
@@ -183,6 +183,61 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Update local state and cache after successful save
       setProfileState(updated);
       sessionStorage.setItem('userProfile', JSON.stringify(updated));
+
+      // ---------------------------------------------------------
+      // SECONDARY UPDATE: Sync with Role-Specific Tables
+      // ---------------------------------------------------------
+      if (updated.role) {
+        const userId = Number(updated.id);
+        const userEmail = updated.email;
+
+        // Common fields for secondary tables
+        const commonUpdates: any = {};
+        if (updates.name) commonUpdates.name = updates.name;
+        if (updates.avatarUrl) commonUpdates.avatar_url = updates.avatarUrl;
+
+        // Phone is only for Teacher and Parent
+        if (updates.phone && (updated.role === 'Teacher' || updated.role === 'Parent')) {
+          commonUpdates.phone = updates.phone;
+        }
+
+        if (Object.keys(commonUpdates).length > 0) {
+          let tableName = '';
+          if (updated.role === 'Student') tableName = 'students';
+          if (updated.role === 'Teacher') tableName = 'teachers';
+          if (updated.role === 'Parent') tableName = 'parents';
+
+          if (tableName) {
+            let query = supabase.from(tableName).update(commonUpdates);
+
+            // Try to match by user_id first, fallback to email
+            if (!isNaN(userId)) {
+              query = query.eq('user_id', userId);
+            } else if (userEmail) {
+              // Students table might not have email column in some schemas, 
+              // but Teachers/Parents do. 
+              if (tableName !== 'students') {
+                query = query.eq('email', userEmail);
+              } else {
+                // For students without ID, we can't reliably update purely by email 
+                // if the student table doesn't have an email column (it's on the user).
+                // Skipping update if no ID for student.
+                console.warn('Cannot update student record without valid user_id');
+                return;
+              }
+            }
+
+            const { error: roleError } = await query;
+            if (roleError) {
+              console.error(`Error syncing profile to ${tableName} table:`, roleError);
+              // We don't throw here to avoid breaking the UI if specific table fails,
+              // since primary user table succeeded.
+            } else {
+              console.log(`Synced profile to ${tableName} successfully`);
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('Error updating profile:', err);
       throw err;
@@ -198,7 +253,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (profile.id && !isNaN(Number(profile.id))) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, phone')
+          .select('id, name, email, avatar_url, phone, role')
           .eq('id', Number(profile.id))
           .single();
 
@@ -209,7 +264,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             email: data.email,
             phone: data.phone || profile.phone,
             avatarUrl: data.avatar_url || profile.avatarUrl,
-            role: profile.role,
+            role: (data.role as any) || profile.role,
           };
           setProfileState(refreshed);
           sessionStorage.setItem('userProfile', JSON.stringify(refreshed));
@@ -218,7 +273,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (profile.email) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, phone')
+          .select('id, name, email, avatar_url, phone, role')
           .eq('email', profile.email)
           .single();
 
@@ -229,7 +284,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             email: data.email,
             phone: profile.phone,
             avatarUrl: data.avatar_url || profile.avatarUrl,
-            role: profile.role,
+            role: (data.role as any) || profile.role,
           };
           setProfileState(refreshed);
           sessionStorage.setItem('userProfile', JSON.stringify(refreshed));

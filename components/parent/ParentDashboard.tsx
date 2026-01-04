@@ -23,12 +23,12 @@ import {
     CalendarIcon,
     CalendarPlusIcon,
     SparklesIcon,
-} from 'lucide-react';
-import {
     getFormattedClassName
 } from '../../constants';
+
 import Header from '../ui/Header';
 import { ParentBottomNav } from '../ui/DashboardBottomNav';
+import { ParentSidebar } from '../ui/DashboardSidebar';
 import DonutChart from '../ui/DonutChart';
 import GlobalSearchScreen from '../shared/GlobalSearchScreen';
 
@@ -63,6 +63,16 @@ import ParentMessagesScreen from '../parent/ParentMessagesScreen';
 import ParentNewChatScreen from '../parent/ParentNewChatScreen';
 import ChatScreen from '../shared/ChatScreen';
 import SchoolUtilitiesScreen from '../parent/SchoolUtilitiesScreen';
+
+// Phase 5: Parent & Community Empowerment Components
+import VolunteerSignup from '../parent/VolunteerSignup';
+import ConferenceScheduling from '../shared/ConferenceScheduling';
+import SurveysAndPolls from '../shared/SurveysAndPolls';
+import DonationPortal from '../shared/DonationPortal';
+import CommunityResourceDirectory from '../shared/CommunityResourceDirectory';
+import ReferralSystem from '../shared/ReferralSystem';
+import PanicButton from '../shared/PanicButton';
+import MentalHealthResources from '../shared/MentalHealthResources';
 
 
 const DashboardSuspenseFallback = () => (
@@ -139,7 +149,7 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
                 const { data: assignmentsData } = await supabase
                     .from('assignments')
                     .select('*')
-                    .eq('class_name', `${student.grade}${student.section}`) // Approximate matching
+                    .or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`)
                     .gt('due_date', new Date().toISOString())
                     .order('due_date', { ascending: true });
 
@@ -248,7 +258,7 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
                                         <p className="text-sm text-gray-700">{hw.subject} &bull; Due {new Date(hw.dueDate).toLocaleDateString('en-GB')}</p>
                                     </div>
                                     <div className={`flex items-center space-x-2 text-xs font-semibold px-2 py-1 rounded-full ${status.bg} ${status.color}`}>
-                                        {React.cloneElement(status.icon as React.ReactElement, { className: `h-4 w-4 ${status.isComplete ? 'animate-checkmark-pop' : ''}`.trim() })}
+                                        {React.cloneElement(status.icon as any, { className: `h-4 w-4 ${status.isComplete ? 'animate-checkmark-pop' : ''}`.trim() })}
                                         <span>{status.text}</span>
                                     </div>
                                 </div>
@@ -423,6 +433,32 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
 
     useEffect(() => {
         const fetchChildren = async () => {
+            const fetchStudents = async (ids: number[]) => {
+                const { data: studentsData, error: studentsError } = await supabase
+                    .from('students')
+                    .select('*')
+                    .in('id', ids);
+
+                if (studentsError) throw studentsError;
+
+                // Map DB students to frontend Student type
+                const mappedStudents: Student[] = studentsData.map((s: any) => ({
+                    id: s.id,
+                    name: s.name,
+                    email: s.user?.email || '', // Assuming joined or empty
+                    avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
+                    grade: s.grade,
+                    section: s.section,
+                    department: s.department,
+                    attendanceStatus: s.attendance_status || 'Present',
+                    birthday: s.birthday,
+                    academicPerformance: [],
+                    behaviorNotes: [],
+                    reportCards: []
+                }));
+                setStudents(mappedStudents);
+            };
+
             try {
                 if (!parentId) {
                     // Fallback for demo/dev if no parentId passed yet
@@ -444,6 +480,7 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
                     return;
                 }
 
+
                 // 2. Get Children IDs
                 const { data: relations, error: relationError } = await supabase
                     .from('parent_children')
@@ -451,32 +488,6 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
                     .eq('parent_id', parentId);
 
                 if (relationError) throw relationError;
-
-                const fetchStudents = async (ids: number[]) => {
-                    const { data: studentsData, error: studentsError } = await supabase
-                        .from('students')
-                        .select('*')
-                        .in('id', ids);
-
-                    if (studentsError) throw studentsError;
-
-                    // Map DB students to frontend Student type
-                    const mappedStudents: Student[] = studentsData.map((s: any) => ({
-                        id: s.id,
-                        name: s.name,
-                        email: s.user?.email || '', // Assuming joined or empty
-                        avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
-                        grade: s.grade,
-                        section: s.section,
-                        department: s.department,
-                        attendanceStatus: s.attendance_status || 'Present',
-                        birthday: s.birthday,
-                        academicPerformance: [],
-                        behaviorNotes: [],
-                        reportCards: []
-                    }));
-                    setStudents(mappedStudents);
-                };
 
                 if (relations && relations.length > 0) {
                     const studentIds = relations.map(r => r.student_id);
@@ -553,7 +564,7 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
                 const { data: homework } = await supabase
                     .from('assignments')
                     .select('*')
-                    .eq('class_name', `${student.grade}${student.section}`)
+                    .or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`)
                     .gt('due_date', new Date().toISOString())
                     .order('due_date', { ascending: true })
                     .limit(1)
@@ -616,7 +627,7 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
 interface ParentDashboardProps {
     onLogout: () => void;
     setIsHomePage: (isHome: boolean) => void;
-    currentUser?: { userId: string; email: string; userType: string };
+    currentUser: any;
 }
 
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
@@ -704,6 +715,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             case 'home':
                 setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }]);
                 break;
+            case 'fees':
+                setViewStack([{ view: 'feeStatus', title: 'Fee Status' }]);
+                break;
             case 'reports':
                 setViewStack([{ view: 'selectReport', title: 'Select Report Card' }]);
                 break;
@@ -752,6 +766,16 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         newChat: ParentNewChatScreen,
         chat: (props: any) => <ChatScreen {...props} currentUserId={parentId ?? 100} />,
         schoolUtilities: SchoolUtilitiesScreen,
+
+        // Phase 5: Parent & Community Empowerment
+        volunteerSignup: VolunteerSignup,
+        conferenceScheduling: ConferenceScheduling,
+        surveysAndPolls: SurveysAndPolls,
+        donationPortal: DonationPortal,
+        communityResources: CommunityResourceDirectory,
+        referralSystem: ReferralSystem,
+        panicButton: PanicButton,
+        mentalHealthResources: MentalHealthResources,
     };
 
     const currentNavigation = viewStack[viewStack.length - 1];
@@ -767,34 +791,49 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     };
 
     return (
-        <div className="flex flex-col h-full bg-gray-100 relative">
-            <Header
-                title={currentNavigation.title}
-                avatarUrl={parentProfile.avatarUrl}
-                bgColor={THEME_CONFIG[DashboardType.Parent].mainBg}
-                onLogout={onLogout}
-                onBack={viewStack.length > 1 ? handleBack : undefined}
-                onNotificationClick={handleNotificationClick}
-                notificationCount={notificationCount}
-                onSearchClick={() => setIsSearchOpen(true)}
-            />
-
-            <div className="flex-1 overflow-hidden relative">
-                {/* Search Overlay */}
-                {isSearchOpen && (
-                    <div className="absolute inset-0 z-50 bg-white">
-                        <GlobalSearchScreen onClose={() => setIsSearchOpen(false)} navigateTo={navigateTo} />
-                    </div>
-                )}
-
-                <div className="h-full overflow-y-auto pb-20">
-                    <Suspense fallback={<DashboardSuspenseFallback />}>
-                        <ComponentToRender {...commonProps} {...currentNavigation.props} />
-                    </Suspense>
-                </div>
+        <div className="flex h-screen w-full overflow-hidden bg-gray-100">
+            {/* Desktop Sidebar - Hidden on mobile, fixed on desktop */}
+            <div className="hidden md:flex w-64 flex-col fixed inset-y-0 left-0 z-50">
+                <ParentSidebar
+                    activeScreen={activeBottomNav}
+                    setActiveScreen={handleBottomNavClick}
+                    onLogout={onLogout}
+                />
             </div>
 
-            <ParentBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col h-screen w-full md:ml-64 overflow-hidden">
+                <Header
+                    title={currentNavigation.title}
+                    avatarUrl={parentProfile.avatarUrl}
+                    bgColor={THEME_CONFIG[DashboardType.Parent].mainBg}
+                    onLogout={onLogout}
+                    onBack={viewStack.length > 1 ? handleBack : undefined}
+                    onNotificationClick={handleNotificationClick}
+                    notificationCount={notificationCount}
+                    onSearchClick={() => setIsSearchOpen(true)}
+                />
+
+                <div className="flex-1 overflow-hidden relative">
+                    {/* Search Overlay */}
+                    {isSearchOpen && (
+                        <div className="absolute inset-0 z-50 bg-white">
+                            <GlobalSearchScreen onClose={() => setIsSearchOpen(false)} navigateTo={navigateTo} dashboardType={DashboardType.Parent} />
+                        </div>
+                    )}
+
+                    <div className="h-full overflow-y-auto pb-20 md:pb-6">
+                        <Suspense fallback={<DashboardSuspenseFallback />}>
+                            <ComponentToRender {...commonProps} {...currentNavigation.props} />
+                        </Suspense>
+                    </div>
+                </div>
+
+                {/* Mobile Bottom Nav - Hidden on desktop */}
+                <div className="md:hidden">
+                    <ParentBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
+                </div>
+            </div>
         </div>
     );
 };

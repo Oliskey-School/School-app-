@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
 
+import { toast } from 'react-hot-toast';
+
 const getScoreIndicatorStyle = (scoreStr: string): string => {
     const score = parseInt(scoreStr, 10);
     if (scoreStr === '' || isNaN(score)) return 'border-gray-300 bg-gray-50 focus:bg-white';
@@ -151,7 +153,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
     };
 
     const handleSubmit = () => {
-        alert('All grades submitted successfully!');
+        toast.success('All grades submitted successfully!');
     };
 
     return (

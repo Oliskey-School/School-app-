@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { AIGame, AIGameQuestion, GameLevel } from '../../types';
 import { mockCustomAIGames } from '../../data';
@@ -35,7 +36,7 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
 
     const handleGenerate = async () => {
         if (!subject || !topic || !level) {
-            alert("Please fill in all fields.");
+            toast.error("Please fill in all fields.");
             return;
         }
         setIsGenerating(true);
@@ -86,7 +87,7 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
             setStep('review');
         } catch (error) {
             console.error("Game generation error:", error);
-            alert("Failed to generate the game. The AI might be busy. Please try again.");
+            toast.error("Failed to generate the game. The AI might be busy. Please try again.");
         } finally {
             setIsGenerating(false);
         }
@@ -99,7 +100,7 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
         // In a real app, this would be an API call. Here we update the mock data.
         mockCustomAIGames.push(publishedGame);
 
-        alert(`Game "${game.gameName}" has been published!`);
+        toast.success(`Game "${game.gameName}" has been published!`);
         forceUpdate(); // To update views that use this data
         handleBack();
     };

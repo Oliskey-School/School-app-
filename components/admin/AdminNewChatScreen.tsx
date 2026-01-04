@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import { Student, Parent, Teacher, Conversation, RoleName } from '../../types';
 import { mockStudents, mockTeachers, mockParents, mockAdminConversations } from '../../data';
 import { SearchIcon } from '../../constants';
@@ -13,7 +14,7 @@ type UserListItem = {
 };
 
 interface AdminNewChatScreenProps {
-  navigateTo: (view: string, title: string, props?: any) => void;
+    navigateTo: (view: string, title: string, props?: any) => void;
 }
 
 const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user, onSelect }) => (
@@ -29,61 +30,78 @@ const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user,
 const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'Students' | 'Parents' | 'Staff'>('Students');
+    const [dbUsers, setDbUsers] = useState<UserListItem[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const allUsers = useMemo((): UserListItem[] => [
-        ...mockStudents.map(s => ({ 
-            id: s.id, 
-            name: s.name, 
-            avatarUrl: s.avatarUrl,
-            subtitle: `Grade ${s.grade}${s.section}`,
-            userType: 'Student' as const 
-        })),
-        ...mockParents.map(p => {
-            const child = mockStudents.find(s => p.childIds?.includes(s.id));
-            return {
-                id: p.id,
-                name: p.name,
-                avatarUrl: p.avatarUrl,
-                subtitle: child ? `${child.name}'s Parent` : 'Parent',
-                userType: 'Parent' as const
-            };
-        }),
-        ...mockTeachers.filter(t => t.status === 'Active').map(t => ({ 
-            id: t.id, 
-            name: t.name, 
-            avatarUrl: t.avatarUrl,
-            subtitle: `${t.subjects[0]} Teacher`,
-            userType: 'Teacher' as const 
-        })),
-    ], []);
-    
+    useEffect(() => {
+        const fetchUsers = async () => {
+            const { data, error } = await supabase
+                .from('users')
+                .select('id, name, avatar_url, role');
+
+            if (data) {
+                const mappedUsers: UserListItem[] = data.map((u: any) => {
+                    // Normalize role to Title Case for UI
+                    let userType: 'Student' | 'Parent' | 'Teacher' = 'Student';
+                    let subtitle = 'Student';
+                    const roleLower = (u.role || '').toLowerCase();
+
+                    if (roleLower === 'teacher' || roleLower === 'admin' || roleLower === 'staff') {
+                        userType = 'Teacher'; // Map all staff-like roles to Teacher/Staff tab
+                        subtitle = roleLower === 'admin' ? 'Administrator' : 'Teacher';
+                    } else if (roleLower === 'parent') {
+                        userType = 'Parent';
+                        subtitle = 'Parent';
+                    } else {
+                        userType = 'Student';
+                        subtitle = 'Student';
+                    }
+
+                    return {
+                        id: u.id,
+                        name: u.name,
+                        avatarUrl: u.avatar_url, // Note snake_case from DB
+                        subtitle: subtitle,
+                        userType: userType
+                    };
+                });
+                setDbUsers(mappedUsers);
+            }
+            setLoading(false);
+        };
+        fetchUsers();
+    }, []);
+
     const filteredUsers = useMemo(() => {
-        return allUsers.filter(user => {
+        return dbUsers.filter(user => {
             const term = searchTerm.toLowerCase();
             const typeMatch = activeTab === 'Students' && user.userType === 'Student' ||
-                              activeTab === 'Parents' && user.userType === 'Parent' ||
-                              activeTab === 'Staff' && user.userType === 'Teacher';
-            const nameMatch = user.name.toLowerCase().includes(term);
+                activeTab === 'Parents' && user.userType === 'Parent' ||
+                activeTab === 'Staff' && user.userType === 'Teacher';
+            const nameMatch = user.name?.toLowerCase().includes(term);
             return typeMatch && nameMatch;
         });
-    }, [searchTerm, activeTab, allUsers]);
-    
-    const handleSelectUser = (user: UserListItem) => {
-        const role: RoleName = user.userType;
-        let conversation = mockAdminConversations.find(c => c.participant.id === user.id && c.participant.role === role);
+    }, [searchTerm, activeTab, dbUsers]);
+
+    const handleSelectUser = async (user: UserListItem) => {
+        // Check if conversation exists (mock check for now, ideally fetch from DB)
+        // For now, we just navigate to chat with the user's details.
+        // The ChatScreen handles fetching/creating conversation by ID or participant.
+
+        // Cast to any because the mock data might be using legacy structure vs new types
+        let conversation: any = (mockAdminConversations as any[]).find(c => c.participant?.id === user.id);
 
         if (!conversation) {
-            const newConversation: Conversation = {
-                id: `conv-admin-${Date.now()}`,
-                participant: { id: user.id, name: user.name, avatarUrl: user.avatarUrl, role: role as 'Student' | 'Parent' | 'Teacher' },
-                lastMessage: { text: `You can now chat with ${user.name}.`, timestamp: new Date().toISOString() },
+            // Temporary local object to pass to ChatScreen
+            conversation = {
+                id: `conv-new-${user.id}`,
+                participant: { id: user.id, name: user.name, avatarUrl: user.avatarUrl, role: user.userType },
+                lastMessage: { text: '', timestamp: new Date().toISOString() },
                 unreadCount: 0,
                 messages: [],
             };
-            mockAdminConversations.push(newConversation);
-            conversation = newConversation;
         }
-        
+
         navigateTo('chat', user.name, { conversation });
     };
 
@@ -110,22 +128,23 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
                 <div className="flex space-x-2 border-b border-gray-200">
                     {tabs.map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                                activeTab === tab ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'
-                            }`}>
+                            className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === tab ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500 hover:text-gray-700'
+                                }`}>
                             {tab}
                         </button>
                     ))}
                 </div>
             </div>
 
-            <main className="flex-grow p-4 space-y-2 overflow-y-auto">
+            <main className="flex-grow flex flex-col p-4 space-y-2 overflow-y-auto">
                 {filteredUsers.length > 0 ? (
                     filteredUsers.map(user => (
                         <UserRow key={`${user.userType}-${user.id}`} user={user} onSelect={() => handleSelectUser(user)} />
                     ))
                 ) : (
-                    <p className="text-center text-gray-500 pt-8">No users found.</p>
+                    <div className="flex-grow flex flex-col items-center justify-center text-gray-500">
+                        <p>No users found.</p>
+                    </div>
                 )}
             </main>
         </div>

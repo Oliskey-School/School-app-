@@ -1,5 +1,5 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
 import { mockCBTTests, mockStudents } from '../../../data';
 import { Student, CBTTest } from '../../../types';
@@ -113,7 +113,7 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
         const hasTaken = false;
 
         if (hasTaken) {
-            alert("You have already taken this test.");
+            toast.error("You have already taken this test.");
             return;
         }
         navigateTo('cbtPlayer', test.title, { test, studentId });

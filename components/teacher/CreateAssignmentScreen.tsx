@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { toast } from 'react-hot-toast';
 import {
   PaperclipIcon,
   CalendarIcon,
@@ -82,7 +83,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description || !dueDate || !selectedClass || !subject) {
-      alert("Please fill out all required fields.");
+      toast.error("Please fill out all required fields.");
       return;
     }
 
@@ -131,7 +132,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
       console.error('Error saving assignment:', err);
       // Fallback for demo purposes if table is missing, still update UI but warn
       if (err?.message?.includes('relation "assignments" does not exist')) {
-        alert("Database table 'assignments' not found. Creating locally only.");
+        toast.error("Database table 'assignments' not found. Creating locally only.");
         const newAssignmentData = {
           title,
           description,
@@ -143,7 +144,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
         };
         onAssignmentAdded(newAssignmentData);
       } else {
-        alert("Failed to publish assignment: " + (err.message || "Unknown error"));
+        toast.error("Failed to publish assignment: " + (err.message || "Unknown error"));
       }
     }
   };

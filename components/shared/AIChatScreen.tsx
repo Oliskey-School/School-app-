@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -82,7 +83,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
             setIsRecording(true);
         } catch (e) {
             console.error("Mic error", e);
-            alert("Could not access microphone.");
+            toast.error("Could not access microphone.");
         }
     };
 
@@ -124,7 +125,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
                 config: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } }
             });
 
-            const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            const audioData = (response.candidates?.[0]?.content?.parts?.[0] as any)?.inlineData?.data;
             if (audioData) {
                 const audioBlob = await (await fetch(`data:audio/mp3;base64,${audioData}`)).blob();
                 const audioUrl = URL.createObjectURL(audioBlob);
@@ -183,7 +184,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
 
             // Handle Grounding Metadata (URLs)
             let responseText = response.text || "No response generated.";
-            const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+            const groundingChunks = (response.candidates?.[0] as any)?.groundingMetadata?.groundingChunks;
             if (groundingChunks) {
                 const urls = groundingChunks.map((c: any) => c.web?.uri || c.maps?.uri).filter(Boolean);
                 if (urls.length > 0) {

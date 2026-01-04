@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import {
     EditIcon,
     NotificationIcon,
@@ -64,7 +65,7 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({ onLogout,
 
     const handleItemClick = (id: string) => {
         if (id === 'help') {
-            alert('Help Center clicked');
+            toast('Help Center coming soon!', { icon: 'ℹ️' });
         } else {
             setActiveSetting(id as SettingView);
         }

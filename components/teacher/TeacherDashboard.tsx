@@ -4,6 +4,7 @@ import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import Header from '../ui/Header';
 import { TeacherBottomNav } from '../ui/DashboardBottomNav';
+import { TeacherSidebar } from '../ui/DashboardSidebar';
 import { mockNotifications } from '../../data';
 
 // Lazy load only the Global Search Screen as it's an overlay
@@ -61,6 +62,8 @@ import VirtualClassScreen from '../teacher/VirtualClassScreen';
 import TeacherResourcesScreen from '../teacher/TeacherResourcesScreen';
 import CBTManagementScreen from '../teacher/CBTManagementScreen';
 import CBTScoresScreen from '../teacher/CBTScoresScreen';
+import QuizBuilderScreen from '../teacher/QuizBuilderScreen';
+import ClassGradebookScreen from '../teacher/ClassGradebookScreen';
 
 
 const DashboardSuspenseFallback = () => (
@@ -78,7 +81,7 @@ interface ViewStackItem {
 interface TeacherDashboardProps {
   onLogout: () => void;
   setIsHomePage: (isHome: boolean) => void;
-  currentUser?: { userId: string; email: string; userType: string };
+  currentUser?: any;
 }
 
 
@@ -238,6 +241,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
     cbtManagement: CBTManagementScreen,
+    quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId ?? 2} onClose={handleBack} />,
+    classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId ?? 2} handleBack={handleBack} />,
   };
 
   const currentNavigation = viewStack[viewStack.length - 1];
@@ -258,39 +263,54 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-100 relative">
-      <Header
-        title={currentNavigation.title}
-        avatarUrl={teacherProfile.avatarUrl}
-        bgColor={THEME_CONFIG[DashboardType.Teacher].mainBg}
-        onLogout={onLogout}
-        onBack={viewStack.length > 1 ? handleBack : undefined}
-        onNotificationClick={handleNotificationClick}
-        notificationCount={notificationCount}
-        onSearchClick={() => setIsSearchOpen(true)}
-      />
-      <div className="flex-grow overflow-y-auto" style={{ marginTop: '-5rem' }}>
-        <main className="min-h-full pt-20">
-          <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up">
-            {ComponentToRender ? (
-              <ComponentToRender {...currentNavigation.props} {...commonProps} />
-            ) : (
-              <div className="p-6">View not found: {currentNavigation.view}</div>
-            )}
-          </div>
-        </main>
+    <div className="flex h-screen w-full overflow-hidden bg-gray-100">
+      {/* Desktop Sidebar - Hidden on mobile, fixed on desktop */}
+      <div className="hidden md:flex w-64 flex-col fixed inset-y-0 left-0 z-50">
+        <TeacherSidebar
+          activeScreen={activeBottomNav}
+          setActiveScreen={handleBottomNavClick}
+          onLogout={onLogout}
+        />
       </div>
-      <TeacherBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
-      <Suspense fallback={<DashboardSuspenseFallback />}>
-        {isSearchOpen && (
-          <GlobalSearchScreen
-            dashboardType={DashboardType.Teacher}
-            navigateTo={navigateTo}
-            onClose={() => setIsSearchOpen(false)}
-          />
-        )}
-      </Suspense>
-    </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-screen w-full md:ml-64 overflow-hidden">
+        <Header
+          title={currentNavigation.title}
+          avatarUrl={teacherProfile.avatarUrl}
+          bgColor={THEME_CONFIG[DashboardType.Teacher].mainBg}
+          onLogout={onLogout}
+          onBack={viewStack.length > 1 ? handleBack : undefined}
+          onNotificationClick={handleNotificationClick}
+          notificationCount={notificationCount}
+          onSearchClick={() => setIsSearchOpen(true)}
+        />
+        <div className="flex-1 overflow-y-auto" style={{ marginTop: '-5rem' }}>
+          <main className="min-h-full pt-20 pb-20 md:pb-6">
+            <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up">
+              {ComponentToRender ? (
+                <ComponentToRender {...currentNavigation.props} {...commonProps} />
+              ) : (
+                <div className="p-6">View not found: {currentNavigation.view}</div>
+              )}
+            </div>
+          </main>
+        </div>
+        {/* Mobile Bottom Nav - Hidden on desktop */}
+        <div className="md:hidden">
+          <TeacherBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
+        </div>
+        <Suspense fallback={<DashboardSuspenseFallback />}>
+          {isSearchOpen && (
+            <GlobalSearchScreen
+              dashboardType={DashboardType.Teacher}
+              navigateTo={navigateTo}
+              onClose={() => setIsSearchOpen(false)}
+            />
+          )}
+        </Suspense>
+      </div>
+    </div >
   );
 };
 

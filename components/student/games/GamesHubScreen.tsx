@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { toast } from 'react-hot-toast';
 import { GameControllerIcon, ChevronRightIcon, PlayIcon, SearchIcon, BriefcaseIcon } from '../../../constants';
 import { educationalGamesData, EducationalGame } from '../../../data/gamesData';
 import { mockStudents, mockCustomAIGames } from '../../../data';
@@ -136,14 +137,14 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
             description: 'Guess locations around the world.',
             icon: <SearchIcon className="w-7 h-7 text-white" />,
             bgColor: 'bg-green-500 bg-gradient-to-br from-green-500 to-teal-600',
-            action: () => alert('GeoGuesser is coming soon!')
+            action: () => toast('GeoGuesser is coming soon!', { icon: '🌍' })
         },
         {
             title: 'Code Challenge',
             description: 'Learn logic with fun code blocks.',
             icon: <BriefcaseIcon className="w-7 h-7 text-white" />,
             bgColor: 'bg-purple-500 bg-gradient-to-br from-purple-500 to-indigo-600',
-            action: () => alert('Code Challenge is coming soon!')
+            action: () => toast('Code Challenge is coming soon!', { icon: '💻' })
         },
     ];
 

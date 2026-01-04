@@ -1,5 +1,6 @@
 
 import React, { useState, useRef } from 'react';
+import { toast } from 'react-hot-toast';
 import { mockComplaints } from '../../data';
 import { Complaint, ComplaintStatus } from '../../types';
 import { CameraIcon, ChevronRightIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../../constants';
@@ -36,11 +37,11 @@ const SubmitNewTab: React.FC<{ onSubmitted: () => void }> = ({ onSubmitted }) =>
             reader.readAsDataURL(e.target.files[0]);
         }
     };
-    
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!category || !comment) {
-            alert('Please select a category and provide a comment.');
+            toast.error('Please select a category and provide a comment.');
             return;
         }
 
@@ -62,7 +63,7 @@ const SubmitNewTab: React.FC<{ onSubmitted: () => void }> = ({ onSubmitted }) =>
         mockComplaints.unshift(newComplaint);
         onSubmitted();
     };
-    
+
     return (
         <form onSubmit={handleSubmit} className="p-4 space-y-5">
             <div>
@@ -81,19 +82,19 @@ const SubmitNewTab: React.FC<{ onSubmitted: () => void }> = ({ onSubmitted }) =>
                 <StarRatingInput rating={rating} setRating={setRating} />
             </div>
             <div>
-                 <label htmlFor="comment" className="text-sm font-medium text-gray-700">Comments</label>
-                 <textarea id="comment" value={comment} onChange={e => setComment(e.target.value)} rows={5} placeholder="Share your feedback in detail..." required className="mt-1 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"></textarea>
+                <label htmlFor="comment" className="text-sm font-medium text-gray-700">Comments</label>
+                <textarea id="comment" value={comment} onChange={e => setComment(e.target.value)} rows={5} placeholder="Share your feedback in detail..." required className="mt-1 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"></textarea>
             </div>
             <div>
-                 <label className="text-sm font-medium text-gray-700">Attach Photo (Optional)</label>
-                 <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
-                 <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-1 w-full flex items-center justify-center space-x-2 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-600">
-                     <CameraIcon className="h-5 w-5" />
-                     <span>{image ? "Change Photo" : "Upload Photo"}</span>
-                 </button>
-                 {image && <img src={image} alt="Preview" className="mt-3 rounded-lg max-h-40 mx-auto" />}
+                <label className="text-sm font-medium text-gray-700">Attach Photo (Optional)</label>
+                <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-1 w-full flex items-center justify-center space-x-2 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-600">
+                    <CameraIcon className="h-5 w-5" />
+                    <span>{image ? "Change Photo" : "Upload Photo"}</span>
+                </button>
+                {image && <img src={image} alt="Preview" className="mt-3 rounded-lg max-h-40 mx-auto" />}
             </div>
-             <button type="submit" className="w-full py-3 px-4 font-medium text-white bg-green-500 rounded-lg shadow-sm hover:bg-green-600">Submit Feedback</button>
+            <button type="submit" className="w-full py-3 px-4 font-medium text-white bg-green-500 rounded-lg shadow-sm hover:bg-green-600">Submit Feedback</button>
         </form>
     );
 };
@@ -105,7 +106,7 @@ const StatusTimeline: React.FC<{ complaint: Complaint }> = ({ complaint }) => {
         Resolved: { icon: CheckCircleIcon, color: 'bg-green-500' },
         Closed: { icon: CheckCircleIcon, color: 'bg-gray-500' },
     };
-    
+
     return (
         <div className="p-4 bg-gray-50 rounded-b-lg">
             {complaint.timeline.map((update, index) => {
@@ -139,7 +140,7 @@ const TrackStatusTab: React.FC = () => {
         Resolved: 'bg-green-100 text-green-800',
         Closed: 'bg-gray-100 text-gray-800',
     };
-    
+
     return (
         <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -171,10 +172,10 @@ interface FeedbackScreenProps {
 const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ forceUpdate }) => {
     const [activeTab, setActiveTab] = useState<'submit' | 'track'>('submit');
     const theme = { mainBg: 'bg-green-500', textColor: 'text-green-600' };
-    
+
     const handleFormSubmitted = () => {
         forceUpdate();
-        alert('Feedback submitted successfully!');
+        toast.success('Feedback submitted successfully!');
         setActiveTab('track');
     };
 

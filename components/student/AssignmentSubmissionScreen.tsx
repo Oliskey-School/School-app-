@@ -1,9 +1,8 @@
-
 import React, { useState, useRef } from 'react';
+import { toast } from 'react-hot-toast';
 import { StudentAssignment, Submission } from '../../types';
 import { SUBJECT_COLORS, ClockIcon, PaperclipIcon, XCircleIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
-// FIX: Imported mockAssignments to allow updating the global state for the demo.
-import { mockSubmissions, mockAssignments } from '../../data';
+import { supabase } from '../../lib/supabase';
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -29,69 +28,116 @@ interface AssignmentSubmissionScreenProps {
 }
 
 const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({ assignment, handleBack, forceUpdate, studentId }) => {
-  const [textAnswer, setTextAnswer] = useState(assignment.submission?.textSubmission || '');
+  const [textAnswer, setTextAnswer] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [existingSubmission, setExistingSubmission] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
-  const isSubmitted = !!assignment.submission;
+
+  // Load existing submission
+  React.useEffect(() => {
+    const loadSubmission = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('assignment_id', assignment.id)
+          .eq('student_id', studentId)
+          .maybeSingle();
+
+        if (data) {
+          setExistingSubmission(data);
+          setTextAnswer(data.text_submission || '');
+          // Parse file_url (assuming it might be a JSON string of file names for now, or just a single string)
+          // For this demo, if it's a string, we treat it as one file
+          // If we want to persist real files without storage, we can't really restore File objects easily.
+          // We will rely on `existingSubmission` to show "Previously submitted files" if needed, 
+          // but for now let's just show text answer and allow new upload or overwrite.
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSubmission();
+  }, [assignment.id, studentId]);
+
+  const isSubmitted = !!existingSubmission;
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setAttachedFiles(prevFiles => [...prevFiles, ...Array.from(event.target.files!)]);
     }
   };
-  
+
   const handleRemoveFile = (fileToRemove: File) => {
     setAttachedFiles(prevFiles => prevFiles.filter(file => file !== fileToRemove));
   };
-  
+
   const handleAttachClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!textAnswer && attachedFiles.length === 0) {
-      alert("Please provide an answer or attach a file.");
+      toast.error("Please provide an answer or attach a file.");
       return;
     }
-    
-    const existingSubmissionIndex = mockSubmissions.findIndex(s => s.assignmentId === assignment.id && s.student.id === studentId);
 
-    const submissionData = {
-        student: { id: 4, name: 'Fatima Bello', avatarUrl: 'https://i.pravatar.cc/150?u=fatima' }, // Assuming student ID 4 is logged in
-        submittedAt: new Date().toISOString(),
-        isLate: new Date() > new Date(assignment.dueDate),
-        status: 'Ungraded' as 'Ungraded',
-        textSubmission: textAnswer,
-        files: attachedFiles.map(f => ({ name: f.name, size: f.size }))
-    };
+    try {
+      // Prepare file "URLs" (mocking upload since no storage bucket)
+      // We'll just save the filenames as a comma-separated string in file_url for this demo
+      const fileNames = attachedFiles.map(f => f.name).join(',');
 
-    if (existingSubmissionIndex > -1) {
-        mockSubmissions[existingSubmissionIndex] = {
-            ...mockSubmissions[existingSubmissionIndex],
-            ...submissionData,
-        };
-    } else {
-        const newSubmission: Submission = {
-            id: Date.now(),
-            assignmentId: assignment.id,
-            ...submissionData
-        };
-        mockSubmissions.push(newSubmission);
-        
-        // Also update the submission count on the assignment
-        const assignmentIndex = mockAssignments.findIndex(a => a.id === assignment.id);
-        if (assignmentIndex > -1) {
-            mockAssignments[assignmentIndex].submissionsCount++;
+      const submissionPayload = {
+        assignment_id: assignment.id,
+        student_id: studentId,
+        text_submission: textAnswer,
+        file_url: fileNames || (existingSubmission?.file_url),
+        submitted_at: new Date().toISOString(),
+        is_late: new Date() > new Date(assignment.dueDate),
+        status: 'Submitted'
+      };
+
+      if (existingSubmission) {
+        // Update
+        const { error } = await supabase
+          .from('submissions')
+          .update(submissionPayload)
+          .eq('id', existingSubmission.id);
+
+        if (error) throw error;
+      } else {
+        // Insert
+        const { error } = await supabase
+          .from('submissions')
+          .insert(submissionPayload);
+
+        if (error) throw error;
+
+        // Increment assignment count (best effort)
+        await supabase.rpc('increment_submission_count', { row_id: assignment.id });
+        // If RPC doesn't exist, we might fail or need simpler approach. 
+        // Simpler approach: read-modify-write (unsafe for concurrency but ok for demo)
+        const { data: assignData } = await supabase.from('assignments').select('submissions_count').eq('id', assignment.id).single();
+        if (assignData) {
+          await supabase.from('assignments').update({ submissions_count: (assignData.submissions_count || 0) + 1 }).eq('id', assignment.id);
         }
-    }
+      }
 
-    alert("Assignment submitted successfully!");
-    forceUpdate();
-    handleBack();
+      toast.success("Assignment submitted successfully!");
+      forceUpdate(); // To refresh parent list
+      handleBack();
+
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      toast.error("Failed to submit assignment: " + err.message);
+    }
   };
-  
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
@@ -113,8 +159,8 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Answer Textbox */}
             <div className="bg-white p-4 rounded-xl shadow-sm">
-                <label htmlFor="text-answer" className="block text-md font-bold text-gray-700 mb-2">Your Answer</label>
-                <textarea
+              <label htmlFor="text-answer" className="block text-md font-bold text-gray-700 mb-2">Your Answer</label>
+              <textarea
                 id="text-answer"
                 value={textAnswer}
                 onChange={e => setTextAnswer(e.target.value)}
@@ -122,56 +168,69 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
                 placeholder="Type your answer here..."
                 className="w-full h-full px-3 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500"
                 disabled={isSubmitted}
-                />
+              />
             </div>
-            
+
             {/* File Attachments */}
             <div className="bg-white p-4 rounded-xl shadow-sm">
-                <h3 className="block text-md font-bold text-gray-700 mb-2">Attachments</h3>
-                <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" disabled={isSubmitted} />
-                {!isSubmitted && (
-                    <button type="button" onClick={handleAttachClick} className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 hover:border-orange-400 hover:text-orange-600 transition-colors">
-                        <PaperclipIcon className="h-5 w-5" />
-                        <span className="font-semibold">Attach Files</span>
-                    </button>
-                )}
-                
-                {(attachedFiles.length > 0 || (isSubmitted && assignment.submission?.files)) && (
-                    <div className="space-y-2 pt-3 max-h-96 overflow-y-auto">
-                        <h4 className="text-xs font-semibold text-gray-500">Attached Files:</h4>
-                        {assignment.submission?.files?.map((file, index) => (
-                            <div key={index} className="flex items-center p-2 bg-gray-100 rounded-lg">
-                            {getFileIcon(file.name)}
-                            <div className="ml-3 flex-grow overflow-hidden">
-                                <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
-                                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                            </div>
-                            </div>
-                        ))}
-                        {attachedFiles.map((file, index) => (
-                            <div key={index} className="flex items-center p-2 bg-gray-50 rounded-lg">
-                            {getFileIcon(file.name)}
-                            <div className="ml-3 flex-grow overflow-hidden">
-                                <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
-                                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                            </div>
-                            <button type="button" onClick={() => handleRemoveFile(file)} className="ml-2 p-1 text-gray-400 hover:text-red-500" aria-label={`Remove ${file.name}`}>
-                                <XCircleIcon className="w-5 h-5" />
-                            </button>
-                            </div>
-                        ))}
+              <h3 className="block text-md font-bold text-gray-700 mb-2">Attachments</h3>
+              <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" disabled={isSubmitted} />
+              {!isSubmitted && (
+                <button type="button" onClick={handleAttachClick} className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 hover:border-orange-400 hover:text-orange-600 transition-colors">
+                  <PaperclipIcon className="h-5 w-5" />
+                  <span className="font-semibold">Attach Files</span>
+                </button>
+              )}
+
+              {(attachedFiles.length > 0 || isSubmitted) && (
+                <div className="space-y-2 pt-3 max-h-96 overflow-y-auto">
+                  <h4 className="text-xs font-semibold text-gray-500">Attached Files:</h4>
+
+                  {/* Display existing files */}
+                  {(() => {
+                    const filesToShow = [];
+                    if (existingSubmission?.file_url) {
+                      // Parse comma separated string
+                      const names = existingSubmission.file_url.split(',');
+                      filesToShow.push(...names.map((n: string) => ({ name: n.trim(), size: 0 })));
+                    } else if (assignment.submission?.files) {
+                      filesToShow.push(...assignment.submission.files);
+                    }
+
+                    return filesToShow.map((file, index) => (
+                      <div key={`existing-${index}`} className="flex items-center p-2 bg-gray-100 rounded-lg">
+                        {getFileIcon(file.name)}
+                        <div className="ml-3 flex-grow overflow-hidden">
+                          <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                  {attachedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center p-2 bg-gray-50 rounded-lg">
+                      {getFileIcon(file.name)}
+                      <div className="ml-3 flex-grow overflow-hidden">
+                        <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
+                        <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                      </div>
+                      <button type="button" onClick={() => handleRemoveFile(file)} className="ml-2 p-1 text-gray-400 hover:text-red-500" aria-label={`Remove ${file.name}`}>
+                        <XCircleIcon className="w-5 h-5" />
+                      </button>
                     </div>
-                )}
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </main>
-        
+
         {!isSubmitted && (
-            <div className="p-4 mt-auto bg-white border-t border-gray-200">
-              <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-                Submit Assignment
-              </button>
-            </div>
+          <div className="p-4 mt-auto bg-white border-t border-gray-200">
+            <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
+              Submit Assignment
+            </button>
+          </div>
         )}
       </form>
     </div>

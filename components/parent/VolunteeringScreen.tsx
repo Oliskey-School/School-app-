@@ -53,7 +53,7 @@ const VolunteeringScreen: React.FC = () => {
         } else {
             newSet.add(id);
             // In a real app, we would POST to a 'volunteers' table here
-            alert("Thanks for volunteering! (This is a demo action)");
+            toast.success("Thanks for volunteering! (This is a demo action)");
         }
         setSignedUpEvents(newSet);
     };
@@ -107,10 +107,10 @@ const VolunteeringScreen: React.FC = () => {
                                             onClick={() => handleSignUpToggle(opp.id)}
                                             disabled={isFull && !isSignedUp}
                                             className={`py-2.5 px-6 text-sm font-bold rounded-xl transition-all shadow-sm active:scale-95 ${isSignedUp
-                                                    ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
-                                                    : isFull
-                                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
-                                                        : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-green-200'
+                                                ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                                                : isFull
+                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                                                    : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-green-200'
                                                 }`}
                                         >
                                             {isSignedUp ? 'Cancel' : isFull ? 'Full' : 'Sign Up'}

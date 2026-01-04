@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeftIcon, SearchIcon, BellIcon, CameraIcon, ChartBarIcon, BookOpenIcon, ClockIcon, UserIcon, MailIcon, PhoneIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
+import { ChevronLeftIcon, CameraIcon, ChartBarIcon, BookOpenIcon, ClockIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
 
 interface EditProfileScreenProps {
     onBack: () => void;
@@ -9,6 +10,9 @@ interface EditProfileScreenProps {
         name: string;
         avatarUrl?: string;
         email?: string;
+        grade?: string | number;
+        section?: string;
+        code?: string; // Student ID code
     };
     onProfileUpdate?: (data: { name: string; avatarUrl: string }) => void;
 }
@@ -44,9 +48,10 @@ const InputField: React.FC<{ label: string, value: string, onChange?: (val: stri
 );
 
 const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onProfileUpdate }) => {
+    const { updateProfile } = useProfile();
     const [name, setName] = useState(user?.name || '');
     const [avatar, setAvatar] = useState(user?.avatarUrl || '');
-    const [email, setEmail] = useState(user?.email || ''); // Assuming we might want to show email
+    const [email, setEmail] = useState(user?.email || '');
     const [saving, setSaving] = useState(false);
 
     // Derived initials
@@ -87,24 +92,21 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
     };
 
     const handleSave = async () => {
-        if (!user?.id) return;
         setSaving(true);
         try {
-            // Update Student
-            const { error } = await supabase
-                .from('students')
-                .update({ name, avatar_url: avatar })
-                .eq('id', user.id);
+            await updateProfile({
+                name,
+                avatarUrl: avatar,
+                // Email is usually not editable directly here without re-auth, so we skip it for now or assume read-only
+            });
 
-            if (error) throw error;
-
-            alert('Profile updated successfully!');
+            toast.success('Profile updated successfully!');
             if (onProfileUpdate) {
                 onProfileUpdate({ name, avatarUrl: avatar });
             }
         } catch (err: any) {
             console.error(err);
-            alert('Error updating profile: ' + err.message);
+            toast.error('Error updating profile: ' + err.message);
         } finally {
             setSaving(false);
         }
@@ -174,10 +176,10 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                     <div className="w-full space-y-2">
                         <div className="flex gap-4">
                             <div className="w-1/2">
-                                <InputField label="Student ID" value="ST-2024-001" readOnly />
+                                <InputField label="Student ID" value={user?.code || "ST-2024-001"} readOnly />
                             </div>
                             <div className="w-1/2">
-                                <InputField label="Class" value="10-A" readOnly />
+                                <InputField label="Class" value={user?.grade ? `${user.grade}${user.section || ''}` : "10-A"} readOnly />
                             </div>
                         </div>
                         <InputField label="Full Name" value={name} onChange={setName} />

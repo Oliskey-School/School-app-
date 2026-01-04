@@ -7,11 +7,19 @@ import { requestNotificationPermission, showNotification } from './components/sh
 import { ProfileProvider } from './context/ProfileContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { realtimeService } from './services/RealtimeService';
+import { registerServiceWorker } from './lib/pwa';
+import { OfflineIndicator } from './components/shared/OfflineIndicator';
+import { PWAInstallPrompt } from './components/shared/PWAInstallPrompt';
+import { Toaster } from 'react-hot-toast';
 
-const AdminDashboard = lazy(() => import('./components/dashboards/AdminDashboard'));
-const TeacherDashboard = lazy(() => import('./components/dashboards/TeacherDashboard'));
-const ParentDashboard = lazy(() => import('./components/dashboards/ParentDashboard'));
-const StudentDashboard = lazy(() => import('./components/dashboards/StudentDashboard'));
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
+const TeacherDashboard = lazy(() => import('./components/teacher/TeacherDashboard'));
+const ParentDashboard = lazy(() => import('./components/parent/ParentDashboard'));
+const StudentDashboard = lazy(() => import('./components/student/StudentDashboard'));
+const ProprietorDashboard = lazy(() => import('./components/dashboards/ProprietorDashboard'));
+const InspectorDashboard = lazy(() => import('./components/dashboards/InspectorDashboard'));
+const ExamOfficerDashboard = lazy(() => import('./components/dashboards/ExamOfficerDashboard'));
+const ComplianceOfficerDashboard = lazy(() => import('./components/dashboards/ComplianceOfficerDashboard'));
 
 // A simple checkmark icon for the success animation
 const CheckCircleIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg>;
@@ -85,6 +93,10 @@ const AuthenticatedApp: React.FC = () => {
       case DashboardType.Teacher: return <TeacherDashboard {...props} />;
       case DashboardType.Parent: return <ParentDashboard {...props} />;
       case DashboardType.Student: return <StudentDashboard {...props} />;
+      case DashboardType.Proprietor: return <ProprietorDashboard {...props} />;
+      case DashboardType.Inspector: return <InspectorDashboard {...props} />;
+      case DashboardType.ExamOfficer: return <ExamOfficerDashboard {...props} />;
+      case DashboardType.ComplianceOfficer: return <ComplianceOfficerDashboard {...props} />;
       default: return <StudentDashboard {...props} />;
     }
   };
@@ -101,14 +113,28 @@ const AuthenticatedApp: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  useEffect(() => {
+    // Register service worker for PWA functionality
+    registerServiceWorker();
+  }, []);
+
   return (
     <AuthProvider>
       <ProfileProvider>
+        {/* Toast Notifications */}
+        <Toaster position="top-right" />
+
+        {/* Offline indicator - shows when no internet connection */}
+        <OfflineIndicator />
+
         <div className="font-sans w-screen h-screen bg-[#F0F2F5] flex flex-col items-center justify-center">
           <div className="relative w-full h-full flex flex-col shadow-2xl">
             <AuthenticatedApp />
           </div>
         </div>
+
+        {/* PWA install prompt - shows after 30s if not installed */}
+        <PWAInstallPrompt />
       </ProfileProvider>
     </AuthProvider>
   );

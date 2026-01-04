@@ -46,7 +46,7 @@ const PermissionSlipScreen: React.FC = () => {
 
         } catch (err) {
             console.error('Error updating slip:', err);
-            alert('Failed to update status');
+            toast.error('Failed to update status');
         }
     };
 

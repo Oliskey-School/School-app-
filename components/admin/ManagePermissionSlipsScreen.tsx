@@ -1,6 +1,8 @@
+import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TrashIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ClipboardListIcon, UserIcon } from '../../constants';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const ManagePermissionSlipsScreen: React.FC = () => {
     const [classes, setClasses] = useState<any[]>([]);
@@ -14,20 +16,16 @@ const ManagePermissionSlipsScreen: React.FC = () => {
         selectedClassId: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Deletion State
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [slipToDelete, setSlipToDelete] = useState<number | null>(null);
 
     useEffect(() => {
         fetchClasses();
         fetchRecentSlips();
     }, []);
-
-    useEffect(() => {
-        if (statusMessage) {
-            const timer = setTimeout(() => setStatusMessage(null), 4000);
-            return () => clearTimeout(timer);
-        }
-    }, [statusMessage]);
 
     const fetchClasses = async () => {
         const { data } = await supabase.from('classes').select('*').order('id');
@@ -53,10 +51,9 @@ const ManagePermissionSlipsScreen: React.FC = () => {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        setStatusMessage(null);
 
         if (!newItem.selectedClassId) {
-            setStatusMessage({ type: 'error', text: 'Please select a class.' });
+            toast.error('Please select a class.');
             return;
         }
         setIsSubmitting(true);
@@ -74,7 +71,7 @@ const ManagePermissionSlipsScreen: React.FC = () => {
 
             if (studentError) throw studentError;
             if (!students || students.length === 0) {
-                setStatusMessage({ type: 'error', text: 'No students found in this class.' });
+                toast.error('No students found in this class.');
                 setIsSubmitting(false);
                 return;
             }
@@ -98,23 +95,32 @@ const ManagePermissionSlipsScreen: React.FC = () => {
 
             setNewItem({ title: '', description: '', location: '', date: '', selectedClassId: '' });
             fetchRecentSlips();
-            setStatusMessage({ type: 'success', text: `Permission slip sent to ${students.length} students.` });
+            toast.success(`Permission slip sent to ${students.length} students.`);
         } catch (err) {
             console.error('Error issuing slips:', err);
-            setStatusMessage({ type: 'error', text: 'Failed to issue slips. Please try again.' });
+            toast.error('Failed to issue slips. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Delete this slip?')) return;
+    const confirmDelete = (id: number) => {
+        setSlipToDelete(id);
+        setShowDeleteModal(true);
+    };
+
+    const handleDelete = async () => {
+        if (slipToDelete === null) return;
+        const id = slipToDelete;
+        setShowDeleteModal(false);
+        setSlipToDelete(null);
+
         const { error } = await supabase.from('permission_slips').delete().eq('id', id);
         if (!error) {
             fetchRecentSlips();
-            setStatusMessage({ type: 'success', text: 'Slip deleted.' });
+            toast.success('Slip deleted.');
         } else {
-            setStatusMessage({ type: 'error', text: 'Failed to delete slip.' });
+            toast.error('Failed to delete slip.');
         }
     };
 
@@ -130,12 +136,6 @@ const ManagePermissionSlipsScreen: React.FC = () => {
             <div className="flex flex-col space-y-2">
                 <h1 className="text-2xl font-bold text-gray-800">Permission Slips</h1>
                 <p className="text-gray-500 text-sm">Issue and track permission slips for school events.</p>
-                {statusMessage && (
-                    <div className={`p-4 rounded-lg flex items-center space-x-2 animate-fade-in-down ${statusMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {statusMessage.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : <XCircleIcon className="w-5 h-5" />}
-                        <span>{statusMessage.text}</span>
-                    </div>
-                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -273,15 +273,15 @@ const ManagePermissionSlipsScreen: React.FC = () => {
                                                 <td className="py-3 px-2 text-gray-500">{new Date(slip.date).toLocaleDateString()}</td>
                                                 <td className="py-3 px-2">
                                                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${slip.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                                                            slip.status === 'Rejected' ? 'bg-red-100 text-red-700' :
-                                                                'bg-yellow-100 text-yellow-700'
+                                                        slip.status === 'Rejected' ? 'bg-red-100 text-red-700' :
+                                                            'bg-yellow-100 text-yellow-700'
                                                         }`}>
                                                         {slip.status}
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-2 text-right">
                                                     <button
-                                                        onClick={() => handleDelete(slip.id)}
+                                                        onClick={() => confirmDelete(slip.id)}
                                                         className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                                         title="Delete Slip"
                                                     >
@@ -297,8 +297,17 @@ const ManagePermissionSlipsScreen: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={handleDelete}
+                title="Delete Permission Slip"
+                message="Are you sure you want to delete this slip?"
+                confirmText="Delete"
+                isDanger
+            />
         </div>
     );
 };
-
 export default ManagePermissionSlipsScreen;

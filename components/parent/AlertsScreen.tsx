@@ -45,7 +45,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
         break;
       case 'Message':
         // This functionality is not fully built out, so just an alert for now.
-        alert("Navigating to messages...");
+        toast("Navigating to messages...", { icon: '✉️' });
         break;
       default:
         break;

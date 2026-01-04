@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
 import { Submission, Assignment } from '../../types';
 import { SparklesIcon, AIIcon } from '../../constants';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
@@ -47,7 +48,7 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
-      alert("Voice recognition is not supported in your browser.");
+      toast.error("Voice recognition is not supported in your browser.");
       return;
     }
     if (isRecording) {
@@ -61,7 +62,7 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
 
   const handleGenerateFeedback = async () => {
     if (!grade) {
-      alert("Please enter a grade first to generate contextual feedback.");
+      toast.error("Please enter a grade first to generate contextual feedback.");
       return;
     }
     setIsGenerating(true);
@@ -104,7 +105,7 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
 
     } catch (error) {
       console.error("AI Feedback Generation Error:", error);
-      alert("Sorry, there was an error generating feedback. Please try again.");
+      toast.error("Sorry, there was an error generating feedback. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -114,7 +115,7 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
     e.preventDefault();
     const numericGrade = parseInt(grade, 10);
     if (isNaN(numericGrade) || numericGrade < 0 || numericGrade > 100) {
-      alert('Please enter a valid grade between 0 and 100.');
+      toast.error('Please enter a valid grade between 0 and 100.');
       return;
     }
     onGrade(submission.id, numericGrade, feedback);

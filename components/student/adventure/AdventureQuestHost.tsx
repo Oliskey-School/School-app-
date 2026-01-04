@@ -128,7 +128,7 @@ const AdventureQuestHost: React.FC<{ handleBack: () => void }> = ({ handleBack }
     const handleStartAdventure = useCallback(async (source: { type: 'file'; value: File } | { type: 'url'; value: string }, difficulty: AdventureDifficulty) => {
         if (source.type === 'url') {
             const content = `(This is a demo using content from ${source.value}) In 1492, Columbus sailed the ocean blue. He was an explorer who made four trips across the Atlantic Ocean.`;
-            alert("URL fetching is for demo purposes only. Using sample text.");
+            toast("URL fetching is for demo purposes only. Using sample text.", { icon: 'ℹ️' });
             await generateAdventure({ type: 'text', content }, difficulty);
             return;
         }

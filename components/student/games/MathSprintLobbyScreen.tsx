@@ -1,3 +1,4 @@
+import { toast } from 'react-hot-toast';
 import React from 'react';
 import { ShareIcon } from '../../../constants';
 
@@ -6,7 +7,7 @@ interface MathSprintLobbyScreenProps {
 }
 
 const MathSprintLobbyScreen: React.FC<MathSprintLobbyScreenProps> = ({ navigateTo }) => {
-    
+
     const handleShareChallenge = () => {
         if (navigator.share) {
             navigator.share({
@@ -14,7 +15,7 @@ const MathSprintLobbyScreen: React.FC<MathSprintLobbyScreenProps> = ({ navigateT
                 text: "Think you're faster at math? Challenge me in Math Sprint on the Smart School App!",
             }).catch((error) => console.log('Error sharing:', error));
         } else {
-            alert('Sharing is not supported on your browser. You can copy the link manually!');
+            toast('Sharing is not supported on your browser. You can copy the link manually!', { icon: '📋' });
         }
     };
 
@@ -27,7 +28,7 @@ const MathSprintLobbyScreen: React.FC<MathSprintLobbyScreenProps> = ({ navigateT
             <p className="text-gray-600 mt-2 max-w-xs">Answer as many math problems as you can before the timer runs out!</p>
 
             <div className="w-full max-w-sm mt-8 space-y-4">
-                <button 
+                <button
                     onClick={() => navigateTo('mathSprintGame', 'Math Sprint', {})}
                     className="w-full py-4 text-lg font-bold text-white bg-orange-500 rounded-xl shadow-lg hover:bg-orange-600 transition-colors"
                 >

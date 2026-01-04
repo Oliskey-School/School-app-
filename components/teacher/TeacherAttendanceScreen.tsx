@@ -2,6 +2,7 @@
 
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, XCircleIcon } from '../../constants';
 // import { mockStudents } from '../../data';
 import DonutChart from '../ui/DonutChart';
@@ -128,10 +129,10 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 .upsert(upsertData, { onConflict: 'student_id,date' });
 
             if (error) throw error;
-            alert(`Attendance for ${selectedDate} saved successfully!`);
+            toast.success(`Attendance for ${selectedDate} saved successfully!`);
         } catch (err) {
             console.error('Error submitting attendance:', err);
-            alert('Failed to save attendance.');
+            toast.error('Failed to save attendance.');
         }
     };
 
@@ -158,7 +159,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         const day = date.getDay();
 
         if (day === 0 || day === 6) {
-            alert("Weekends are disabled! Please select a working day (Mon-Fri).");
+            toast.error("Weekends are disabled! Please select a working day (Mon-Fri).");
             return;
         }
         setSelectedDate(dateVal);

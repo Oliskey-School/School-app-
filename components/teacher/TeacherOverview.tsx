@@ -10,6 +10,8 @@ import {
   CalendarPlusIcon,
   VideoIcon,
   CheckCircleIcon,
+  EditIcon,
+  CalculatorIcon,
   SUBJECT_COLORS
 } from '../../constants';
 // import { ClassInfo, Teacher, Assignment } from '../../types'; // Not utilizing full types yet for raw DB data
@@ -39,11 +41,27 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
   );
 };
 
-// Helper: Parse "Grade 10A" -> {grade: 10, section: 'A'}
+// Helper: Parse "Grade 10A" -> {grade: 10, section: 'A'} or "Grade 7 - General" -> {grade: 7, section: 'General'}
+// Helper: Parse "Grade 10A - Math" -> {grade: 10, section: 'A', subject: 'Math'}
 const parseClassName = (name: string) => {
-  const match = name.match(/(\d+)([A-Za-z]+)/); // e.g. 10A
-  if (match) return { grade: parseInt(match[1]), section: match[2] };
-  return { grade: 0, section: '' };
+  // Remove "Grade " prefix case-insensitive
+  const clean = name.replace(/^Grade\s+/i, '');
+
+  // Split by hyphen to separate class info from subject
+  const parts = clean.split(/\s*[-–]\s*/);
+  const classPart = parts[0].trim();
+
+  // Parse Grade/Section from classPart (e.g. "10A" or "7")
+  let grade = 0;
+  let section = '';
+
+  const match = classPart.match(/^(\d+)([A-Za-z]+)?$/);
+  if (match) {
+    grade = parseInt(match[1]);
+    section = match[2] || '';
+  }
+
+  return { grade, section };
 };
 
 const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherId }) => {
@@ -97,14 +115,11 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
         // 3. Get Total Students (by querying students in those classes)
         // Assuming class_name format "10A" or similar matching students grade/section
-        // For robust calc, we can fetch all students and filter locally or make detailed query
         if (classes.length > 0) {
           const { data: students } = await supabase.from('students').select('grade, section');
           let count = 0;
           if (students) {
             classes.forEach(clsName => {
-              // Attempt to match "10A" -> grade:10, section:A
-              // Or "Grade 10A"
               const cleanName = clsName.replace('Grade ', '');
               const { grade, section } = parseClassName(cleanName);
               if (grade > 0) {
@@ -127,7 +142,6 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         setTodaySchedule(timetable || []);
 
         // 5. Get Ungraded Assignments
-        // Let's use a simpler query for action items based on assignments table
         const { data: recentAssignments } = await supabase
           .from('assignments')
           .select('*')
@@ -143,7 +157,28 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     };
 
     fetchData();
-  }, [currentUser, teacherId]);
+
+    // Real-time subscription for teacher_classes
+    const subscription = supabase
+      .channel('teacher_classes_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'teacher_classes'
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+
+  }, [currentUser, teacherId, profile]);
 
   const formatTime12Hour = (timeStr: string) => {
     if (!timeStr) return '';
@@ -163,6 +198,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     { label: "Appointments", icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Appointments', {}) },
     { label: "Virtual Class", icon: <VideoIcon className="h-7 w-7" />, action: () => navigateTo('virtualClass', 'Virtual Classroom', {}) },
     { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', {}) },
+    { label: "Quiz Builder", icon: <EditIcon className="h-7 w-7" />, action: () => navigateTo('quizBuilder', 'Create Assessment', {}) },
+    { label: "Gradebook", icon: <CalculatorIcon className="h-7 w-7" />, action: () => navigateTo('classGradebook', 'Class Gradebook', {}) },
   ];
 
   return (

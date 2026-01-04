@@ -59,7 +59,7 @@ const LessonPlansTab: React.FC<{ plans: TermResources['lessonPlans'], notes?: De
         const noteData = notes?.find(n => n.topic === plan.topic);
         navigateTo('lessonContent', `Week ${plan.week}`, { lessonPlan: plan, detailedNote: noteData });
     };
-    
+
     return (
         <div className="space-y-3">
             {plans.map(plan => (
@@ -97,9 +97,9 @@ const AssessmentsTab: React.FC<{ assessments: TermResources['assessments'], navi
 );
 
 
-const TermContent: React.FC<{ 
-    termResource: TermResources, 
-    resources: GeneratedResources, 
+const TermContent: React.FC<{
+    termResource: TermResources,
+    resources: GeneratedResources,
     navigateTo: (view: string, title: string, props?: any) => void;
 }> = ({ termResource, resources, navigateTo }) => {
     const [activeTab, setActiveTab] = useState<'scheme' | 'plans' | 'assessments'>('scheme');
@@ -121,7 +121,7 @@ const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigate
     const [currentResources, setCurrentResources] = useState<GeneratedResources>(resources);
     const [activeTerm, setActiveTerm] = useState<string>(resources.terms[0]?.term || '');
     const [toastMessage, setToastMessage] = useState('');
-    
+
     const activeTermData = currentResources.terms.find(t => t.term === activeTerm);
 
     const handleSavePlan = () => {
@@ -147,6 +147,55 @@ const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigate
         }
     };
 
+    const [isPublishing, setIsPublishing] = useState(false);
+
+    const handlePublish = async () => {
+        setIsPublishing(true);
+        try {
+            // 1. Generate content (JSON or HTML)
+            // For simplicity, we save the raw JSON data so it can be re-constituted, 
+            // but 'resources' table expects a file URL. 
+            // Let's create a simple HTML wrapper that displays this data nicely?
+            // Or better: Just save the JSON as a .json file.
+            const content = JSON.stringify(currentResources, null, 2);
+            const fileName = `lesson-plan-${Date.now()}.json`;
+
+            // 2. Upload to Storage
+            const { data: uploadData, error: uploadError } = await import('../../lib/supabase').then(m => m.supabase.storage
+                .from('lesson-materials')
+                .upload(`plans/${fileName}`, new Blob([content], { type: 'application/json' })));
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: { publicUrl } } = await import('../../lib/supabase').then(m => m.supabase.storage
+                .from('lesson-materials')
+                .getPublicUrl(`plans/${fileName}`));
+
+            // 3. Insert into Resources
+            const { error: dbError } = await import('../../lib/supabase').then(m => m.supabase.from('resources').insert([{
+                title: `Lesson Plan: ${currentResources.subject} (${currentResources.className})`,
+                type: 'Document',
+                subject: currentResources.subject,
+                grade: 0, // Could parse grade from className
+                url: publicUrl,
+                description: 'AI Generated Lesson Plan',
+                is_public: true,
+                language: 'English'
+            }]));
+
+            if (dbError) throw dbError;
+
+            setToastMessage('Plan published to library!');
+
+        } catch (err: any) {
+            console.error('Publish error:', err);
+            setToastMessage('Failed to publish plan.');
+        } finally {
+            setIsPublishing(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-gray-100">
             {toastMessage && <Toast message={toastMessage} onClear={() => setToastMessage('')} />}
@@ -154,13 +203,23 @@ const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigate
                 <div>
                     <h2 className="text-lg font-bold text-gray-800">AI Plan: {resources.subject} ({resources.className})</h2>
                 </div>
-                 <button 
-                    onClick={handleSavePlan}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-green-700 bg-green-100 rounded-md hover:bg-green-200"
-                >
-                    <FolderIcon className="w-4 h-4"/>
-                    <span>Save Plan</span>
-                </button>
+                <div className="flex space-x-2">
+                    <button
+                        onClick={handleSavePlan}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-green-700 bg-green-100 rounded-md hover:bg-green-200"
+                    >
+                        <FolderIcon className="w-4 h-4" />
+                        <span>Save Local</span>
+                    </button>
+                    <button
+                        onClick={handlePublish}
+                        disabled={isPublishing}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 disabled:opacity-50"
+                    >
+                        <ShareIcon className="w-4 h-4" />
+                        <span>{isPublishing ? 'Publishing...' : 'Publish to Library'}</span>
+                    </button>
+                </div>
             </div>
 
             <main className="flex-grow overflow-y-auto p-4 printable-area">

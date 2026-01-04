@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Header from '../ui/Header';
 import { AdminBottomNav } from '../ui/DashboardBottomNav';
+import { AdminSidebar } from '../ui/DashboardSidebar';
 import { DashboardType } from '../../types';
 import { supabase } from '../../lib/supabase';
 import ErrorBoundary from '../shared/ErrorBoundary';
@@ -55,6 +56,41 @@ const HealthLogScreen = lazy(() => import('./HealthLogScreen'));
 const TimetableGeneratorScreen = lazy(() => import('./TimetableGeneratorScreen'));
 const BusDutyRosterScreen = lazy(() => import('./BusDutyRosterScreen'));
 
+// Phase 4: Emergency & Safety Components
+const EmergencyAlert = lazy(() => import('./EmergencyAlert'));
+const VisitorLog = lazy(() => import('./VisitorLog'));
+const PanicButton = lazy(() => import('../shared/PanicButton'));
+const PermissionSlips = lazy(() => import('../shared/PermissionSlips'));
+const MentalHealthResources = lazy(() => import('../shared/MentalHealthResources'));
+const AccessibilitySettings = lazy(() => import('../shared/AccessibilitySettings'));
+
+// Phase 5: Parent & Community Empowerment Components
+const SMSLessonManager = lazy(() => import('./SMSLessonManager'));
+const USSDWorkflow = lazy(() => import('./USSDWorkflow'));
+const RadioContentScheduler = lazy(() => import('./RadioContentScheduler'));
+const IVRLessonRecorder = lazy(() => import('./IVRLessonRecorder'));
+const ScholarshipManagement = lazy(() => import('./ScholarshipManagement'));
+const SponsorshipMatching = lazy(() => import('./SponsorshipMatching'));
+const ConferenceScheduling = lazy(() => import('../shared/ConferenceScheduling'));
+const SurveysAndPolls = lazy(() => import('../shared/SurveysAndPolls'));
+const DonationPortal = lazy(() => import('../shared/DonationPortal'));
+const CommunityResourceDirectory = lazy(() => import('../shared/CommunityResourceDirectory'));
+const ReferralSystem = lazy(() => import('../shared/ReferralSystem'));
+
+// Phase 6: Admin Ops, Analytics & Governance
+const AttendanceHeatmap = lazy(() => import('./AttendanceHeatmap'));
+const FinanceDashboard = lazy(() => import('./FinanceDashboard'));
+const AcademicAnalytics = lazy(() => import('./AcademicAnalytics'));
+const BudgetPlanner = lazy(() => import('./BudgetPlanner'));
+const AuditTrailViewer = lazy(() => import('./AuditTrailViewer'));
+const IntegrationHub = lazy(() => import('./IntegrationHub'));
+const AnalyticsAdminTools = lazy(() => import('./AnalyticsAdminTools'));
+const VendorManagement = lazy(() => import('./VendorManagement'));
+const AssetInventory = lazy(() => import('./AssetInventory'));
+const PrivacyDashboard = lazy(() => import('./PrivacyDashboard'));
+const ComplianceChecklist = lazy(() => import('./ComplianceChecklist'));
+const MaintenanceTickets = lazy(() => import('./MaintenanceTickets'));
+
 // Shared Imports
 const CalendarScreen = lazy(() => import('../shared/CalendarScreen'));
 const NotificationsScreen = lazy(() => import('../shared/NotificationsScreen'));
@@ -75,8 +111,26 @@ const ManageVolunteeringScreen = lazy(() => import('./ManageVolunteeringScreen')
 const ManagePermissionSlipsScreen = lazy(() => import('./ManagePermissionSlipsScreen'));
 const ManageLearningResourcesScreen = lazy(() => import('./ManageLearningResourcesScreen'));
 const ManagePTAMeetingsScreen = lazy(() => import('./ManagePTAMeetingsScreen'));
-const SchoolInfoScreen = lazy(() => import('./SchoolInfoScreen'));
+const SchoolOnboardingScreen = lazy(() => import('./SchoolOnboardingScreen'));
+const CurriculumSettingsScreen = lazy(() => import('./CurriculumSettingsScreen'));
+const StudentEnrollmentWizard = lazy(() => import('./StudentEnrollmentWizard'));
+const EnhancedEnrollmentWizard = lazy(() => import('./EnhancedEnrollmentWizard'));
+const ExamCandidateRegistration = lazy(() => import('./ExamCandidateRegistration'));
 const UserAccountsScreen = lazy(() => import('./UserAccountsScreen'));
+const FacilityRegisterScreen = lazy(() => import('./FacilityRegisterScreen'));
+const EquipmentInventoryScreen = lazy(() => import('./EquipmentInventoryScreen'));
+const SafetyHealthLogs = lazy(() => import('./SafetyHealthLogs'));
+const InspectionFlowWizard = lazy(() => import('../inspector/InspectionFlowWizard'));
+const ComplianceDashboard = lazy(() => import('./ComplianceDashboard'));
+const MasterReportingHub = lazy(() => import('./MasterReportingHub'));
+const ValidationConsole = lazy(() => import('./ValidationConsole'));
+const PilotOnboardingWizard = lazy(() => import('./PilotOnboardingWizard'));
+const UnifiedGovernanceHub = lazy(() => import('./UnifiedGovernanceHub'));
+const StudentProfileEnhanced = lazy(() => import('../student/StudentProfileEnhanced'));
+const TeacherProfileEnhanced = lazy(() => import('../teacher/TeacherProfileEnhanced'));
+const AttendanceTrackSelector = lazy(() => import('../teacher/AttendanceTrackSelector'));
+const ResultsEntryEnhanced = lazy(() => import('../teacher/ResultsEntryEnhanced'));
+const ComplianceOnboardingWizard = lazy(() => import('./ComplianceOnboardingWizard'));
 
 const AdminReportCardInputWrapper = (props: any) => <ReportCardInputScreen {...props} isAdmin={true} />;
 
@@ -144,11 +198,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         checkDb();
     }, []);
 
+    // Wrappers for combined views
+    const AnalyticsWrapper = (props: any) => (
+        <div className="space-y-6">
+            {/* Charts & Metrics */}
+            <AnalyticsScreen {...props} />
+
+            {/* Admin Tools & Phase 6 Features */}
+            <AnalyticsAdminTools {...props} />
+        </div>
+    );
+
     // Define View Components INSIDE to access local context if needed, but mostly for simplicity re: closure
     // No useMemo to ensure fresh references
     const viewComponents: { [key: string]: React.ComponentType<any> } = {
         overview: DashboardOverview,
-        analytics: AnalyticsScreen,
+        analytics: AnalyticsWrapper,
         reports: ReportsScreen,
         classList: ClassListScreen,
         teacherList: TeacherListScreen,
@@ -213,8 +278,60 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         managePermissionSlips: ManagePermissionSlipsScreen,
         manageLearningResources: ManageLearningResourcesScreen,
         managePTAMeetings: ManagePTAMeetingsScreen,
-        manageSchoolInfo: SchoolInfoScreen,
+        manageSchoolInfo: SchoolOnboardingScreen,
+        manageCurriculum: CurriculumSettingsScreen,
+        enrollmentWizard: StudentEnrollmentWizard,
+        exams: ExamCandidateRegistration,
         userAccounts: UserAccountsScreen,
+
+        // Phase 4: Emergency & Safety
+        emergencyAlert: EmergencyAlert,
+        visitorLog: VisitorLog,
+        permissionSlips: PermissionSlips,
+        mentalHealthResources: MentalHealthResources,
+        accessibilitySettings: AccessibilitySettings,
+
+        // Phase 5: Parent & Community Empowerment
+        smsLessonManager: SMSLessonManager,
+        ussdWorkflow: USSDWorkflow,
+        radioContentScheduler: RadioContentScheduler,
+        ivrLessonRecorder: IVRLessonRecorder,
+        scholarshipManagement: ScholarshipManagement,
+        sponsorshipMatching: SponsorshipMatching,
+        conferenceScheduling: ConferenceScheduling,
+        surveysAndPolls: SurveysAndPolls,
+        donationPortal: DonationPortal,
+        communityResourceDirectory: CommunityResourceDirectory,
+        referralSystem: ReferralSystem,
+
+        // Phase 6: Admin Ops, Analytics & Governance
+        attendanceHeatmap: AttendanceHeatmap,
+        financeDashboard: FinanceDashboard,
+        academicAnalytics: AcademicAnalytics,
+        budgetPlanner: BudgetPlanner,
+        auditTrailViewer: AuditTrailViewer,
+        integrationHub: IntegrationHub,
+        analyticsAdminTools: AnalyticsAdminTools,
+        vendorManagement: VendorManagement,
+        assetInventory: AssetInventory,
+        facilityRegister: FacilityRegisterScreen,
+        equipmentInventory: EquipmentInventoryScreen,
+        safetyHealthLogs: SafetyHealthLogs,
+        complianceDashboard: ComplianceDashboard,
+        inspectionHub: InspectionFlowWizard,
+        privacyDashboard: PrivacyDashboard,
+        complianceChecklist: ComplianceChecklist,
+        maintenanceTickets: MaintenanceTickets,
+        masterReports: MasterReportingHub,
+        validationConsole: ValidationConsole,
+        onboardingWizard: PilotOnboardingWizard,
+        governanceHub: UnifiedGovernanceHub,
+        enhancedEnrollment: EnhancedEnrollmentWizard,
+        complianceOnboarding: ComplianceOnboardingWizard,
+        studentProfile: StudentProfileEnhanced,
+        teacherProfile: TeacherProfileEnhanced,
+        attendanceTracker: AttendanceTrackSelector,
+        resultsEntry: ResultsEntryEnhanced,
     };
 
     const [notificationCount, setNotificationCount] = useState(0);
@@ -230,6 +347,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         };
         fetchNotifsCount();
     }, []);
+
+    const getHeaderAvatar = () => {
+        if (currentNavigation.view === 'chat' && currentNavigation.props?.conversation) {
+            // Try to find avatar in various likely locations on the object
+            // The structure passed from AdminMessagesScreen is { conversation: { participant: { avatarUrl: ... } } }
+            const convo = currentNavigation.props.conversation;
+            return convo.participant?.avatarUrl ||
+                convo.displayAvatar ||
+                convo.participantAvatar ||
+                "https://api.dicebear.com/7.x/avataaars/svg?seed=Guest";
+        }
+        return "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin";
+    };
 
     const navigateTo = (view: string, title: string, props: any = {}) => {
         console.log(`Navigating to: ${view}`);
@@ -259,6 +389,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 break;
             case 'settings':
                 setViewStack([{ view: 'profileSettings', props: { onLogout }, title: 'Profile Settings' }]);
+                break;
+            case 'feeManagement':
+                setViewStack([{ view: 'feeManagement', props: {}, title: 'Fee Management' }]);
                 break;
             default:
                 setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
@@ -298,41 +431,58 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     };
 
     return (
-        <div className="flex flex-col h-full bg-gray-100 relative">
-            {dbStatus === 'error' && (
-                <div className="bg-red-600 text-white text-xs py-1 px-4 text-center font-medium z-50">
-                    Network/Database Error: Cannot connect to the server. Please check your internet connection or try again later.
-                </div>
-            )}
-            <Header
-                title={currentNavigation.title}
-                avatarUrl=""
-                bgColor="bg-indigo-800"
-                onLogout={onLogout}
-                onBack={viewStack.length > 1 ? handleBack : undefined}
-                onNotificationClick={handleNotificationClick}
-                notificationCount={notificationCount}
-                onSearchClick={() => setIsSearchOpen(true)}
-            />
-            <div className="flex-grow overflow-y-auto relative">
-                <ErrorBoundary key={`${viewStack.length}-${currentNavigation.view}`}>
-                    <Suspense fallback={<DashboardSuspenseFallback />}>
-                        <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up h-full">
-                            {renderContent()}
-                        </div>
-                    </Suspense>
-                </ErrorBoundary>
+        <div className="flex h-screen w-full overflow-hidden bg-gray-100">
+            {/* Desktop Sidebar - Hidden on mobile, fixed on desktop */}
+            <div className="hidden md:flex w-64 flex-col fixed inset-y-0 left-0 z-50">
+                <AdminSidebar
+                    activeScreen={activeBottomNav}
+                    setActiveScreen={handleBottomNavClick}
+                    onLogout={onLogout}
+                />
             </div>
-            <AdminBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
-            <Suspense fallback={<DashboardSuspenseFallback />}>
-                {isSearchOpen && (
-                    <GlobalSearchScreen
-                        dashboardType={DashboardType.Admin}
-                        navigateTo={navigateTo}
-                        onClose={() => setIsSearchOpen(false)}
-                    />
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col h-screen w-full md:ml-64 overflow-hidden">
+                {dbStatus === 'error' && (
+                    <div className="bg-red-600 text-white text-xs py-1 px-4 text-center font-medium z-50">
+                        Network/Database Error: Cannot connect to the server. Please check your internet connection or try again later.
+                    </div>
                 )}
-            </Suspense>
+                <Header
+                    title={currentNavigation.title}
+                    avatarUrl={getHeaderAvatar()}
+                    bgColor="bg-indigo-800"
+                    onLogout={onLogout}
+                    onBack={viewStack.length > 1 ? handleBack : undefined}
+                    onNotificationClick={handleNotificationClick}
+                    notificationCount={notificationCount}
+                    onSearchClick={() => setIsSearchOpen(true)}
+                />
+                <div className="flex-1 overflow-y-auto">
+                    <div className="h-full pb-20 md:pb-6">
+                        <ErrorBoundary key={`${viewStack.length}-${currentNavigation.view}`}>
+                            <Suspense fallback={<DashboardSuspenseFallback />}>
+                                <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up h-full">
+                                    {renderContent()}
+                                </div>
+                            </Suspense>
+                        </ErrorBoundary>
+                    </div>
+                </div>
+                {/* Mobile Bottom Nav - Hidden on desktop */}
+                <div className="md:hidden">
+                    <AdminBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
+                </div>
+                <Suspense fallback={<DashboardSuspenseFallback />}>
+                    {isSearchOpen && (
+                        <GlobalSearchScreen
+                            dashboardType={DashboardType.Admin}
+                            navigateTo={navigateTo}
+                            onClose={() => setIsSearchOpen(false)}
+                        />
+                    )}
+                </Suspense>
+            </div>
         </div>
     );
 };

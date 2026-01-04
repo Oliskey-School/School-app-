@@ -26,7 +26,7 @@ export const generatePassword = (surname: string): string => {
  */
 export const createUserAccount = async (
   fullName: string,
-  userType: 'Student' | 'Teacher' | 'Parent' | 'Admin',
+  userType: 'Student' | 'Teacher' | 'Parent' | 'Admin' | 'Principal' | 'Counselor',
   email: string,
   userId?: number
 ): Promise<{ username: string; password: string; error?: string }> => {
@@ -185,7 +185,7 @@ export const authenticateUser = async (
   password: string
 ): Promise<{
   success: boolean;
-  userType?: 'Student' | 'Teacher' | 'Parent' | 'Admin';
+  userType?: 'Student' | 'Teacher' | 'Parent' | 'Admin' | 'Principal' | 'Counselor';
   userId?: string; // We return string for compatibility, though DB gives number
   email?: string;
   error?: string

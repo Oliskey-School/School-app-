@@ -106,7 +106,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                         <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Messages</h1>
                         <div className="flex items-center space-x-1">
                             <button
-                                onClick={() => navigateTo?.('newChat', 'New Message', {})}
+                                onClick={onNewChat}
                                 className="p-2 rounded-full hover:bg-indigo-100 text-indigo-600 transition-colors"
                                 title="New Message">
                                 <PlusIcon className="w-6 h-6" />
@@ -140,9 +140,9 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                     </div>
                 </header>
 
-                <main className="flex-grow overflow-y-auto custom-scrollbar">
+                <main className="flex-grow flex flex-col overflow-y-auto custom-scrollbar">
                     {filteredConversations.length === 0 ? (
-                        <div className="p-8 text-center bg-gray-50/30 h-full flex flex-col items-center justify-center">
+                        <div className="flex-grow p-8 text-center bg-gray-50/30 flex flex-col items-center justify-center">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                 <MessagesIcon className="w-6 h-6 text-gray-300" />
                             </div>
@@ -213,6 +213,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                                 currentUserId={ADMIN_ID}
                                 conversationId={selectedConversation.id}
                                 roomDetails={rooms.find(r => r.id === selectedConversation.id)}
+                                themeColor="indigo"
                             />
                         </div>
                     ) : (

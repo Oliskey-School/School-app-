@@ -11,9 +11,10 @@ interface HeaderProps {
   onNotificationClick?: () => void;
   notificationCount?: number;
   onSearchClick?: () => void;
+  className?: string; // Allow custom classes
 }
 
-const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onNotificationClick, notificationCount, onSearchClick }) => {
+const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onNotificationClick, notificationCount, onSearchClick, className = '' }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
@@ -48,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
   );
 
   return (
-    <header className={`${bgColor} text-white px-3 sm:px-5 py-4 sm:py-5 pb-8 rounded-b-3xl relative z-10 print:hidden`}>
+    <header className={`${bgColor} text-white px-3 sm:px-5 py-4 sm:py-5 pb-8 rounded-b-3xl relative z-10 print:hidden ${className}`}>
       <div className="flex justify-between items-center gap-2">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
           {onBack && (

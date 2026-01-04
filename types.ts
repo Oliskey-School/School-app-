@@ -6,6 +6,10 @@ export enum DashboardType {
   Teacher = 'Teacher',
   Parent = 'Parent',
   Student = 'Student',
+  Proprietor = 'Proprietor',
+  Inspector = 'Inspector',
+  ExamOfficer = 'Exam Officer',
+  ComplianceOfficer = 'Compliance Officer',
 }
 
 export interface Exam {
@@ -177,7 +181,7 @@ export interface Book {
   category: BookCategory;
 }
 
-export type DigitalResourceType = 'PDF' | 'Video' | 'Slides';
+export type DigitalResourceType = 'PDF' | 'Video' | 'Slides' | 'Code' | 'Document';
 
 export interface DigitalResource {
   id: number;
@@ -187,6 +191,8 @@ export interface DigitalResource {
   description: string;
   thumbnailUrl: string;
   url?: string;
+  language?: 'English' | 'Hausa' | 'Yoruba' | 'Igbo';
+  curriculumTags?: string[];
 }
 
 export interface VideoLesson extends DigitalResource {
@@ -218,7 +224,7 @@ export interface Permission {
   enabled: boolean;
 }
 
-export type RoleName = 'Admin' | 'Teacher' | 'Parent' | 'Student';
+export type RoleName = 'Admin' | 'Teacher' | 'Parent' | 'Student' | 'Principal' | 'Counselor' | 'Proprietor' | 'Inspector' | 'Exam Officer' | 'Compliance Officer';
 
 export interface Role {
   id: RoleName;
@@ -302,10 +308,15 @@ export interface CurriculumSubject {
 export interface Fee {
   id: number;
   studentId: number;
-  totalFee: number;
+  title: string;          // Added title
+  description?: string;   // Added description
+  amount: number;         // Consistent naming (was totalFee)
   paidAmount: number;
   dueDate: string;
-  status: 'Paid' | 'Unpaid' | 'Overdue';
+  status: 'Pending' | 'Partial' | 'Paid' | 'Overdue'; // Updated status enum
+  type?: string;          // Optional categorization
+  curriculumType?: 'Nigerian' | 'British' | 'Dual' | 'General';
+  createdAt?: string;     // ISO string - timestamp when fee was created/assigned
 }
 
 export interface ChatUser {
@@ -457,12 +468,19 @@ export interface FeeBreakdownItem {
   amount: number;
 }
 
-export interface PaymentHistoryItem {
-  id: string;
-  date: string;
+export interface Transaction {
+  id: number;
+  feeId?: number;
+  studentId: number;
+  payerId?: string;
   amount: number;
-  method: 'Bank Transfer' | 'Card' | 'Cash';
+  reference: string;
+  provider: 'Paystack' | 'Flutterwave' | 'Cash' | 'Bank Transfer';
+  status: 'Pending' | 'Success' | 'Failed';
+  date: string; // ISO String
 }
+
+export type PaymentHistoryItem = Transaction; // Alias for backward compatibility
 
 export interface ProgressReport {
   studentId: number;
@@ -581,6 +599,50 @@ export interface StoreProduct {
   stock: number;
 }
 
+
+export type QuestionType = 'MultipleChoice' | 'Theory' | 'TrueFalse';
+
+export interface QuestionOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface Question {
+  id: number;
+  quizId: number;
+  text: string;
+  type: QuestionType;
+  options?: QuestionOption[];
+  points: number;
+  imageUrl?: string;
+}
+
+export interface Quiz {
+  id: number;
+  title: string;
+  subject: string;
+  grade: number;
+  teacherId: number;
+  description?: string;
+  durationMinutes?: number;
+  questionCount?: number; // Computed
+  isPublished: boolean;
+  questions?: Question[];
+  createdAt: string;
+  points?: number; // Total points
+}
+
+export interface QuizSubmission {
+  id: number;
+  quizId: number;
+  studentId: number;
+  answers: { questionId: number, selectedOptions?: string[], textAnswer?: string }[];
+  score: number;
+  submittedAt: string;
+  status: 'Graded' | 'Pending';
+}
+
 export interface StoreOrder {
   id: string;
   customerName: string;
@@ -629,19 +691,19 @@ export interface Appointment {
 }
 
 // For Student Gamified Quizzes
-export interface QuizQuestion {
+export interface GamifiedQuizQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
 }
 
-export interface Quiz {
+export interface GamifiedQuiz {
   id: number;
   subject: string;
   title: string;
   questionCount: number;
   points: number;
-  questions: QuizQuestion[];
+  questions: GamifiedQuizQuestion[];
 }
 
 export interface LessonPlan {
@@ -746,8 +808,9 @@ export interface GeneratedLessonPlan {
 
 export interface TermResources {
   term: string;
-  scheme: SchemeWeek[];
+  schemeOfWork: SchemeWeek[];
   lessonPlans: GeneratedLessonPlan[];
+  assessments: GeneratedAssessment[];
 }
 
 export interface GeneratedResources {
@@ -800,6 +863,32 @@ export interface AIGame {
   creatorId: number; // Teacher's ID
   status: 'Draft' | 'Published';
   questions: AIGameQuestion[];
+}
+
+// ============================================
+// NEW TYPES FOR PHASE 1 COMPLETION
+// ============================================
+
+export interface EmergencyBroadcast {
+  id: number;
+  title: string;
+  message: string;
+  senderId: string;
+  audience: 'all' | 'parents' | 'teachers' | 'staff';
+  channels: string[]; // ['push', 'email', 'sms']
+  deliveryStats?: { sent: number; failed: number };
+  createdAt: string;
+}
+
+export interface AbsenceExplanation {
+  id: number;
+  attendanceId: number;
+  parentId: number;
+  reason: string;
+  category: 'sick' | 'family_emergency' | 'religious' | 'other';
+  status: 'pending' | 'approved' | 'rejected';
+  adminNotes?: string;
+  createdAt: string;
 }
 
 // For AI Timetable Generator
@@ -858,4 +947,20 @@ export interface CBTTest {
   results: CBTResult[];
   questions?: CBTQuestion[];
   totalMarks?: number;
+}
+// For Lesson Planner Generated Assessment
+export interface GeneratedQuestion {
+  id: number;
+  question: string;
+  type: 'multiple-choice' | 'short-answer' | 'theory' | 'practical';
+  marks: number;
+  options?: string[];
+}
+export type AssessmentQuestion = GeneratedQuestion; // Alias
+
+export interface GeneratedAssessment {
+  week: number;
+  type: string;
+  totalMarks: number;
+  questions: GeneratedQuestion[];
 }

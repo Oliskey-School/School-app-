@@ -79,13 +79,13 @@ const HealthLogScreen: React.FC = () => {
     const handleAddEntry = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedStudent || !reason || !notes) {
-            alert("Please select a student and fill in the reason and notes.");
+            toast.error("Please select a student and fill in the reason and notes.");
             return;
         }
 
         const student = students.find(s => s.id === selectedStudent);
         if (!student) {
-            alert("Selected student not found.");
+            toast.error("Selected student not found.");
             return;
         }
 

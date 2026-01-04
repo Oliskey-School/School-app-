@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { BusRoute, Driver, BusRosterEntry } from '../../types';
 import { mockBusRoutes, mockDrivers, mockBusRoster } from '../../data';
 import { BusVehicleIcon } from '../../constants';
@@ -82,7 +83,7 @@ const BusDutyRosterScreen: React.FC = () => {
         // Trigger a storage event for other tabs immediately (optional, but good practice)
         window.dispatchEvent(new Event('storage'));
 
-        alert(`Driver assigned successfully for ${routeId}.`);
+        toast.success(`Driver assigned successfully for ${routeId}.`);
     };
 
     return (

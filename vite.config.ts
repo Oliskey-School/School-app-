@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
+    test: {
+      globals: true,
+      environment: 'happy-dom',
+      setupFiles: './setupTests.ts',
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',
@@ -25,6 +30,9 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'react': path.resolve(__dirname, './node_modules/react'),
+        'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
+        'react-native': 'react-native-web',
       }
     }
   };

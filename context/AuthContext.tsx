@@ -43,19 +43,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 2. Initialize Supabase (only if not restored or to keep sync if needed)
         const initSupabase = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-
-            // Only override if we didn't restore a mock session 
-            // OR if the supabase session is actually valid and different?
-            // For now, priority: SessionStorage (Mock) > Supabase Session
-            if (!sessionRestored && session) {
-                setSession(session);
-                setUser(session.user);
-                if (session.user.user_metadata?.user_type) {
-                    setRole(session.user.user_metadata.user_type as DashboardType);
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) {
+                    throw error;
                 }
+
+                // Only override if we didn't restore a mock session 
+                // OR if the supabase session is actually valid and different?
+                // For now, priority: SessionStorage (Mock) > Supabase Session
+                if (!sessionRestored && session) {
+                    setSession(session);
+                    setUser(session.user);
+                    if (session.user.user_metadata?.user_type) {
+                        setRole(session.user.user_metadata.user_type as DashboardType);
+                    }
+                }
+            } catch (error) {
+                console.error('Supabase initialization failed:', error);
+                // Fallback to offline/modals if needed, or just allow app to load in "logged out" state
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         if (!sessionRestored) {
@@ -112,41 +121,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const signIn = async (dashboard: DashboardType, userData: any) => {
         // This method is called by the Login component AFTER successful Supabase auth
         // or for "Mock" logins.
-        // Ideally, for Supabase auth, the onAuthStateChange handles the state update.
-        // But for the "Mock" buttons in Login.tsx that bypass Supabase, we need this manual setter.
 
-        // If it's a real supabase user, userData.userId will be a UUID
-        // If it's a mock user, it will be 'admin', 'teacher', etc.
+        // Create a minimal user object for state
+        const mockUser = {
+            id: userData.userId,
+            email: userData.email,
+            user_metadata: {
+                role: userData.userType?.toLowerCase(),
+                full_name: userData.email?.split('@')[0],
+            },
+            app_metadata: {},
+            aud: 'authenticated',
+            created_at: new Date().toISOString(),
+        } as unknown as User;
 
-        if (userData.userId && typeof userData.userId === 'string' && userData.userId.length > 20) {
-            // It's likely a real supabase ID, so we let onAuthStateChange handle it mostly,
-            // but we can ensure role is set immediately for better message.
-            setRole(dashboard);
-            // For real Supabase users, the session and user objects are managed by onAuthStateChange.
-            // We might want to persist the role to sessionStorage here too if it's not coming from Supabase metadata.
-            sessionStorage.setItem('role', dashboard);
-        } else {
-            // Mock Login
-            setRole(dashboard);
-            // Create a fake User object so App.tsx sees we are "logged in"
-            const mockUser: any = {
-                id: userData.userId || 'mock-id',
-                aud: 'authenticated',
-                role: 'authenticated',
-                email: userData.email,
-                user_metadata: {
-                    user_type: userData.userType,
-                    full_name: userData.userId, // Fallback name
-                },
-                app_metadata: {},
-                created_at: new Date().toISOString()
-            };
-            setUser(mockUser as User);
+        // Set the user and role state
+        setUser(mockUser);
+        setRole(dashboard);
 
-            // Persist to session storage (isolated per tab) for mock users
-            sessionStorage.setItem('user', JSON.stringify(mockUser));
-            sessionStorage.setItem('role', dashboard);
-        }
+        // Persist to sessionStorage for tab isolation
+        sessionStorage.setItem('user', JSON.stringify(mockUser));
+        sessionStorage.setItem('role', dashboard);
+
+        console.log('✅ Auth state updated:', { dashboard, user: mockUser.email });
     };
 
     const signOut = async () => {

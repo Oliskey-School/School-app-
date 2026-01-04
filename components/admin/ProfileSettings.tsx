@@ -47,7 +47,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
 
     const handleItemClick = (id: string) => {
         if (id === 'help') {
-            alert('Help Center clicked');
+            toast('Help Center coming soon!', { icon: 'ℹ️' });
         } else {
             // On small screens, this will fill the screen. On large, it will show the right pane.
             setActiveSetting(id as SettingView);

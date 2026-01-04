@@ -14,10 +14,9 @@ const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, labe
 export const AdminBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen: string, setActiveScreen: (screen: string) => void }) => {
   const navItems = [
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
+    { id: 'feeManagement', icon: <DocumentTextIcon />, label: 'Fees' },
     { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
-    { id: 'communication', icon: <MegaphoneIcon />, label: 'Announce' },
-
-    { id: 'analytics', icon: <AnalyticsIcon className="h-6 w-6" />, label: 'Analytics' },
+    { id: 'analytics', icon: <AnalyticsIcon />, label: 'Analytics' },
     { id: 'settings', icon: <SettingsIcon />, label: 'Settings' },
   ];
   return (
@@ -49,6 +48,7 @@ export const TeacherBottomNav = ({ activeScreen, setActiveScreen }: { activeScre
 export const ParentBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen: string, setActiveScreen: (screen: string) => void }) => {
   const navItems = [
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
+    { id: 'fees', icon: <DocumentTextIcon />, label: 'Fees' },
     { id: 'reports', icon: <DocumentTextIcon />, label: 'Reports' },
     { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
     { id: 'more', icon: <ProfileIcon />, label: 'More' },
@@ -65,7 +65,7 @@ export const ParentBottomNav = ({ activeScreen, setActiveScreen }: { activeScree
 export const StudentBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen: string, setActiveScreen: (screen: string) => void }) => {
   const navItems = [
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
-    { id: 'results', icon: <ChartBarIcon />, label: 'Results' },
+    { id: 'quizzes', icon: <ClockIcon />, label: 'Quizzes' },
     { id: 'games', icon: <GameControllerIcon />, label: 'Games' },
     { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
     { id: 'profile', icon: <ProfileIcon />, label: 'Profile' },

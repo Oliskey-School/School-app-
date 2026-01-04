@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { AnnouncementCategory, Notice } from '../../types';
 // import { mockClasses, mockNotices } from '../../data'; // REMOVED
 import { CameraIcon, StopIcon, XCircleIcon, VideoIcon } from '../../constants';
@@ -66,15 +67,15 @@ const TeacherCommunicationScreen: React.FC = () => {
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedClasses.size === 0 || !title) {
-            alert("Please select at least one class and provide a title.");
+            toast.error("Please select at least one class and provide a title.");
             return;
         }
         if (mode === 'text' && !message) {
-            alert("Please provide a message for the text announcement.");
+            toast.error("Please provide a message for the text announcement.");
             return;
         }
         if (mode === 'video' && !videoBlobUrl) {
-            alert("Please record or provide a video for the video announcement.");
+            toast.error("Please record or provide a video for the video announcement.");
             return;
         }
 
@@ -98,7 +99,7 @@ const TeacherCommunicationScreen: React.FC = () => {
 
             if (error) throw error;
 
-            alert(`Announcement sent to: ${audienceArray.join(', ')}`);
+            toast.success(`Announcement sent to: ${audienceArray.join(', ')}`);
             // Reset form
             setSelectedClasses(new Set());
             setTitle('');
@@ -107,7 +108,7 @@ const TeacherCommunicationScreen: React.FC = () => {
             setMode('text');
         } catch (err: any) {
             console.error("Error sending notice:", err);
-            alert("Failed to send notice: " + err.message);
+            toast.error("Failed to send notice: " + err.message);
         }
     };
 
@@ -144,7 +145,7 @@ const TeacherCommunicationScreen: React.FC = () => {
             recordingIntervalRef.current = window.setInterval(() => setRecordingTime(t => t + 1), 1000);
         } catch (err) {
             console.error(err);
-            alert("Camera/microphone permission denied. Please enable it in your browser settings.");
+            toast.error("Camera/microphone permission denied. Please enable it in your browser settings.");
         }
     };
 

@@ -139,12 +139,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
     const handleBooking = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedTeacher || !selectedSlot || !reason) {
-            alert("Please select a teacher, time slot, and provide a reason.");
+            toast.error("Please select a teacher, time slot, and provide a reason.");
             return;
         }
 
         if (!parentId) {
-            alert("You must be logged in as a parent to book appointments.");
+            toast.error("You must be logged in as a parent to book appointments.");
             return;
         }
 
@@ -165,7 +165,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
 
         } catch (err) {
             console.error("Booking error:", err);
-            alert("Failed to book appointment. Please try again.");
+            toast.error("Failed to book appointment. Please try again.");
         }
     };
 

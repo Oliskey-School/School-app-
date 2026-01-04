@@ -66,7 +66,7 @@ async function syncUserToAuth(user) {
         const password = generatePassword(user.name);
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Check if Supabase Auth user exists
+        // Checked if Supabase Auth user exists
         const { data: authUsers, error: listError } = await supabase.auth.admin.listUsers();
 
         if (listError) {

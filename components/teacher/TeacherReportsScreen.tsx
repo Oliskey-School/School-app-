@@ -3,6 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Student, ClassInfo } from '../../types';
 import { ChevronLeftIcon, AIIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 // Helper to parse 'Grade 10A'
 const parseClassName = (name: string) => {
@@ -21,25 +23,80 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo 
     const [students, setStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { profile } = useProfile();
+
     // Fetch Classes
     useEffect(() => {
         const fetchClasses = async () => {
-            try {
-                // Fetch all classes (or filter by teacher if we had auth context here easily accessible, 
-                // but 'Report Cards' usually implies access to any class for flexibility or restricted by teacher)
-                // Let's fetch classes from 'classes' table
-                const { data: classesData } = await supabase.from('classes').select('*');
+            if (!profile?.id) return;
 
-                if (classesData) {
-                    const formattedClasses = classesData.map((c: any) => ({
-                        id: c.id,
-                        grade: c.grade,
-                        section: c.section,
-                        subject: c.subject, // Include subject
-                        studentCount: c.student_count || 0,
-                        // ... other mappings
-                    }));
-                    setClasses(formattedClasses.sort((a: any, b: any) => {
+            setLoading(true);
+            try {
+                // 1. Get Teacher ID from User ID
+                const { data: teacherData, error: teacherError } = await supabase
+                    .from('teachers')
+                    .select('id')
+                    .eq('user_id', profile.id)
+                    .single();
+
+                if (teacherError || !teacherData) {
+                    console.error('Error fetching teacher profile:', teacherError);
+                    // Fallback to all classes if not found (or handle error)
+                    return;
+                }
+
+                // 2. Fetch Assigned Classes from teacher_classes
+                const { data: assignedClasses, error: classesError } = await supabase
+                    .from('teacher_classes')
+                    .select('class_name, id')
+                    .eq('teacher_id', teacherData.id);
+
+                if (classesError) throw classesError;
+
+                if (assignedClasses) {
+                    const formattedClasses: ClassInfo[] = assignedClasses.map((c: any) => {
+                        // Improved parsing for "Grade 7 - General" or "Grade 10A"
+                        let grade = 0;
+                        let section = '';
+
+                        // Try "Grade 7 - General" format
+                        const hyphenMatch = c.class_name.match(/Grade\s+(\d+)\s+-\s+(.+)/i);
+                        if (hyphenMatch) {
+                            grade = parseInt(hyphenMatch[1]);
+                            section = hyphenMatch[2];
+                        } else {
+                            // Try "Grade 10A" format
+                            const combinedMatch = c.class_name.match(/Grade.*(\d+)([A-Za-z]+)/) || c.class_name.match(/(\d+)([A-Za-z]+)/);
+                            if (combinedMatch) {
+                                grade = parseInt(combinedMatch[1]);
+                                section = combinedMatch[2];
+                            } else {
+                                // Fallback: try just finding a number
+                                const numMatch = c.class_name.match(/(\d+)/);
+                                if (numMatch) {
+                                    grade = parseInt(numMatch[1]);
+                                    // If the rest is empty or just whitespace/special chars, default to empty or 'A'
+                                    // Remove 'Grade' and the number we found
+                                    const cleaned = c.class_name.replace(/Grade/i, '').replace(numMatch[0], '').trim();
+                                    section = cleaned.replace(/[^a-zA-Z0-9]/g, '');
+
+                                    // If section is empty, leaving it empty is better than duplicating number
+                                    if (!section) section = '';
+                                }
+                            }
+                        }
+
+                        return {
+                            id: c.id, // ID from teacher_classes
+                            grade: grade,
+                            section: section || 'A', // Default to A if parsing fails
+                            subject: 'General', // teacher_classes doesn't have subject
+                            studentCount: 0 // Will need separate query or count
+                        };
+                    });
+
+                    // Sort
+                    setClasses(formattedClasses.sort((a, b) => {
                         if (a.grade !== b.grade) return a.grade - b.grade;
                         return a.section.localeCompare(b.section);
                     }));
@@ -51,7 +108,7 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo 
             }
         };
         fetchClasses();
-    }, []);
+    }, [profile]);
 
     // Fetch Students & Stats when class selected
     useEffect(() => {

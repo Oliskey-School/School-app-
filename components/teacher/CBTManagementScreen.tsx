@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import readXlsxFile from 'read-excel-file';
 import { supabase } from '../../lib/supabase';
 import { CloudUploadIcon, EyeIcon, ExamIcon, TrashIcon, CheckCircleIcon, XCircleIcon, WifiIcon } from '../../constants';
@@ -151,7 +152,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 
         localStorage.setItem('cbt_upload_queue', JSON.stringify(newQueue));
         if (newQueue.length === 0) {
-            alert("All offline tests have been synced to the database!");
+            toast.success("All offline tests have been synced to the database!");
             window.location.reload(); // Refresh to get real IDs
         }
     };
@@ -233,7 +234,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                     results: []
                 };
                 setTests(prev => [newTest, ...prev]);
-                alert(`${uploadType} uploaded successfully! ${questionCount} questions found.`);
+                toast.success(`${uploadType} uploaded successfully! ${questionCount} questions found.`);
             }
             // IF OFFLINE: Save to Local Storage
             else {
@@ -259,13 +260,13 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 } as any;
 
                 setTests(prev => [offlineTest, ...prev]);
-                alert(`You are offline. Test saved locally with ${questionCount} questions.`);
+                toast.success(`You are offline. Test saved locally with ${questionCount} questions.`);
             }
 
         } catch (err: any) {
             console.error("Error processing file:", err);
             setErrorMsg(err.message || "Failed to process.");
-            alert(`Error: ${err.message || "Failed to process."}`);
+            toast.error(`Error: ${err.message || "Failed to process."}`);
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -274,7 +275,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 
     const togglePublish = async (test: CBTTest) => {
         if ((test as any).isPending) {
-            alert("Cannot publish a test that hasn't finished syncing.");
+            toast.error("Cannot publish a test that hasn't finished syncing.");
             return;
         }
         const newStatus = !test.isPublished;
@@ -285,7 +286,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
             .update({ is_published: newStatus })
             .eq('id', test.id);
 
-        if (error) alert("Failed to update status: " + error.message);
+        if (error) toast.error("Failed to update status: " + error.message);
     };
 
     const confirmDelete = async () => {
@@ -299,7 +300,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
             } else {
                 const { error } = await supabase.from('cbt_tests').delete().eq('id', deleteId);
                 if (error) {
-                    alert("Failed to delete test.");
+                    toast.error("Failed to delete test.");
                 } else {
                     setTests(prev => prev.filter(t => t.id !== deleteId));
                 }

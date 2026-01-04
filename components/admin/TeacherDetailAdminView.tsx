@@ -33,19 +33,49 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
     // Computed classes visualization
     // If we have detailed class info in mockClasses, use it. Otherwise, create a placeholder.
     const displayClasses = teacher.classes.map(className => {
-        // Try to parse grade/section from string "10A" or "Grade 10A"
-        const normalized = className.replace(/Grade\s*/i, '').trim();
-        const match = null; // Removed mockClasses lookup
+        // Parse "Grade 7 - Math" or "10A - Physics"
+        // Try to handle:
+        // 1. "Grade 7 - Math" -> Grade 7, Subject Math
+        // 2. "10A - Physics" -> Grade 10, Section A, Subject Physics
+        // 3. "Grade 7" -> Grade 7, Default Subject
 
-        if (match) return match;
+        let grade = 0;
+        let section = '';
+        let subject = teacher.subjects[0] || 'General';
 
-        // Fallback for classes not in mock data
+        // Normalized: remove "Grade " prefix
+        const clean = className.replace(/^Grade\s+/i, '').trim();
+
+        // Regex to split "Part1 - Part2"
+        const parts = clean.split(/\s*[-–]\s*/);
+
+        // First part is Class (e.g. "7" or "10A")
+        const classPart = parts[0];
+        const subjectPart = parts.length > 1 ? parts[1] : '';
+
+        // Parse Grade/Section from classPart
+        const match = classPart.match(/^(\d+)([A-Za-z]+)?$/);
+        if (match) {
+            grade = parseInt(match[1]);
+            section = match[2] || '';
+        } else {
+            // Check if just number
+            const numMatch = classPart.match(/^(\d+)$/);
+            if (numMatch) {
+                grade = parseInt(numMatch[1]);
+            }
+        }
+
+        if (subjectPart) {
+            subject = subjectPart;
+        }
+
         return {
-            id: Math.random(), // temp id
-            grade: parseInt(normalized.match(/\d+/)?.[0] || '0'),
-            section: normalized.replace(/\d+/, '') || '',
-            subject: teacher.subjects[0] || 'General', // Guess subject
-            studentCount: 0 // Unknown
+            id: Math.random(),
+            grade,
+            section,
+            subject,
+            studentCount: 0 // Mock/Unknown
         };
     });
 
@@ -79,12 +109,12 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
 
 
-            alert(`${teacher.name} has been successfully deleted from the database.`);
+            toast.success(`${teacher.name} has been successfully deleted from the database.`);
             forceUpdate();
             handleBack();
         } catch (error: any) {
             console.error('Error deleting teacher:', error);
-            alert('Failed to delete teacher: ' + (error.message || 'Unknown error'));
+            toast.error('Failed to delete teacher: ' + (error.message || 'Unknown error'));
         }
     };
 

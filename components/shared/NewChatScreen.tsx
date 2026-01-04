@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { SearchIcon, ChevronLeftIcon, UserIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { ChatUser } from '../../types';
@@ -188,7 +189,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ currentUserId, onBack, on
 
         } catch (err) {
             console.error("Error starting chat:", err);
-            alert("Failed to start chat. Please try again.");
+            toast.error("Failed to start chat. Please try again.");
         } finally {
             setLoading(false);
         }
