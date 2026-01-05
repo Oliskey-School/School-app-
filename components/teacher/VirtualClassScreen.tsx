@@ -163,11 +163,14 @@ const ClassSelectionScreen: React.FC<{ onStartClass: (session: ClassSession, sub
                 }
 
                 if (data) {
+                    // Import the helper function (dynamically or statically)
+                    const { getGradeDisplayName } = await import('../../lib/schoolSystem');
+
                     const mappedClasses: ClassSession[] = data.map((c: any) => ({
                         id: c.id,
-                        grade: `Grade ${c.grade}${c.section}`,
+                        grade: `${getGradeDisplayName(c.grade)} - Section ${c.section}`,
                         subject: c.subject || 'General',
-                        description: `Class Session for Grade ${c.grade}${c.section}`,
+                        description: `Class Session for ${getGradeDisplayName(c.grade)} ${c.section}`,
                         time: 'Now', // Dynamic in real app
                         studentsCount: c.student_count || 0
                     }));

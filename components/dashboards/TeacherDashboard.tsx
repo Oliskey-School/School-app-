@@ -7,6 +7,7 @@ import { TeacherBottomNav } from '../ui/DashboardBottomNav';
 import { TeacherSideNav } from '../ui/DashboardSideNav';
 import { mockNotifications } from '../../data';
 import { useProfile } from '../../context/ProfileContext';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import ErrorBoundary from '../ui/ErrorBoundary';
 
 // Lazy load only the Global Search Screen as it's an overlay
@@ -99,7 +100,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     setIsHomePage(currentView.view === 'overview' && !isSearchOpen);
   }, [viewStack, isSearchOpen, setIsHomePage]);
 
-  const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('teacher')).length;
+  const notificationCount = useRealtimeNotifications();
 
   const navigateTo = (view: string, title: string, props: any = {}) => {
     setViewStack(stack => [...stack, { view, props, title }]);

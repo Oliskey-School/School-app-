@@ -45,7 +45,7 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
         fetchResources();
     }, []);
 
-    const ai = useMemo(() => getAIClient(import.meta.env.VITE_OPENAI_API_KEY || ''), []);
+    const ai = useMemo(() => getAIClient(import.meta.env.VITE_GEMINI_API_KEY || ''), []);
 
     const handleGenerateSuggestions = async (e: React.FormEvent) => {
         e.preventDefault();

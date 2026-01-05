@@ -20,7 +20,7 @@ const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment 
                 text: `Here is the assignment for ${assessment.type}. Please review and complete the questions.`,
                 // In a real app, you might share a URL to a student-facing version of this assignment
                 // url: window.location.href, 
-            }).catch((error) => console.log('Error sharing:', error));
+            }).catch((error) => { /* console.log('Error sharing:', error) */ });
         } else {
             // Fallback for browsers that do not support the Web Share API
             toast.error('To share, please print/save as PDF or take a screenshot.', { duration: 4000 });

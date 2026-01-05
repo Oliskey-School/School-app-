@@ -89,6 +89,18 @@ const ManagePoliciesScreen: React.FC = () => {
         return url.startsWith('http') ? url : `https://${url}`;
     };
 
+    useEffect(() => {
+        const channel = supabase.channel('policies_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_policies' }, () => {
+                fetchPolicies();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
     return (
         <div className="flex flex-col h-full bg-gray-50 p-6 space-y-6 overflow-y-auto">
 

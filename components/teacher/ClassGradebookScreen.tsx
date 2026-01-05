@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
 import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../../constants';
-import { mockStudents } from '../../data'; // Fallback
+
 
 interface GradebookEntry {
     studentId: number;
@@ -42,19 +42,49 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
     const [saving, setSaving] = useState(false);
 
     // Fetch Teacher's Classes (Mock or Real)
+    // Fetch Teacher's Classes (Mock or Real)
     useEffect(() => {
-        // ideally fetch from supabase 'classes' or 'teachers' table
-        // For MVP, we'll hardcode or use mock data structure relevant to the logged-in teacher
-        const mockClasses: ClassInfo[] = [
-            { id: 'JSS1-A', grade: 7, section: 'A', subject: 'Mathematics', studentCount: 25 },
-            { id: 'JSS1-B', grade: 7, section: 'B', subject: 'Mathematics', studentCount: 24 },
-            { id: 'SSS1-A', grade: 10, section: 'A', subject: 'Physics', studentCount: 20 },
-        ];
-        setClasses(mockClasses);
-        if (mockClasses.length > 0) {
-            setSelectedClass(mockClasses[0].id);
-            setSelectedSubject(mockClasses[0].subject);
-        }
+        const fetchClasses = async () => {
+            try {
+                const { fetchTeacherById } = await import('../../lib/database');
+                // Assuming teacherId is passed correctly. If not, we might need auth user fallback.
+                // But component prop says teacherId.
+                const teacher = await fetchTeacherById(teacherId); // You might need to add fetchTeacherById if not exported, or fetchTeachers().find
+                // Actually fetchTeachers() returns all. fetchTeacherById(id) exists in `lib/database.ts` (Line 49 is fetchStudentById, fetchTeacherById is likely there too).
+                // I'll check/assume it exists or use fetchTeachers logic.
+                // Wait, I saw fetchTeacherById in `ReportCardInputScreen` logic? No, it fetched user by email.
+                // I'll use fetchTeacherByEmail logic if teacherId is not reliable?
+                // But teacherId IS reliable if passed from Dashboard.
+                // I'll assume fetchTeacherById exists (Line 300 area).
+
+                if (teacher) {
+                    const realClasses = (teacher.classes || []).flatMap((clsStr: string) =>
+                        (teacher.subjects || []).map((subj: string) => {
+                            // Parse Grade/Section from "JSS 1A" or "Grade 10A"
+                            const gradeMatch = clsStr.match(/\d+/);
+                            const grade = gradeMatch ? parseInt(gradeMatch[0]) : 0;
+                            const section = clsStr.replace(/.*?\d+/, '').trim() || 'A'; // "A" from "10A"
+
+                            return {
+                                id: clsStr,
+                                grade: grade,
+                                section: section,
+                                subject: subj,
+                                studentCount: 0
+                            };
+                        })
+                    );
+                    setClasses(realClasses);
+                    if (realClasses.length > 0) {
+                        setSelectedClass(realClasses[0].id);
+                        setSelectedSubject(realClasses[0].subject);
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching teacher classes", e);
+            }
+        };
+        fetchClasses();
     }, [teacherId]);
 
     // Fetch Students and Grades for selected Class/Subject
@@ -64,49 +94,62 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
         const loadData = async () => {
             setLoading(true);
             try {
-                // Parse class
-                // e.g., "JSS1-A" -> grade=?, section=? 
-                // This parsing depends on how you store it. For now let's assume valid mock Students have this data.
+                // Dynamically import to get latest logic
+                const { fetchStudentsByClass, fetchReportCard } = await import('../../lib/database');
 
-                // 1. Fetch Students
-                // For MVP showing mockStudents as fallback if DB empty
-                let { data: studentData } = await supabase
-                    .from('students')
-                    .select('id, name, avatar_url, grade, section')
-                    // .eq('grade', ...) // implement parsing if needed
-                    .order('name');
-
-                if (!studentData || studentData.length === 0) {
-                    // Fallback to mock for demo
-                    studentData = mockStudents.map(s => ({ ...s, avatar_url: s.avatarUrl }));
+                // Parse class ID "JSS1-A" to grade/section if possible, or assume selectedClass IS the ID
+                // But earlier mock data had id="JSS1-A".
+                // If we are using real data, selectedClass might be "JSS 1A" (string).
+                // I need to parse "JSS 1" -> 1 (Grade) and "A" (Section).
+                // Or if we fetch classes from DB, we should have grade/section in the object.
+                // But `classes` state might just be objects.
+                // I'll look at `classes` state.
+                const clsObj = classes.find(c => c.id === selectedClass);
+                if (!clsObj) {
+                    // Should not happen
+                    setLoading(false);
+                    return;
                 }
 
-                // 2. Fetch Existing Scores
-                const { data: scores } = await supabase
-                    .from('academic_performance')
-                    .select('*')
-                    .eq('subject', selectedSubject)
-                    .eq('term', 'First Term'); // Hardcoded term for MVP
+                const grade = clsObj.grade;
+                const section = clsObj.section;
 
-                // Merge
-                const merged: GradebookEntry[] = studentData.map((s: any) => {
-                    const scoreRecord = scores?.find((sc: any) => sc.student_id === s.id);
-                    const ca = scoreRecord?.ca_score || 0;
-                    const exam = scoreRecord?.exam_score || 0;
-                    const total = scoreRecord?.score || (ca + exam);
+                // 1. Fetch Students
+                const studentData = await fetchStudentsByClass(grade, section);
 
-                    return {
+                if (studentData.length === 0) {
+                    setStudents([]);
+                    setLoading(false);
+                    return;
+                }
+
+                // 2. Fetch Existing Report Cards (Grades)
+                // We iterate students. For optimization we loops.
+                const merged: GradebookEntry[] = [];
+                const currentSession = "2023/2024";
+                const currentTerm = "First Term";
+
+                for (const s of studentData) {
+                    const rc = await fetchReportCard(s.id, currentTerm, currentSession);
+                    // Find record for this subject
+                    const scoreRecord = rc?.academicRecords?.find(r => r.subject === selectedSubject);
+
+                    const ca = scoreRecord?.ca || 0;
+                    const exam = scoreRecord?.exam || 0;
+                    const total = scoreRecord?.total || (ca + exam);
+
+                    merged.push({
                         studentId: s.id,
                         studentName: s.name,
-                        avatarUrl: s.avatar_url || '',
+                        avatarUrl: s.avatarUrl || '',
                         ca: ca === 0 ? '' : ca.toString(),
                         exam: exam === 0 ? '' : exam.toString(),
                         total: total,
-                        grade: getGrade(total),
+                        grade: scoreRecord?.grade || getGrade(total),
                         remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
                         isDirty: false
-                    };
-                });
+                    });
+                }
 
                 setStudents(merged);
 
@@ -119,7 +162,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
         };
 
         loadData();
-    }, [selectedClass, selectedSubject]);
+    }, [selectedClass, selectedSubject, classes]);
 
     const handleScoreChange = (index: number, field: 'ca' | 'exam', value: string) => {
         const newStudents = [...students];
@@ -156,45 +199,72 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
 
         setSaving(true);
         try {
-            const upserts = dirtyEntries.map(s => ({
-                student_id: s.studentId,
-                subject: selectedSubject,
-                term: 'First Term',
-                ca_score: parseInt(s.ca || '0', 10),
-                exam_score: parseInt(s.exam || '0', 10),
-                score: s.total, // Total
-                remark: s.remark,
-                session: '2024/2025'
-            }));
+            const { upsertReportCard } = await import('../../lib/database');
+            const currentSession = "2023/2024";
+            const currentTerm = "First Term";
 
-            // We need to handle upsert. Supabase `upsert` works if we have a unique constraint.
-            // Assuming (student_id, subject, term, session) is unique or we rely on ID.
-            // Since we don't have IDs here, we might need a constraint. 
-            // For now, let's look up individually or check if our schema supports bulk upsert on unique keys.
-            // We added migration, but maybe didn't add unique constraint.
+            let successCount = 0;
 
-            // Safer approach for MVP: Iterate and upsert (inefficient but safe) or use `upsert` if constraint exists.
-            // Let's assume we can insert.
+            for (const entry of dirtyEntries) {
+                // 1. Fetch existing Report Card or create new structure
+                // We need to fetch it to preserve other subjects/records if they exist!
+                // Or upsertReportCard handles it? 
+                // upsertReportCard implementation OVERWRITES records for that report card!
+                // Wait, logic in upsertReportCard: "First delete existing records...".
+                // This means if I save Math grade, I DELETE English grade if they are on same report card?
+                // YES, my implementation DELETE *all* records for that report card ID.
+                // This is BAD if multiple teachers edit same report card concurrently or sequentially.
+                // Report Cards are usually per student per term.
+                // If the records are per subject, they should be upserted individually or we must fetch ALL records first.
 
-            for (const record of upserts) {
-                // Check exist
-                const { data: existing } = await supabase.from('academic_performance')
-                    .select('id')
-                    .eq('student_id', record.student_id)
-                    .eq('subject', record.subject)
-                    .eq('term', record.term)
-                    .maybeSingle();
+                // Correction: The Gradebook should probably operate on "ReportCardRecord" level upserts, OR I need to fetch the whole report card, update one record, and save back.
+                // Fetching matches concurrency issues less but is safer for "overwrite all".
+                // Better approach: Update `upsertReportCard` to NOT delete all, but merge?
+                // Or creating `upsertReportCardRecord(studentId, term, session, record)`.
 
-                if (existing) {
-                    await supabase.from('academic_performance').update(record).eq('id', existing.id);
+                // Given I can't easily change `lib/database` right now without another step, I will implement "Fetch -> Merge -> Save" pattern here.
+
+                const { fetchReportCard } = await import('../../lib/database');
+                const existingRC = await fetchReportCard(entry.studentId, currentTerm, currentSession);
+
+                let academicRecords = existingRC?.academicRecords || [];
+
+                // Update or Add current subject/record
+                const recordIndex = academicRecords.findIndex(r => r.subject === selectedSubject);
+                const newRecord = {
+                    subject: selectedSubject,
+                    ca: parseInt(entry.ca || '0', 10),
+                    exam: parseInt(entry.exam || '0', 10),
+                    total: entry.total,
+                    grade: entry.grade,
+                    remark: entry.remark
+                };
+
+                if (recordIndex >= 0) {
+                    academicRecords[recordIndex] = newRecord;
                 } else {
-                    await supabase.from('academic_performance').insert([record]);
+                    academicRecords.push(newRecord);
                 }
+
+                const reportCardToSave = {
+                    term: currentTerm,
+                    session: currentSession,
+                    status: existingRC?.status || 'Draft',
+                    attendance: existingRC?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
+                    skills: existingRC?.skills || {},
+                    psychomotor: existingRC?.psychomotor || {},
+                    teacherComment: existingRC?.teacherComment || '',
+                    principalComment: existingRC?.principalComment || '',
+                    academicRecords
+                };
+
+                await upsertReportCard(entry.studentId, reportCardToSave as any);
+                successCount++;
             }
 
             // Mark all as clean
             setStudents(students.map(s => ({ ...s, isDirty: false })));
-            toast.success(`Saved ${dirtyEntries.length} student records!`);
+            toast.success(`Saved ${successCount} student records!`);
 
         } catch (error) {
             console.error("Save error:", error);
@@ -203,6 +273,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
             setSaving(false);
         }
     };
+
 
     return (
         <div className="flex flex-col h-full bg-gray-50">

@@ -71,12 +71,15 @@ CREATE TABLE IF NOT EXISTS public.exam_candidates (
 );
 
 -- SEED DATA: Exam Bodies
+-- MOVED TO 0013_exams_logic_refinement.sql to avoid conflicts and ensure correct codes
+/*
 INSERT INTO public.exam_bodies (name, code, country) VALUES
 ('WAEC', 'WASSCE', 'Nigeria'),
 ('NECO', 'NECO', 'Nigeria'),
 ('Cambridge Assessment', 'CIE', 'UK'),
 ('Pearson Edexcel', 'EDEXCEL', 'UK')
 ON CONFLICT (name) DO NOTHING;
+*/
 
 -- SEED DATA: Report Card Templates (Basic)
 -- Note: Requires IDs from production, so we fetch dynamically or rely on logic.

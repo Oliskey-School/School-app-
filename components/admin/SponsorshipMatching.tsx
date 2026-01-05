@@ -36,7 +36,7 @@ interface Sponsorship {
 
 const SponsorshipMatching: React.FC = () => {
     const [requests, setRequests] = useState<SponsorshipRequest[]>([]);
-    const [activeSponsors hip, setActiveSponsorships] = useState<Sponsorship[]>([]);
+    const [activeSponsorships, setActiveSponsorships] = useState<Sponsorship[]>([]);
     const [activeTab, setActiveTab] = useState<'requests' | 'active' | 'create'>('requests');
 
     // Form states for creating request
@@ -253,8 +253,8 @@ const SponsorshipMatching: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('requests')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'requests'
-                            ? 'bg-rose-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Requests ({requests.length})
@@ -262,8 +262,8 @@ const SponsorshipMatching: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('active')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'active'
-                            ? 'bg-rose-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Active Sponsorships ({activeSponsorships.length})
@@ -271,8 +271,8 @@ const SponsorshipMatching: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('create')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'create'
-                            ? 'bg-rose-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     + Create Request

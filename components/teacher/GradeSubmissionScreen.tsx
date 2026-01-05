@@ -61,34 +61,34 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
   };
 
   const handleGenerateFeedback = async () => {
-    if (!grade) {
-      toast.error("Please enter a grade first to generate contextual feedback.");
-      return;
-    }
     setIsGenerating(true);
     setAiSuggestions([]);
     try {
-      const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
-      const prompt = `Generate 3 distinct, constructive feedback comments for a student's assignment.
-      - Assignment Title: "${assignment.title}"
-      - Subject: "${assignment.subject}"
-      - Student's Score: ${grade}/100
-      - Student's Text Submission: "${submission.textSubmission || 'No text submitted.'}"
-      
-      The feedback should be encouraging and specific to the score. Provide the feedback in a JSON object with a single key "suggestions" which is an array of strings.`;
+      const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+      const prompt = `Act as an expert teacher. Evaluate this student submission and provide:
+      1. A recommended grade (0-100) based on quality.
+      2. 3 distinct, constructive feedback comments.
+
+      - Assignment: "${assignment.title}" (${assignment.subject})
+      - Student Submission: "${submission.textSubmission || '(No text submitted, check file)'}"
+      - Current Grade Input: ${grade ? grade + '/100' : 'Not yet graded'}
+
+      If the grade is active, tailor feedback to that score. If not, analyze the text to suggest a fair grade.
+      Return JSON.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
+              suggested_grade: { type: Type.INTEGER, description: "Recommended score out of 100" },
               suggestions: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: "An array of 3 distinct, constructive feedback comments."
+                description: "Array of 3 feedback comments."
               }
             },
             required: ["suggestions"]
@@ -98,6 +98,10 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
 
       const jsonResponse = JSON.parse(response.text.trim());
       if (jsonResponse.suggestions && Array.isArray(jsonResponse.suggestions)) {
+        if (jsonResponse.suggested_grade && !grade) {
+          setGrade(jsonResponse.suggested_grade.toString());
+          toast.success(`AI suggested a grade of ${jsonResponse.suggested_grade}`);
+        }
         setAiSuggestions(jsonResponse.suggestions);
       } else {
         throw new Error("Invalid response format from AI.");
@@ -190,6 +194,21 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
                         <MicrophoneIcon className="h-5 w-5" />
                       </button>
                     )}
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateFeedback}
+                      disabled={isGenerating}
+                      className="flex items-center space-x-2 px-3 py-1.5 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors text-sm font-medium disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <SparklesIcon className="w-4 h-4" />
+                      )}
+                      <span>{isGenerating ? 'Drafting...' : 'Draft with AI'}</span>
+                    </button>
                   </div>
                 </div>
 

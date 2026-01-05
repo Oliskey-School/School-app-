@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { toast } from 'react-hot-toast';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon } from '../../constants';
 import { Student, Department } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -43,7 +44,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
             setSelectedImage(studentToEdit.avatarUrl);
             setFullName(studentToEdit.name);
             setBirthday(studentToEdit.birthday || '');
-            setClassName(`Grade ${studentToEdit.grade}`);
+            setClassName(`Grade ${studentToEdit.grade} `);
             setSection(studentToEdit.section);
             setDepartment(studentToEdit.department || '');
 
@@ -54,11 +55,11 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                         const { data, error } = await supabase
                             .from('parent_children')
                             .select(`
-                                parents (
-                                    name,
-                                    email,
-                                    phone
-                                )
+parents(
+    name,
+    email,
+    phone
+)
                             `)
                             .eq('student_id', studentToEdit.id)
                             .maybeSingle();
@@ -111,13 +112,13 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
             const gName = guardianName.trim();
 
             if (gName && !gEmail) {
-                alert("Guardian Email is required to create or link guardian details.");
+                toast.error("Guardian Email is required to create or link guardian details.");
                 setIsLoading(false);
                 return;
             }
 
             // Generate email for the student
-            let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com`;
+            let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')} @student.school.com`;
             const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
 
             // MOCK MODE HANDLING
@@ -136,13 +137,14 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                             avatarUrl: avatarUrl
                         };
                     }
-                    alert('Student updated successfully (Mock Mode - Session Only)');
+                    toast.success('Student updated successfully (Mock Mode - Session Only)');
                 } else {
                     // Create new mock student
                     const newId = mockStudents.length > 0 ? Math.max(...mockStudents.map(s => s.id)) + 1 : 1;
                     const newStudent = {
                         id: newId,
                         name: fullName,
+                        email: generatedEmail,
                         avatarUrl: avatarUrl,
                         grade: grade,
                         section: section,
@@ -183,7 +185,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                         successMessage += "No guardian linked.";
                     }
 
-                    alert(successMessage);
+                    toast.success(successMessage);
 
                     // Simulate credentials generation for display
                     setCredentials({
@@ -321,7 +323,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     }
                 }
 
-                alert(`Student updated successfully!${guardianMessage}`);
+                toast.success(`Student updated successfully!${guardianMessage}`);
             } else {
                 // CREATE MODE - Check if email already exists in users or auth_accounts
                 const exists = await checkEmailExists(generatedEmail);
@@ -337,13 +339,12 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     let whereFound: string[] = [];
                     if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
                     whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                    alert(`Student with email ${generatedEmail} already exists in: ${whereFound.join(', ')}. Please use a different name to generate a unique email.`);
+                    toast.error(`Student with email ${generatedEmail} already exists in: ${whereFound.join(', ')}. Please use a different name to generate a unique email.`);
                     setIsLoading(false);
                     return;
                 } else if (exists.inUsers) {
                     // Exists in DB but NOT in Auth. This is a "Zombie" record.
                     // We should attempt to repair this by reusing the User ID and creating Auth.
-                    console.log(`Email ${generatedEmail} found in 'users' but missing Auth. Attempting to repair/reuse User ID: ${exists.userRow.id}`);
                     userIdToUse = exists.userRow.id;
                 }
 
@@ -377,7 +378,6 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
                     if (existingStudent) {
                         // Student profile also exists. We just need to fix Auth.
-                        console.log("Student profile also exists. Updates skipped, proceeding to Auth fix.");
                     } else {
                         // User exists, but Student profile missing. Create it.
                         const { error: studentError } = await supabase
@@ -501,7 +501,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                     // Create Auth & Send Email
                                     await createUserAccount(gName, 'Parent', gEmail, newUser.id);
                                     await sendVerificationEmail(gName, gEmail, 'School App Account Created');
-                                    alert(`Guardian account created for ${gName}.\nCredentials sent to ${gEmail}.`);
+                                    toast.success(`Guardian account created for ${gName}.\nCredentials sent to ${gEmail}.`, { duration: 5000 });
                                 }
                             }
                         }
@@ -514,14 +514,14 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                             // Don't alert here if we already alerted for creation, maybe just log or small toast?
                             // Standard flow:
                             if (existingUser) {
-                                alert(`Linked to existing guardian: ${gName}.\nNotification sent to ${gEmail}.`);
+                                toast.success(`Linked to existing guardian: ${gName}.`, { duration: 4000 });
                                 await sendVerificationEmail(gName, gEmail, 'Student Added');
                             }
                         }
 
                     } catch (gErr) {
                         console.error("Error processing guardian:", gErr);
-                        alert("Student created, but failed to link Guardian: " + (gErr as any).message);
+                        toast.error("Student created, but failed to link Guardian: " + (gErr as any).message);
                     }
                 }
                 // -----------------------------------
@@ -540,7 +540,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
             handleBack();
         } catch (error: any) {
             console.error('Error saving student:', error);
-            alert('Failed to save student: ' + (error.message || 'Unknown error'));
+            toast.error('Failed to save student: ' + (error.message || 'Unknown error'));
         } finally {
             setIsLoading(false);
         }

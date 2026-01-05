@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
+import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Student } from '../../types';
@@ -29,7 +29,7 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
             }
             setIsLoading(true);
             try {
-                const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+                const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
                 const studentDataForPrompt = students.map(s => {
                     const latestGrades = s.academicPerformance?.slice(-3).map(p => `${p.subject}: ${p.score}%`).join(', ') || 'N/A';
                     const behavior = s.behaviorNotes?.map(n => `${n.type}: ${n.title}`).join(', ') || 'No notes';
@@ -84,7 +84,21 @@ const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({
                     }
                 });
 
-                const jsonResponse = JSON.parse(response.text.trim());
+                const rawText = response.text ? response.text.trim() : '';
+
+                if (!rawText || rawText.startsWith('Error') || rawText.startsWith("I'm sorry")) {
+                    throw new Error(rawText || "AI returned an error message.");
+                }
+
+                const sanitizedText = rawText.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+
+                let jsonResponse;
+                try {
+                    jsonResponse = JSON.parse(sanitizedText);
+                } catch (e) {
+                    console.error("Performance Summary JSON Parse Error", rawText);
+                    throw new Error("AI generated an invalid format.");
+                }
                 setSummary(jsonResponse);
 
             } catch (err) {

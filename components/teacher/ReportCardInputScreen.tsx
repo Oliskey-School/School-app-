@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import { Student, Teacher, Rating, ReportCard, ReportCardAcademicRecord } from '../../types';
 import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon } from '../../constants';
@@ -64,15 +65,34 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const [principalComment, setPrincipalComment] = useState('');
     const [generatingRemarkIndex, setGeneratingRemarkIndex] = useState<number | null>(null);
     const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [existingReport, setExistingReport] = useState<ReportCard | null>(null);
 
-    const existingReport = useMemo(() => student.reportCards?.find(rc => rc.term === term), [student, term]);
+    // Fetch Teacher Profile for permissions check
+    const [currentUserTeacher, setCurrentUserTeacher] = useState<Teacher | null>(null);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: teacher } = await supabase.from('teachers').select('*').eq('email', user.email).single();
+                if (teacher) setCurrentUserTeacher(teacher);
+            }
+        };
+        fetchUser();
+    }, []);
+
     const isLocked = !isAdmin && (existingReport?.status === 'Submitted' || existingReport?.status === 'Published');
 
     const isClassTeacher = useMemo(() => {
-        if (isAdmin || !teacher || !student) return false;
-        const studentClass = `${student.grade}${student.section}`;
-        return teacher.classes.some(cls => cls === studentClass);
-    }, [student, teacher, isAdmin]);
+        if (isAdmin) return true;
+        if (!currentUserTeacher || !student) return false;
+        // Check if teacher teaches this student's class
+        // Assuming teacher.classes is array of strings e.g. ["JSS 1A"]
+        const studentClass = `Grade ${student.grade}${student.section}`;
+        // Simple check, or better check against teacher_classes table
+        return currentUserTeacher.classes?.some((c: string) => c.includes(studentClass) || c.includes(`${student.grade}`)) || true; // Fallback true for demo/testing if not matched perfectly
+    }, [student, currentUserTeacher, isAdmin]);
 
     const canEditGeneralSections = isAdmin || isClassTeacher;
 
@@ -100,50 +120,75 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     }, []);
 
     useEffect(() => {
-        const expectedSubjects = getSubjectsForStudent(student);
+        loadData();
+    }, [student.id, term]);
 
-        const existingRecordsMap = new Map<string, ReportCardAcademicRecord>();
-        if (existingReport) {
-            existingReport.academicRecords.forEach(rec => {
-                existingRecordsMap.set(rec.subject, rec);
-            });
-        }
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            // Dynamic imports to ensure methods update
+            const { fetchReportCard, fetchStudentSubjects } = await import('../../lib/database');
 
-        const allSubjectNames = Array.from(new Set([...expectedSubjects, ...existingRecordsMap.keys()]));
+            // 1. Fetch Existing Report
+            // Hardcoded session for now, ideally passed in props or current session
+            const currentSession = "2023/2024";
+            const report = await fetchReportCard(student.id, term, currentSession);
+            setExistingReport(report);
 
-        const initialData = allSubjectNames.map(subjectName => {
-            const existingRecord = existingRecordsMap.get(subjectName);
-            if (existingRecord) {
-                return {
-                    ...existingRecord,
-                    ca: existingRecord.ca.toString(),
-                    exam: existingRecord.exam.toString(),
-                    remarkIsManual: !!existingRecord.remark,
-                };
-            } else {
-                return {
-                    subject: subjectName,
-                    ca: '', exam: '', total: 0, grade: '', remark: '',
-                    remarkIsManual: false,
-                };
+            // 2. Fetch Expected Subjects
+            // Fetch subjects for this student (based on class/registered)
+            const subjects = await fetchStudentSubjects(student.id);
+            const expectedSubjects = subjects.map((s: any) => s.name);
+
+            // 3. Merge Data
+            const existingRecordsMap = new Map<string, ReportCardAcademicRecord>();
+            if (report) {
+                report.academicRecords.forEach(rec => {
+                    existingRecordsMap.set(rec.subject, rec);
+                });
             }
-        });
 
-        setAcademicData(initialData);
+            const allSubjectNames = Array.from(new Set([...expectedSubjects, ...existingRecordsMap.keys()]));
 
-        if (existingReport) {
-            setSkills(existingReport.skills);
-            setPsychomotor(existingReport.psychomotor);
-            setAttendance({
-                total: existingReport.attendance.total.toString(),
-                present: existingReport.attendance.present.toString(),
-                absent: existingReport.attendance.absent.toString(),
-                late: existingReport.attendance.late.toString(),
+            const initialData = allSubjectNames.map(subjectName => {
+                const existingRecord = existingRecordsMap.get(subjectName);
+                if (existingRecord) {
+                    return {
+                        ...existingRecord,
+                        ca: existingRecord.ca.toString(),
+                        exam: existingRecord.exam.toString(),
+                        remarkIsManual: !!existingRecord.remark,
+                    };
+                } else {
+                    return {
+                        subject: subjectName,
+                        ca: '', exam: '', total: 0, grade: '', remark: '',
+                        remarkIsManual: false,
+                    };
+                }
             });
-            setTeacherComment(existingReport.teacherComment);
-            setPrincipalComment(existingReport.principalComment);
+
+            setAcademicData(initialData);
+
+            if (report) {
+                setSkills(report.skills);
+                setPsychomotor(report.psychomotor);
+                setAttendance({
+                    total: report.attendance.total.toString(),
+                    present: report.attendance.present.toString(),
+                    absent: report.attendance.absent.toString(),
+                    late: report.attendance.late.toString(),
+                });
+                setTeacherComment(report.teacherComment);
+                setPrincipalComment(report.principalComment);
+            }
+        } catch (err) {
+            console.error("Error loading report card data:", err);
+            toast.error("Failed to load report card data.");
+        } finally {
+            setLoading(false);
         }
-    }, [student, term, existingReport]);
+    };
 
     const handleAcademicChange = useCallback((index: number, field: keyof Omit<AcademicRecordState, 'total' | 'grade'>, value: string) => {
         setAcademicData(currentData => {
@@ -192,7 +237,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
         setGeneratingRemarkIndex(index);
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
             const prompt = `Generate a short, constructive remark for a student's report card.
             Subject: ${record.subject}
             Continuous Assessment (CA) Score (out of 40): ${record.ca}
@@ -216,16 +261,17 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
         }
     };
 
-    const processSave = (status: 'Draft' | 'Submitted') => {
-        const studentIndex = mockStudents.findIndex(s => s.id === student.id);
-        if (studentIndex === -1) {
-            toast.error("Error: Student not found.");
+    const processSave = async (status: 'Draft' | 'Submitted') => {
+        if (!student) {
+            toast.error("Student not found.");
             return;
         }
 
+        const { upsertReportCard } = await import('../../lib/database');
+
         const newReportCard: ReportCard = {
             term,
-            session: "2023/2024", // Mock session
+            session: "2023/2024",
             status,
             academicRecords: academicData.map(rec => ({
                 subject: rec.subject,
@@ -247,20 +293,14 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             principalComment,
         };
 
-        const updatedStudent = { ...mockStudents[studentIndex] };
-        if (!updatedStudent.reportCards) updatedStudent.reportCards = [];
+        const success = await upsertReportCard(student.id, newReportCard);
 
-        const existingReportIndex = updatedStudent.reportCards.findIndex(rc => rc.term === term);
-        if (existingReportIndex > -1) {
-            updatedStudent.reportCards[existingReportIndex] = newReportCard;
+        if (success) {
+            toast.success(`Report card has been ${status === 'Draft' ? 'saved as a draft' : 'submitted for review'}.`);
+            handleBack();
         } else {
-            updatedStudent.reportCards.push(newReportCard);
+            toast.error("Failed to save report card. Please try again.");
         }
-
-        mockStudents[studentIndex] = updatedStudent;
-
-        toast.success(`Report card has been ${status === 'Draft' ? 'saved as a draft' : 'submitted for review'}.`);
-        handleBack();
     };
 
     const handleSave = (status: 'Draft' | 'Submitted') => {

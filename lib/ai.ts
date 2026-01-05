@@ -1,357 +1,266 @@
-export const OPENAI_MODEL_NAME = "gpt-4o-mini";
-// Fallback model name for Gemini
-export const GEMINI_MODEL_NAME = "gemini-2.0-flash-exp"; // Known existing model (even if rate limited)
-export const AI_MODEL_NAME = OPENAI_MODEL_NAME; // Default export for components
+
+export const GEMINI_MODEL_NAME = "gemini-2.5-flash";
+export const AI_MODEL_NAME = GEMINI_MODEL_NAME;
 
 export const AI_GENERATION_CONFIG = {
     responseMimeType: "application/json"
 };
 
-export const SchemaType = {
-    STRING: "STRING",
-    NUMBER: "NUMBER",
-    INTEGER: "INTEGER",
-    BOOLEAN: "BOOLEAN",
-    ARRAY: "ARRAY",
-    OBJECT: "OBJECT"
-};
-
-// --- HELPER: Convert Gemini-style "history" to OpenAI Messages ---
-const convertToOpenAIMessages = (promptOrContent: any, history: any[] = []) => {
-    let messages: any[] = [];
-
-    // 1. Add History (converted)
-    if (history.length > 0) {
-        messages = history.map(item => {
-            const role = item.role === 'model' ? 'assistant' : 'user';
-            const content = item.parts ? item.parts.map((p: any) => p.text).join('\n') : (item.text || '');
-            return { role, content };
-        });
-    }
-
-    // 2. Add Current Prompt
-    let currentContent: any = promptOrContent;
-
-    // Handle { contents: ... } wrapper
-    if (promptOrContent && promptOrContent.contents) {
-        currentContent = promptOrContent.contents;
-    }
-
-    if (typeof currentContent === 'string') {
-        messages.push({ role: 'user', content: currentContent });
-    } else if (Array.isArray(currentContent)) {
-        currentContent.forEach((item: any) => {
-            const role = item.role === 'model' ? 'assistant' : 'user';
-            let text = "";
-            if (item.parts) {
-                text = item.parts.map((p: any) => p.text || "").join('\n');
-            } else if (item.text) {
-                text = item.text;
-            }
-            if (text) messages.push({ role, content: text });
-        });
-    }
-
-    return messages;
-};
-
-// --- HELPER: Prepare Gemini Body (for fallback) ---
-const prepareGeminiBody = (promptOrContent: any, history: any[] = []) => {
-    let contents = [...history]; // Start with history
-
-    let currentContent: any = promptOrContent;
-    if (promptOrContent && promptOrContent.contents) {
-        currentContent = promptOrContent.contents;
-    }
-
-    // Normalize current prompt to Gemini object structure
-    if (typeof currentContent === 'string') {
-        contents.push({ role: 'user', parts: [{ text: currentContent }] });
-    } else if (Array.isArray(currentContent)) {
-        contents = currentContent; // Already array? assume full history or mixed
-        // Ideally we append to history, but if currentContent IS the history, we use it. 
-        // Our components send [ { role: user, parts... } ] usually.
-    }
-
-    return {
-        contents: contents,
-        generationConfig: promptOrContent.generationConfig || undefined
-    };
-};
-
-
-class SimpleChatSession {
-    private model: SimpleGenerativeModel;
-    private history: any[];
-
-    constructor(model: SimpleGenerativeModel, history: any[]) {
-        this.model = model;
-        this.history = history;
-    }
-
-    async *sendMessageStream(promptOrParts: any) {
-        // Logic: 
-        // 1. Try OpenAI.
-        // 2. If fail, Try Gemini Fallback.
-        // 3. Update history with result.
-
-        let parts = promptOrParts;
-        if (promptOrParts && promptOrParts.message) {
-            parts = promptOrParts.message;
-        }
-
-        // This is what we add to history (Gemini style)
-        const userSide = { role: 'user', parts: Array.isArray(parts) ? parts : [{ text: parts }] };
-        const tempHistory = [...this.history, userSide];
-
-        try {
-            // -- PRIMARY: OPENAI --
-            const messages = convertToOpenAIMessages(null, tempHistory);
-            const text = await this.model.callOpenAI(messages);
-
-            this.history.push(userSide);
-            this.history.push({ role: 'model', parts: [{ text }] });
-            yield { text: () => text };
-
-        } catch (error: any) {
-            console.warn("OpenAI Failed, switching to Fallback:", error.message);
-            // -- FALLBACK: GEMINI --
-            try {
-                // If the error was 429/404/5xx, try Gemini
-                // Note: prepareGeminiBody might need adjustment for chat context
-                // Simplest: just pass full history to generateContent (Gemini is stateless via REST unless using specific endpoint, but here we use single-turn rest for simplicity or standard stateless chat)
-
-                // Construct full content array for Gemini
-                const fullHistoryForGemini = [...tempHistory];
-                const text = await this.model.callGemini(fullHistoryForGemini);
-
-                this.history.push(userSide);
-                this.history.push({ role: 'model', parts: [{ text }] });
-                yield { text: () => text };
-
-            } catch (fallbackError: any) {
-                console.error("Fallback Model also failed:", fallbackError);
-                // Throw the original error or a composite one? Let's throw fallback error or generic
-                throw new Error(`AI Generation Failed. Primary: ${error.message}. Fallback: ${fallbackError.message}`);
-            }
-        }
-    }
-
-    async sendMessage(promptOrParts: any) {
-        let parts = promptOrParts;
-        if (promptOrParts && promptOrParts.message) parts = promptOrParts.message;
-
-        const userSide = { role: 'user', parts: Array.isArray(parts) ? parts : [{ text: parts }] };
-        const tempHistory = [...this.history, userSide];
-
-        try {
-            const messages = convertToOpenAIMessages(null, tempHistory);
-            const text = await this.model.callOpenAI(messages);
-
-            this.history.push(userSide);
-            this.history.push({ role: 'model', parts: [{ text }] });
-
-            return { response: { text: () => text }, text: text };
-        } catch (error: any) {
-            console.warn("OpenAI Failed, switching to Fallback:", error.message);
-            // Fallback
-            const fullHistoryForGemini = [...tempHistory];
-            const text = await this.model.callGemini(fullHistoryForGemini);
-
-            this.history.push(userSide);
-            this.history.push({ role: 'model', parts: [{ text }] });
-            return { response: { text: () => text }, text: text };
-        }
-    }
+export enum SchemaType {
+    STRING = "STRING",
+    NUMBER = "NUMBER",
+    INTEGER = "INTEGER",
+    BOOLEAN = "BOOLEAN",
+    ARRAY = "ARRAY",
+    OBJECT = "OBJECT"
 }
 
-class SimpleGenerativeModel {
-    private openAIKey: string;
-    private geminiKey: string;
-    private primaryModel: string;
+/**
+ * Google Gemini AI Client (Fetch Implementation)
+ */
+export class GeminiClient {
+    private apiKey: string;
+    private defaultModelName: string;
 
-    constructor(openAIKey: string, geminiKey: string, options: { model: string }) {
-        this.openAIKey = openAIKey;
-        this.geminiKey = geminiKey;
-        this.primaryModel = options.model || OPENAI_MODEL_NAME;
-
-        // Normalize
-        if (this.primaryModel.includes('gemini') && this.openAIKey) {
-            // If user asks for gemini but we have openAI key, prefer openai? 
-            // Or maybe user really wants gemini? 
-            // Given the migration, we default to OpenAI logic unless specific overrides.
-            // But let's respect the "hybrid" nature.
-            this.primaryModel = OPENAI_MODEL_NAME;
-        }
+    constructor(apiKey: string, options: { model?: string } = {}) {
+        this.apiKey = apiKey;
+        this.defaultModelName = options.model || GEMINI_MODEL_NAME;
     }
 
-    startChat(config: any) {
-        return new SimpleChatSession(this, config?.history || []);
-    }
-
-    // --- CALLERS ---
-
-    async callOpenAI(messages: any[]) {
-        if (!this.openAIKey) throw new Error("OpenAI API Key missing");
-
-        const url = "https://api.openai.com/v1/chat/completions";
-        console.log(`[AI] Primary Fetch: OpenAI (${this.primaryModel})`);
-
-        const body = {
-            model: this.primaryModel,
-            messages: messages,
-        };
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.openAIKey}`
-            },
-            body: JSON.stringify(body)
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            const errorMsg = data.error?.message || await response.text();
-            throw new Error(`OpenAI ${response.status}: ${errorMsg}`);
+    /**
+     * Unified generate content method supporting:
+     * - params.config (legacy/component specific)
+     * - params.generationConfig (SDK standard)
+     * - params.systemInstruction (SDK standard)
+     * - Automatic content normalization
+     */
+    async generateContent(params: { model?: string; contents: any; config?: any; generationConfig?: any; systemInstruction?: any } | any) {
+        if (!this.apiKey) {
+            return { text: "Error: AI API Key is missing. Please check your settings." };
         }
 
-        return data.choices?.[0]?.message?.content || "";
-    }
+        // Handle both object params and direct content pass (legacy support if any)
+        let model = this.defaultModelName;
+        let contents = params;
+        let generationConfig: any = {};
+        let systemInstruction: any = undefined;
 
-    async callGemini(contents: any[]) {
-        if (!this.geminiKey) throw new Error("Gemini API Key missing for fallback");
+        if (params && typeof params === 'object' && !Array.isArray(params) && params.contents) {
+            // It's the params object
+            model = params.model || this.defaultModelName;
+            contents = params.contents;
+            // Extract generationConfig
+            generationConfig = params.generationConfig || params.config || {};
 
-        const modelName = GEMINI_MODEL_NAME;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.geminiKey}`;
-        console.log(`[AI] Fallback Fetch: Gemini (${modelName})`);
-
-        // Ensure contents is array and properly shaped
-        // If contents is just one item, wrap it
-        const bodyContents = Array.isArray(contents) ? contents : [contents];
-
-        // Safety: ensure parts wrapper
-        bodyContents.forEach((c: any) => {
-            if (!c.parts && c.text) {
-                c.parts = [{ text: c.text }];
-                delete c.text;
+            // Extract systemInstruction - check top level first, then inside config
+            if (params.systemInstruction) {
+                systemInstruction = params.systemInstruction;
+            } else if (generationConfig && generationConfig.systemInstruction) {
+                // Fix: Move systemInstruction out of generationConfig if incorrectly placed there
+                systemInstruction = generationConfig.systemInstruction;
+                delete generationConfig.systemInstruction;
             }
-        });
-
-        const body = {
-            contents: bodyContents
-        };
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Gemini Fallback ${response.status}: ${errorText}`);
         }
 
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        return text;
-    }
+        // Normalize contents to Gemini API format
+        let finalContents: any[] = [];
+        if (typeof contents === 'string') {
+            finalContents = [{ role: 'user', parts: [{ text: contents }] }];
+        } else if (contents.parts) {
+            finalContents = [{ role: 'user', parts: contents.parts }];
+        } else if (Array.isArray(contents)) {
+            finalContents = contents;
+        } else {
+            finalContents = [contents]; // Fallback
+        }
 
-    async generateContent(promptOrContent: any) {
-        try {
-            // 1. Try OpenAI
-            const messages = convertToOpenAIMessages(promptOrContent);
-            const text = await this.callOpenAI(messages);
-            return this.mockResponse(text);
-        } catch (error: any) {
-            console.warn("Primary AI failed, attempting fallback...", error.message);
-            // 2. Fallback Gemini
+        // Ensure parts structure is correct
+        finalContents = finalContents.map(c => {
+            // If c has role and parts, it's good.
+            if (c.role && c.parts) return c;
+            // If c is just { text: ... } or string, structure it.
+            if (typeof c === 'string') return { role: 'user', parts: [{ text: c }] };
+            return { role: 'user', parts: [{ text: JSON.stringify(c) }] }; // Last resort fallback
+        });
+
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`;
+
+        const requestBody: any = {
+            contents: finalContents,
+            generationConfig: generationConfig
+        };
+
+        if (systemInstruction) {
+            requestBody.systemInstruction = systemInstruction;
+        }
+
+        const makeRequest = async (retries = 3, delay = 2000): Promise<any> => {
             try {
-                // Convert prompt to Gemini format
-                // If promptOrContent is string -> { parts: [{text}] }
-                // If object -> extract contents
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
 
-                let contents: any[] = [];
-                if (typeof promptOrContent === 'string') {
-                    contents = [{ role: 'user', parts: [{ text: promptOrContent }] }];
-                } else if (promptOrContent.contents) {
-                    contents = promptOrContent.contents;
-                } else if (Array.isArray(promptOrContent)) {
-                    contents = promptOrContent;
+                if (response.status === 429) {
+                    if (retries > 0) {
+                        console.warn(`Gemini Rate Limit Exceeded. Retrying in ${delay}ms... (${retries} retries left)`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return makeRequest(retries - 1, delay * 2); // Exponential backoff
+                    } else {
+                        throw new Error("AI Busy: Too many requests. Please wait a minute and try again.");
+                    }
                 }
 
-                const text = await this.callGemini(contents);
-                return this.mockResponse(text);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`Gemini API Error ${response.status}: ${errorText}`);
+                    throw new Error(`Gemini API Error: ${response.statusText}`);
+                }
 
-            } catch (fallbackError: any) {
-                throw new Error(`AI Generation Failed. Primary: ${error.message}. Fallback: ${fallbackError.message}`);
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+                return {
+                    text: text,
+                    candidates: data.candidates,
+                    promptFeedback: data.promptFeedback,
+                    // Mocking response object for compatibility
+                    response: {
+                        text: () => text,
+                        candidates: data.candidates
+                    }
+                };
+
+            } catch (error: any) {
+                // If it's a network error or other fetch error, we might want to retry too, 
+                // but for now let's focus on the explicit recursion for 429.
+                // If the error was thrown from the 429 block, rethrow it.
+                if (error.message.includes("AI Busy")) throw error;
+
+                throw error;
             }
+        };
+
+        try {
+            return await makeRequest();
+        } catch (error: any) {
+            console.error("Gemini Request Failed:", error);
+            // Return safe error object
+            return {
+                text: `AI Error: ${error.message || "Connection failed"}`,
+                error: error
+            };
         }
     }
 
-    mockResponse(text: string) {
-        return {
-            response: {
-                text: () => text,
-                candidates: [{ content: { parts: [{ text }] } }]
-            },
-            text: text,
-            candidates: [{ content: { parts: [{ text }] } }]
-        };
-    }
-}
-
-class SimpleGenAIClient {
-    private openAIKey: string;
-    private geminiKey: string;
-
-    constructor(openAIKey: string, geminiKey: string) {
-        this.openAIKey = openAIKey;
-        this.geminiKey = geminiKey;
-    }
-
-    getGenerativeModel(options: { model: string }) {
-        return new SimpleGenerativeModel(this.openAIKey, this.geminiKey, options);
-    }
+    // --- Feature Stubs ---
 
     get models() {
         return {
-            generateContent: (args: any) => {
-                const modelName = args.model || AI_MODEL_NAME;
-                return this.getGenerativeModel({ model: modelName }).generateContent(args);
+            generateContent: this.generateContent.bind(this),
+            generateVideos: async () => {
+                console.warn("Video generation stub called.");
+                throw new Error("Video generation is currently unavailable.");
             }
         };
     }
 
-    get chats() {
+    get live() {
         return {
-            create: (args: any) => {
-                const modelName = args.model || AI_MODEL_NAME;
-                return this.getGenerativeModel({ model: modelName }).startChat(args);
+            connect: async () => {
+                console.warn("Live stub called.");
+                throw new Error("Live voice features are currently unavailable.");
+            }
+        };
+    }
+
+    // Legacy Chat Support - redirects to generateContent but manages history manually in UI usually
+    async chat(params: { model: string; messages: any[]; config?: any }) {
+        // We just return a helper that has sendMessage
+        const history = params.messages || [];
+        const model = params.model || this.defaultModelName;
+        const config = params.config;
+
+        return {
+            sendMessage: async (msg: string | any) => {
+                const userMsg = typeof msg === 'string' ? { role: 'user', parts: [{ text: msg }] } : msg;
+                const newHistory = [...history, userMsg];
+                const result = await this.generateContent({
+                    model: model,
+                    contents: newHistory,
+                    config: config
+                });
+                return result;
+            },
+            // Streaming stub
+            sendMessageStream: async (msg: string | any) => {
+                console.warn("Streaming not implemented in basic fetch client.");
+                const result = await this.generateContent({
+                    model: model,
+                    contents: [...history, typeof msg === 'string' ? { role: 'user', parts: [{ text: msg }] } : msg],
+                    config: config
+                });
+                // Mock stream response
+                return {
+                    stream: (async function* () {
+                        yield { text: () => result.text };
+                    })(),
+                    response: Promise.resolve(result)
+                };
+            }
+        };
+    }
+
+    // Legacy startChat for backward compatibility
+    startChat(config: any) {
+        return {
+            sendMessage: async (msg: string) => this.generateContent({
+                model: this.defaultModelName,
+                contents: [...(config.history || []), { role: 'user', parts: [{ text: msg }] }]
+            }),
+            sendMessageStream: async (msg: string) => {
+                const res = await this.generateContent({
+                    model: this.defaultModelName,
+                    contents: [...(config.history || []), { role: 'user', parts: [{ text: msg }] }]
+                });
+                return {
+                    stream: (async function* () { yield { text: () => res.text }; })(),
+                    response: Promise.resolve(res)
+                };
             }
         };
     }
 }
 
+// Singleton Management
+let aiClientInstance: GeminiClient | null = null;
+let aiClientInstanceKey: string | null = null;
+
 export const getAIClient = (apiKey?: string) => {
-    // We now manage two keys. 
-    // We ignore the passed 'apiKey' argument effectively, or treat it as the "primary".
-    // But since components might pass the OLD Gemini key as the first arg, we need to be careful.
+    let envKey = '';
+    // Safe environment variable access for both Vite (Browser) and Node (Test)
+    try {
+        if (typeof import.meta !== 'undefined' && import.meta.env) {
+            envKey = import.meta.env.VITE_GEMINI_API_KEY;
+        } else if (typeof process !== 'undefined' && process.env) {
+            envKey = process.env.VITE_GEMINI_API_KEY || '';
+        }
+    } catch (e) {
+        console.warn("Error accessing environment variables:", e);
+    }
 
-    const envOpenAI = import.meta.env.VITE_OPENAI_API_KEY || '';
-    const envGemini = import.meta.env.VITE_GEMINI_API_KEY || '';
+    const finalKey = apiKey || envKey;
 
-    // Components currently pass: getAIClient(import.meta.env.VITE_OPENAI_API_KEY) (because of my regex replace)
-    // So 'apiKey' is likely the OpenAI key. 
+    if (!finalKey) {
+        console.warn("Gemini API Key missing. Ensure VITE_GEMINI_API_KEY is set.");
+    }
 
-    const primaryKey = envOpenAI || apiKey || '';
-    // If no OpenAI key, we might have major issues unless we fallback entirely to Gemini as primary.
-    // For now, assume OpenAI is primary.
+    if (!aiClientInstance || (finalKey && aiClientInstanceKey !== finalKey)) {
+        aiClientInstance = new GeminiClient(finalKey || 'dummy-key-for-test');
+        aiClientInstanceKey = finalKey;
+    }
 
-    if (!primaryKey && !envGemini) throw new Error("No API Keys found (OpenAI or Gemini)");
-
-    return new SimpleGenAIClient(primaryKey, envGemini);
+    return aiClientInstance; // Returns the class instance directly
 };

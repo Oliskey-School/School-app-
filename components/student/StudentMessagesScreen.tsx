@@ -42,130 +42,94 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
     }, []);
 
     useEffect(() => {
-        const fetchRooms = async () => {
-            if (!studentId) {
-                // If no studentId, we might be in a layout that hasn't passed it yet or waiting
-                return;
-            }
+        if (!studentId) return;
 
+        const fetchConversations = async () => {
             try {
-                // ... (rest of logic same)
-                // 1. Get rooms I am in
-                const { data: myParticipations, error: partError } = await supabase
-                    .from('chat_participants')
-                    .select('room_id, last_read_message_id')
+                // 1. Get IDs of conversations I'm in
+                const { data: participation, error: pError } = await supabase
+                    .from('conversation_participants')
+                    .select('conversation_id, last_read_message_id')
                     .eq('user_id', studentId);
-                // ...
-                // ...
-                // (We need to keep the fetch logic intact, but I'll use target/replacement carefully)
-                // ...
 
-                if (partError || !myParticipations) {
-                    console.error('Error fetching participations:', partError);
-                    return;
-                }
+                if (pError) throw pError;
 
-                const participationsMap = new Map(myParticipations.map(p => [p.room_id, p]));
-                const roomIds = myParticipations.map(p => p.room_id);
-                if (roomIds.length === 0) {
+                const conversationIds = participation?.map(p => p.conversation_id) || [];
+
+                if (conversationIds.length === 0) {
                     setRooms([]);
                     setLoading(false);
                     return;
                 }
 
-                // 2. Get room details, including last message (via sorting messages)
-                const { data: roomsData, error: roomsError } = await supabase
-                    .from('chat_rooms')
+                // 2. Fetch conversations details + participants
+                const { data: convs, error: cError } = await supabase
+                    .from('conversations')
                     .select(`
-                        id, type, name, is_group, last_message_at, updated_at, created_at
+                        *,
+                        participants:conversation_participants(
+                            user:users(id, name, avatar_url, role)
+                        )
                     `)
-                    .in('id', roomIds)
+                    .in('id', conversationIds)
                     .order('last_message_at', { ascending: false });
 
-                if (roomsError) {
-                    console.error('Error fetching rooms:', roomsError);
-                    setLoading(false);
-                    return;
-                }
+                if (cError) throw cError;
 
-                // 3. For each room, get participants (to find the other person in direct chats) AND last message
-                const enrichedRooms = await Promise.all(roomsData.map(async (room) => {
-                    const { data: participants } = await supabase
-                        .from('chat_participants')
-                        .select(`
-                            user_id,
-                            role,
-                            users ( id, name, avatar_url, role )
-                        `)
-                        .eq('room_id', room.id);
+                // 3. Format for UI
+                const formattedRooms = convs?.map(c => {
+                    // Find other participant for DM name/avatar
+                    const otherPart = c.participants?.find((p: any) => p.user?.id !== studentId)?.user;
+                    // Or if self-chat or fallback
+                    const displayUser = otherPart || c.participants?.[0]?.user;
 
-                    const { data: lastMsg } = await supabase
-                        .from('chat_messages')
-                        .select('content, created_at, type, sender_id')
-                        .eq('room_id', room.id)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
-
-                    // Determine name/avatar for display
-                    let displayName = room.name;
-                    let displayAvatar = '';
-                    let otherParticipant = null;
-
-                    if (!room.is_group && participants) {
-                        const other: any = participants.find((p: any) => p.user_id !== studentId);
-                        if (other) {
-                            const userObj = Array.isArray(other.users) ? other.users[0] : other.users;
-                            if (userObj) {
-                                displayName = userObj.name;
-                                displayAvatar = userObj.avatar_url || displayAvatar;
-                                otherParticipant = userObj;
-                            }
-                        }
-                        if (!otherParticipant) {
-                            // Self chat or error
-                            displayName = "Me";
-                        }
-                    } else {
-                        // Group chat avatar logic (optional)
-                        displayAvatar = '';
-                    }
+                    // Get last read ID
+                    const myPart = participation?.find(p => p.conversation_id === c.id);
+                    const lastReadId = myPart?.last_read_message_id || 0;
 
                     return {
-                        ...room,
-                        participants: participants || [],
-                        lastMessage: lastMsg || { id: 0, content: 'No messages yet', created_at: room.created_at, type: 'text' },
-                        displayName,
-                        displayAvatar,
-                        otherParticipant,
-                        lastReadMessageId: participationsMap.get(room.id)?.last_read_message_id || 0
+                        id: c.id,
+                        displayName: c.name || displayUser?.name || 'Unknown',
+                        displayAvatar: c.name ? null : (displayUser?.avatar_url || ''),
+                        lastMessage: {
+                            content: c.last_message_text || 'No messages yet',
+                            created_at: c.last_message_at || c.created_at,
+                            sender_id: 0, // Not explicitly needed for list list view often
+                            id: 0
+                        },
+                        unreadCount: 0,
+                        updated_at: c.last_message_at || c.created_at,
+                        is_group: c.type === 'group',
+                        lastReadMessageId: lastReadId,
+                        participants: c.participants || [],
+                        creatorId: c.creator_id,
+                        type: c.type
                     };
-                }));
+                }) || [];
 
-                setRooms(enrichedRooms);
-
-            } catch (e) {
-                console.error('Error loading chats:', e);
+                setRooms(formattedRooms);
+            } catch (err) {
+                console.error("Error fetching conversations:", err);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchRooms();
+        fetchConversations();
 
-        // Subscribe to new messages system-wide for now to update list order? 
-        // Or better, subscribe to changes in 'chat_rooms' (last_message_at update)
-        const roomSubscription = supabase
-            .channel('public:chat_rooms')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_rooms' }, (payload) => {
-                fetchRooms(); // Re-fetch on any update for simplicity
+        // Realtime Subscriptions
+        const channel = supabase.channel(`student_chat_list_${studentId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
+                fetchConversations();
+            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_participants', filter: `user_id=eq.${studentId}` }, () => {
+                fetchConversations();
             })
             .subscribe();
 
         return () => {
-            supabase.removeChannel(roomSubscription);
+            supabase.removeChannel(channel);
         };
-
     }, [studentId]);
 
     const filteredConversations = useMemo(() => {

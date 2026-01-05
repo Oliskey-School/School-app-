@@ -76,6 +76,19 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
         };
 
         fetchAssignments();
+        // Realtime Subscription
+        const channel = supabase.channel(`student_assignments_${studentId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => {
+                fetchAssignments();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions', filter: `student_id=eq.${studentId}` }, () => {
+                fetchAssignments();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [studentId]);
 
     const filteredAssignments = useMemo(() => {

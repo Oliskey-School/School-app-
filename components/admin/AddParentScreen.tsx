@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, StudentsIcon } from '../../constants';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
+import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import { Parent } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
@@ -91,7 +94,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             childIds: childIdArray
                         };
                     }
-                    alert('Parent updated successfully (Mock Mode - Session Only)');
+                    toast.success('Parent updated successfully (Mock Mode - Session Only)');
                 } else {
                     const newId = mockParents.length > 0 ? Math.max(...mockParents.map(p => p.id)) + 1 : 1;
                     mockParents.push({
@@ -152,7 +155,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     await supabase.from('parent_children').insert(relations);
                 }
 
-                alert('Parent updated successfully!');
+                toast.success('Parent updated successfully!');
                 forceUpdate();
                 handleBack();
                 return; // Stop execution here
@@ -170,7 +173,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 let whereFound: string[] = [];
                 if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
                 whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                alert(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
+                toast.error(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
                 setIsLoading(false);
                 return;
             } else if (exists.inUsers) {
@@ -289,7 +292,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
             // Don't call forceUpdate/handleBack here - let modal handle it
         } catch (error: any) {
             console.error('Error saving parent:', error);
-            alert('Failed to save parent: ' + (error.message || 'Unknown error'));
+            toast.error('Failed to save parent: ' + (error.message || 'Unknown error'));
         } finally {
             setIsLoading(false);
         }

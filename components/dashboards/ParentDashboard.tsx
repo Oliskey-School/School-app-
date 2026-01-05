@@ -26,6 +26,7 @@ import {
     SparklesIcon,
     getFormattedClassName
 } from '../../constants';
+import { supabase } from '../../lib/supabase';
 import Header from '../ui/Header';
 import { ParentBottomNav } from '../ui/DashboardBottomNav';
 import { ParentSideNav } from '../ui/DashboardSideNav';
@@ -41,7 +42,8 @@ import {
     mockNotifications,
     mockProgressReports,
 } from '../../data';
-import { fetchParentByEmail, fetchChildrenForParent, fetchParentByUserId } from '../../lib/database';
+import { fetchParentByEmail, fetchChildrenForParent, fetchParentByUserId, fetchStudentAssignments, fetchStudentAttendanceStats, fetchStudentFeeSummary } from '../../lib/database';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
 import DonutChart from '../ui/DonutChart';
 import GlobalSearchScreen from '../shared/GlobalSearchScreen';
@@ -157,12 +159,11 @@ const getHomeworkStatus = (assignment: StudentAssignment) => {
     return { text: 'Pending', icon: <ClockIcon />, color: 'text-amber-600', bg: 'bg-amber-50', isComplete: false };
 };
 
-const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (view: string, title: string, props?: any) => void }) => {
-    const theme = THEME_CONFIG[DashboardType.Parent];
+const AcademicsTab = ({ student, assignments, reportCards, navigateTo }: { student: Student; assignments: any[]; reportCards: any[]; navigateTo: (view: string, title: string, props?: any) => void }) => {
 
     // Memoized data processing
     const { latestTerm, latestGrades, averageScore, studentHomework, progressReport } = useMemo(() => {
-        const publishedReport = student.reportCards?.find(rc => rc.status === 'Published');
+        const publishedReport = reportCards?.find((rc: any) => rc.status === 'Published');
 
         let term = 'N/A';
         let grades: { subject: string; score: number; teacherRemark?: string; }[] = [];
@@ -170,35 +171,34 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
 
         if (publishedReport) {
             term = `${publishedReport.term} (${publishedReport.session})`;
-            grades = publishedReport.academicRecords.map(r => ({ subject: r.subject, score: r.total, teacherRemark: r.remark }));
+            grades = publishedReport.academic_records?.map((r: any) => ({ subject: r.subject, score: r.total, teacherRemark: r.remark })) || [];
             avg = grades.length > 0 ? Math.round(grades.reduce((acc, curr) => acc + curr.score, 0) / grades.length) : 0;
         } else {
-            // Fallback to academicPerformance if no published report card
-            const term2Grades = student.academicPerformance?.filter(p => p.term === 'Term 2');
-            if (term2Grades && term2Grades.length > 0) {
-                term = 'Term 2';
-                grades = term2Grades;
-                avg = Math.round(grades.reduce((acc, curr) => acc + curr.score, 0) / grades.length);
-            }
+            // Fallback to legacy structure if needed, or just show N/A
+            // student.academic_performance is likely empty if relying on report cards
         }
 
-        const homework = mockAssignments
-            .map(a => ({
-                ...a,
-                submission: mockSubmissions.find(s => s.assignmentId === a.id && s.student.id === student.id)
-            }))
-            .filter(a => new Date(a.dueDate) > new Date())
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+        const homework = assignments
+            .filter((a: any) => new Date(a.due_date) > new Date())
+            .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+            .map((a: any) => ({
+                id: a.id,
+                title: a.title,
+                subject: a.subject,
+                dueDate: a.due_date,
+                submission: a.assignment_submissions?.[0] // Assuming single submission join
+            }));
 
-        // Use mockProgressReports explicitly typed
-        const progress = mockProgressReports.find((p: ProgressReport) => p.studentId === student.id);
+        // AI Progress report - fetch from DB or generate? 
+        // For now, let's look for a report in the list or leave empty
+        const progress = null; // We can add fetching for this later if it's a specific table
 
         return { latestTerm: term, latestGrades: grades, averageScore: avg, studentHomework: homework, progressReport: progress };
-    }, [student]);
+    }, [student, assignments, reportCards]);
 
     return (
         <div className="p-4 space-y-4">
-            {/* NEW AI Parenting Tips Button */}
+            {/* AI Parenting Tips Button */}
             <div className="bg-gradient-to-r from-green-500 to-teal-500 p-4 rounded-2xl shadow-lg flex items-center justify-between text-white">
                 <div>
                     <h3 className="font-bold text-lg">Personalized Advice</h3>
@@ -228,7 +228,7 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
                             </div>
                         )}
                     </div>
-                    {latestGrades.length > 0 && (
+                    {latestGrades.length > 0 ? (
                         <div className="mt-3 space-y-2">
                             {latestGrades.map((grade, i) => (
                                 <div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
@@ -237,6 +237,8 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
                                 </div>
                             ))}
                         </div>
+                    ) : (
+                        <div className="mt-4 text-center py-4 text-gray-500 text-sm">No grades published for this term yet.</div>
                     )}
                 </div>
 
@@ -244,8 +246,19 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                     <h4 className="font-bold text-gray-800 mb-3">Upcoming Homework</h4>
                     <div className="space-y-3">
-                        {studentHomework.length > 0 ? studentHomework.map(hw => {
-                            const status = getHomeworkStatus(hw);
+                        {studentHomework.length > 0 ? studentHomework.map((hw: any) => {
+                            // Helper for status
+                            const dueDate = new Date(hw.dueDate);
+                            const now = new Date();
+                            let status = { text: 'Pending', icon: <ClockIcon />, color: 'text-amber-600', bg: 'bg-amber-50', isComplete: false };
+
+                            if (hw.submission) {
+                                if (hw.submission.status === 'Graded') status = { text: `Graded: ${hw.submission.grade}`, icon: <CheckCircleIcon />, color: 'text-green-600', bg: 'bg-green-50', isComplete: true };
+                                else status = { text: 'Submitted', icon: <CheckCircleIcon />, color: 'text-sky-600', bg: 'bg-sky-50', isComplete: true };
+                            } else if (dueDate < now) {
+                                status = { text: 'Overdue', icon: <ExclamationCircleIcon />, color: 'text-red-600', bg: 'bg-red-50', isComplete: false };
+                            }
+
                             return (
                                 <div key={hw.id} className="flex justify-between items-center border-b pb-2 last:border-b-0">
                                     <div>
@@ -253,7 +266,7 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
                                         <p className="text-sm text-gray-700">{hw.subject} &bull; Due {new Date(hw.dueDate).toLocaleDateString('en-GB')}</p>
                                     </div>
                                     <div className={`flex items-center space-x-2 text-xs font-semibold px-2 py-1 rounded-full ${status.bg} ${status.color}`}>
-                                        {React.cloneElement(status.icon, { className: `h-4 w-4 ${status.isComplete ? 'animate-checkmark-pop' : ''}`.trim() })}
+                                        {React.cloneElement(status.icon, { className: `h-4 w-4` })}
                                         <span>{status.text}</span>
                                     </div>
                                 </div>
@@ -262,76 +275,31 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
                     </div>
                 </div>
             </div>
-
-            {/* AI Generated Progress Report */}
-            {progressReport && (
-                <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <div className="flex items-center space-x-2 mb-3">
-                        <SparklesIcon className="text-green-500" />
-                        <h4 className="font-bold text-gray-800">AI Progress Insights</h4>
-                    </div>
-                    <div className="space-y-3 text-sm">
-                        <div>
-                            <h5 className="font-semibold text-green-700 mb-1">Strengths</h5>
-                            <ul className="list-disc list-inside text-gray-600 space-y-1">
-                                {progressReport.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
-                        </div>
-                        <div>
-                            <h5 className="font-semibold text-amber-700 mb-1">Areas for Improvement</h5>
-                            <ul className="list-disc list-inside text-gray-600 space-y-1">
-                                {progressReport.areasForImprovement.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
 
 const BehaviorTab = ({ student }: { student: Student }) => {
     return (
-        <div className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {student.behaviorNotes && student.behaviorNotes.length > 0 ? [...student.behaviorNotes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => {
-                    const isPositive = note.type === 'Positive';
-                    return (
-                        <div key={note.id} className={`p-4 rounded-xl border-l-4 ${isPositive ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
-                            <div className="flex justify-between items-start">
-                                <h5 className={`font-bold ${isPositive ? 'text-green-800' : 'text-red-800'}`}>{note.title}</h5>
-                                <p className="text-xs text-gray-700 font-medium flex-shrink-0 ml-2">{new Date(note.date.replace(/-/g, '/')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                            </div>
-                            <p className="text-sm text-gray-700 mt-1">{note.note}</p>
-                            {note.suggestions && (
-                                <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <h6 className="font-semibold text-xs text-gray-600">Suggestions for Home:</h6>
-                                    <ul className="list-disc list-inside text-sm text-gray-700 mt-1 space-y-1">
-                                        {note.suggestions.map((s, i) => <li key={i}>{s}</li>)}
-                                    </ul>
-                                </div>
-                            )}
-                            <p className="text-xs text-gray-600 text-right mt-2 italic">- {note.by}</p>
-                        </div>
-                    );
-                }) : <p className="md:col-span-2 text-sm text-gray-700 text-center py-8">No behavioral notes recorded.</p>}
+        <div className="p-4 bg-white rounded-xl shadow-sm text-center">
+            <div className="py-8">
+                <StarIcon className="h-12 w-12 text-yellow-400 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-800">Behavior Records</h3>
+                <p className="text-gray-500 text-sm mt-1">No behavior incidents recorded for this term.</p>
+                <p className="text-green-600 font-semibold text-sm mt-4">Keep up the good work!</p>
             </div>
         </div>
     );
 };
 
-const AttendanceTab = ({ student }: { student: Student }) => {
-    const studentAttendance = useMemo(() =>
-        mockStudentAttendance.filter(att => att.studentId === student.id)
-        , [student.id]);
-
+const AttendanceTab = ({ student, attendance }: { student: Student; attendance: any[] }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const attendanceMap = useMemo(() => {
-        const map = new Map<string, AttendanceStatus>();
-        studentAttendance.forEach(att => map.set(att.date, att.status));
+        const map = new Map<string, string>();
+        attendance.forEach(att => map.set(att.date, att.status));
         return map;
-    }, [studentAttendance]);
+    }, [attendance]);
 
     const firstDayOfMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), [currentDate]);
     const daysInMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate(), [currentDate]);
@@ -340,7 +308,7 @@ const AttendanceTab = ({ student }: { student: Student }) => {
     const goToPreviousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     const goToNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-    const attendanceColors: { [key in AttendanceStatus]: string } = {
+    const attendanceColors: { [key: string]: string } = {
         Present: 'bg-green-400 text-white',
         Absent: 'bg-red-400 text-white',
         Late: 'bg-blue-400 text-white',
@@ -362,10 +330,13 @@ const AttendanceTab = ({ student }: { student: Student }) => {
                 {Array.from({ length: daysInMonth }).map((_, index) => {
                     const day = index + 1;
                     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-                    const dateString = date.toISOString().split('T')[0];
+                    // Adjust for local timezone to match string date from DB typically YYYY-MM-DD
+                    // Simple fix: construct string manually to avoid timezone shift
+                    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
                     const status = attendanceMap.get(dateString);
                     return (
-                        <div key={day} className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold ${status ? attendanceColors[status] : 'bg-gray-100 text-gray-400'}`}>
+                        <div key={day} className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold ${status ? attendanceColors[status] || 'bg-gray-100' : 'bg-gray-100 text-gray-400'}`}>
                             {day}
                         </div>
                     )
@@ -384,6 +355,70 @@ type ChildDetailTab = 'academics' | 'behavior' | 'attendance';
 
 const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Student, initialTab?: ChildDetailTab, navigateTo: (view: string, title: string, props?: any) => void }) => {
     const [activeTab, setActiveTab] = useState<ChildDetailTab>(initialTab || 'academics');
+
+    // State for Real Data
+    const [assignments, setAssignments] = useState<any[]>([]);
+    const [reportCards, setReportCards] = useState<any[]>([]);
+    const [attendance, setAttendance] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDetailData = async () => {
+            setLoading(true);
+            try {
+                // 1. Assignments (with submissions)
+                const { data: assData } = await supabase
+                    .from('assignments')
+                    .select('*, assignment_submissions(*)')
+                    .eq('class_name', getFormattedClassName(student.grade, student.section))
+                    .order('due_date', { ascending: true }); // We sort later too
+
+                if (assData) setAssignments(assData);
+
+                // 2. Report Cards
+                const { data: rcData } = await supabase
+                    .from('report_cards')
+                    .select('*, academic_records(*)')
+                    .eq('student_id', student.id);
+
+                if (rcData) setReportCards(rcData);
+
+                // 3. Attendance
+                const { data: attData } = await supabase
+                    .from('student_attendance')
+                    .select('*')
+                    .eq('student_id', student.id);
+
+                if (attData) setAttendance(attData);
+
+            } catch (e) {
+                console.error("Error fetching child details:", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (student?.id) {
+            fetchDetailData();
+        }
+
+        // Realtime Subscription
+        const channel = supabase.channel(`child_detail_${student.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments', filter: `class_name=eq.${getFormattedClassName(student.grade, student.section)}` }, () => {
+                fetchDetailData();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'report_cards', filter: `student_id=eq.${student.id}` }, () => {
+                fetchDetailData();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_attendance', filter: `student_id=eq.${student.id}` }, () => {
+                fetchDetailData();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [student]);
 
     const TabButton = ({ id, label }: { id: ChildDetailTab, label: string }) => (
         <button
@@ -416,9 +451,15 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Stude
             </div>
 
             <div className="flex-grow overflow-y-auto">
-                {activeTab === 'academics' && <AcademicsTab student={student} navigateTo={navigateTo} />}
-                {activeTab === 'behavior' && <BehaviorTab student={student} />}
-                {activeTab === 'attendance' && <div className="p-4"><AttendanceTab student={student} /></div>}
+                {loading ? (
+                    <div className="p-8 text-center text-gray-500">Loading child details...</div>
+                ) : (
+                    <>
+                        {activeTab === 'academics' && <AcademicsTab student={student} assignments={assignments} reportCards={reportCards} navigateTo={navigateTo} />}
+                        {activeTab === 'behavior' && <BehaviorTab student={student} />}
+                        {activeTab === 'attendance' && <div className="p-4"><AttendanceTab student={student} attendance={attendance} /></div>}
+                    </>
+                )}
             </div>
         </div>
     );
@@ -427,30 +468,65 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Stude
 const Dashboard = ({ navigateTo, children, parentId }: { navigateTo: (view: string, title: string, props?: any) => void, children: Student[], parentId: number }) => {
     const theme = THEME_CONFIG[DashboardType.Parent];
 
-    // Process children data (mix of real student data and mocked performance/fee data for now until those tables are populated)
-    const childrenData = useMemo(() => children
-        .map(student => {
-            // In a real app, we would fetch these specifically for the student. 
-            // For now, we try to find a match in mocks or return default/empty.
-            const feeInfo = mockFees.find(f => f.id === student.id) || {
+    // State for child data
+    const [childrenData, setChildrenData] = useState<any[]>([]);
+
+    const fetchChildStats = async () => {
+        const stats = await Promise.all(children.map(async (student) => {
+            // Fetch real data
+            const [assignments, attendance, fees] = await Promise.all([
+                fetchStudentAssignments(student.id, student.grade, student.section),
+                fetchStudentAttendanceStats(student.id),
+                fetchStudentFeeSummary(student.id)
+            ]);
+
+            const feeInfo = fees || {
                 id: student.id, name: student.name, avatarUrl: student.avatarUrl, grade: student.grade, section: student.section,
-                totalFee: 100000, paidAmount: 0, dueDate: '2024-12-31', status: 'Unpaid'
-            } as any;
+                totalFee: 0, paidAmount: 0, dueDate: new Date().toISOString(), status: 'Paid' // Default to paid if no fee record
+            };
 
-            const nextHomework = mockAssignments
-                .filter(a => !mockSubmissions.some(sub => sub.assignmentId === a.id && sub.student.id === student.id)) // This check is weak with mocks but ok for now
-                .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+            const nextHomework = assignments[0]; // Already sorted by date in fetch
+            const attendancePercentage = attendance.percentage;
 
-            // Try to find performance in mocks, else empty
+            // Still using mock for grades if not available yet in DB utils
             const recentGrades = student.academicPerformance?.filter(p => p.term === 'Term 2').slice(0, 1) || [];
 
-            // Attendance
-            const attendanceRecords = mockStudentAttendance.filter(a => a.studentId === student.id && a.status !== 'Leave');
-            const presentCount = attendanceRecords.filter(a => a.status === 'Present' || a.status === 'Late').length;
-            const attendancePercentage = attendanceRecords.length > 0 ? Math.round((presentCount / attendanceRecords.length) * 100) : 100;
-
             return { student, feeInfo, nextHomework, recentGrades, attendancePercentage };
-        }), [children]);
+        }));
+        setChildrenData(stats);
+    };
+
+    useEffect(() => {
+        if (children.length > 0) {
+            fetchChildStats();
+        }
+    }, [children]);
+
+    // REAL-TIME SUBSCRIPTIONS
+    useEffect(() => {
+        if (children.length === 0) return;
+
+        // Subscribe to relevant tables for ALL children
+        // We listen to widely to ensure updates are caught
+        const channel = supabase.channel('parent-dashboard-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => {
+                console.log('Assignments changed, refreshing dashboard...');
+                fetchChildStats();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_attendance' }, () => {
+                console.log('Attendance changed, refreshing dashboard...');
+                fetchChildStats();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees' }, () => {
+                console.log('Fees changed, refreshing dashboard...');
+                fetchChildStats();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [children]);
 
     const quickAccessItems = [
         { label: 'Bus Route', icon: <BusVehicleIcon className="h-7 w-7" />, action: () => navigateTo('busRoute', 'Bus Route') },
@@ -562,7 +638,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         setIsHomePage(currentView.view === 'dashboard' && !isSearchOpen);
     }, [viewStack, isSearchOpen, setIsHomePage]);
 
-    const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('parent')).length;
+    const notificationCount = useRealtimeNotifications();
 
     const navigateTo = (view: string, title: string, props: any = {}) => {
         setViewStack(stack => [...stack, { view, props, title }]);

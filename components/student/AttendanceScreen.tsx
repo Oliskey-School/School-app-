@@ -85,6 +85,16 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
         };
 
         fetchAttendance();
+        // Realtime Subscription
+        const channel = supabase.channel(`student_attendance_${studentId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_attendance', filter: `student_id=eq.${studentId}` }, () => {
+                fetchAttendance();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [studentId]);
 
     const studentData = useMemo(() => attendanceData, [attendanceData]);

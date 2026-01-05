@@ -296,3 +296,8 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                     Cancel
                 </button>
             )}
+        </div>
+    );
+};
+
+export default EmergencyBroadcast;

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Student, Teacher } from '../../types';
-import { fetchStudentSubjects } from '../../lib/database';
+import { fetchClassSubjects } from '../../lib/database';
 import { SUBJECT_COLORS, BookOpenIcon, ChevronRightIcon } from '../../constants';
 // Removed mockStudents import
 
@@ -24,7 +24,7 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
         setSubjects([...new Set(student.academicPerformance.map(p => p.subject))]);
       } else {
         // Otherwise fetch from db based on grade/section
-        const fetchedSubjects = await fetchStudentSubjects(student.grade, student.section);
+        const fetchedSubjects = await fetchClassSubjects(student.grade, student.section);
         // If no classes found, fallback to basic subjects for the grade/dept
         if (fetchedSubjects.length > 0) {
           setSubjects(fetchedSubjects);
@@ -68,13 +68,13 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
           <p className="text-sm text-orange-700">Select a subject to enter its classroom page.</p>
         </div>
 
-        {subjects.length === 0 ? (
+        {subjects.filter(s => s !== 'Subject').length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-500">No subjects found for your class.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {subjects.map(subjectName => {
+            {subjects.filter(s => s !== 'Subject').map(subjectName => {
               // Teacher fetching logic removed/simplified as we don't have teacher-subject map readily available
               // We could fetch it, but for now 'N/A' is safer than crashing
               // Or we can assume getTeacherForSubject returns undefined
@@ -93,9 +93,8 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                     </div>
                     <div>
                       <h3 className="font-bold text-lg text-gray-800">{subjectName}</h3>
-                      <p className="text-sm text-gray-800 font-medium">
-                        {/* Teacher info commented out or simplified */}
-                        Subject
+                      <p className="text-sm text-gray-500 font-medium">
+                        Enter Classroom
                       </p>
                     </div>
                   </div>

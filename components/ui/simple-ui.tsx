@@ -251,15 +251,9 @@ export const useToast = () => {
         description?: string;
         variant?: 'default' | 'destructive';
     }) => {
-        // Simple console log for now - in production, this would show a toast notification
-        console.log(`[Toast ${variant}] ${title}${description ? `: ${description}` : ''}`);
-
-        // You could also use alert for immediate feedback during development
-        if (typeof window !== 'undefined') {
-            const message = `${title}${description ? `\n${description}` : ''}`;
-            // For development, you might want to show an alert or update a state
-            // alert(message);
-        }
+        // In production, this would trigger a real toast library
+        // For now, we keep it silent or minimal as per polishing requirements
+        // console.log(`[Toast ${variant}] ${title}`); 
     };
 
     return { toast };

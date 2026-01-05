@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { Teacher } from '../../types';
 import { MailIcon, PhoneIcon, ChartBarIcon, CalendarIcon, EditIcon, gradeColors, SUBJECT_COLORS, TrashIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
@@ -147,7 +147,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
                                             forceUpdate();
                                         } catch (err: any) {
-                                            alert('Failed to update status: ' + err.message);
+                                            toast.error('Failed to update status: ' + err.message);
                                         }
                                     }}
                                     className="ml-2 text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline"

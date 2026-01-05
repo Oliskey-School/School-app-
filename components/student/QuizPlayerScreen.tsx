@@ -135,9 +135,43 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, handleBack,
     if (autoSubmit) {
       toast('Time is up! Submitting automatically.', { icon: '⏰' });
     }
-    // TODO: Save violations to DB
-    if (focusViolations > 0) {
-      // toast.error(`Exam submitted with ${focusViolations} focus violations.`);
+
+    setIsSubmitting(true);
+    try {
+      // Fetch current user student ID (Assuming context or passed props usually, but we have auth)
+      // Better: use the user_id from auth to find student_id if not in props. 
+      // But for now, we'll try to use the student prop logic if available, 
+      // otherwise fetching student ID again is safe.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: student } = await supabase.from('students').select('id').eq('user_id', user.id).single();
+      if (!student) throw new Error("Student profile not found");
+
+      const submissionData = {
+        quiz_id: quizId,
+        student_id: student.id,
+        score: score,
+        answers: [], // We didn't track answers per question in state array properly yet, only score. 
+        // Ideally we should track `answers` state: { [questionId]: optionId }
+        // For MVP, we save score.
+        status: 'Graded',
+        submitted_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from('quiz_submissions').insert(submissionData);
+
+      if (error) {
+        console.error('Error saving quiz result:', error);
+        toast.error('Failed to save result to history.');
+      } else {
+        toast.success('Quiz result saved!');
+      }
+
+    } catch (err) {
+      console.error("Quiz submission error:", err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

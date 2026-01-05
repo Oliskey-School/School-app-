@@ -48,22 +48,37 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
 
   // const teacher = useMemo(() => mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!, []);
   // const teacherSubjects = useMemo(() => SUBJECTS_LIST.filter(s => teacher.subjects.includes(s.name)), [teacher]);
-  const teacherSubjects = SUBJECTS_LIST; // DEMO: Show all subjects
+  const [dbSubjects, setDbSubjects] = useState<any[]>([]);
+  const teacherSubjects = dbSubjects.length > 0 ? dbSubjects : SUBJECTS_LIST;
 
   useEffect(() => {
-    const fetchClasses = async () => {
-      const { data, error } = await supabase
+    const fetchClassesAndSubjects = async () => {
+
+      // Dynamic import
+      const { fetchSubjects } = await import('../../lib/database');
+      const { getGradeDisplayName } = await import('../../lib/schoolSystem');
+
+      const { data: classData } = await supabase
         .from('classes')
         .select('*')
         .order('grade', { ascending: true })
         .order('section', { ascending: true });
 
-      if (data) {
-        setAvailableClasses(data);
+      if (classData) {
+        // Enhance with formatted name for display, but keep original structure
+        const enhancedClasses = classData.map((c: any) => ({
+          ...c,
+          displayName: `${getGradeDisplayName(c.grade)} ${c.section}`
+        }));
+        setAvailableClasses(enhancedClasses);
       }
+
+      const subjects = await fetchSubjects();
+      setDbSubjects(subjects);
     };
-    fetchClasses();
+    fetchClassesAndSubjects();
   }, []);
+
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,7 +128,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
         throw error;
       }
 
-      console.log('Assignment saved:', data);
+      // console.log('Assignment saved:', data);
 
       // 2. Update Local State (Camel Case for frontend)
       const newAssignmentData = {

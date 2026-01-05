@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 // import { GoogleGenAI, Type } from "@google/genai"; // Removed in favor of lib/ai
-import { getAIClient, AI_MODEL_NAME, AI_GENERATION_CONFIG } from '../../lib/ai';
+import { getAIClient, AI_MODEL_NAME, AI_GENERATION_CONFIG, SchemaType as Type } from '../../lib/ai';
 import { toast } from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
@@ -12,14 +12,9 @@ const FolderIcon = ({ className }: { className?: string }) => <svg xmlns="http:/
 
 
 // --- SUB-COMPONENTS ---
+import { AILoadingOverlay } from '../ui/AILoadingOverlay';
 
-const GeneratingScreen: React.FC = () => (
-    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-50">
-        <SparklesIcon className="w-16 h-16 text-white animate-spin" />
-        <p className="text-white font-semibold mt-4 text-lg">Generating Your Resources...</p>
-        <p className="text-white/80 mt-2 text-sm max-w-xs text-center">This may take a moment as the AI builds everything for you.</p>
-    </div>
-);
+// GeneratingScreen removed in favor of AILoadingOverlay
 
 const SchemeInput: React.FC<{ scheme: SchemeWeek[]; setScheme: React.Dispatch<React.SetStateAction<SchemeWeek[]>> }> = ({ scheme, setScheme }) => {
     const handleTopicChange = (weekIndex: number, value: string) => {
@@ -295,44 +290,117 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
 
         setIsGenerating(true);
         try {
-            const prompt = `As an expert curriculum designer... (Prompt reduced for brevity in this view) ...
+            const prompt = `As an expert curriculum designer for the Nigerian school system, generate a comprehensive lesson plan resource.
             
-** User Schemes:**
-- Term 1: ${JSON.stringify(term1Scheme)}
-- Term 2: ${JSON.stringify(term2Scheme)}
-- Term 3: ${JSON.stringify(term3Scheme)}
-...`; // In real app, keep full prompt string
+            Subject: ${subject}
+            Class: ${className}
+            
+            Here are the schemes of work provided by the user:
+            - First Term: ${JSON.stringify(term1Scheme)}
+            - Second Term: ${JSON.stringify(term2Scheme)}
+            - Third Term: ${JSON.stringify(term3Scheme)}
 
-            // Secure call via Supabase Edge Function
-            const { data, error } = await supabase.functions.invoke('chat-completion', {
-                body: {
-                    messages: [
-                        { role: 'system', content: 'You are an expert curriculum designer for the Nigerian school system.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.7
+            Task:
+            1. Analyze the topics provided for each term.
+            2. For each week in the scheme, generate:
+               - Specific Learning Objectives (at least 2-3)
+               - Recommended Teaching Resources (books, materials, digital tools)
+               - A brief Lesson Note guide.
+            3. If a term has no user-provided topics, suggest a standard curriculum for that term based on the Subject and Class level.
+
+            Output Format:
+            Return a JSON object with the following structure:
+            {
+                "subject": "${subject}",
+                "className": "${className}",
+                "terms": [
+                    {
+                        "term": "First Term",
+                        "weeks": [
+                            { "week": 1, "topic": "...", "learningObjectives": ["..."], "resources": ["..."] }
+                        ]
+                    },
+                    { "term": "Second Term", "weeks": [] },
+                    { "term": "Third Term", "weeks": [] }
+                ]
+            }`;
+
+            // Use local Gemini client instead of Edge Function to avoid CORS/Deployment issues
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+
+            // Construct the messages structure for chat
+            const history = [
+                { role: 'user', parts: [{ text: 'You are an expert curriculum designer for the Nigerian school system.' }] },
+                { role: 'model', parts: [{ text: 'I am ready to help design the curriculum.' }] },
+                { role: 'user', parts: [{ text: prompt }] }
+            ];
+
+            const response = await ai.models.generateContent({
+                contents: history,
+                generationConfig: {
+                    temperature: 0.7,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            subject: { type: Type.STRING },
+                            className: { type: Type.STRING },
+                            terms: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        term: { type: Type.STRING },
+                                        weeks: {
+                                            type: Type.ARRAY,
+                                            items: {
+                                                type: Type.OBJECT,
+                                                properties: {
+                                                    week: { type: Type.INTEGER },
+                                                    topic: { type: Type.STRING },
+                                                    learningObjectives: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                                    resources: { type: Type.ARRAY, items: { type: Type.STRING } }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
-            if (error) throw error;
-            if (!data?.choices?.[0]?.message?.content) throw new Error('No content returned from AI');
+            if (!response.text) throw new Error('No content returned from AI');
 
-            let raw = data.choices[0].message.content;
+            let raw = response.text;
+
+            // Check for direct error messages from AI
+            if (!raw || raw.trim().startsWith('Error') || raw.trim().startsWith("I'm sorry") || raw.trim().startsWith("I cannot")) {
+                throw new Error(raw || "AI returned an error message instead of content.");
+            }
+
             // Sanitize
             raw = raw.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
 
-            const resources = JSON.parse(raw);
-
-            if (!resources || !resources.terms) {
-                throw new Error("AI returned a response, but it was empty or missing data.");
+            let resources;
+            try {
+                resources = JSON.parse(raw);
+            } catch (jsonError) {
+                console.error("AI JSON Parse Error. Raw output:", raw);
+                throw new Error("The AI generated an invalid format. Please try again.");
             }
 
-            // Inject scheme data logic (Keep existing)
+            if (!resources || !resources.terms) {
+                throw new Error("AI returned a response, but it was empty or missing terms data.");
+            }
+
+            // Inject scheme data logic
             resources.terms = resources.terms.map((term: any) => {
                 let relevantScheme: SchemeWeek[] = [];
-                if (term.term.toLowerCase().includes('first') || term.term.includes('Term 1')) relevantScheme = term1Scheme;
-                else if (term.term.toLowerCase().includes('second') || term.term.includes('Term 2')) relevantScheme = term2Scheme;
-                else if (term.term.toLowerCase().includes('third') || term.term.includes('Term 3')) relevantScheme = term3Scheme;
+                if (term.term?.toLowerCase().includes('first') || term.term?.includes('Term 1')) relevantScheme = term1Scheme;
+                else if (term.term?.toLowerCase().includes('second') || term.term?.includes('Term 2')) relevantScheme = term2Scheme;
+                else if (term.term?.toLowerCase().includes('third') || term.term?.includes('Term 3')) relevantScheme = term3Scheme;
 
                 if (relevantScheme.length === 0 && resources.terms.length === 1) {
                     if (activeTerm === 'term1') relevantScheme = term1Scheme;
@@ -381,7 +449,8 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
 
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">
-            {isGenerating && <GeneratingScreen />}
+            {/* AI Loading Overlay */}
+            <AILoadingOverlay isVisible={isGenerating} />
             <main className="flex-grow p-4 space-y-5 overflow-y-auto pb-24">
                 <div className="bg-gray-100 p-4 rounded-xl text-center border border-gray-200">
                     <SparklesIcon className="h-10 w-10 mx-auto text-gray-500 mb-2" />

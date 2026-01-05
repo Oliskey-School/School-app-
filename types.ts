@@ -10,6 +10,7 @@ export enum DashboardType {
   Inspector = 'Inspector',
   ExamOfficer = 'Exam Officer',
   ComplianceOfficer = 'Compliance Officer',
+  Counselor = 'Counselor',
 }
 
 export interface Exam {
@@ -104,6 +105,7 @@ export interface Student {
   behaviorNotes?: BehaviorNote[];
   reportCards?: ReportCard[];
   birthday?: string; // YYYY-MM-DD
+  user_id?: string; // Link to auth user
 }
 
 export type StudentReportInfo = Student & { status: 'Draft' | 'Submitted' | 'Published'; };
@@ -866,88 +868,77 @@ export interface AIGame {
 }
 
 // ============================================
-// NEW TYPES FOR PHASE 1 COMPLETION
+// NEW TYPES FOR BACKEND FEATURE EXPANSION
 // ============================================
 
-export interface EmergencyBroadcast {
-  id: number;
-  title: string;
-  message: string;
-  senderId: string;
-  audience: 'all' | 'parents' | 'teachers' | 'staff';
-  channels: string[]; // ['push', 'email', 'sms']
-  deliveryStats?: { sent: number; failed: number };
-  createdAt: string;
-}
-
-export interface AbsenceExplanation {
-  id: number;
-  attendanceId: number;
-  parentId: number;
-  reason: string;
-  category: 'sick' | 'family_emergency' | 'religious' | 'other';
-  status: 'pending' | 'approved' | 'rejected';
-  adminNotes?: string;
-  createdAt: string;
-}
-
-// For AI Timetable Generator
-export interface SavedTimetable {
-  className: string;
-  subjects: string[];
-  timetable: { [key: string]: string | null };
-  teacherAssignments: { [key: string]: string | null };
-  suggestions: string[];
-  teacherLoad: { teacherName: string; totalPeriods: number }[];
-  status: 'Draft' | 'Published';
-}
-
-// For Bus Duty Roster
-export interface BusRoute {
-  id: string;
+export interface Curriculum {
+  id: number; // BigInt from DB
   name: string;
   description: string;
 }
 
-export interface BusRosterEntry {
-  routeId: string;
-  driverId: number | null;
-  date: string; // YYYY-MM-DD
+export interface Subject {
+  id: number;
+  name: string;
+  code?: string;
+  category: string;
+  curriculumId: number;
+  gradeLevel: string;
+  schoolId?: number;
 }
 
-// For CBT Test Module
-export interface CBTResult {
-  studentId: number;
-  studentName: string;
-  score: number;
+export interface LessonNote {
+  id: number;
+  teacherId: number;
+  subjectId: number;
+  classId: number;
+  week: number;
+  term: string;
+  title: string;
+  content: string;
+  fileUrl?: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  adminFeedback?: string;
+  createdAt: string;
+}
+
+export interface CBTExam {
+  id: number;
+  title: string;
+  subjectId: number;
+  classGrade: string;
+  curriculumId: number;
+  durationMinutes: number;
   totalQuestions: number;
-  percentage: number;
-  submittedAt: string;
+  isPublished: boolean;
+  teacherId: number;
+  createdAt: string;
 }
 
 export interface CBTQuestion {
   id: number;
-  text: string;
-  options: string[];
-  correctAnswer: string;
+  examId: number;
+  questionText: string;
+  questionType: 'multiple_choice' | 'true_false' | 'theory';
+  options: string[]; // JSONB stored as array of strings
+  correctOption: string;
+  points: number;
 }
 
-export interface CBTTest {
+export interface CBTResult {
   id: number;
-  title: string;
-  type: 'Test' | 'Exam';
-  className: string;
-  subject: string;
-  duration: number; // in minutes
-  attempts?: number;
-  fileName: string;
-  questionsCount: number;
-  createdAt: string;
-  isPublished: boolean;
-  results: CBTResult[];
-  questions?: CBTQuestion[];
-  totalMarks?: number;
+  examId: number;
+  studentId: number;
+  score: number;
+  totalScore: number;
+  percentage: number;
+  answers: any; // JSONB
+  submittedAt: string;
 }
+
+// ============================================
+// EXISTING HELPERS
+// ============================================
 // For Lesson Planner Generated Assessment
 export interface GeneratedQuestion {
   id: number;
@@ -964,3 +955,4 @@ export interface GeneratedAssessment {
   totalMarks: number;
   questions: GeneratedQuestion[];
 }
+

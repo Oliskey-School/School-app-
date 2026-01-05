@@ -1,0 +1,44 @@
+-- Create Report Cards Table
+CREATE TABLE IF NOT EXISTS report_cards (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    student_id BIGINT REFERENCES students(id) ON DELETE CASCADE,
+    term TEXT NOT NULL,
+    session TEXT NOT NULL,
+    status TEXT DEFAULT 'Draft', -- Draft, Submitted, Published
+    attendance JSONB DEFAULT '{}'::jsonb,
+    skills JSONB DEFAULT '{}'::jsonb,
+    psychomotor JSONB DEFAULT '{}'::jsonb,
+    teacher_comment TEXT,
+    principal_comment TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, term, session)
+);
+
+-- Create Report Card Records (Academic Performance)
+CREATE TABLE IF NOT EXISTS report_card_records (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    report_card_id UUID REFERENCES report_cards(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL,
+    ca INTEGER DEFAULT 0,
+    exam INTEGER DEFAULT 0,
+    total INTEGER DEFAULT 0,
+    grade TEXT,
+    remark TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE report_cards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE report_card_records ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "Public read report cards" ON report_cards FOR SELECT USING (true);
+CREATE POLICY "Public insert report cards" ON report_cards FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update report cards" ON report_cards FOR UPDATE USING (true);
+CREATE POLICY "Public delete report cards" ON report_cards FOR DELETE USING (true);
+
+CREATE POLICY "Public read records" ON report_card_records FOR SELECT USING (true);
+CREATE POLICY "Public insert records" ON report_card_records FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update records" ON report_card_records FOR UPDATE USING (true);
+CREATE POLICY "Public delete records" ON report_card_records FOR DELETE USING (true);

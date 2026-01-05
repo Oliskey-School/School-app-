@@ -11,6 +11,8 @@ import { mockStudents, mockTimetableData, mockAssignments, mockSubmissions, mock
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
 // Lazy load all view components
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -168,6 +170,19 @@ const Overview: React.FC<{ navigateTo: (view: string, title: string, props?: any
             }
         };
         fetchData();
+        // Realtime Subscription
+        const channel = supabase.channel(`student_overview_${student.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => {
+                fetchData();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable' }, () => {
+                fetchData();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [student]);
 
     const quickAccessItems = [
@@ -238,7 +253,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const [isLoading, setIsLoading] = useState(true);
     const [isCreatingProfile, setIsCreatingProfile] = useState(false);
     const forceUpdate = () => setVersion(v => v + 1);
-    const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('student')).length;
+    const notificationCount = useRealtimeNotifications();
 
     // Get email from profile or fallback to auth user email
     const userEmail = profile.email || user?.email || '';

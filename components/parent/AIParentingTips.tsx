@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
+import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Student } from '../../types';
@@ -25,7 +25,7 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
             setIsLoading(true);
             setError(null);
             try {
-                const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+                const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
 
                 const academicSummary = student.academicPerformance
                     ?.slice(-4) // get latest 4 records
@@ -49,7 +49,7 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
                 `;
 
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.0-flash',
+                    model: 'gemini-2.5-flash',
                     contents: prompt,
                     config: {
                         responseMimeType: "application/json",
@@ -86,6 +86,8 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
             } catch (err) {
                 console.error("Error generating parenting tips:", err);
                 setError("Sorry, we couldn't generate tips at this moment. Please try again later.");
+                // Use toast for visibility if the user is still on the screen
+                // toast.error("Could not generate tips. Please try again.");
             } finally {
                 setIsLoading(false);
             }

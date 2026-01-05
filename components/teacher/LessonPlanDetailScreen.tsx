@@ -60,6 +60,17 @@ const LessonPlansTab: React.FC<{ plans: TermResources['lessonPlans'], notes?: De
         navigateTo('lessonContent', `Week ${plan.week}`, { lessonPlan: plan, detailedNote: noteData });
     };
 
+    // Check if plans exist and have content
+    if (!plans || plans.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg border-2 border-dashed border-gray-300">
+                <BookOpenIcon className="h-16 w-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 font-medium mb-1">No Lesson Plans Available</p>
+                <p className="text-gray-400 text-sm">Generate AI resources to create lesson plans</p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-3">
             {plans.map(plan => (
@@ -88,13 +99,26 @@ const AssessmentDisplay: React.FC<{ assessment: GeneratedAssessment, navigateTo:
     </div>
 );
 
-const AssessmentsTab: React.FC<{ assessments: TermResources['assessments'], navigateTo: (view: string, title: string, props?: any) => void; }> = ({ assessments, navigateTo }) => (
-    <div className="space-y-4">
-        {assessments
-            .sort((a, b) => a.week - b.week)
-            .map((ass, index) => <AssessmentDisplay key={index} assessment={ass} navigateTo={navigateTo} />)}
-    </div>
-);
+const AssessmentsTab: React.FC<{ assessments: TermResources['assessments'], navigateTo: (view: string, title: string, props?: any) => void; }> = ({ assessments, navigateTo }) => {
+    // Check if assessments exist and have content
+    if (!assessments || assessments.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg border-2 border-dashed border-gray-300">
+                <ClipboardListIcon className="h-16 w-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 font-medium mb-1">No Assessments Available</p>
+                <p className="text-gray-400 text-sm">Generate AI resources to create assessments</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {assessments
+                .sort((a, b) => a.week - b.week)
+                .map((ass, index) => <AssessmentDisplay key={index} assessment={ass} navigateTo={navigateTo} />)}
+        </div>
+    );
+};
 
 
 const TermContent: React.FC<{

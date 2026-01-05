@@ -52,7 +52,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ onClose }) => {
         const startSession = async () => {
             setStatus('connecting');
             try {
-                const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+                const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
 
                 // Setup Audio Context
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });

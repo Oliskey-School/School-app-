@@ -20,24 +20,46 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo }) => {
 
   const fetchQuizzes = async () => {
     try {
-      // Fetch published quizzes
-      const { data, error } = await supabase
+      // 1. Get current student ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: student } = await supabase.from('students')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!student) return;
+
+      // 2. Fetch published quizzes
+      const { data: quizzesData, error: quizError } = await supabase
         .from('quizzes')
         .select('*')
         .eq('is_published', true)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        // Check if it's a "table doesn't exist" error
-        if (error.message?.includes('relation "public.quizzes" does not exist') ||
-          error.code === '42P01') {
+      if (quizError) {
+        if (quizError.message?.includes('does not exist') || quizError.code === '42P01') {
           setError('database_not_ready');
         } else {
-          throw error;
+          throw quizError;
         }
-      } else {
-        setQuizzes(data || []);
+        return;
       }
+
+      // 3. Fetch submissions for this student
+      const { data: submissions } = await supabase
+        .from('quiz_submissions')
+        .select('quiz_id, score, status')
+        .eq('student_id', student.id);
+
+      // 4. Merge
+      const merged = (quizzesData || []).map((q: any) => {
+        const sub = submissions?.find(s => s.quiz_id === q.id);
+        return { ...q, submission: sub }; // Add submission info
+      });
+
+      setQuizzes(merged);
     } catch (err: any) {
       console.error('Error fetching quizzes:', err);
       setError('general_error');
@@ -110,7 +132,14 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo }) => {
                       <HelpIcon className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-gray-800 line-clamp-1">{quiz.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-gray-800 line-clamp-1">{quiz.title}</h4>
+                        {(quiz as any).submission && (
+                          <span className="px-2 py-0.5 text-xs font-bold text-green-700 bg-green-100 rounded-full border border-green-200">
+                            Done: {(quiz as any).submission.score}%
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
                         <span className="bg-gray-100 px-2 py-0.5 rounded">{quiz.subject}</span>
                         {quiz.durationMinutes > 0 && (

@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { toast } from 'react-hot-toast';
 import { Parent } from '../../types';
 import { MailIcon, PhoneIcon, EditIcon, TrashIcon, StudentsIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
@@ -22,13 +23,13 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                 const { data, error } = await supabase
                     .from('parent_children')
                     .select(`
-                    student:students (
-                        id,
-                        name,
-                        grade,
-                        section,
-                        avatar_url
-                    )
+student: students(
+    id,
+    name,
+    grade,
+    section,
+    avatar_url
+)
                 `)
                     .eq('parent_id', parent.id);
 
@@ -53,7 +54,7 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
     const displayChildren = children;
 
     const handleDelete = async () => {
-        if (window.confirm(`Are you sure you want to delete the account for ${parent.name}? This action cannot be undone.`)) {
+        if (window.confirm(`Are you sure you want to delete the account for ${parent.name} ? This action cannot be undone.`)) {
             try {
                 // Delete from database first
                 const { error: deleteParentError } = await supabase
@@ -83,12 +84,12 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
 
 
 
-                alert(`${parent.name} has been successfully deleted from the database.`);
+                toast.success(`${parent.name} has been successfully deleted from the database.`);
                 forceUpdate();
                 handleBack();
             } catch (error: any) {
                 console.error('Error deleting parent:', error);
-                alert('Failed to delete parent: ' + (error.message || 'Unknown error'));
+                toast.error('Failed to delete parent: ' + (error.message || 'Unknown error'));
             }
         }
     };
@@ -101,8 +102,8 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                     <div>
                         <h3 className="text-xl font-bold text-gray-800">{parent.name}</h3>
                         <div className="flex space-x-4 mt-2">
-                            <a href={`mailto:${parent.email}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-sky-600"><MailIcon className="w-4 h-4" /><span>Email</span></a>
-                            <a href={`tel:${parent.phone}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-sky-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>
+                            <a href={`mailto:${parent.email} `} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-sky-600"><MailIcon className="w-4 h-4" /><span>Email</span></a>
+                            <a href={`tel:${parent.phone} `} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-sky-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>
                         </div>
                     </div>
                 </div>
@@ -125,7 +126,7 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
             <div className="p-4 mt-auto bg-white border-t space-y-2">
                 <h3 className="text-sm font-bold text-gray-500 text-center uppercase tracking-wider">Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => navigateTo('addParent', `Edit ${parent.name}`, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-200"><EditIcon className="w-5 h-5" /><span>Edit Profile</span></button>
+                    <button onClick={() => navigateTo('addParent', `Edit ${parent.name} `, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-200"><EditIcon className="w-5 h-5" /><span>Edit Profile</span></button>
                     <button onClick={handleDelete} className="flex items-center justify-center space-x-2 py-3 bg-red-100 text-red-700 rounded-xl font-semibold hover:bg-red-200"><TrashIcon className="w-5 h-5" /><span>Delete Account</span></button>
                 </div>
             </div>

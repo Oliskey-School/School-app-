@@ -45,7 +45,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ adventureData, userAnswer
     useEffect(() => {
         const generateSummary = async () => {
             try {
-                const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+                const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
                 const prompt = `A student just completed a quiz with a score of ${score}%. They got ${correctAnswers} correct and ${incorrectAnswers} incorrect. Write a short, fun, and encouraging summary of their performance. Frame it as if they just completed a grand quest.`;
                 const response = await ai.models.generateContent({ model: 'gemini-2.0-flash', contents: prompt });
                 setAiSummary(response.text);

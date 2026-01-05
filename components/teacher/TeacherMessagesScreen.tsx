@@ -27,6 +27,7 @@ interface TeacherMessagesScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     teacherId?: number | null;
     currentUser?: any;
+    currentUserId?: number;
 }
 
 interface LocalConversation {
@@ -45,9 +46,9 @@ interface LocalConversation {
     messages: any[];
 }
 
-const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateTo, onSelectChat, teacherId, currentUser }) => {
-    // Determine current user ID logic (fallback to 2 if missing)
-    const myId = teacherId || (currentUser?.userId ? parseInt(currentUser.userId) : null) || 2;
+const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateTo, onSelectChat, teacherId, currentUser, currentUserId }) => {
+    // Determine current user ID logic (prefer currentUserId)
+    const myId = currentUserId || teacherId || (currentUser?.userId ? parseInt(currentUser.userId) : null) || 2;
 
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState<'All' | 'Unread'>('All');
@@ -216,7 +217,19 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
         const originalConvo = conversations.find(c => (c.id).toString() === (convo.id).toString());
 
         if (onSelectChat && originalConvo) {
-            onSelectChat(originalConvo);
+            // Map LocalConversation to simplified ChatRoom/Conversation
+            const conversationObj: Conversation = {
+                id: originalConvo.id,
+                participants: [], // Simplified
+                type: 'direct', // Defaulting since LocalConversation doesn't track type extensively yet
+                isGroup: false,
+                creatorId: 0,
+                createdAt: originalConvo.lastMessage.timestamp,
+                updatedAt: originalConvo.lastMessage.timestamp,
+                lastMessageAt: originalConvo.lastMessage.timestamp,
+                unreadCount: originalConvo.unreadCount
+            };
+            onSelectChat(conversationObj);
             setSelectedConversation(convo);
             return;
         }

@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
+// import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon, CheckCircleIcon } from '../../constants';
 import { Teacher } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -40,7 +42,7 @@ const TagInput: React.FC<{
             // Case-insensitive check
             const match = validOptions.find(opt => opt.toLowerCase() === newTag.toLowerCase());
             if (!match) {
-                setError(validationMessage || `Invalid value. Please select from the list.`);
+                setError(validationMessage || `Invalid value.Please select from the list.`);
                 // Optional: Show valid options in console or UI suggestion
                 return;
             }
@@ -68,7 +70,7 @@ const TagInput: React.FC<{
     return (
         <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-            <div className={`flex flex-wrap items-center gap-2 p-2 border rounded-lg bg-gray-50 ${error ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-300'}`}>
+            <div className={`flex flex - wrap items - center gap - 2 p - 2 border rounded - lg bg - gray - 50 ${error ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-300'} `}>
                 {tags.map(tag => (
                     <span key={tag} className="flex items-center gap-1.5 bg-sky-100 text-sky-800 text-sm font-semibold px-2 py-1 rounded-md">
                         {tag}
@@ -84,14 +86,14 @@ const TagInput: React.FC<{
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     className="flex-grow bg-transparent p-1 text-gray-700 focus:outline-none"
-                    list={`list-${label.replace(/\s/g, '')}`}
+                    list={`list - ${label.replace(/\s/g, '')} `}
                 />
             </div>
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
 
             {/* Datalist for suggestions */}
             {validOptions && (
-                <datalist id={`list-${label.replace(/\s/g, '')}`}>
+                <datalist id={`list - ${label.replace(/\s/g, '')} `}>
                     {validOptions.map(opt => <option key={opt} value={opt} />)}
                 </datalist>
             )}
@@ -166,9 +168,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 if (!s) return s;
                 let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
                 const m = cleaned.match(/(\d+)([A-Z]+)/i);
-                if (m) return `${parseInt(m[1], 10)}${m[2]}`;
+                if (m) return `${parseInt(m[1], 10)}${m[2]} `;
                 const m2 = cleaned.match(/(\d+)/);
-                if (m2) return `${parseInt(m2[1], 10)}`;
+                if (m2) return `${parseInt(m2[1], 10)} `;
                 return cleaned;
             };
             setClasses((teacherToEdit.classes || []).map(normalize));
@@ -209,7 +211,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                             avatarUrl
                         };
                     }
-                    alert('Teacher updated successfully (Mock Mode - Session Only)');
+                    toast.success('Teacher updated successfully (Mock Mode - Session Only)');
                 } else {
                     const newId = mockTeachers.length > 0 ? Math.max(...mockTeachers.map(t => t.id)) + 1 : 1;
                     mockTeachers.push({
@@ -305,7 +307,6 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     return;
                 } else if (exists.inUsers) {
                     // Exists in DB (users table) but NOT in Auth. Reuse the User ID.
-                    console.log(`Email ${teacherEmail} found in 'users' but missing Auth. Attempting to repair/reuse User ID: ${exists.userRow.id}`);
                     userIdToUse = exists.userRow.id;
                 }
 
@@ -340,7 +341,6 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         .maybeSingle();
 
                     if (existingTeacher) {
-                        console.log("Teacher profile also exists. Reusing it.");
                         teacherData = existingTeacher;
                     }
                 }

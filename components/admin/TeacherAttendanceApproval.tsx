@@ -56,12 +56,57 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
         setNotification({ message, type });
     };
 
+    const getEffectiveAdminId = async (): Promise<number | null> => {
+        if (!user?.id) return null;
+
+        // If user.id is already a number, return it
+        if (typeof user.id === 'number') return user.id;
+
+        // If it's a string looking like a number, parse it
+        if (!isNaN(Number(user.id))) return Number(user.id);
+
+        // If it's a mock string ID (e.g. "quick-admin..."), fetch a real admin ID from DB to satisfy FK
+        console.warn("Using mock ID for approval. Fetching a valid Admin ID from DB for foreign key constraint...");
+
+        try {
+            // Import supabase from context or directly if possible. 
+            // Since we don't have supabase imported here, we need to import it. 
+            // But wait, we didn't add the import yet. Let's do that in a separate chunk or assume it's available?
+            // Better to rely on the service to maybe handle this? 
+            // Or let's just do a direct fetch here if I add the import. 
+            // Actually, let's look at imports. We don't have Supabase imported.
+            // Let's rely on a new service function or import Supabase.
+            // I'll add the import in a separate step or usage.
+            // For now, let's assume I can import it.
+            // WAIT - simpler approach: Modify the `approveAttendance` service to handle this logic?
+            // No, UI handling is better for feedback. 
+            // I will return 0 or -1 or something and let service handle? No, DB constraints.
+
+            // Let's implement a quick fetch using our existing service patterns?
+            // Actually, let's add `import { supabase } from '../../lib/supabase';` to the top of file first.
+            return null; // Placeholder for this chunk, I will do the import first.
+        } catch (e) {
+            console.error("Failed to fetch fallback admin", e);
+            return null;
+        }
+    };
+
+    // REVISING APPROACH:
+    // Instead of complex logic here, let's modify the service function 'approveAttendance' to take the potentially string ID
+    // and resolve it INTERNALLY. That keeps the UI clean.
+    // The service has access to Supabase directly. 
+    // This is much cleaner.
+
+    // So I will REVERT this thought process and modify 'lib/teacherAttendanceService.ts' instead.
+    // I will pass the user.id as is (any) and let the service deal with it.
+
     const handleApprove = async (attendanceId: number) => {
         if (!user?.id) return;
 
         setProcessingId(attendanceId);
         try {
-            const result = await approveAttendance(attendanceId, user.id);
+            // Pass user.id even if it's a string. We'll update service to accept `string | number`.
+            const result = await approveAttendance(attendanceId, user.id as any);
             if (result.success) {
                 showNotification('Attendance approved successfully!', 'success');
                 loadPendingRequests();
@@ -83,7 +128,8 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
 
         setProcessingId(attendanceId);
         try {
-            const result = await rejectAttendance(attendanceId, user.id, reason || undefined);
+            // Pass user.id even if it's a string. We'll update service to accept `string | number`.
+            const result = await rejectAttendance(attendanceId, user.id as any, reason || undefined);
             if (result.success) {
                 showNotification('Attendance rejected.', 'success');
                 loadPendingRequests();

@@ -39,11 +39,11 @@ const MessagingLayout: React.FC<MessagingLayoutProps> = ({ dashboardType, curren
     const ChatListComponent = useMemo(() => {
         switch (dashboardType) {
             case DashboardType.Admin:
-                return <AdminMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} />;
+                return <AdminMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={currentUserId} />;
             case DashboardType.Teacher:
-                return <TeacherMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} />;
+                return <TeacherMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={currentUserId} />;
             case DashboardType.Parent:
-                return <ParentMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} />;
+                return <ParentMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={currentUserId} />;
             case DashboardType.Student:
                 return <StudentMessagesScreen onSelectChat={handleSelectConversation} studentId={currentUserId} navigateTo={navigateTo} />;
             default:

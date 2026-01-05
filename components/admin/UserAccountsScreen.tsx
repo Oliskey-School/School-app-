@@ -51,14 +51,21 @@ const UserAccountsScreen: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        // ... (subscription logic)
+        fetchAccounts();
 
-        const subscription = supabase
-            // ...
+        const channel = supabase.channel('public:auth_accounts')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'auth_accounts' },
+                (payload) => {
+                    console.log('Change received!', payload);
+                    fetchAccounts();
+                }
+            )
             .subscribe();
 
         return () => {
-            supabase.removeChannel(subscription);
+            supabase.removeChannel(channel);
         };
     }, [fetchAccounts]);
 

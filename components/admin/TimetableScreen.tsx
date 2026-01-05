@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarIcon, EyeIcon, EditIcon, PlusIcon, CheckCircleIcon, ClockIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 interface TimetableOverviewProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -25,10 +26,12 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
     const fetchTimetables = async () => {
         setLoading(true);
         try {
-            // Get all timetable entries grouped by class
+            // Get all timetable entries groups
+            // Since we need to aggregate by class, we can select distinct class_names or just fetch all and reduce.
+            // Fetching all might be heavy if lots of data, but for now it's fine.
             const { data, error } = await supabase
                 .from('timetable')
-                .select('class_name, status, updated_at');
+                .select('class_name, updated_at');
 
             if (error) throw error;
 
@@ -39,12 +42,13 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                     if (!acc[className]) {
                         acc[className] = {
                             className,
-                            status: entry.status,
+                            status: 'Published', // Assume published if in DB
                             totalPeriods: 0,
                             lastUpdated: entry.updated_at || new Date().toISOString(),
                         };
                     }
-                    acc[className].totalPeriods += 1;
+                    acc[className].totalPeriods += 1; // Count periods (entries)
+
                     // Use the most recent update time
                     if (entry.updated_at && new Date(entry.updated_at) > new Date(acc[className].lastUpdated)) {
                         acc[className].lastUpdated = entry.updated_at;
@@ -56,6 +60,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
             }
         } catch (error) {
             console.error('Error fetching timetables:', error);
+            toast.error('Failed to load timetables');
         } finally {
             setLoading(false);
         }
@@ -102,8 +107,8 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                     <button
                         onClick={() => setFilter('all')}
                         className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${filter === 'all'
-                                ? 'bg-white text-gray-800 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-800'
+                            ? 'bg-white text-gray-800 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800'
                             }`}
                     >
                         All ({timetables.length})
@@ -111,8 +116,8 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                     <button
                         onClick={() => setFilter('published')}
                         className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${filter === 'published'
-                                ? 'bg-white text-gray-800 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-800'
+                            ? 'bg-white text-gray-800 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800'
                             }`}
                     >
                         Published ({timetables.filter(t => t.status === 'Published').length})
@@ -120,8 +125,8 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                     <button
                         onClick={() => setFilter('draft')}
                         className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${filter === 'draft'
-                                ? 'bg-white text-gray-800 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-800'
+                            ? 'bg-white text-gray-800 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800'
                             }`}
                     >
                         Drafts ({timetables.filter(t => t.status === 'Draft').length})
@@ -169,8 +174,8 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                                     </div>
                                     <span
                                         className={`px-3 py-1 text-xs font-bold rounded-full ${tt.status === 'Published'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-amber-100 text-amber-800'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-amber-100 text-amber-800'
                                             }`}
                                     >
                                         {tt.status === 'Published' ? (
@@ -205,9 +210,50 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                                         <span>View</span>
                                     </button>
                                     <button
-                                        onClick={() => {
-                                            // Navigate to edit mode - you'll need to load the timetable data
-                                            console.log('Edit timetable for', tt.className);
+                                        onClick={async () => {
+                                            // Fetch data for this class
+                                            try {
+                                                const { data: entries, error } = await supabase
+                                                    .from('timetable')
+                                                    .select('*')
+                                                    .eq('class_name', tt.className);
+
+                                                if (error) throw error;
+
+                                                // Reconstruct the internal format for the Editor
+                                                const schedule: any = {};
+                                                const teacherAssignments: any = {};
+                                                const teacherIds = new Set(entries.map((e: any) => e.teacher_id).filter(Boolean));
+
+                                                // Fetch teacher names
+                                                let teacherMap = new Map();
+                                                if (teacherIds.size > 0) {
+                                                    const { data: teachers } = await supabase.from('teachers').select('id, name').in('id', Array.from(teacherIds));
+                                                    if (teachers) {
+                                                        teachers.forEach((t: any) => teacherMap.set(t.id, t.name));
+                                                    }
+                                                }
+
+                                                entries.forEach((e: any) => {
+                                                    const key = `${e.day_of_week}-${e.period_index}`;
+                                                    schedule[key] = e.subject;
+                                                    if (e.teacher_id) {
+                                                        teacherAssignments[key] = teacherMap.get(e.teacher_id);
+                                                    }
+                                                });
+
+                                                navigateTo('timetableEditor', 'Edit Timetable', {
+                                                    timetableData: {
+                                                        className: tt.className,
+                                                        schedule,
+                                                        teacherAssignments
+                                                    }
+                                                });
+
+                                            } catch (err) {
+                                                console.error("Error loading timetable:", err);
+                                                toast.error("Could not load timetable");
+                                            }
                                         }}
                                         className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold"
                                     >

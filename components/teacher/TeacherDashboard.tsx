@@ -64,6 +64,7 @@ import CBTManagementScreen from '../teacher/CBTManagementScreen';
 import CBTScoresScreen from '../teacher/CBTScoresScreen';
 import QuizBuilderScreen from '../teacher/QuizBuilderScreen';
 import ClassGradebookScreen from '../teacher/ClassGradebookScreen';
+import LessonNotesUploadScreen from '../teacher/LessonNotesUploadScreen';
 
 
 const DashboardSuspenseFallback = () => (
@@ -167,6 +168,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       case 'home':
         setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
         break;
+      case 'lessonNotes':
+        setViewStack([{ view: 'lessonNotesUpload', title: 'Lesson Notes', props: {} }]);
+        break;
       case 'reports':
         setViewStack([{ view: 'reports', title: 'Student Reports', props }]);
         break;
@@ -243,6 +247,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     cbtManagement: CBTManagementScreen,
     quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId ?? 2} onClose={handleBack} />,
     classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId ?? 2} handleBack={handleBack} />,
+    lessonNotesUpload: (props: any) => <LessonNotesUploadScreen {...props} teacherId={teacherId ?? 2} handleBack={handleBack} />,
   };
 
   const currentNavigation = viewStack[viewStack.length - 1];

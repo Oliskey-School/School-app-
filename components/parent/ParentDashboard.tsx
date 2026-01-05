@@ -497,7 +497,8 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
                 }
 
             } catch (err) {
-                console.error("Error fetching children:", err);
+                // Silent fail or warn in dev
+                if (import.meta.env.DEV) console.warn("Error fetching children:", err);
             } finally {
                 setLoading(false);
             }

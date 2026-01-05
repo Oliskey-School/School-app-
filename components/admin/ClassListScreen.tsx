@@ -35,6 +35,16 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo }) => {
             setLoading(false);
         };
         fetchClasses();
+
+        const channel = supabase.channel('classes_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'classes' }, () => {
+                fetchClasses();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     // Group by Grade

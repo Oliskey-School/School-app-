@@ -27,6 +27,18 @@ const FeeManagement: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    // Real-time subscription for fee updates
+    const channel = supabase.channel('admin_fees_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees' }, (payload) => {
+        console.log('Fee update received:', payload);
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadData = async () => {
@@ -170,9 +182,9 @@ const FeeManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tight ${fee.curriculumType === 'British' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                        fee.curriculumType === 'Nigerian' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                          fee.curriculumType === 'Dual' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
-                            'bg-gray-50 text-gray-600 border border-gray-100'
+                      fee.curriculumType === 'Nigerian' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                        fee.curriculumType === 'Dual' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
+                          'bg-gray-50 text-gray-600 border border-gray-100'
                       }`}>
                       {fee.curriculumType || 'General'}
                     </span>

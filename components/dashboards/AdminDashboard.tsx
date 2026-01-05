@@ -7,6 +7,7 @@ import { mockNotifications } from '../../data';
 import { DashboardType } from '../../types';
 import MessagingLayout from '../shared/MessagingLayout';
 import { useProfile } from '../../context/ProfileContext';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import ErrorBoundary from '../ui/ErrorBoundary';
 
 // Lazy load only the Global Search Screen as it's an overlay
@@ -110,7 +111,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         setIsHomePage(viewStack.length === 1 && !isSearchOpen);
     }, [viewStack, isSearchOpen, setIsHomePage]);
 
-    const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('admin')).length;
+    const notificationCount = useRealtimeNotifications();
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
     const scrollPositions = React.useRef<Record<string, number>>({});
@@ -219,7 +220,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         classAttendanceDetail: ClassAttendanceDetailScreen,
         adminSelectTermForReport: AdminSelectTermForReport,
         adminReportCardInput: (props: any) => <ReportCardInputScreen {...props} isAdmin={true} />,
-        messages: (props: any) => <MessagingLayout {...props} dashboardType={DashboardType.Admin} />,
+        messages: (props: any) => <MessagingLayout {...props} dashboardType={DashboardType.Admin} currentUserId={profile.id} />,
         healthLog: HealthLogScreen,
         newChat: AdminNewChatScreen,
         busDutyRoster: BusDutyRosterScreen,

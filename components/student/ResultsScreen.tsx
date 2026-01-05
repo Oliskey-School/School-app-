@@ -24,6 +24,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student }) => 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTerm, setActiveTerm] = useState<string>('');
+    const [quizResults, setQuizResults] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -38,13 +39,11 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student }) => 
 
                 if (grades) {
                     setPerformanceData(grades);
-                    // Determine terms
                     const terms = Array.from(new Set(grades.map((d: any) => d.term)));
                     if (terms.length > 0 && !activeTerm) {
-                        // Sort terms logically if possible, or just take last
                         setActiveTerm(terms[terms.length - 1]);
                     } else if (terms.length === 0) {
-                        setActiveTerm('First Term'); // Default
+                        setActiveTerm('First Term');
                     }
                 }
             } catch (err) {
@@ -54,7 +53,30 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student }) => 
             }
         };
 
+        const fetchQuizResults = async () => {
+            const { data } = await supabase.from('quiz_submissions')
+                .select('*, quizzes(title, subject)')
+                .eq('student_id', studentId)
+                .order('submitted_at', { ascending: false });
+            if (data) setQuizResults(data);
+        };
+
         fetchData();
+        fetchQuizResults();
+
+        // Realtime Subscription
+        const channel = supabase.channel(`student_results_${studentId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'academic_performance', filter: `student_id=eq.${studentId}` }, () => {
+                fetchData();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_submissions', filter: `student_id=eq.${studentId}` }, () => {
+                fetchQuizResults();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [studentId]);
 
     // Derived data for active term
@@ -109,6 +131,30 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student }) => 
                                     <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${SUBJECT_COLORS[record.subject] || 'bg-gray-200'}`}>{record.score}%</span>
                                 </div>
                             )) : <p className="text-gray-500 text-sm">No grades recorded for this term.</p>}
+                        </div>
+
+                        {/* NEW: Quiz Results Section */}
+                        <div className="mt-6">
+                            <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                <span className="p-1 bg-purple-100 rounded text-purple-600">📝</span>
+                                Recent Quizzes
+                            </h4>
+                            <div className="space-y-2">
+                                {quizResults.length > 0 ? quizResults.map((result: any) => (
+                                    <div key={result.id} className="flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg hover:shadow-sm transition-shadow">
+                                        <div>
+                                            <div className="font-semibold text-sm text-gray-800">{result.quizzes?.title || 'Quiz'}</div>
+                                            <div className="text-xs text-gray-500">{new Date(result.submitted_at).toLocaleDateString()}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded text-gray-600">{result.quizzes?.subject}</span>
+                                            <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${result.score >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                {result.score}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                )) : <p className="text-gray-500 text-sm italic">No quizzes taken yet.</p>}
+                            </div>
                         </div>
                     </div>
 

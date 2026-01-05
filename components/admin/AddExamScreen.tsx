@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SUBJECTS_LIST } from '../../constants';
+import { toast } from 'react-hot-toast';
 import { Exam } from '../../types';
 
 interface AddExamScreenProps {
@@ -27,10 +28,10 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
     if (examType && date && className && subject) {
       onSave({ type: examType, date, className, subject });
     } else {
-      alert('Please fill all fields.');
+      toast.error('Please fill all fields.');
     }
   };
-  
+
   const examTypes = ['Mid-term', 'Final', 'Quiz', 'Test', 'Assessment'];
   const classNames = ['Grade 9A', 'Grade 9B', 'Grade 9C', 'Grade 10A', 'Grade 10B', 'Grade 10C', 'Grade 11A', 'Grade 11B', 'Grade 11C', 'Grade 12A', 'Grade 12B', 'Grade 12C'];
 
@@ -50,14 +51,14 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
               <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
               <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" />
             </div>
-             <div>
+            <div>
               <label htmlFor="className" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
               <select id="className" value={className} onChange={e => setClassName(e.target.value)} required className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500">
                 <option value="" disabled>Select class...</option>
                 {classNames.map(name => <option key={name} value={name}>{name}</option>)}
               </select>
             </div>
-             <div>
+            <div>
               <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
               <select id="subject" value={subject} onChange={e => setSubject(e.target.value)} required className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500">
                 <option value="" disabled>Select subject...</option>

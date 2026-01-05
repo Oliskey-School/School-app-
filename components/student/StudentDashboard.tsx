@@ -309,7 +309,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     }
                 } else if (isDemoEmail) {
                     // Use demo student fallback for quick logins
-                    console.log('Using demo student fallback for:', currentUser.email);
+                    // console.log('Using demo student fallback for:', currentUser.email);
                     setStudent(createDemoStudent());
                 } else {
                     console.warn('No linked student profile found.');
@@ -322,7 +322,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     currentUser?.email?.includes('student') ||
                     currentUser?.email?.includes('demo');
                 if (isDemoEmail) {
-                    console.log('Error occurred, using demo student fallback');
+                    // console.log('Error occurred, using demo student fallback');
                     setStudent({
                         id: 1,
                         name: 'Demo Student',

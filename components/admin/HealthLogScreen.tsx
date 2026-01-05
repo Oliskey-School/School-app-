@@ -3,6 +3,7 @@ import { HealthLogEntry, Student } from '../../types';
 import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon } from '../../constants';
 // import { getFormattedClassName } from '../../constants'; // unused or keep if needed
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 // --- TYPES & HELPERS ---
 const AILMENT_COLORS: { [key: string]: string } = {
@@ -44,74 +45,147 @@ const HealthLogScreen: React.FC = () => {
 
     useEffect(() => {
         const fetchStudents = async () => {
-            const { data } = await supabase.from('students').select('*');
-            if (data) setStudents(data);
+            const { data } = await supabase.from('students').select('id, name, avatarUrl, grade, section');
+            if (data) setStudents(data as any);
         };
+
+        const fetchLogs = async () => {
+            const { data, error } = await supabase
+                .from('health_logs')
+                .select(`
+                    id,
+                    studentId:student_id,
+                    date,
+                    time,
+                    reason,
+                    notes,
+                    medicationAdministered:medication_administered,
+                    parentNotified:parent_notified,
+                    recordedBy:recorded_by,
+                    students (
+                        name,
+                        avatarUrl
+                    )
+                `)
+                .order('date', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching health logs:', error);
+                return;
+            }
+
+            if (data) {
+                const formattedLogs: HealthLogEntry[] = data.map((log: any) => ({
+                    id: log.id,
+                    studentId: log.studentId,
+                    studentName: log.students?.name || 'Unknown',
+                    studentAvatar: log.students?.avatarUrl || '',
+                    date: log.date,
+                    time: log.time,
+                    reason: log.reason,
+                    notes: log.notes,
+                    medicationAdministered: log.medicationAdministered,
+                    parentNotified: log.parentNotified,
+                    recordedBy: log.recordedBy
+                }));
+                setLogs(formattedLogs);
+            }
+        };
+
         fetchStudents();
+        fetchLogs();
+
+        const channel = supabase.channel('health_logs_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'health_logs' }, () => {
+                fetchLogs();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
+    // Compute filtered logs based on time filter and search
     const filteredLogs = useMemo(() => {
-        let filtered = logs.filter(log => log.studentName.toLowerCase().includes(searchTerm.toLowerCase()));
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
 
+        let filtered = logs;
+
+        // Apply time filter
         if (timeFilter === 'today') {
-            const today = new Date().toDateString();
-            filtered = filtered.filter(log => new Date(log.date).toDateString() === today);
+            filtered = filtered.filter(log => {
+                const logDate = new Date(log.date);
+                return logDate >= today;
+            });
         } else if (timeFilter === 'week') {
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            filtered = filtered.filter(log => new Date(log.date) >= weekAgo);
+            filtered = filtered.filter(log => {
+                const logDate = new Date(log.date);
+                return logDate >= weekAgo;
+            });
         }
 
-        return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [logs, searchTerm, timeFilter]);
+        // Apply search filter
+        if (searchTerm) {
+            filtered = filtered.filter(log =>
+                log.studentName.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
 
+        return filtered;
+    }, [logs, timeFilter, searchTerm]);
+
+    // Compute stats
     const stats = useMemo(() => {
-        const todayCount = logs.filter(l => new Date(l.date).toDateString() === new Date().toDateString()).length;
-        const weekCount = logs.filter(l => {
-            const d = new Date(l.date);
-            const w = new Date();
-            w.setDate(w.getDate() - 7);
-            return d >= w;
-        }).length;
-        return { today: todayCount, week: weekCount, total: logs.length };
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
+
+        return {
+            today: logs.filter(log => new Date(log.date) >= today).length,
+            week: logs.filter(log => new Date(log.date) >= weekAgo).length
+        };
     }, [logs]);
 
-    const handleAddEntry = (e: React.FormEvent) => {
+    const handleAddEntry = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedStudent || !reason || !notes) {
             toast.error("Please select a student and fill in the reason and notes.");
             return;
         }
 
-        const student = students.find(s => s.id === selectedStudent);
-        if (!student) {
-            toast.error("Selected student not found.");
-            return;
+        try {
+            const { error } = await supabase.from('health_logs').insert({
+                student_id: parseInt(selectedStudent),
+                date: new Date().toISOString(),
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                reason,
+                notes,
+                medication_administered: medication ? { name: medication, dosage } : null,
+                parent_notified: parentNotified,
+                recorded_by: 'Admin' // Should be current user
+            });
+
+            if (error) throw error;
+            toast.success("Health log recorded successfully.");
+            setShowAddForm(false);
+
+            // Reset form
+            setSelectedStudent('');
+            setReason('');
+            setNotes('');
+            setMedication('');
+            setDosage('');
+            setParentNotified(false);
+
+        } catch (error) {
+            console.error("Error adding health log:", error);
+            toast.error("Failed to save health log.");
         }
-
-        const newLog: HealthLogEntry = {
-            id: Date.now(),
-            studentId: student.id,
-            studentName: student.name,
-            studentAvatar: student.avatarUrl,
-            date: new Date().toISOString(),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            reason,
-            notes,
-            medicationAdministered: medication ? { name: medication, dosage } : undefined,
-            parentNotified,
-            recordedBy: 'Admin Nurse',
-        };
-
-        setLogs(prev => [newLog, ...prev]);
-        setShowAddForm(false);
-        // Reset form
-        setSelectedStudent('');
-        setReason('');
-        setNotes('');
-        setMedication('');
-        setDosage('');
-        setParentNotified(false);
     };
 
     return (

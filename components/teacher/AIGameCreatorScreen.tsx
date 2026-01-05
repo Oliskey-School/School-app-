@@ -41,7 +41,7 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
         }
         setIsGenerating(true);
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
             const prompt = `You are an expert educational game designer. Create a multiple-choice quiz game based on these criteria:\n- Subject: ${subject}\n- Topic: ${topic}\n- Class Level: ${level}\nGenerate a JSON object for a quiz with 10 questions.`;
 
             const response = await ai.models.generateContent({
@@ -73,7 +73,22 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
                 }
             });
 
-            const generatedData = JSON.parse(response.text.trim());
+            const rawText = response.text ? response.text.trim() : '';
+
+            if (!rawText || rawText.startsWith('Error') || rawText.startsWith("I'm sorry")) {
+                throw new Error(rawText || "AI returned an error message.");
+            }
+
+            // Sanitize
+            const sanitizedText = rawText.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+
+            let generatedData;
+            try {
+                generatedData = JSON.parse(sanitizedText);
+            } catch (e) {
+                console.error("Game Creation JSON Parse Error", rawText);
+                throw new Error("AI generated an invalid format. Please try again.");
+            }
             setGame({
                 id: `game-${Date.now()}`,
                 gameName: generatedData.gameName,

@@ -95,9 +95,9 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
     const handleTranscribe = async (base64Audio: string) => {
         setIsLoading(true);
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+            const ai = getAIClient();
             const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash', // Efficient for transcription
+                model: 'gemini-2.0-flash-exp', // Efficient for transcription
                 contents: {
                     parts: [
                         { inlineData: { mimeType: 'audio/wav', data: base64Audio } },
@@ -118,9 +118,9 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
     // --- TTS Playback ---
     const playTTS = async (text: string) => {
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+            const ai = getAIClient();
             const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-2.0-flash-exp',
                 contents: { parts: [{ text }] },
                 config: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } }
             });
@@ -151,8 +151,8 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
         setMessages(prev => [...prev, userMsg]);
 
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
-            let modelName = 'gemini-2.0-flash'; // Default fast
+            const ai = getAIClient();
+            let modelName = 'gemini-2.0-flash-exp'; // Standardize on single model
             let config: any = {};
             let parts: any[] = [];
 
@@ -160,19 +160,17 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({ onBack, dashboardType }) =>
             if (attachment) {
                 const filePart = await fileToGenerativePart(attachment);
                 parts.push(filePart);
-                modelName = 'gemini-1.5-pro'; // Switch for vision tasks
             }
 
             if (thinkingMode) {
-                modelName = 'gemini-1.5-pro';
-                config.thinkingConfig = { thinkingBudget: 32768 };
+                // Gemini 2.0 Flash is capable, but we can just prompt it to think step-by-step if needed
+                // or just leave it as is. Configuration specific to 1.5-pro (thinkingBudget) might not apply or be needed.
+                // We'll just stick to the requested single model.
             }
 
             if (useGrounding === 'search') {
-                modelName = 'gemini-2.0-flash';
                 config.tools = [{ googleSearch: {} }];
             } else if (useGrounding === 'maps') {
-                modelName = 'gemini-2.0-flash';
                 config.tools = [{ googleMaps: {} }];
             }
 

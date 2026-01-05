@@ -119,6 +119,7 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout }: { acti
 export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout }: { activeScreen: string, setActiveScreen: (screen: string) => void, onLogout?: () => void }) => {
     const navItems = [
         { id: 'home', icon: <HomeIcon />, label: 'Home' },
+        { id: 'lessonNotes', icon: <DocumentTextIcon />, label: 'Lesson Notes' },
         { id: 'reports', icon: <ReportIcon />, label: 'Reports' },
         { id: 'forum', icon: <UserGroupIcon />, label: 'Forum' },
         { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },

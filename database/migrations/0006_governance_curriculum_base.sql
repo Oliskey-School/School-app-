@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS teacher_eligibility (
     PRIMARY KEY (teacher_id, curriculum_id)
 );
 
--- SEED DATA: Initialize Curricula
+-- SEED DATA: Initialize Curricula (skip if already exists)
 INSERT INTO curricula (code, name, description) VALUES
 ('NIGERIAN', 'Nigerian National Curriculum', 'Standard NERDC curriculum for Basic and Secondary education.'),
-('BRITISH', 'British National Curriculum', 'Cambridge/Pearson Edexcel curriculum including IGCSE and A-Levels.');
+('BRITISH', 'British National Curriculum', 'Cambridge/Pearson Edexcel curriculum including IGCSE and A-Levels.')
+ON CONFLICT (code) DO NOTHING;

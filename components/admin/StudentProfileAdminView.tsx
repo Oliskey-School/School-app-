@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Student } from '../../types';
+import { toast } from 'react-hot-toast';
 import { DocumentTextIcon, BookOpenIcon, ClipboardListIcon, CheckCircleIcon, SUBJECT_COLORS, EditIcon, getFormattedClassName, CakeIcon, TrashIcon, SparklesIcon, AIIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
@@ -148,12 +149,12 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
 
 
 
-            alert(`${student.name} has been successfully deleted from the database.`);
+            toast.success(`${student.name} has been successfully deleted from the database.`);
             forceUpdate();
             handleBack();
         } catch (error: any) {
             console.error('Error deleting student:', error);
-            alert('Failed to delete student: ' + (error.message || 'Unknown error'));
+            toast.error('Failed to delete student: ' + (error.message || 'Unknown error'));
         }
     };
 
@@ -161,11 +162,11 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         setIsGeneratingSummary(true);
         setSummary(''); // Clear previous summary
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
-            const academicSummary = student.academicPerformance?.map(p => `${p.subject}: ${p.score}%`).join(', ') || 'N/A';
-            const behaviorSummary = student.behaviorNotes?.map(n => `${n.type} - ${n.title}: ${n.note}`).join('; ') || 'No notes';
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const academicSummary = student.academicPerformance?.map(p => `${p.subject}: ${p.score}% `).join(', ') || 'N/A';
+            const behaviorSummary = student.behaviorNotes?.map(n => `${n.type} - ${n.title}: ${n.note} `).join('; ') || 'No notes';
 
-            const prompt = `Generate a concise, professional summary for a school administrator about the student ${student.name}. Highlight key academic strengths, areas needing attention, and any notable behavioral patterns. Keep it to 2-3 short paragraphs. Base this summary on the following data:\n- Academic Performance: ${academicSummary}\n- Behavioral Notes: ${behaviorSummary}`;
+            const prompt = `Generate a concise, professional summary for a school administrator about the student ${student.name}. Highlight key academic strengths, areas needing attention, and any notable behavioral patterns.Keep it to 2 - 3 short paragraphs.Base this summary on the following data: \n - Academic Performance: ${academicSummary} \n - Behavioral Notes: ${behaviorSummary} `;
 
             const response = await ai.models.generateContent({
                 model: 'gemini-2.0-flash',
@@ -192,7 +193,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                             <img src={student.avatarUrl} alt={student.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100" />
                             <div>
                                 <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
-                                <p className="text-gray-500 font-medium">{formattedClassName}{student.department && `, ${student.department}`}</p>
+                                <p className="text-gray-500 font-medium">{formattedClassName}{student.department && `, ${student.department} `}</p>
                                 {student.birthday && (
                                     <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
                                         <CakeIcon className="w-4 h-4" />
@@ -314,7 +315,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             <div className="p-4 mt-auto bg-white border-t space-y-2 print:hidden">
                 <h3 className="text-sm font-bold text-gray-500 text-center uppercase tracking-wider">Admin Actions</h3>
                 <div className="grid grid-cols-4 gap-4">
-                    <button onClick={() => navigateTo('addStudent', `Edit ${student.name}`, { studentToEdit: student })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><EditIcon className="w-5 h-5" /><span>Edit</span></button>
+                    <button onClick={() => navigateTo('addStudent', `Edit ${student.name} `, { studentToEdit: student })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><EditIcon className="w-5 h-5" /><span>Edit</span></button>
                     <button onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student.name}`, { student })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><DocumentTextIcon className="w-5 h-5" /><span>Reports</span></button>
                     <button onClick={() => toast('ID Card module coming soon!', { icon: '🆔' })} className="flex flex-col items-center justify-center space-y-1 py-3 bg-indigo-100 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-200"><DocumentTextIcon className="w-5 h-5" /><span>ID Card</span></button>
                     <button onClick={() => setShowDeleteModal(true)} className="flex flex-col items-center justify-center space-y-1 py-3 bg-red-100 text-red-700 font-semibold rounded-xl hover:bg-red-200"><TrashIcon className="w-5 h-5" /><span>Delete</span></button>
@@ -326,7 +327,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                 onClose={() => setShowDeleteModal(false)}
                 onConfirm={handleDelete}
                 title="Delete Student Account"
-                message={`Are you sure you want to delete ${student.name}? This action cannot be undone.`}
+                message={"Are you sure you want to delete " + student.name + "? This action cannot be undone."}
                 confirmText="Delete"
                 isDanger
             />

@@ -94,13 +94,35 @@ export async function getPendingAttendanceRequests() {
 /**
  * Approve teacher attendance (admin action)
  */
-export async function approveAttendance(attendanceId: number, adminUserId: number) {
+// Helper to resolve a valid Admin ID if a mock string ID is passed
+async function resolveAdminId(userId: string | number): Promise<number> {
+    if (typeof userId === 'number') return userId;
+    if (!isNaN(Number(userId))) return Number(userId);
+
+    // If string ID (mock), fetch the first real admin from DB
+    console.warn(`Resolving mock Admin ID '${userId}' to a real database ID...`);
+    const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', 'Admin')
+        .limit(1)
+        .maybeSingle();
+
+    return data?.id || 0; // Return Found ID or 0 (which might still fail constraint if no users, but better than string syntax error)
+}
+
+/**
+ * Approve teacher attendance (admin action)
+ */
+export async function approveAttendance(attendanceId: number, adminUserId: number | string) {
     try {
+        const resolvedAdminId = await resolveAdminId(adminUserId);
+
         const { data, error } = await supabase
             .from('teacher_attendance')
             .update({
                 status: 'Approved',
-                approved_by: adminUserId,
+                approved_by: resolvedAdminId,
                 approved_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })
@@ -138,13 +160,15 @@ export async function approveAttendance(attendanceId: number, adminUserId: numbe
 /**
  * Reject teacher attendance (admin action)
  */
-export async function rejectAttendance(attendanceId: number, adminUserId: number, reason?: string) {
+export async function rejectAttendance(attendanceId: number, adminUserId: number | string, reason?: string) {
     try {
+        const resolvedAdminId = await resolveAdminId(adminUserId);
+
         const { data, error } = await supabase
             .from('teacher_attendance')
             .update({
                 status: 'Rejected',
-                approved_by: adminUserId,
+                approved_by: resolvedAdminId,
                 approved_at: new Date().toISOString(),
                 rejection_reason: reason,
                 updated_at: new Date().toISOString(),

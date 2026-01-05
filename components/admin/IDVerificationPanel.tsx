@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
+import { XCircleIcon, CheckCircleIcon, EyeIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface IDVerificationRequest {
@@ -102,7 +104,7 @@ export function IDVerificationPanel() {
             loadRequests();
         } catch (error) {
             console.error('Approve error:', error);
-            alert('Failed to approve verification');
+            toast.error('Failed to approve verification');
         } finally {
             setProcessing(false);
         }
@@ -110,7 +112,7 @@ export function IDVerificationPanel() {
 
     const handleReject = async (requestId: string) => {
         if (!reviewNotes.trim()) {
-            alert('Please provide a reason for rejection');
+            toast.error('Please provide a reason for rejection');
             return;
         }
 
@@ -155,7 +157,7 @@ export function IDVerificationPanel() {
             loadRequests();
         } catch (error) {
             console.error('Reject error:', error);
-            alert('Failed to reject verification');
+            toast.error('Failed to reject verification');
         } finally {
             setProcessing(false);
         }
@@ -188,8 +190,8 @@ export function IDVerificationPanel() {
                         key={tab}
                         onClick={() => setFilter(tab)}
                         className={`px-4 py-2 font-medium transition border-b-2 ${filter === tab
-                                ? 'border-indigo-600 text-indigo-600'
-                                : 'border-transparent text-gray-600 hover:text-gray-800'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-gray-600 hover:text-gray-800'
                             }`}
                     >
                         {tab.charAt(0).toUpperCase() + tab.slice(1)}

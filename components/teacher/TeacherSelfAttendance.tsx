@@ -5,6 +5,7 @@ import {
     getTodayAttendanceStatus,
     TeacherAttendance,
 } from '../../lib/teacherAttendanceService';
+import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, ClockIcon, XCircleIcon, CalendarIcon } from '../../constants';
 
@@ -47,6 +48,38 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!teacherId) return;
+
+        // Subscribe to real-time updates for THIS teacher
+        const channel = supabase.channel(`teacher_attendance_${teacherId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'teacher_attendance',
+                    filter: `teacher_id=eq.${teacherId}`,
+                },
+                (payload) => {
+                    console.log('Real-time update received for teacher attendance:', payload);
+                    // Refresh data on any change (insert, update, delete)
+                    loadAttendanceDataRef.current();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [teacherId]);
+
+    // Use ref to avoid stale closure in subscription callback if we called loadAttendanceData directly
+    const loadAttendanceDataRef = React.useRef(loadAttendanceData);
+    useEffect(() => {
+        loadAttendanceDataRef.current = loadAttendanceData;
+    }, [loadAttendanceData]);
 
     const handleCheckIn = async () => {
         if (!teacherId) return;

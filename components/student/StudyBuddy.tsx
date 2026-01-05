@@ -39,33 +39,23 @@ const StudyBuddy: React.FC = () => {
     ]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const chatRef = useRef<Chat | null>(null);
+    const chatRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const apiKey = import.meta.env.VITE_OPENAI_API_KEY || ''; // Use Vite env var
-
-        if (!apiKey) {
-            setMessages(prev => [...prev, { role: 'model', text: "⚠️ API Key missing. Please set VITE_OPENAI_API_KEY in your .env file to use the AI Study Buddy." }]);
-            return;
-        }
-
-        const ai = getAIClient(apiKey);
-        chatRef.current = ai.chats.create({
-            model: 'gemini-2.0-flash',
-            config: {
-                systemInstruction: 'You are a friendly and encouraging study buddy for a high school student. Help them understand concepts without giving away the direct answer. Use simple language and lots of examples. Format your responses with markdown.',
-            },
-        });
-    }, []);
-
-    useEffect(() => {
+        // Chat initialization is handled per-request now to be stateless
         chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
     }, [messages]);
 
     const handleSendMessage = useCallback(async (text: string, imageFile?: File) => {
         if (!text && !imageFile) return;
+
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+        if (!apiKey) {
+            setMessages(prev => [...prev, { role: 'model', text: "⚠️ API Key missing. Please set VITE_GEMINI_API_KEY." }]);
+            return;
+        }
 
         setIsLoading(true);
         setInputText('');
@@ -78,32 +68,54 @@ const StudyBuddy: React.FC = () => {
             userMessage = { role: 'user', text };
         }
 
+        // Optimistic update
         setMessages(prev => [...prev, userMessage, { role: 'model', text: '' }]);
 
         try {
-            if (!chatRef.current) {
-                throw new Error("Chat not initialized");
-            }
+            const ai = getAIClient(apiKey);
 
-            const parts: any[] = [];
-            if (text) {
-                parts.push({ text });
-            }
+            // Build history from current state
+            const history = await Promise.all(messages.map(async (msg) => {
+                const parts: any[] = [{ text: msg.text }];
+                // Note: We can't easily retrieve base64 from blob URLs of past messages here without re-fetching.
+                // For simplicity in this session, we only send text history + current image if any.
+                // A production app would store base64 or file refs.
+                return {
+                    role: msg.role,
+                    parts: parts
+                };
+            }));
+
+            // Prepare current prompt
+            let currentParts: any[] = [{ text: text }];
             if (imageFile) {
                 const imagePart = await fileToGenerativePart(imageFile);
-                parts.push(imagePart);
+                currentParts.push(imagePart);
             }
 
-            const stream = await chatRef.current.sendMessageStream({ message: parts });
+            const promptContents = [
+                ...history,
+                { role: 'user', parts: currentParts }
+            ];
 
-            for await (const chunk of stream) {
-                const chunkText = chunk.text;
-                setMessages(prev => {
-                    const newMessages = [...prev];
-                    newMessages[newMessages.length - 1].text += chunkText;
-                    return newMessages;
-                });
-            }
+            const response = await ai.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: promptContents,
+                config: {
+                    systemInstruction: {
+                        parts: [{ text: 'You are a friendly and encouraging study buddy for a high school student. Help them understand concepts without giving away the direct answer. Use simple language and lots of examples.' }]
+                    }
+                }
+            });
+
+            const responseText = response.text || "No response from AI.";
+
+            setMessages(prev => {
+                const newMessages = [...prev];
+                // Update the placeholder model message
+                newMessages[newMessages.length - 1].text = responseText;
+                return newMessages;
+            });
 
         } catch (error) {
             console.error(error);
@@ -115,7 +127,7 @@ const StudyBuddy: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [messages]);
 
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();

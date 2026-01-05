@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRightIcon } from '../../constants';
+import { toast } from 'react-hot-toast';
+import { BookOpenIcon, SaveIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -39,7 +40,7 @@ const AcademicSettingsScreen: React.FC = () => {
     await supabase.from('system_settings').upsert({ key: 'academic_calendar', value: calendar });
     await supabase.from('system_settings').upsert({ key: 'grading_config', value: grading });
     setSaving(false);
-    alert('Settings saved!');
+    toast.success('Settings saved!');
   };
 
   return (

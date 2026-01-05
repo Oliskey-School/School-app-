@@ -72,6 +72,23 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
     useEffect(() => {
         if (selectedStudent) {
             loadFees(selectedStudent.id);
+
+            // Realtime subscription for fees
+            const channel = supabase.channel(`fees_${selectedStudent.id}`)
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'student_fees',
+                    filter: `student_id=eq.${selectedStudent.id}`
+                }, () => {
+                    loadFees(selectedStudent.id);
+                    // Optional: toast.success('Fees updated'); 
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     }, [selectedStudent]);
 

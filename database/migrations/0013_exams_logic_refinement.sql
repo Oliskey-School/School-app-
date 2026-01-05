@@ -8,11 +8,13 @@ BEGIN
     END IF;
 END $$;
 
--- 2. Update academic_records table
+-- 2. Update academic_records table (only if it exists)
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='academic_records' AND column_name='curriculum_type') THEN
-        ALTER TABLE public.academic_records ADD COLUMN curriculum_type TEXT DEFAULT 'General' CHECK (curriculum_type IN ('Nigerian', 'British', 'Dual', 'General'));
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='academic_records') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='academic_records' AND column_name='curriculum_type') THEN
+            ALTER TABLE public.academic_records ADD COLUMN curriculum_type TEXT DEFAULT 'General' CHECK (curriculum_type IN ('Nigerian', 'British', 'Dual', 'General'));
+        END IF;
     END IF;
 END $$;
 
@@ -24,6 +26,26 @@ CREATE TABLE IF NOT EXISTS public.exam_bodies (
     curriculum_type TEXT CHECK (curriculum_type IN ('Nigerian', 'British', 'Dual')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add curriculum_type column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='exam_bodies' AND column_name='curriculum_type') THEN
+        ALTER TABLE public.exam_bodies ADD COLUMN curriculum_type TEXT CHECK (curriculum_type IN ('Nigerian', 'British', 'Dual'));
+    END IF;
+END $$;
+
+-- Ensure UNIQUE constraint exists on code column
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name LIKE '%exam_bodies%code%' 
+        AND constraint_type = 'UNIQUE'
+    ) THEN
+        ALTER TABLE public.exam_bodies ADD CONSTRAINT exam_bodies_code_unique UNIQUE (code);
+    END IF;
+END $$;
 
 INSERT INTO public.exam_bodies (name, code, curriculum_type)
 VALUES 

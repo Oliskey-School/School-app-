@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
 import {
@@ -113,7 +114,7 @@ const CertificateViewer: React.FC = () => {
                             </div>
 
                             <button
-                                onClick={() => alert('PDF download would be implemented here')}
+                                onClick={() => toast('PDF download feature coming soon!', { icon: 'ℹ️' })}
                                 className="w-full mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center space-x-2"
                             >
                                 <DownloadIcon className="w-4 h-4" />

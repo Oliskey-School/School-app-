@@ -1,9 +1,24 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { mockNotifications } from '../../data';
-import { mockStudents, mockFees } from '../../data';
+import { supabase } from '../../lib/supabase';
+import { useProfile } from '../../context/ProfileContext';
+// import { mockNotifications } from '../../data'; // Mock removed
+import { mockStudents, mockFees } from '../../data'; // Keeping these for navigation mapping for now
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
-import { Notification } from '../../types';
+// import { Notification } from '../../types';
+
+// Defining local interface to match DB schema if needed, or use types
+interface Notification {
+  id: number;
+  title: string;
+  summary: string;
+  category: 'System' | 'Message' | 'Alert' | 'Event' | 'Assignment' | 'Grades' | 'Attendance' | 'Fees';
+  audience: string[];
+  is_read: boolean;
+  timestamp: string;
+  student_id?: number;
+  link?: string;
+}
 
 const formatDistanceToNow = (isoDate: string): string => {
   const date = new Date(isoDate);
@@ -26,26 +41,107 @@ interface NotificationsScreenProps {
 }
 
 const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, navigateTo }) => {
+  const { profile } = useProfile();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const relevantNotifications = useMemo(() =>
-    mockNotifications
-      .filter(n => n.audience.includes('all') || n.audience.includes(userType))
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-    [userType]
-  );
+  const fetchNotifications = async () => {
+    try {
+      if (!profile?.id) return; // Wait for profile
 
-  const handleNotificationClick = (notification: Notification) => {
+      // Fetch notifications where audience contains userType OR specific user_id match
+      // Note: Logic for 'audience' array check in Supabase might need specific filter or RLS
+      // For now, simpler query: fetch all for user_id match (if we have a user_notifications join) 
+      // OR fallback to simple "audience includes userType" checks if stored as JSON/Array.
+
+      let query = supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Ideally, backend should handle "For Me" logic via RLS. 
+      // We will fetch widely and filter locally if complex, or ideally rely on 'recipient_id' if it exists.
+      // Assuming 'audience' is a text array or JSONB in DB.
+
+      // For this implementation, we'll assume valid RLS or simple fetching.
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Filter locally for now to match strict permissions if DB RLS isn't perfect
+      const filtered = (data || []).filter((n: any) => {
+        const aud = n.audience || []; // Assuming audience is array string in DB
+        const isForRole = aud.includes('all') || aud.includes(userType);
+        const isForUser = n.recipient_id === profile.id || !n.recipient_id; // If recipient_id exists, it must match
+        return isForRole && isForUser;
+      }).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        summary: n.message, // Mapping 'message' col to 'summary' prop
+        category: n.type,   // Mapping 'type' col to 'category' prop
+        audience: n.audience,
+        is_read: n.is_read || false,
+        timestamp: n.created_at,
+        student_id: n.related_entity_id, // flexible mapping
+        link: n.link
+      }));
+
+      setNotifications(filtered);
+
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+
+    const channel = supabase.channel('public:notifications')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
+        fetchNotifications();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); }
+  }, [profile, userType]);
+
+
+  const markAsRead = async (notificationId: number) => {
+    // Optimistic update
+    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error marking as read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.is_read) {
+      await markAsRead(notification.id);
+    }
+
     // Parent-specific navigation logic
     if (userType === 'parent') {
       switch (notification.category) {
         case 'Fees':
-          const feeStudentInfo = mockFees.find(f => f.id === notification.studentId);
+          const feeStudentInfo = mockFees.find(f => f.id === notification.student_id);
           if (feeStudentInfo) {
             navigateTo('feeStatus', 'Fee Status', { student: feeStudentInfo });
           }
+          // Fallback if no mock data match
+          else navigateTo('feeStatus', 'Fee Status', {});
           break;
         case 'Attendance':
-          const student = mockStudents.find(s => s.id === notification.studentId);
+          const student = mockStudents.find(s => s.id === notification.student_id);
           if (student) {
             navigateTo('childDetail', student.name, { student, initialTab: 'attendance' });
           }
@@ -59,24 +155,33 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
         default:
           break;
       }
+    } else if (userType === 'admin') {
+      // Admin navigation logic
+      switch (notification.category) {
+        case 'Fees': navigateTo('feeManagement', 'Fee Management', {}); break;
+        case 'System': navigateTo('systemSettings', 'System Settings', {}); break;
+        case 'Message': navigateTo('messages', 'Messages', {}); break;
+        default: break;
+      }
     }
-    // Add logic for other user types if needed
   };
 
   return (
     <div className="flex flex-col h-full bg-gray-100">
       <main className="flex-grow p-4 space-y-3 overflow-y-auto">
-        {relevantNotifications.length > 0 ? (
-          relevantNotifications.map(notification => {
-            const config = NOTIFICATION_CATEGORY_CONFIG[notification.category];
+        {loading ? (
+          <div className="flex justify-center pt-10"><div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent"></div></div>
+        ) : notifications.length > 0 ? (
+          notifications.map(notification => {
+            const config = NOTIFICATION_CATEGORY_CONFIG[notification.category] || NOTIFICATION_CATEGORY_CONFIG['System'];
             const Icon = config.icon;
             return (
               <button
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className="w-full text-left bg-white rounded-xl shadow-sm p-4 flex items-start space-x-4 relative transition-all hover:shadow-md hover:ring-2 hover:ring-gray-200"
+                className={`w-full text-left bg-white rounded-xl shadow-sm p-4 flex items-start space-x-4 relative transition-all hover:shadow-md hover:ring-2 hover:ring-gray-200 ${notification.is_read ? 'opacity-70' : ''}`}
               >
-                {!notification.isRead && (
+                {!notification.is_read && (
                   <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
                 )}
                 <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${config.bg}`}>
@@ -84,12 +189,12 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
                 </div>
                 <div className="flex-grow">
                   <div className="flex justify-between items-center">
-                    <p className={`font-bold ${notification.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notification.title}</p>
+                    <p className={`font-bold ${notification.is_read ? 'text-gray-700' : 'text-gray-900'}`}>{notification.title}</p>
                     <p className="text-xs text-gray-500 flex-shrink-0 ml-2">
                       {formatDistanceToNow(notification.timestamp)}
                     </p>
                   </div>
-                  <p className={`text-sm mt-1 ${notification.isRead ? 'text-gray-600' : 'text-gray-800'}`}>{notification.summary}</p>
+                  <p className={`text-sm mt-1 ${notification.is_read ? 'text-gray-600' : 'text-gray-800'}`}>{notification.summary}</p>
                 </div>
               </button>
             )
@@ -103,5 +208,4 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
     </div>
   );
 };
-
 export default NotificationsScreen;

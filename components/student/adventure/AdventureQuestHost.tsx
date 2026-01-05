@@ -1,6 +1,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../../lib/ai';
+import { toast } from 'react-hot-toast';
 import HomeScreen from './HomeScreen';
 import LoadingScreen from './LoadingScreen';
 import QuizScreen from './QuizScreen';
@@ -39,7 +40,7 @@ const AdventureQuestHost: React.FC<{ handleBack: () => void }> = ({ handleBack }
         setAppState('loading');
         setError(null);
         try {
-            const apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
             if (!apiKey) {
                 setError("Configuration Error: API Key is missing. Please check your settings.");
                 setAppState('home');
@@ -78,7 +79,7 @@ const AdventureQuestHost: React.FC<{ handleBack: () => void }> = ({ handleBack }
             }
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-2.5-flash',
                 contents: contents,
                 config: {
                     responseMimeType: "application/json",

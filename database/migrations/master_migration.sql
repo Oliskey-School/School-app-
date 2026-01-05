@@ -108,9 +108,9 @@ CREATE POLICY "Inspectors can update own profile" ON public.inspectors FOR UPDAT
 CREATE POLICY "Inspectors can manage own inspections" ON public.inspections FOR ALL USING (inspector_id IN (SELECT id FROM public.inspectors WHERE user_id = auth.uid()));
 CREATE POLICY "Inspectors can manage responses" ON public.inspection_responses FOR ALL USING (inspection_id IN (SELECT id FROM public.inspections WHERE inspector_id IN (SELECT id FROM public.inspectors WHERE user_id = auth.uid())));
 
--- School Policies
-CREATE POLICY "Schools can view their inspections" ON public.inspections FOR SELECT USING (school_id IN (SELECT id FROM public.schools WHERE user_id = auth.uid()));
-CREATE POLICY "Schools can view their inspection responses" ON public.inspection_responses FOR SELECT USING (inspection_id IN (SELECT id FROM public.inspections WHERE school_id IN (SELECT id FROM public.schools WHERE user_id = auth.uid())));
+-- Authenticated users can view inspections (simplified - no schools.user_id reference)
+CREATE POLICY "Authenticated can view inspections" ON public.inspections FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated can view responses" ON public.inspection_responses FOR SELECT USING (auth.role() = 'authenticated');
 
 -- Public Policies
 CREATE POLICY "Public can view active templates" ON public.inspection_checklist_templates FOR SELECT USING (active = true);

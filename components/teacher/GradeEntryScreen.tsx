@@ -129,7 +129,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
             }]);
         }
 
-        console.log(`Saved score for student ${studentId}: ${value}`);
+        // console.log(`Saved score for student ${studentId}: ${value}`);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
     };

@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { UsersIcon, ParentNavIcon, TeacherNavIcon, StudentNavIcon, AIIcon } from '../../constants';
-import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
+import { toast } from 'react-hot-toast';
+import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 
 type Audience = 'all' | 'parents' | 'teachers' | 'students';
 
@@ -38,12 +39,12 @@ const CommunicationHub: React.FC = () => {
     const handleGenerate = async () => {
         if (!aiPrompt) return;
         if (!selectedAudience) {
-            alert("Please select an audience first to generate a tailored announcement.");
+            toast.error("Please select an audience first to generate a tailored announcement.");
             return;
         }
         setIsGenerating(true);
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
             const audienceText = selectedAudience === 'all' ? 'everyone (students, parents, and teachers)' : `the ${selectedAudience}`;
             const response = await ai.models.generateContent({
                 model: 'gemini-2.0-flash',
@@ -67,7 +68,7 @@ const CommunicationHub: React.FC = () => {
             setAiPrompt('');
         } catch (error) {
             console.error("AI Generation Error:", error);
-            alert("Failed to generate announcement. Please try again.");
+            toast.error("Failed to generate announcement. Please try again.");
         } finally {
             setIsGenerating(false);
         }
@@ -75,10 +76,10 @@ const CommunicationHub: React.FC = () => {
 
     const handleSend = () => {
         if (!selectedAudience || !title || !message) {
-            alert('Please select an audience, and fill in the title and message.');
+            toast.error('Please select an audience, and fill in the title and message.');
             return;
         }
-        alert(`Message sent to ${selectedAudience}`);
+        toast.success(`Message sent to ${selectedAudience}`);
         // Reset form
         setSelectedAudience(null);
         setTitle('');

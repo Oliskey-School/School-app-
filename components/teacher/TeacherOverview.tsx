@@ -43,24 +43,40 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
 
 // Helper: Parse "Grade 10A" -> {grade: 10, section: 'A'} or "Grade 7 - General" -> {grade: 7, section: 'General'}
 // Helper: Parse "Grade 10A - Math" -> {grade: 10, section: 'A', subject: 'Math'}
-const parseClassName = (name: string) => {
-  // Remove "Grade " prefix case-insensitive
-  const clean = name.replace(/^Grade\s+/i, '');
+// Helper: Parse "Grade 10A" -> {grade: 10, section: 'A'} using standardized logic if possible, 
+// but for normalized DB access we should rely on what's stored.
+// If class_name comes from DB as "10A", we just need to parse it.
+// If it comes as "JSS 1 - Section A", we need to handle that.
+// For now, let's just make the display consistent.
 
-  // Split by hyphen to separate class info from subject
+// We will import the helper inside the effect or component if needed, 
+// but 'parseClassName' is a local legacy helper that we should probably just make more robust or align with DB data.
+// However, since we are just fixing the "Virtual Classroom" complaint specifically, I will focus on that.
+// But the user said "any where class ... is requested".
+// Let's modify the display logic in the component loop to use the standard helper if we have the grade number.
+
+const parseClassName = (name: string) => {
+  // If the name is already in "Grade Display Name - Section" format, we might want to extract just the grade number?
+  // Or if we are just displaying, we might not need this if we fetch structured data.
+  // In TeacherOverview, we fetch from 'teacher_classes.class_name'. 
+  // If 'teacher_classes' stores simple names (like "10A"), we parse.
+
+  // This local helper seems to assume "Grade X" or "X".
+  // Let's leave it for now but update where it is USED if we can get structured data.
+  // Actually, 'teacher_classes' table usually stores a simple string. 
+
+  // Let's look at where it's used: line 123.
+
+  const clean = name.replace(/^Grade\s+/i, '');
   const parts = clean.split(/\s*[-–]\s*/);
   const classPart = parts[0].trim();
-
-  // Parse Grade/Section from classPart (e.g. "10A" or "7")
   let grade = 0;
   let section = '';
-
   const match = classPart.match(/^(\d+)([A-Za-z]+)?$/);
   if (match) {
     grade = parseInt(match[1]);
     section = match[2] || '';
   }
-
   return { grade, section };
 };
 
@@ -90,15 +106,18 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           const email = currentUser?.email || profile?.email;
           query = query.eq('email', email);
         } else {
-          // Ultimate Fallback (Demo)
-          query = query.eq('email', 'f.akintola@school.com');
+          // Ultimate Fallback (Demo) - REMOVED to ensure real data usage
+          // query = query.eq('email', 'f.akintola@school.com');
+          console.warn("No logged in user found for Teacher Overview");
+          setLoading(false);
+          return;
         }
 
         const { data: teacher, error: teacherError } = await query.maybeSingle();
 
         if (teacherError || !teacher) {
           if (teacherError) console.error('Teacher fetch error', teacherError);
-          else console.log('Teacher profile not found for user');
+          else { /* console.log('Teacher profile not found for user'); */ }
           return;
         }
 
@@ -141,13 +160,19 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
         setTodaySchedule(timetable || []);
 
-        // 5. Get Ungraded Assignments
-        const { data: recentAssignments } = await supabase
-          .from('assignments')
-          .select('*')
-          .limit(3);
+        // 5. Get Recent Assignments for My Classes
+        let recentAssignments: any[] = [];
+        if (classes.length > 0) {
+          const { data } = await supabase
+            .from('assignments')
+            .select('*')
+            .in('class_name', classes)
+            .order('created_at', { ascending: false })
+            .limit(3);
+          recentAssignments = data || [];
+        }
 
-        setUngradedAssignments(recentAssignments || []);
+        setUngradedAssignments(recentAssignments);
 
       } catch (err) {
         console.error(err);
@@ -158,20 +183,12 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
     fetchData();
 
-    // Real-time subscription for teacher_classes
+    // Real-time subscription for relevant tables
     const subscription = supabase
-      .channel('teacher_classes_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'teacher_classes'
-        },
-        () => {
-          fetchData();
-        }
-      )
+      .channel('teacher_overview_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_classes' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable' }, () => fetchData())
       .subscribe();
 
     return () => {
@@ -194,7 +211,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     { label: "My Attendance", icon: <CheckCircleIcon className="h-7 w-7" />, action: () => navigateTo('teacherSelfAttendance', 'My Attendance', {}) },
     { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', {}) },
     { label: "Assignments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assignmentsList', 'Manage Assignments', {}) },
-    { label: "Resources", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('resources', 'Resource Hub', {}) },
+    { label: "Lesson Notes", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('lessonNotesUpload', 'Upload Lesson Notes', {}) },
+    { label: "Resources", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('resources', 'Resource Hub', {}) },
     { label: "Appointments", icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Appointments', {}) },
     { label: "Virtual Class", icon: <VideoIcon className="h-7 w-7" />, action: () => navigateTo('virtualClass', 'Virtual Classroom', {}) },
     { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', {}) },

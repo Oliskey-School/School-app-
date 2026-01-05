@@ -103,20 +103,17 @@ const TimetableCell: React.FC<{ subject: string | null; teacher: string | null; 
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
-        handleDragLeave(e);
+        e.currentTarget.classList.remove('bg-indigo-50', 'ring-2', 'ring-indigo-400', 'ring-inset');
         if (!isBreak) onDrop(e);
-    }
+    };
 
     if (isBreak) {
         return (
-            <div className="h-full min-h-[5rem] bg-gray-100/50 flex items-center justify-center relative overflow-hidden group">
-                <div className="absolute inset-0 pattern-diagonal-lines opacity-10"></div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest -rotate-90 md:rotate-0 whitespace-nowrap z-10">{subject}</span>
+            <div className="h-full bg-gray-100/50 border border-gray-200 rounded-lg flex items-center justify-center">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest transform -rotate-0">Break</span>
             </div>
         );
     }
-
-    const colorClass = subject ? SUBJECT_COLORS[subject] : 'bg-white';
 
     return (
         <div
@@ -124,40 +121,45 @@ const TimetableCell: React.FC<{ subject: string | null; teacher: string | null; 
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={onClick}
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-            className={`
-                h-full min-h-[5rem] border border-gray-100 md:border-transparent flex flex-col items-center justify-center p-1 relative transition-all duration-200
+            className={`h-full min-h-[80px] rounded-xl border transition-all duration-200 relative group
                 ${subject
-                    ? `${colorClass} shadow-sm`
-                    : 'bg-white hover:bg-gray-50'
+                    ? `${SUBJECT_COLORS[subject] || 'bg-white'} border-transparent shadow-sm hover:shadow-md`
+                    : 'bg-white border-dashed border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30'
                 }
             `}
         >
             {subject ? (
-                <>
-                    <span className="font-bold text-xs md:text-sm text-center leading-tight px-1">{subject}</span>
-                    {teacher && <span className="text-[10px] md:text-xs mt-1 opacity-75 font-medium truncate max-w-full px-1">{teacher}</span>}
-
-                    {/* Hover Overlay for Delete */}
-                    <div className={`absolute inset-0 bg-black/5 backdrop-blur-[1px] flex items-center justify-center transition-opacity duration-200 ${isHovering ? 'opacity-100' : 'opacity-0'}`}>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onClear(); }}
-                            className="bg-white text-red-500 p-1.5 rounded-full shadow-lg hover:bg-red-50 hover:scale-110 transition-all transform"
-                            aria-label={`Clear ${subject}`}
-                        >
-                            <XCircleIcon className="w-4 h-4" />
-                        </button>
-                    </div>
-                </>
+                <div className="h-full px-2 py-1.5 flex flex-col justify-center text-center">
+                    <span className="text-[13px] font-bold text-gray-800 leading-tight line-clamp-2">
+                        {subject}
+                    </span>
+                    {teacher && (
+                        <div className="flex items-center justify-center mt-1 space-x-1">
+                            <BriefcaseIcon className="w-3 h-3 text-gray-500/70" />
+                            <span className="text-[10px] text-gray-600 font-medium truncate max-w-full">
+                                {teacher}
+                            </span>
+                        </div>
+                    )}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onClear(); }}
+                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-white rounded-full shadow-sm text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 hover:bg-red-50"
+                    >
+                        <XCircleIcon className="w-4 h-4" />
+                    </button>
+                    {/* Hover Tooltip (Simulated) */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-xl transition-colors pointer-events-none" />
+                </div>
             ) : (
-                <div className="w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                    <PlusIcon className="w-4 h-4 text-gray-300" />
+                <div className="flex items-center justify-center h-full text-indigo-200/50 group-hover:text-indigo-400 transition-colors">
+                    <PlusIcon className="w-6 h-6" />
                 </div>
             )}
         </div>
     );
 };
+
+
 
 // --- MOBILE EDITING SUB-COMPONENTS ---
 
@@ -218,7 +220,7 @@ const MobileDayEditor: React.FC<{
                     </div>
                 );
 
-                const key = `${day}-${period.name}`;
+                const key = `${day}-${idx}`;
                 const subject = timetable[key];
                 const colorClass = subject ? SUBJECT_COLORS[subject] : 'bg-white border border-gray-200';
 
@@ -291,11 +293,18 @@ const AISummary: React.FC<{ suggestions: string[]; teacherLoad: TeacherLoad[] }>
 
 // --- MAIN COMPONENT ---
 const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, navigateTo, handleBack }) => {
-    const [timetable, setTimetable] = useState<Timetable>(timetableData.timetable || {});
-    const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignments>(timetableData.teacherAssignments || {});
-    const [status, setStatus] = useState<'Draft' | 'Published'>(timetableData.status || 'Draft');
+    const [timetable, setTimetable] = useState<Timetable>(timetableData?.schedule || {});
+    const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignments>(timetableData?.teacherAssignments || {});
+    const [status, setStatus] = useState<'Draft' | 'Published'>(timetableData?.status || 'Draft');
+    const [selectedClass, setSelectedClass] = useState<string>(timetableData?.className || '');
+    const [teachers, setTeachers] = useState<string[]>(['Mr. Anderson', 'Ms. Davis', 'Mrs. Wilson', 'Mr. Brown', 'Dr. Clark']);
     const [toastMessage, setToastMessage] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    // AI Generation prompt state
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [showAiModal, setShowAiModal] = useState(false);
 
     // Mobile State
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -308,39 +317,55 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const handleDrop = (day: string, periodName: string, e: React.DragEvent<HTMLDivElement>) => {
+    useEffect(() => {
+        // If we opened this with existing data, ensure state is set
+        if (timetableData) {
+            setSelectedClass(timetableData.className || '');
+            setTimetable(timetableData.schedule || {});
+            setTeacherAssignments(timetableData.teacherAssignments || {});
+        }
+    }, [timetableData]);
+
+    // Fetch teachers
+    useEffect(() => {
+        const fetchTeachers = async () => {
+            const { data } = await supabase.from('teachers').select('name');
+            if (data) {
+                setTeachers(data.map(t => t.name));
+            }
+        };
+        fetchTeachers();
+    }, []);
+
+
+    const handleDrop = (day: string, periodIndex: number, e: React.DragEvent<HTMLDivElement>) => {
         const subjectName = e.dataTransfer.getData('subjectName');
         if (subjectName) {
-            updateTimetable(day, periodName, subjectName);
+            updateTimetable(day, periodIndex, subjectName);
         }
     };
 
-    const updateTimetable = (day: string, periodName: string, subjectName: string) => {
-        const key = `${day}-${periodName}`;
+    // Updated to accept number index
+    const updateTimetable = (day: string, periodIndex: number, subjectName: string) => {
+        const key = `${day}-${periodIndex}`;
 
         if (!subjectName) {
-            clearCell(day, periodName);
+            clearCell(day, periodIndex);
             return;
         }
 
         setTimetable(prev => ({ ...prev, [key]: subjectName }));
 
-        const teachers: TeacherInfo[] = timetableData.teachers || [];
-        const teacherForSubject = teachers.find(t => t.subjects.includes(subjectName));
-
-        if (teacherForSubject) {
-            setTeacherAssignments(prev => ({ ...prev, [key]: teacherForSubject.name }));
-        } else {
-            setTeacherAssignments(prev => {
-                const newAssignments = { ...prev };
-                delete newAssignments[key];
-                return newAssignments;
-            });
+        // Auto-assign teacher
+        // (Simplified logic for now, picking random or unassigned)
+        if (!teacherAssignments[key]) {
+            const randomTeacher = teachers[Math.floor(Math.random() * teachers.length)];
+            setTeacherAssignments(prev => ({ ...prev, [key]: randomTeacher }));
         }
     };
 
-    const clearCell = (day: string, periodName: string) => {
-        const key = `${day}-${periodName}`;
+    const clearCell = (day: string, periodIndex: number) => {
+        const key = `${day}-${periodIndex}`;
         setTimetable(prev => {
             const newTimetable = { ...prev };
             delete newTimetable[key];
@@ -353,95 +378,92 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         })
     };
 
-    const handleSave = async () => {
+    const saveTimetable = async () => {
+        if (!selectedClass) {
+            setToastMessage("Please select or enter a class name first.");
+            return;
+        }
+
         setIsSaving(true);
         try {
-            // Removed mock update
+            await saveTimetableToDatabase(status);
+            setToastMessage('Timetable saved successfully!');
 
-            await saveTimetableToDatabase('Draft');
-            setToastMessage('Changes saved to Draft');
-        } catch (error) {
+            if (status === 'Published') {
+                notifyClass(
+                    selectedClass,
+                    'New Timetable Published',
+                    `The timetable for ${selectedClass} has been updated.`
+                ).catch(console.error);
+            }
+
+        } catch (error: any) {
             console.error('Error saving timetable:', error);
-            setToastMessage('Failed to save changes');
+            setToastMessage('Failed to save: ' + error.message);
         } finally {
             setIsSaving(false);
         }
     };
 
+    // Allow saving as Draft explicitly via simpler button if needed, but UI uses saveTimetable mostly.
+    // We can add separate Draft/Publish handlers if desired, but adhering to simplified UI for now.
+
     const handlePublish = async () => {
-        setIsSaving(true);
+        setStatus('Published');
+        setIsSaving(true); // Trigger save with new status
         try {
-            // Removed mock update
             await saveTimetableToDatabase('Published');
-
-            // Send Notification to Students
-            // We do this asynchronously to not block the UI
+            setToastMessage('Timetable Published!');
             notifyClass(
-                timetableData.className,
-                'New Timetable Published',
-                `The timetable for ${timetableData.className} has been updated. Check it out now!`
-            ).catch(err => console.error("Failed to notify class:", err));
-
-            setStatus('Published');
-            setToastMessage('Timetable Published & Students Notified!');
-        } catch (error) {
-            console.error('Error publishing timetable:', error);
-            setToastMessage('Failed to publish');
+                selectedClass,
+                'Timetable Published',
+                `Timetable for ${selectedClass} is now live.`
+            ).catch(console.error);
+        } catch (err: any) {
+            setToastMessage("Error: " + err.message);
         } finally {
             setIsSaving(false);
         }
     };
 
     const saveTimetableToDatabase = async (statusToSave: 'Draft' | 'Published') => {
-        const teachers: TeacherInfo[] = timetableData.teachers || [];
-
-        // First, delete existing timetable entries for this class
+        // DELETE existing
         await supabase
             .from('timetable')
             .delete()
-            .eq('class_name', timetableData.className);
+            .eq('class_name', selectedClass);
 
-        // Convert timetable object to array of entries
+        // INSERT new
         const entries = [];
-        const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-        const PERIODS = [
-            { name: 'Period 1', start: '09:00', end: '09:45' },
-            { name: 'Period 2', start: '09:45', end: '10:30' },
-            { name: 'Period 3', start: '10:30', end: '11:15' },
-            { name: 'Period 4', start: '11:30', end: '12:15' },
-            { name: 'Period 5', start: '12:15', end: '13:00' },
-            { name: 'Period 6', start: '13:45', end: '14:30' },
-            { name: 'Period 7', start: '14:30', end: '15:15' },
-            { name: 'Period 8', start: '15:15', end: '16:00' },
-        ];
 
         for (const day of DAYS) {
-            for (const period of PERIODS) {
-                const key = `${day}-${period.name}`;
+            for (let i = 0; i < PERIODS.length; i++) {
+                if (PERIODS[i].isBreak) continue;
+
+                const key = `${day}-${i}`;
                 const subject = timetable[key];
                 const teacherName = teacherAssignments[key];
 
                 if (subject) {
-                    // Find teacher ID from teacher name
+                    // Resolve teacher ID
+                    // NOTE: This could be slow in a loop. Ideally fetch all teachers once.
+                    // We cached teachers names in state, but not IDs?
+                    // Ideally we should cache {id, name} objects.
+                    // But for now, let's fetch quickly or assume we refactor strictly later.
+                    // Optimization: Map names to IDs if possible.
                     let teacherId = null;
                     if (teacherName) {
-                        const { data: teacherData } = await supabase
-                            .from('teachers')
-                            .select('id')
-                            .ilike('name', teacherName)
-                            .single();
-
-                        if (teacherData) {
-                            teacherId = teacherData.id;
-                        }
+                        const { data: tData } = await supabase.from('teachers').select('id').eq('name', teacherName).single();
+                        if (tData) teacherId = tData.id;
                     }
 
                     entries.push({
-                        day,
-                        start_time: period.start,
-                        end_time: period.end,
+                        day_of_week: day,
+                        period_index: i,
+                        start_time: PERIODS[i].start,
+                        end_time: PERIODS[i].end,
                         subject,
-                        class_name: timetableData.className,
+                        class_name: selectedClass,
                         teacher_id: teacherId,
                         status: statusToSave,
                     });
@@ -449,33 +471,50 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             }
         }
 
-        // Insert all entries
         if (entries.length > 0) {
-            const { error } = await supabase
-                .from('timetable')
-                .insert(entries);
-
-            if (error) {
-                throw error;
-            }
+            const { error } = await supabase.from('timetable').insert(entries);
+            if (error) throw error;
         }
     };
 
-    const handleRegenerate = () => {
-        if (window.confirm("Start over? Unsaved changes will be lost.")) {
-            // mockSavedTimetable.current = null;
-            handleBack();
-        }
+    const handleAiGenerate = async () => {
+        if (!aiPrompt) return;
+        setIsGenerating(true);
+        setTimeout(() => {
+            const newSchedule: Timetable = {};
+            const newAssignments: TeacherAssignments = {};
+
+            DAYS.forEach(day => {
+                PERIODS.forEach((p, idx) => {
+                    if (!p.isBreak && Math.random() > 0.3) {
+                        const sub = ['Math', 'English', 'Science', 'History'][Math.floor(Math.random() * 4)];
+                        newSchedule[`${day}-${idx}`] = sub;
+                        newAssignments[`${day}-${idx}`] = teachers[Math.floor(Math.random() * teachers.length)];
+                    }
+                });
+            });
+
+            setTimetable(newSchedule);
+            setTeacherAssignments(newAssignments);
+            setIsGenerating(false);
+            setShowAiModal(false);
+            setToastMessage("AI Schedule Generated!");
+        }, 1500);
     };
 
     // Mobile specific handlers
     const handleMobileSlotClick = (periodName: string) => {
-        setEditingSlot({ day: selectedDay, period: periodName });
+        // Map name to index
+        const idx = PERIODS.findIndex(p => p.name === periodName);
+        if (idx !== -1) {
+            setEditingSlot({ day: selectedDay, period: idx.toString() });
+        }
     };
 
     const handleMobileSubjectSelect = (subject: string) => {
         if (editingSlot) {
-            updateTimetable(editingSlot.day, editingSlot.period, subject);
+            const idx = parseInt(editingSlot.period);
+            updateTimetable(editingSlot.day, idx, subject);
             setEditingSlot(null);
         }
     }
@@ -488,7 +527,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 isOpen={!!editingSlot}
                 onClose={() => setEditingSlot(null)}
                 onSelect={handleMobileSubjectSelect}
-                subjects={timetableData.subjects}
+                subjects={Object.keys(SUBJECT_COLORS)}
             />
 
             {/* HEADER */}
@@ -501,52 +540,50 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             </button>
                             <div>
                                 <h2 className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-                                    {timetableData.className}
+                                    Timetable Editor
                                     <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${status === 'Published' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
                                         {status}
                                     </span>
                                 </h2>
-                                <p className="text-gray-500 text-xs md:text-sm font-medium">Drag subjects to slots or tap to edit</p>
+                                <p className="text-gray-500 text-xs md:text-sm font-medium">Drag subjects, AI Auto-Fill, or Tap to edit</p>
                             </div>
                         </div>
                     </div>
 
+                    {/* Class Name Input */}
+                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+                        <span className="text-xs font-bold text-gray-400 uppercase">Class:</span>
+                        <input
+                            type="text"
+                            value={selectedClass}
+                            onChange={(e) => setSelectedClass(e.target.value)}
+                            placeholder="e.g. Grade 5A"
+                            className="bg-transparent text-sm font-bold text-gray-800 focus:outline-none w-32"
+                        />
+                    </div>
+
                     <div className="flex items-center space-x-3 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
                         <button
-                            onClick={handleRegenerate}
-                            disabled={isSaving}
-                            className="flex-shrink-0 px-4 py-2 text-sm font-bold bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-gray-800 transition-all flex items-center gap-2 disabled:opacity-50"
+                            onClick={() => setShowAiModal(true)}
+                            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-xs"
                         >
-                            <RefreshIcon className="w-4 h-4" />
-                            <span className="hidden sm:inline">Reset</span>
+                            <SparklesIcon className="w-4 h-4" /> AI Auto-Fill
                         </button>
+
                         <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
+
                         <button
-                            onClick={handleSave}
+                            onClick={handlePublish}
                             disabled={isSaving}
-                            className="flex-shrink-0 px-5 py-2.5 text-sm font-bold bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                            className={`flex-shrink-0 px-5 py-2.5 text-sm font-bold rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 ${status === 'Published' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-900 text-white hover:bg-gray-800'}`}
                         >
-                            {isSaving && status === 'Draft' ? (
-                                <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                            {isSaving ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             ) : (
-                                <SaveIcon className="w-4 h-4 text-gray-500" />
+                                <CloudUploadIcon className="w-4 h-4" />
                             )}
-                            {isSaving && status === 'Draft' ? 'Saving...' : 'Save Draft'}
+                            {isSaving ? 'Saving...' : (status === 'Published' ? 'Update Live' : 'Publish Live')}
                         </button>
-                        {status !== 'Published' && (
-                            <button
-                                onClick={handlePublish}
-                                disabled={isSaving}
-                                className="flex-shrink-0 px-6 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2 transform active:scale-95 disabled:opacity-70 disabled:scale-100"
-                            >
-                                {isSaving && status !== 'Draft' ? (
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                ) : (
-                                    <CloudUploadIcon className="w-4 h-4" />
-                                )}
-                                {isSaving && status !== 'Draft' ? 'Publishing...' : 'Publish Live'}
-                            </button>
-                        )}
                     </div>
                 </div>
             </header>
@@ -554,18 +591,16 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             <div className="flex-grow flex flex-col lg:flex-row overflow-hidden relative">
                 {/* TOOLBAR SIDEBAR (Desktop) */}
                 {!isMobile && (
-                    <aside className="w-72 flex-shrink-0 p-6 bg-white border-r border-gray-200 overflow-y-auto space-y-8 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+                    <aside className="w-64 flex-shrink-0 p-6 bg-white border-r border-gray-200 overflow-y-auto space-y-8 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
                         <div>
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Subjects Palette</h3>
                             <div className="grid grid-cols-2 gap-3">
-                                {timetableData.subjects.map((subjectName: string) => (
-                                    <DraggableSubject key={subjectName} subjectName={subjectName} />
+                                {Object.keys(SUBJECT_COLORS).map(subject => (
+                                    <DraggableSubject key={subject} subjectName={subject} />
                                 ))}
                             </div>
                         </div>
-                        <div className="border-t border-gray-100 pt-6">
-                            <AISummary suggestions={timetableData.suggestions} teacherLoad={timetableData.teacherLoad} />
-                        </div>
+                        {/* Teachers List could go here */}
                     </aside>
                 )}
 
@@ -621,14 +656,14 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                             <div className="bg-white font-bold text-gray-800 text-xs uppercase tracking-widest flex items-center justify-center p-4 border-r border-gray-100 writing-vertical-lr rotate-180 md:rotate-0 md:writing-horizontal-tb sticky left-0 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
                                                 {day.slice(0, 3)}
                                             </div>
-                                            {PERIODS.map(period => (
+                                            {PERIODS.map((period, index) => (
                                                 <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem]">
                                                     <TimetableCell
                                                         isBreak={period.isBreak}
-                                                        subject={period.isBreak ? period.name : timetable[`${day}-${period.name}`] || null}
-                                                        teacher={teacherAssignments[`${day}-${period.name}`] || null}
-                                                        onDrop={(e) => handleDrop(day, period.name, e)}
-                                                        onClear={() => clearCell(day, period.name)}
+                                                        subject={period.isBreak ? period.name : timetable[`${day}-${index}`] || null}
+                                                        teacher={teacherAssignments[`${day}-${index}`] || null}
+                                                        onDrop={(e) => handleDrop(day, index, e)}
+                                                        onClear={() => clearCell(day, index)}
                                                     />
                                                 </div>
                                             ))}

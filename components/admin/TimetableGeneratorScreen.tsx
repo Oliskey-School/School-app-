@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, ChevronRightIcon, CalendarIcon, UserGroupIcon, BookOpenIcon, ClockIcon, EditIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
@@ -104,28 +105,20 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     // Fetch classes from database
     useEffect(() => {
         const fetchClasses = async () => {
-            console.log('🔍 Fetching classes from database...');
             setIsLoadingClasses(true);
             try {
-                console.log('📡 Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-                console.log('🔑 Supabase Key exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
-
                 const { data, error } = await supabase
                     .from('classes')
                     .select('id, subject, grade, section, department')
                     .order('grade', { ascending: true })
                     .order('section', { ascending: true });
 
-                console.log('📊 Query result:', { data, error });
-
                 if (error) {
-                    console.error('❌ Supabase error:', error);
+                    console.error('Supabase error:', error);
                     throw error;
                 }
 
                 if (data) {
-                    console.log(`✅ Found ${data.length} classes in database`);
-
                     // Import the helper function
                     const { getGradeDisplayName } = await import('../../lib/schoolSystem');
 
@@ -137,8 +130,6 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
 
                         // Add department for SSS classes
                         if (cls.department && cls.grade >= 10) {
-                            // Only append department if strictly needed for distinction, 
-                            // but usually for timetable generation we want the Class entity (10A Science).
                             displayName += ` (${cls.department})`;
                         }
 
@@ -147,7 +138,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
 
                         if (!uniqueClassesMap.has(key)) {
                             uniqueClassesMap.set(key, {
-                                id: cls.id, // Use the first ID found for this group
+                                id: cls.id,
                                 name: displayName,
                                 grade: cls.grade,
                                 section: cls.section,
@@ -156,23 +147,18 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
                     });
 
                     const formattedClasses = Array.from(uniqueClassesMap.values());
-
-                    console.log('📝 Formatted classes:', formattedClasses.slice(0, 5));
                     setClasses(formattedClasses);
 
                     // Set first class as default if available
                     if (formattedClasses.length > 0 && !className) {
                         setClassName(formattedClasses[0].name);
-                        console.log('✅ Set default class:', formattedClasses[0].name);
                     }
-                } else {
-                    console.warn('⚠️ No data returned from query');
                 }
             } catch (error) {
-                console.error('💥 Error fetching classes:', error);
+                console.error('Error fetching classes:', error);
+                toast.error('Failed to load classes.');
             } finally {
                 setIsLoadingClasses(false);
-                console.log('✅ Finished loading classes');
             }
         };
 
@@ -180,12 +166,30 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     }, []);
 
     // Check for existing timetable when className changes
+    // Check for existing timetable when className changes
     useEffect(() => {
-        if (className) {
-            checkTimetableExists(className).then(exists => {
-                setExistingTimetableFound(exists);
-            });
-        }
+        const checkExistence = () => {
+            if (className) {
+                checkTimetableExists(className).then(exists => {
+                    setExistingTimetableFound(exists);
+                });
+            }
+        };
+
+        checkExistence();
+
+        const channel = supabase.channel(`timetable_check_${className}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable' }, (payload) => {
+                // Ideally filter by payload.new.class_name or payload.old.class_name if possible,
+                // but for now, just re-check if ANY timetable change happens.
+                // Optimally we would inspect payload, but Supabase realtime payloads might be partial.
+                checkExistence();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [className]);
 
     const handleLoadExisting = async () => {
@@ -261,7 +265,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
         setIsGenerating(true);
         // ... (existing generation logic) ...
         try {
-            const ai = getAIClient(import.meta.env.VITE_OPENAI_API_KEY || '');
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
             const prompt = `
                 You are an expert school administrator. Generate a balanced weekly timetable for:
                 - Class: ${className}
@@ -335,7 +339,21 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
                 }
             });
 
-            const rawData = JSON.parse(response.text.trim());
+            let rawData;
+            try {
+                const text = response.text.trim();
+                // Safety check: if AI returns a plain error message instead of JSON
+                if (text.startsWith("Error") || text.startsWith("AI Error") || text.includes("I'm having trouble")) {
+                    throw new Error(text);
+                }
+
+                // specific cleanup for potential markdown code blocks
+                const jsonText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                rawData = JSON.parse(jsonText);
+            } catch (parseError) {
+                console.error("Failed to parse AI response:", response.text);
+                throw new Error("The AI generated an invalid schedule format. Please try again.");
+            }
 
             // Transform arrays to maps for the editor component
             const timetableMap = rawData.timetable.reduce((acc: { [key: string]: string }, item: { slot: string; subject: string }) => {
@@ -359,9 +377,15 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
             // mockSavedTimetable.current = { ...timetableData, status: 'Draft' };
             navigateTo('timetableEditor', 'Edit Timetable', { timetableData: { ...timetableData, status: 'Draft' } });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Timetable generation error:", error);
-            alert("An error occurred. The AI might be busy or the request was too complex. Please simplify your rules or teacher constraints and try again.");
+            const errorMessage = error.message || "An unknown error occurred.";
+
+            if (errorMessage.includes("API Key")) {
+                toast.error("Configuration Error: API Key is missing.");
+            } else {
+                toast.error(errorMessage.length < 100 ? errorMessage : "AI generation failed. Please simplify constraints and try again.");
+            }
         } finally {
             setIsGenerating(false);
         }
