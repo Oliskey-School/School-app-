@@ -6,6 +6,7 @@ import Header from '../ui/Header';
 import { TeacherBottomNav } from '../ui/DashboardBottomNav';
 import { TeacherSidebar } from '../ui/DashboardSidebar';
 import { mockNotifications } from '../../data';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -112,14 +113,25 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     try {
       let query = supabase.from('teachers').select('id, name, avatar_url, email');
 
-      if (currentUser?.email) {
-        query = query.eq('email', currentUser.email);
+      let emailToQuery = currentUser?.email;
+
+      if (!emailToQuery) {
+        // Fallback: Check active session if prop is missing
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          emailToQuery = user.email;
+        }
+      }
+
+      if (emailToQuery) {
+        query = query.eq('email', emailToQuery);
       } else {
-        // Fallback for dev/demo if no user is passed, though we should avoid this in production
+        // Ultimate Fallback (Demo Only) - Only if really no auth
+        console.warn("No auth user found, falling back to Demo Teacher (ID 2)");
         query = query.eq('id', 2);
       }
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('Error fetching dashboard profile:', error);
@@ -149,7 +161,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     setIsHomePage(currentView.view === 'overview' && !isSearchOpen);
   }, [viewStack, isSearchOpen, setIsHomePage]);
 
-  const notificationCount = mockNotifications.filter(n => !n.isRead && n.audience.includes('teacher')).length;
+  // Real-time notifications
+  const notificationCount = useRealtimeNotifications('teacher');
 
   const navigateTo = (view: string, title: string, props: any = {}) => {
     setViewStack(stack => [...stack, { view, props, title }]);

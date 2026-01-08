@@ -58,7 +58,7 @@ model User {
 
 model Student {
   id               Int      @id @default(autoincrement())
-  userId           Int?     @map("user_id")
+  userId           Int?     @map("user_id") @unique
   user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   name             String
   avatarUrl        String?  @map("avatar_url")
@@ -91,7 +91,7 @@ model Student {
 
 model Teacher {
   id        Int      @id @default(autoincrement())
-  userId    Int?     @map("user_id")
+  userId    Int?     @map("user_id") @unique
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   avatarUrl String?  @map("avatar_url")
@@ -115,7 +115,7 @@ model Teacher {
 
 model Parent {
   id        Int      @id @default(autoincrement())
-  userId    Int?     @map("user_id")
+  userId    Int?     @map("user_id") @unique
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   email     String   @unique

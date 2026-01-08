@@ -25,41 +25,57 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo }) => {
       if (!user) return;
 
       const { data: student } = await supabase.from('students')
-        .select('id')
+        .select('id, class_id') // Fetch class_id to filter exams
         .eq('user_id', user.id)
         .single();
 
       if (!student) return;
 
-      // 2. Fetch published quizzes
-      const { data: quizzesData, error: quizError } = await supabase
-        .from('quizzes')
-        .select('*')
+      // 2. Fetch published CBT exams for this student's class (or global if no class_id set on exam)
+      // Note: We need the subject name, assuming 'subjects' table relation exists
+      // If direct relation isn't enabling auto-mapping, we might need a join or manual map.
+      // Trying simple select first.
+      const { data: examsData, error: examError } = await supabase
+        .from('cbt_exams')
+        .select(`
+            *,
+            subjects ( name )
+        `)
         .eq('is_published', true)
+        // .eq('class_id', student.class_id) // Optional: restrict to class if needed
         .order('created_at', { ascending: false });
 
-      if (quizError) {
-        if (quizError.message?.includes('does not exist') || quizError.code === '42P01') {
-          setError('database_not_ready');
-        } else {
-          throw quizError;
-        }
+      if (examError) {
+        console.error("Error fetching exams:", examError);
+        // Fallback if table missing
+        if (examError.code === '42P01') setError('database_not_ready');
+        else throw examError;
         return;
       }
 
       // 3. Fetch submissions for this student
       const { data: submissions } = await supabase
-        .from('quiz_submissions')
-        .select('quiz_id, score, status')
+        .from('cbt_submissions')
+        .select('cbt_exam_id, score, status')
         .eq('student_id', student.id);
 
       // 4. Merge
-      const merged = (quizzesData || []).map((q: any) => {
-        const sub = submissions?.find(s => s.quiz_id === q.id);
-        return { ...q, submission: sub }; // Add submission info
+      const merged = (examsData || []).map((exam: any) => {
+        const sub = submissions?.find(s => s.cbt_exam_id === exam.id);
+        const subjectName = exam.subjects?.name || 'General';
+
+        return {
+          id: exam.id,
+          title: exam.title,
+          subject: subjectName,
+          durationMinutes: exam.duration_minutes,
+          questionsCount: 0, // We could count questions if needed, but maybe not critical for list
+          submission: sub ? { score: sub.score, status: sub.status } : undefined,
+          isNewConfig: true // Flag to tell Player to use new system
+        };
       });
 
-      setQuizzes(merged);
+      setQuizzes(merged as any);
     } catch (err: any) {
       console.error('Error fetching quizzes:', err);
       setError('general_error');

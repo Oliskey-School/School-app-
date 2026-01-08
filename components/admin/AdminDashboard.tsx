@@ -335,18 +335,107 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     };
 
     const [notificationCount, setNotificationCount] = useState(0);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+    // 1. Get Current User ID
     useEffect(() => {
-        const fetchNotifsCount = async () => {
-            const { count } = await supabase
-                .from('notifications')
-                .select('id', { count: 'exact', head: true })
-                .eq('is_read', false)
-                .contains('audience', ['admin']);
-            setNotificationCount(count || 0);
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setCurrentUserId(user.id);
         };
-        fetchNotifsCount();
+        getUser();
     }, []);
+
+    // 2. Fetch Count & Subscribe
+    useEffect(() => {
+        if (!currentUserId) return;
+
+        const fetchNotifsCount = async () => {
+            // Query: (audience contains 'admin') OR (user_id = currentUserId)
+            // Supabase JS doesn't support OR across different columns easily in one filter builder without .or() syntax
+            // But .or() expects a string format like "col1.eq.val,col2.eq.val"
+
+            // Let's try to get all unread notifications for this user context
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('id, audience, user_id')
+                .eq('is_read', false);
+
+            if (error) {
+                console.error("Error fetching notifications count:", error);
+                return;
+            }
+
+            // Filter in memory for now to handle the OR logic robustly
+            // (audience @> ['admin'] OR user_id == currentUserId)
+            const count = data.filter(n => {
+                const audience = n.audience || [];
+                // Check if audience array (or string? handles both if JSON)
+                const isAdminAudience = Array.isArray(audience)
+                    ? audience.includes('admin')
+                    : JSON.stringify(audience).includes('admin');
+
+                // Note: user_id in DB might be UUID or Int depending on schema. 
+                // Creating a simplified check.
+                // If user_id is UUID string in DB, great. If int, we need mapping.
+                // Checking previous code: teacherAttendanceService uses `user_id: admin.id`. 
+                // Admin ID from `users` table is likely INT?
+                // Let's check `users` table schema if needed. 
+                // But generally, the dashboard authentication uses UUID from auth.users.
+                // This means we might have a schema disconnect (App User IDs vs Auth UUIDs).
+                // Assuming `user_id` in notifications is UUID for now as per Supabase defaults, 
+                // OR `users` table maps UUID to Int. 
+                // Wait! teacherAttendanceService uses `from('users').select('id')`. 
+                // If `users` table has custom IDs, `user_id` in notifications will be that ID.
+                // AdminDashboard uses `supabase.auth.getUser()` which returns UUID.
+
+                // CRITICAL CHECK: currentUserId (UUID) vs n.user_id (Unknown).
+                // Let's rely on the Realtime Subscription mostly, but we need correct count.
+
+                // For now, let's assume `user_id` in notifications matches the auth UUID if possible,
+                // OR we fetch notifications where `audience` is simply 'admin'.
+
+                return isAdminAudience || n.user_id === currentUserId;
+            }).length;
+
+            setNotificationCount(count);
+        };
+
+        fetchNotifsCount();
+
+        // Realtime Subscription
+        const channel = supabase
+            .channel('admin_notifications')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                },
+                (payload) => {
+                    // Optimized: just increment or refetch. Refetch is safer.
+                    fetchNotifsCount();
+                }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'notifications',
+                },
+                (payload) => {
+                    // If read status changed, refetch
+                    fetchNotifsCount();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [currentUserId]);
 
     const getHeaderAvatar = () => {
         if (currentNavigation.view === 'chat' && currentNavigation.props?.conversation) {

@@ -1727,6 +1727,7 @@ export async function fetchReportCard(studentId: number, term: string, session: 
 
 export async function upsertReportCard(studentId: number, reportCard: ReportCard): Promise<boolean> {
     try {
+        // 1. Save Report Card (Master Record)
         const { data: rcData, error: rcError } = await supabase
             .from('report_cards')
             .upsert({
@@ -1748,6 +1749,8 @@ export async function upsertReportCard(studentId: number, reportCard: ReportCard
 
         const reportCardId = rcData.id;
 
+        // 2. Save Breakdown Records (Sub-table)
+        // First clean up old records for this card to prevent duplicates/orphans
         await supabase.from('report_card_records').delete().eq('report_card_id', reportCardId);
 
         const records = reportCard.academicRecords.map(rec => ({
@@ -1765,6 +1768,25 @@ export async function upsertReportCard(studentId: number, reportCard: ReportCard
                 .from('report_card_records')
                 .insert(records);
             if (recordsError) throw recordsError;
+        }
+
+        // 3. SYNC TO ACADEMIC PERFORMANCE (For Parent/Student Dashboard Visibility)
+        // Parents view `academic_performance` table, not `report_cards` usually.
+        // We calculate 'score' as the Total.
+        for (const rec of reportCard.academicRecords) {
+            const score = typeof rec.total === 'number' ? rec.total : parseFloat(rec.total) || 0;
+            await supabase.from('academic_performance').upsert({
+                student_id: studentId,
+                subject: rec.subject,
+                term: reportCard.term,
+                session: reportCard.session || '2023/2024',
+                score: score,
+                grade: rec.grade,
+                remark: rec.remark,
+                ca_score: rec.ca,
+                exam_score: rec.exam,
+                last_updated: new Date().toISOString()
+            }, { onConflict: 'student_id, subject, term, session' });
         }
 
         return true;

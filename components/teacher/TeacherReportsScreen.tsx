@@ -1,121 +1,36 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Student, ClassInfo } from '../../types';
-import { ChevronLeftIcon, AIIcon } from '../../constants';
+import { ChevronLeftIcon, AIIcon, getFormattedClassName } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
-
-// Helper to parse 'Grade 10A'
-const parseClassName = (name: string) => {
-    const match = name.match(/(\d+)([A-Za-z]+)/);
-    if (match) return { grade: parseInt(match[1]), section: match[2] };
-    return { grade: 0, section: '' };
-};
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface TeacherReportsScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
+    teacherId?: number | null;
 }
 
-const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo }) => {
+const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo, teacherId }) => {
     const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
-    const [classes, setClasses] = useState<ClassInfo[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    // New Hook for classes
+    const { classes, loading: loadingClasses } = useTeacherClasses(teacherId);
+    const [loadingStudents, setLoadingStudents] = useState(false);
+
+    // Combine loading states
+    const loading = loadingClasses || loadingStudents;
 
     const { profile } = useProfile();
-
-    // Fetch Classes
-    useEffect(() => {
-        const fetchClasses = async () => {
-            if (!profile?.id) return;
-
-            setLoading(true);
-            try {
-                // 1. Get Teacher ID from User ID
-                const { data: teacherData, error: teacherError } = await supabase
-                    .from('teachers')
-                    .select('id')
-                    .eq('user_id', profile.id)
-                    .single();
-
-                if (teacherError || !teacherData) {
-                    console.error('Error fetching teacher profile:', teacherError);
-                    // Fallback to all classes if not found (or handle error)
-                    return;
-                }
-
-                // 2. Fetch Assigned Classes from teacher_classes
-                const { data: assignedClasses, error: classesError } = await supabase
-                    .from('teacher_classes')
-                    .select('class_name, id')
-                    .eq('teacher_id', teacherData.id);
-
-                if (classesError) throw classesError;
-
-                if (assignedClasses) {
-                    const formattedClasses: ClassInfo[] = assignedClasses.map((c: any) => {
-                        // Improved parsing for "Grade 7 - General" or "Grade 10A"
-                        let grade = 0;
-                        let section = '';
-
-                        // Try "Grade 7 - General" format
-                        const hyphenMatch = c.class_name.match(/Grade\s+(\d+)\s+-\s+(.+)/i);
-                        if (hyphenMatch) {
-                            grade = parseInt(hyphenMatch[1]);
-                            section = hyphenMatch[2];
-                        } else {
-                            // Try "Grade 10A" format
-                            const combinedMatch = c.class_name.match(/Grade.*(\d+)([A-Za-z]+)/) || c.class_name.match(/(\d+)([A-Za-z]+)/);
-                            if (combinedMatch) {
-                                grade = parseInt(combinedMatch[1]);
-                                section = combinedMatch[2];
-                            } else {
-                                // Fallback: try just finding a number
-                                const numMatch = c.class_name.match(/(\d+)/);
-                                if (numMatch) {
-                                    grade = parseInt(numMatch[1]);
-                                    // If the rest is empty or just whitespace/special chars, default to empty or 'A'
-                                    // Remove 'Grade' and the number we found
-                                    const cleaned = c.class_name.replace(/Grade/i, '').replace(numMatch[0], '').trim();
-                                    section = cleaned.replace(/[^a-zA-Z0-9]/g, '');
-
-                                    // If section is empty, leaving it empty is better than duplicating number
-                                    if (!section) section = '';
-                                }
-                            }
-                        }
-
-                        return {
-                            id: c.id, // ID from teacher_classes
-                            grade: grade,
-                            section: section || 'A', // Default to A if parsing fails
-                            subject: 'General', // teacher_classes doesn't have subject
-                            studentCount: 0 // Will need separate query or count
-                        };
-                    });
-
-                    // Sort
-                    setClasses(formattedClasses.sort((a, b) => {
-                        if (a.grade !== b.grade) return a.grade - b.grade;
-                        return a.section.localeCompare(b.section);
-                    }));
-                }
-            } catch (error) {
-                console.error('Error fetching classes', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchClasses();
-    }, [profile]);
 
     // Fetch Students & Stats when class selected
     useEffect(() => {
         if (!selectedClass) return;
 
         const fetchStudentsAndStats = async () => {
-            setLoading(true);
+            setLoadingStudents(true);
             try {
                 // 1. Fetch Students
                 const { data: studentsData } = await supabase
@@ -154,24 +69,23 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo 
 
                     const attendancePct = totalAttendance && totalAttendance > 0
                         ? Math.round(((presentAttendance || 0) / totalAttendance) * 100)
-                        : 100; // Default to 100 if no record? Or 0? 100 is friendlier if no data yet.
+                        : 100;
 
                     return {
                         ...s,
                         name: s.name,
                         avatarUrl: s.avatar_url,
-                        // Attach stats to student object for display (using partial type or extending type locally)
                         gradeAverage: avgScore,
                         attendancePercentage: attendancePct,
-                        academicPerformance: performance // Needed for AI summary
+                        academicPerformance: performance
                     };
                 }));
 
-                setStudents(studentsWithStats as any); // Type assertion for now due to custom props
+                setStudents(studentsWithStats as any);
             } catch (err) {
                 console.error(err);
             } finally {
-                setLoading(false);
+                setLoadingStudents(false);
             }
         };
         fetchStudentsAndStats();
@@ -186,9 +100,10 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo 
                 <h3 className="text-xl font-bold text-gray-800">Select a Class to View Reports</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {classes.map(cls => (
-                        <button key={cls.id} onClick={() => setSelectedClass(cls)} className="p-6 bg-white rounded-xl shadow-sm text-center hover:bg-purple-50 transition-colors">
+                        <button key={cls.id} onClick={() => setSelectedClass(cls)} className="p-6 bg-white rounded-xl shadow-sm text-center hover:bg-purple-50 transition-colors flex flex-col items-center justify-center space-y-2">
                             <p className="font-bold text-2xl text-purple-700">Grade {cls.grade}{cls.section}</p>
-                            <p className="text-sm text-gray-500">{cls.studentCount} Students</p>
+                            <p className="text-sm font-medium text-gray-700">{cls.subject}</p>
+                            <p className="text-xs text-gray-500">{cls.studentCount} Students</p>
                         </button>
                     ))}
                 </div>

@@ -104,10 +104,17 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
     const formattedClassName = getFormattedClassName(student.grade, student.section);
 
     const feeStatus = feeInfo ? (
-        <span className={feeInfo.status === 'Overdue' ? 'text-red-600' : ''}>
-            {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(feeInfo.totalFee - feeInfo.paidAmount)} due
-        </span>
-    ) : "All Paid";
+        <div className="flex flex-col">
+            <span className={feeInfo.status === 'overdue' ? 'text-red-600 font-bold' : 'text-gray-800 font-semibold'}>
+                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(feeInfo.totalDue)}
+            </span>
+            {feeInfo.nextDueDate && (
+                <span className="text-xs text-gray-500 mt-0.5">
+                    Due: {new Date(feeInfo.nextDueDate).toLocaleDateString('en-GB')}
+                </span>
+            )}
+        </div>
+    ) : <span className="text-green-600 font-semibold">All Paid</span>;
 
     return (
         <div className="bg-white rounded-2xl shadow-md overflow-hidden">
@@ -534,17 +541,19 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
             if (students.length === 0) return;
 
             const stats = await Promise.all(students.map(async (student) => {
-                // Fee
-                const { data: feeData } = await supabase
-                    .from('student_fees')
+                // Fee - Query from fees table (not student_fees)
+                const { data: feesData } = await supabase
+                    .from('fees')
                     .select('*')
                     .eq('student_id', student.id)
-                    .single();
+                    .in('status', ['pending', 'partial'])
+                    .order('due_date', { ascending: true });
 
-                const feeInfo = feeData ? {
-                    totalFee: feeData.total_fee,
-                    paidAmount: feeData.paid_amount,
-                    status: feeData.status
+                const feeInfo = feesData && feesData.length > 0 ? {
+                    totalDue: feesData.reduce((sum, fee) => sum + (fee.amount - (fee.paid_amount || 0)), 0),
+                    nextDueDate: feesData[0]?.due_date,
+                    status: feesData[0]?.status || 'pending',
+                    count: feesData.length
                 } : null;
 
                 // Attendance %
@@ -583,6 +592,54 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
         };
 
         fetchStats();
+
+        // Real-time subscriptions for updates
+        const studentIds = students.map(s => s.id);
+
+        // Subscribe to fee updates
+        const feeChannel = supabase.channel('parent_fees_realtime')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'student_fees',
+                filter: `student_id=in.(${studentIds.join(',')})`
+            }, () => {
+                console.log('Fee update received, refreshing...');
+                fetchStats(); // Refresh stats when fees change
+            })
+            .subscribe();
+
+        // Subscribe to attendance updates
+        const attendanceChannel = supabase.channel('parent_attendance_realtime')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'student_attendance',
+                filter: `student_id=in.(${studentIds.join(',')})`
+            }, () => {
+                console.log('Attendance update received, refreshing...');
+                fetchStats(); // Refresh stats when attendance changes
+            })
+            .subscribe();
+
+        // Subscribe to fees table updates (new fee assignments)
+        const feesChannel = supabase.channel('parent_fees_table_realtime')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'fees',
+                filter: `student_id=in.(${studentIds.join(',')})`
+            }, () => {
+                console.log('New fee assigned, refreshing...');
+                fetchStats(); // Refresh when new fees are assigned
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(feeChannel);
+            supabase.removeChannel(attendanceChannel);
+            supabase.removeChannel(feesChannel);
+        };
     }, [students]);
 
     const quickAccessItems = [
@@ -631,6 +688,10 @@ interface ParentDashboardProps {
     currentUser: any;
 }
 
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+
+// ... (top level)
+
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'dashboard', title: 'Parent Dashboard' }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
@@ -642,20 +703,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         avatarUrl: 'https://i.pravatar.cc/150?u=parent'
     });
 
-    // Notifications fetched in main layout to share count
-    const [notificationCount, setNotificationCount] = useState(0);
-
-    useEffect(() => {
-        const fetchNotifsCount = async () => {
-            const { count } = await supabase
-                .from('notifications')
-                .select('id', { count: 'exact', head: true })
-                .eq('is_read', false)
-                .contains('audience', ['parent']);
-            setNotificationCount(count || 0);
-        }
-        fetchNotifsCount();
-    }, []);
+    // Real-time notifications
+    const notificationCount = useRealtimeNotifications('parent');
 
     const forceUpdate = () => setVersion(v => v + 1);
 

@@ -14,15 +14,23 @@ interface PaystackButtonProps {
 
 export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSuccess, onClose }) => {
     const [loading, setLoading] = useState(false);
-    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder'; // Should be in env
+
+    // Get Paystack public key from environment
+    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+
+    // Check if public key is configured
+    const isConfigured = publicKey && publicKey !== '' && publicKey !== 'pk_test_placeholder' && publicKey !== 'your_paystack_public_key_here';
+
+    // Check if email is valid
+    const hasValidEmail = email && email.trim() !== '';
 
     const amountInKobo = fee.amount * 100; // Paystack takes amount in kobo
 
     const config = {
         reference: `TX-${Date.now()}-${fee.id}`,
-        email,
+        email: email || 'noemail@example.com',
         amount: amountInKobo,
-        publicKey,
+        publicKey: publicKey || '',
         metadata: {
             custom_fields: [
                 { display_name: "Fee Title", variable_name: "fee_title", value: fee.title },
@@ -75,6 +83,20 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSu
 
     // Logic to initialize before opening modal
     const handlePaymentClick = async () => {
+        // Validate configuration before attempting payment
+        if (!isConfigured) {
+            const toast = (await import('react-hot-toast')).toast;
+            toast.error('Paystack payment gateway not configured. Please contact administrator.');
+            console.error('Paystack public key not configured in environment variables');
+            return;
+        }
+
+        if (!hasValidEmail) {
+            const toast = (await import('react-hot-toast')).toast;
+            toast.error('Email is required for payment. Please update your profile.');
+            return;
+        }
+
         setLoading(true);
         // Create Pending Transaction in DB
         await initializeTransaction(fee.id, fee.studentId, fee.amount, config.reference, 'Paystack');

@@ -14,6 +14,9 @@ interface GradebookEntry {
     total: number;
     grade: string;
     remark: string;
+    grade: string;
+    remark: string;
+    status: 'Draft' | 'Published'; // Draft = Saved locally, Published = Visible to Parents
     isDirty: boolean; // has unsaved changes
 }
 
@@ -146,7 +149,9 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
                         exam: exam === 0 ? '' : exam.toString(),
                         total: total,
                         grade: scoreRecord?.grade || getGrade(total),
+                        grade: scoreRecord?.grade || getGrade(total),
                         remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
+                        status: (rc?.status as 'Draft' | 'Published') || 'Draft',
                         isDirty: false
                     });
                 }
@@ -190,9 +195,20 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = async (status: 'Draft' | 'Published' = 'Draft') => {
         const dirtyEntries = students.filter(s => s.isDirty);
-        if (dirtyEntries.length === 0) {
+        // If publishing, we save ALL students to ensure completeness, or at least dirty ones?
+        // Actually, if publishing, we might want to ensure everything is synced.
+        // But for MVP let's assume we are saving current edits as Published.
+        // If no edits, but user clicks Publish, we should probably re-save all to trigger sync?
+        // Let's assume user saves then publishes. Or just save dirty.
+        // If user wants to publish existing data without edits, we need to handle that.
+        // Let's force save ALL if Publish is clicked, or just handle dirty logic?
+        // Simpler: Just save current state.
+
+        const entriesToSave = status === 'Published' ? students : dirtyEntries;
+
+        if (entriesToSave.length === 0) {
             toast('No changes to save.');
             return;
         }
@@ -205,25 +221,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
 
             let successCount = 0;
 
-            for (const entry of dirtyEntries) {
-                // 1. Fetch existing Report Card or create new structure
-                // We need to fetch it to preserve other subjects/records if they exist!
-                // Or upsertReportCard handles it? 
-                // upsertReportCard implementation OVERWRITES records for that report card!
-                // Wait, logic in upsertReportCard: "First delete existing records...".
-                // This means if I save Math grade, I DELETE English grade if they are on same report card?
-                // YES, my implementation DELETE *all* records for that report card ID.
-                // This is BAD if multiple teachers edit same report card concurrently or sequentially.
-                // Report Cards are usually per student per term.
-                // If the records are per subject, they should be upserted individually or we must fetch ALL records first.
-
-                // Correction: The Gradebook should probably operate on "ReportCardRecord" level upserts, OR I need to fetch the whole report card, update one record, and save back.
-                // Fetching matches concurrency issues less but is safer for "overwrite all".
-                // Better approach: Update `upsertReportCard` to NOT delete all, but merge?
-                // Or creating `upsertReportCardRecord(studentId, term, session, record)`.
-
-                // Given I can't easily change `lib/database` right now without another step, I will implement "Fetch -> Merge -> Save" pattern here.
-
+            for (const entry of entriesToSave) {
                 const { fetchReportCard } = await import('../../lib/database');
                 const existingRC = await fetchReportCard(entry.studentId, currentTerm, currentSession);
 
@@ -246,10 +244,27 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
                     academicRecords.push(newRecord);
                 }
 
+                // If Status is Published, we strictly set it. If Draft, we defer to existing or Draft.
+                // Actually, if we click Save (Draft), we shouldn't revert a Published card to Draft unless intentional?
+                // Usually "Save" on top of published might mean "Amend".
+                // Let's say: If existing is Published, and we click Save (Draft), do we unpublish?
+                // The user requirement says "save local... then if i want to publish".
+                // Implying Save = Draft/Private.
+                // So if I click Save, it should probably be Draft (Private).
+                // But we shouldn't accidentally hide results.
+                // Let's allow Save to just update records but KEEP existing status if it was already published?
+                // No, user said "nobody can see that save except me". This implies Save should MAKE it private if it wasn't?
+                // Or maybe just "Save" = "Update pending changes".
+                // Let's implement:
+                // - Save (Draft): Status = 'Draft'. (Hides from parents if code logic in db holds).
+                // - Publish: Status = 'Published'. (Shows to parents).
+
+                const finalStatus = status;
+
                 const reportCardToSave = {
                     term: currentTerm,
                     session: currentSession,
-                    status: existingRC?.status || 'Draft',
+                    status: finalStatus,
                     attendance: existingRC?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
                     skills: existingRC?.skills || {},
                     psychomotor: existingRC?.psychomotor || {},
@@ -264,7 +279,11 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
 
             // Mark all as clean
             setStudents(students.map(s => ({ ...s, isDirty: false })));
-            toast.success(`Saved ${successCount} student records!`);
+            if (status === 'Published') {
+                toast.success(`Published grades for ${successCount} students!`);
+            } else {
+                toast.success(`Saved draft for ${successCount} students.`);
+            }
 
         } catch (error) {
             console.error("Save error:", error);
@@ -299,13 +318,23 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
 
                         <div className="flex gap-2">
                             <button
-                                onClick={handleSave}
+                                onClick={() => handleSave('Draft')}
+                                disabled={saving}
+                                className="flex-1 sm:flex-none flex items-center justify-center px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-semibold"
+                            >
+                                {saving ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></div> : <SaveIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />}
+                                <span className="hidden sm:inline">Save Draft</span>
+                                <span className="sm:hidden">Save</span>
+                            </button>
+
+                            <button
+                                onClick={() => handleSave('Published')}
                                 disabled={saving}
                                 className="flex-1 sm:flex-none flex items-center justify-center px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-semibold"
                             >
-                                {saving ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></div> : <SaveIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />}
-                                <span className="hidden sm:inline">Save Changes</span>
-                                <span className="sm:hidden">Save</span>
+                                <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                                <span className="hidden sm:inline">Publish</span>
+                                <span className="sm:hidden">Pub</span>
                             </button>
 
                             <button onClick={handleBack} className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium">
@@ -338,6 +367,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
                                         <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Exam (60)</th>
                                         <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Total</th>
                                         <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-20">Grade</th>
+                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Status</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                                     </tr>
                                 </thead>
@@ -386,6 +416,11 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-bold text-gray-900">
                                                 {student.grade}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'Published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                                                    {student.status === 'Published' ? 'Published' : 'Draft'}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {student.remark}

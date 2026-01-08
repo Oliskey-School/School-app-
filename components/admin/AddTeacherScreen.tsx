@@ -289,81 +289,64 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
                 toast.success('Teacher updated successfully!');
             } else {
-                // CREATE MODE - Check if email already exists in users or auth_accounts
+                // CREATE MODE
                 const teacherEmail = email || `teacher${Date.now()}@school.com`;
-                const exists = await checkEmailExists(teacherEmail);
-                if (exists.error) {
-                    console.warn('Email check error:', exists.error);
-                    throw new Error('Could not validate email uniqueness');
-                }
 
-                let userIdToUse: number | null = null;
-                if (exists.inAuthAccounts) {
-                    let whereFound: string[] = [];
-                    if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
-                    whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                    toast.error(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
+                // 1. Create Login Credentials (Auth User) FIRST
+                const authResult = await createUserAccount(
+                    name,
+                    'Teacher',
+                    teacherEmail
+                );
+
+                if (authResult.error) {
+                    if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
+                        toast.error(`Teacher with email ${teacherEmail} is already registered.`);
+                    } else {
+                        toast.error('Failed to create account: ' + authResult.error);
+                    }
                     setIsLoading(false);
                     return;
-                } else if (exists.inUsers) {
-                    // Exists in DB (users table) but NOT in Auth. Reuse the User ID.
-                    userIdToUse = exists.userRow.id;
                 }
 
-                // 2. Create User (Only if not reusing)
-                let userData = { id: userIdToUse };
+                // 2. Create User (Legacy Table)
 
-                if (!userIdToUse) {
-                    const { data: newUserData, error: userError } = await supabase
-                        .from('users')
-                        .insert([{
-                            email: teacherEmail,
-                            name: name,
-                            role: 'Teacher',
-                            avatar_url: avatarUrl
-                        }])
-                        .select()
-                        .single();
+                const { data: newUserData, error: userError } = await supabase
+                    .from('users')
+                    .insert([{
+                        email: teacherEmail,
+                        name: name,
+                        role: 'Teacher',
+                        avatar_url: avatarUrl
+                    }])
+                    .select()
+                    .single();
 
-                    if (userError) throw userError;
-                    userData = newUserData;
-                }
+                if (userError) throw userError;
+                const userData = newUserData;
 
                 // 3. Create Teacher Profile
-                let teacherData = null;
 
-                // If reusing user, check if teacher profile also exists
-                if (userIdToUse) {
-                    const { data: existingTeacher, error: existingTeacherError } = await supabase
-                        .from('teachers')
-                        .select('*')
-                        .eq('user_id', userIdToUse)
-                        .maybeSingle();
+                // Check if teacher profile also exists (unlikely in this flow, but safe to keep logic if merging)
+                // Since this is CREATE MODE, we assume it's fresh.
 
-                    if (existingTeacher) {
-                        teacherData = existingTeacher;
-                    }
-                }
+                const { data: newTeacherData, error: teacherError } = await supabase
+                    .from('teachers')
+                    .insert([{
+                        user_id: userData.id,
+                        name,
+                        email: teacherEmail,
+                        phone,
+                        avatar_url: avatarUrl,
+                        status
+                    }])
+                    .select()
+                    .single();
 
-                if (!teacherData) {
-                    const { data: newTeacherData, error: teacherError } = await supabase
-                        .from('teachers')
-                        .insert([{
-                            user_id: userData.id,
-                            name,
-                            email: teacherEmail,
-                            phone,
-                            avatar_url: avatarUrl,
-                            status
-                        }])
-                        .select()
-                        .single();
+                if (teacherError) throw teacherError;
+                const teacherData = newTeacherData;
 
-                    if (teacherError) throw teacherError;
-                    teacherData = newTeacherData;
-                }
-
-                // 3. Add subjects
+                // 4. Add subjects (linked to Legacy ID)
                 if (subjects.length > 0) {
                     const subjectInserts = subjects.map(subject => ({
                         teacher_id: teacherData.id,
@@ -372,7 +355,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     await supabase.from('teacher_subjects').insert(subjectInserts);
                 }
 
-                // 4. Add classes
+                // 5. Add classes (linked to Legacy ID)
                 if (classes.length > 0) {
                     // Normalize classes to a canonical format (e.g. `10A`) before inserting
                     const normalize = (s: string) => {
@@ -393,17 +376,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     await supabase.from('teacher_classes').insert(classInserts);
                 }
 
-                // 5. Create login credentials
-                const authResult = await createUserAccount(
-                    name,
-                    'Teacher',
-                    teacherEmail,
-                    userData.id
-                );
+                // 6. (Auth was already created)
+                console.log('Teacher credentials created successfully.');
 
-                if (authResult.error) {
-                    console.warn('Warning: Auth account created with error:', authResult.error);
-                }
 
                 // Send verification email
                 const emailResult = await sendVerificationEmail(name, teacherEmail, 'School App');

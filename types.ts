@@ -319,6 +319,7 @@ export interface Fee {
   type?: string;          // Optional categorization
   curriculumType?: 'Nigerian' | 'British' | 'Dual' | 'General';
   createdAt?: string;     // ISO string - timestamp when fee was created/assigned
+  hasPaymentPlan?: boolean; // Indicates if fee has an installment payment plan
 }
 
 export interface ChatUser {
@@ -512,6 +513,7 @@ export interface Parent {
   occupation?: string;
   relationship?: string;
   emergencyContact?: string;
+  user_id?: string; // Link to auth/users table
 }
 
 export type ComplaintStatus = 'Submitted' | 'In Progress' | 'Resolved' | 'Closed';
@@ -905,11 +907,15 @@ export interface LessonNote {
 export interface CBTExam {
   id: number;
   title: string;
+  type?: 'Test' | 'Exam'; // Added
   subjectId: number;
+  classId?: number; // Added
   classGrade: string;
   curriculumId: number;
   durationMinutes: number;
+  duration?: number; // Alias for frontend usage if needed (often used as alias for durationMinutes)
   totalQuestions: number;
+  totalMarks?: number; // Added
   isPublished: boolean;
   teacherId: number;
   createdAt: string;

@@ -28,6 +28,13 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         username: string;
         password: string;
         email: string;
+        secondary?: {
+            userName: string;
+            username: string;
+            password: string;
+            email: string;
+            userType: string;
+        };
     } | null>(null);
 
     const [guardianName, setGuardianName] = useState('');
@@ -325,93 +332,59 @@ parents(
 
                 toast.success(`Student updated successfully!${guardianMessage}`);
             } else {
-                // CREATE MODE - Check if email already exists in users or auth_accounts
-                const exists = await checkEmailExists(generatedEmail);
-                if (exists.error) {
-                    console.warn('Email check error:', exists.error);
-                    throw new Error('Could not validate email uniqueness');
-                }
+                // CREATE MODE
 
-                let userIdToUse: number | null = null;
+                // 1. Create Login Credentials (Auth User) FIRST
+                // This validates email uniqueness in Supabase Auth immediately.
 
-                if (exists.inAuthAccounts) {
-                    // Fully exists in Auth. This is a duplicate.
-                    let whereFound: string[] = [];
-                    if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
-                    whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                    toast.error(`Student with email ${generatedEmail} already exists in: ${whereFound.join(', ')}. Please use a different name to generate a unique email.`);
+                const authResult = await createUserAccount(fullName, 'Student', generatedEmail);
+
+                if (authResult.error) {
+                    if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
+                        toast.error(`Student with email ${generatedEmail} is already registered. Please check the name or email format.`);
+                    } else {
+                        toast.error('Failed to create account: ' + authResult.error);
+                    }
                     setIsLoading(false);
                     return;
-                } else if (exists.inUsers) {
-                    // Exists in DB but NOT in Auth. This is a "Zombie" record.
-                    // We should attempt to repair this by reusing the User ID and creating Auth.
-                    userIdToUse = exists.userRow.id;
                 }
 
-                // 2. Create User account (Only if not reusing)
-                let userData = { id: userIdToUse };
+                // 2. Create User account (Legacy Table)
 
-                if (!userIdToUse) {
-                    const { data: newUserData, error: userError } = await supabase
-                        .from('users')
-                        .insert([{
-                            email: generatedEmail,
-                            name: fullName,
-                            role: 'Student',
-                            avatar_url: avatarUrl
-                        }])
-                        .select()
-                        .single();
+                const { data: newUserData, error: userError } = await supabase
+                    .from('users')
+                    .insert([{
+                        email: generatedEmail,
+                        name: fullName,
+                        role: 'Student',
+                        avatar_url: avatarUrl
+                    }])
+                    .select()
+                    .single();
 
-                    if (userError) throw userError;
-                    userData = newUserData;
+                if (userError) {
+                    // Potentially rollback Auth user here in a real production app
+                    throw userError;
                 }
+
+                const userData = newUserData;
 
                 // 3. Create Student Profile
-                // Check if student profile already exists (if we are reusing user)
-                if (userIdToUse) {
-                    const { data: existingStudent, error: existingStudentError } = await supabase
-                        .from('students')
-                        .select('id')
-                        .eq('user_id', userIdToUse)
-                        .maybeSingle();
+                const { error: studentError } = await supabase
+                    .from('students')
+                    .insert([{
+                        user_id: userData.id,
+                        name: fullName,
+                        avatar_url: avatarUrl,
+                        grade: grade,
+                        section: section,
+                        department: department || null,
+                        birthday: birthday || null,
+                        attendance_status: 'Present'
+                    }]);
+                if (studentError) throw studentError;
 
-                    if (existingStudent) {
-                        // Student profile also exists. We just need to fix Auth.
-                    } else {
-                        // User exists, but Student profile missing. Create it.
-                        const { error: studentError } = await supabase
-                            .from('students')
-                            .insert([{
-                                user_id: userData.id,
-                                name: fullName,
-                                avatar_url: avatarUrl,
-                                grade: grade,
-                                section: section,
-                                department: department || null,
-                                birthday: birthday || null,
-                                attendance_status: 'Present'
-                            }]);
-                        if (studentError) throw studentError;
-                    }
-                } else {
-                    // Fresh User, Fresh Student
-                    const { error: studentError } = await supabase
-                        .from('students')
-                        .insert([{
-                            user_id: userData.id,
-                            name: fullName,
-                            avatar_url: avatarUrl,
-                            grade: grade,
-                            section: section,
-                            department: department || null,
-                            birthday: birthday || null,
-                            attendance_status: 'Present'
-                        }]);
-                    if (studentError) throw studentError;
-                }
-
-                // Fetch the student ID for linking (whether new or existing)
+                // Fetch the student ID for linking
                 const { data: studentData, error: fetchStudentError } = await supabase
                     .from('students')
                     .select('id')
@@ -420,12 +393,10 @@ parents(
 
                 if (fetchStudentError) throw fetchStudentError;
 
-                // 4. Create login credentials (Supabase Auth)
-                const authResult = await createUserAccount(fullName, 'Student', generatedEmail, userData.id);
+                // 4. (Auth was already created at start)
+                // We just log it now.
+                console.log('Student credentials created successfully.');
 
-                if (authResult.error) {
-                    console.warn('Warning: Auth account created with error:', authResult.error);
-                }
 
                 // 5. Send verification email (Student)
                 const emailResult = await sendVerificationEmail(fullName, generatedEmail, 'School App');
@@ -434,6 +405,8 @@ parents(
                 }
 
                 // --- GUARDIAN ACCOUNT AUTOMATION ---
+                let parentAuthDetails = null;
+
                 if (gEmail && gName) {
                     try {
                         const { data: existingUser } = await supabase
@@ -499,9 +472,17 @@ parents(
                                 if (!pErr) {
                                     parentIdToLink = newParent.id;
                                     // Create Auth & Send Email
-                                    await createUserAccount(gName, 'Parent', gEmail, newUser.id);
+                                    const pAuth = await createUserAccount(gName, 'Parent', gEmail, newUser.id);
                                     await sendVerificationEmail(gName, gEmail, 'School App Account Created');
-                                    toast.success(`Guardian account created for ${gName}.\nCredentials sent to ${gEmail}.`, { duration: 5000 });
+
+                                    // Capture for Modal
+                                    parentAuthDetails = {
+                                        userName: gName,
+                                        username: pAuth.username,
+                                        password: pAuth.password,
+                                        email: gEmail,
+                                        userType: 'Parent'
+                                    };
                                 }
                             }
                         }
@@ -511,8 +492,6 @@ parents(
                                 parent_id: parentIdToLink,
                                 student_id: studentData.id
                             });
-                            // Don't alert here if we already alerted for creation, maybe just log or small toast?
-                            // Standard flow:
                             if (existingUser) {
                                 toast.success(`Linked to existing guardian: ${gName}.`, { duration: 4000 });
                                 await sendVerificationEmail(gName, gEmail, 'Student Added');
@@ -530,9 +509,12 @@ parents(
                 setCredentials({
                     username: authResult.username,
                     password: authResult.password,
-                    email: generatedEmail
+                    email: generatedEmail,
+                    secondary: parentAuthDetails || undefined
                 });
                 setShowCredentialsModal(true);
+                setIsLoading(false);
+                return; // Wait for modal close
             }
 
             // Trigger parent component to refresh data from Supabase
@@ -671,6 +653,7 @@ parents(
                     password={credentials.password}
                     email={credentials.email}
                     userType="Student"
+                    secondaryCredentials={credentials.secondary}
                     onClose={() => {
                         setShowCredentialsModal(false);
                         forceUpdate();

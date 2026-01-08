@@ -33,12 +33,26 @@ ALTER TABLE report_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_card_records ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Public read report cards" ON report_cards;
 CREATE POLICY "Public read report cards" ON report_cards FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public insert report cards" ON report_cards;
 CREATE POLICY "Public insert report cards" ON report_cards FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public update report cards" ON report_cards;
 CREATE POLICY "Public update report cards" ON report_cards FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Public delete report cards" ON report_cards;
 CREATE POLICY "Public delete report cards" ON report_cards FOR DELETE USING (true);
 
+DROP POLICY IF EXISTS "Public read records" ON report_card_records;
 CREATE POLICY "Public read records" ON report_card_records FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public insert records" ON report_card_records;
 CREATE POLICY "Public insert records" ON report_card_records FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public update records" ON report_card_records;
 CREATE POLICY "Public update records" ON report_card_records FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Public delete records" ON report_card_records;
 CREATE POLICY "Public delete records" ON report_card_records FOR DELETE USING (true);

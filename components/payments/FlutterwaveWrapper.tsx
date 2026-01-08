@@ -58,8 +58,25 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
             return;
         }
 
+        // Validate required customer data
+        if (!email || email.trim() === '') {
+            toast.error('Email is required for payment. Please update your profile.');
+            return;
+        }
+
         setLoading(true);
-        const publicKey = import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || 'FLWPUBK-TEST-SANDBOXDEMOKEY-X';
+
+        // Get Flutterwave public key from environment
+        const publicKey = import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY;
+
+        // Check if public key is configured
+        if (!publicKey || publicKey === '' || publicKey === 'your_flutterwave_public_key_here') {
+            setLoading(false);
+            toast.error('Payment gateway not configured. Please contact administrator.');
+            console.error('Flutterwave public key not configured in environment variables');
+            return;
+        }
+
         const txRef = `FLW-${Date.now()}-${fee.id}`;
 
         try {
@@ -72,7 +89,7 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
                 'Flutterwave'
             );
 
-            // Initialize Flutterwave payment
+            // Initialize Flutterwave payment with validated data
             window.FlutterwaveCheckout({
                 public_key: publicKey,
                 tx_ref: txRef,
@@ -80,9 +97,9 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
                 currency: 'NGN',
                 payment_options: 'card,mobilemoney,ussd,banktransfer',
                 customer: {
-                    email: email,
-                    phone_number: phone,
-                    name: name,
+                    email: email.trim(),
+                    phone_number: phone || '0000000000',
+                    name: name || 'Parent',
                 },
                 customizations: {
                     title: 'School Fee Payment',
@@ -109,10 +126,14 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
                                 await sendPaymentConfirmation({ transactionId: transaction.id });
                             }
 
+                            toast.success('Payment successful!');
                             if (onSuccess) onSuccess();
                         } catch (error) {
                             console.error('Error processing payment:', error);
+                            toast.error('Payment completed but verification failed. Please contact support.');
                         }
+                    } else {
+                        toast.error('Payment was not completed. Please try again.');
                     }
 
                     setLoading(false);
@@ -126,7 +147,7 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
         } catch (error) {
             console.error('Flutterwave initialization error:', error);
             setLoading(false);
-            toast.error('Failed to initialize payment');
+            toast.error('Failed to initialize payment. Please try again or contact support.');
         }
     };
 

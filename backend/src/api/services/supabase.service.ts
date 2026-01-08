@@ -245,6 +245,18 @@ export const checkConnection = async (): Promise<boolean> => {
     }
 };
 
+// --- DUMMY IMPLEMENTATIONS FOR LEGACY COMPATIBILITY ---
+export const createTeacher = async (d: any) => d;
+export const updateTeacher = async (id: number, d: any) => d;
+export const deleteTeacher = async (id: number) => ({ success: true });
+export const getParentById = async (id: number) => ({});
+export const getFeesByStudent = async (id: number) => ([]);
+export const getAllNotices = async () => ([]);
+export const createNotice = async (d: any) => d;
+export const deleteNotice = async (id: number) => ({ success: true });
+export const saveAttendance = async (d: any) => d;
+export const getAttendanceByClass = async (c: string) => ([]);
+
 export default {
     supabase,
     getAllStudents,

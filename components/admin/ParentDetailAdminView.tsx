@@ -1,9 +1,9 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Parent } from '../../types';
 import { MailIcon, PhoneIcon, EditIcon, TrashIcon, StudentsIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface ParentDetailAdminViewProps {
     parent: Parent;
@@ -15,6 +15,7 @@ interface ParentDetailAdminViewProps {
 const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, navigateTo, forceUpdate, handleBack }) => {
 
     const [children, setChildren] = React.useState<any[]>([]);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     React.useEffect(() => {
         const fetchChildren = async () => {
@@ -53,44 +54,46 @@ student: students(
     // Use the fetched children
     const displayChildren = children;
 
-    const handleDelete = async () => {
-        if (window.confirm(`Are you sure you want to delete the account for ${parent.name} ? This action cannot be undone.`)) {
-            try {
-                // Delete from database first
-                const { error: deleteParentError } = await supabase
-                    .from('parents')
+    const handleDeleteClick = () => {
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        try {
+            // Delete from database first
+            const { error: deleteParentError } = await supabase
+                .from('parents')
+                .delete()
+                .eq('id', parent.id);
+
+            if (deleteParentError) throw deleteParentError;
+
+            // Delete associated user account if exists
+            if (parent.user_id) {
+                const { error: deleteUserError } = await supabase
+                    .from('users')
                     .delete()
-                    .eq('id', parent.id);
+                    .eq('id', parent.user_id);
 
-                if (deleteParentError) throw deleteParentError;
-
-                // Delete associated user account if exists
-                if (parent.user_id) {
-                    const { error: deleteUserError } = await supabase
-                        .from('users')
-                        .delete()
-                        .eq('id', parent.user_id);
-
-                    if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
-                }
-
-                // Delete login credentials
-                const { error: deleteAuthError } = await supabase
-                    .from('auth_accounts')
-                    .delete()
-                    .eq('user_id', parent.user_id);
-
-                if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
-
-
-
-                toast.success(`${parent.name} has been successfully deleted from the database.`);
-                forceUpdate();
-                handleBack();
-            } catch (error: any) {
-                console.error('Error deleting parent:', error);
-                toast.error('Failed to delete parent: ' + (error.message || 'Unknown error'));
+                if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
             }
+
+            // Delete login credentials
+            const { error: deleteAuthError } = await supabase
+                .from('auth_accounts')
+                .delete()
+                .eq('user_id', parent.user_id);
+
+            if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
+
+
+
+            toast.success(`${parent.name} has been successfully deleted from the database.`);
+            forceUpdate();
+            handleBack();
+        } catch (error: any) {
+            console.error('Error deleting parent:', error);
+            toast.error('Failed to delete parent: ' + (error.message || 'Unknown error'));
         }
     };
 
@@ -127,9 +130,19 @@ student: students(
                 <h3 className="text-sm font-bold text-gray-500 text-center uppercase tracking-wider">Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => navigateTo('addParent', `Edit ${parent.name} `, { parentToEdit: parent })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-200"><EditIcon className="w-5 h-5" /><span>Edit Profile</span></button>
-                    <button onClick={handleDelete} className="flex items-center justify-center space-x-2 py-3 bg-red-100 text-red-700 rounded-xl font-semibold hover:bg-red-200"><TrashIcon className="w-5 h-5" /><span>Delete Account</span></button>
+                    <button onClick={handleDeleteClick} className="flex items-center justify-center space-x-2 py-3 bg-red-100 text-red-700 rounded-xl font-semibold hover:bg-red-200"><TrashIcon className="w-5 h-5" /><span>Delete Account</span></button>
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={confirmDelete}
+                title="Delete Parent Account"
+                message={`Are you sure you want to delete the account for ${parent.name}? This action cannot be undone.`}
+                confirmText="Delete Account"
+                isDanger={true}
+            />
         </div>
     );
 };

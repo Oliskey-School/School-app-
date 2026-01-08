@@ -36,19 +36,25 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
         const init = async () => {
             // 1. Get Parent Email for receipts
             const { data: { user } } = await supabase.auth.getUser();
-            setUserEmail(user?.email || '');
+            const authEmail = user?.email || '';
+            setUserEmail(authEmail);
 
-            // 2. Fetch parent profile details
+            // 2. Fetch parent profile details from parents table
             if (parentId) {
-                const { data: parentProfile } = await supabase
-                    .from('profiles')
-                    .select('name, phone')
-                    .eq('id', user?.id)
+                const { data: parentProfile, error } = await supabase
+                    .from('parents')
+                    .select('name, email, phone')
+                    .eq('id', parentId)
                     .single();
 
                 if (parentProfile) {
+                    // Use parent profile data with fallbacks
                     setParentName(parentProfile.name || 'Parent');
-                    setParentPhone(parentProfile.phone || '');
+                    setParentPhone(parentProfile.phone || '0000000000');
+                    // Use parent email if available, otherwise use auth email
+                    if (parentProfile.email && !authEmail) {
+                        setUserEmail(parentProfile.email);
+                    }
                 }
 
                 // 3. Fetch Children
@@ -62,7 +68,11 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
                     const kids = relations.map((r: any) => r.students);
                     setStudents(kids);
                     setSelectedStudent(kids[0]);
+                } else {
+                    toast('No children found for this parent.');
                 }
+            } else {
+                toast.error('Parent ID not found. Please log in again.');
             }
             setLoading(false);
         };
@@ -166,73 +176,134 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
         if (btn) btn.click();
     };
 
-    if (loading && !selectedStudent) return <div className="p-8 text-center">Loading...</div>;
+    if (loading && !selectedStudent) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading fee information...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!selectedStudent && students.length === 0) {
+        return (
+            <div className="p-8 text-center bg-white rounded-2xl shadow-sm">
+                <p className="text-gray-500">No student data available.</p>
+            </div>
+        );
+    }
+
+    const totalDue = fees.reduce((sum, fee) => sum + (fee.amount - (fee.paidAmount || 0)), 0);
+    const totalPaid = fees.reduce((sum, fee) => sum + (fee.paidAmount || 0), 0);
 
     return (
-        <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
+        <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
             {/* Child Selector */}
             {students.length > 1 && (
-                <div className="flex space-x-4 overflow-x-auto pb-2">
+                <div className="flex space-x-3 overflow-x-auto pb-2 scrollbar-hide">
                     {students.map(s => (
                         <button
                             key={s.id}
                             onClick={() => setSelectedStudent(s)}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-full border transition-all
-                        ${selectedStudent?.id === s.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl border-2 transition-all flex-shrink-0
+                        ${selectedStudent?.id === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'}`}
                         >
-                            <img src={s.avatar_url || 'https://via.placeholder.com/30'} className="w-6 h-6 rounded-full" />
-                            <span className="font-semibold text-sm">{s.name}</span>
+                            <img src={s.avatar_url || 'https://via.placeholder.com/32'} className="w-7 h-7 rounded-full ring-2 ring-white" alt={s.name} />
+                            <div className="text-left">
+                                <span className="font-semibold text-sm block">{s.name}</span>
+                                <span className="text-xs opacity-80">{s.grade} {s.section}</span>
+                            </div>
                         </button>
                     ))}
                 </div>
             )}
 
-            {/* Stats Summary (Optional enhancement) */}
+            {/* Stats Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-5 text-white">
+                    <p className="text-sm opacity-90 mb-1">Total Fees</p>
+                    <p className="text-2xl font-bold">
+                        {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(fees.reduce((sum, fee) => sum + fee.amount, 0))}
+                    </p>
+                    <p className="text-xs opacity-75 mt-1">{fees.length} fee(s)</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-5 text-white">
+                    <p className="text-sm opacity-90 mb-1">Total Paid</p>
+                    <p className="text-2xl font-bold">
+                        {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(totalPaid)}
+                    </p>
+                    <p className="text-xs opacity-75 mt-1">Completed payments</p>
+                </div>
+                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg p-5 text-white">
+                    <p className="text-sm opacity-90 mb-1">Outstanding</p>
+                    <p className="text-2xl font-bold">
+                        {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(totalDue)}
+                    </p>
+                    <p className="text-xs opacity-75 mt-1">Pending payment</p>
+                </div>
+            </div>
 
             {/* Payment Gateway Selector */}
-            <div className="bg-white rounded-2xl shadow-sm p-4 border border-gray-100">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Payment Method</h3>
-                <div className="grid grid-cols-3 gap-2">
+            <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-semibold text-gray-800">Payment Method</h3>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Select one</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <button
                         onClick={() => setPaymentGateway('paystack')}
-                        className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 transition ${paymentGateway === 'paystack'
-                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                        className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${paymentGateway === 'paystack'
+                            ? 'border-indigo-600 bg-indigo-50 shadow-md scale-105'
+                            : 'border-gray-200 bg-white hover:border-indigo-300 hover:shadow-sm'
                             }`}
                     >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M3 10h11v2H3v-2zm0-4h11v2H3V6zm0 8h7v2H3v-2zm13.01-2.5l2.5 1.5v2l-2.5-1.5v-2zm2.5-1.5v2l-2.5-1.5v-2l2.5 1.5zm-5 3v-2l2.5-1.5v2l-2.5 1.5z" />
-                        </svg>
-                        <span className="font-medium text-xs">Paystack</span>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${paymentGateway === 'paystack' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M3 10h11v2H3v-2zm0-4h11v2H3V6zm0 8h7v2H3v-2zm13.01-2.5l2.5 1.5v2l-2.5-1.5v-2zm2.5-1.5v2l-2.5-1.5v-2l2.5 1.5zm-5 3v-2l2.5-1.5v2l-2.5 1.5z" />
+                            </svg>
+                        </div>
+                        <div className="text-center">
+                            <span className={`font-semibold text-sm block ${paymentGateway === 'paystack' ? 'text-indigo-700' : 'text-gray-700'}`}>Paystack</span>
+                            <span className="text-xs text-gray-500">Cards, Bank, USSD</span>
+                        </div>
                     </button>
                     <button
                         onClick={() => setPaymentGateway('flutterwave')}
-                        className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 transition ${paymentGateway === 'flutterwave'
-                            ? 'border-orange-500 bg-orange-50 text-orange-700'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                        className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${paymentGateway === 'flutterwave'
+                            ? 'border-orange-500 bg-orange-50 shadow-md scale-105'
+                            : 'border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm'
                             }`}
                     >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                        </svg>
-                        <span className="font-medium text-xs">Flutterwave</span>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${paymentGateway === 'flutterwave' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                            </svg>
+                        </div>
+                        <div className="text-center">
+                            <span className={`font-semibold text-sm block ${paymentGateway === 'flutterwave' ? 'text-orange-700' : 'text-gray-700'}`}>Flutterwave</span>
+                            <span className="text-xs text-gray-500">Cards, Mobile Money</span>
+                        </div>
                     </button>
                     <button
                         onClick={() => setPaymentGateway('mobilemoney')}
-                        className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 transition ${paymentGateway === 'mobilemoney'
-                            ? 'border-green-600 bg-green-50 text-green-700'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                        className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${paymentGateway === 'mobilemoney'
+                            ? 'border-green-600 bg-green-50 shadow-md scale-105'
+                            : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-sm'
                             }`}
                     >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z" />
-                        </svg>
-                        <span className="font-medium text-xs">Mobile</span>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${paymentGateway === 'mobilemoney' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z" />
+                            </svg>
+                        </div>
+                        <div className="text-center">
+                            <span className={`font-semibold text-sm block ${paymentGateway === 'mobilemoney' ? 'text-green-700' : 'text-gray-700'}`}>Mobile Money</span>
+                            <span className="text-xs text-gray-500">M-Pesa, MTN, Airtel</span>
+                        </div>
                     </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                    {paymentGateway === 'paystack' ? 'Cards, Bank Transfer, USSD' : paymentGateway === 'flutterwave' ? 'Cards, Mobile Money, Bank' : 'M-Pesa, MTN, Airtel'}
-                </p>
             </div>
 
             {/* Fee List */}

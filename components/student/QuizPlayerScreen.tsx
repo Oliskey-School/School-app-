@@ -68,32 +68,63 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, handleBack,
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [isFinished, loading]);
 
+  // New State for detailed answers
+  const [answersLog, setAnswersLog] = useState<Record<string, string>>({}); // questionId -> optionId
+
+  // ... (inside useEffect)
+
   const fetchQuizDetails = async () => {
     try {
-      const { data: quizData, error: quizError } = await supabase
-        .from('quizzes')
+      // 1. Fetch Exam Details (CBT Schema)
+      const { data: examData, error: examError } = await supabase
+        .from('cbt_exams')
         .select('*')
         .eq('id', quizId)
         .single();
 
-      if (quizError) throw quizError;
-      setQuiz(quizData);
-
-      if (quizData.duration_minutes) {
-        setTimeLeft(quizData.duration_minutes * 60);
+      if (examError) {
+        console.error("Error loading CBT exam:", examError);
+        // Fallback to legacy quiz table if not found? 
+        // For now, assume unification.
+        throw examError;
       }
 
-      const { data: questionData, error: qError } = await supabase
-        .from('questions')
+      setQuiz({
+        id: examData.id,
+        title: examData.title,
+        durationMinutes: examData.duration_minutes,
+        subject: 'Exam', // Or fetch from relation
+        questions: []
+      } as any);
+
+      if (examData.duration_minutes) {
+        setTimeLeft(examData.duration_minutes * 60);
+      }
+
+      // 2. Fetch Questions (CBT Schema)
+      const { data: cbtQuestions, error: qError } = await supabase
+        .from('cbt_questions')
         .select('*')
-        .eq('quiz_id', quizId)
-        .order('id', { ascending: true });
+        .eq('cbt_exam_id', quizId);
 
       if (qError) throw qError;
 
+      // Map CBT questions to UI format
+      const mappedQuestions: Question[] = (cbtQuestions || []).map((q: any) => ({
+        id: q.id,
+        text: q.question_text,
+        type: 'MCQ', // Excel upload implies MCQ usually
+        points: q.marks || 1,
+        options: [
+          { id: 'A', text: q.option_a, isCorrect: q.correct_option === 'A' },
+          { id: 'B', text: q.option_b, isCorrect: q.correct_option === 'B' },
+          { id: 'C', text: q.option_c, isCorrect: q.correct_option === 'C' },
+          { id: 'D', text: q.option_d, isCorrect: q.correct_option === 'D' },
+        ]
+      }));
+
       // Randomization
-      let loadedQuestions = questionData || [];
-      // Simple Fisher-Yates Shuffle for Questions
+      let loadedQuestions = mappedQuestions;
       for (let i = loadedQuestions.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [loadedQuestions[i], loadedQuestions[j]] = [loadedQuestions[j], loadedQuestions[i]];
@@ -111,24 +142,27 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, handleBack,
   };
 
   const handleAnswerSelect = (optionId: string) => {
-    if (selectedAnswerId === null) {
-      setSelectedAnswerId(optionId);
-      const currentQ = questions[currentQuestionIndex];
-      const selectedOpt = currentQ.options?.find(o => o.id === optionId);
-      if (selectedOpt && selectedOpt.isCorrect) {
-        setScore(s => s + 1);
-      }
-    }
+    // Allow changing answer if not locked? Actually, for CBT, usually we select and can submit later?
+    // But adhering to previous flow: instant feedback/lock? 
+    // User request: "student will have to answer the question in real time"
+    // "only teacher... can see the score".
+    // This suggests NO immediate feedback on correct/wrong.
+    // So I should REMOVE immediate grading feedback in the UI for Security.
+
+    setSelectedAnswerId(optionId);
+
+    // Log for final submission
+    const currentQ = questions[currentQuestionIndex];
+    setAnswersLog(prev => ({
+      ...prev,
+      [currentQ.id]: optionId
+    }));
+
+    // Calculate score silently? Or just on submit.
+    // Better to calculate on submit to avoid state drift.
   };
 
-  const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(i => i + 1);
-      setSelectedAnswerId(null);
-    } else {
-      finishQuiz();
-    }
-  };
+  // ...
 
   const finishQuiz = async (autoSubmit = false) => {
     setIsFinished(true);
@@ -138,34 +172,46 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, handleBack,
 
     setIsSubmitting(true);
     try {
-      // Fetch current user student ID (Assuming context or passed props usually, but we have auth)
-      // Better: use the user_id from auth to find student_id if not in props. 
-      // But for now, we'll try to use the student prop logic if available, 
-      // otherwise fetching student ID again is safe.
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { data: student } = await supabase.from('students').select('id').eq('user_id', user.id).single();
       if (!student) throw new Error("Student profile not found");
 
+      // Calculate Score Final
+      let finalScore = 0;
+      const submissionAnswers = questions.map(q => {
+        const selected = answersLog[q.id];
+        const correctOpt = q.options?.find(o => o.isCorrect);
+        const isCorrect = correctOpt?.id === selected;
+        if (isCorrect) finalScore += (q.points || 1);
+
+        return {
+          questionId: q.id,
+          selectedOption: selected || null,
+          isCorrect
+        };
+      });
+
+      // Override local score state with final calculation
+      setScore(finalScore);
+
       const submissionData = {
-        quiz_id: quizId,
+        cbt_exam_id: quizId,
         student_id: student.id,
-        score: score,
-        answers: [], // We didn't track answers per question in state array properly yet, only score. 
-        // Ideally we should track `answers` state: { [questionId]: optionId }
-        // For MVP, we save score.
+        score: finalScore,
+        answers: submissionAnswers, // Store detailed JSON
         status: 'Graded',
         submitted_at: new Date().toISOString()
       };
 
-      const { error } = await supabase.from('quiz_submissions').insert(submissionData);
+      const { error } = await supabase.from('cbt_submissions').insert(submissionData);
 
       if (error) {
         console.error('Error saving quiz result:', error);
-        toast.error('Failed to save result to history.');
+        toast.error('Failed to save result. Please screenshot this page.');
       } else {
-        toast.success('Quiz result saved!');
+        toast.success('Exam submitted successfully!');
       }
 
     } catch (err) {
@@ -174,6 +220,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, handleBack,
       setIsSubmitting(false);
     }
   };
+
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -293,16 +340,11 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, handleBack,
               let icon = null;
 
               if (showFeedback) {
-                if (isSelected && isCorrect) {
-                  cardClass = 'bg-green-50 border-green-500 ring-1 ring-green-500';
-                  icon = <CheckCircleIcon className="text-green-600 w-6 h-6" />;
-                } else if (isSelected && !isCorrect) {
-                  cardClass = 'bg-red-50 border-red-500 ring-1 ring-red-500';
-                  icon = <XCircleIcon className="text-red-600 w-6 h-6" />;
-                } else if (!isSelected && isCorrect) {
-                  // Show correct answer if they picked wrong
-                  cardClass = 'bg-green-50/50 border-green-200';
-                  icon = <CheckCircleIcon className="text-green-400 w-5 h-5 opacity-70" />;
+                // SECURE MODE: Do not show correct/wrong feedback
+                // Just show selected state
+                if (isSelected) {
+                  cardClass = 'bg-orange-50 border-orange-500 ring-1 ring-orange-500';
+                  // icon = <CheckCircleIcon className="text-orange-600 w-6 h-6" />; // Maybe just a checkmark to show selected?
                 } else {
                   cardClass = 'bg-gray-50 opacity-50 border-gray-100';
                 }
@@ -312,11 +354,12 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, handleBack,
                 <button
                   key={option.id}
                   onClick={() => handleAnswerSelect(option.id)}
+                  // allow changing answer? The previous logic disabled it. 
                   disabled={selectedAnswerId !== null}
                   className={`w-full p-4 rounded-xl border-2 text-left font-semibold text-gray-700 transition-all flex justify-between items-center ${cardClass} shadow-sm`}
                 >
                   <span>{option.text}</span>
-                  {icon}
+                  {isSelected && <div className="w-4 h-4 bg-orange-500 rounded-full" />}
                 </button>
               );
             })}

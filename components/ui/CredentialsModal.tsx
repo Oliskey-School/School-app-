@@ -12,8 +12,15 @@ interface CredentialsModalProps {
   password: string;
   email: string;
   userType: 'Student' | 'Teacher' | 'Parent' | 'Admin';
+  secondaryCredentials?: {
+    userName: string;
+    username: string;
+    password: string;
+    email: string;
+    userType: string;
+  };
   onClose: () => void;
-  fullscreen?: boolean; // Optional prop for fullscreen mode
+  fullscreen?: boolean;
 }
 
 const CredentialsModal: React.FC<CredentialsModalProps> = ({
@@ -23,6 +30,7 @@ const CredentialsModal: React.FC<CredentialsModalProps> = ({
   password,
   email,
   userType,
+  secondaryCredentials,
   onClose,
   fullscreen = false
 }) => {
@@ -35,20 +43,34 @@ const CredentialsModal: React.FC<CredentialsModalProps> = ({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const downloadCredentials = () => {
-    const credentialsText = `
+  const generateCredentialText = (name: string, mail: string, role: string, user: string, pass: string) => `
 ===========================================
-${userType} Account Credentials
+${role} Account Credentials
 ===========================================
 
-Name: ${userName}
-Email: ${email}
-Role: ${userType}
+Name: ${name}
+Email: ${mail}
+Role: ${role}
 
 LOGIN DETAILS:
-Username: ${username}
-Password: ${password}
+Username: ${user}
+Password: ${pass}
+`;
 
+  const downloadCredentials = () => {
+    let credentialsText = generateCredentialText(userName, email, userType, username, password);
+
+    if (secondaryCredentials) {
+      credentialsText += `\n\n` + generateCredentialText(
+        secondaryCredentials.userName,
+        secondaryCredentials.email,
+        secondaryCredentials.userType,
+        secondaryCredentials.username,
+        secondaryCredentials.password
+      );
+    }
+
+    credentialsText += `
 IMPORTANT:
 - Confirm your email within 7 days to activate your account
 - Change your password after first login
@@ -61,12 +83,85 @@ Visit: https://your-school-app.com/login
 
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(credentialsText));
-    element.setAttribute('download', `${userType.toLowerCase()}_credentials.txt`);
+    element.setAttribute('download', 'school_app_credentials.txt');
     element.style.display = 'none';
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
   };
+
+  const renderCredentialBlock = (
+    name: string,
+    mail: string,
+    role: string,
+    user: string,
+    pass: string,
+    prefix: string
+  ) => (
+    <div className="space-y-4 pt-4 first:pt-0">
+      {/* User Info */}
+      <div className="bg-green-50 rounded-lg p-3 sm:p-4 border border-green-200">
+        <p className="text-sm text-green-600 font-medium">Account Created For:</p>
+        <p className="text-lg font-bold text-gray-800">{name}</p>
+        <p className="text-sm text-gray-600">{mail}</p>
+        <p className="text-xs text-green-700 mt-2 font-semibold">Role: {role}</p>
+      </div>
+
+      {/* Login Credentials */}
+      <div className="space-y-2 sm:space-y-3">
+        <p className="text-sm sm:text-base font-semibold text-gray-700">Login Credentials:</p>
+        <p className="text-xs text-gray-500 italic">You can login using either your <strong>Email</strong> or <strong>Username</strong>.</p>
+
+        {/* Username Field */}
+        <div className="relative">
+          <label className="text-xs text-gray-500 font-medium">Username</label>
+          <div className="flex items-center mt-1 gap-2">
+            <input
+              type="text"
+              value={user}
+              readOnly
+              className="flex-1 px-2 sm:px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-xs sm:text-sm font-mono text-gray-800"
+            />
+            <button
+              onClick={() => copyToClipboard(user, `${prefix}_username`)}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Copy username"
+            >
+              {copiedField === `${prefix}_username` ? (
+                <CheckCircleIcon className="w-5 h-5 text-green-500" />
+              ) : (
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Password Field */}
+        <div className="relative">
+          <label className="text-xs text-gray-500 font-medium">Password</label>
+          <div className="flex items-center mt-1 gap-2">
+            <input
+              type="text"
+              value={pass}
+              readOnly
+              className="flex-1 px-2 sm:px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-xs sm:text-sm font-mono text-gray-800"
+            />
+            <button
+              onClick={() => copyToClipboard(pass, `${prefix}_password`)}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Copy password"
+            >
+              {copiedField === `${prefix}_password` ? (
+                <CheckCircleIcon className="w-5 h-5 text-green-500" />
+              ) : (
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   if (!isOpen) return null;
 
@@ -106,7 +201,7 @@ Visit: https://your-school-app.com/login
       // 5. Generate PDF
       const opt = {
         margin: 0.5,
-        filename: `${userType.toLowerCase()}_credentials.pdf`,
+        filename: 'school_app_credentials.pdf',
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
@@ -137,80 +232,41 @@ Visit: https://your-school-app.com/login
             <CheckCircleIcon className="w-8 h-8" />
             <div>
               <h2 className="text-2xl font-bold">Success!</h2>
-              <p className="text-green-100 text-sm">Account created successfully</p>
+              <p className="text-green-100 text-sm">
+                {secondaryCredentials ? 'Accounts created successfully' : 'Account created successfully'}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
-          {/* User Info */}
-          <div className="bg-green-50 rounded-lg p-3 sm:p-4 border border-green-200">
-            <p className="text-sm text-green-600 font-medium">Account Created For:</p>
-            <p className="text-lg font-bold text-gray-800">{userName}</p>
-            <p className="text-sm text-gray-600">{email}</p>
-            <p className="text-xs text-green-700 mt-2 font-semibold">Role: {userType}</p>
-          </div>
+
+          {renderCredentialBlock(userName, email, userType, username, password, 'primary')}
+
+          {secondaryCredentials && (
+            <>
+              <div className="border-t border-gray-200 my-4"></div>
+              {renderCredentialBlock(
+                secondaryCredentials.userName,
+                secondaryCredentials.email,
+                secondaryCredentials.userType,
+                secondaryCredentials.username,
+                secondaryCredentials.password,
+                'secondary'
+              )}
+            </>
+          )}
 
           {/* Important Notice */}
           <div className="bg-yellow-50 rounded-lg p-3 sm:p-4 border-l-4 border-yellow-400">
             <p className="text-sm text-yellow-800 font-semibold">⏰ Important:</p>
             <p className="text-xs text-yellow-700 mt-1">
-              A confirmation email has been sent to <strong>{email}</strong>. The user must confirm their email within <strong>7 days</strong> to activate the account.
+              A confirmation email has been sent. The user must confirm their email within <strong>7 days</strong> to activate the account.
             </p>
-          </div>
-
-          {/* Login Credentials */}
-          <div className="space-y-2 sm:space-y-3">
-            <p className="text-sm sm:text-base font-semibold text-gray-700">Login Credentials:</p>
-
-            {/* Username Field */}
-            <div className="relative">
-              <label className="text-xs text-gray-500 font-medium">Username</label>
-              <div className="flex items-center mt-1 gap-2">
-                <input
-                  type="text"
-                  value={username}
-                  readOnly
-                  className="flex-1 px-2 sm:px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-xs sm:text-sm font-mono text-gray-800"
-                />
-                <button
-                  onClick={() => copyToClipboard(username, 'username')}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                  title="Copy username"
-                >
-                  {copiedField === 'username' ? (
-                    <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Password Field */}
-            <div className="relative">
-              <label className="text-xs text-gray-500 font-medium">Password</label>
-              <div className="flex items-center mt-1 gap-2">
-                <input
-                  type="text"
-                  value={password}
-                  readOnly
-                  className="flex-1 px-2 sm:px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-xs sm:text-sm font-mono text-gray-800"
-                />
-                <button
-                  onClick={() => copyToClipboard(password, 'password')}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                  title="Copy password"
-                >
-                  {copiedField === 'password' ? (
-                    <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                  )}
-                </button>
-              </div>
-            </div>
+            <p className="text-xs text-yellow-700 mt-1">
+              If emails are not received, please use the generated credentials after admin verification.
+            </p>
           </div>
 
           {/* Security Warning */}

@@ -130,117 +130,128 @@ const FeeManagement: React.FC = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <p className="text-sm text-gray-500">Total Expected</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-xl lg:text-2xl font-bold text-gray-900">
             {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(fees.reduce((a, b) => a + b.amount, 0))}
           </p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
           <p className="text-sm text-green-600">Total Collected</p>
-          <p className="text-2xl font-bold text-green-700">
+          <p className="text-xl lg:text-2xl font-bold text-green-700">
             {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(fees.reduce((a, b) => a + (b.paidAmount || 0), 0))}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 sm:col-span-2 lg:col-span-1">
           <p className="text-sm text-red-600">Outstanding</p>
-          <p className="text-2xl font-bold text-red-700">
+          <p className="text-xl lg:text-2xl font-bold text-red-700">
             {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(fees.reduce((a, b) => a + (b.amount - (b.paidAmount || 0)), 0))}
           </p>
         </div>
       </div>
 
-      {/* Fees Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Student</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Fee Info</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Curriculum</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Amount</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Date</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading ? (
-              <tr><td colSpan={6} className="p-8 text-center text-gray-500">Loading fees...</td></tr>
-            ) : fees.map(fee => {
-              const student = students.find(s => s.id === fee.studentId);
-              return (
-                <tr key={fee.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{student?.name || `ID: ${fee.studentId}`}</div>
-                    <div className="text-xs text-gray-500">{student?.grade} {student?.section}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{fee.title}</div>
-                    <div className="text-xs text-gray-400 line-clamp-1">{fee.description}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tight ${fee.curriculumType === 'British' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                      fee.curriculumType === 'Nigerian' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                        fee.curriculumType === 'Dual' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
-                          'bg-gray-50 text-gray-600 border border-gray-100'
-                      }`}>
-                      {fee.curriculumType || 'General'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-semibold text-gray-900">
-                      {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(fee.amount)}
-                    </div>
-                    {fee.paidAmount > 0 && (
-                      <div className="text-xs text-green-600">Paid: {fee.paidAmount}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+      {/* Fees Table - Responsive with horizontal scroll on mobile */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left min-w-[640px]">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Student</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Fee Info</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Curriculum</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Amount</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Date</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr><td colSpan={6} className="p-8 text-center text-gray-500">Loading fees...</td></tr>
+              ) : fees.map(fee => {
+                const student = students.find(s => s.id === fee.studentId);
+                return (
+                  <tr key={fee.id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">{student?.name || `ID: ${fee.studentId}`}</div>
+                      <div className="text-xs text-gray-500">{student?.grade} {student?.section}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-medium text-gray-900">{fee.title}</div>
+                          <div className="text-xs text-gray-400 line-clamp-1">{fee.description}</div>
+                        </div>
+                        {fee.hasPaymentPlan && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 whitespace-nowrap">
+                            📅 PLAN
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tight ${fee.curriculumType === 'British' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                        fee.curriculumType === 'Nigerian' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                          fee.curriculumType === 'Dual' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
+                            'bg-gray-50 text-gray-600 border border-gray-100'
+                        }`}>
+                        {fee.curriculumType || 'General'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-gray-900">
+                        {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(fee.amount)}
+                      </div>
+                      {fee.paidAmount > 0 && (
+                        <div className="text-xs text-green-600">Paid: {fee.paidAmount}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                             ${fee.status === 'Paid' ? 'bg-green-100 text-green-800' :
-                        fee.status === 'Overdue' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {fee.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(fee.dueDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={async () => {
-                        try {
-                          const { generateInvoice, generateInvoiceNumber } = await import('../../lib/invoice-generator');
-                          await generateInvoice({
-                            invoiceNumber: generateInvoiceNumber(fee.id, fee.studentId),
-                            studentName: student?.name || 'Student',
-                            grade: student?.grade || 'N/A',
-                            section: student?.section,
-                            parentName: 'Parent', // Could fetch from DB
-                            feeTitle: fee.title,
-                            amount: fee.amount,
-                            paidAmount: fee.paidAmount || 0,
-                            balance: fee.amount - (fee.paidAmount || 0),
-                            dueDate: new Date(fee.dueDate).toLocaleDateString(),
-                            assignedDate: new Date().toLocaleDateString(),
-                            description: fee.description
-                          });
-                        } catch (err) {
-                          console.error('Error generating invoice:', err);
-                          toast.error('Error generating invoice');
-                        }
-                      }}
-                      className="text-indigo-600 hover:text-indigo-800 font-medium text-sm"
-                    >
-                      📄 Invoice
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                          fee.status === 'Overdue' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {fee.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {new Date(fee.dueDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { generateInvoice, generateInvoiceNumber } = await import('../../lib/invoice-generator');
+                            await generateInvoice({
+                              invoiceNumber: generateInvoiceNumber(fee.id, fee.studentId),
+                              studentName: student?.name || 'Student',
+                              grade: student?.grade || 'N/A',
+                              section: student?.section,
+                              parentName: 'Parent', // Could fetch from DB
+                              feeTitle: fee.title,
+                              amount: fee.amount,
+                              paidAmount: fee.paidAmount || 0,
+                              balance: fee.amount - (fee.paidAmount || 0),
+                              dueDate: new Date(fee.dueDate).toLocaleDateString(),
+                              assignedDate: new Date().toLocaleDateString(),
+                              description: fee.description
+                            });
+                          } catch (err) {
+                            console.error('Error generating invoice:', err);
+                            toast.error('Error generating invoice');
+                          }
+                        }}
+                        className="text-indigo-600 hover:text-indigo-800 font-medium text-sm"
+                      >
+                        📄 Invoice
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Assign Fee Modal */}

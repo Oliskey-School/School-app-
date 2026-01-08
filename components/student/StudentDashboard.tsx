@@ -218,7 +218,14 @@ interface StudentDashboardProps {
     currentUser: any;
 }
 
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+
+// ... (top level)
+
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
+
+    // ... inside component ...
+
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Student Dashboard' }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [version, setVersion] = useState(0);
@@ -227,7 +234,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     // State for student data
     const [student, setStudent] = useState<Student | null>(null);
     const [loadingStudent, setLoadingStudent] = useState(true);
-    const [notificationCount, setNotificationCount] = useState(0);
+
+    // Real-time notifications
+    const notificationCount = useRealtimeNotifications('student');
 
     const forceUpdate = () => setVersion(v => v + 1);
 
@@ -239,12 +248,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     return;
                 }
 
-                // Check if this looks like a demo/quick login email
                 const isDemoEmail = currentUser.email?.endsWith('@school.com') ||
                     currentUser.email?.includes('student') ||
                     currentUser.email?.includes('demo');
 
-                // Helper to create demo student fallback
                 const createDemoStudent = (): Student => ({
                     id: 1,
                     name: currentUser.user_metadata?.full_name || 'Demo Student',
@@ -258,26 +265,22 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
                 // 1. Try to fetch Student Data by user_id
                 let studentData = null;
-                try {
-                    const { data: students, error: studentsError } = await supabase
+                const { data: students } = await supabase
+                    .from('students')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .maybeSingle();
+
+                studentData = students;
+
+                // Fallback lookup by email
+                if (!studentData && currentUser.email) {
+                    const { data: byEmail } = await supabase
                         .from('students')
                         .select('*')
-                        .eq('user_id', currentUser.id)
+                        .eq('email', currentUser.email)
                         .maybeSingle();
-
-                    studentData = students;
-
-                    // Fallback lookup by email if user_id didn't work
-                    if (!studentData && currentUser.email) {
-                        const { data: byEmail } = await supabase
-                            .from('students')
-                            .select('*')
-                            .eq('email', currentUser.email)
-                            .maybeSingle();
-                        if (byEmail) studentData = byEmail;
-                    }
-                } catch (dbError) {
-                    console.warn('Database query failed:', dbError);
+                    if (byEmail) studentData = byEmail;
                 }
 
                 if (studentData) {
@@ -292,24 +295,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
                     // Update state immediately when student is found
                     setStudent(mappedStudent);
-
-                    // 2. Fetch Notifications in parallel
-                    try {
-                        const { count, error: notifError } = await supabase
-                            .from('notifications')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('user_id', currentUser.id)
-                            .eq('is_read', false);
-
-                        if (!notifError) {
-                            setNotificationCount(count || 0);
-                        }
-                    } catch (notifError) {
-                        console.warn('Could not fetch notifications:', notifError);
-                    }
                 } else if (isDemoEmail) {
                     // Use demo student fallback for quick logins
-                    // console.log('Using demo student fallback for:', currentUser.email);
                     setStudent(createDemoStudent());
                 } else {
                     console.warn('No linked student profile found.');
@@ -317,12 +304,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
             } catch (e) {
                 console.error('Error loading dashboard:', e);
-                // Final fallback for demo emails even on error
+                // Final fallback
                 const isDemoEmail = currentUser?.email?.endsWith('@school.com') ||
                     currentUser?.email?.includes('student') ||
                     currentUser?.email?.includes('demo');
+
                 if (isDemoEmail) {
-                    // console.log('Error occurred, using demo student fallback');
                     setStudent({
                         id: 1,
                         name: 'Demo Student',

@@ -181,7 +181,8 @@ function normalizeFee(data: any): Fee {
         status: mapStatus(data.status),
         type: data.type,
         curriculumType: data.curriculum_type,
-        createdAt: data.created_at
+        createdAt: data.created_at,
+        hasPaymentPlan: data.has_payment_plan || false
     };
 }
 

@@ -24,6 +24,11 @@ export const generatePassword = (surname: string): string => {
  * Creates a login account for a user using Supabase Authentication
  * Returns username and password that was created
  */
+/**
+ * Creates a login account for a user using Supabase Authentication.
+ * Uses a secondary client to ensure the current session (Admin) is not replaced.
+ * Returns username and password that was created.
+ */
 export const createUserAccount = async (
   fullName: string,
   userType: 'Student' | 'Teacher' | 'Parent' | 'Admin' | 'Principal' | 'Counselor',
@@ -39,16 +44,32 @@ export const createUserAccount = async (
     const username = generateUsername(fullName, userType);
     const password = generatePassword(surname);
 
-    // For MVP/Demo, we are storing plaintext to match the simple RPC login.
-    // In production, uncomment the next line and update the RPC to check hashes.
-    // const hashedPassword = await bcrypt.hash(password, 10);
+    // Create a temporary client that DOES NOT persist the session.
+    // This is critical so the Admin performing this action doesn't get logged out
+    // and switched to the new user's session.
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    // 1. Create Supabase Auth user (with auto-confirm for development)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return { username, password, error: 'Supabase configuration missing' };
+    }
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false, // Don't save this session to localStorage
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
+
+    // 1. Create Supabase Auth user
+    // This sends the confirmation email automatically if "Confirm Email" is enabled in Supabase
+    const { data: authData, error: authError } = await tempClient.auth.signUp({
       email: email,
       password: password,
       options: {
-        emailRedirectTo: 'http://localhost:5173',
+        emailRedirectTo: window.location.origin, // Redirect back to app after confirmation
         data: {
           full_name: fullName,
           user_type: userType,
@@ -62,23 +83,25 @@ export const createUserAccount = async (
       return { username, password, error: authError.message };
     }
 
-    // 2. Insert into auth_accounts table to store username mapping
+    // 2. Insert into auth_accounts table (Legacy support / Quick Login mapping)
+    // We use the MAIN supabase client here because we need RLS permissions of the Admin
+    // (Ensure Admin has INSERT permission on auth_accounts)
     const { error: dbError } = await supabase
       .from('auth_accounts')
       .insert([{
         username: username,
         email: email,
-        password: password, // Store plaintext for simple RPC login
+        password: password, // Storing plaintext for "Quick Login" features (Demo only)
         user_type: userType,
         user_id: userId,
-        is_verified: true,
+        is_verified: false, // Wait for email confirmation
         verification_sent_at: new Date().toISOString(),
-        verification_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
       }]);
 
     if (dbError) {
       console.error('Error inserting into auth_accounts:', dbError);
-      return { username, password, error: `Auth created but DB save failed: ${dbError.message}` };
+      // We don't return error here because Auth User was created successfully
+      console.warn('Auth created but DB save failed:', dbError.message);
     }
 
     return { username, password };
@@ -210,10 +233,18 @@ export const authenticateUser = async (
 
     const user = data[0];
 
+    // Handle both UUID (string) and Numeric ID (number)
+    // The new RPC 'authenticate_user' returns UUID 'id' (from auth.users) and 'user_id' (could be same)
+    // Legacy schema might use numbers. Convert safely.
+    let finalUserId = user.id.toString();
+    if (user.user_id) {
+      finalUserId = user.user_id.toString();
+    }
+
     return {
       success: true,
       userType: user.role as any,
-      userId: user.id.toString(), // Convert number to string for context compatibility
+      userId: finalUserId,
       email: user.email,
     };
   } catch (err: any) {

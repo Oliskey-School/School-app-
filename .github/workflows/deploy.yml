@@ -1,0 +1,57 @@
+name: Production Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # Required for fetching secrets from Vault/AWS
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Run Tests
+        run: npm test
+      - name: Run Audit
+        run: npm audit --audit-level=high
+
+  deploy:
+    needs: verify
+    runs-on: self-hosted # Recommended for secure envs, or use ubuntu-latest with strict IP allowlisting
+    environment: 
+      name: production
+      url: https://school-app.com
+    steps:
+      - uses: actions/checkout@v3
+      
+      # Example: Fetching dynamic secrets from Vault
+      # This step requires the VAULT infra to be set up as per the Playbook/Tickets
+      - name: Import Secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: https://vault.acme.internal
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            database/creds/school-app-role username | DB_USER ;
+            database/creds/school-app-role password | DB_PASSWORD
+
+      - name: Deploy to Production
+        run: |
+          echo "Deploying version ${{ github.ref_name }}"
+          # ./scripts/deploy.sh
+        env:
+          NODE_ENV: production
+          # DB_USER and DB_PASSWORD are automatically injected from Vault step

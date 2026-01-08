@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, StudentsIcon } from '../../constants';
-import { useNavigate } from 'react-router-dom';
+
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import { Parent } from '../../types';
@@ -161,80 +161,67 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 return; // Stop execution here
             }
             // CREATE MODE
-            // 1. Check if email already exists in users or auth_accounts
-            const exists = await checkEmailExists(email);
-            if (exists.error) {
-                console.warn('Email check error:', exists.error);
-                throw new Error('Could not validate email uniqueness');
-            }
 
-            let userIdToUse: number | null = null;
-            if (exists.inAuthAccounts) {
-                let whereFound: string[] = [];
-                if (exists.inUsers) whereFound.push(`users (id: ${exists.userRow?.id || 'unknown'})`);
-                whereFound.push(`auth_accounts (id: ${exists.authAccountRow?.id || 'unknown'})`);
-                toast.error(`Email already exists in: ${whereFound.join(', ')}. Please use a different email address.`);
+            // 1. Create Login Credentials (Auth User) FIRST.
+            // This ensures we don't end up with a DB record but no login method if Auth fails.
+            // Also, this handles the email uniqueness check via Supabase Auth.
+
+            const authResult = await createUserAccount(
+                name,
+                'Parent',
+                email
+            );
+
+            if (authResult.error) {
+                // Determine if it is a duplicate email error
+                if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
+                    toast.error('This email is already registered. Please use a different email.');
+                } else {
+                    toast.error('Failed to create account: ' + authResult.error);
+                }
                 setIsLoading(false);
                 return;
-            } else if (exists.inUsers) {
-                // Exists in DB (users table) but NOT in Auth. Reuse the User ID.
-                console.log(`Email ${email} found in 'users' but missing Auth. Attempting to repair/reuse User ID: ${exists.userRow.id}`);
-                userIdToUse = exists.userRow.id;
             }
 
-            // 2. Create User (Only if not reusing)
-            let userData = { id: userIdToUse };
+            // 2. Create User Record (Legacy Table)
+            // We use the ID from the previous step if we can, but since public.users uses Serial/BigInt,
+            // we let it generate its own ID, and we just link them logically via email or a new column if exists.
+            // Ideally we should store the Auth UUID in 'users' table, but adhering to existing schema:
 
-            if (!userIdToUse) {
-                const { data: newUserData, error: userError } = await supabase
-                    .from('users')
-                    .insert([{
-                        email: email,
-                        name: name,
-                        role: 'Parent',
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
+            const { data: newUserData, error: userError } = await supabase
+                .from('users')
+                .insert([{
+                    email: email,
+                    name: name,
+                    role: 'Parent',
+                    avatar_url: avatarUrl
+                }])
+                .select()
+                .single();
 
-                if (userError) throw userError;
-                userData = newUserData;
+            if (userError) {
+                // Rollback opportunity here (delete auth user), but for MVP we just show error.
+                // In production, use a transaction or edge function.
+                throw userError;
             }
 
+            const userData = newUserData;
 
             // 3. Create Parent Profile
-            let parentData = null;
+            const { data: newParentData, error: parentError } = await supabase
+                .from('parents')
+                .insert([{
+                    user_id: userData.id, // Linking to Legacy User ID
+                    name,
+                    email: email,
+                    phone,
+                    avatar_url: avatarUrl
+                }])
+                .select()
+                .single();
 
-            // If reusing user, check if parent profile also exists
-            if (userIdToUse) {
-                const { data: existingParent, error: existingParentError } = await supabase
-                    .from('parents')
-                    .select('*')
-                    .eq('user_id', userIdToUse)
-                    .maybeSingle();
-
-                if (existingParent) {
-                    console.log("Parent profile also exists. Reusing it.");
-                    parentData = existingParent;
-                }
-            }
-
-            if (!parentData) {
-                const { data: newParentData, error: parentError } = await supabase
-                    .from('parents')
-                    .insert([{
-                        user_id: userData.id,
-                        name,
-                        email: email,
-                        phone,
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
-
-                if (parentError) throw parentError;
-                parentData = newParentData;
-            }
+            if (parentError) throw parentError;
+            const parentData = newParentData;
 
             // 4. Link Students to Parent
             if (childIdArray.length > 0) {
@@ -250,39 +237,11 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 if (relationError) console.warn("Could not link all students:", relationError.message);
             }
 
-            // 5. Create login credentials
-            const authResult = await createUserAccount(
-                name,
-                'Parent',
-                email,
-                userData.id
-            );
+            // 5. Send Welcome Email (Handled by Supabase Auth automatically now)
+            // But we can still simulate the welcome message in the UI or logs.
+            console.log('User created. Verification email sent by Supabase.');
 
-            if (authResult.error) {
-                console.warn('Warning: Auth account created with error:', authResult.error);
-            }
-
-            // Send professional welcome email with credentials (Best effort - doesn't block creation)
-            try {
-                const emailResult = await sendWelcomeEmail({
-                    toEmail: email,
-                    userName: name,
-                    username: authResult.username,
-                    password: authResult.password,
-                    userType: 'Parent'
-                });
-
-                if (!emailResult.success) {
-                    console.warn('⚠️ Email not sent:', emailResult.error);
-                } else {
-                    console.log('✅ Welcome email sent to:', email);
-                }
-            } catch (emailError: any) {
-                console.warn('⚠️ Email sending skipped (CORS - needs backend):', emailError.message);
-                // Account was created successfully - email is optional
-            }
-
-            // Show credentials modal instead of alert
+            // Show credentials modal
             setCredentials({
                 username: authResult.username,
                 password: authResult.password,

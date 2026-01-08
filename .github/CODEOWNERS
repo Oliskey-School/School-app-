@@ -1,0 +1,21 @@
+# These owners will be the default owners for everything in the repo.
+# Unless a later match takes precedence, @acme-inc/dev-leads will be requested for
+# review when someone opens a pull request.
+*                   @acme-inc/dev-leads
+
+# Backend and Database critical paths
+# Requires approval from backend leads
+/backend/**         @acme-inc/backend-leads
+/database/**        @acme-inc/backend-leads
+/prisma/**          @acme-inc/backend-leads
+
+# Infrastructure and CI/CD
+# Requires approval from SRE/Infra team
+/infra/**           @acme-inc/sre-team
+/.github/**         @acme-inc/sre-team
+/scripts/**         @acme-inc/sre-team
+
+# Security sensitive files
+# Requires approval from Security team
+/security/**        @acme-inc/security
+*.env*              @acme-inc/security

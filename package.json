@@ -17,7 +17,6 @@
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
     "@expo/metro-runtime": "^6.1.2",
-    "@expo/webpack-config": "^19.0.1",
     "@google/genai": "latest",
     "@prisma/client": "^7.0.1",
     "@supabase/supabase-js": "2",

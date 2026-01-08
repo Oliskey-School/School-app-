@@ -54,7 +54,10 @@ FOR EACH ROW EXECUTE FUNCTION public.prevent_log_mutation();
 
 -- 3. Generic Audit Trigger Function
 CREATE OR REPLACE FUNCTION public.process_audit_log()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER  -- Run with elevated privileges to bypass RLS
+SET search_path = public, auth
+AS $$
 DECLARE
     curr_user_id UUID;
 BEGIN
@@ -105,6 +108,12 @@ END $$;
 -- 5. RLS for Audit Logs
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Allow authenticated users to insert audit logs (via triggers)
+CREATE POLICY "Allow authenticated users to insert audit logs" 
+ON public.audit_logs FOR INSERT 
+WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Admins can view all audit logs
 CREATE POLICY "Admins can view all audit logs" 
 ON public.audit_logs FOR SELECT 
 USING (auth.jwt() ->> 'role' = 'admin');

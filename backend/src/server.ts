@@ -13,7 +13,14 @@ import cbtRoutes from './api/routes/cbt.routes';
 import adminRoutes from './api/routes/admin.routes';
 import { errorHandler } from './api/middleware/error.middleware';
 
-dotenv.config();
+import aiRoutes from './api/routes/ai.routes';
+import path from 'path';
+
+// Load .env from backend folder OR root folder
+const result = dotenv.config();
+if (result.error) {
+  dotenv.config({ path: path.join(__dirname, '../../.env') });
+}
 
 const app: Express = express();
 const port = process.env.PORT || 5000;
@@ -43,6 +50,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/cbt', cbtRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check route
 app.get('/', (req: Request, res: Response) => {

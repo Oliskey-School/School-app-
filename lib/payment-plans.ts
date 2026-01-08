@@ -86,6 +86,20 @@ export async function createPaymentPlan(params: CreatePaymentPlanParams): Promis
             return null;
         }
 
+        // 4. Update fee to indicate it has a payment plan
+        const { error: feeUpdateError } = await supabase
+            .from('fees')
+            .update({
+                has_payment_plan: true,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', feeId);
+
+        if (feeUpdateError) {
+            console.error('Error updating fee payment plan status:', feeUpdateError);
+            // Don't rollback - the plan is still valid even if we can't update this flag
+        }
+
         return normalizePaymentPlan(plan);
     } catch (error) {
         console.error('createPaymentPlan error:', error);

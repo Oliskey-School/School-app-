@@ -51,21 +51,86 @@ export default function ResultsEntryEnhanced({
     const fetchStudents = async () => {
         setLoading(true);
         try {
-            const { data } = await supabase
-                .from('students')
-                .select(`
-          *,
-          academic_tracks!inner (
-            id,
-            curricula!inner (
-              name
-            )
-          )
-        `)
-                .eq('class_id', classId)
-                .eq('academic_tracks.curricula.name', selectedCurriculum);
+            // Get curriculum ID for the selected curriculum
+            const { data: curriculum } = await supabase
+                .from('curricula')
+                .select('id')
+                .ilike('name', `%${selectedCurriculum}%`)
+                .single();
 
-            setStudents(data || []);
+            if (!curriculum) {
+                console.warn('Curriculum not found:', selectedCurriculum);
+                setStudents([]);
+                setLoading(false);
+                return;
+            }
+
+            // Fetch students enrolled in this curriculum
+            const { data: tracks, error: tracksError } = await supabase
+                .from('academic_tracks')
+                .select('student_id')
+                .eq('curriculum_id', curriculum.id)
+                .eq('status', 'Active');
+
+            if (tracksError) {
+                console.error('Error fetching tracks:', tracksError);
+                setStudents([]);
+                setLoading(false);
+                return;
+            }
+
+            if (!tracks || tracks.length === 0) {
+                console.log('No students enrolled in this curriculum');
+                setStudents([]);
+                setLoading(false);
+                return;
+            }
+
+            const studentIds = tracks.map(t => t.student_id);
+
+            // Fetch student details - try with class_id first, fallback to grade/section
+            let { data: students, error: studentsError } = await supabase
+                .from('students')
+                .select('*')
+                .in('id', studentIds);
+
+            if (studentsError) {
+                console.error('Error fetching students:', studentsError);
+                toast({
+                    title: 'Error Loading Students',
+                    description: studentsError.message,
+                    variant: 'destructive'
+                });
+                setStudents([]);
+                setLoading(false);
+                return;
+            }
+
+            // Filter by class if classId is provided
+            if (classId && students) {
+                // First try filtering by class_id if it exists
+                const classFiltered = students.filter(s => s.class_id === classId);
+
+                // If no results with class_id, try getting class info and filtering by grade/section
+                if (classFiltered.length === 0) {
+                    const { data: classInfo } = await supabase
+                        .from('classes')
+                        .select('grade, section')
+                        .eq('id', classId)
+                        .single();
+
+                    if (classInfo) {
+                        students = students.filter(s =>
+                            s.grade === classInfo.grade && s.section === classInfo.section
+                        );
+                    }
+                } else {
+                    students = classFiltered;
+                }
+            }
+
+            setStudents(students || []);
+            console.log(`Loaded ${students?.length || 0} students for ${selectedCurriculum} curriculum`);
 
             // Fetch existing results
             const { data: existingResults } = await supabase
@@ -83,8 +148,14 @@ export default function ResultsEntryEnhanced({
                 };
             });
             setResults(resultsMap);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching students:', error);
+            toast({
+                title: 'Error Loading Students',
+                description: error.message || 'Failed to load students',
+                variant: 'destructive'
+            });
+            setStudents([]);
         } finally {
             setLoading(false);
         }

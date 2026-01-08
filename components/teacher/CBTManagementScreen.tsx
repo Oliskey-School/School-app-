@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import readXlsxFile from 'read-excel-file';
 import { supabase } from '../../lib/supabase';
-import { CloudUploadIcon, EyeIcon, ExamIcon, TrashIcon, XCircleIcon, WifiIcon } from '../../constants';
+import { CloudUploadIcon, EyeIcon, ExamIcon, TrashIcon, XCircleIcon, WifiIcon, getFormattedClassName } from '../../constants';
 import { CBTExam, Subject } from '../../types';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { fetchSubjects, fetchCBTExams } from '../../lib/database';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface CBTManagementScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -15,7 +16,9 @@ interface CBTManagementScreenProps {
 const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, teacherId }) => {
     const [exams, setExams] = useState<CBTExam[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
-    const [classes, setClasses] = useState<{ id: number, name: string }[]>([]);
+
+    // Use the comprehensive hook for classes
+    const { classes: teacherClasses, loading: loadingClasses } = useTeacherClasses(teacherId);
 
     // Configuration State
     const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -49,30 +52,14 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Subjects, Classes, and Exams
-            // Import fetchClasses dynamically or ensure it is imported
-            const { fetchClasses } = await import('../../lib/database'); // Lazy import just in case
-
-            const [fetchedSubjects, backendExams, fetchedClasses] = await Promise.all([
+            // 1. Fetch Subjects and Exams
+            const [fetchedSubjects, backendExams] = await Promise.all([
                 fetchSubjects(),
-                fetchCBTExams(teacherId || undefined),
-                fetchClasses()
+                fetchCBTExams(teacherId || undefined)
             ]);
 
             setSubjects(fetchedSubjects);
             setExams(backendExams);
-
-            // Use real classes from DB
-            // Map ClassInfo to simple {id, name} structure if needed, or use directly
-            // Classes from DB have grade, section. We need to format name nicely.
-            const { getGradeDisplayName } = await import('../../lib/schoolSystem');
-
-            const formattedClasses = fetchedClasses.map((c: any) => ({
-                id: c.id,
-                name: `${getGradeDisplayName(c.grade)} ${c.section}`
-            }));
-
-            setClasses(formattedClasses);
 
         } catch (err: any) {
             console.error("Error loading data:", err);
@@ -97,33 +84,49 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 
         try {
             const rows = await readXlsxFile(file);
-            if (rows.length <= 1) throw new Error("The Excel file appears to be empty or only contains headers.");
 
-            // Parse Questions
-            const validRows = rows.slice(1).filter(row => row[1] && row[1].toString().trim() !== '');
-            if (validRows.length === 0) throw new Error("No valid questions found in Column B.");
+            // Debug log
+            console.log("Uploaded rows raw:", rows);
 
-            const questionCount = validRows.length;
+            // Filter out completely empty rows or rows where the Question (index 1) is empty
+            const validRows = rows.filter((row, index) => {
+                // Keep header (index 0) if it looks like a header, but primarily filter data
+                if (index === 0) return true; // Skip header validation for now
+                const questionText = row[1];
+                return questionText && questionText.toString().trim().length > 0;
+            });
+
+            if (validRows.length <= 1) {
+                // Only header remains or empty
+                throw new Error("The Excel file appears to contain no valid questions. Please ensure Column B has question text.");
+            }
+
+            // Slice(1) to skip header
+            const dataRows = validRows.slice(1);
+
+            const questionCount = dataRows.length;
             const markPerQuestion = totalMarks > 0 ? (totalMarks / questionCount) : 1;
 
-            const parsedQuestions = validRows.map((row) => ({
-                question_text: row[1]?.toString() || 'Question',
-                option_a: row[2]?.toString() || 'Option A',
-                option_b: row[3]?.toString() || 'Option B',
-                option_c: row[4]?.toString() || 'Option C',
-                option_d: row[5]?.toString() || 'Option D',
-                correct_option: (row[6]?.toString() || 'A').charAt(0).toUpperCase(), // Expect 'A', 'B', 'C', 'D'
+            const parsedQuestions = dataRows.map((row) => ({
+                question_text: row[1]?.toString().trim() || 'Question',
+                option_a: row[2]?.toString().trim() || 'Option A',
+                option_b: row[3]?.toString().trim() || 'Option B',
+                option_c: row[4]?.toString().trim() || 'Option C',
+                option_d: row[5]?.toString().trim() || 'Option D',
+                correct_option: (row[6]?.toString().trim() || 'A').charAt(0).toUpperCase(),
                 marks: parseFloat(markPerQuestion.toFixed(2))
             }));
+
+            console.log("Parsed questions:", parsedQuestions);
 
             // 1. Create Exam Record
             const { data: examData, error: examError } = await supabase
                 .from('cbt_exams')
                 .insert([{
-                    title: file.name.replace('.xlsx', ''),
+                    title: file.name.replace('.xlsx', '').replace('.xls', ''),
                     type: uploadType,
-                    class_id: parseInt(selectedClassId), // Class ID is BigInt (number)
-                    subject_id: selectedSubjectId, // Subject ID is UUID (string)
+                    class_id: parseInt(selectedClassId),
+                    subject_id: selectedSubjectId,
                     duration_minutes: duration,
                     total_marks: totalMarks,
                     teacher_id: teacherId,
@@ -146,13 +149,13 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 
             if (qError) throw qError;
 
-            toast.success("Exam uploaded and created successfully!");
-            loadInitialData(); // Refresh list
+            toast.success("Exam uploaded successfully!");
+            loadInitialData();
 
         } catch (err: any) {
             console.error("Upload error:", err);
             setErrorMsg(err.message || "Failed to process upload.");
-            toast.error("Upload failed.");
+            toast.error(err.message || "Upload failed.");
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -214,7 +217,10 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Class</label>
                                     <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="w-full rounded-lg border-slate-300 py-2 text-sm">
                                         <option value="">Select Class</option>
-                                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        {teacherClasses.map(c => {
+                                            const name = getFormattedClassName ? getFormattedClassName(c.grade, c.section) : `Grade ${c.grade}${c.section}`;
+                                            return <option key={c.id} value={c.id}>{name}</option>
+                                        })}
                                     </select>
                                 </div>
                                 <div>
