@@ -149,7 +149,6 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
                         exam: exam === 0 ? '' : exam.toString(),
                         total: total,
                         grade: scoreRecord?.grade || getGrade(total),
-                        grade: scoreRecord?.grade || getGrade(total),
                         remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
                         status: (rc?.status as 'Draft' | 'Published') || 'Draft',
                         isDirty: false
