@@ -532,7 +532,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col h-screen w-full lg:ml-64 overflow-hidden min-w-0">
-                {dbStatus === 'error' && (
+                {!isSupabaseConfigured && (
+                    <div className="bg-amber-600 text-white text-xs py-1 px-4 text-center font-medium z-50">
+                        Configuration Error: Supabase API Keys are missing. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your Vercel Environment Variables.
+                    </div>
+                )}
+                {isSupabaseConfigured && dbStatus === 'error' && (
                     <div className="bg-red-600 text-white text-xs py-1 px-4 text-center font-medium z-50">
                         Network/Database Error: Cannot connect to the server. Please check your internet connection or try again later.
                     </div>
