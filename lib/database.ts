@@ -32,6 +32,7 @@ export async function fetchStudents(): Promise<Student[]> {
 
         return (data || []).map((s: any) => ({
             id: s.id,
+            schoolId: s.school_generated_id,
             name: s.name,
             email: s.email || '',
             avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
@@ -60,6 +61,7 @@ export async function fetchStudentById(id: number): Promise<Student | null> {
 
         return {
             id: data.id,
+            schoolId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150',
             grade: data.grade,
@@ -90,6 +92,7 @@ export async function fetchStudentByEmail(email: string): Promise<Student | null
 
         return {
             id: data.id,
+            schoolId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150',
             grade: data.grade,
@@ -118,6 +121,7 @@ export async function fetchStudentsByClass(grade: number, section: string): Prom
 
         return (data || []).map((s: any) => ({
             id: s.id,
+            schoolId: s.school_generated_id,
             name: s.name,
             email: s.email || '',
             avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
@@ -183,6 +187,7 @@ export async function createStudent(studentData: {
 
         return {
             id: data.id,
+            schoolId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150',
             grade: data.grade,
@@ -266,6 +271,7 @@ export async function fetchTeachers(): Promise<Teacher[]> {
 
         return (data || []).map((t: any) => ({
             id: t.id,
+            schoolId: t.school_generated_id,
             name: t.name,
             avatarUrl: t.avatar_url || 'https://i.pravatar.cc/150?u=teacher',
             email: t.email,
@@ -356,6 +362,7 @@ export async function createTeacher(teacherData: {
 
         return {
             id: teacher.id,
+            schoolId: teacher.school_generated_id,
             name: teacher.name,
             avatarUrl: teacher.avatar_url || 'https://i.pravatar.cc/150?u=teacher',
             email: teacher.email,
@@ -469,6 +476,7 @@ export async function fetchParents(): Promise<Parent[]> {
 
         return (data || []).map((p: any) => ({
             id: p.id,
+            schoolId: p.school_generated_id,
             name: p.name,
             email: p.email,
             phone: p.phone || '',
@@ -497,6 +505,7 @@ export async function fetchParentByEmail(email: string): Promise<Parent | null> 
 
         return {
             id: data.id,
+            schoolId: data.school_generated_id,
             name: data.name,
             email: data.email,
             phone: data.phone || '',
@@ -525,6 +534,7 @@ export async function fetchParentByUserId(userId: number | string): Promise<Pare
 
         return {
             id: data.id,
+            schoolId: data.school_generated_id,
             name: data.name,
             email: data.email,
             phone: data.phone || '',
@@ -599,6 +609,7 @@ export async function fetchParentsForStudent(studentId: number): Promise<Parent[
 
         return (parents || []).map((p: any) => ({
             id: p.id,
+            schoolId: p.school_generated_id,
             name: p.name,
             email: p.email,
             phone: p.phone || '',
@@ -645,6 +656,7 @@ export async function createParent(parentData: {
 
         return {
             id: data.id,
+            schoolId: data.school_generated_id,
             name: data.name,
             email: data.email,
             phone: data.phone || '',

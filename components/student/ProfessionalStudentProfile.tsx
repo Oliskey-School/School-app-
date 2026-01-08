@@ -24,7 +24,12 @@ export default function ProfessionalStudentProfile({ studentId }: StudentProfile
                 .eq('id', studentId || 1)
                 .single();
 
-            setStudent(data || {
+            const studentData = {
+                ...data,
+                admission_number: data?.school_generated_id || 'SCH-STU-PENDING'
+            };
+
+            setStudent(studentData || {
                 first_name: 'Student',
                 last_name: 'Name',
                 email: 'student@school.com',
@@ -85,7 +90,7 @@ export default function ProfessionalStudentProfile({ studentId }: StudentProfile
                             <p className="text-white/90 text-lg mb-4">{student.class_name}</p>
                             <div className="flex flex-wrap justify-center md:justify-start gap-3">
                                 <span className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium">
-                                    ID: {student.admission_number}
+                                    School ID: {student.admission_number || student.schoolId}
                                 </span>
                                 <span className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium flex items-center gap-2">
                                     <Calendar className="w-4 h-4" />

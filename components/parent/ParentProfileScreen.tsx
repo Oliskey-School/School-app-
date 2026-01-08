@@ -106,6 +106,11 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
             <div>
               <h3 className="text-xl font-bold text-gray-800">{profile.name}</h3>
               <p className="text-sm text-gray-500">{profile.email}</p>
+              {profile.schoolId && (
+                <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200">
+                  ID: {profile.schoolId}
+                </span>
+              )}
             </div>
           </div>
 

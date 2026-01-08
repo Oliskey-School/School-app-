@@ -75,6 +75,7 @@ export interface ReportCard {
 
 export interface Student {
   id: number;
+  schoolId?: string;
   name: string;
   email: string;
   avatarUrl: string;
@@ -119,6 +120,7 @@ export interface StudentAttendance {
 
 export interface Teacher {
   id: number;
+  schoolId?: string;
   name: string;
   avatarUrl: string;
   subjects: string[];
@@ -504,6 +506,7 @@ export interface BehaviorAlert {
 
 export interface Parent {
   id: number;
+  schoolId?: string;
   name: string;
   email: string;
   phone: string;

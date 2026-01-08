@@ -106,6 +106,11 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ navigateTo }) => {
           <span className={`text-sm font-semibold px-4 py-1 rounded-full ${subjectColor}`}>
             Teaches {primarySubject}
           </span>
+          {teacher.school_generated_id && (
+            <span className="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full border border-gray-300">
+              ID: {teacher.school_generated_id}
+            </span>
+          )}
         </div>
 
         {/* Contact Info */}
