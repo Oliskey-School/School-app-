@@ -522,8 +522,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-1">Welcome, {userType.charAt(0).toUpperCase() + userType.slice(1)}!</h2>
-                        <p className="text-gray-600">Here's your school's command center.</p>
+                        <h2 className="text-2xl font-bold text-white mb-1">Welcome, Admin!</h2>
+                        <p className="text-white/80">Here's your school's command center.</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                             <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-sky-400 to-sky-600" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend="+12" trendColor="text-sky-200" />
                             <StatCard label="Total Staff" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend="+2" trendColor="text-purple-200" />
