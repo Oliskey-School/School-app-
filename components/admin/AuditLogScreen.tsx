@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { fetchAuditLogs } from '../../lib/database';
 import {
   LoginIcon,
   LogoutIcon,
@@ -42,18 +43,13 @@ const AuditLogScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLogs();
+    loadLogs();
   }, []);
 
-  const fetchLogs = async () => {
+  const loadLogs = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select('*, profiles(name, avatar_url)')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (data) setLogs(data);
+    const data = await fetchAuditLogs();
+    setLogs(data);
     setLoading(false);
   };
 

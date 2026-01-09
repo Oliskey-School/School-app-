@@ -1811,3 +1811,49 @@ export async function upsertReportCard(studentId: number, reportCard: ReportCard
 
 
 
+// ============================================
+// AUDIT LOGS
+// ============================================
+
+export async function fetchAuditLogs(limit: number = 50): Promise<any[]> {
+    try {
+        const { data, error } = await supabase
+            .from('audit_logs')
+            .select(`
+                *,
+                profiles:user_id (name, avatar_url)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching audit logs:', err);
+        return [];
+    }
+}
+
+export async function createAuditLog(action: string, tableName: string, recordId: string | number, details?: string): Promise<boolean> {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return false;
+
+        const { error } = await supabase
+            .from('audit_logs')
+            .insert({
+                user_id: user.id,
+                action,
+                table_name: tableName,
+                record_id: recordId.toString(),
+                details,
+                created_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error('Error creating audit log:', err);
+        return false;
+    }
+}

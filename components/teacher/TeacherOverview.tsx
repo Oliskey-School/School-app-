@@ -156,6 +156,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           .select('*')
           .eq('teacher_id', teacher.id)
           .eq('day', todayName)
+          .eq('status', 'Published')
           .order('start_time', { ascending: true });
 
         setTodaySchedule(timetable || []);

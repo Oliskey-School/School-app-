@@ -56,14 +56,14 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchNotices();
+    loadNotices();
 
     // Realtime subscription
     const subscription = supabase
       .channel('public:notices')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' }, () => {
         console.log('Notice change detected');
-        fetchNotices();
+        loadNotices();
       })
       .subscribe();
 
@@ -72,35 +72,18 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType }) => {
     };
   }, []);
 
-  const fetchNotices = async () => {
+  const loadNotices = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('notices')
-        .select('*')
-        .order('timestamp', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        const mapped: Notice[] = data.map((n: any) => ({
-          id: n.id,
-          title: n.title,
-          content: n.content,
-          timestamp: n.timestamp,
-          category: n.category,
-          isPinned: n.is_pinned || false,
-          audience: n.audience || ['all'],
-          imageUrl: n.image_url,
-          videoUrl: n.video_url
-        }));
-        setNotices(mapped);
-      }
-    } catch (err) {
-      console.error('Error fetching notices:', err);
-    } finally {
-      setLoading(false);
+    const data = await fetchNotices();
+    // fetchNotices already returns Notice[], so no mapping needed if types align
+    // But fetchNotices in DB returns basic shape, might need to ensure mapped correctly?
+    // Let's check fetchNotices implementation again.
+    // It returns mapped properties: title, content, etc.
+    // So we can just set it.
+    if (data) {
+      setNotices(data);
     }
+    setLoading(false);
   };
 
   const relevantNotices = useMemo(() => {

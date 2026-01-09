@@ -87,7 +87,7 @@ const SchoolInfoScreen: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-gray-50 p-6 space-y-6 overflow-y-auto">
+        <div className="flex flex-col h-full bg-gray-50 p-6 space-y-6 overflow-y-auto pb-32 lg:pb-6">
 
             {/* Header */}
             <div className="flex flex-col space-y-2">

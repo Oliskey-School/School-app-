@@ -48,6 +48,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import DonutChart from '../ui/DonutChart';
 import GlobalSearchScreen from '../shared/GlobalSearchScreen';
 import ErrorBoundary from '../ui/ErrorBoundary';
+const TimetableScreen = lazy(() => import('../shared/TimetableScreen'));
 
 
 // Import all view components
@@ -351,7 +352,7 @@ const AttendanceTab = ({ student, attendance }: { student: Student; attendance: 
     );
 };
 
-type ChildDetailTab = 'academics' | 'behavior' | 'attendance';
+type ChildDetailTab = 'academics' | 'behavior' | 'attendance' | 'timetable';
 
 const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Student, initialTab?: ChildDetailTab, navigateTo: (view: string, title: string, props?: any) => void }) => {
     const [activeTab, setActiveTab] = useState<ChildDetailTab>(initialTab || 'academics');
@@ -445,6 +446,7 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Stude
             <div className="px-4 py-2 bg-white">
                 <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
                     <TabButton id="academics" label="Academics" />
+                    <TabButton id="timetable" label="Timetable" />
                     <TabButton id="behavior" label="Behavior" />
                     <TabButton id="attendance" label="Attendance" />
                 </div>
@@ -456,6 +458,13 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Stude
                 ) : (
                     <>
                         {activeTab === 'academics' && <AcademicsTab student={student} assignments={assignments} reportCards={reportCards} navigateTo={navigateTo} />}
+                        {activeTab === 'timetable' && (
+                            <Suspense fallback={<div className="p-8 text-center">Loading timetable...</div>}>
+                                <div className="h-[600px] overflow-hidden rounded-xl border border-gray-200">
+                                    <TimetableScreen context={{ userType: 'student', userId: student.id }} />
+                                </div>
+                            </Suspense>
+                        )}
                         {activeTab === 'behavior' && <BehaviorTab student={student} />}
                         {activeTab === 'attendance' && <div className="p-4"><AttendanceTab student={student} attendance={attendance} /></div>}
                     </>

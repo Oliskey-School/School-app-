@@ -205,7 +205,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                     </div>
                 </header>
 
-                <main className="flex-grow flex flex-col overflow-y-auto custom-scrollbar">
+                <main className="flex-grow flex flex-col overflow-y-auto custom-scrollbar pb-32 lg:pb-0">
                     {isLoading ? (
                         <div className="p-8 text-center text-gray-400">Loading chats...</div>
                     ) : filteredConversations.length === 0 ? (

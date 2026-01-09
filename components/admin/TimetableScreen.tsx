@@ -235,7 +235,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                                                 }
 
                                                 entries.forEach((e: any) => {
-                                                    const key = `${e.day_of_week}-${e.period_index}`;
+                                                    const key = `${e.day}-${e.period_index}`;
                                                     schedule[key] = e.subject;
                                                     if (e.teacher_id) {
                                                         teacherAssignments[key] = teacherMap.get(e.teacher_id);

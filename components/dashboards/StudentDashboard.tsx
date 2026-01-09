@@ -127,6 +127,7 @@ const Overview: React.FC<{ navigateTo: (view: string, title: string, props?: any
                     .from('timetable')
                     .select('*')
                     .eq('day', todayName)
+                    .eq('status', 'Published')
                     .ilike('class_name', `%${student.grade}${student.section}%`)
                     .order('start_time', { ascending: true })
                     .limit(3);

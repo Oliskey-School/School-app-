@@ -37,6 +37,7 @@ import {
 import { AuditLog } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { fetchAuditLogs } from '../../lib/database';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
 import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp } from 'lucide-react';
 
@@ -406,24 +407,21 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             setOverdueFees(overdueCount || 0);
 
             // Fetch recent audit logs
-            const { data: auditData } = await supabase
-                .from('audit_logs')
-                .select('*')
-                .order('timestamp', { ascending: false })
-                .limit(4);
+            const auditData = await fetchAuditLogs(4);
 
             if (auditData) {
                 const transformed = auditData.map((log: any) => ({
                     id: log.id,
                     user: {
-                        name: log.user_name || 'System',
-                        avatarUrl: 'https://i.pravatar.cc/150',
-                        role: log.user_role as any || 'Admin'
+                        name: log.profiles?.name || log.user_name || 'System',
+                        avatarUrl: log.profiles?.avatar_url || 'https://i.pravatar.cc/150',
+                        role: 'Admin' // Simpler to default or fetch if needed
                     },
                     action: log.action,
-                    timestamp: log.timestamp,
-                    type: log.type as any
+                    timestamp: log.created_at, // Use created_at from DB
+                    type: log.action.toLowerCase() as any // Simple mapping
                 }));
+                // Filter out invalid types if needed, or map strictly
                 setRecentActivities(transformed);
             }
 

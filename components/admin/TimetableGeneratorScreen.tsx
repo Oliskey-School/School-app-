@@ -399,6 +399,33 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
         setTeachers(newTeachers);
     };
 
+    const handleManualCreate = () => {
+        if (!className) {
+            toast.error("Please select a class first.");
+            return;
+        }
+
+        const subjectsList = subjectPeriods.map(s => s.name).filter(s => s.trim() !== '');
+
+        if (subjectsList.length === 0) {
+            toast.error("Please add at least one subject.");
+            return;
+        }
+
+        const timetableData = {
+            className,
+            subjects: subjectsList,
+            timetable: {},
+            teacherAssignments: {},
+            suggestions: [],
+            teacherLoad: [],
+            status: 'Draft',
+            teachers: teachers
+        };
+
+        navigateTo('timetableEditor', 'Edit Timetable', { timetableData });
+    };
+
     const handleAddSubjectPeriod = () => setSubjectPeriods([...subjectPeriods, { name: '', periods: 1 }]);
     const handleRemoveSubjectPeriod = (index: number) => setSubjectPeriods(subjectPeriods.filter((_, i) => i !== index));
     const handleSubjectPeriodChange = (index: number, field: 'name' | 'periods', value: string | number) => {
@@ -410,7 +437,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     return (
         <div className="flex flex-col h-full bg-gray-50/50 relative">
             {isGenerating && <GeneratingScreen />}
-            <main className="flex-grow p-4 md:p-8 space-y-8 overflow-y-auto pb-32">
+            <main className="flex-grow p-4 md:p-8 space-y-8 overflow-y-auto pb-96">
 
                 {/* Header Section */}
                 <div className="flex items-center space-x-4 mb-4">
@@ -631,7 +658,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
                             ))}
                             <button
                                 onClick={handleAddSubjectPeriod}
-                                className="h-full min-h-[50px] border-2 border-dashed border-gray-200 text-gray-400 font-bold rounded-xl hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 transition-all flex items-center justify-center gap-2 text-sm"
+                                className="h-full min-h-[50px] border border-dashed border-gray-300 text-gray-500 font-medium rounded-xl hover:bg-indigo-50 hover:border-indigo-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
                             >
                                 <PlusIcon className="w-4 h-4" />
                                 <span>Add Subject</span>
@@ -639,23 +666,35 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
                         </div>
                     </div>
                 </div>
+                {/* Explicit spacer to ensure scroll clearance above fixed footer */}
+                <div className="h-48 w-full block" aria-hidden="true"></div>
 
             </main>
 
-            <footer className="p-4 bg-white/80 backdrop-blur-xl border-t border-gray-200 sticky bottom-0 z-30">
-                <div className="max-w-4xl mx-auto">
+            <footer className="p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 fixed bottom-[60px] left-0 right-0 lg:sticky lg:bottom-0 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
+                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-4">
+                    <button
+                        type="button"
+                        onClick={handleManualCreate}
+                        disabled={isGenerating}
+                        className="w-full sm:w-auto flex-1 flex justify-center items-center space-x-2 py-3.5 px-6 font-bold text-lg text-indigo-700 bg-white hover:bg-indigo-50 border-2 border-indigo-100 hover:border-indigo-200 rounded-2xl transition-all duration-300 shadow-sm"
+                    >
+                        <EditIcon className="w-5 h-5" />
+                        <span>Create Manually</span>
+                    </button>
+
                     <button
                         type="button"
                         onClick={handleGenerate}
                         disabled={isGenerating}
-                        className="w-full flex justify-center items-center space-x-3 py-4 px-6 font-bold text-lg text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:via-purple-500 hover:to-indigo-600 active:scale-[0.99] disabled:opacity-70 disabled:grayscale rounded-2xl shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-300 border border-white/20"
+                        className="w-full sm:w-auto flex-[2] flex justify-center items-center space-x-3 py-3.5 px-6 font-bold text-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 active:scale-[0.99] disabled:opacity-70 disabled:grayscale rounded-2xl shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-300"
                     >
                         <SparklesIcon className={`w-6 h-6 ${isGenerating ? 'animate-spin' : 'animate-pulse'}`} />
-                        <span>{isGenerating ? 'Generating Magic...' : 'Generate Optimized Timetable'}</span>
+                        <span>{isGenerating ? 'Generating...' : 'Generate with AI'}</span>
                     </button>
                 </div>
             </footer>
-        </div>
+        </div >
     );
 };
 

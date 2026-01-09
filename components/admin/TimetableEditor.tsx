@@ -458,7 +458,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     }
 
                     entries.push({
-                        day_of_week: day,
+                        day: day,
                         period_index: i,
                         start_time: PERIODS[i].start,
                         end_time: PERIODS[i].end,
@@ -635,9 +635,9 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         </div>
                     ) : (
                         // DESKTOP GRID VIEW
-                        <div className="p-8 min-w-[1000px] h-full overflow-visible">
-                            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
-                                <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `80px repeat(${PERIODS.length}, 1fr)` }}>
+                        <div className="p-8 h-full overflow-visible pr-16 min-w-max">
+                            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden inline-block min-w-full">
+                                <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `100px repeat(${PERIODS.length}, minmax(130px, 1fr))` }}>
 
                                     {/* Header Row */}
                                     <div className="bg-gray-50/80 backdrop-blur p-4 z-10 sticky top-0 left-0 border-b border-gray-200"></div> {/* Corner */}

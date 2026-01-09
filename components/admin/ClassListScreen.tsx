@@ -60,7 +60,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo }) => {
 
     return (
         <div className="flex flex-col h-full bg-gray-100">
-            <main className="flex-grow p-4 space-y-4 overflow-y-auto">
+            <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-32 lg:pb-4">
                 {Object.keys(groupedClasses).sort((a, b) => Number(b) - Number(a)).map(gradeStr => {
                     const grade = Number(gradeStr);
                     const gradeClasses = groupedClasses[grade];

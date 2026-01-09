@@ -17,7 +17,7 @@ const settingsCategories = [
 
 const SystemSettingsScreen: React.FC<SystemSettingsScreenProps> = ({ navigateTo }) => {
   return (
-    <div className="p-4 space-y-3 bg-gray-50">
+    <div className="p-4 space-y-3 bg-gray-50 pb-32 lg:pb-4">
       {settingsCategories.map(cat => (
         <button
           key={cat.view}

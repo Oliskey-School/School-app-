@@ -125,7 +125,7 @@ parents(
             }
 
             // Generate email for the student
-            let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')} @student.school.com`;
+            let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com`;
             const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
 
             // MOCK MODE HANDLING
@@ -340,13 +340,19 @@ parents(
                 const authResult = await createUserAccount(fullName, 'Student', generatedEmail);
 
                 if (authResult.error) {
-                    if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
+                    // Check specifically for email sending errors or rate limits (common in free tier)
+                    if (authResult.error.toLowerCase().includes('email') || authResult.error.toLowerCase().includes('rate limit')) {
+                        toast.error(`Login account creation skipped: ${authResult.error}. Proceeding to create profile...`, { duration: 5000 });
+                        // Proceed without returning!
+                    } else if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
                         toast.error(`Student with email ${generatedEmail} is already registered. Please check the name or email format.`);
+                        setIsLoading(false);
+                        return;
                     } else {
-                        toast.error('Failed to create account: ' + authResult.error);
+                        // For other critical auth errors, maybe still proceed? 
+                        // Let's safe fail and proceed for now, as profile creation is more important than login for Admin.
+                        toast.error('Login account failed: ' + authResult.error + '. Creating profile only.');
                     }
-                    setIsLoading(false);
-                    return;
                 }
 
                 // 2. Create User account (Legacy Table)
@@ -633,7 +639,7 @@ parents(
                 </main>
 
                 {/* Action Button */}
-                <div className="p-4 mt-auto bg-gray-50">
+                <div className="p-4 mt-auto bg-gray-50 pb-32 lg:pb-4">
                     <button
                         type="submit"
                         disabled={isLoading}
