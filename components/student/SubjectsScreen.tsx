@@ -5,6 +5,77 @@ import { fetchClassSubjects } from '../../lib/database';
 import { SUBJECT_COLORS, BookOpenIcon, ChevronRightIcon } from '../../constants';
 // Removed mockStudents import
 
+// Helper function to get default subjects based on grade and department
+const getDefaultSubjectsForGrade = (grade: number, department?: string): string[] => {
+  // Core subjects for all students
+  const coreSubjects = ['Mathematics', 'English'];
+
+  // Junior Secondary (JSS 1-3) - Grades 7-9
+  if (grade >= 7 && grade <= 9) {
+    return [
+      ...coreSubjects,
+      'Basic Science',
+      'Basic Technology',
+      'Civic Education',
+      'Social Studies',
+      'French',
+      'Computer Studies',
+      'Creative Arts'
+    ];
+  }
+
+  // Senior Secondary Science (SS 1-3) - Grades 10-12
+  if (grade >= 10 && grade <= 12) {
+    if (department === 'Science' || !department) {
+      return [
+        ...coreSubjects,
+        'Physics',
+        'Chemistry',
+        'Biology',
+        'Further Mathematics',
+        'Computer Science',
+        'Agricultural Science'
+      ];
+    } else if (department === 'Arts' || department === 'Humanities') {
+      return [
+        ...coreSubjects,
+        'Literature in English',
+        'Government',
+        'Economics',
+        'Christian Religious Studies',
+        'History',
+        'Geography'
+      ];
+    } else if (department === 'Commercial') {
+      return [
+        ...coreSubjects,
+        'Economics',
+        'Accounting',
+        'Commerce',
+        'Business Studies',
+        'Government',
+        'Data Processing'
+      ];
+    }
+  }
+
+  // Primary level fallback (Grades 1-6)
+  if (grade >= 1 && grade <= 6) {
+    return [
+      ...coreSubjects,
+      'Elementary Science',
+      'Social Studies',
+      'Civic Education',
+      'Physical Education',
+      'Creative Arts',
+      'Computer Studies'
+    ];
+  }
+
+  // Default fallback for any other grade
+  return [...coreSubjects, 'Science', 'Social Studies', 'Civic Education'];
+};
+
 interface SubjectsScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
   student?: Student; // Make student optional but expected
@@ -19,25 +90,38 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
       if (!student) return;
 
       setLoading(true);
-      // If student has academicPerformance populated, use it
-      if (student.academicPerformance?.length) {
-        setSubjects([...new Set(student.academicPerformance.map(p => p.subject))]);
-      } else {
-        // Otherwise fetch from db based on grade/section
-        const fetchedSubjects = await fetchClassSubjects(student.grade, student.section);
-        // If no classes found, fallback to basic subjects for the grade/dept
-        if (fetchedSubjects.length > 0) {
-          setSubjects(fetchedSubjects);
+      console.log('Loading subjects for student:', student);
+
+      try {
+        // If student has academicPerformance populated, use it
+        if (student.academicPerformance?.length) {
+          const subjectsFromPerformance = [...new Set(student.academicPerformance.map(p => p.subject))];
+          console.log('Subjects from academic performance:', subjectsFromPerformance);
+          setSubjects(subjectsFromPerformance);
         } else {
-          // Hardcoded fallback for now if DB classes are empty
-          // Use a simple list based on department (copied logic from data.ts but simplified)
-          const defaultSubjects = student.department === 'Science'
-            ? ['Mathematics', 'English', 'Physics', 'Chemistry', 'Biology']
-            : ['Mathematics', 'English', 'Literature', 'Government', 'Civic Education'];
-          setSubjects(defaultSubjects);
+          // Fetch from database based on grade/section
+          console.log(`Fetching subjects for Grade ${student.grade}${student.section}`);
+          const fetchedSubjects = await fetchClassSubjects(student.grade, student.section);
+          console.log('Fetched subjects from database:', fetchedSubjects);
+
+          if (fetchedSubjects.length > 0) {
+            setSubjects(fetchedSubjects);
+          } else {
+            // Fallback to standard subjects for the grade level
+            console.log('No subjects found in database, using fallback');
+            const defaultSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
+            console.log('Using default subjects:', defaultSubjects);
+            setSubjects(defaultSubjects);
+          }
         }
+      } catch (error) {
+        console.error('Error loading subjects:', error);
+        // On error, use fallback subjects
+        const defaultSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
+        setSubjects(defaultSubjects);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadSubjects();

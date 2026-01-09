@@ -470,35 +470,45 @@ const Dashboard = ({ navigateTo, children, parentId }: { navigateTo: (view: stri
 
     // State for child data
     const [childrenData, setChildrenData] = useState<any[]>([]);
+    const [loadingStats, setLoadingStats] = useState(true);
 
     const fetchChildStats = async () => {
-        const stats = await Promise.all(children.map(async (student) => {
-            // Fetch real data
-            const [assignments, attendance, fees] = await Promise.all([
-                fetchStudentAssignments(student.id, student.grade, student.section),
-                fetchStudentAttendanceStats(student.id),
-                fetchStudentFeeSummary(student.id)
-            ]);
+        setLoadingStats(true);
+        try {
+            const stats = await Promise.all(children.map(async (student) => {
+                // Fetch real data
+                const [assignments, attendance, fees] = await Promise.all([
+                    fetchStudentAssignments(student.id, student.grade, student.section),
+                    fetchStudentAttendanceStats(student.id),
+                    fetchStudentFeeSummary(student.id)
+                ]);
 
-            const feeInfo = fees || {
-                id: student.id, name: student.name, avatarUrl: student.avatarUrl, grade: student.grade, section: student.section,
-                totalFee: 0, paidAmount: 0, dueDate: new Date().toISOString(), status: 'Paid' // Default to paid if no fee record
-            };
+                const feeInfo = fees || {
+                    id: student.id, name: student.name, avatarUrl: student.avatarUrl, grade: student.grade, section: student.section,
+                    totalFee: 0, paidAmount: 0, dueDate: new Date().toISOString(), status: 'Paid' // Default to paid if no fee record
+                };
 
-            const nextHomework = assignments[0]; // Already sorted by date in fetch
-            const attendancePercentage = attendance.percentage;
+                const nextHomework = assignments[0]; // Already sorted by date in fetch
+                const attendancePercentage = attendance.percentage;
 
-            // Still using mock for grades if not available yet in DB utils
-            const recentGrades = student.academicPerformance?.filter(p => p.term === 'Term 2').slice(0, 1) || [];
+                // Still using mock for grades if not available yet in DB utils
+                const recentGrades = student.academicPerformance?.filter(p => p.term === 'Term 2').slice(0, 1) || [];
 
-            return { student, feeInfo, nextHomework, recentGrades, attendancePercentage };
-        }));
-        setChildrenData(stats);
+                return { student, feeInfo, nextHomework, recentGrades, attendancePercentage };
+            }));
+            setChildrenData(stats);
+        } catch (error) {
+            console.error("Error fetching child stats:", error);
+        } finally {
+            setLoadingStats(false);
+        }
     };
 
     useEffect(() => {
         if (children.length > 0) {
             fetchChildStats();
+        } else {
+            setLoadingStats(false);
         }
     }, [children]);
 
@@ -542,7 +552,27 @@ const Dashboard = ({ navigateTo, children, parentId }: { navigateTo: (view: stri
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
-                    {childrenData.length === 0 ? (
+                    {loadingStats ? (
+                        <div className="space-y-4">
+                            {[1, 2].map(i => (
+                                <div key={i} className="bg-white p-6 rounded-2xl shadow-sm animate-pulse">
+                                    <div className="flex items-center space-x-4 mb-4">
+                                        <div className="w-14 h-14 bg-gray-200 rounded-full"></div>
+                                        <div className="space-y-2">
+                                            <div className="h-5 w-32 bg-gray-200 rounded"></div>
+                                            <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="h-10 bg-gray-100 rounded"></div>
+                                        <div className="h-10 bg-gray-100 rounded"></div>
+                                        <div className="h-10 bg-gray-100 rounded"></div>
+                                        <div className="h-10 bg-gray-100 rounded"></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : childrenData.length === 0 ? (
                         <div className="bg-white p-8 rounded-2xl shadow-sm text-center">
                             <h3 className="text-xl font-bold text-gray-800 mb-2">No Children Linked</h3>
                             <p className="text-gray-600 mb-4">You have not been linked to any students yet.</p>
@@ -739,7 +769,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     notificationCount={notificationCount}
                     onSearchClick={() => setIsSearchOpen(true)}
                 />
-                <div className="flex-grow overflow-y-auto h-full" style={{ marginTop: '-4rem' }}>
+                <div className="flex-grow overflow-y-auto h-full pb-32 lg:pb-0" style={{ marginTop: '-4rem' }}>
                     <div className="h-full pt-16">
                         <ErrorBoundary>
                             <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up h-full">
@@ -753,7 +783,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     </div>
                 </div>
                 {/* Bottom Nav for mobile */}
-                <div className="lg:hidden">
+                <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 shadow-lg">
                     <ParentBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
                 </div>
             </div>

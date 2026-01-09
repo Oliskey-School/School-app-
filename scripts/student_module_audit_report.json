@@ -1,0 +1,391 @@
+{
+  "summary": {
+    "totalComponents": 32,
+    "uniqueTables": 22,
+    "timestamp": "2026-01-09T07:32:23.261Z"
+  },
+  "allTables": [
+    "academic_performance",
+    "anonymous_reports",
+    "assignments",
+    "auth_accounts",
+    "cbt_exams",
+    "cbt_questions",
+    "cbt_submissions",
+    "cbt_tests",
+    "chat_participants",
+    "chat_rooms",
+    "conversation_participants",
+    "conversations",
+    "digital_resources",
+    "parent_children",
+    "parents",
+    "quiz_submissions",
+    "student_attendance",
+    "student_fees",
+    "students",
+    "submissions",
+    "timetable",
+    "users"
+  ],
+  "tablesByFrequency": [
+    {
+      "table": "students",
+      "count": 10,
+      "components": [
+        "admin/AddStudentScreen.tsx",
+        "admin/StudentListScreen.tsx",
+        "admin/StudentProfileAdminView.tsx",
+        "student/NewMessageScreen.tsx",
+        "student/ProfessionalStudentProfile.tsx",
+        "student/QuizPlayerScreen.tsx",
+        "student/QuizzesScreen.tsx",
+        "student/StudentDashboard.tsx",
+        "student/StudentProfileEnhanced.tsx",
+        "student/cbt/StudentCBTListScreen.tsx"
+      ]
+    },
+    {
+      "table": "assignments",
+      "count": 4,
+      "components": [
+        "dashboards/StudentDashboard.tsx",
+        "student/AssignmentSubmissionScreen.tsx",
+        "student/AssignmentsScreen.tsx",
+        "student/StudentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "users",
+      "count": 3,
+      "components": [
+        "admin/AddStudentScreen.tsx",
+        "admin/StudentProfileAdminView.tsx",
+        "student/NewMessageScreen.tsx"
+      ]
+    },
+    {
+      "table": "cbt_submissions",
+      "count": 3,
+      "components": [
+        "student/QuizPlayerScreen.tsx",
+        "student/QuizzesScreen.tsx",
+        "student/cbt/StudentCBTPlayerScreen.tsx"
+      ]
+    },
+    {
+      "table": "student_attendance",
+      "count": 2,
+      "components": [
+        "admin/StudentProfileAdminView.tsx",
+        "student/AttendanceScreen.tsx"
+      ]
+    },
+    {
+      "table": "timetable",
+      "count": 2,
+      "components": [
+        "dashboards/StudentDashboard.tsx",
+        "student/StudentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "submissions",
+      "count": 2,
+      "components": [
+        "student/AssignmentSubmissionScreen.tsx",
+        "student/AssignmentsScreen.tsx"
+      ]
+    },
+    {
+      "table": "cbt_exams",
+      "count": 2,
+      "components": [
+        "student/QuizPlayerScreen.tsx",
+        "student/QuizzesScreen.tsx"
+      ]
+    },
+    {
+      "table": "parent_children",
+      "count": 1,
+      "components": [
+        "admin/AddStudentScreen.tsx"
+      ]
+    },
+    {
+      "table": "parents",
+      "count": 1,
+      "components": [
+        "admin/AddStudentScreen.tsx"
+      ]
+    },
+    {
+      "table": "auth_accounts",
+      "count": 1,
+      "components": [
+        "admin/StudentProfileAdminView.tsx"
+      ]
+    },
+    {
+      "table": "anonymous_reports",
+      "count": 1,
+      "components": [
+        "student/AnonymousReporting.tsx"
+      ]
+    },
+    {
+      "table": "chat_participants",
+      "count": 1,
+      "components": [
+        "student/NewMessageScreen.tsx"
+      ]
+    },
+    {
+      "table": "chat_rooms",
+      "count": 1,
+      "components": [
+        "student/NewMessageScreen.tsx"
+      ]
+    },
+    {
+      "table": "cbt_questions",
+      "count": 1,
+      "components": [
+        "student/QuizPlayerScreen.tsx"
+      ]
+    },
+    {
+      "table": "academic_performance",
+      "count": 1,
+      "components": [
+        "student/ResultsScreen.tsx"
+      ]
+    },
+    {
+      "table": "quiz_submissions",
+      "count": 1,
+      "components": [
+        "student/ResultsScreen.tsx"
+      ]
+    },
+    {
+      "table": "student_fees",
+      "count": 1,
+      "components": [
+        "student/StudentFinanceScreen.tsx"
+      ]
+    },
+    {
+      "table": "conversation_participants",
+      "count": 1,
+      "components": [
+        "student/StudentMessagesScreen.tsx"
+      ]
+    },
+    {
+      "table": "conversations",
+      "count": 1,
+      "components": [
+        "student/StudentMessagesScreen.tsx"
+      ]
+    },
+    {
+      "table": "digital_resources",
+      "count": 1,
+      "components": [
+        "student/VideoLessonScreen.tsx"
+      ]
+    },
+    {
+      "table": "cbt_tests",
+      "count": 1,
+      "components": [
+        "student/cbt/StudentCBTListScreen.tsx"
+      ]
+    }
+  ],
+  "componentsByTable": {
+    "parent_children": [
+      "admin/AddStudentScreen.tsx"
+    ],
+    "students": [
+      "admin/AddStudentScreen.tsx",
+      "admin/StudentListScreen.tsx",
+      "admin/StudentProfileAdminView.tsx",
+      "student/NewMessageScreen.tsx",
+      "student/ProfessionalStudentProfile.tsx",
+      "student/QuizPlayerScreen.tsx",
+      "student/QuizzesScreen.tsx",
+      "student/StudentDashboard.tsx",
+      "student/StudentProfileEnhanced.tsx",
+      "student/cbt/StudentCBTListScreen.tsx"
+    ],
+    "users": [
+      "admin/AddStudentScreen.tsx",
+      "admin/StudentProfileAdminView.tsx",
+      "student/NewMessageScreen.tsx"
+    ],
+    "parents": [
+      "admin/AddStudentScreen.tsx"
+    ],
+    "student_attendance": [
+      "admin/StudentProfileAdminView.tsx",
+      "student/AttendanceScreen.tsx"
+    ],
+    "auth_accounts": [
+      "admin/StudentProfileAdminView.tsx"
+    ],
+    "timetable": [
+      "dashboards/StudentDashboard.tsx",
+      "student/StudentDashboard.tsx"
+    ],
+    "assignments": [
+      "dashboards/StudentDashboard.tsx",
+      "student/AssignmentSubmissionScreen.tsx",
+      "student/AssignmentsScreen.tsx",
+      "student/StudentDashboard.tsx"
+    ],
+    "anonymous_reports": [
+      "student/AnonymousReporting.tsx"
+    ],
+    "submissions": [
+      "student/AssignmentSubmissionScreen.tsx",
+      "student/AssignmentsScreen.tsx"
+    ],
+    "chat_participants": [
+      "student/NewMessageScreen.tsx"
+    ],
+    "chat_rooms": [
+      "student/NewMessageScreen.tsx"
+    ],
+    "cbt_exams": [
+      "student/QuizPlayerScreen.tsx",
+      "student/QuizzesScreen.tsx"
+    ],
+    "cbt_questions": [
+      "student/QuizPlayerScreen.tsx"
+    ],
+    "cbt_submissions": [
+      "student/QuizPlayerScreen.tsx",
+      "student/QuizzesScreen.tsx",
+      "student/cbt/StudentCBTPlayerScreen.tsx"
+    ],
+    "academic_performance": [
+      "student/ResultsScreen.tsx"
+    ],
+    "quiz_submissions": [
+      "student/ResultsScreen.tsx"
+    ],
+    "student_fees": [
+      "student/StudentFinanceScreen.tsx"
+    ],
+    "conversation_participants": [
+      "student/StudentMessagesScreen.tsx"
+    ],
+    "conversations": [
+      "student/StudentMessagesScreen.tsx"
+    ],
+    "digital_resources": [
+      "student/VideoLessonScreen.tsx"
+    ],
+    "cbt_tests": [
+      "student/cbt/StudentCBTListScreen.tsx"
+    ]
+  },
+  "tablesByComponent": {
+    "admin/AddStudentScreen.tsx": [
+      "parent_children",
+      "students",
+      "users",
+      "parents"
+    ],
+    "admin/AdminStudentListForReport.tsx": [],
+    "admin/AdminStudentReportCardScreen.tsx": [],
+    "admin/StudentDetailReport.tsx": [],
+    "admin/StudentEnrollmentWizard.tsx": [],
+    "admin/StudentListScreen.tsx": [
+      "students"
+    ],
+    "admin/StudentProfileAdminView.tsx": [
+      "student_attendance",
+      "users",
+      "students",
+      "auth_accounts"
+    ],
+    "dashboards/StudentDashboard.tsx": [
+      "timetable",
+      "assignments"
+    ],
+    "student/AcademicReportScreen.tsx": [],
+    "student/AchievementsScreen.tsx": [],
+    "student/AnonymousReporting.tsx": [
+      "anonymous_reports"
+    ],
+    "student/AssignmentFeedbackScreen.tsx": [],
+    "student/AssignmentSubmissionScreen.tsx": [
+      "submissions",
+      "assignments"
+    ],
+    "student/AssignmentsScreen.tsx": [
+      "assignments",
+      "submissions"
+    ],
+    "student/AttendanceScreen.tsx": [
+      "student_attendance"
+    ],
+    "student/ClassroomScreen.tsx": [],
+    "student/ExtracurricularsScreen.tsx": [],
+    "student/NewMessageScreen.tsx": [
+      "users",
+      "students",
+      "chat_participants",
+      "chat_rooms"
+    ],
+    "student/ProfessionalStudentProfile.tsx": [
+      "students"
+    ],
+    "student/QuizPlayerScreen.tsx": [
+      "cbt_exams",
+      "cbt_questions",
+      "students",
+      "cbt_submissions"
+    ],
+    "student/QuizzesScreen.tsx": [
+      "students",
+      "cbt_exams",
+      "cbt_submissions"
+    ],
+    "student/ResultsScreen.tsx": [
+      "academic_performance",
+      "quiz_submissions"
+    ],
+    "student/StudentDashboard.tsx": [
+      "timetable",
+      "assignments",
+      "students"
+    ],
+    "student/StudentFinanceScreen.tsx": [
+      "student_fees"
+    ],
+    "student/StudentMessagesScreen.tsx": [
+      "conversation_participants",
+      "conversations"
+    ],
+    "student/StudentProfileEnhanced.tsx": [
+      "students"
+    ],
+    "student/StudentProfileScreen.tsx": [],
+    "student/StudyBuddy.tsx": [],
+    "student/SubjectsScreen.tsx": [],
+    "student/VideoLessonScreen.tsx": [
+      "digital_resources"
+    ],
+    "student/cbt/StudentCBTListScreen.tsx": [
+      "students",
+      "cbt_tests"
+    ],
+    "student/cbt/StudentCBTPlayerScreen.tsx": [
+      "cbt_submissions"
+    ]
+  }
+}

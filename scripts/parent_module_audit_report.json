@@ -1,0 +1,436 @@
+{
+  "summary": {
+    "totalComponents": 27,
+    "uniqueTables": 28,
+    "timestamp": "2026-01-09T07:23:00.825Z"
+  },
+  "allTables": [
+    "appointments",
+    "assignment_submissions",
+    "assignments",
+    "auth_accounts",
+    "conversation_participants",
+    "conversations",
+    "database",
+    "fees",
+    "learning_resources",
+    "notifications",
+    "parent_children",
+    "parents",
+    "permission_slips",
+    "pta_meetings",
+    "report_cards",
+    "school_policies",
+    "student_attendance",
+    "student_fees",
+    "students",
+    "teachers",
+    "the",
+    "transactions",
+    "users",
+    "volunteer_badges",
+    "volunteer_hours",
+    "volunteer_opportunities",
+    "volunteer_signups",
+    "volunteering_opportunities"
+  ],
+  "tablesByFrequency": [
+    {
+      "table": "parent_children",
+      "count": 5,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx",
+        "parent/SelectChildForReportScreen.tsx"
+      ]
+    },
+    {
+      "table": "parents",
+      "count": 5,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx",
+        "admin/ParentListScreen.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "student_fees",
+      "count": 3,
+      "components": [
+        "dashboards/ParentDashboard.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "users",
+      "count": 2,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx"
+      ]
+    },
+    {
+      "table": "assignments",
+      "count": 2,
+      "components": [
+        "dashboards/ParentDashboard.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "student_attendance",
+      "count": 2,
+      "components": [
+        "dashboards/ParentDashboard.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "students",
+      "count": 2,
+      "components": [
+        "parent/ParentDashboard.tsx",
+        "parent/SelectChildForReportScreen.tsx"
+      ]
+    },
+    {
+      "table": "auth_accounts",
+      "count": 1,
+      "components": [
+        "admin/ParentDetailAdminView.tsx"
+      ]
+    },
+    {
+      "table": "database",
+      "count": 1,
+      "components": [
+        "admin/ParentDetailAdminView.tsx"
+      ]
+    },
+    {
+      "table": "report_cards",
+      "count": 1,
+      "components": [
+        "dashboards/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "teachers",
+      "count": 1,
+      "components": [
+        "parent/AppointmentScreen.tsx"
+      ]
+    },
+    {
+      "table": "appointments",
+      "count": 1,
+      "components": [
+        "parent/AppointmentScreen.tsx"
+      ]
+    },
+    {
+      "table": "transactions",
+      "count": 1,
+      "components": [
+        "parent/FeeStatusScreen.tsx"
+      ]
+    },
+    {
+      "table": "learning_resources",
+      "count": 1,
+      "components": [
+        "parent/LearningResourcesScreen.tsx"
+      ]
+    },
+    {
+      "table": "pta_meetings",
+      "count": 1,
+      "components": [
+        "parent/PTAMeetingScreen.tsx"
+      ]
+    },
+    {
+      "table": "assignment_submissions",
+      "count": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "notifications",
+      "count": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "fees",
+      "count": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "conversation_participants",
+      "count": 1,
+      "components": [
+        "parent/ParentMessagesScreen.tsx"
+      ]
+    },
+    {
+      "table": "conversations",
+      "count": 1,
+      "components": [
+        "parent/ParentMessagesScreen.tsx"
+      ]
+    },
+    {
+      "table": "the",
+      "count": 1,
+      "components": [
+        "parent/ParentProfileScreen.tsx"
+      ]
+    },
+    {
+      "table": "permission_slips",
+      "count": 1,
+      "components": [
+        "parent/PermissionSlipScreen.tsx"
+      ]
+    },
+    {
+      "table": "school_policies",
+      "count": 1,
+      "components": [
+        "parent/SchoolPoliciesScreen.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_opportunities",
+      "count": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_signups",
+      "count": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_hours",
+      "count": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_badges",
+      "count": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    {
+      "table": "volunteering_opportunities",
+      "count": 1,
+      "components": [
+        "parent/VolunteeringScreen.tsx"
+      ]
+    }
+  ],
+  "componentsByTable": {
+    "parent_children": [
+      "admin/AddParentScreen.tsx",
+      "admin/ParentDetailAdminView.tsx",
+      "parent/FeeStatusScreen.tsx",
+      "parent/ParentDashboard.tsx",
+      "parent/SelectChildForReportScreen.tsx"
+    ],
+    "parents": [
+      "admin/AddParentScreen.tsx",
+      "admin/ParentDetailAdminView.tsx",
+      "admin/ParentListScreen.tsx",
+      "parent/FeeStatusScreen.tsx",
+      "parent/ParentDashboard.tsx"
+    ],
+    "users": [
+      "admin/AddParentScreen.tsx",
+      "admin/ParentDetailAdminView.tsx"
+    ],
+    "auth_accounts": [
+      "admin/ParentDetailAdminView.tsx"
+    ],
+    "database": [
+      "admin/ParentDetailAdminView.tsx"
+    ],
+    "assignments": [
+      "dashboards/ParentDashboard.tsx",
+      "parent/ParentDashboard.tsx"
+    ],
+    "report_cards": [
+      "dashboards/ParentDashboard.tsx"
+    ],
+    "student_attendance": [
+      "dashboards/ParentDashboard.tsx",
+      "parent/ParentDashboard.tsx"
+    ],
+    "student_fees": [
+      "dashboards/ParentDashboard.tsx",
+      "parent/FeeStatusScreen.tsx",
+      "parent/ParentDashboard.tsx"
+    ],
+    "teachers": [
+      "parent/AppointmentScreen.tsx"
+    ],
+    "appointments": [
+      "parent/AppointmentScreen.tsx"
+    ],
+    "transactions": [
+      "parent/FeeStatusScreen.tsx"
+    ],
+    "learning_resources": [
+      "parent/LearningResourcesScreen.tsx"
+    ],
+    "pta_meetings": [
+      "parent/PTAMeetingScreen.tsx"
+    ],
+    "assignment_submissions": [
+      "parent/ParentDashboard.tsx"
+    ],
+    "students": [
+      "parent/ParentDashboard.tsx",
+      "parent/SelectChildForReportScreen.tsx"
+    ],
+    "notifications": [
+      "parent/ParentDashboard.tsx"
+    ],
+    "fees": [
+      "parent/ParentDashboard.tsx"
+    ],
+    "conversation_participants": [
+      "parent/ParentMessagesScreen.tsx"
+    ],
+    "conversations": [
+      "parent/ParentMessagesScreen.tsx"
+    ],
+    "the": [
+      "parent/ParentProfileScreen.tsx"
+    ],
+    "permission_slips": [
+      "parent/PermissionSlipScreen.tsx"
+    ],
+    "school_policies": [
+      "parent/SchoolPoliciesScreen.tsx"
+    ],
+    "volunteer_opportunities": [
+      "parent/VolunteerSignup.tsx"
+    ],
+    "volunteer_signups": [
+      "parent/VolunteerSignup.tsx"
+    ],
+    "volunteer_hours": [
+      "parent/VolunteerSignup.tsx"
+    ],
+    "volunteer_badges": [
+      "parent/VolunteerSignup.tsx"
+    ],
+    "volunteering_opportunities": [
+      "parent/VolunteeringScreen.tsx"
+    ]
+  },
+  "tablesByComponent": {
+    "admin/AddParentScreen.tsx": [
+      "parent_children",
+      "parents",
+      "users"
+    ],
+    "admin/ParentDetailAdminView.tsx": [
+      "parent_children",
+      "parents",
+      "users",
+      "auth_accounts",
+      "database"
+    ],
+    "admin/ParentListScreen.tsx": [
+      "parents"
+    ],
+    "dashboards/ParentDashboard.tsx": [
+      "assignments",
+      "report_cards",
+      "student_attendance",
+      "student_fees"
+    ],
+    "parent/AIParentingTips.tsx": [],
+    "parent/AlertsScreen.tsx": [],
+    "parent/AppointmentScreen.tsx": [
+      "teachers",
+      "appointments"
+    ],
+    "parent/EditParentProfileScreen.tsx": [],
+    "parent/FeeStatusScreen.tsx": [
+      "parents",
+      "parent_children",
+      "transactions",
+      "student_fees"
+    ],
+    "parent/FeedbackScreen.tsx": [],
+    "parent/InstallmentSchedule.tsx": [],
+    "parent/LearningResourcesScreen.tsx": [
+      "learning_resources"
+    ],
+    "parent/PTAMeetingScreen.tsx": [
+      "pta_meetings"
+    ],
+    "parent/ParentDashboard.tsx": [
+      "assignments",
+      "assignment_submissions",
+      "student_attendance",
+      "students",
+      "parents",
+      "parent_children",
+      "notifications",
+      "fees",
+      "student_fees"
+    ],
+    "parent/ParentMessagesScreen.tsx": [
+      "conversation_participants",
+      "conversations"
+    ],
+    "parent/ParentNewChatScreen.tsx": [],
+    "parent/ParentNotificationSettingsScreen.tsx": [],
+    "parent/ParentPhotoGalleryScreen.tsx": [],
+    "parent/ParentProfileScreen.tsx": [
+      "the"
+    ],
+    "parent/ParentSecurityScreen.tsx": [],
+    "parent/PermissionSlipScreen.tsx": [
+      "permission_slips"
+    ],
+    "parent/ReportCardScreen.tsx": [],
+    "parent/SchoolPoliciesScreen.tsx": [
+      "school_policies"
+    ],
+    "parent/SchoolUtilitiesScreen.tsx": [],
+    "parent/SelectChildForReportScreen.tsx": [
+      "parent_children",
+      "students"
+    ],
+    "parent/VolunteerSignup.tsx": [
+      "volunteer_opportunities",
+      "volunteer_signups",
+      "volunteer_hours",
+      "volunteer_badges"
+    ],
+    "parent/VolunteeringScreen.tsx": [
+      "volunteering_opportunities"
+    ]
+  }
+}

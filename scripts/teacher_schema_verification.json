@@ -1,0 +1,304 @@
+{
+  "summary": {
+    "totalTablesReferenced": 21,
+    "existingTables": 7,
+    "missingTables": 14,
+    "percentageComplete": 33,
+    "timestamp": "2026-01-09T07:14:17.877Z"
+  },
+  "existingTables": [
+    "auth_accounts",
+    "conversation_participants",
+    "conversations",
+    "payslips",
+    "teacher_attendance",
+    "teacher_salaries",
+    "users"
+  ],
+  "missingTables": [
+    {
+      "table": "teachers",
+      "usageCount": 11,
+      "components": [
+        "admin/AddTeacherScreen.tsx",
+        "admin/TeacherDetailAdminView.tsx",
+        "admin/TeacherListScreen.tsx",
+        "teacher/TeacherCommunicationScreen.tsx",
+        "teacher/TeacherDashboard.tsx",
+        "teacher/TeacherNotificationSettingsScreen.tsx",
+        "teacher/TeacherOverview.tsx",
+        "teacher/TeacherProfile.tsx",
+        "teacher/TeacherProfileEnhanced.tsx",
+        "teacher/TeacherSalaryProfile.tsx",
+        "teacher/TeacherSecurityScreen.tsx"
+      ]
+    },
+    {
+      "table": "teacher_classes",
+      "usageCount": 4,
+      "components": [
+        "admin/AddTeacherScreen.tsx",
+        "teacher/TeacherAssignmentsListScreen.tsx",
+        "teacher/TeacherCommunicationScreen.tsx",
+        "teacher/TeacherOverview.tsx"
+      ]
+    },
+    {
+      "table": "students",
+      "usageCount": 3,
+      "components": [
+        "teacher/TeacherAttendanceScreen.tsx",
+        "teacher/TeacherOverview.tsx",
+        "teacher/TeacherReportsScreen.tsx"
+      ]
+    },
+    {
+      "table": "assignments",
+      "usageCount": 2,
+      "components": [
+        "teacher/TeacherAssignmentsListScreen.tsx",
+        "teacher/TeacherOverview.tsx"
+      ]
+    },
+    {
+      "table": "student_attendance",
+      "usageCount": 2,
+      "components": [
+        "teacher/TeacherAttendanceScreen.tsx",
+        "teacher/TeacherReportsScreen.tsx"
+      ]
+    },
+    {
+      "table": "teacher_subjects",
+      "usageCount": 2,
+      "components": [
+        "admin/AddTeacherScreen.tsx",
+        "teacher/TeacherProfile.tsx"
+      ]
+    },
+    {
+      "table": "academic_performance",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherReportsScreen.tsx"
+      ]
+    },
+    {
+      "table": "classes",
+      "usageCount": 1,
+      "components": [
+        "admin/AddTeacherScreen.tsx"
+      ]
+    },
+    {
+      "table": "forum_categories",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherForum.tsx"
+      ]
+    },
+    {
+      "table": "forum_threads",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherForum.tsx"
+      ]
+    },
+    {
+      "table": "login_history",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherSecurityScreen.tsx"
+      ]
+    },
+    {
+      "table": "notices",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherCommunicationScreen.tsx"
+      ]
+    },
+    {
+      "table": "subjects",
+      "usageCount": 1,
+      "components": [
+        "admin/AddTeacherScreen.tsx"
+      ]
+    },
+    {
+      "table": "timetable",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherOverview.tsx"
+      ]
+    }
+  ],
+  "tableDetails": {
+    "teachers": {
+      "status": "MISSING",
+      "usageCount": 11,
+      "components": [
+        "admin/AddTeacherScreen.tsx",
+        "admin/TeacherDetailAdminView.tsx",
+        "admin/TeacherListScreen.tsx",
+        "teacher/TeacherCommunicationScreen.tsx",
+        "teacher/TeacherDashboard.tsx",
+        "teacher/TeacherNotificationSettingsScreen.tsx",
+        "teacher/TeacherOverview.tsx",
+        "teacher/TeacherProfile.tsx",
+        "teacher/TeacherProfileEnhanced.tsx",
+        "teacher/TeacherSalaryProfile.tsx",
+        "teacher/TeacherSecurityScreen.tsx"
+      ]
+    },
+    "teacher_classes": {
+      "status": "MISSING",
+      "usageCount": 4,
+      "components": [
+        "admin/AddTeacherScreen.tsx",
+        "teacher/TeacherAssignmentsListScreen.tsx",
+        "teacher/TeacherCommunicationScreen.tsx",
+        "teacher/TeacherOverview.tsx"
+      ]
+    },
+    "students": {
+      "status": "MISSING",
+      "usageCount": 3,
+      "components": [
+        "teacher/TeacherAttendanceScreen.tsx",
+        "teacher/TeacherOverview.tsx",
+        "teacher/TeacherReportsScreen.tsx"
+      ]
+    },
+    "assignments": {
+      "status": "MISSING",
+      "usageCount": 2,
+      "components": [
+        "teacher/TeacherAssignmentsListScreen.tsx",
+        "teacher/TeacherOverview.tsx"
+      ]
+    },
+    "student_attendance": {
+      "status": "MISSING",
+      "usageCount": 2,
+      "components": [
+        "teacher/TeacherAttendanceScreen.tsx",
+        "teacher/TeacherReportsScreen.tsx"
+      ]
+    },
+    "teacher_subjects": {
+      "status": "MISSING",
+      "usageCount": 2,
+      "components": [
+        "admin/AddTeacherScreen.tsx",
+        "teacher/TeacherProfile.tsx"
+      ]
+    },
+    "academic_performance": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherReportsScreen.tsx"
+      ]
+    },
+    "classes": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "admin/AddTeacherScreen.tsx"
+      ]
+    },
+    "forum_categories": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherForum.tsx"
+      ]
+    },
+    "forum_threads": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherForum.tsx"
+      ]
+    },
+    "login_history": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherSecurityScreen.tsx"
+      ]
+    },
+    "notices": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherCommunicationScreen.tsx"
+      ]
+    },
+    "subjects": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "admin/AddTeacherScreen.tsx"
+      ]
+    },
+    "timetable": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherOverview.tsx"
+      ]
+    },
+    "auth_accounts": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "admin/TeacherDetailAdminView.tsx"
+      ]
+    },
+    "conversation_participants": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherMessagesScreen.tsx"
+      ]
+    },
+    "conversations": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherMessagesScreen.tsx"
+      ]
+    },
+    "payslips": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherSalaryProfile.tsx"
+      ]
+    },
+    "teacher_attendance": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "admin/TeacherAttendanceScreen.tsx"
+      ]
+    },
+    "teacher_salaries": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "teacher/TeacherSalaryProfile.tsx"
+      ]
+    },
+    "users": {
+      "status": "EXISTS",
+      "usageCount": 2,
+      "components": [
+        "admin/AddTeacherScreen.tsx",
+        "admin/TeacherDetailAdminView.tsx"
+      ]
+    }
+  }
+}

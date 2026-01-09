@@ -1,0 +1,415 @@
+{
+  "summary": {
+    "totalComponents": 112,
+    "componentsUsingDb": 73,
+    "uniqueTables": 90
+  },
+  "tables": [
+    "academic_performance",
+    "academic_tracks",
+    "app_installations",
+    "arrears",
+    "assets",
+    "attendance",
+    "attendance_heatmaps",
+    "audit_logs",
+    "audit_trails",
+    "auth_accounts",
+    "budget_lines",
+    "budgets",
+    "classes",
+    "compliance_checks",
+    "conversation_participants",
+    "conversations",
+    "curricula",
+    "donations",
+    "emergency_alerts",
+    "emergency_drills",
+    "equipment_tracking",
+    "exam_bodies",
+    "external_integrations",
+    "facility_registers",
+    "financial_summaries",
+    "health_incident_logs",
+    "health_logs",
+    "id_verification_requests",
+    "ivr_calls",
+    "ivr_lessons",
+    "learning_resources",
+    "leave_balances",
+    "leave_requests",
+    "lesson-materials",
+    "maintenance_tickets",
+    "notifications",
+    "parent_children",
+    "parents",
+    "payment_transactions",
+    "payments",
+    "payslips",
+    "permission_slips",
+    "point_transactions",
+    "profiles",
+    "pta_meetings",
+    "radio_broadcasts",
+    "radio_content",
+    "radio_partners",
+    "report_cards",
+    "resources",
+    "safeguarding_policies",
+    "salary_payments",
+    "scholarship_applications",
+    "scholarship_recipients",
+    "scholarships",
+    "school-compliance",
+    "school_documents",
+    "school_info",
+    "school_policies",
+    "schools",
+    "sms_contacts",
+    "sms_lessons",
+    "sms_schedules",
+    "sponsorship_requests",
+    "sponsorships",
+    "student-documents",
+    "student_attendance",
+    "student_fees",
+    "student_grades",
+    "student_points",
+    "students",
+    "subjects",
+    "sync_logs",
+    "system_settings",
+    "teacher_attendance",
+    "teacher_classes",
+    "teacher_salaries",
+    "teacher_subjects",
+    "teachers",
+    "third_party_apps",
+    "timetable",
+    "users",
+    "ussd_menu_structure",
+    "ussd_sessions",
+    "ussd_transactions",
+    "vendors",
+    "verification_audit_log",
+    "visitor_logs",
+    "volunteering_opportunities",
+    "vw_compliance_metrics"
+  ],
+  "componentTableMap": {
+    "AcademicAnalytics.tsx": [
+      "student_grades"
+    ],
+    "AcademicSettingsScreen.tsx": [
+      "system_settings"
+    ],
+    "AddParentScreen.tsx": [
+      "parent_children",
+      "parents",
+      "users"
+    ],
+    "AddStudentScreen.tsx": [
+      "parent_children",
+      "parents",
+      "students",
+      "users"
+    ],
+    "AddTeacherScreen.tsx": [
+      "classes",
+      "subjects",
+      "teacher_classes",
+      "teacher_subjects",
+      "teachers",
+      "users"
+    ],
+    "AdminDashboard.tsx": [
+      "notifications",
+      "students"
+    ],
+    "AdminMessagesScreen.tsx": [
+      "conversation_participants",
+      "conversations"
+    ],
+    "AdminNewChatScreen.tsx": [
+      "users"
+    ],
+    "ArrearsTracker.tsx": [
+      "arrears"
+    ],
+    "AssetInventory.tsx": [
+      "assets"
+    ],
+    "AttendanceHeatmap.tsx": [
+      "attendance_heatmaps",
+      "classes",
+      "student_attendance"
+    ],
+    "AttendanceOverviewScreen.tsx": [
+      "attendance",
+      "classes",
+      "students"
+    ],
+    "AuditLogScreen.tsx": [
+      "audit_logs"
+    ],
+    "AuditTrailViewer.tsx": [
+      "audit_trails"
+    ],
+    "AwardPoints.tsx": [
+      "point_transactions",
+      "student_points"
+    ],
+    "BudgetPlanner.tsx": [
+      "budget_lines",
+      "budgets"
+    ],
+    "ClassListScreen.tsx": [
+      "classes"
+    ],
+    "ComplianceChecklist.tsx": [
+      "compliance_checks"
+    ],
+    "ComplianceDashboard.tsx": [
+      "vw_compliance_metrics"
+    ],
+    "ComplianceOnboardingWizard.tsx": [
+      "school-compliance",
+      "school_documents",
+      "schools"
+    ],
+    "DashboardOverview.tsx": [
+      "audit_logs",
+      "health_logs",
+      "parents",
+      "report_cards",
+      "student_attendance",
+      "student_fees",
+      "students",
+      "teachers",
+      "timetable",
+      "users"
+    ],
+    "EmergencyAlert.tsx": [
+      "emergency_alerts"
+    ],
+    "EnhancedEnrollmentWizard.tsx": [
+      "academic_tracks",
+      "curricula",
+      "parent_children",
+      "parents",
+      "student-documents",
+      "students",
+      "users"
+    ],
+    "EquipmentInventoryScreen.tsx": [
+      "equipment_tracking",
+      "facility_registers"
+    ],
+    "ExamCandidateRegistration.tsx": [
+      "exam_bodies",
+      "students"
+    ],
+    "FacilityRegisterScreen.tsx": [
+      "facility_registers"
+    ],
+    "FeeManagement.tsx": [
+      "students"
+    ],
+    "FinanceDashboard.tsx": [
+      "donations",
+      "financial_summaries",
+      "payments",
+      "salary_payments",
+      "student_fees"
+    ],
+    "HealthLogScreen.tsx": [
+      "health_logs",
+      "students"
+    ],
+    "IDCardManagement.tsx": [
+      "students",
+      "teachers"
+    ],
+    "IDVerificationPanel.tsx": [
+      "id_verification_requests",
+      "profiles",
+      "verification_audit_log"
+    ],
+    "IntegrationHub.tsx": [
+      "app_installations",
+      "external_integrations",
+      "sync_logs",
+      "third_party_apps"
+    ],
+    "IVRLessonRecorder.tsx": [
+      "ivr_calls",
+      "ivr_lessons"
+    ],
+    "LeaveApproval.tsx": [
+      "leave_balances",
+      "leave_requests"
+    ],
+    "LeaveBalance.tsx": [
+      "leave_balances",
+      "teachers"
+    ],
+    "MaintenanceTickets.tsx": [
+      "maintenance_tickets"
+    ],
+    "ManageLearningResourcesScreen.tsx": [
+      "learning_resources",
+      "resources"
+    ],
+    "ManagePermissionSlipsScreen.tsx": [
+      "classes",
+      "permission_slips",
+      "students"
+    ],
+    "ManagePoliciesScreen.tsx": [
+      "school_policies"
+    ],
+    "ManagePTAMeetingsScreen.tsx": [
+      "pta_meetings"
+    ],
+    "ManageVolunteeringScreen.tsx": [
+      "volunteering_opportunities"
+    ],
+    "MasterReportingHub.tsx": [
+      "profiles",
+      "students"
+    ],
+    "NotificationsSettingsScreen.tsx": [
+      "users"
+    ],
+    "ParentDetailAdminView.tsx": [
+      "auth_accounts",
+      "parent_children",
+      "parents",
+      "users"
+    ],
+    "ParentListScreen.tsx": [
+      "parents"
+    ],
+    "PaymentHistory.tsx": [
+      "payment_transactions"
+    ],
+    "PaymentRecording.tsx": [
+      "payment_transactions",
+      "payslips",
+      "teachers"
+    ],
+    "PayrollDashboard.tsx": [
+      "arrears",
+      "payslips",
+      "teacher_salaries"
+    ],
+    "PayslipGenerator.tsx": [
+      "teacher_salaries"
+    ],
+    "PersonalSecuritySettingsScreen.tsx": [
+      "users"
+    ],
+    "RadioContentScheduler.tsx": [
+      "radio_broadcasts",
+      "radio_content",
+      "radio_partners"
+    ],
+    "ReportCardPublishing.tsx": [
+      "report_cards",
+      "students"
+    ],
+    "ReportsScreen.tsx": [
+      "academic_performance",
+      "students"
+    ],
+    "ResourceUploadModal.tsx": [
+      "lesson-materials",
+      "resources"
+    ],
+    "SafetyHealthLogs.tsx": [
+      "emergency_drills",
+      "health_incident_logs",
+      "safeguarding_policies"
+    ],
+    "SalaryConfiguration.tsx": [
+      "teacher_salaries",
+      "teachers"
+    ],
+    "ScholarshipManagement.tsx": [
+      "scholarship_applications",
+      "scholarship_recipients",
+      "scholarships"
+    ],
+    "SchoolInfoScreen.tsx": [
+      "school_info"
+    ],
+    "SchoolOnboardingScreen.tsx": [
+      "school_documents",
+      "schools"
+    ],
+    "SMSLessonManager.tsx": [
+      "sms_contacts",
+      "sms_lessons",
+      "sms_schedules"
+    ],
+    "SponsorshipMatching.tsx": [
+      "sponsorship_requests",
+      "sponsorships",
+      "students"
+    ],
+    "StudentListScreen.tsx": [
+      "students"
+    ],
+    "StudentProfileAdminView.tsx": [
+      "auth_accounts",
+      "student_attendance",
+      "students",
+      "users"
+    ],
+    "TeacherAttendanceScreen.tsx": [
+      "teacher_attendance"
+    ],
+    "TeacherDetailAdminView.tsx": [
+      "auth_accounts",
+      "teachers",
+      "users"
+    ],
+    "TimetableEditor.tsx": [
+      "teachers",
+      "timetable"
+    ],
+    "TimetableGeneratorScreen.tsx": [
+      "classes"
+    ],
+    "TimetableScreen.tsx": [
+      "teachers",
+      "timetable"
+    ],
+    "UserAccountsScreen.tsx": [
+      "auth_accounts"
+    ],
+    "UserSeeder.tsx": [
+      "auth_accounts",
+      "parent_children",
+      "parents",
+      "students",
+      "teacher_classes",
+      "teacher_subjects",
+      "teachers",
+      "users"
+    ],
+    "USSDWorkflow.tsx": [
+      "ussd_menu_structure",
+      "ussd_sessions",
+      "ussd_transactions"
+    ],
+    "VendorManagement.tsx": [
+      "vendors"
+    ],
+    "VisitorLog.tsx": [
+      "visitor_logs"
+    ]
+  },
+  "errors": [],
+  "timestamp": "2026-01-08T18:52:38.983Z"
+}

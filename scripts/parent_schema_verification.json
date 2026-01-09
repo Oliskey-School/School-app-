@@ -1,0 +1,325 @@
+{
+  "summary": {
+    "totalTablesReferenced": 26,
+    "existingTables": 13,
+    "missingTables": 13,
+    "percentageComplete": 50,
+    "timestamp": "2026-01-09T07:23:42.799Z"
+  },
+  "existingTables": [
+    "assignments",
+    "auth_accounts",
+    "conversation_participants",
+    "conversations",
+    "learning_resources",
+    "permission_slips",
+    "pta_meetings",
+    "school_policies",
+    "student_attendance",
+    "students",
+    "teachers",
+    "users",
+    "volunteering_opportunities"
+  ],
+  "missingTables": [
+    {
+      "table": "parent_children",
+      "usageCount": 5,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx",
+        "parent/SelectChildForReportScreen.tsx"
+      ]
+    },
+    {
+      "table": "parents",
+      "usageCount": 5,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx",
+        "admin/ParentListScreen.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "student_fees",
+      "usageCount": 3,
+      "components": [
+        "dashboards/ParentDashboard.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "appointments",
+      "usageCount": 1,
+      "components": [
+        "parent/AppointmentScreen.tsx"
+      ]
+    },
+    {
+      "table": "assignment_submissions",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "fees",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "notifications",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "report_cards",
+      "usageCount": 1,
+      "components": [
+        "dashboards/ParentDashboard.tsx"
+      ]
+    },
+    {
+      "table": "transactions",
+      "usageCount": 1,
+      "components": [
+        "parent/FeeStatusScreen.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_badges",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_hours",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_opportunities",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    {
+      "table": "volunteer_signups",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    }
+  ],
+  "tableDetails": {
+    "parent_children": {
+      "status": "MISSING",
+      "usageCount": 5,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx",
+        "parent/SelectChildForReportScreen.tsx"
+      ]
+    },
+    "parents": {
+      "status": "MISSING",
+      "usageCount": 5,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx",
+        "admin/ParentListScreen.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    "student_fees": {
+      "status": "MISSING",
+      "usageCount": 3,
+      "components": [
+        "dashboards/ParentDashboard.tsx",
+        "parent/FeeStatusScreen.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    "appointments": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/AppointmentScreen.tsx"
+      ]
+    },
+    "assignment_submissions": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    "fees": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    "notifications": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    "report_cards": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "dashboards/ParentDashboard.tsx"
+      ]
+    },
+    "transactions": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/FeeStatusScreen.tsx"
+      ]
+    },
+    "volunteer_badges": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    "volunteer_hours": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    "volunteer_opportunities": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    "volunteer_signups": {
+      "status": "MISSING",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteerSignup.tsx"
+      ]
+    },
+    "assignments": {
+      "status": "EXISTS",
+      "usageCount": 2,
+      "components": [
+        "dashboards/ParentDashboard.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    "auth_accounts": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "admin/ParentDetailAdminView.tsx"
+      ]
+    },
+    "conversation_participants": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentMessagesScreen.tsx"
+      ]
+    },
+    "conversations": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/ParentMessagesScreen.tsx"
+      ]
+    },
+    "learning_resources": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/LearningResourcesScreen.tsx"
+      ]
+    },
+    "permission_slips": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/PermissionSlipScreen.tsx"
+      ]
+    },
+    "pta_meetings": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/PTAMeetingScreen.tsx"
+      ]
+    },
+    "school_policies": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/SchoolPoliciesScreen.tsx"
+      ]
+    },
+    "student_attendance": {
+      "status": "EXISTS",
+      "usageCount": 2,
+      "components": [
+        "dashboards/ParentDashboard.tsx",
+        "parent/ParentDashboard.tsx"
+      ]
+    },
+    "students": {
+      "status": "EXISTS",
+      "usageCount": 2,
+      "components": [
+        "parent/ParentDashboard.tsx",
+        "parent/SelectChildForReportScreen.tsx"
+      ]
+    },
+    "teachers": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/AppointmentScreen.tsx"
+      ]
+    },
+    "users": {
+      "status": "EXISTS",
+      "usageCount": 2,
+      "components": [
+        "admin/AddParentScreen.tsx",
+        "admin/ParentDetailAdminView.tsx"
+      ]
+    },
+    "volunteering_opportunities": {
+      "status": "EXISTS",
+      "usageCount": 1,
+      "components": [
+        "parent/VolunteeringScreen.tsx"
+      ]
+    }
+  }
+}

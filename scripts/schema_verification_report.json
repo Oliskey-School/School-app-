@@ -1,0 +1,1062 @@
+{
+  "summary": {
+    "totalComponents": 112,
+    "componentsUsingDb": 73,
+    "tablesReferenced": 90,
+    "tablesFound": 30,
+    "tablesMissing": 60,
+    "tablesDefined": 78,
+    "coveragePercentage": 33
+  },
+  "missingTables": [
+    {
+      "name": "app_installations",
+      "usedByComponents": [
+        "IntegrationHub.tsx"
+      ]
+    },
+    {
+      "name": "arrears",
+      "usedByComponents": [
+        "ArrearsTracker.tsx",
+        "PayrollDashboard.tsx"
+      ]
+    },
+    {
+      "name": "assets",
+      "usedByComponents": [
+        "AssetInventory.tsx"
+      ]
+    },
+    {
+      "name": "attendance_heatmaps",
+      "usedByComponents": [
+        "AttendanceHeatmap.tsx"
+      ]
+    },
+    {
+      "name": "audit_trails",
+      "usedByComponents": [
+        "AuditTrailViewer.tsx"
+      ]
+    },
+    {
+      "name": "auth_accounts",
+      "usedByComponents": [
+        "ParentDetailAdminView.tsx",
+        "StudentProfileAdminView.tsx",
+        "TeacherDetailAdminView.tsx",
+        "UserAccountsScreen.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "budget_lines",
+      "usedByComponents": [
+        "BudgetPlanner.tsx"
+      ]
+    },
+    {
+      "name": "budgets",
+      "usedByComponents": [
+        "BudgetPlanner.tsx"
+      ]
+    },
+    {
+      "name": "compliance_checks",
+      "usedByComponents": [
+        "ComplianceChecklist.tsx"
+      ]
+    },
+    {
+      "name": "conversation_participants",
+      "usedByComponents": [
+        "AdminMessagesScreen.tsx"
+      ]
+    },
+    {
+      "name": "conversations",
+      "usedByComponents": [
+        "AdminMessagesScreen.tsx"
+      ]
+    },
+    {
+      "name": "emergency_alerts",
+      "usedByComponents": [
+        "EmergencyAlert.tsx"
+      ]
+    },
+    {
+      "name": "external_integrations",
+      "usedByComponents": [
+        "IntegrationHub.tsx"
+      ]
+    },
+    {
+      "name": "financial_summaries",
+      "usedByComponents": [
+        "FinanceDashboard.tsx"
+      ]
+    },
+    {
+      "name": "health_logs",
+      "usedByComponents": [
+        "DashboardOverview.tsx",
+        "HealthLogScreen.tsx"
+      ]
+    },
+    {
+      "name": "id_verification_requests",
+      "usedByComponents": [
+        "IDVerificationPanel.tsx"
+      ]
+    },
+    {
+      "name": "ivr_calls",
+      "usedByComponents": [
+        "IVRLessonRecorder.tsx"
+      ]
+    },
+    {
+      "name": "ivr_lessons",
+      "usedByComponents": [
+        "IVRLessonRecorder.tsx"
+      ]
+    },
+    {
+      "name": "learning_resources",
+      "usedByComponents": [
+        "ManageLearningResourcesScreen.tsx"
+      ]
+    },
+    {
+      "name": "leave_balances",
+      "usedByComponents": [
+        "LeaveApproval.tsx",
+        "LeaveBalance.tsx"
+      ]
+    },
+    {
+      "name": "leave_requests",
+      "usedByComponents": [
+        "LeaveApproval.tsx"
+      ]
+    },
+    {
+      "name": "lesson-materials",
+      "usedByComponents": [
+        "ResourceUploadModal.tsx"
+      ]
+    },
+    {
+      "name": "maintenance_tickets",
+      "usedByComponents": [
+        "MaintenanceTickets.tsx"
+      ]
+    },
+    {
+      "name": "payment_transactions",
+      "usedByComponents": [
+        "PaymentHistory.tsx",
+        "PaymentRecording.tsx"
+      ]
+    },
+    {
+      "name": "payments",
+      "usedByComponents": [
+        "FinanceDashboard.tsx"
+      ]
+    },
+    {
+      "name": "payslips",
+      "usedByComponents": [
+        "PaymentRecording.tsx",
+        "PayrollDashboard.tsx"
+      ]
+    },
+    {
+      "name": "permission_slips",
+      "usedByComponents": [
+        "ManagePermissionSlipsScreen.tsx"
+      ]
+    },
+    {
+      "name": "pta_meetings",
+      "usedByComponents": [
+        "ManagePTAMeetingsScreen.tsx"
+      ]
+    },
+    {
+      "name": "radio_broadcasts",
+      "usedByComponents": [
+        "RadioContentScheduler.tsx"
+      ]
+    },
+    {
+      "name": "radio_content",
+      "usedByComponents": [
+        "RadioContentScheduler.tsx"
+      ]
+    },
+    {
+      "name": "radio_partners",
+      "usedByComponents": [
+        "RadioContentScheduler.tsx"
+      ]
+    },
+    {
+      "name": "resources",
+      "usedByComponents": [
+        "ManageLearningResourcesScreen.tsx",
+        "ResourceUploadModal.tsx"
+      ]
+    },
+    {
+      "name": "salary_payments",
+      "usedByComponents": [
+        "FinanceDashboard.tsx"
+      ]
+    },
+    {
+      "name": "scholarship_applications",
+      "usedByComponents": [
+        "ScholarshipManagement.tsx"
+      ]
+    },
+    {
+      "name": "scholarship_recipients",
+      "usedByComponents": [
+        "ScholarshipManagement.tsx"
+      ]
+    },
+    {
+      "name": "scholarships",
+      "usedByComponents": [
+        "ScholarshipManagement.tsx"
+      ]
+    },
+    {
+      "name": "school-compliance",
+      "usedByComponents": [
+        "ComplianceOnboardingWizard.tsx"
+      ]
+    },
+    {
+      "name": "school_info",
+      "usedByComponents": [
+        "SchoolInfoScreen.tsx"
+      ]
+    },
+    {
+      "name": "school_policies",
+      "usedByComponents": [
+        "ManagePoliciesScreen.tsx"
+      ]
+    },
+    {
+      "name": "sms_contacts",
+      "usedByComponents": [
+        "SMSLessonManager.tsx"
+      ]
+    },
+    {
+      "name": "sms_lessons",
+      "usedByComponents": [
+        "SMSLessonManager.tsx"
+      ]
+    },
+    {
+      "name": "sms_schedules",
+      "usedByComponents": [
+        "SMSLessonManager.tsx"
+      ]
+    },
+    {
+      "name": "sponsorship_requests",
+      "usedByComponents": [
+        "SponsorshipMatching.tsx"
+      ]
+    },
+    {
+      "name": "sponsorships",
+      "usedByComponents": [
+        "SponsorshipMatching.tsx"
+      ]
+    },
+    {
+      "name": "student-documents",
+      "usedByComponents": [
+        "EnhancedEnrollmentWizard.tsx"
+      ]
+    },
+    {
+      "name": "student_grades",
+      "usedByComponents": [
+        "AcademicAnalytics.tsx"
+      ]
+    },
+    {
+      "name": "sync_logs",
+      "usedByComponents": [
+        "IntegrationHub.tsx"
+      ]
+    },
+    {
+      "name": "system_settings",
+      "usedByComponents": [
+        "AcademicSettingsScreen.tsx"
+      ]
+    },
+    {
+      "name": "teacher_attendance",
+      "usedByComponents": [
+        "TeacherAttendanceScreen.tsx"
+      ]
+    },
+    {
+      "name": "teacher_salaries",
+      "usedByComponents": [
+        "PayrollDashboard.tsx",
+        "PayslipGenerator.tsx",
+        "SalaryConfiguration.tsx"
+      ]
+    },
+    {
+      "name": "third_party_apps",
+      "usedByComponents": [
+        "IntegrationHub.tsx"
+      ]
+    },
+    {
+      "name": "users",
+      "usedByComponents": [
+        "AddParentScreen.tsx",
+        "AddStudentScreen.tsx",
+        "AddTeacherScreen.tsx",
+        "AdminNewChatScreen.tsx",
+        "DashboardOverview.tsx",
+        "EnhancedEnrollmentWizard.tsx",
+        "NotificationsSettingsScreen.tsx",
+        "ParentDetailAdminView.tsx",
+        "PersonalSecuritySettingsScreen.tsx",
+        "StudentProfileAdminView.tsx",
+        "TeacherDetailAdminView.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "ussd_menu_structure",
+      "usedByComponents": [
+        "USSDWorkflow.tsx"
+      ]
+    },
+    {
+      "name": "ussd_sessions",
+      "usedByComponents": [
+        "USSDWorkflow.tsx"
+      ]
+    },
+    {
+      "name": "ussd_transactions",
+      "usedByComponents": [
+        "USSDWorkflow.tsx"
+      ]
+    },
+    {
+      "name": "vendors",
+      "usedByComponents": [
+        "VendorManagement.tsx"
+      ]
+    },
+    {
+      "name": "verification_audit_log",
+      "usedByComponents": [
+        "IDVerificationPanel.tsx"
+      ]
+    },
+    {
+      "name": "visitor_logs",
+      "usedByComponents": [
+        "VisitorLog.tsx"
+      ]
+    },
+    {
+      "name": "volunteering_opportunities",
+      "usedByComponents": [
+        "ManageVolunteeringScreen.tsx"
+      ]
+    },
+    {
+      "name": "vw_compliance_metrics",
+      "usedByComponents": [
+        "ComplianceDashboard.tsx"
+      ]
+    }
+  ],
+  "foundTables": [
+    {
+      "name": "academic_performance",
+      "definedIn": [
+        "0041_create_academic_performance.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "ReportsScreen.tsx"
+      ]
+    },
+    {
+      "name": "academic_tracks",
+      "definedIn": [
+        "0006_governance_curriculum_base.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "EnhancedEnrollmentWizard.tsx"
+      ]
+    },
+    {
+      "name": "attendance",
+      "definedIn": [
+        "0007_enrollment_extensions.sql",
+        "0017_final_completion_updates.sql"
+      ],
+      "columns": [
+        "academic_track_id",
+        "curriculum_type"
+      ],
+      "usedByComponents": [
+        "AttendanceOverviewScreen.tsx"
+      ]
+    },
+    {
+      "name": "audit_logs",
+      "definedIn": [
+        "0015_immutable_audit_trail.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AuditLogScreen.tsx",
+        "DashboardOverview.tsx"
+      ]
+    },
+    {
+      "name": "classes",
+      "definedIn": [
+        "0001_initial_schema.sql",
+        "0007_enrollment_extensions.sql",
+        "0020_consolidated_schema_fixes.sql",
+        "0021_feature_expansion.sql"
+      ],
+      "columns": [
+        "curriculum_id",
+        "school_id"
+      ],
+      "usedByComponents": [
+        "AddTeacherScreen.tsx",
+        "AttendanceHeatmap.tsx",
+        "AttendanceOverviewScreen.tsx",
+        "ClassListScreen.tsx",
+        "ManagePermissionSlipsScreen.tsx",
+        "TimetableGeneratorScreen.tsx"
+      ]
+    },
+    {
+      "name": "curricula",
+      "definedIn": [
+        "0006_governance_curriculum_base.sql",
+        "0021_feature_expansion.sql"
+      ],
+      "columns": [
+        "CREATE",
+        "student_id",
+        "--",
+        "level",
+        "'Year",
+        "'IGCSE'",
+        "etc.",
+        "'Paused'",
+        "'Completed'))",
+        "enrolled_at",
+        "UNIQUE(student_id",
+        "curriculum_id)",
+        "name",
+        "code",
+        "'MTH101'",
+        "'Core'",
+        "'Science'",
+        "'Arts'",
+        "'Play-Based'",
+        "grade_level",
+        "'JSS1'",
+        "'Nusaery",
+        "school_id"
+      ],
+      "usedByComponents": [
+        "EnhancedEnrollmentWizard.tsx"
+      ]
+    },
+    {
+      "name": "donations",
+      "definedIn": [
+        "0019_additional_features.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "FinanceDashboard.tsx"
+      ]
+    },
+    {
+      "name": "emergency_drills",
+      "definedIn": [
+        "0010_health_safety_safeguarding.sql",
+        "0016_final_backend_hotfix.sql"
+      ],
+      "columns": [
+        "school_id",
+        "successful"
+      ],
+      "usedByComponents": [
+        "SafetyHealthLogs.tsx"
+      ]
+    },
+    {
+      "name": "equipment_tracking",
+      "definedIn": [
+        "0009_infrastructure_log.sql",
+        "0016_final_backend_hotfix.sql"
+      ],
+      "columns": [
+        "school_id"
+      ],
+      "usedByComponents": [
+        "EquipmentInventoryScreen.tsx"
+      ]
+    },
+    {
+      "name": "exam_bodies",
+      "definedIn": [
+        "0007_enrollment_extensions.sql",
+        "0013_exams_logic_refinement.sql"
+      ],
+      "columns": [
+        "CREATE",
+        "student_id",
+        "exam_body_id",
+        "candidate_number",
+        "center_number",
+        "registration_year",
+        "status",
+        "'Withdrawn'",
+        "'ResultPending'",
+        "'ResultReleased'))",
+        "created_at",
+        "UNIQUE(student_id",
+        "registration_year)",
+        "registration_number",
+        "'Completed'))",
+        "exam_body_id)",
+        "curriculum_type"
+      ],
+      "usedByComponents": [
+        "ExamCandidateRegistration.tsx"
+      ]
+    },
+    {
+      "name": "facility_registers",
+      "definedIn": [
+        "0009_infrastructure_log.sql",
+        "0016_final_backend_hotfix.sql"
+      ],
+      "columns": [
+        "CREATE",
+        "school_id",
+        "facility_id",
+        "name",
+        "category",
+        "'Science",
+        "'Fire",
+        "'Furniture'",
+        "'First",
+        "'Electrical'",
+        "'Other'))",
+        "serial_number",
+        "condition",
+        "'Good'",
+        "'Fair'",
+        "'Poor'",
+        "'Needs",
+        "purchase_date",
+        "next_service_date",
+        "created_at",
+        "updated_at"
+      ],
+      "usedByComponents": [
+        "EquipmentInventoryScreen.tsx",
+        "FacilityRegisterScreen.tsx"
+      ]
+    },
+    {
+      "name": "health_incident_logs",
+      "definedIn": [
+        "0010_health_safety_safeguarding.sql",
+        "0016_final_backend_hotfix.sql"
+      ],
+      "columns": [
+        "school_id"
+      ],
+      "usedByComponents": [
+        "SafetyHealthLogs.tsx"
+      ]
+    },
+    {
+      "name": "notifications",
+      "definedIn": [
+        "0001_initial_schema.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AdminDashboard.tsx"
+      ]
+    },
+    {
+      "name": "parent_children",
+      "definedIn": [
+        "0001_initial_schema.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AddParentScreen.tsx",
+        "AddStudentScreen.tsx",
+        "EnhancedEnrollmentWizard.tsx",
+        "ParentDetailAdminView.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "parents",
+      "definedIn": [
+        "0001_initial_schema.sql",
+        "0020_consolidated_schema_fixes.sql",
+        "0042_add_school_ids.sql"
+      ],
+      "columns": [
+        "CREATE",
+        "parent_id",
+        "student_id",
+        "UNIQUE(parent_id",
+        "student_id)",
+        "email",
+        "school_generated_id"
+      ],
+      "usedByComponents": [
+        "AddParentScreen.tsx",
+        "AddStudentScreen.tsx",
+        "DashboardOverview.tsx",
+        "EnhancedEnrollmentWizard.tsx",
+        "ParentDetailAdminView.tsx",
+        "ParentListScreen.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "point_transactions",
+      "definedIn": [
+        "0019_additional_features.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AwardPoints.tsx"
+      ]
+    },
+    {
+      "name": "profiles",
+      "definedIn": [
+        "0004_centralized_profiles_rls.sql",
+        "0016_final_backend_hotfix.sql"
+      ],
+      "columns": [
+        "school_id"
+      ],
+      "usedByComponents": [
+        "IDVerificationPanel.tsx",
+        "MasterReportingHub.tsx"
+      ]
+    },
+    {
+      "name": "report_cards",
+      "definedIn": [
+        "0007_enrollment_extensions.sql",
+        "0024_create_report_cards.sql"
+      ],
+      "columns": [
+        "academic_track_id",
+        "CREATE",
+        "report_card_id",
+        "subject",
+        "ca",
+        "exam",
+        "total",
+        "grade",
+        "remark",
+        "created_at"
+      ],
+      "usedByComponents": [
+        "DashboardOverview.tsx",
+        "ReportCardPublishing.tsx"
+      ]
+    },
+    {
+      "name": "safeguarding_policies",
+      "definedIn": [
+        "0010_health_safety_safeguarding.sql",
+        "0016_final_backend_hotfix.sql"
+      ],
+      "columns": [
+        "school_id"
+      ],
+      "usedByComponents": [
+        "SafetyHealthLogs.tsx"
+      ]
+    },
+    {
+      "name": "school_documents",
+      "definedIn": [
+        "0006_governance_curriculum_base.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "ComplianceOnboardingWizard.tsx",
+        "SchoolOnboardingScreen.tsx"
+      ]
+    },
+    {
+      "name": "schools",
+      "definedIn": [
+        "0006_governance_curriculum_base.sql",
+        "0016_final_backend_hotfix.sql",
+        "0017_final_completion_updates.sql",
+        "0021_feature_expansion.sql"
+      ],
+      "columns": [
+        "CREATE",
+        "school_id",
+        "document_type",
+        "'FireSafety'",
+        "'MinistryApproval'",
+        "'BuildingPlan'))",
+        "file_url",
+        "--",
+        "verification_status",
+        "'Verified'",
+        "'Rejected'))",
+        "uploaded_at",
+        "updated_at",
+        "name",
+        "type",
+        "'Laboratory'",
+        "'Toilet'",
+        "'Library'",
+        "'Sick",
+        "'Staff",
+        "'Other'))",
+        "capacity",
+        "status",
+        "'Maintenance'",
+        "'Out",
+        "last_inspected_at",
+        "created_at",
+        "curriculum_type",
+        "principal_signature",
+        "code",
+        "'MTH101'",
+        "'Core'",
+        "'Science'",
+        "'Arts'",
+        "'Play-Based'",
+        "grade_level",
+        "'JSS1'",
+        "'Year",
+        "'Nusaery"
+      ],
+      "usedByComponents": [
+        "ComplianceOnboardingWizard.tsx",
+        "SchoolOnboardingScreen.tsx"
+      ]
+    },
+    {
+      "name": "student_attendance",
+      "definedIn": [
+        "0001_initial_schema.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AttendanceHeatmap.tsx",
+        "DashboardOverview.tsx",
+        "StudentProfileAdminView.tsx"
+      ]
+    },
+    {
+      "name": "student_fees",
+      "definedIn": [
+        "0001_initial_schema.sql",
+        "0020_consolidated_schema_fixes.sql"
+      ],
+      "columns": [
+        "term",
+        "title"
+      ],
+      "usedByComponents": [
+        "DashboardOverview.tsx",
+        "FinanceDashboard.tsx"
+      ]
+    },
+    {
+      "name": "student_points",
+      "definedIn": [
+        "0019_additional_features.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AwardPoints.tsx"
+      ]
+    },
+    {
+      "name": "students",
+      "definedIn": [
+        "0001_initial_schema.sql",
+        "0019_additional_features.sql",
+        "0020_consolidated_schema_fixes.sql",
+        "0021_feature_expansion.sql",
+        "0042_add_school_ids.sql"
+      ],
+      "columns": [
+        "CREATE",
+        "parent_id",
+        "student_id",
+        "UNIQUE(parent_id",
+        "student_id)",
+        "id_card_number",
+        "email",
+        "school_id",
+        "school_generated_id"
+      ],
+      "usedByComponents": [
+        "AddStudentScreen.tsx",
+        "AdminDashboard.tsx",
+        "AttendanceOverviewScreen.tsx",
+        "DashboardOverview.tsx",
+        "EnhancedEnrollmentWizard.tsx",
+        "ExamCandidateRegistration.tsx",
+        "FeeManagement.tsx",
+        "HealthLogScreen.tsx",
+        "IDCardManagement.tsx",
+        "ManagePermissionSlipsScreen.tsx",
+        "MasterReportingHub.tsx",
+        "ReportCardPublishing.tsx",
+        "ReportsScreen.tsx",
+        "SponsorshipMatching.tsx",
+        "StudentListScreen.tsx",
+        "StudentProfileAdminView.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "subjects",
+      "definedIn": [
+        "0007_enrollment_extensions.sql",
+        "0021_feature_expansion.sql"
+      ],
+      "columns": [
+        "curriculum_subject_id",
+        "CREATE",
+        "teacher_id",
+        "--",
+        "class_id",
+        "term",
+        "'First",
+        "content",
+        "'Approved'",
+        "'Rejected'",
+        "created_at",
+        "updated_at"
+      ],
+      "usedByComponents": [
+        "AddTeacherScreen.tsx"
+      ]
+    },
+    {
+      "name": "teacher_classes",
+      "definedIn": [
+        "0001_initial_schema.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AddTeacherScreen.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "teacher_subjects",
+      "definedIn": [
+        "0001_initial_schema.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "AddTeacherScreen.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "teachers",
+      "definedIn": [
+        "0001_initial_schema.sql",
+        "0017_final_completion_updates.sql",
+        "0019_additional_features.sql",
+        "0020_consolidated_schema_fixes.sql",
+        "0021_feature_expansion.sql",
+        "0042_add_school_ids.sql"
+      ],
+      "columns": [
+        "CREATE",
+        "teacher_id",
+        "subject",
+        "curriculum_eligibility",
+        "trcn_certificate",
+        "british_qualification",
+        "degree_certificate",
+        "id_card_number",
+        "email",
+        "school_id",
+        "school_generated_id"
+      ],
+      "usedByComponents": [
+        "AddTeacherScreen.tsx",
+        "DashboardOverview.tsx",
+        "IDCardManagement.tsx",
+        "LeaveBalance.tsx",
+        "PaymentRecording.tsx",
+        "SalaryConfiguration.tsx",
+        "TeacherDetailAdminView.tsx",
+        "TimetableEditor.tsx",
+        "TimetableScreen.tsx",
+        "UserSeeder.tsx"
+      ]
+    },
+    {
+      "name": "timetable",
+      "definedIn": [
+        "0001_initial_schema.sql",
+        "0025_create_timetable_schema.sql"
+      ],
+      "columns": [],
+      "usedByComponents": [
+        "DashboardOverview.tsx",
+        "TimetableEditor.tsx",
+        "TimetableScreen.tsx"
+      ]
+    }
+  ],
+  "tableUsageStats": [
+    {
+      "table": "students",
+      "count": 17,
+      "exists": true
+    },
+    {
+      "table": "users",
+      "count": 12,
+      "exists": false
+    },
+    {
+      "table": "teachers",
+      "count": 10,
+      "exists": true
+    },
+    {
+      "table": "parents",
+      "count": 7,
+      "exists": true
+    },
+    {
+      "table": "classes",
+      "count": 6,
+      "exists": true
+    },
+    {
+      "table": "parent_children",
+      "count": 5,
+      "exists": true
+    },
+    {
+      "table": "auth_accounts",
+      "count": 5,
+      "exists": false
+    },
+    {
+      "table": "student_attendance",
+      "count": 3,
+      "exists": true
+    },
+    {
+      "table": "timetable",
+      "count": 3,
+      "exists": true
+    },
+    {
+      "table": "teacher_salaries",
+      "count": 3,
+      "exists": false
+    },
+    {
+      "table": "teacher_classes",
+      "count": 2,
+      "exists": true
+    },
+    {
+      "table": "teacher_subjects",
+      "count": 2,
+      "exists": true
+    },
+    {
+      "table": "arrears",
+      "count": 2,
+      "exists": false
+    },
+    {
+      "table": "audit_logs",
+      "count": 2,
+      "exists": true
+    },
+    {
+      "table": "school_documents",
+      "count": 2,
+      "exists": true
+    },
+    {
+      "table": "schools",
+      "count": 2,
+      "exists": true
+    },
+    {
+      "table": "health_logs",
+      "count": 2,
+      "exists": false
+    },
+    {
+      "table": "report_cards",
+      "count": 2,
+      "exists": true
+    },
+    {
+      "table": "student_fees",
+      "count": 2,
+      "exists": true
+    },
+    {
+      "table": "facility_registers",
+      "count": 2,
+      "exists": true
+    }
+  ],
+  "timestamp": "2026-01-08T18:54:29.505Z"
+}

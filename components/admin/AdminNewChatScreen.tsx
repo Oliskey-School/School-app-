@@ -136,8 +136,14 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo }) =
                 </div>
             </div>
 
+
             <main className="flex-grow flex flex-col p-4 space-y-2 overflow-y-auto">
-                {filteredUsers.length > 0 ? (
+                {loading ? (
+                    <div className="flex-grow flex flex-col items-center justify-center">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                        <p className="text-gray-500 mt-3">Loading users...</p>
+                    </div>
+                ) : filteredUsers.length > 0 ? (
                     filteredUsers.map(user => (
                         <UserRow key={`${user.userType}-${user.id}`} user={user} onSelect={() => handleSelectUser(user)} />
                     ))

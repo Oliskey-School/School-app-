@@ -222,7 +222,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           notificationCount={notificationCount}
           onSearchClick={() => setIsSearchOpen(true)}
         />
-        <div className="flex-grow overflow-y-auto h-full" style={{ marginTop: '-4rem' }}>
+        <div className="flex-grow overflow-y-auto h-full pb-32 lg:pb-0" style={{ marginTop: '-4rem' }}>
           <main className="h-full pt-16">
             <ErrorBoundary>
               <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up h-full">
@@ -237,7 +237,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         </div>
 
         {/* Bottom Nav for mobile */}
-        <div className="lg:hidden">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 shadow-lg">
           <TeacherBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
         </div>
       </div>

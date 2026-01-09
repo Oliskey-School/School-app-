@@ -284,7 +284,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 {/* Content Container */}
                 <div
                     ref={scrollContainerRef}
-                    className={`flex-grow ${isMessagesView ? 'overflow-hidden' : 'overflow-y-auto'}`}
+                    className={`flex-grow pb-32 lg:pb-0 ${isMessagesView ? 'overflow-hidden' : 'overflow-y-auto'}`}
                 >
                     <ErrorBoundary>
                         <div key={`${viewStack.length}-${version}`} className={`animate-slide-in-up ${isMessagesView ? 'h-full' : ''}`}>
@@ -294,7 +294,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 </div>
 
                 {/* Bottom Nav for mobile */}
-                <div className="lg:hidden">
+                <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 shadow-lg">
                     <AdminBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
                 </div>
             </div>
