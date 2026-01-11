@@ -70,3 +70,53 @@ export async function generateTimetableAI(data: TimetableRequest): Promise<Gener
         throw new Error("Failed to generate timetable. Please try again.");
     }
 }
+
+export interface AIQuestion {
+    id: number;
+    subject: string;
+    text: string;
+    options: string[];
+    correctAnswer: number;
+    explanation?: string;
+}
+
+export async function generateExamQuestions(subject: string, topic: string = "General", difficulty: string = "Medium", count: number = 10): Promise<AIQuestion[]> {
+    if (!genAI) {
+        console.warn("Gemini API not initialized, returning mock questions.");
+        return [];
+    }
+
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+    const prompt = `
+    You are an expert exam question generator for Nigerian Senior Secondary School students (SS1-SS3), preparing for JAMB/WAEC.
+    Create ${count} multiple-choice questions on the subject "${subject}" focusing on the topic "${topic}".
+    Difficulty Level: ${difficulty}.
+
+    Return ONLY valid JSON array. No markdown.
+    Format:
+    [
+      {
+        "id": 1,
+        "subject": "${subject}",
+        "text": "Question text here",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": 0, // Index of correct option (0-3)
+        "explanation": "Brief explanation of the answer"
+      }
+    ]
+  `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text();
+        text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+        const json = JSON.parse(text);
+        return json as AIQuestion[];
+    } catch (error) {
+        console.error("AI Exam Generation Error:", error);
+        return [];
+    }
+}

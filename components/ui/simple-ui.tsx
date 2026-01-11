@@ -159,6 +159,10 @@ export const Tabs = ({
         <div className={className} data-active-tab={activeTab}>
             {React.Children.map(children, (child) => {
                 if (React.isValidElement(child)) {
+                    // unexpected side effect: if child is a DOM element (type is string), react warns about custom props
+                    if (typeof child.type === 'string') {
+                        return child;
+                    }
                     return React.cloneElement(child as React.ReactElement<any>, {
                         activeTab,
                         setActiveTab,

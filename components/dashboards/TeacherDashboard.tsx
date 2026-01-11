@@ -52,6 +52,7 @@ import TeacherSelfAttendance from '../teacher/TeacherSelfAttendance';
 import LessonPlannerScreen from '../teacher/LessonPlannerScreen';
 import LessonPlanDetailScreen from '../teacher/LessonPlanDetailScreen';
 import DetailedLessonNoteScreen from '../teacher/DetailedLessonNoteScreen';
+import LessonNotesUploadScreen from '../teacher/LessonNotesUploadScreen';
 import SelectTermForReportScreen from '../teacher/SelectTermForReportScreen';
 import ProfessionalDevelopmentScreen from '../teacher/ProfessionalDevelopmentScreen';
 import AIPerformanceSummaryScreen from '../teacher/AIPerformanceSummaryScreen';
@@ -66,6 +67,7 @@ import TeacherResourcesScreen from '../teacher/TeacherResourcesScreen';
 import CBTManagementScreen from '../teacher/CBTManagementScreen';
 import CBTScoresScreen from '../teacher/CBTScoresScreen';
 import QuizBuilderScreen from '../teacher/QuizBuilderScreen';
+import ClassGradebookScreen from '../teacher/ClassGradebookScreen';
 import MessagingLayout from '../shared/MessagingLayout';
 
 
@@ -191,6 +193,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     lessonPlanDetail: LessonPlanDetailScreen,
     lessonContent: LessonContentScreen,
     assignmentView: AssignmentViewScreen,
+    lessonNotesUpload: LessonNotesUploadScreen,
     detailedLessonNote: DetailedLessonNoteScreen,
     notifications: (props: any) => <NotificationsScreen {...props} userType="teacher" />,
     selectTermForReport: SelectTermForReportScreen,
@@ -204,7 +207,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
     cbtManagement: CBTManagementScreen,
-    quizBuilder: QuizBuilderScreen,
+    quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={LOGGED_IN_TEACHER_ID} onClose={handleBack} />,
+    classGradebook: ClassGradebookScreen,
   }), []);
 
   const currentNavigation = viewStack[viewStack.length - 1];
@@ -216,6 +220,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     onLogout,
     forceUpdate,
     profile,
+    teacherId: LOGGED_IN_TEACHER_ID,
   };
 
   return (

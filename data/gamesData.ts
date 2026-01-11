@@ -1,13 +1,39 @@
 export interface EducationalGame {
-    level: 'Pre-Primary (3-5 years)' | 'Lower Primary (6-8 years)' | 'Upper Primary (9-11 years)' | 'Junior Secondary (12-14 years)' | 'Senior Secondary (15-18 years)';
-    subject: string;
-    gameName: string;
-    howToPlay: string;
-    learningGoal: string;
-    mode: 'Online' | 'Offline' | 'Both';
+  level: 'Early Years (1-3 years)' | 'Pre-Primary (3-5 years)' | 'Lower Primary (6-8 years)' | 'Upper Primary (9-11 years)' | 'Junior Secondary (12-14 years)' | 'Senior Secondary (15-18 years)';
+  subject: string;
+  gameName: string;
+  howToPlay: string;
+  learningGoal: string;
+  mode: 'Online' | 'Offline' | 'Both';
 }
 
 export const educationalGamesData: EducationalGame[] = [
+  // Early Years (1-3 years) - NEW
+  {
+    level: 'Early Years (1-3 years)',
+    subject: 'Literacy',
+    gameName: 'Peekaboo Letters',
+    howToPlay: 'Hide letter cards under a blanket. Reveal them one by one saying "Peekaboo [Letter Name]!".',
+    learningGoal: 'Object permanence and early letter recognition.',
+    mode: 'Offline'
+  },
+  {
+    level: 'Early Years (1-3 years)',
+    subject: 'Numeracy',
+    gameName: 'Counting Shapes Tap',
+    howToPlay: 'Tap only the Circle shapes on the screen as they float by. Count out loud!',
+    learningGoal: 'Shape recognition and counting 1-5.',
+    mode: 'Online'
+  },
+  {
+    level: 'Early Years (1-3 years)',
+    subject: 'Physical',
+    gameName: 'Simon Says Body Parts',
+    howToPlay: '"Simon says toucy your nose!" Simple commands for body coordination.',
+    learningGoal: 'Body awareness and listening skills.',
+    mode: 'Offline'
+  },
+
   // Pre-Primary (3-5 years)
   {
     level: 'Pre-Primary (3-5 years)',
@@ -25,6 +51,15 @@ export const educationalGamesData: EducationalGame[] = [
     learningGoal: 'Number recognition, counting, and gross motor skills.',
     mode: 'Offline'
   },
+  {
+    level: 'Pre-Primary (3-5 years)',
+    subject: 'Numeracy',
+    gameName: 'Red Light, Green Light Counting',
+    howToPlay: 'Run on Green, Stop on Red. When stopped, count out loud the number of steps taken.',
+    learningGoal: 'Self-regulation and counting.',
+    mode: 'Offline'
+  },
+
   // Lower Primary (6-8 years)
   {
     level: 'Lower Primary (6-8 years)',
@@ -42,6 +77,15 @@ export const educationalGamesData: EducationalGame[] = [
     learningGoal: 'Spelling, listening skills, and turn-taking.',
     mode: 'Offline'
   },
+  {
+    level: 'Lower Primary (6-8 years)',
+    subject: 'Integrated',
+    gameName: 'Vocabulary Adventure',
+    howToPlay: 'Navigate a map by solving word puzzles to unlock the next path.',
+    learningGoal: 'Reading comprehension and vocabulary.',
+    mode: 'Online'
+  },
+
   // Upper Primary (9-11 years)
   {
     level: 'Upper Primary (9-11 years)',
@@ -67,6 +111,15 @@ export const educationalGamesData: EducationalGame[] = [
     learningGoal: 'Deepening knowledge of historical figures and events.',
     mode: 'Both'
   },
+  {
+    level: 'Upper Primary (9-11 years)',
+    subject: 'Mathematics',
+    gameName: 'Math Battle Arena',
+    howToPlay: 'Challenge a classmate to a rapid-fire math duel to capture their base.',
+    learningGoal: 'Competitive mental math.',
+    mode: 'Online'
+  },
+
   // Junior Secondary (12-14 years)
   {
     level: 'Junior Secondary (12-14 years)',
@@ -100,6 +153,15 @@ export const educationalGamesData: EducationalGame[] = [
     learningGoal: 'Geography, cultural awareness, and deductive reasoning.',
     mode: 'Online'
   },
+  {
+    level: 'Junior Secondary (12-14 years)',
+    subject: 'Science',
+    gameName: 'Virtual Science Lab',
+    howToPlay: 'Mix chemicals safely in a virtual environment to observe reactions.',
+    learningGoal: 'Lab safety and chemical reactions.',
+    mode: 'Online'
+  },
+
   // Senior Secondary (15-18 years)
   {
     level: 'Senior Secondary (15-18 years)',
@@ -123,6 +185,14 @@ export const educationalGamesData: EducationalGame[] = [
     gameName: 'Stock Market Game',
     howToPlay: "Using a virtual stock market simulator, each student gets a starting budget to invest in real companies over a term and present their portfolio's performance.",
     learningGoal: 'Financial literacy, investment principles, and long-term planning.',
+    mode: 'Online'
+  },
+  {
+    level: 'Senior Secondary (15-18 years)',
+    subject: 'Exam Prep',
+    gameName: 'CBT Exam Master',
+    howToPlay: 'Gamified past questions interactive challenge with leaderboards.',
+    learningGoal: 'Exam readiness and speed.',
     mode: 'Online'
   }
 ];

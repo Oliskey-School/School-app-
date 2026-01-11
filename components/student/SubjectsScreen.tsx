@@ -152,13 +152,13 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
           <p className="text-sm text-orange-700">Select a subject to enter its classroom page.</p>
         </div>
 
-        {subjects.filter(s => s !== 'Subject').length === 0 ? (
+        {subjects.filter(s => s && s !== 'Subject').length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-500">No subjects found for your class.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {subjects.filter(s => s !== 'Subject').map(subjectName => {
+            {subjects.filter(s => s && s !== 'Subject').map(subjectName => {
               // Teacher fetching logic removed/simplified as we don't have teacher-subject map readily available
               // We could fetch it, but for now 'N/A' is safer than crashing
               // Or we can assume getTeacherForSubject returns undefined

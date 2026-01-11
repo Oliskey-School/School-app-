@@ -48,6 +48,22 @@ const GeoGuesserLobbyScreen = lazy(() => import('./games/GeoGuesserLobbyScreen')
 const GeoGuesserGameScreen = lazy(() => import('./games/GeoGuesserGameScreen'));
 const CodeChallengeLobbyScreen = lazy(() => import('./games/CodeChallengeLobbyScreen'));
 const CodeChallengeGameScreen = lazy(() => import('./games/CodeChallengeGameScreen'));
+const PeekabooLettersGame = lazy(() => import('./games/PeekabooLettersGame'));
+const MathBattleArenaGame = lazy(() => import('./games/MathBattleArenaGame'));
+const CountingShapesTapGame = lazy(() => import('./games/CountingShapesTapGame'));
+const SimonSaysGame = lazy(() => import('./games/SimonSaysGame'));
+const AlphabetFishingGame = lazy(() => import('./games/AlphabetFishingGame'));
+const BeanBagTossGame = lazy(() => import('./games/BeanBagTossGame'));
+const RedLightGreenLightGame = lazy(() => import('./games/RedLightGreenLightGame'));
+const SpellingSparkleGame = lazy(() => import('./games/SpellingSparkleGame'));
+const VocabularyAdventureGame = lazy(() => import('./games/VocabularyAdventureGame'));
+const VirtualScienceLabGame = lazy(() => import('./games/VirtualScienceLabGame'));
+const DebateDashGame = lazy(() => import('./games/DebateDashGame'));
+const GeometryJeopardyGame = lazy(() => import('./games/GeometryJeopardyGame'));
+const SharkTankGame = lazy(() => import('./games/SharkTankGame'));
+const PhysicsLabGame = lazy(() => import('./games/PhysicsLabGame'));
+const StockMarketGame = lazy(() => import('./games/StockMarketGame'));
+const CBTExamGame = lazy(() => import('./games/CBTExamGame'));
 const GamePlayerScreen = lazy(() => import('../shared/GamePlayerScreen'));
 
 const DashboardSuspenseFallback = () => (
@@ -316,6 +332,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     email: currentUser.email,
                     department: 'Science',
                     attendanceStatus: 'Present',
+                    user_id: currentUser.id,
                 } as Student);
 
                 // 1. Try to fetch Student Data by user_id
@@ -419,6 +436,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const handleBack = () => {
         if (viewStack.length > 1) {
             setViewStack(stack => stack.slice(0, -1));
+        } else {
+            // Fallback: If we are stuck, go to overview
+            setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
         }
     };
 
@@ -506,6 +526,22 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         geoGuesserGame: GeoGuesserGameScreen,
         codeChallengeLobby: CodeChallengeLobbyScreen,
         codeChallengeGame: CodeChallengeGameScreen,
+        peekabooLetters: (props: any) => <PeekabooLettersGame onBack={handleBack} />,
+        mathBattleArena: (props: any) => <MathBattleArenaGame onBack={handleBack} />,
+        countingShapesTap: (props: any) => <CountingShapesTapGame onBack={handleBack} />,
+        simonSays: (props: any) => <SimonSaysGame onBack={handleBack} />,
+        alphabetFishing: (props: any) => <AlphabetFishingGame onBack={handleBack} />,
+        beanBagToss: (props: any) => <BeanBagTossGame onBack={handleBack} />,
+        redLightGreenLight: (props: any) => <RedLightGreenLightGame onBack={handleBack} />,
+        spellingSparkle: (props: any) => <SpellingSparkleGame onBack={handleBack} />,
+        vocabularyAdventure: (props: any) => <VocabularyAdventureGame onBack={handleBack} />,
+        virtualScienceLab: (props: any) => <VirtualScienceLabGame onBack={handleBack} />,
+        debateDash: (props: any) => <DebateDashGame onBack={handleBack} />,
+        geometryJeopardy: (props: any) => <GeometryJeopardyGame onBack={handleBack} />,
+        sharkTank: (props: any) => <SharkTankGame onBack={handleBack} />,
+        physicsLab: (props: any) => <PhysicsLabGame onBack={handleBack} />,
+        stockMarket: (props: any) => <StockMarketGame onBack={handleBack} />,
+        cbtExamGame: (props: any) => <CBTExamGame onBack={handleBack} />,
     }), [student]);
 
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
@@ -569,7 +605,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col h-screen w-full lg:ml-64 overflow-hidden min-w-0">
-                {!['profile', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame'].includes(currentNavigation.view) && (
+                {!['profile', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'peekabooLetters', 'mathBattleArena', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame'].includes(currentNavigation.view) && (
                     <Header
                         title={currentNavigation.title}
                         avatarUrl={student.avatarUrl}
@@ -583,8 +619,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 )}
 
                 {/* Scrollable Content or Full Screen Game */}
-                <div className={`flex-1 ${['mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer'].includes(currentNavigation.view) ? 'h-full overflow-hidden' : 'overflow-y-auto'}`}>
-                    <div className={`${['mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer'].includes(currentNavigation.view) ? 'h-full' : 'min-h-full pb-20 lg:pb-0'}`}>
+                <div className={`flex-1 ${['mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame'].includes(currentNavigation.view) ? 'h-full overflow-hidden' : 'overflow-y-auto'}`}>
+                    <div className={`${['mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame'].includes(currentNavigation.view) ? 'h-full' : 'min-h-full pb-20 lg:pb-0'}`}>
                         <ErrorBoundary>
                             <div key={`${viewStack.length}-${currentNavigation.view}`} className="animate-slide-in-up h-full">
                                 <Suspense fallback={<DashboardSuspenseFallback />}>
@@ -600,7 +636,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 </div>
 
                 {/* Mobile/Tablet Bottom Nav - Hidden on Games */}
-                {!['mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer'].includes(currentNavigation.view) && (
+                {!['mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame'].includes(currentNavigation.view) && (
                     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
                         <StudentBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
                     </div>

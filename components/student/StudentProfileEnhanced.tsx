@@ -156,8 +156,13 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             if (data.focus_areas) {
                 setLearningFocus(data.focus_areas);
             }
-        } catch (e) {
-            console.error("AI Focus Error:", e);
+        } catch (e: any) {
+            // Suppress API key errors or JSON parse errors to avoid console noise for the user
+            if (e?.message?.includes('API key') || e instanceof SyntaxError) {
+                console.log("AI Focus unavailable (API Key/Network)");
+            } else {
+                console.error("AI Focus Error:", e);
+            }
         } finally {
             setFocusLoading(false);
         }
@@ -475,24 +480,112 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
                         {/* Other tabs */}
                         <TabsContent value="academic" className="p-6 lg:p-8">
-                            <div className="text-center py-12">
-                                <BookOpen className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-                                <p className="text-slate-500">Full academic records will appear here.</p>
-                            </div>
+                            <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="border-b border-slate-100">
+                                    <CardTitle>Academic Records</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
+                                                <tr>
+                                                    <th className="px-6 py-4">Subject</th>
+                                                    <th className="px-6 py-4">Assessment</th>
+                                                    <th className="px-6 py-4">Score</th>
+                                                    <th className="px-6 py-4">Grade</th>
+                                                    <th className="px-6 py-4">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {performance.length > 0 ? performance.map((p, i) => (
+                                                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                        <td className="px-6 py-4 font-medium text-slate-900">{p.subject}</td>
+                                                        <td className="px-6 py-4 text-slate-500">End of Term</td>
+                                                        <td className="px-6 py-4 font-semibold">{p.score}%</td>
+                                                        <td className="px-6 py-4">
+                                                            <Badge className={`${getGradeColor(p.score).replace('bg-', 'bg-').replace('text-', 'text-')}-100 text-${getGradeColor(p.score).replace('bg-', '')}-700 border-0`}>
+                                                                {getGradeLetter(p.score)}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-emerald-600 font-medium">Completed</td>
+                                                    </tr>
+                                                )) : (
+                                                    <tr>
+                                                        <td colSpan={5} className="px-6 py-8 text-center text-slate-500">No academic records available.</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </TabsContent>
 
                         <TabsContent value="activities" className="p-6 lg:p-8">
-                            <div className="text-center py-12">
-                                <Briefcase className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-                                <p className="text-slate-500">Extracurricular activities will appear here.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[
+                                    { name: "Debate Club", role: "President", schedule: "Fridays, 3 PM", status: "Active", color: "orange" },
+                                    { name: "Science Fair", role: "Participant", schedule: "Annual", status: "Upcoming", color: "blue" },
+                                    { name: "Football Team", role: "Forward", schedule: "Tue & Thu, 4 PM", status: "Active", color: "emerald" }
+                                ].map((activity, i) => (
+                                    <div key={i} className="bg-white border boundary-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                                        <div className={`w-12 h-12 rounded-lg bg-${activity.color}-100 text-${activity.color}-600 flex items-center justify-center mb-4`}>
+                                            <Target className="w-6 h-6" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-900 mb-1">{activity.name}</h3>
+                                        <p className="text-sm text-slate-500 mb-4">{activity.role}</p>
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-4">
+                                            <Clock className="w-3 h-3" />
+                                            {activity.schedule}
+                                        </div>
+                                        <Badge className={`bg-${activity.color}-50 text-${activity.color}-700 border-${activity.color}-200`}>
+                                            {activity.status}
+                                        </Badge>
+                                    </div>
+                                ))}
+                                {/* Add New Activity Button */}
+                                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-orange-200 hover:text-orange-500 hover:bg-orange-50/50 transition-all cursor-pointer">
+                                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:bg-orange-100">
+                                        <span className="text-2xl font-light">+</span>
+                                    </div>
+                                    <span className="font-medium">Join New Activity</span>
+                                </div>
                             </div>
                         </TabsContent>
 
                         <TabsContent value="documents" className="p-6 lg:p-8">
-                            <div className="text-center py-12">
-                                <FileText className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-                                <p className="text-slate-500">Documents will appear here.</p>
-                            </div>
+                            <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="border-b border-slate-100">
+                                    <CardTitle>Student Documents</CardTitle>
+                                </CardHeader>
+                                <CardContent className="divide-y divide-slate-100">
+                                    {[
+                                        { name: "Term 1 Report Card", type: "PDF", date: "Dec 15, 2025", size: "2.4 MB" },
+                                        { name: "Medical Record Form", type: "PDF", date: "Sep 10, 2025", size: "1.1 MB" },
+                                        { name: "Student Handbook", type: "PDF", date: "Sep 01, 2025", size: "4.5 MB" }
+                                    ].map((doc, i) => (
+                                        <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+                                                    <FileText className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-medium text-slate-900">{doc.name}</div>
+                                                    <div className="text-xs text-slate-500 flex items-center gap-2">
+                                                        <span>{doc.date}</span>
+                                                        <span>•</span>
+                                                        <span>{doc.size}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => toast.success(`Downloading ${doc.name}...`)}>
+                                                <Download className="w-4 h-4 mr-2" />
+                                                Download
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
                         </TabsContent>
                     </Tabs>
                 </div>

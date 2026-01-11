@@ -156,28 +156,39 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
 
             if (!publicUserId) {
                 console.log('User not found in public.users, creating record...');
-                // Auto-create the user in public.users to fix the missing identity
+
+                // Try Upsert instead of Insert to handle race conditions
                 const { data: newUser, error: createError } = await supabase
                     .from('users')
-                    .insert([{
+                    .upsert([{
                         name: student.name,
                         email: student.email,
-                        role: 'Student', // Map role correctly
+                        role: 'Student',
                         avatar_url: student.avatarUrl,
-                        // If users table is linked to auth, we might need user_id (UUID)
-                        // but for now we heavily rely on this table's ID (BigInt)
-                        // If user_id column exists in public.users, we should try to set it if we have it
-                        user_id: student.user_id || undefined
-                    }])
+                        user_id: student.user_id
+                    }], { onConflict: 'email' }) // Assuming email is unique constraint
                     .select('id')
                     .single();
 
-                if (createError || !newUser) {
+                if (createError) {
                     console.error('Error creating public user:', createError);
-                    setError('Could not verify or create user identity for chat.');
-                    return;
+
+                    // Fallback: Check if user exists anyway (in case upsert failed on other constraint)
+                    const { data: existingUser } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('email', student.email)
+                        .maybeSingle();
+
+                    if (existingUser) {
+                        publicUserId = existingUser.id;
+                    } else {
+                        setError('Could not verify or create user identity for chat.');
+                        return;
+                    }
+                } else if (newUser) {
+                    publicUserId = newUser.id;
                 }
-                publicUserId = newUser.id;
             }
 
             // Create new room

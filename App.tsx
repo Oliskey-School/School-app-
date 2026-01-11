@@ -6,6 +6,7 @@ import Signup from './components/auth/Signup';
 import AIChatScreen from './components/shared/AIChatScreen';
 import { requestNotificationPermission, showNotification } from './components/shared/notifications';
 import { ProfileProvider } from './context/ProfileContext';
+import { GamificationProvider } from './context/GamificationContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { realtimeService } from './services/RealtimeService';
 import { registerServiceWorker } from './lib/pwa';
@@ -120,20 +121,22 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <ProfileProvider>
-        {/* Toast Notifications */}
-        <Toaster position="top-right" />
+        <GamificationProvider>
+          {/* Toast Notifications */}
+          <Toaster position="top-right" />
 
-        {/* Offline indicator - shows when no internet connection */}
-        <OfflineIndicator />
+          {/* Offline indicator - shows when no internet connection */}
+          <OfflineIndicator />
 
-        <div className="font-sans w-screen h-screen bg-[#F0F2F5] flex flex-col items-center justify-center">
-          <div className="relative w-full h-full flex flex-col shadow-2xl">
-            <AuthenticatedApp />
+          <div className="font-sans w-screen h-screen bg-[#F0F2F5] flex flex-col items-center justify-center">
+            <div className="relative w-full h-full flex flex-col shadow-2xl">
+              <AuthenticatedApp />
+            </div>
           </div>
-        </div>
 
-        {/* PWA install prompt - shows after 30s if not installed */}
-        <PWAInstallPrompt />
+          {/* PWA install prompt - shows after 30s if not installed */}
+          <PWAInstallPrompt />
+        </GamificationProvider>
       </ProfileProvider>
     </AuthProvider>
   );
