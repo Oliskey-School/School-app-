@@ -277,7 +277,7 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                                     key={level}
                                     level={level}
                                     games={gamesByLevel[level]}
-                                    defaultOpen={true}
+                                    defaultOpen={false}
                                     navigateTo={navigateTo}
                                     student={student}
                                 />
