@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CBTTest, Student } from '../../../types';
+import { CBTTest, Student, DashboardType } from '../../../types';
+import { useAuth } from '../../../context/AuthContext';
 import { ClockIcon, CheckCircleIcon } from '../../../constants';
 import { mockCBTTests } from '../../../data';
 
@@ -84,6 +85,10 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const { role } = useAuth();
+
+    const showScoreToViewer = role === DashboardType.Teacher; // Only teachers see the score here
+
     if (isSubmitted) {
         return (
             <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6 text-center">
@@ -91,11 +96,18 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
                 <h2 className="text-2xl font-bold text-gray-800">Test Submitted!</h2>
                 <p className="text-gray-600 mt-2">You have successfully completed the test.</p>
 
-                <div className="mt-6 bg-white p-6 rounded-xl shadow-sm border w-full max-w-sm">
-                    <p className="text-sm text-gray-500 uppercase tracking-wide font-bold">Your Score</p>
-                    <p className="text-5xl font-bold text-indigo-600 mt-2">{score} / {questions.length}</p>
-                    <p className="text-lg font-medium text-gray-700 mt-1">{Math.round((score / questions.length) * 100)}%</p>
-                </div>
+                {showScoreToViewer ? (
+                    <div className="mt-6 bg-white p-6 rounded-xl shadow-sm border w-full max-w-xs sm:max-w-sm md:max-w-md">
+                        <p className="text-sm text-gray-500 uppercase tracking-wide font-bold">Your Score</p>
+                        <p className="text-4xl sm:text-5xl md:text-6xl font-bold text-indigo-600 mt-2 break-words">{score} / {questions.length}</p>
+                        <p className="text-lg sm:text-xl font-medium text-gray-700 mt-1">{Math.round((score / questions.length) * 100)}%</p>
+                    </div>
+                ) : (
+                    <div className="mt-6 bg-white p-6 rounded-xl shadow-sm border w-full max-w-xs sm:max-w-sm md:max-w-md">
+                        <p className="text-sm text-gray-500 uppercase tracking-wide font-bold">Submission Received</p>
+                        <p className="text-base text-gray-700 mt-2">Your answers have been submitted. Results will be available to your teacher.</p>
+                    </div>
+                )}
 
                 <button
                     onClick={handleBack}

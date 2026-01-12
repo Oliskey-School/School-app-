@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { DashboardType } from '../../../types';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
 import { mockCBTTests, mockStudents } from '../../../data';
@@ -211,12 +213,13 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                                             <span>{test.duration} Mins</span>
                                         </div>
 
-                                        {hasTaken ? (
-                                            <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
-                                                <span className="text-sm text-gray-500">Your Score:</span>
-                                                <span className="font-bold text-lg text-indigo-600">--</span>
-                                            </div>
-                                        ) : (
+                                            {hasTaken ? (
+                                                <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
+                                                    <span className="text-sm text-gray-500">Your Score:</span>
+                                                    {/* Students should not see actual scores here; teachers viewing the list (in their area) will see real scores. */}
+                                                    <span className="font-bold text-lg text-indigo-600">--</span>
+                                                </div>
+                                            ) : (
                                             <button
                                                 onClick={() => handleTakeTest(test)}
                                                 className="w-full mt-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2"
