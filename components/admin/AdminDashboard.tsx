@@ -107,6 +107,9 @@ const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
 const AdminResultsEntrySelector = lazy(() => import('../admin/AdminResultsEntrySelector'));
 const ClassGradebookScreen = lazy(() => import('../teacher/ClassGradebookScreen'));
 const ResultsEntryEnhanced = lazy(() => import('../teacher/ResultsEntryEnhanced'));
+const AdminMessagesScreen = lazy(() => import('../admin/AdminMessagesScreen'));
+const AdminNewChatScreen = lazy(() => import('../admin/AdminNewChatScreen'));
+const ChatScreen = lazy(() => import('../shared/ChatScreen'));
 const EmergencyAlert = lazy(() => import('../admin/EmergencyAlert'));
 
 type ViewStackItem = {
@@ -297,6 +300,9 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
         resultsEntry: AdminResultsEntrySelector,
         classGradebook: ClassGradebookScreen,
         resultsEntryEnhanced: ResultsEntryEnhanced,
+        adminMessages: AdminMessagesScreen,
+        adminNewChat: AdminNewChatScreen,
+        chat: ChatScreen,
         attendanceTracker: AttendanceOverviewScreen,
         emergencyAlert: EmergencyAlert,
         inspectionHub: UnifiedGovernanceHub,
@@ -364,6 +370,25 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
     const renderContent = () => {
         if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {currentNavigation.view}</div>;
         if (currentNavigation.view === 'notifications') return <NotificationsScreen {...currentNavigation.props} {...commonProps} userType="admin" />;
+        if (currentNavigation.view === 'adminMessages') return (
+            <AdminMessagesScreen
+                {...currentNavigation.props}
+                {...commonProps}
+                onNewChat={() => navigateTo('adminNewChat', 'New Message')}
+                onSelectChat={(convo: any) => navigateTo('chat', convo.displayName || 'Chat', {
+                    conversationId: convo.id,
+                    participantName: convo.displayName,
+                    participantAvatar: convo.displayAvatar
+                })}
+            />
+        );
+        if (currentNavigation.view === 'adminNewChat') return (
+            <AdminNewChatScreen
+                {...currentNavigation.props}
+                {...commonProps}
+                onChatStarted={(convoId: string, name: string) => navigateTo('chat', name, { conversationId: convoId, participantName: name })}
+            />
+        );
         return <ComponentToRender {...currentNavigation.props} {...commonProps} />;
     };
 
