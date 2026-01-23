@@ -13,6 +13,12 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    // Eye Icons
+    const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
+    const EyeOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -92,8 +98,7 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
             if (authError) throw authError;
             if (!authData.user) throw new Error("User creation failed. Please try again.");
 
-            // 2. Create School
-            // For MVP, we don't upload the logo to storage yet, we just generate a placeholder or leave null.
+            // 2. Create School Entry
             const logoUrl = logoPreview ? `https://ui-avatars.com/api/?name=${formData.schoolName.replace(/ /g, '+')}&background=random` : null;
 
             const { data: schoolData, error: schoolError } = await supabase
@@ -112,57 +117,31 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
 
             if (schoolError) throw schoolError;
 
-            // 3. Create Trial Subscription
-            const { error: subError } = await supabase
-                .from('subscriptions')
-                .insert({
-                    school_id: schoolData.id,
-                    plan_id: 1, // Basic Plan ID
-                    status: 'trial',
-                    start_date: new Date().toISOString(),
-                });
-
-            if (subError) console.error("Subscription creation warning:", subError);
-
-            // 4. Link User to School (Update Profile)
-            // Attempt to update existing profile (Trigger might have created it) or insert if missing
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({
-                    school_id: schoolData.id,
-                    role: 'admin',
-                    full_name: formData.adminName,
-                    phone_number: formData.phone
-                })
-                .eq('id', authData.user.id);
-
-            // Insert into Users table (Legacy / Central User Registry)
-            await supabase.from('users').insert({
-                email: formData.adminEmail,
-                name: formData.adminName,
-                role: 'Admin',
-                avatar_url: `https://ui-avatars.com/api/?name=${formData.adminName.replace(/ /g, '+')}`
+            // 3. Create Basic Subscription (Free Tier)
+            await supabase.from('subscriptions').insert({
+                school_id: schoolData.id,
+                plan_id: 1, // Basic
+                status: 'trial',
+                start_date: new Date().toISOString(),
             });
 
-            if (profileError) {
-                // If update fails, maybe insert? Triggers usually handle profile creation.
-                console.warn("Profile update failed", profileError);
-            }
+            // 4. Update Profile
+            await supabase.from('profiles').update({
+                school_id: schoolData.id,
+                role: 'admin',
+                full_name: formData.adminName,
+                phone_number: formData.phone
+            }).eq('id', authData.user.id);
 
-            toast.success("School Account Created! Redirecting...");
+            toast.success("School Portal Created (Free Tier Ready)!");
 
-            // Allow a moment for toast
             setTimeout(() => {
                 onComplete(formData.adminEmail, 'admin');
-            }, 1000);
+            }, 1500);
 
         } catch (error: any) {
             console.error("Signup Error", error);
-            if (error.message.includes('already registered')) {
-                toast.error("This email is already registered.");
-            } else {
-                toast.error("Failed to create account: " + error.message);
-            }
+            toast.error(error.message || "Failed to create account.");
         } finally {
             setLoading(false);
         }
@@ -268,8 +247,28 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
                                 <div className="space-y-4">
                                     <Input label="Admin Name (Principal)" name="adminName" value={formData.adminName} onChange={handleChange} placeholder="Dr. John Doe" />
                                     <Input label="Admin Login Email" name="adminEmail" type="email" value={formData.adminEmail} onChange={handleChange} placeholder="principal@springfield.edu" />
-                                    <Input label="Password" name="password" type="password" value={formData.password} onChange={handleChange} placeholder="••••••••" />
-                                    <Input label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} placeholder="••••••••" />
+                                    <Input
+                                        label="Password"
+                                        name="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        placeholder="••••••••"
+                                        showToggle
+                                        onToggle={() => setShowPassword(!showPassword)}
+                                        isToggled={showPassword}
+                                    />
+                                    <Input
+                                        label="Confirm Password"
+                                        name="confirmPassword"
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                        placeholder="••••••••"
+                                        showToggle
+                                        onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        isToggled={showConfirmPassword}
+                                    />
                                 </div>
                                 <div className="pt-4 flex gap-3">
                                     <Button onClick={prevStep} secondary>Back</Button>
@@ -281,25 +280,57 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
                         {step === 3 && (
                             <div className="animate-fade-in space-y-6 p-6 lg:p-0">
                                 <div className="text-center mb-6">
-                                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     </div>
-                                    <h2 className="text-2xl font-bold text-gray-800">Confirm Details</h2>
-                                    <p className="text-sm text-gray-500">Please review your information.</p>
+                                    <h2 className="text-2xl font-bold text-gray-800">Account Tier</h2>
+                                    <p className="text-sm text-gray-500">Choose how you want to start.</p>
                                 </div>
 
-                                <div className="bg-slate-50 p-6 rounded-xl space-y-4 border border-slate-100">
-                                    <ReviewItem label="School Name" value={formData.schoolName} />
-                                    <ReviewItem label="School Email" value={formData.schoolEmail} />
-                                    <ReviewItem label="Admin Name" value={formData.adminName} />
-                                    <ReviewItem label="Admin Email" value={formData.adminEmail} />
+                                <div className="space-y-4">
+                                    {/* Free Tier Card */}
+                                    <div className="bg-slate-50 p-4 rounded-xl border-2 border-indigo-100 relative overflow-hidden">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <h3 className="font-bold text-slate-800">Free Tier</h3>
+                                                <p className="text-[11px] text-slate-500 uppercase font-black tracking-widest">3 Users Limit</p>
+                                            </div>
+                                            <span className="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded-full font-bold">ACTIVE BY DEFAULT</span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 leading-relaxed">Perfect for testing. Add up to 3 Students, Teachers, or Parents. Upgrade anytime to add more.</p>
+                                    </div>
+
+                                    {/* Professional Pricing Disclosure */}
+                                    <div className="bg-amber-50 p-5 rounded-xl border border-amber-100 space-y-3">
+                                        <h3 className="text-xs font-black text-amber-800 uppercase tracking-widest flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            Professional Package
+                                        </h3>
+
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-600">Setup Fee (One-time)</span>
+                                                <span className="font-bold text-slate-900">₦50,000.00</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-600">Per Student (Every Term)</span>
+                                                <span className="font-bold text-slate-900">₦3,000.00</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-600">AI Features (Optional)</span>
+                                                <span className="font-bold text-slate-900">₦5,000.00 / term</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="pt-4 flex gap-3">
                                     <Button onClick={prevStep} secondary>Back</Button>
-                                    <Button onClick={handleCreateAccount} loading={loading}>Create Account</Button>
+                                    <Button onClick={handleCreateAccount} loading={loading}>Create Free Portal</Button>
                                 </div>
-                                <p className="text-xs text-center text-gray-400 mt-2">By clicking Create Account, you agree to our Terms of Service.</p>
+                                <p className="text-[10px] text-center text-gray-400 mt-2 px-6">
+                                    By clicking Create Free Portal, you agree to our Terms. You can pay the setup fee later from your admin dashboard.
+                                </p>
                             </div>
                         )}
                     </div>
@@ -321,10 +352,25 @@ const StepIndicator: React.FC<{ number: number, title: string, active: boolean, 
     </div>
 );
 
-const Input: React.FC<any> = ({ label, ...props }) => (
+const Input: React.FC<any> = ({ label, showToggle, onToggle, isToggled, ...props }) => (
     <div className="space-y-1.5">
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide ml-1">{label}</label>
-        <input {...props} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm" />
+        <div className="relative">
+            <input {...props} className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm ${showToggle ? 'pr-12' : ''}`} />
+            {showToggle && (
+                <button
+                    type="button"
+                    onClick={onToggle}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors p-1"
+                >
+                    {isToggled ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    )}
+                </button>
+            )}
+        </div>
     </div>
 );
 

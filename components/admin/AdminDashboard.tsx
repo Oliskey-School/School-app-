@@ -3,6 +3,7 @@ import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
 import { AdminBottomNav } from '../ui/DashboardBottomNav';
 import { AdminSidebar } from '../ui/DashboardSidebar';
+import PremiumLoader from '../ui/PremiumLoader';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { DashboardType } from '../../types';
 import { realtimeService } from '../../services/RealtimeService';
@@ -421,7 +422,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
                 <div className="flex-1 overflow-y-auto pb-56 lg:pb-0">
                     <div className="min-h-full">
                         {/* ErrorBoundary removed */}
-                        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>}>
+                        <Suspense fallback={<PremiumLoader message="Loading admin workspace..." />}>
                             <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up min-h-full">
                                 {renderContent()}
                             </div>
@@ -433,7 +434,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
                     <AdminBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
                 </div>
 
-                <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>}>
+                <Suspense fallback={<PremiumLoader message="Searching school database..." />}>
                     {isSearchOpen && <GlobalSearchScreen dashboardType={DashboardType.Admin} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />}
                 </Suspense>
             </div>

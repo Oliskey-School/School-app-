@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { UserIcon, BookOpenIcon, CheckCircleIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
+import { checkUserLimit } from '../../lib/usage-limits';
 // Note: Assuming icons exist. Replace with available icons if needed.
 
 interface EnrollmentWizardProps {
@@ -12,6 +14,7 @@ interface EnrollmentWizardProps {
 type Step = 'PARENT_INFO' | 'STUDENT_INFO' | 'CURRICULUM' | 'DOCUMENTS' | 'REVIEW';
 
 const StudentEnrollmentWizard: React.FC<EnrollmentWizardProps> = ({ onComplete, handleBack }) => {
+    const { profile } = useProfile();
     const [currentStep, setCurrentStep] = useState<Step>('PARENT_INFO');
     const [loading, setLoading] = useState(false);
 
@@ -42,6 +45,16 @@ const StudentEnrollmentWizard: React.FC<EnrollmentWizardProps> = ({ onComplete, 
     };
 
     const handleSubmit = async () => {
+        if (profile.schoolId) {
+            setLoading(true);
+            const { allowed, count, limit } = await checkUserLimit(profile.schoolId);
+            if (!allowed) {
+                toast.error(`Free Limit Reached: You have ${count}/${limit} users. Please pay the ₦50,000 setup fee to add more students.`);
+                setLoading(false);
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             // Mock submission for now since backend triggers handle most logic

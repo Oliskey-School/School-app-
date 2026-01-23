@@ -9,6 +9,7 @@ import { StudentBottomNav } from '../ui/DashboardBottomNav';
 import { } from '../../data'; // Ensure no mocks imported
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { StudentSidebar } from '../ui/DashboardSidebar';
+import PremiumLoader from '../ui/PremiumLoader';
 import { GamificationProvider } from '../../context/GamificationContext';
 import { realtimeService } from '../../services/RealtimeService';
 import { toast } from 'react-hot-toast';
@@ -75,9 +76,7 @@ const HistoricalHotSeatGame = lazy(() => import('./games/HistoricalHotSeatGame')
 const GamePlayerScreen = lazy(() => import('../shared/GamePlayerScreen'));
 
 const DashboardSuspenseFallback = () => (
-    <div className="flex justify-center items-center h-full p-8">
-        <div className="w-10 h-10 border-4 border-t-4 border-gray-200 border-t-orange-600 rounded-full animate-spin"></div>
-    </div>
+    <PremiumLoader message="Loading dashboard module..." />
 );
 
 interface ViewStackItem {
@@ -346,7 +345,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 }
 
                 const isDemoEmail = currentUser.email === 'student@school.edu' ||
-                    currentUser.email?.endsWith('@demo.com');
+                    currentUser.email?.endsWith('@demo.com'); // Updated domain to match Login.tsx mock logic
 
                 const createDemoStudent = (): Student => ({
                     id: 1,
@@ -603,12 +602,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
     if (loadingStudent && !student) {
-        return <div className="flex h-screen w-full items-center justify-center bg-gray-50">
-            <div className="text-center">
-                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-500 font-semibold">Loading your dashboard...</p>
-            </div>
-        </div>;
+        return <PremiumLoader message="Preparing your school experience..." />;
     }
 
     if (!student) {

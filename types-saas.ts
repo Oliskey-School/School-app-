@@ -22,8 +22,17 @@ export interface School {
     phone?: string;
     website?: string;
     subscriptionStatus: SubscriptionStatus;
+    setupPaid: boolean; // ₦50,000 one-time fee
+    hasAiAddon: boolean; // ₦5,000 per term
     createdAt: string;
 }
+
+export const SAAS_PRICING = {
+    SETUP_FEE: 50000,
+    PER_STUDENT_TERM: 3000,
+    AI_ADDON_TERM: 5000,
+    FREE_USER_LIMIT: 3
+};
 
 export interface Subscription {
     id: string;

@@ -5,6 +5,7 @@ import { THEME_CONFIG } from '../../constants';
 import Header from '../ui/Header';
 import { TeacherBottomNav } from '../ui/DashboardBottomNav';
 import { TeacherSidebar } from '../ui/DashboardSidebar';
+import PremiumLoader from '../ui/PremiumLoader';
 import { mockNotifications } from '../../data';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
@@ -69,9 +70,7 @@ import LessonNotesUploadScreen from '../teacher/LessonNotesUploadScreen';
 
 
 const DashboardSuspenseFallback = () => (
-  <div className="flex justify-center items-center h-full p-8 pt-20">
-    <div className="w-10 h-10 border-4 border-t-4 border-gray-200 border-t-purple-600 rounded-full animate-spin"></div>
-  </div>
+  <PremiumLoader message="Loading teacher workspace..." />
 );
 
 interface ViewStackItem {

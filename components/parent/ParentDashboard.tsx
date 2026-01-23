@@ -29,6 +29,7 @@ import {
 import Header from '../ui/Header';
 import { ParentBottomNav } from '../ui/DashboardBottomNav';
 import { ParentSidebar } from '../ui/DashboardSidebar';
+import PremiumLoader from '../ui/PremiumLoader';
 import DonutChart from '../ui/DonutChart';
 import GlobalSearchScreen from '../shared/GlobalSearchScreen';
 
@@ -78,9 +79,7 @@ import MentalHealthResources from '../shared/MentalHealthResources';
 
 
 const DashboardSuspenseFallback = () => (
-    <div className="flex justify-center items-center h-full p-8">
-        <div className="w-10 h-10 border-4 border-t-4 border-gray-200 border-t-green-600 rounded-full animate-spin"></div>
-    </div>
+    <PremiumLoader message="Syncing children's data..." />
 );
 
 interface ViewStackItem {

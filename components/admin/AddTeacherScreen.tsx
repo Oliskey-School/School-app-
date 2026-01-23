@@ -7,6 +7,7 @@ import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCi
 import { Teacher } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
+import { checkUserLimit } from '../../lib/usage-limits';
 import CredentialsModal from '../ui/CredentialsModal';
 import { mockTeachers } from '../../data';
 import { useProfile } from '../../context/ProfileContext';
@@ -191,6 +192,18 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // CHECK USAGE LIMITS (Only for new teachers, not edits)
+        if (!teacherToEdit && profile.schoolId) {
+            setIsLoading(true);
+            const { allowed, count, limit } = await checkUserLimit(profile.schoolId);
+            if (!allowed) {
+                toast.error(`Free Limit Reached: You have ${count}/${limit} users. Please pay the ₦50,000 setup fee to add more staff.`);
+                setIsLoading(false);
+                return;
+            }
+        }
+
         setIsLoading(true);
 
         try {

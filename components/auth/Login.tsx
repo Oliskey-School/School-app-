@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { generateCustomId } from '../../lib/id-generator';
 import { SchoolLogoIcon } from '../../constants';
+// Simple Eye Icons
+const EyeIcon = ({ size = 20 }: { size?: number }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
+const EyeOffIcon = ({ size = 20 }: { size?: number }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 import SchoolSignup from './SchoolSignup';
 import { authenticateUser } from '../../lib/auth';
 
@@ -10,6 +15,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
   const [view, setView] = useState<'login' | 'school_signup' | 'demo'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn } = useAuth();
@@ -95,32 +101,26 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
   };
 
   const handleQuickLogin = async (role: string) => {
+    setError('');
     setIsLoading(true);
     try {
-      // Small delay for realism
-      await new Promise(resolve => setTimeout(resolve, 600));
+      // PRO-LEVEL MOCK AUTH: Bypasses Supabase for Demo Portal
+      // This ensures 100% uptime for demos and keeps data private.
+      const mockResult = await getMockSessionForRole(role);
 
-      const dashboardMap: Record<string, DashboardType> = {
-        'Admin': DashboardType.Admin,
-        'Teacher': DashboardType.Teacher,
-        'Parent': DashboardType.Parent,
-        'Student': DashboardType.Student,
-        'Proprietor': DashboardType.Proprietor,
-        'Inspector': DashboardType.Inspector,
-        'Exam Officer': DashboardType.ExamOfficer,
-        'Compliance': DashboardType.ComplianceOfficer,
-      };
-
-      const userType = dashboardMap[role];
-      if (userType) {
-        await signIn(userType, {
-          userId: `mock-${role.toLowerCase().replace(' ', '-')}`,
-          email: `${role.toLowerCase().replace(' ', '')}@demo.com`,
-          userType: role.toLowerCase()
+      if (mockResult.success) {
+        await signIn(mockResult.dashboardType, {
+          userId: mockResult.userId,
+          email: mockResult.email,
+          userType: mockResult.role,
+          isDemo: true // Flag to indicate this is a demo session
         });
+      } else {
+        throw new Error(`Failed to generate mock session for ${role}`);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      console.error("Demo Login Error:", err);
+      setError(err.message || `Failed to login as ${role}.`);
     } finally {
       setIsLoading(false);
     }
@@ -210,15 +210,22 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
                 required
               />
             </div>
-            <div>
+            <div className="relative">
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none pr-12"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+              >
+                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
             </div>
 
             <button
@@ -301,7 +308,29 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
   );
 };
 
-// --- Mock Helpers ---
+async function getMockSessionForRole(roleName: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, email: string }> {
+  // Simulate network delay
+  await new Promise(r => setTimeout(r, 600));
+
+  const role = roleName.toLowerCase().replace(' ', '');
+  const dashboardType = mapRoleToDashboard(role);
+
+  // PROFESSIONAL ID: SCH-branch-role-number
+  const mockId = generateCustomId({
+    schoolShortName: 'DEMO',
+    branch: 'Lagos',
+    role: role,
+    sequenceNumber: Math.floor(Math.random() * 1000)
+  });
+
+  return {
+    success: true,
+    role: role,
+    dashboardType: dashboardType,
+    userId: mockId,
+    email: `${role}@demo.com` // Matching the StudentDashboard.tsx demo check
+  };
+}
 
 async function checkMockCredentials(email: string, pass: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string }> {
   // 1. Simulating a DB lookup for mock users
@@ -331,9 +360,15 @@ function mapRoleToDashboard(role: string): DashboardType {
     'teacher': DashboardType.Teacher,
     'student': DashboardType.Student,
     'parent': DashboardType.Parent,
-    'superadmin': DashboardType.SuperAdmin
+    'superadmin': DashboardType.SuperAdmin,
+    'proprietor': DashboardType.Proprietor,
+    'inspector': DashboardType.Inspector,
+    'examofficer': DashboardType.ExamOfficer,
+    'complianceofficer': DashboardType.ComplianceOfficer,
+    'compliance_officer': DashboardType.ComplianceOfficer,
+    'compliance': DashboardType.ComplianceOfficer,
   };
-  return map[role.toLowerCase()] || DashboardType.Student;
+  return map[role.toLowerCase().replace(' ', '')] || DashboardType.Student;
 }
 
 export default Login;

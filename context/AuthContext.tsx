@@ -73,31 +73,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 3. Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            // CRITICAL FIX: IF we have a Role in this tab's sessionStorage, ignore external 'SIGNED_OUT'
-            // This works because local signOut() clears sessionStorage BEFORE calling supabase.signOut().
-            // So if we still have a role here, the signOut came from ANOTHER tab.
-            const storedRole = sessionStorage.getItem('role');
+            console.log(`🔐 Auth Event: ${event}`);
 
-            if (storedRole) {
-                // We have a local active session in this tab.
-                // If the event is effectively a logout (no session), ignore it to maintain isolation.
-                if (!session) {
-                    return;
+            if (event === 'SIGNED_IN' && session) {
+                // Determine role from metadata or profile table
+                let userRole = session.user.user_metadata?.role || session.user.user_metadata?.user_type;
+
+                if (!userRole) {
+                    // Fallback to fetching from profiles table
+                    const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+                    if (profile) userRole = profile.role;
                 }
-            }
 
-            setSession(session);
+                if (userRole) {
+                    const dashboardRole = getDashboardTypeFromUserType(userRole);
+                    setRole(dashboardRole);
+                    sessionStorage.setItem('role', dashboardRole);
+                    sessionStorage.setItem('user', JSON.stringify(session.user));
+                }
 
-            if (session) {
+                setSession(session);
                 setUser(session.user);
-                // If metadata has role, trust it, otherwise keep storedRole
-                if (session.user.user_metadata?.user_type) {
-                    // Optionally update role if needed
-                }
-            } else if (!storedRole) {
-                // Only clear state if we don't have a stored role
-                setUser(null);
+            } else if (event === 'SIGNED_OUT') {
+                // CRITICAL FIX: IF we have a Role in this tab's sessionStorage, ignore external 'SIGNED_OUT'
+                // This works because local signOut() clears sessionStorage BEFORE calling supabase.signOut().
+                const storedRole = sessionStorage.getItem('role');
+                if (storedRole) return;
+
                 setRole(null);
+                setSession(null);
+                setUser(null);
+                sessionStorage.removeItem('user');
+                sessionStorage.removeItem('role');
+            } else if (session) {
+                setSession(session);
+                setUser(session.user);
             }
 
             setLoading(false);

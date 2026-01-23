@@ -14,6 +14,7 @@ import { registerServiceWorker } from './lib/pwa';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
 import { PWAInstallPrompt } from './components/shared/PWAInstallPrompt';
 import { Toaster } from 'react-hot-toast';
+import PremiumLoader from './components/ui/PremiumLoader';
 import { supabase } from './lib/supabase';
 import { DataService } from './services/DataService';
 
@@ -41,10 +42,7 @@ const SuccessScreen: React.FC = () => (
 );
 
 const LoadingScreen: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full bg-gray-100">
-    <div className="w-12 h-12 border-4 border-t-4 border-gray-200 border-t-sky-500 rounded-full animate-spin"></div>
-    <p className="mt-4 text-gray-600">Loading...</p>
-  </div>
+  <PremiumLoader message="Initializing Oliskey School Portal..." />
 );
 
 // Basic Error Boundary for catching dashboard crashes
@@ -103,7 +101,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 
-import PaymentPage from './components/admin/saas/PaymentPage';
+
 
 const AuthenticatedApp: React.FC = () => {
   const { user, role, signOut, loading } = useAuth();
@@ -195,17 +193,7 @@ const AuthenticatedApp: React.FC = () => {
     }
   };
 
-  // Payment Flow Interception
-  // Only for School Admins
-  if ((role === DashboardType.Admin || role === DashboardType.Proprietor) && subscriptionStatus !== 'active' && subscriptionStatus !== 'trial') {
-    return (
-      <PaymentPage
-        schoolName={user.user_metadata?.school_name || "My School"}
-        email={user.email || ''}
-        onSuccess={() => setSubscriptionStatus('active')}
-      />
-    );
-  }
+
 
   const renderDashboard = () => {
     const props = { onLogout: handleLogout, setIsHomePage, currentUser: user };
