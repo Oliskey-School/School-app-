@@ -1,0 +1,72 @@
+[33mea4f56c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmigration/polyrepo-layout[m[33m)[m new Change ongoing
+[33mb3f71aa[m[33m ([m[1;31mqa-repo/master[m[33m, [m[1;31morigin/migration/polyrepo-layout[m[33m, [m[1;31mfrontend-repo/main[m[33m)[m Fix Admin Messaging missing views
+[33m99cf292[m New viersion responsive small screen side
+[33mec933c0[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Trigger Vercel Build: Force Update
+[33m77805c7[m Finalizing all changes before merge to main
+[33m5879011[m Fix Build: Update index.css to use Tailwind v3 directives
+[33m4d8f296[m Fix Vercel Build: Downgrade to Tailwind CSS v3 for NativeWind compatibility
+[33m792f36b[m Complete SaaS Hardening: Fix Payment Gateways, Secure Admin Dashboard, and Enforce RLS
+[33m9e49740[m chore(migration): add migration plan and helper script for polyrepo layout
+[33m6977748[m CBT exam
+[33m5d1daf4[m UI Tweak: Collapse game categories by default
+[33mc300e9f[m Configure fullscreen PWA experience
+[33mb3dcc69[m Fix CBT Exam bugs and restore missing functions
+[33mf145cc0[m Trigger Vercel redeploy
+[33mda5531e[m Enhance responsiveness for student games and profile
+[33m8c67e21[m Standardize Chat & Organize Migrations (0043-0055)
+[33mb0814c1[m feat: audit parent module, add behavior_records migration, and refactor ParentDashboard to use real data
+[33m525d918[m feat: Fix Timetable schema, add role-based visibility, and polish UI
+[33mc25c681[m Fix mobile UI overlap and improve dashboard loading states
+[33mad1df70[m fix: center login page properly and add fixed nav to teacher dashboard
+[33m0c0b629[m fix: apply fixed bottom navigation to all dashboards
+[33ma6cbcb3[m fix: make bottom navigation fixed and always visible on mobile
+[33mfd8baef[m fix: correct welcome text to use white color on gradient background
+[33m22c11da[m fix: change welcome text colors from light to dark for visibility
+[33mdd1e769[m fix: make login page mobile-responsive with scrolling and compact layout
+[33md2ab881[m fix: enforce light mode with color-scheme meta and remove dark mode config
+[33m35330ee[m fix: service worker chrome-extension error and deprecated meta tag
+[33mcbef8f9[m fix: properly rewrite curriculum screen with clean UX
+[33m9bea506[m feat: professional UX redesign of curriculum configuration screen
+[33mf9d1856[m fix: completely remove bottom padding from all dashboards
+[33m4c7b8cf[m fix: reduce bottom padding from pb-20 to pb-16 across all dashboards
+[33m040976b[m fix: reduce excessive bottom gap on curriculum screen
+[33m42156c9[m feat: make curriculum settings screen fully responsive
+[33m28a5932[m fix: add script to prevent dark mode color issues
+[33m126844b[m fix(admin): import isSupabaseConfigured
+[33m852c9c0[m fix: add specific error message for missing supabase keys
+[33mdd83e67[m fix(ui): disable automatic dark mode to prevent mobile color issues
+[33m4fddcf9[m chore: Production release - Responsive design overhaul and build fixes
+[33mbc279fe[m Restore BuildingLibraryIcon export
+[33m3d10076[m Fix duplicate AlertTriangleIcon declaration
+[33ma1c5653[m Fix duplicate icon and missing export
+[33m99a0623[m Implement structured school IDs and fix build errors
+[33m1e4bb2e[m Fix: Build errors (duplicate key and missing icon)
+[33m9604790[m fix: dependency resolution and react version update
+[33me3005cc[m Fix: Downgrade React Native and remove lockfile
+[33m3a7fd2f[m Fix: Supabase Auth User Creation and Build Dependency
+[33m45aeaf1[m Fixed report_cards migration - changed IDs from UUID to BIGINT
+[33me8224eb[m Fixed SQL migrations - removed IF NOT EXISTS from policies and fixed type mismatches
+[33m1de5763[m Fixed database migrations - resolved uuid/integer type mismatch and duplicate policies
+[33m027ece3[m Fixed login issues - reverted to mock authentication
+[33m781fb29[m version 0003
+[33me413261[m 0002
+[33m5a5b6d4[m Standardize profiles, fix avatars, and general cleanup
+[33m1d745eb[m docs: Add code cleanup completion summary
+[33m1a7e8f6[m docs: Add comprehensive system documentation and cleanup
+[33m578deb9[m docs: Add comprehensive SQL scripts README and organization structure
+[33me9f9873[m feat: Complete user synchronization system with automatic auth sync and grade assignment fixes
+[33m76d96a0[m feat: Unify messaging UI/UX across all modules with full-height responsive design
+[33m379162e[m Fix parent-child linking, user deletion, teacher updates, and auth sync logic
+[33mc3e408d[m fix: Improve credential modal PDF export by hiding buttons and adding types
+[33m470f86e[m feat: Automate parent account creation and linking when adding student, with credential notifications
+[33m884afde[m feat: Implement robust mock mode support for user creation and dashboard
+[33m46821d3[m chore: Clear mock data to reflect empty database state and fix lint errors
+[33mf477134[m fix: Limit Supabase client to env variables to avoid demo data
+[33m043b05d[m chore: Update gitignore to exclude .vite cache
+[33m7c9a848[m Refactor and update student, parent, and teacher modules for production readiness
+[33m9b68eb0[m ready for production
+[33m1967498[m feat: Implement comprehensive admin and teacher modules with CBT, assignment, attendance, reporting, and user management features, alongside extensive database schema, RLS, and core utility enhancements.
+[33mab70073[m feat: Implement initial screens for teacher attendance, overview, reports, student dashboard, timetable, results, and student profile.
+[33m653c23c[m New Updtate
+[33m3e631ae[m feat: Initialize school application project with core components, TypeScript configuration, and dependencies.
+[33m0b4a419[m Initial commit
