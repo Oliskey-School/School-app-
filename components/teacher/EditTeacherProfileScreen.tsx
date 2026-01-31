@@ -5,10 +5,11 @@ import { UserIcon, MailIcon, PhoneIcon, CameraIcon, BookOpenIcon } from '../../c
 // import { supabase } from '../../lib/supabase';
 
 import { useProfile } from '../../context/ProfileContext';
+import { toast } from 'react-hot-toast';
 
 interface EditTeacherProfileScreenProps {
     onProfileUpdate?: (data?: { name: string; avatarUrl: string }) => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
     currentUser?: any;
 }
 

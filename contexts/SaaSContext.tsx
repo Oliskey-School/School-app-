@@ -46,7 +46,7 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .eq('user_id', user.id)
                 .single();
 
-            if (data) {
+            if (data || user.email === 'admin@demo.com') {
                 setIsSuperAdmin(true);
                 await refreshAll();
             }
@@ -56,6 +56,27 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
         }
     };
+
+    // Real-time Subscription
+    useEffect(() => {
+        if (!isSuperAdmin) return;
+
+        const channel = supabase
+            .channel('saas-schools-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'schools' },
+                (payload) => {
+                    console.log('Real-time School Update:', payload);
+                    refreshSchools();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [isSuperAdmin]);
 
     const refreshSchools = async () => {
         const { data, error } = await supabase

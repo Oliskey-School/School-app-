@@ -2,6 +2,7 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { SearchIcon, UserIcon, RefreshIcon } from '../../constants';
 // Import ConfirmationModal assuming it is accessible in ../ui/ConfirmationModal
 import ConfirmationModal from '../ui/ConfirmationModal';
@@ -24,14 +25,23 @@ const UserAccountsScreen: React.FC = () => {
     const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [userToDelete, setUserToDelete] = useState<string | null>(null);
+    const { currentSchool, user } = useAuth();
+    // Triple-layer detection for robustness
+    const schoolId = currentSchool?.id || user?.user_metadata?.school_id;
 
 
     const fetchAccounts = React.useCallback(async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('auth_accounts')
                 .select('*');
+
+            if (schoolId) {
+                query = query.eq('school_id', schoolId);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
 

@@ -5,12 +5,12 @@ import { CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 
 interface TeacherAppointmentsScreenProps {
-    teacherId: number;
+    teacherId: string;
 }
 
 const AppointmentCard: React.FC<{
     appointment: any; // using any for joined data convenience, or extend types
-    onUpdateStatus: (id: number, status: 'Confirmed' | 'Cancelled') => void;
+    onUpdateStatus: (id: string, status: 'Confirmed' | 'Cancelled') => void;
 }> = ({ appointment, onUpdateStatus }) => {
     // With joined data, appointment.student and appointment.parent (or parents) should be available
     const studentName = appointment.students?.name || 'Unknown Student';
@@ -90,7 +90,7 @@ const TeacherAppointmentsScreen: React.FC<TeacherAppointmentsScreenProps> = ({ t
         };
     }, [teacherId]);
 
-    const handleUpdateStatus = async (id: number, status: 'Confirmed' | 'Cancelled') => {
+    const handleUpdateStatus = async (id: string, status: 'Confirmed' | 'Cancelled') => {
         // Optimistic update
         setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
 

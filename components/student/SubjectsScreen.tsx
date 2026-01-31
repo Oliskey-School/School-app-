@@ -4,6 +4,7 @@ import { Student, Teacher } from '../../types';
 import { fetchClassSubjects } from '../../lib/database';
 import { SUBJECT_COLORS, BookOpenIcon, ChevronRightIcon } from '../../constants';
 // Removed mockStudents import
+import { offlineStorage } from '../../lib/offlineStorage';
 
 // Helper function to get default subjects based on grade and department
 const getDefaultSubjectsForGrade = (grade: number, department?: string): string[] => {
@@ -89,15 +90,26 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
     const loadSubjects = async () => {
       if (!student) return;
 
-      setLoading(true);
+      const cacheKey = `subjects_${student.id}_${student.grade}`;
+
+      // 1. Cache First
+      const cachedSubjects = await offlineStorage.load<string[]>(cacheKey);
+      if (cachedSubjects && cachedSubjects.length > 0) {
+        setSubjects(cachedSubjects);
+        setLoading(false); // Instant display
+      } else {
+        setLoading(true);
+      }
+
       console.log('Loading subjects for student:', student);
 
       try {
+        let finalSubjects: string[] = [];
+
         // If student has academicPerformance populated, use it
         if (student.academicPerformance?.length) {
-          const subjectsFromPerformance = [...new Set(student.academicPerformance.map(p => p.subject))];
-          console.log('Subjects from academic performance:', subjectsFromPerformance);
-          setSubjects(subjectsFromPerformance);
+          finalSubjects = [...new Set(student.academicPerformance.map(p => p.subject))];
+          console.log('Subjects from academic performance:', finalSubjects);
         } else {
           // Fetch from database based on grade/section
           console.log(`Fetching subjects for Grade ${student.grade}${student.section}`);
@@ -105,20 +117,27 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
           console.log('Fetched subjects from database:', fetchedSubjects);
 
           if (fetchedSubjects.length > 0) {
-            setSubjects(fetchedSubjects);
+            finalSubjects = fetchedSubjects;
           } else {
             // Fallback to standard subjects for the grade level
             console.log('No subjects found in database, using fallback');
-            const defaultSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
-            console.log('Using default subjects:', defaultSubjects);
-            setSubjects(defaultSubjects);
+            finalSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
+            console.log('Using default subjects:', finalSubjects);
           }
         }
+
+        if (finalSubjects.length > 0) {
+          setSubjects(finalSubjects);
+          await offlineStorage.save(cacheKey, finalSubjects);
+        }
+
       } catch (error) {
         console.error('Error loading subjects:', error);
-        // On error, use fallback subjects
-        const defaultSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
-        setSubjects(defaultSubjects);
+        // On error, use fallback subjects if we don't have cache
+        if (!cachedSubjects) {
+          const defaultSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
+          setSubjects(defaultSubjects);
+        }
       } finally {
         setLoading(false);
       }

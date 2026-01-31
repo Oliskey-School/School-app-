@@ -218,3 +218,95 @@ export function getExtensionFromMime(mimeType: string): string {
 
     return mimeMap[mimeType] || 'file';
 }
+
+// ========================================
+// Image-Specific Helpers
+// ========================================
+
+/**
+ * Upload an image file to Supabase Storage
+ * @param file - The image file to upload
+ * @param bucket - Storage bucket name (e.g., 'school-logos', 'avatars')
+ * @param folder - Optional subfolder within bucket
+ * @returns Public URL of the uploaded image
+ */
+export async function uploadImage(
+    file: File,
+    bucket: string,
+    folder?: string
+): Promise<string> {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        throw new Error('File must be an image');
+    }
+
+    // Validate file size (2MB limit for images)
+    const maxSize = 2 * 1024 * 1024; // 2MB
+    if (file.size > maxSize) {
+        throw new Error('Image size must be less than 2MB');
+    }
+
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = folder ? `${folder}/${fileName}` : fileName;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+        });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+
+    return publicUrl;
+}
+
+/**
+ * Delete an image from Supabase Storage
+ * @param url - The public URL of the image
+ * @param bucket - Storage bucket name
+ */
+export async function deleteImage(url: string, bucket: string): Promise<void> {
+    // Extract path from URL
+    const urlParts = url.split(`/${bucket}/`);
+    if (urlParts.length < 2) {
+        throw new Error('Invalid image URL');
+    }
+    const path = urlParts[1];
+
+    const { error } = await supabase.storage
+        .from(bucket)
+        .remove([path]);
+
+    if (error) throw error;
+}
+
+/**
+ * Validate image file before upload
+ * @param file - File to validate
+ * @param maxSizeMB - Maximum file size in MB (default 2)
+ * @returns Error message if invalid, null if valid
+ */
+export function validateImageFile(file: File, maxSizeMB: number = 2): string | null {
+    // Check file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+        return 'Please upload a valid image file (JPG, PNG, WEBP, or GIF)';
+    }
+
+    // Check file size
+    const maxSize = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSize) {
+        return `Image size must be less than ${maxSizeMB}MB`;
+    }
+
+    return null;
+}

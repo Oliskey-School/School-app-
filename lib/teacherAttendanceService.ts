@@ -18,10 +18,20 @@ export interface TeacherAttendance {
  */
 export async function submitTeacherAttendance(teacherId: number, date: string = new Date().toISOString().split('T')[0]) {
     try {
+        // 1. Fetch school_id for this teacher to satisfy RLS and Not-Null constraint
+        const { data: teacherData, error: teacherError } = await supabase
+            .from('teachers')
+            .select('school_id')
+            .eq('id', teacherId)
+            .single();
+
+        if (teacherError || !teacherData) throw new Error('Could not resolve teacher school information.');
+
         const { data, error } = await supabase
             .from('teacher_attendance')
             .insert({
                 teacher_id: teacherId,
+                school_id: teacherData.school_id,
                 date,
                 status: 'Pending',
             })

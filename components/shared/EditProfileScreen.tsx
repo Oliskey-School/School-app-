@@ -6,7 +6,7 @@ import { useProfile } from '../../context/ProfileContext';
 interface EditProfileScreenProps {
     onBack: () => void;
     user?: {
-        id?: number;
+        id?: string;
         name: string;
         avatarUrl?: string;
         email?: string;

@@ -83,7 +83,11 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
         setLoading(true);
 
         try {
-            // 1. Create Auth User
+            // 1. Pre-generate School ID (Standard UUID)
+            const schoolId = crypto.randomUUID();
+            const logoUrl = logoPreview ? `https://ui-avatars.com/api/?name=${formData.schoolName.replace(/ /g, '+')}&background=random` : null;
+
+            // 2. Create Auth User with early-binded school_id
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.adminEmail,
                 password: formData.password,
@@ -91,6 +95,7 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
                     data: {
                         full_name: formData.adminName,
                         role: 'admin',
+                        school_id: schoolId, // CRITICAL: This ensures the JWT is valid from minute zero
                     }
                 }
             });
@@ -98,12 +103,11 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
             if (authError) throw authError;
             if (!authData.user) throw new Error("User creation failed. Please try again.");
 
-            // 2. Create School Entry
-            const logoUrl = logoPreview ? `https://ui-avatars.com/api/?name=${formData.schoolName.replace(/ /g, '+')}&background=random` : null;
-
+            // 3. Create School Entry with pre-defined ID
             const { data: schoolData, error: schoolError } = await supabase
                 .from('schools')
                 .insert({
+                    id: schoolId,
                     name: formData.schoolName,
                     email: formData.schoolEmail,
                     phone: formData.phone,
@@ -117,20 +121,19 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
 
             if (schoolError) throw schoolError;
 
-            // 3. Create Basic Subscription (Free Tier)
+            // 4. Create Basic Subscription (Free Tier)
             await supabase.from('subscriptions').insert({
-                school_id: schoolData.id,
+                school_id: schoolId,
                 plan_id: 1, // Basic
                 status: 'trial',
                 start_date: new Date().toISOString(),
             });
 
-            // 4. Update Profile
-            await supabase.from('profiles').update({
-                school_id: schoolData.id,
+            // 5. Update Users (Primary Record) instead of legacy profiles
+            await supabase.from('users').update({
+                school_id: schoolId,
                 role: 'admin',
-                full_name: formData.adminName,
-                phone_number: formData.phone
+                name: formData.adminName,
             }).eq('id', authData.user.id);
 
             toast.success("School Portal Created (Free Tier Ready)!");

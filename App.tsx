@@ -1,8 +1,12 @@
 
 import React, { useState, lazy, Suspense, useEffect } from 'react';
+import DashboardRouter from './components/DashboardRouter';
 import { DashboardType } from './types';
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
+import CreateSchoolSignup from './components/auth/CreateSchoolSignup';
+import AuthCallback from './components/auth/AuthCallback';
+import VerificationGuard from './components/auth/VerificationGuard';
 import AIChatScreen from './components/shared/AIChatScreen';
 import { requestNotificationPermission, showNotification } from './components/shared/notifications';
 import { ProfileProvider } from './context/ProfileContext';
@@ -16,7 +20,21 @@ import { PWAInstallPrompt } from './components/shared/PWAInstallPrompt';
 import { Toaster } from 'react-hot-toast';
 import PremiumLoader from './components/ui/PremiumLoader';
 import { supabase } from './lib/supabase';
-import { DataService } from './services/DataService';
+// import { DataService } from './services/DataService';
+
+// Offline-First Imports
+import { syncEngine } from './lib/syncEngine';
+import { networkManager } from './lib/networkManager';
+import { registerServiceWorker as registerOfflineSW, requestBackgroundSync } from './lib/serviceWorkerRegistration';
+import { runMigrations, initialDataHydration, isInitialHydrationComplete } from './lib/migrationManager';
+import { cacheCleanupScheduler } from './lib/cacheManager';
+
+// Mobile Optimizations
+import { mobileSyncManager } from './lib/mobile/MobileSync';
+import { PushNotificationManager } from './lib/mobile/PushConfig';
+import { BranchProvider, BranchSwitcher } from './context/BranchContext';
+import MobileNavigationHandler from './components/shared/MobileNavigationHandler';
+import { ContextualMarquee } from './components/shared/ContextualMarquee';
 
 const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
 const SuperAdminDashboard = lazy(() => import('./components/admin/SuperAdminDashboard'));
@@ -99,80 +117,83 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     return this.props.children;
   }
 }
-
-
-
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 
 const AuthenticatedApp: React.FC = () => {
   const { user, role, signOut, loading } = useAuth();
+  useRealtimeSync(); // Initialize Global Realtime Sync
+
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHomePage, setIsHomePage] = useState(true);
-  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+  const [authView, setAuthView] = useState<'login' | 'signup' | 'create-school'>('login');
+  const [showAuthConfirm, setShowAuthConfirm] = useState(false);
 
   // State to simulate subscription for demo purposes
   // In real app, this comes from 'schools' table via user's school_id
   const [subscriptionStatus, setSubscriptionStatus] = useState<'active' | 'inactive' | 'trial'>('inactive');
   const [showPayment, setShowPayment] = useState(false);
 
+  // Detect auth confirmation callback
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('/auth/callback')) {
+      setShowAuthConfirm(true);
+    }
+  }, []);
+
+
+  // ... (keep structure)
+
   useEffect(() => {
     if (user && role) {
       console.log(`👤 User Authenticated: ${user.email} as ${role}`);
       requestNotificationPermission();
 
+      // Initialize Realtime Service
+      const schoolId = user.user_metadata?.school_id || (user as any).school_id;
+      if (schoolId) {
+        realtimeService.initialize(user.id, schoolId);
+      }
+
+      // Show welcome toast after email verification
+      const showWelcome = localStorage.getItem('show_welcome_toast');
+      if (showWelcome === 'true') {
+        localStorage.removeItem('show_welcome_toast');
+        setTimeout(async () => {
+          const toast = (await import('react-hot-toast')).default;
+          toast.success('Email verified successfully. Welcome to your dashboard! 🎉', {
+            duration: 5000,
+            position: 'top-center'
+          });
+        }, 500);
+      }
+
       // Check subscription status if Admin/Proprietor
       if (role === DashboardType.Admin || role === DashboardType.Proprietor || role === DashboardType.SuperAdmin) {
-        const checkSubscription = async () => {
-          // Demo Bypass
-          if (user.email === 'demo@school.edu' || user.email?.includes('demo')) {
-            setSubscriptionStatus('active');
-            return;
-          }
-
-          try {
-            // 1. Get School ID from Profile via Service
-            const profile = await DataService.getUserProfile(user.id, user.email || '');
-
-            if (profile?.school_id) {
-              // 2. Get Subscription Status from Service
-              const status = await DataService.getSchoolSubscription(profile.school_id);
-              setSubscriptionStatus(status as any);
-            } else {
-              setSubscriptionStatus('inactive');
-            }
-          } catch (err) {
-            console.error("Error checking subscription:", err);
-            setSubscriptionStatus('inactive');
-          }
-        };
-        checkSubscription();
+        // DataService removed for fresh backend start - defaulting to active
+        setSubscriptionStatus('active');
       } else {
         // Non-admins don't pay
         setSubscriptionStatus('active');
       }
-
-      // Realtime Subscriptions
-      const userId = user.id;
-
-      const notifChannel = realtimeService.subscribeToNotifications(userId, (payload) => {
-        showNotification(payload.title || 'New Notification', {
-          body: payload.message || payload.content,
-          icon: 'https://cdn-icons-png.flaticon.com/512/1007/1007996.png'
-        });
-      });
-
-      return () => {
-        realtimeService.unsubscribeAll();
-      };
     }
   }, [user, role]);
 
   if (loading) return <LoadingScreen />;
 
+  // Show auth confirmation screen if callback detected
+  if (showAuthConfirm) {
+    return <AuthCallback />;
+  }
+
   if (!user || !role) {
     if (authView === 'signup') {
       return <Signup onNavigateToLogin={() => setAuthView('login')} />;
     }
-    return <Login onNavigateToSignup={() => setAuthView('signup')} />;
+    if (authView === 'create-school') {
+      return <CreateSchoolSignup onNavigateToLogin={() => setAuthView('login')} />;
+    }
+    return <Login onNavigateToSignup={() => setAuthView('signup')} onNavigateToCreateSchool={() => setAuthView('create-school')} />;
   }
 
   const handleLogout = async () => {
@@ -184,41 +205,20 @@ const AuthenticatedApp: React.FC = () => {
 
     // If it was a demo user, show the demo login view
     if (isDemo) {
-      // We need a way to pass this to Login. 
-      // Since `authView` is state here, we can use that if we expanded it.
-      // Or we can save to local storage.
       localStorage.setItem('last_login_mode', 'demo');
     } else {
       localStorage.removeItem('last_login_mode');
     }
   };
 
-
-
+  /* 
+     Dynamic Dashboard Router 
+     Handles role-based rendering and school branding injection
+  */
   const renderDashboard = () => {
     const props = { onLogout: handleLogout, setIsHomePage, currentUser: user };
-    console.log(`🚀 Rendering Dashboard for role: ${role}`);
-
-    try {
-      switch (role) {
-        case DashboardType.SuperAdmin: return <SuperAdminDashboard {...props} />;
-        case DashboardType.Admin: return <AdminDashboard {...props} />;
-        case DashboardType.Teacher: return <TeacherDashboard {...props} />;
-        case DashboardType.Parent: return <ParentDashboard {...props} />;
-        case DashboardType.Student: return <StudentDashboard {...props} />;
-        case DashboardType.Proprietor: return <ProprietorDashboard {...props} />;
-        case DashboardType.Inspector: return <InspectorDashboard {...props} />;
-        case DashboardType.ExamOfficer: return <ExamOfficerDashboard {...props} />;
-        case DashboardType.ComplianceOfficer: return <ComplianceOfficerDashboard {...props} />;
-        case DashboardType.Counselor: return <CounselorDashboard {...props} />;
-        default:
-          console.warn(`No specific component for role ${role}, falling back to Student.`);
-          return <StudentDashboard {...props} />;
-      }
-    } catch (e) {
-      console.error("Critical error in renderDashboard:", e);
-      return <div className="p-8 text-red-600">Failed to render dashboard component.</div>;
-    }
+    console.log(`🚀 Routing to Dashboard for role: ${role}`);
+    return <DashboardRouter {...props} />;
   };
 
   if (isChatOpen) {
@@ -228,35 +228,133 @@ const AuthenticatedApp: React.FC = () => {
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
-        {renderDashboard()}
+        <MobileNavigationHandler />
+        <ContextualMarquee />
+        <VerificationGuard>
+          {/* Branch Switcher Floating in Top Right */}
+          <div className="absolute top-12 right-4 z-50">
+            <BranchSwitcher />
+          </div>
+          {renderDashboard()}
+        </VerificationGuard>
       </Suspense>
     </ErrorBoundary>
   );
 };
 
 const App: React.FC = () => {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initProgress, setInitProgress] = useState(0);
+  const [initMessage, setInitMessage] = useState('Initializing...');
+
   useEffect(() => {
-    // Register service worker for PWA functionality
+    // Initialize Mobile-Specific Features (Capacitor)
+    mobileSyncManager.initialize();
+    PushNotificationManager.initialize();
+
+    // Initialize offline-first features
+    const initializeOfflineFirst = async () => {
+      try {
+        console.log('🚀 Initializing offline-first features...');
+
+        setInitMessage('Setting up database...');
+        setInitProgress(20);
+
+        // Run database migrations
+        await runMigrations();
+
+        setInitMessage('Registering Service Worker...');
+        setInitProgress(40);
+
+        // Register Service Worker for background sync (Non-blocking)
+        registerOfflineSW().then(() => {
+          console.log('✅ Service Worker registered (background)');
+        }).catch(err => {
+          console.warn('⚠️ Service Worker registration skipped or failed:', err);
+        });
+
+        // Request background sync permission (Non-blocking)
+        requestBackgroundSync().catch(err => {
+          console.warn('⚠️ Background sync request failed:', err);
+        });
+
+        setInitMessage('Starting cache cleanup...');
+        setInitProgress(60);
+
+        // Start cache cleanup scheduler
+        // scheduler already auto-starts in its own file, but we can call it here too
+        cacheCleanupScheduler.start();
+
+        setInitMessage('Checking for initial data...');
+        setInitProgress(80);
+
+        // Perform initial hydration if first load
+        if (!isInitialHydrationComplete()) {
+          await initialDataHydration((progress, message) => {
+            setInitProgress(80 + (progress * 0.2)); // 80-100%
+            setInitMessage(message);
+          });
+        }
+
+        setInitMessage('Ready!');
+        setInitProgress(100);
+
+        console.log('✅ Offline-first initialization complete');
+
+        // Small delay to show completion and let UI settle
+        setTimeout(() => {
+          setIsInitializing(false);
+        }, 800);
+
+      } catch (error) {
+        console.error('❌ Offline-first initialization failed:', error);
+        // Continue anyway - app should still work
+        setIsInitializing(false);
+      }
+    };
+
+    // Also register legacy PWA service worker
     registerServiceWorker();
+
+    // Initialize offline features
+    initializeOfflineFirst();
+
+    // Listen for background sync events from Service Worker
+    const handleBackgroundSync = () => {
+      console.log('🔄 Background sync triggered by Service Worker');
+      syncEngine.triggerSync();
+    };
+
+    window.addEventListener('sw-background-sync', handleBackgroundSync);
+
+    return () => {
+      window.removeEventListener('sw-background-sync', handleBackgroundSync);
+    };
   }, []);
+
+
 
   return (
     <AuthProvider>
       <ProfileProvider>
-        {/* Toast Notifications */}
-        <Toaster position="top-right" />
+        <BranchProvider>
+          {/* Toast Notifications */}
+          <Toaster position="top-right" />
 
-        {/* Offline indicator - shows when no internet connection */}
-        <OfflineIndicator />
+          {/* Offline indicator - shows when no internet connection */}
+          <OfflineIndicator />
 
-        <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center overflow-y-auto">
-          <div className="relative w-full flex-1 flex flex-col shadow-2xl">
-            <AuthenticatedApp />
-          </div>
-        </div>
-
-        {/* PWA install prompt - shows after 30s if not installed */}
-        <PWAInstallPrompt />
+          {isInitializing ? (
+            <PremiumLoader message={initMessage} />
+          ) : (
+            <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center overflow-y-auto">
+              <div className="relative w-full flex-1 flex flex-col shadow-2xl">
+                <AuthenticatedApp />
+                <PWAInstallPrompt />
+              </div>
+            </div>
+          )}
+        </BranchProvider>
       </ProfileProvider>
     </AuthProvider>
   );

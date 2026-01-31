@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { generateCustomId } from '../../lib/id-generator';
 import { SchoolLogoIcon } from '../../constants';
 // Simple Eye Icons
@@ -11,7 +11,9 @@ const EyeOffIcon = ({ size = 20 }: { size?: number }) => <svg xmlns="http://www.
 import SchoolSignup from './SchoolSignup';
 import { authenticateUser } from '../../lib/auth';
 
-const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignup }) => {
+import { MOCK_USERS, mockLogin } from '../../lib/mockAuth';
+
+const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool?: () => void }> = ({ onNavigateToSignup, onNavigateToCreateSchool }) => {
   const [view, setView] = useState<'login' | 'school_signup' | 'demo'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,13 +24,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
 
   useEffect(() => {
     const lastMode = localStorage.getItem('last_login_mode');
-    if (lastMode === 'demo') {
+    if (lastMode === 'demo' && view !== 'demo') {
       setView('demo');
-      // We keep it or remove it? User said "take them back to demo login page".
-      // If they refresh, it stays. Fine.
-      // If they explicitly navigate back to main login, they might want to stay there.
-      // But `App.tsx` sets it only on logout.
-      localStorage.removeItem('last_login_mode');
     }
   }, []);
 
@@ -73,6 +70,13 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
             userId: mockResult.userId,
             email: email,
             userType: mockResult.role,
+            school: {
+              id: '00000000-0000-0000-0000-000000000000',
+              name: 'School App',
+              slug: 'demo',
+              subscriptionStatus: 'active',
+              createdAt: new Date().toISOString()
+            }
           });
           return;
         }
@@ -100,27 +104,70 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
     }
   };
 
-  const handleQuickLogin = async (role: string) => {
+  const handleQuickLogin = async (roleKey: string) => {
     setError('');
     setIsLoading(true);
-    try {
-      // PRO-LEVEL MOCK AUTH: Bypasses Supabase for Demo Portal
-      // This ensures 100% uptime for demos and keeps data private.
-      const mockResult = await getMockSessionForRole(role);
 
-      if (mockResult.success) {
-        await signIn(mockResult.dashboardType, {
-          userId: mockResult.userId,
-          email: mockResult.email,
-          userType: mockResult.role,
-          isDemo: true // Flag to indicate this is a demo session
+    // Use credentials from MOCK_USERS
+    // @ts-ignore
+    const mockUser = MOCK_USERS[roleKey];
+
+    if (!mockUser) {
+      setError(`Demo account not configured for ${roleKey}`);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log(`Attempting Quick Login for ${roleKey} (${mockUser.email})...`);
+
+      // 1. Attempt REAL Supabase Auth (for valid session)
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: mockUser.email,
+        password: mockUser.password,
+      });
+
+      // 2. Fallback to MOCK AUTH if Real Auth fails
+      if (authError) {
+        console.warn("Real Auth failed, falling back to Mock Auth as requested:", authError.message);
+
+        const dashboardType = mapRoleToDashboard(mockUser.role);
+
+        // Directly update local state via AuthContext
+        await signIn(dashboardType, {
+          userId: mockUser.id,
+          email: mockUser.email!,
+          userType: dashboardType,
+          isDemo: true,
+          school: {
+            id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', // Fixed Demo School ID
+            name: 'Demo School',
+            slug: 'demo',
+            subscriptionStatus: 'active',
+            createdAt: new Date().toISOString()
+          }
         });
-      } else {
-        throw new Error(`Failed to generate mock session for ${role}`);
+
+        console.log('✅ Mock Login Successful (Fallback Mode)');
+        return;
+      }
+
+      if (data.session) {
+        const dashboardType = mapRoleToDashboard(mockUser.role);
+        await signIn(dashboardType, {
+          userId: data.user.id,
+          email: data.user.email!,
+          userType: dashboardType,
+          isDemo: true
+        });
       }
     } catch (err: any) {
-      console.error("Demo Login Error:", err);
-      setError(err.message || `Failed to login as ${role}.`);
+      console.error("Quick Login Error:", err);
+      if (err.message && err.message.includes('captcha')) {
+        setError("Security check failed. Please type the credentials manually.");
+      } else {
+        setError(err.message || `Failed to login as ${mockUser.role}.`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -129,48 +176,53 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
   // Demo View (Quick Logins)
   if (view === 'demo') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen w-full bg-slate-100 p-4 py-8">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative p-8">
-          <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-4">
-              <SchoolLogoIcon className="w-8 h-8 text-white" />
+      <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#F8FAFC] p-4 py-8">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative p-8">
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-6">
+              <SchoolLogoIcon className="w-9 h-9 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
+            <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Welcome Back</h2>
             <p className="text-sm text-slate-500 mt-1">Sign in to your demo portal</p>
           </div>
 
-          {/* Mock Login Form (Optional, but shown in image - mimicking functionality) */}
-          <div className="space-y-4 mb-6 opacity-50 pointer-events-none grayscale" title="Use Quick Logins below for Demo">
-            <input type="text" placeholder="Email (e.g. admin@school.com)" className="w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm" disabled />
-            <input type="password" placeholder="Password" className="w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm" disabled />
-            <button className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">Login</button>
+          {/* Mock Login Form */}
+          <div className="space-y-4 mb-8 opacity-40 pointer-events-none scale-[0.98]">
+            <input type="text" placeholder="Email (e.g. admin@school.com)" className="w-full px-4 py-3 bg-slate-50 border border-gray-100 rounded-xl text-sm" disabled />
+            <input type="password" placeholder="Password" className="w-full px-4 py-3 bg-slate-50 border border-gray-100 rounded-xl text-sm" disabled />
+            <button className="w-full py-3 bg-[#A3A3A3] text-white font-bold rounded-xl text-md">Login</button>
           </div>
 
-          <div className="text-center mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Quick Logins</span>
+          <div className="text-center mb-6">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Quick Logins</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {['Admin', 'Teacher', 'Parent', 'Student', 'Proprietor', 'Inspector', 'Exam Officer', 'Compliance'].map((role) => (
-              <button
-                key={role}
-                onClick={() => handleQuickLogin(role)}
-                disabled={isLoading}
-                className={`py-2 px-1 rounded-lg text-xs font-bold transition-transform active:scale-95 shadow-sm
-                                ${role === 'Admin' ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : ''}
-                                ${role === 'Teacher' ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : ''}
-                                ${role === 'Parent' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''}
-                                ${role === 'Student' ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : ''}
-                                ${['Proprietor', 'Inspector', 'Exam Officer', 'Compliance'].includes(role) ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : ''}
-                            `}
-              >
-                {role}
-              </button>
-            ))}
+          {/* Interactive Quick Logins - 2 Column Grid */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-8">
+            {Object.entries(MOCK_USERS).map(([key, user]) => {
+              const displayRole = key === 'examofficer' ? 'Exam Officer' : key === 'compliance' ? 'Compliance' : key.charAt(0).toUpperCase() + key.slice(1);
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleQuickLogin(key)}
+                  disabled={isLoading}
+                  className={`flex items-center justify-center py-2.5 px-4 rounded-lg font-bold text-xs transition-all active:scale-95 shadow-sm hover:shadow-md
+                    ${key === 'admin' ? 'bg-[#EBF5FF] text-[#1E40AF] hover:bg-blue-100' : ''}
+                    ${key === 'teacher' ? 'bg-[#F5F3FF] text-[#5B21B6] hover:bg-purple-100' : ''}
+                    ${key === 'parent' ? 'bg-[#F0FDF4] text-[#166534] hover:bg-green-100' : ''}
+                    ${key === 'student' ? 'bg-[#FFF7ED] text-[#9A3412] hover:bg-orange-100' : ''}
+                    ${key === 'oliskey' ? 'bg-indigo-700 text-white hover:bg-indigo-800' : ''}
+                    ${['proprietor', 'inspector', 'examofficer', 'compliance'].includes(key) ? 'bg-[#F1F5F9] text-[#475569] hover:bg-slate-200' : ''}
+                `}
+                >
+                  {displayRole}
+                </button>
+              )
+            })}
           </div>
 
-          <div className="mt-8 text-center">
-            <button onClick={() => setView('login')} className="text-sm text-slate-400 hover:text-slate-600 underline">
+          <div className="mt-4 text-center border-t border-slate-100 pt-6">
+            <button onClick={() => setView('login')} className="text-sm font-semibold text-sky-600 hover:text-sky-700 transition">
               Back to School Sign In
             </button>
           </div>
@@ -199,7 +251,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
 
         {/* Form Section */}
         <div className="px-8 pb-8">
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
             <div>
               <input
                 type="email"
@@ -208,6 +260,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
                 placeholder="Gmail"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
                 required
+                autoComplete="off"
+                name="email_prevent_autofill"
               />
             </div>
             <div className="relative">
@@ -218,6 +272,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
                 placeholder="Password"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none pr-12"
                 required
+                autoComplete="new-password"
+                name="password_prevent_autofill"
               />
               <button
                 type="button"
@@ -276,7 +332,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void }> = ({ onNavigateToSignu
 
             <button
               type="button"
-              onClick={() => setView('school_signup')}
+              onClick={onNavigateToCreateSchool}
               className="w-full flex items-center justify-center gap-2 py-2.5 text-amber-600 font-bold text-sm hover:bg-amber-50 rounded-lg transition-colors group"
             >
               <span className="group-hover:translate-x-1 transition-transform">{'>'}</span> Create School Account <span className="text-slate-400 font-normal text-xs">Sign Up</span>
@@ -336,18 +392,17 @@ async function checkMockCredentials(email: string, pass: string): Promise<{ succ
   // 1. Simulating a DB lookup for mock users
   await new Promise(r => setTimeout(r, 500));
 
-  // Known mock accounts (as per implementation requirement to keep distinct)
-  const mocks: any = {
-    // Super Admin Fallback (Secure)
-    'oliskeylee@gmail.com': { pass: 'Olamide2001$', role: 'superadmin', type: DashboardType.SuperAdmin },
-    // Demo Account (if needed for quick testing via main form, though Quick Login buttons exist)
-    'demo@school.edu': { pass: 'demo123', role: 'admin', type: DashboardType.Admin }
-  };
+  // Use the synced MOCK_USERS list for consistency
+  const user = Object.values(MOCK_USERS).find(u => u.email.toLowerCase() === email.toLowerCase());
 
-  const user = mocks[email] || mocks[Object.keys(mocks).find(k => k.toLowerCase() === email.toLowerCase()) || ''];
-
-  if (user && (user.pass === pass)) {
-    return { success: true, role: user.role, dashboardType: user.type, userId: 'mock-user-' + email };
+  if (user && user.password === pass) {
+    console.log("Mock Credential Bypass Success for:", email);
+    return {
+      success: true,
+      role: user.role,
+      dashboardType: mapRoleToDashboard(user.role),
+      userId: user.id
+    };
   }
 
   return { success: false, role: '', dashboardType: DashboardType.Student, userId: '' };

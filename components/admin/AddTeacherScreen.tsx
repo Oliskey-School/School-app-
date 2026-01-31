@@ -1,16 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
-// import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon, CheckCircleIcon } from '../../constants';
 import { Teacher } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
-import { checkUserLimit } from '../../lib/usage-limits';
+
+// import { checkUserLimit } from '../../lib/usage-limits'; // Replaced by useTenantLimit
 import CredentialsModal from '../ui/CredentialsModal';
 import { mockTeachers } from '../../data';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
+import { useTenantLimit } from '../../hooks/useTenantLimit';
+import UpgradeModal from '../shared/UpgradeModal';
 
 interface AddTeacherScreenProps {
     teacherToEdit?: Teacher;
@@ -106,6 +110,11 @@ const TagInput: React.FC<{
 
 const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forceUpdate, handleBack }) => {
     const { profile } = useProfile();
+    const { currentSchool } = useAuth();
+
+    // Triple-layer schoolId detection
+    const schoolId = profile.schoolId || currentSchool?.id;
+
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -190,18 +199,22 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
         }
     };
 
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const { isLimitReached, currentCount, maxLimit, isPremium } = useTenantLimit();
+
+    const navigate = useNavigate();
+    const navigateToSubscription = () => {
+        setShowUpgradeModal(false);
+        navigate('/subscription');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         // CHECK USAGE LIMITS (Only for new teachers, not edits)
-        if (!teacherToEdit && profile.schoolId) {
-            setIsLoading(true);
-            const { allowed, count, limit } = await checkUserLimit(profile.schoolId);
-            if (!allowed) {
-                toast.error(`Free Limit Reached: You have ${count}/${limit} users. Please pay the ₦50,000 setup fee to add more staff.`);
-                setIsLoading(false);
-                return;
-            }
+        if (!teacherToEdit && isLimitReached) {
+            setShowUpgradeModal(true);
+            return;
         }
 
         setIsLoading(true);
@@ -308,10 +321,17 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 const teacherEmail = email || `teacher${Date.now()}@school.com`;
 
                 // 1. Create Login Credentials (Auth User) FIRST
+                if (!schoolId) {
+                    toast.error('Fatal: School ID missing.');
+                    setIsLoading(false);
+                    return;
+                }
+
                 const authResult = await createUserAccount(
                     name,
                     'Teacher',
-                    teacherEmail
+                    teacherEmail,
+                    schoolId
                 );
 
                 if (authResult.error) {
@@ -331,7 +351,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     .insert([{
                         email: teacherEmail,
                         name: name,
-                        role: 'Teacher',
+                        role: 'teacher',
                         avatar_url: avatarUrl
                     }])
                     .select()
@@ -422,6 +442,13 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
+            <UpgradeModal
+                isOpen={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                currentCount={currentCount}
+                limit={maxLimit}
+                onUpgrade={navigateToSubscription}
+            />
             <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 space-y-6 overflow-y-auto">
                     <div className="flex justify-center">

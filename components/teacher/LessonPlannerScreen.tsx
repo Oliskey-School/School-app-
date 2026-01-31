@@ -4,8 +4,10 @@ import { getAIClient, AI_MODEL_NAME, AI_GENERATION_CONFIG, SchemaType as Type } 
 import { toast } from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../lib/supabase';
-import { GeneratedResources, SchemeWeek, SavedScheme, HistoryEntry, GeneratedHistoryEntry } from '../../types';
-import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, CheckCircleIcon } from '../../constants';
+import { GeneratedResources, SchemeWeek, SavedScheme, HistoryEntry, GeneratedHistoryEntry, Subject } from '../../types';
+import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, CheckCircleIcon, getFormattedClassName } from '../../constants';
+import { fetchSubjects } from '../../lib/database';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 const HistoryIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h - 6 w - 6 ${className || ''} `.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 8l0 4l2 2" /><path d="M3.05 11a9 9 0 1 1 .5 4m-3.55 -4a9 9 0 0 1 12.5 -5" /><path d="M3 4v4h4" /></svg>;
 const FolderIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h - 6 w - 6 ${className || ''} `.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" /></svg>;
@@ -138,12 +140,22 @@ const GeneratedHistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; hi
 const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; teacherId?: number | null; }> = ({ navigateTo, teacherId }) => {
     const [subject, setSubject] = useState('');
     const [className, setClassName] = useState('');
+    const [selectedClassId, setSelectedClassId] = useState<string>('');
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+    const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
+
     const [term1Scheme, setTerm1Scheme] = useState<SchemeWeek[]>([]);
     const [term2Scheme, setTerm2Scheme] = useState<SchemeWeek[]>([]);
     const [term3Scheme, setTerm3Scheme] = useState<SchemeWeek[]>([]);
     const [activeTerm, setActiveTerm] = useState<'term1' | 'term2' | 'term3'>('term1');
     const [isGenerating, setIsGenerating] = useState(false);
     const [schemeHistory, setSchemeHistory] = useState<HistoryEntry[]>([]);
+
+    const { classes: teacherClasses } = useTeacherClasses(teacherId);
+
+    useEffect(() => {
+        fetchSubjects().then(setSubjectsList);
+    }, []);
     const [generatedHistory, setGeneratedHistory] = useState<GeneratedHistoryEntry[]>([]);
     const [isSchemeHistoryOpen, setIsSchemeHistoryOpen] = useState(false);
     const [isGeneratedHistoryOpen, setIsGeneratedHistoryOpen] = useState(false);
@@ -436,7 +448,15 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
             }
 
             fetchHistory(); // Refresh history list
-            navigateTo('lessonPlanDetail', `AI Plan: ${subject}`, { resources });
+
+            // Navigate with expanded resources including IDs
+            const resourcesWithIds = {
+                ...resources,
+                subjectId: selectedSubjectId,
+                classId: selectedClassId,
+                teacherId: effectiveTeacherId
+            };
+            navigateTo('lessonPlanDetail', `AI Plan: ${subject}`, { resources: resourcesWithIds });
 
         } catch (error: any) {
             console.error("AI Generation Error:", error);
@@ -462,11 +482,41 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
                     <div className="flex items-center gap-4">
                         <div className="flex-grow">
                             <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                            <input id="subject" type="text" value={subject} onChange={e => setSubject(e.target.value)} required className="w-full p-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg" />
+                            <select
+                                id="subject"
+                                value={selectedSubjectId}
+                                onChange={e => {
+                                    setSelectedSubjectId(e.target.value);
+                                    const sub = subjectsList.find(s => s.id === e.target.value);
+                                    setSubject(sub ? sub.name : '');
+                                }}
+                                required
+                                className="w-full p-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">Select Subject</option>
+                                {subjectsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code || s.category})</option>)}
+                            </select>
                         </div>
                         <div className="flex-grow">
                             <label htmlFor="className" className="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-                            <input id="className" type="text" value={className} onChange={e => setClassName(e.target.value)} required className="w-full p-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg" />
+                            <select
+                                id="className"
+                                value={selectedClassId}
+                                onChange={e => {
+                                    setSelectedClassId(e.target.value);
+                                    const cls = teacherClasses.find(c => c.id === e.target.value);
+                                    setClassName(cls ? getFormattedClassName(cls.grade, cls.section) : '');
+                                }}
+                                required
+                                className="w-full p-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg"
+                            >
+                                <option value="">Select Class</option>
+                                {teacherClasses.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                        {getFormattedClassName ? getFormattedClassName(c.grade, c.section) : `Grade ${c.grade}${c.section}`}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">

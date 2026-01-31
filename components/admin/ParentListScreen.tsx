@@ -45,7 +45,7 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
                     email,
                     avatar_url
                 ),
-                parent_children (
+                student_parent_links (
                     student:students (
                         id,
                         name
@@ -62,7 +62,7 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
             email: p.user?.email || '',
             avatarUrl: p.user?.avatar_url || 'https://via.placeholder.com/150',
             phone: p.phone,
-            childIds: p.parent_children?.map((pc: any) => pc.student?.name || pc.student?.id) || []
+            childIds: p.student_parent_links?.map((pc: any) => pc.student?.name || pc.student?.id) || []
           }));
           setParents(mappedParents);
         }

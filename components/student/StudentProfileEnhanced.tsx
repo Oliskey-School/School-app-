@@ -9,10 +9,11 @@ import {
     Download, Eye, GraduationCap, CheckCircle,
     Award, TrendingUp, Mail, Phone, MapPin,
     Edit, Share2, Settings, Bell, ChevronRight,
-    Clock, Target, Briefcase, Globe
+    Clock, Target, Briefcase, Globe, Copy
 } from 'lucide-react';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { fetchAcademicPerformance, fetchStudentStats, fetchUpcomingEvents } from '../../lib/database';
+import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 
 // ... (existing imports)
 
@@ -27,6 +28,7 @@ interface StudentProfileEnhancedProps {
 }
 
 export default function StudentProfileEnhanced({ studentId, student: initialStudent, navigateTo }: StudentProfileEnhancedProps) {
+    const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
     const [student, setStudent] = useState<any>(initialStudent || null);
     const [loading, setLoading] = useState(!initialStudent);
     const [activeTab, setActiveTab] = useState('overview');
@@ -246,9 +248,16 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             <GraduationCap className="w-4 h-4 mr-2" />
                                             {student.class_name || `Grade ${student.grade}`}
                                         </Badge>
-                                        <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm">
-                                            ID: {student.admission_number || `STU${student.id}`}
-                                        </Badge>
+                                        <div
+                                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                                            onClick={() => copyToClipboard(customId)}
+                                        >
+                                            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm flex items-center gap-2">
+                                                ID: {formatId(customId) || student.admission_number || `STU${student.id}`}
+                                                <Copy className="w-3 h-3 opacity-70" />
+                                                {copied && <span className="text-xs ml-1">Copied!</span>}
+                                            </Badge>
+                                        </div>
                                     </div>
                                     <div className="flex flex-wrap gap-2 text-sm text-white/90">
                                         <div className="flex items-center gap-1.5">

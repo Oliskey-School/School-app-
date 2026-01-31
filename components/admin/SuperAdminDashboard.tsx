@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { LogOut, LayoutDashboard, Building, Briefcase, Settings, Menu, X, Bell, User, Search, CreditCard, DollarSign, BarChart, Shield, Users, Lock, Globe } from 'lucide-react';
 import { Header } from './Header'; // Use shared Header
 import { Toaster, toast } from 'react-hot-toast';
-import { realtimeService } from '../../services/RealtimeService';
+// import { realtimeService } from '../../services/RealtimeService';
 
 // SaaS Imports
 const SchoolManagementScreen = lazy(() => import('./saas/SchoolManagementScreen'));
@@ -44,7 +44,8 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
                 const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
                 setCurrentUserId(userData ? userData.id : '0');
 
-                // Real-time Service Integration for Super Admin
+                // Real-time Service Integration for Super Admin - Removed
+                /*
                 realtimeService.subscribeToNotifications(user.id, (notif) => {
                     toast(notif.message || notif.content || 'System Alert', {
                         icon: '⚠️',
@@ -62,13 +63,16 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
                     console.log('Real-time School Update:', payload);
                     // Could trigger a data refresh here
                 });
+                */
             }
         };
         getUser();
 
+        /*
         return () => {
             realtimeService.unsubscribeAll();
         };
+        */
     }, []);
 
     const renderContent = () => {

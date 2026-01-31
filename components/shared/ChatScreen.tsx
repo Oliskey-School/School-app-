@@ -4,10 +4,11 @@ import { ChatMessage } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { SendIcon, PaperclipIcon, HappyIcon, DotsVerticalIcon, SearchIcon, ChevronLeftIcon, CheckCircleIcon } from '../../constants';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChatScreenProps {
-    conversationId?: number;
-    currentUserId?: number;
+    conversationId?: string;
+    currentUserId?: string;
     themeColor?: 'indigo' | 'orange' | 'purple' | 'green' | 'blue';
     conversation?: any;
     roomDetails?: any;
@@ -23,12 +24,13 @@ const THEME_STYLES = {
 };
 
 const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, roomDetails, currentUserId, themeColor = 'indigo', hideHeader = false }) => {
+    const { user } = useAuth();
     const theme = THEME_STYLES[themeColor] || THEME_STYLES.indigo;
 
     // Resolve conversation ID: explicit prop > conversation object > null
-    const resolvedId = conversationId || (conversation?.id ? parseInt(String(conversation.id).replace(/\D/g, '')) : null);
+    const resolvedId = conversationId || conversation?.id || null;
 
-    const [activeConversationId, setActiveConversationId] = useState<number | null>(resolvedId);
+    const [activeConversationId, setActiveConversationId] = useState<string | null>(resolvedId);
     const [conversations, setConversations] = useState<any[]>([]);
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -114,7 +116,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                     isEdited: false,
                     updatedAt: m.created_at,
                     sender: {
-                        id: m.sender?.id || 0, // Default or parse
+                        id: m.sender?.id || '', // Default to empty string for UUID consistency
                         name: m.sender?.name || 'User',
                         avatarUrl: m.sender?.avatar_url,
                         role: m.sender?.role || 'Member'
@@ -221,7 +223,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                     conversation_id: activeConversationId,
                     sender_id: effectiveUserId,
                     content: text,
-                    type: 'text'
+                    type: 'text',
+                    school_id: user?.user_metadata?.school_id // Use user_metadata for school_id
                 });
                 if (error) throw error;
             }
@@ -256,7 +259,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                     sender_id: effectiveUserId,
                     content: file.name,
                     type: attachment.type,
-                    media_url: publicUrl
+                    media_url: publicUrl,
+                    school_id: user?.user_metadata?.school_id
                 });
 
                 if (msgError) console.error("Error saving message record:", msgError);
@@ -407,7 +411,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                             </div>
 
                             {/* Input Area */}
-                            <div className={`bg-white border-t border-gray-100 ${isMobileView ? 'fixed bottom-[60px] left-0 right-0 z-40 px-2 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]' : 'relative p-4'}`}>
+                            <div className={`bg-white border-t border-gray-100 relative p-4 ${isMobileView ? 'px-2 py-3 shadow-inner' : ''}`}>
                                 {/* Attachment Previews */}
                                 {pendingAttachments.length > 0 && (
                                     <div className="flex gap-2 overflow-x-auto mb-2 pb-2 custom-scrollbar">

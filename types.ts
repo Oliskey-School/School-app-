@@ -1,5 +1,36 @@
-
 import React from 'react';
+import { Database } from './types/supabase'; // Import generated types
+
+// Helper type to extract Row types
+type TableRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
+
+
+// SaaS Types
+export interface School {
+  id: string; // UUID
+  name: string;
+  slug: string;
+  logoUrl?: string; // Optional custom logo
+  motto?: string; // School motto
+  website?: string;
+  address?: string;
+  contactEmail?: string;
+  subscriptionStatus: 'active' | 'inactive' | 'trial';
+  is_premium?: boolean;
+  plan_type?: 'free' | 'basic' | 'premium' | 'enterprise';
+  user_count?: number; // Tracked user count for limits
+  createdAt: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+}
+
+export interface SchoolUser {
+  id: string; // UUID from auth.users
+  schoolId: string;
+  email: string;
+  fullName: string;
+  role: 'super_admin' | 'proprietor' | 'admin' | 'teacher' | 'student' | 'parent' | 'bursar';
+}
 
 export enum DashboardType {
   Admin = 'admin',
@@ -15,14 +46,14 @@ export enum DashboardType {
 }
 
 export interface Exam {
-  id: number;
+  id: string;
   type: string;
   date: string;
   time?: string;
   className: string;
   subject: string;
   isPublished: boolean;
-  teacherId?: number; // To associate exams with the teacher who created them
+  teacherId?: string; // To associate exams with the teacher who created them
 }
 
 export type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Late';
@@ -35,7 +66,7 @@ export interface AcademicRecord {
 }
 
 export interface BehaviorNote {
-  id: number;
+  id: string;
   date: string;
   type: 'Positive' | 'Negative';
   title: string;
@@ -75,7 +106,7 @@ export interface ReportCard {
 }
 
 export interface Student {
-  id: number;
+  id: string; // Changed to UUID string
   schoolId?: string;
   name: string;
   email: string;
@@ -125,7 +156,7 @@ export interface StudentAttendance {
 }
 
 export interface Teacher {
-  id: number;
+  id: string; // Changed to UUID string
   schoolId?: string;
   name: string;
   avatarUrl: string;
@@ -276,7 +307,7 @@ export interface Photo {
 }
 
 export interface Assignment {
-  id: number;
+  id: string;
   title: string;
   description?: string;
   className: string; // e.g., "Grade 10A"
@@ -289,10 +320,10 @@ export interface Assignment {
 export type GradingStatus = 'Graded' | 'Ungraded';
 
 export interface Submission {
-  id: number;
-  assignmentId: number;
+  id: string;
+  assignmentId: string;
   student: {
-    id: number;
+    id: string;
     name: string;
     avatarUrl: string;
   };
@@ -327,8 +358,8 @@ export interface CurriculumSubject {
 }
 
 export interface Fee {
-  id: number;
-  studentId: number;
+  id: string;
+  studentId: string;
   title: string;          // Added title
   description?: string;   // Added description
   amount: number;         // Consistent naming (was totalFee)
@@ -342,7 +373,7 @@ export interface Fee {
 }
 
 export interface ChatUser {
-  id: number;
+  id: string; // Changed to UUID string
   name: string;
   avatarUrl: string;
   role: string;
@@ -360,9 +391,9 @@ export interface ChatReaction {
 }
 
 export interface ChatMessage {
-  id: number;
-  roomId: number;
-  senderId: number;
+  id: string; // Changed to UUID string
+  roomId: string; // Changed to UUID string
+  senderId: string; // Changed to UUID string
   content: string;
   type: MessageType;
   mediaUrl?: string;
@@ -373,14 +404,15 @@ export interface ChatMessage {
   reactions?: ChatReaction[]; // Populated on frontend
   isDeleted: boolean;
   isEdited: boolean;
+  schoolId?: string; // Standardized school_id for multi-tenancy
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   sender?: ChatUser; // Populated on frontend
 }
 
 export interface ChatParticipant {
-  roomId: number;
-  userId: number;
+  roomId: string; // Changed to UUID string
+  userId: string; // Changed to UUID string
   role: 'member' | 'admin';
   joinedAt: string;
   lastReadMessageId?: number;
@@ -388,7 +420,7 @@ export interface ChatParticipant {
 }
 
 export interface ChatRoom {
-  id: number;
+  id: string; // Changed to UUID string
   type: 'direct' | 'group' | 'class';
   name?: string;
   isGroup: boolean;
@@ -423,7 +455,7 @@ export interface TimetableEntry {
   endTime: string; // "10:00"
   subject: string;
   className: string; // e.g., "Grade 11C"
-  teacherId?: number;
+  teacherId?: string;
 }
 
 export interface StudentPerformanceData {
@@ -522,13 +554,13 @@ export interface BehaviorAlert {
 }
 
 export interface Parent {
-  id: number;
+  id: string; // Changed to UUID string
   schoolId?: string;
   name: string;
   email: string;
   phone: string;
   avatarUrl: string;
-  childIds?: number[];
+  childIds?: string[]; // Changed to UUID string array
   address?: string;
   occupation?: string;
   relationship?: string;
@@ -634,7 +666,7 @@ export interface QuestionOption {
 
 export interface Question {
   id: number;
-  quizId: number;
+  quizId: string; // UUID
   text: string;
   type: QuestionType;
   options?: QuestionOption[];
@@ -643,15 +675,17 @@ export interface Question {
 }
 
 export interface Quiz {
-  id: number;
+  id: string; // UUID
+  schoolId: string; // Added for multi-tenancy
   title: string;
   subject: string;
   grade: number;
-  teacherId: number;
+  teacherId: string;
   description?: string;
   durationMinutes?: number;
   questionCount?: number; // Computed
   isPublished: boolean;
+  isActive?: boolean;
   questions?: Question[];
   createdAt: string;
   points?: number; // Total points
@@ -659,12 +693,13 @@ export interface Quiz {
 
 export interface QuizSubmission {
   id: number;
-  quizId: number;
-  studentId: number;
-  answers: { questionId: number, selectedOptions?: string[], textAnswer?: string }[];
+  quizId: string; // UUID
+  studentId: string; // Changed to string UUID to match profiles
+  schoolId: string;
+  answers: any; // jsonb in DB, allows flexibility
   score: number;
   submittedAt: string;
-  status: 'Graded' | 'Pending';
+  status: 'in_progress' | 'submitted' | 'graded';
 }
 
 export interface StoreOrder {
@@ -704,10 +739,10 @@ export interface AppointmentSlot {
 }
 
 export interface Appointment {
-  id: number;
-  teacherId: number;
-  parentId: number;
-  studentId: number;
+  id: string;
+  teacherId: string;
+  parentId: string;
+  studentId: string;
   date: string; // YYYY-MM-DD
   time: string;
   reason: string;
@@ -889,8 +924,8 @@ export interface GeneratedHistoryEntry {
 
 // For Health & Wellness Module
 export interface HealthLogEntry {
-  id: number;
-  studentId: number;
+  id: string;
+  studentId: string;
   studentName: string;
   studentAvatar: string;
   date: string; // ISO string
@@ -960,22 +995,22 @@ export interface LessonNote {
 }
 
 export interface CBTExam {
-  id: number;
+  id: string; // UUID
   title: string;
-  type?: 'Test' | 'Exam';
+  description?: string; // Mapped from description
   className?: string; // Added for UI display
   subjectName?: string; // Added for UI display
-  subjectId: number;
-  classId?: number; // Added
-  classGrade: string;
-  curriculumId: number;
+  subjectId: string; // UUID
+  classId?: string; // UUID
   durationMinutes: number;
-  duration?: number; // Alias for frontend usage if needed (often used as alias for durationMinutes)
-  totalQuestions: number;
-  totalMarks?: number; // Added
+  totalMarks?: number;
   isPublished: boolean;
-  teacherId: number;
+  teacherId: string; // UUID
   createdAt: string;
+  // Optional/Derived
+  totalQuestions?: number;
+  status?: string;
+  shuffleQuestions?: boolean;
 }
 
 export interface CBTQuestion {

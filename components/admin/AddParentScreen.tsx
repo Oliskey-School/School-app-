@@ -44,12 +44,12 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 if (isSupabaseConfigured) {
                     try {
                         const { data: links } = await supabase
-                            .from('parent_children')
-                            .select('student_id')
-                            .eq('parent_id', parentToEdit.id);
+                            .from('student_parent_links')
+                            .select('student_user_id')
+                            .eq('parent_user_id', parentToEdit.user_id);
 
                         if (links && links.length > 0) {
-                            setChildIds(links.map(l => l.student_id).join(', '));
+                            setChildIds(links.map(l => l.student_user_id).join(', '));
                         } else {
                             // Fallback to prop if DB fetch empty (or just empty)
                             setChildIds((parentToEdit.childIds || []).join(', '));
@@ -74,187 +74,170 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
         }
     };
 
+    // Error Mapping Utility
+    const mapErrorToUserMessage = (error: any): string => {
+        const msg = error.message || error.toString();
+        if (msg.includes('permission denied')) return 'Administrative privileges required to perform this action.';
+        if (msg.includes('duplicate key')) return 'A parent with this email already exists.';
+        if (msg.includes('network')) return 'Network connection issue. Please check your internet.';
+        if (msg.includes('timeout')) return 'Request timed out due to slow connection. Please try again.';
+        return 'An unexpected error occurred. Please try again.';
+    };
+
+    const retryWithTimeout = async (fn: () => Promise<any>, retries = 3, timeout = 15000): Promise<any> => {
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+        for (let i = 0; i < retries; i++) {
+            try {
+                // creating a promise that rejects after timeout
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('timeout')), timeout)
+                );
+
+                // race against timeout
+                return await Promise.race([fn(), timeoutPromise]);
+            } catch (err: any) {
+                if (i === retries - 1) throw err; // throw if last retry
+                await delay(2000 * (i + 1)); // Increased backoff
+            }
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isLoading) return;
+
         setIsLoading(true);
+        const toastId = toast.loading('Saving parent information...');
 
         try {
             const avatarUrl = avatar || `https://i.pravatar.cc/150?u=${name.replace(' ', '')}`;
-            const childIdArray = childIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            // Handle both admission numbers and UUIDs
+            const rawChildIds = childIds.split(',').map(id => id.trim()).filter(id => id.length > 0);
+            const childIdArray = rawChildIds.map(id => parseInt(id)).filter(id => !isNaN(id));
 
-            // MOCK MODE HANDLING
-            if (!isSupabaseConfigured) {
-                if (parentToEdit) {
-                    const index = mockParents.findIndex(p => p.id === parentToEdit.id);
-                    if (index !== -1) {
-                        mockParents[index] = {
-                            ...mockParents[index],
-                            name,
-                            email,
-                            phone,
-                            avatarUrl,
-                            childIds: childIdArray
-                        };
+            // Wrap the main logic in a function for retry
+            const saveOperation = async () => {
+                // MOCK MODE HANDLING (Keep as is for demo/testing without backend)
+                if (!isSupabaseConfigured) {
+                    // ... existing mock logic ...
+                    // For brevity in refactor, I'm assuming mock logic is simple and won't fail with permissions
+                    // But in a real refactor we'd copy it. 
+                    // TO KEEP IT SIMPLE AND WORKING, I will focus on the SUPABASE path which is where the error is.
+                    // But since I am replacing the whole block, I must preserve mock logic logic briefly or assume user wants Supabase fix.
+                    // I will preserve the mock logic structure but simplified for this function focus.
+                    if (parentToEdit) {
+                        const index = mockParents.findIndex(p => p.id === parentToEdit.id);
+                        if (index !== -1) {
+                            mockParents[index] = { ...mockParents[index], name, email, phone, avatarUrl, childIds: childIdArray };
+                        }
+                    } else {
+                        const newId = mockParents.length > 0 ? Math.max(...mockParents.map(p => p.id)) + 1 : 1;
+                        mockParents.push({ id: newId, name, email, phone, avatarUrl, childIds: childIdArray });
+                        setCredentials({ username: email.split('@')[0], password: 'password123', email });
+                        setShowCredentialsModal(true);
+                        return; // Modal handles close
                     }
-                    toast.success('Parent updated successfully (Mock Mode - Session Only)');
-                } else {
-                    const newId = mockParents.length > 0 ? Math.max(...mockParents.map(p => p.id)) + 1 : 1;
-                    mockParents.push({
-                        id: newId,
-                        name,
-                        email,
-                        phone,
-                        avatarUrl,
-                        childIds: childIdArray
-                    });
-                    // Simulate credentials generation
-                    setCredentials({
-                        username: email.split('@')[0],
-                        password: 'password123',
-                        email: email
-                    });
-                    setShowCredentialsModal(true);
-                    setIsLoading(false);
+                    forceUpdate();
+                    handleBack();
                     return;
                 }
-                forceUpdate();
-                handleBack();
-                return;
-            }
 
-            if (parentToEdit) {
-                // UPDATE MODE
-                const { error: updateError } = await supabase
-                    .from('parents')
-                    .update({
-                        name,
-                        email,
-                        phone,
-                        avatar_url: avatarUrl
-                    })
-                    .eq('id', parentToEdit.id);
+                if (parentToEdit) {
+                    // UPDATE MODE
+                    const { error: updateError } = await supabase
+                        .from('parents')
+                        .update({ name, email, phone, avatar_url: avatarUrl })
+                        .eq('id', parentToEdit.id);
 
-                if (updateError) throw updateError;
+                    if (updateError) throw updateError;
 
-                // Also update the core User record to keep name/avatar in sync
-                if (parentToEdit.user_id) {
-                    await supabase
-                        .from('users')
-                        .update({ name: name, avatar_url: avatarUrl })
-                        .eq('id', parentToEdit.user_id);
-                }
+                    if (parentToEdit.user_id) {
+                        await supabase.from('users').update({ name, avatar_url: avatarUrl }).eq('id', parentToEdit.user_id);
+                    }
 
-                // Sync Children Relations
-                // 1. Remove all existing links for this parent
-                await supabase.from('parent_children').delete().eq('parent_id', parentToEdit.id);
+                    // Transactional-like update for children
+                    await supabase.from('student_parent_links').delete().eq('parent_user_id', parentToEdit.user_id || parentToEdit.id);
+                    if (rawChildIds.length > 0) {
+                        // We need to resolve these IDs to student user_ids if they are admission numbers
+                        // For simplicity in this screen, we assume they are student user_ids (UUIDs)
+                        // OR we'd need a lookup here. Since admission numbers are common, let's do a lookup.
+                        const { data: students } = await supabase
+                            .from('students')
+                            .select('user_id, admission_number')
+                            .or(`user_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')})`);
 
-                // 2. Add new links if any
-                if (childIdArray.length > 0) {
-                    const relations = childIdArray.map(childId => ({
-                        parent_id: parentToEdit.id,
-                        student_id: childId
-                    }));
-                    await supabase.from('parent_children').insert(relations);
-                }
+                        if (students && students.length > 0) {
+                            const relations = students.map(s => ({
+                                parent_user_id: parentToEdit.user_id || parentToEdit.id,
+                                student_user_id: s.user_id
+                            }));
+                            await supabase.from('student_parent_links').insert(relations);
+                        }
+                    }
 
-                toast.success('Parent updated successfully!');
-                forceUpdate();
-                handleBack();
-                return; // Stop execution here
-            }
-            // CREATE MODE
-
-            // 1. Create Login Credentials (Auth User) FIRST.
-            // This ensures we don't end up with a DB record but no login method if Auth fails.
-            // Also, this handles the email uniqueness check via Supabase Auth.
-
-            const authResult = await createUserAccount(
-                name,
-                'Parent',
-                email
-            );
-
-            if (authResult.error) {
-                // Determine if it is a duplicate email error
-                if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
-                    toast.error('This email is already registered. Please use a different email.');
+                    toast.success('Parent updated successfully!', { id: toastId });
+                    forceUpdate();
+                    handleBack();
                 } else {
-                    toast.error('Failed to create account: ' + authResult.error);
+                    // CREATE MODE
+                    // 1. Create Login Credentials
+                    const authResult = await createUserAccount(name, 'Parent', email, profile.schoolId);
+                    if (authResult.error) throw new Error(authResult.error);
+
+                    // 2. Create User Record
+                    const { data: newUserData, error: userError } = await supabase
+                        .from('users')
+                        .insert([{
+                            email,
+                            name,
+                            role: 'Parent',
+                            avatar_url: avatarUrl,
+                            school_id: profile.schoolId // Required for RLS
+                        }])
+                        .select()
+                        .single();
+
+                    if (userError) throw userError;
+
+                    // 3. Create Parent Profile
+                    const { data: newParentData, error: parentError } = await supabase
+                        .from('parents')
+                        .insert([{ user_id: newUserData.id, school_id: profile.schoolId, name, email, phone, avatar_url: avatarUrl }])
+                        .select()
+                        .single();
+
+                    if (parentError) throw parentError;
+
+                    // 4. Link Students
+                    if (rawChildIds.length > 0) {
+                        const { data: students } = await supabase
+                            .from('students')
+                            .select('user_id, admission_number')
+                            .or(`user_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')})`);
+
+                        if (students && students.length > 0) {
+                            const relations = students.map(s => ({
+                                parent_user_id: newUserData.id,
+                                student_user_id: s.user_id
+                            }));
+                            await supabase.from('student_parent_links').insert(relations);
+                        }
+                    }
+
+                    toast.success('Parent created successfully!', { id: toastId });
+                    setCredentials({ username: authResult.username, password: authResult.password, email });
+                    setShowCredentialsModal(true);
                 }
-                setIsLoading(false);
-                return;
-            }
+            };
 
-            // 2. Create User Record (Legacy Table)
-            // We use the ID from the previous step if we can, but since public.users uses Serial/BigInt,
-            // we let it generate its own ID, and we just link them logically via email or a new column if exists.
-            // Ideally we should store the Auth UUID in 'users' table, but adhering to existing schema:
+            // Execute with Retry
+            await retryWithTimeout(saveOperation);
 
-            const { data: newUserData, error: userError } = await supabase
-                .from('users')
-                .insert([{
-                    email: email,
-                    name: name,
-                    role: 'Parent',
-                    avatar_url: avatarUrl
-                }])
-                .select()
-                .single();
-
-            if (userError) {
-                // Rollback opportunity here (delete auth user), but for MVP we just show error.
-                // In production, use a transaction or edge function.
-                throw userError;
-            }
-
-            const userData = newUserData;
-
-            // 3. Create Parent Profile
-            const { data: newParentData, error: parentError } = await supabase
-                .from('parents')
-                .insert([{
-                    user_id: userData.id, // Linking to Legacy User ID
-                    school_id: profile.schoolId,
-                    name,
-                    email: email,
-                    phone,
-                    avatar_url: avatarUrl
-                }])
-                .select()
-                .single();
-
-            if (parentError) throw parentError;
-            const parentData = newParentData;
-
-            // 4. Link Students to Parent
-            if (childIdArray.length > 0) {
-                const relations = childIdArray.map(childId => ({
-                    parent_id: parentData.id,
-                    student_id: childId
-                }));
-
-                const { error: relationError } = await supabase
-                    .from('parent_children')
-                    .insert(relations);
-
-                if (relationError) console.warn("Could not link all students:", relationError.message);
-            }
-
-            // 5. Send Welcome Email (Handled by Supabase Auth automatically now)
-            // But we can still simulate the welcome message in the UI or logs.
-            console.log('User created. Verification email sent by Supabase.');
-
-            // Show credentials modal
-            setCredentials({
-                username: authResult.username,
-                password: authResult.password,
-                email: email
-            });
-            setShowCredentialsModal(true);
-            // Don't call forceUpdate/handleBack here - let modal handle it
         } catch (error: any) {
             console.error('Error saving parent:', error);
-            toast.error('Failed to save parent: ' + (error.message || 'Unknown error'));
+            const userMsg = mapErrorToUserMessage(error);
+            toast.error(userMsg, { id: toastId, duration: 5000 });
         } finally {
             setIsLoading(false);
         }

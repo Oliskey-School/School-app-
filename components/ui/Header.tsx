@@ -14,9 +14,10 @@ interface HeaderProps {
   notificationCount?: number;
   onSearchClick?: () => void;
   className?: string; // Allow custom classes
+  customId?: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onMenuClick, onNotificationClick, notificationCount, onSearchClick, className = '' }) => {
+const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onMenuClick, onNotificationClick, notificationCount, onSearchClick, className = '', customId }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
@@ -103,11 +104,17 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
       {isDropdownOpen && onLogout && (
         <div
           ref={dropdownRef}
-          className="absolute right-4 sm:right-6 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5"
+          className="absolute right-4 sm:right-6 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5"
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="user-menu-button"
         >
+          {customId && (
+            <div className="px-4 py-2 border-b border-gray-100">
+              <span className="text-xs text-gray-500 uppercase font-semibold">ID</span>
+              <p className="text-sm font-mono text-gray-800 font-medium">{customId}</p>
+            </div>
+          )}
           <button
             onClick={onLogout}
             className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

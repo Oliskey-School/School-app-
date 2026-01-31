@@ -34,12 +34,16 @@ import {
     FileTextIcon,
 } from '../../constants';
 // Mock data removed
-import { AuditLog } from '../../types';
+import { AuditLog, RoleName } from '../../types';
 import DonutChart from '../ui/DonutChart';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { fetchAuditLogs } from '../../lib/database';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
 import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
+import { useApi } from '../../lib/hooks/useApi';
+import api from '../../lib/api';
 
 
 // --- NEW, REFINED UI/UX COMPONENTS ---
@@ -271,6 +275,20 @@ interface DashboardOverviewProps {
 }
 
 const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handleBack, forceUpdate }) => {
+    const { currentSchool, user } = useAuth();
+    const { profile } = useProfile();
+
+    // Triple-layer schoolId detection for the dashboard
+    const schoolId = currentSchool?.id || profile.schoolId || user?.user_metadata?.school_id;
+
+    useEffect(() => {
+        console.log('[Dashboard] Detected Context:', {
+            currentSchoolId: currentSchool?.id,
+            profileSchoolId: profile.schoolId,
+            metadataSchoolId: user?.user_metadata?.school_id,
+            resolvedSchoolId: schoolId
+        });
+    }, [schoolId, currentSchool, profile, user]);
 
     const [totalStudents, setTotalStudents] = useState(0);
     const [totalStaff, setTotalStaff] = useState(0);
@@ -292,9 +310,12 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
 
+    // Use our new Contract-First Debug Hook
+    const { execute: fetchStats, loading: isLoadingStats, error: statsError } = useApi();
+
     // Fetch real counts from Supabase
     useEffect(() => {
-        fetchCounts();
+        // Consolidated fetching - fetchCounts removed as it's now part of fetchDashboardData via api.ts
         fetchDashboardData();
         fetchBusRoster();
 
@@ -306,7 +327,6 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 (payload) => {
                     console.log('Real-time change detected:', payload);
                     // Re-fetch data instantly
-                    fetchCounts();
                     fetchDashboardData();
                     fetchBusRoster();
                 }
@@ -344,71 +364,29 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
     };
 
-    const fetchCounts = async () => {
-        setIsLoadingCounts(true);
-
-        if (!isSupabaseConfigured) {
-            setTotalStudents(0);
-            setTotalStaff(0);
-            setTotalParents(0);
-            setIsLoadingCounts(false);
-            return;
-        }
-
-        try {
-            // Fetch student count (FROM STUDENTS TABLE)
-            const { count: studentCount, error: studentError } = await supabase
-                .from('students')
-                .select('*', { count: 'exact', head: true });
-
-            if (!studentError) setTotalStudents(studentCount || 0);
-
-            // Fetch staff count (TEACHERS TABLE + Admins from USERS)
-            // 1. Teachers
-            const { count: teacherCount, error: teacherError } = await supabase
-                .from('teachers')
-                .select('*', { count: 'exact', head: true });
-
-            // 2. Admins (from users)
-            const { count: adminCount, error: adminError } = await supabase
-                .from('users')
-                .select('*', { count: 'exact', head: true })
-                .eq('role', 'Admin');
-
-            if (!teacherError) setTotalStaff((teacherCount || 0) + (adminCount || 0));
-
-            // Fetch parent count (FROM PARENTS TABLE)
-            const { count: parentCount, error: parentError } = await supabase
-                .from('parents')
-                .select('*', { count: 'exact', head: true });
-
-            if (!parentError) setTotalParents(parentCount || 0);
-
-        } catch (err) {
-            console.error('Error fetching counts:', err);
-        } finally {
-            setIsLoadingCounts(false);
-        }
-    };
+    // fetchCounts is replaced by api.getDashboardStats in fetchDashboardData
 
     const fetchDashboardData = async () => {
-        if (!isSupabaseConfigured) {
-            // Mock Data Fallbacks
-            setOverdueFees(0);
-            setUnpublishedReports(0);
-            setAttendancePercentage(0);
-            // Could populate more mocks here if needed, but 0 is fine for "Clean Slate"
-            return;
+        if (!isSupabaseConfigured) return;
+
+        if (!schoolId) {
+            console.warn('[Dashboard] No School ID detected. Fetching ALL data (Admin Mode).');
+        }
+
+        // 1. Fetch Core Stats via Bridge
+        const stats = await fetchStats(async () => {
+            const data = await api.getDashboardStats(schoolId);
+            return { data, error: null };
+        });
+
+        if (stats) {
+            setTotalStudents(stats.totalStudents);
+            setTotalStaff(stats.totalTeachers);
+            setTotalParents(stats.totalParents);
+            setOverdueFees(stats.overdueFees);
         }
 
         try {
-            // Fetch overdue fees count
-            const { count: overdueCount } = await supabase
-                .from('student_fees')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'Overdue');
-            setOverdueFees(overdueCount || 0);
-
             // Fetch recent audit logs
             const auditData = await fetchAuditLogs(4);
 
@@ -418,19 +396,14 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     user: {
                         name: log.profiles?.name || log.user_name || 'System',
                         avatarUrl: log.profiles?.avatar_url || 'https://i.pravatar.cc/150',
-                        role: 'Admin' // Simpler to default or fetch if needed
+                        role: 'Admin' as RoleName
                     },
                     action: log.action,
-                    timestamp: log.created_at, // Use created_at from DB
-                    type: log.action.toLowerCase() as any // Simple mapping
+                    timestamp: log.created_at,
+                    type: log.action.toLowerCase() as any
                 }));
-                // Filter out invalid types if needed, or map strictly
                 setRecentActivities(transformed);
             }
-
-            // Fetch bus roster stats - DEPRECATED: Switched to LocalStorage syc
-            // const today = new Date().toISOString().split('T')[0];
-            // const { count: assignedCount } = await supabase...
 
             // Fetch latest health log
             const { data: healthData } = await supabase
@@ -453,26 +426,26 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 });
             }
 
-            // Calculate enrollment trend from student created_at dates
+            // Calculate enrollment trend
+            // Note: Optimizing to only select needed fields
             const { data: studentsData } = await supabase
                 .from('students')
-                .select('created_at');
+                .select('created_at')
+                .eq('school_id', schoolId); // Added schoolId filter for safety
 
             if (studentsData) {
-                // Group by year and count
                 const yearCounts: { [year: number]: number } = {};
                 studentsData.forEach((s: any) => {
                     const year = new Date(s.created_at).getFullYear();
                     yearCounts[year] = (yearCounts[year] || 0) + 1;
                 });
 
-                // Convert to array format for chart
                 const trendData = Object.entries(yearCounts)
                     .map(([year, count]) => ({ year: parseInt(year), count }))
                     .sort((a, b) => a.year - b.year)
-                    .slice(-5); // Last 5 years
+                    .slice(-5);
 
-                setEnrollmentData(trendData.length > 0 ? trendData : [{ year: new Date().getFullYear(), count: totalStudents }]);
+                setEnrollmentData(trendData.length > 0 ? trendData : [{ year: new Date().getFullYear(), count: stats?.totalStudents || 0 }]);
             }
 
             // Fetch unpublished reports count
@@ -494,9 +467,6 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 const totalRecorded = attendanceData.length;
                 setAttendancePercentage(Math.round((presentCount / totalRecorded) * 100));
             } else {
-                // If no data for today, maybe fallback to average or 0? 
-                // For now, let's keep it 0 or null to indicate "Not recorded".
-                // But to wow the user, if 0, we might want to show "--"
                 setAttendancePercentage(0);
             }
 
@@ -527,7 +497,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         <p className="text-white/80">Here's your school's command center.</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                             <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-sky-400 to-sky-600" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend="+12" trendColor="text-sky-200" />
-                            <StatCard label="Total Staff" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend="+2" trendColor="text-purple-200" />
+                            <StatCard label="Total Teachers" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend="+2" trendColor="text-purple-200" />
                             <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend="+8" trendColor="text-orange-200" />
                         </div>
                     </div>

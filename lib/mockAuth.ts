@@ -1,101 +1,70 @@
-// Mock user data for Quick Login development
-export const MOCK_USERS = {
+// Mock user data for Quick Login buttons (Used for real Supabase login)
+export const MOCK_USERS: Record<string, any> = {
     admin: {
         id: '44444444-4444-4444-4444-444444444444',
-        email: 'admin@school.com',
+        email: 'admin@demo.com',
         password: 'password123',
         role: 'admin',
-        name: 'Admin User',
-        metadata: {
-            role: 'admin',
-            full_name: 'Admin User',
-        }
+        name: 'Demo Admin',
+        metadata: { role: 'admin', full_name: 'Demo Admin', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     teacher: {
         id: '22222222-2222-2222-2222-222222222222',
-        email: 'teacher@school.com',
+        email: 'teacher@demo.com',
         password: 'password123',
         role: 'teacher',
-        name: 'John Adeoye',
-        metadata: {
-            role: 'teacher',
-            full_name: 'John Adeoye',
-            subjects: ['Mathematics', 'Physics']
-        }
+        name: 'Demo Teacher',
+        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics', 'Science'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     parent: {
         id: '33333333-3333-3333-3333-333333333333',
-        email: 'parent@school.com',
+        email: 'parent@demo.com',
         password: 'password123',
         role: 'parent',
-        name: 'Peter Okonkwo',
-        metadata: {
-            role: 'parent',
-            full_name: 'Peter Okonkwo',
-            children: ['Ada Okonkwo', 'Chidi Okonkwo']
-        }
+        name: 'Demo Parent',
+        metadata: { role: 'parent', full_name: 'Demo Parent', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     student: {
-        id: '11111111-1111-1111-1111-111111111111',
-        email: 'student@school.com',
+        id: '11111111-1111-1111-111111111111', // Matches screenshot UID
+        email: 'student@demo.com',
         password: 'password123',
         role: 'student',
-        name: 'Adebayo Adewale',
-        metadata: {
-            role: 'student',
-            full_name: 'Adebayo Adewale',
-            grade: 10,
-            section: 'A'
-        }
+        name: 'Demo Student',
+        metadata: { role: 'student', full_name: 'Demo Student', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     proprietor: {
         id: '55555555-5555-5555-5555-555555555555',
-        email: 'proprietor@school.com',
+        email: 'proprietor@demo.com',
         password: 'password123',
         role: 'proprietor',
-        name: 'Mrs. Oluwaseun Ajayi',
-        metadata: {
-            role: 'proprietor',
-            full_name: 'Mrs. Oluwaseun Ajayi',
-            title: 'School Proprietor'
-        }
+        name: 'Demo Proprietor',
+        metadata: { role: 'proprietor', full_name: 'Demo Proprietor', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     inspector: {
         id: '66666666-6666-6666-6666-666666666666',
-        email: 'inspector@school.com',
+        email: 'inspector@demo.com',
         password: 'password123',
         role: 'inspector',
-        name: 'Dr. Ibrahim Mohammed',
-        metadata: {
-            role: 'inspector',
-            full_name: 'Dr. Ibrahim Mohammed',
-            organization: 'Ministry of Education'
-        }
+        name: 'Demo Inspector',
+        metadata: { role: 'inspector', full_name: 'Demo Inspector', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     examofficer: {
         id: '77777777-7777-7777-7777-777777777777',
-        email: 'exam@school.com',
+        email: 'examofficer@demo.com',
         password: 'password123',
         role: 'examofficer',
-        name: 'Mr. Chukwudi Nnamdi',
-        metadata: {
-            role: 'examofficer',
-            full_name: 'Mr. Chukwudi Nnamdi',
-            department: 'Examinations Office'
-        }
+        name: 'Demo Exam Officer',
+        metadata: { role: 'examofficer', full_name: 'Demo Exam Officer', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
-    complianceofficer: {
+    compliance: {
         id: '88888888-8888-8888-8888-888888888888',
-        email: 'compliance@school.com',
+        email: 'compliance@demo.com',
         password: 'password123',
         role: 'complianceofficer',
-        name: 'Ms. Ngozi Okafor',
-        metadata: {
-            role: 'complianceofficer',
-            full_name: 'Ms. Ngozi Okafor',
-            department: 'Compliance & Quality Assurance'
-        }
-    }
+        name: 'Demo Compliance',
+        metadata: { role: 'complianceofficer', full_name: 'Demo Compliance', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+    },
+
 };
 
 /**

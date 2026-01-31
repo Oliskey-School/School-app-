@@ -64,7 +64,7 @@ export default function InspectorDashboard({ onLogout, setIsHomePage, currentUse
 
             // TRY CACHE FIRST
             const cacheKey = `inspector_id_${currentUser.id}`;
-            const cachedId = offlineStorage.load<string>(cacheKey);
+            const cachedId = await offlineStorage.load<string>(cacheKey);
             if (cachedId) {
                 console.info('Loaded Inspector ID from offline cache');
                 setInspectorId(cachedId);
@@ -95,7 +95,7 @@ export default function InspectorDashboard({ onLogout, setIsHomePage, currentUse
 
                     if (data) {
                         setInspectorId(data.id);
-                        offlineStorage.save(cacheKey, data.id);
+                        await offlineStorage.save(cacheKey, data.id);
                         return;
                     }
                 }
@@ -122,7 +122,7 @@ export default function InspectorDashboard({ onLogout, setIsHomePage, currentUse
 
         // 1. Initial State: If we have cache, show it and set loading to false
         const cacheKey = `dashboard_data_${inspectorId}`;
-        const cachedData = offlineStorage.load<any>(cacheKey);
+        const cachedData = await offlineStorage.load<any>(cacheKey);
 
         if (cachedData) {
             setInspector(cachedData.inspector);
@@ -162,7 +162,7 @@ export default function InspectorDashboard({ onLogout, setIsHomePage, currentUse
                 setStats(demoData.stats);
                 setRecentInspections(demoData.recent);
                 setUpcomingInspections(demoData.upcoming);
-                offlineStorage.save(cacheKey, demoData);
+                await offlineStorage.save(cacheKey, demoData);
                 setLoading(false);
                 setIsRevalidating(false);
                 return;
@@ -207,7 +207,7 @@ export default function InspectorDashboard({ onLogout, setIsHomePage, currentUse
                 setUpcomingInspections(upcoming);
 
                 // Update Cache
-                offlineStorage.save(cacheKey, {
+                await offlineStorage.save(cacheKey, {
                     inspector: inspectorData,
                     stats: freshStats,
                     recent,

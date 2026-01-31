@@ -8,6 +8,7 @@ import { TeacherSidebar } from '../ui/DashboardSidebar';
 import PremiumLoader from '../ui/PremiumLoader';
 import { mockNotifications } from '../../data';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { useAuth } from '../../context/AuthContext';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -95,8 +96,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const [activeBottomNav, setActiveBottomNav] = useState('home');
   const [version, setVersion] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [teacherId, setTeacherId] = useState<number | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [teacherId, setTeacherId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { currentSchool } = useAuth();
 
   // Fetch Integer User ID for Chat
   useEffect(() => {
@@ -107,7 +109,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         if (userData) {
           setCurrentUserId(userData.id);
         } else {
-          setCurrentUserId((currentUser as any)?.id ? parseInt((currentUser as any).id) : 0);
+          setCurrentUserId((currentUser as any)?.id || '');
         }
       }
     };
@@ -142,9 +144,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       if (emailToQuery) {
         query = query.eq('email', emailToQuery);
       } else {
-        // Ultimate Fallback (Demo Only) - Only if really no auth
-        console.warn("No auth user found, falling back to Demo Teacher (ID 2)");
-        query = query.eq('id', 2);
+        // Ultimate Fallback - No numeric ID 2
+        console.warn("No auth user found");
       }
 
       const { data, error } = await query.maybeSingle();
@@ -160,6 +161,42 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           name: data.name || 'Teacher',
           avatarUrl: data.avatar_url
         });
+      } else if (emailToQuery) {
+        // AUTO-HEALING: If no teacher profile found, create one automatically
+        // linked to the Demo School (School App) so they are "connected" immediately.
+        console.log("⚠️ No teacher profile found. Auto-creating for School App...");
+
+        const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
+
+        try {
+          const { data: newTeacher, error: createError } = await supabase
+            .from('teachers')
+            .insert({
+              email: emailToQuery,
+              school_id: DEMO_SCHOOL_ID,
+              name: 'New Teacher', // Default name, can be updated later
+              status: 'Active',
+              user_id: currentUserId || undefined // Link to auth user if we have it
+              // created_at defaults to NOW()
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error("Failed to auto-create teacher profile:", createError);
+          } else if (newTeacher) {
+            console.log("✅ Auto-created teacher profile!", newTeacher);
+            setTeacherId(newTeacher.id);
+            setTeacherProfile({
+              name: newTeacher.name,
+              avatarUrl: newTeacher.avatar_url
+            });
+            // Force refresh to ensure UI updates
+            forceUpdate();
+          }
+        } catch (healErr) {
+          console.error("Auto-heal failed:", healErr);
+        }
       }
     } catch (err) {
       console.error('Unexpected error fetching profile:', err);
@@ -252,8 +289,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     reportCardInput: ReportCardInputScreen,
     collaborationForum: CollaborationForumScreen,
     forumTopic: ForumTopicScreen,
-    timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'teacher', userId: teacherId ?? 2 }} />,
-    chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId ?? 0} />,
+    timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'teacher', userId: teacherId || '' }} />,
+    chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId || ''} />,
     reports: TeacherReportsScreen,
     reportCardPreview: TeacherReportCardPreviewScreen,
     settings: (props: any) => <TeacherSettingsScreen {...props} dashboardProfile={teacherProfile} refreshDashboardProfile={fetchProfile} />,
@@ -273,14 +310,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     educationalGames: EducationalGamesScreen,
     aiGameCreator: AIGameCreatorScreen,
     gamePlayer: GamePlayerScreen,
-    appointments: (props: any) => <TeacherAppointmentsScreen {...props} teacherId={teacherId ?? 2} />,
+    appointments: (props: any) => <TeacherAppointmentsScreen {...props} teacherId={teacherId || ''} />,
     virtualClass: VirtualClassScreen,
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
     cbtManagement: CBTManagementScreen,
-    quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId ?? 2} onClose={handleBack} />,
-    classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId ?? 2} handleBack={handleBack} />,
-    lessonNotesUpload: (props: any) => <LessonNotesUploadScreen {...props} teacherId={teacherId ?? 2} handleBack={handleBack} />,
+    quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId || ''} onClose={handleBack} />,
+    classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
+    lessonNotesUpload: (props: any) => <LessonNotesUploadScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
   };
 
   const currentNavigation = viewStack[viewStack.length - 1];
@@ -309,6 +346,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           activeScreen={activeBottomNav}
           setActiveScreen={handleBottomNavClick}
           onLogout={onLogout}
+          schoolName={currentSchool?.name}
+          logoUrl={currentSchool?.logoUrl}
         />
       </div>
 
@@ -323,6 +362,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           onNotificationClick={handleNotificationClick}
           notificationCount={notificationCount}
           onSearchClick={() => setIsSearchOpen(true)}
+          customId={currentUser?.user_metadata?.custom_id || currentUser?.app_metadata?.custom_id}
         />
         <div className="flex-1 overflow-y-auto pb-56 lg:pb-0" style={{ marginTop: '-5rem' }}>
           <main className="min-h-full pt-20">

@@ -1,13 +1,17 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
-import { CameraIcon, UserIcon, MailIcon, PhoneIcon } from '../../constants';
+import { useNavigate } from 'react-router-dom';
+import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
 import { Student, Department } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
 import { mockStudents, mockParents } from '../../data';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
+import { useTenantLimit } from '../../hooks/useTenantLimit';
+import UpgradeModal from '../shared/UpgradeModal';
 
 interface AddStudentScreenProps {
     studentToEdit?: Student;
@@ -16,7 +20,12 @@ interface AddStudentScreenProps {
 }
 
 const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forceUpdate, handleBack }) => {
-    const { profile } = useProfile();
+    const { profile, refreshProfile } = useProfile();
+    const { currentSchool } = useAuth();
+
+    // Triple-layer schoolId detection
+    const schoolId = profile.schoolId || currentSchool?.id;
+
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [fullName, setFullName] = useState('');
     const [gender, setGender] = useState('');
@@ -47,6 +56,12 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         const match = className.match(/\d+/);
         return match ? parseInt(match[0], 10) : 0;
     }, [className]);
+    useEffect(() => {
+        if (!schoolId) {
+            console.log("School ID missing in profile/auth, refreshing...");
+            refreshProfile();
+        }
+    }, [refreshProfile, schoolId]);
 
     useEffect(() => {
         if (studentToEdit) {
@@ -111,9 +126,25 @@ parents(
         }
     };
 
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const { isLimitReached, currentCount, maxLimit, isPremium } = useTenantLimit();
+
+    const navigate = useNavigate();
+    const navigateToSubscription = () => {
+        setShowUpgradeModal(false);
+        navigate('/subscription');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+
+        // CHECK USAGE LIMITS (Only for new students, not edits)
+        if (!studentToEdit && isLimitReached) {
+            setShowUpgradeModal(true);
+            setIsLoading(false);
+            return;
+        }
 
         try {
             // Normalize inputs
@@ -278,7 +309,7 @@ parents(
                                 .insert([{
                                     email: gEmail,
                                     name: gName,
-                                    role: 'Parent',
+                                    role: 'parent',
                                     avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
                                 }])
                                 .select()
@@ -339,50 +370,68 @@ parents(
                 // 1. Create Login Credentials (Auth User) FIRST
                 // This validates email uniqueness in Supabase Auth immediately.
 
-                const authResult = await createUserAccount(fullName, 'Student', generatedEmail);
+                if (!schoolId) {
+                    toast.error('Fatal: Current admin/user has no School ID. Cannot register student.');
+                    setIsLoading(false);
+                    return;
+                }
+
+                const authResult = await createUserAccount(fullName, 'Student', generatedEmail, schoolId);
 
                 if (authResult.error) {
                     // Check specifically for email sending errors or rate limits (common in free tier)
                     if (authResult.error.toLowerCase().includes('email') || authResult.error.toLowerCase().includes('rate limit')) {
-                        toast.error(`Login account creation skipped: ${authResult.error}. Proceeding to create profile...`, { duration: 5000 });
-                        // Proceed without returning!
+                        // warning but proceed? No, if we don't have an ID, we cannot proceed.
+                        if (!authResult.userId) {
+                            toast.error(`Fatal: Could not create login account (${authResult.error}). Operations aborted.`);
+                            setIsLoading(false);
+                            return;
+                        }
                     } else if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
                         toast.error(`Student with email ${generatedEmail} is already registered. Please check the name or email format.`);
                         setIsLoading(false);
                         return;
                     } else {
-                        // For other critical auth errors, maybe still proceed? 
-                        // Let's safe fail and proceed for now, as profile creation is more important than login for Admin.
-                        toast.error('Login account failed: ' + authResult.error + '. Creating profile only.');
+                        // For captive failures etc
+                        toast.error('Login account failed: ' + authResult.error + '. Aborting.');
+                        setIsLoading(false);
+                        return;
                     }
                 }
 
-                // 2. Create User account (Legacy Table)
-
-                const { data: newUserData, error: userError } = await supabase
-                    .from('users')
-                    .insert([{
-                        email: generatedEmail,
-                        name: fullName,
-                        role: 'Student',
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
-
-                if (userError) {
-                    // Potentially rollback Auth user here in a real production app
-                    throw userError;
+                if (!authResult.userId) {
+                    toast.error('Auth created but no ID returned. Aborting.');
+                    setIsLoading(false);
+                    return;
                 }
 
-                const userData = newUserData;
+                // 2. Create User account (Legacy Table)
+                // MUST include ID (match Auth) and SCHOOL_ID (for RLS)
+                // 2. Create User Profile (using Secure RPC to bypass RLS)
+                const { error: rpcError } = await supabase.rpc('create_user_managed', {
+                    p_id: authResult.userId,
+                    p_email: generatedEmail,
+                    p_password: authResult.password,
+                    p_full_name: fullName,
+                    p_role: 'student', // CRITICAL: Lowercase required for DB constraint
+                    p_school_id: schoolId, // Use robust local schoolId
+                    p_avatar_url: avatarUrl,
+                    p_phone: ''
+                });
+
+                if (rpcError) {
+                    console.error('Error creating user profile (RPC):', rpcError);
+                    throw new Error(`Failed to create user profile: ${rpcError.message}`);
+                }
+
+                const userData = { id: authResult.userId };
 
                 // 3. Create Student Profile
                 const { error: studentError } = await supabase
                     .from('students')
                     .insert([{
                         user_id: userData.id,
-                        school_id: profile.schoolId,
+                        school_id: schoolId,
                         name: fullName,
                         avatar_url: avatarUrl,
                         grade: grade,
@@ -402,8 +451,7 @@ parents(
 
                 if (fetchStudentError) throw fetchStudentError;
 
-                // 4. (Auth was already created at start)
-                // We just log it now.
+                // 4. Log Success
                 console.log('Student credentials created successfully.');
 
 
@@ -459,7 +507,7 @@ parents(
                                 .insert([{
                                     email: gEmail,
                                     name: gName,
-                                    role: 'Parent',
+                                    role: 'parent',
                                     avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
                                 }])
                                 .select()
@@ -481,7 +529,7 @@ parents(
                                 if (!pErr) {
                                     parentIdToLink = newParent.id;
                                     // Create Auth & Send Email
-                                    const pAuth = await createUserAccount(gName, 'Parent', gEmail, newUser.id);
+                                    const pAuth = await createUserAccount(gName, 'Parent', gEmail, schoolId);
                                     await sendVerificationEmail(gName, gEmail, 'School App Account Created');
 
                                     // Capture for Modal
@@ -537,8 +585,56 @@ parents(
         }
     }
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <div className="ml-3 text-lg text-gray-600">Loading student data...</div>
+            </div>
+        );
+    }
+
+    // New Block: Prevent form usage if School ID is missing
+    if (!schoolId) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 bg-amber-50 rounded-2xl border border-amber-100 m-4 shadow-sm">
+                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                    <ExclamationTriangleIcon className="w-8 h-8 text-amber-600" />
+                </div>
+                <div className="text-xl font-bold text-slate-800 mb-2">Tenancy Handshake Missing</div>
+                <p className="text-slate-600 mb-6 text-center max-w-xs text-sm">
+                    We've detected you're logged in, but your session hasn't been linked to your school profile yet.
+                </p>
+                <div className="flex flex-col w-full space-y-3">
+                    <button
+                        onClick={async () => {
+                            setIsLoading(true);
+                            await refreshProfile();
+                            setIsLoading(false);
+                        }}
+                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                    >
+                        Sync School Profile
+                    </button>
+                    <button
+                        onClick={handleBack}
+                        className="w-full py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95"
+                    >
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
+            <UpgradeModal
+                isOpen={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                currentCount={currentCount}
+                limit={maxLimit}
+                onUpgrade={navigateToSubscription}
+            />
             <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
                 <main className="flex-grow p-4 space-y-6 overflow-y-auto">
                     {/* Photo Upload */}

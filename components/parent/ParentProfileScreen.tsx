@@ -25,10 +25,14 @@ import PTAMeetingScreen from './PTAMeetingScreen';
 import ParentPhotoGalleryScreen from './ParentPhotoGalleryScreen';
 import VolunteeringScreen from './VolunteeringScreen';
 import PermissionSlipScreen from './PermissionSlipScreen';
+import { toast } from 'react-hot-toast';
 import FeedbackScreen from './FeedbackScreen';
 import ParentNotificationSettingsScreen from './ParentNotificationSettingsScreen';
 import ParentSecurityScreen from './ParentSecurityScreen';
 import { useProfile } from '../../context/ProfileContext';
+import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
+import { Copy, UserPlus } from 'lucide-react';
+import LinkChildScreen from './LinkChildScreen';
 
 interface ParentProfileScreenProps {
   onLogout: () => void;
@@ -37,7 +41,7 @@ interface ParentProfileScreenProps {
   parentId?: number;
 }
 
-type SettingView = 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | null;
+type SettingView = 'linkChild' | 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | null;
 
 const SettingsPlaceholder: React.FC = () => (
   <div className="flex-col items-center justify-center h-full text-center text-gray-500 bg-[#F0F2F5] border-l border-gray-300/80 hidden md:flex">
@@ -51,9 +55,11 @@ const SettingsPlaceholder: React.FC = () => (
 
 const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, navigateTo, forceUpdate, parentId }) => {
   const { profile } = useProfile();
+  const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
   const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
   const menuItems = [
+    { id: 'linkChild', icon: <UserPlus />, label: 'Link Child Account' },
     { id: 'editParentProfile', icon: <EditIcon />, label: 'Edit Profile' },
     { id: 'learningResources', icon: <BookOpenIcon />, label: 'Learning Resources' },
     { id: 'schoolPolicies', icon: <ShieldCheckIcon />, label: 'School Policies' },
@@ -68,7 +74,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
   ];
 
   const theme = {
-    iconColors: ['bg-blue-100 text-blue-500', 'bg-orange-100 text-orange-500', 'bg-indigo-100 text-indigo-500', 'bg-teal-100 text-teal-500', 'bg-pink-100 text-pink-500', 'bg-sky-100 text-sky-500', 'bg-lime-100 text-lime-500', 'bg-green-100 text-green-500', 'bg-amber-100 text-amber-500', 'bg-red-100 text-red-500', 'bg-purple-100 text-purple-500']
+    iconColors: ['bg-blue-100 text-blue-500', 'bg-blue-100 text-blue-500', 'bg-orange-100 text-orange-500', 'bg-indigo-100 text-indigo-500', 'bg-teal-100 text-teal-500', 'bg-pink-100 text-pink-500', 'bg-sky-100 text-sky-500', 'bg-lime-100 text-lime-500', 'bg-green-100 text-green-500', 'bg-amber-100 text-amber-500', 'bg-red-100 text-red-500', 'bg-purple-100 text-purple-500']
   };
 
   const handleItemClick = (id: string) => {
@@ -81,6 +87,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
 
   const renderActiveSetting = () => {
     switch (activeSetting) {
+      case 'linkChild': return <LinkChildScreen handleBack={() => setActiveSetting(null)} forceUpdate={forceUpdate} />;
       case 'editParentProfile': return <EditParentProfileScreen parentId={parentId} />;
       case 'learningResources': return <LearningResourcesScreen />;
       case 'schoolPolicies': return <SchoolPoliciesScreen />;
@@ -105,12 +112,17 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
             <img src={profile.avatarUrl} alt="Parent Avatar" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square" />
             <div>
               <h3 className="text-xl font-bold text-gray-800">{profile.name}</h3>
-              <p className="text-sm text-gray-500">{profile.email}</p>
-              {profile.schoolId && (
-                <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200">
-                  ID: {profile.schoolId}
+              <p className="text-sm text-gray-500 mb-1">{profile.email}</p>
+              <div
+                className="inline-flex items-center gap-2 px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
+                onClick={() => copyToClipboard(customId)}
+              >
+                <span className="text-xs font-mono font-medium">
+                  {formatId(customId) || profile.schoolId || 'ID: --'}
                 </span>
-              )}
+                <Copy className="w-3 h-3 text-gray-400" />
+                {copied && <span className="text-xs text-green-600 font-bold ml-1">✓</span>}
+              </div>
             </div>
           </div>
 
@@ -119,7 +131,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
               <button key={item.label} onClick={() => handleItemClick(item.id)} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === item.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
                 <div className="flex items-center space-x-4">
                   <div className={`p-2 rounded-lg ${theme.iconColors[index % theme.iconColors.length]}`}>
-                    {React.cloneElement(item.icon, { className: 'h-5 w-5' })}
+                    {React.cloneElement(item.icon as React.ReactElement, { className: 'h-5 w-5' })}
                   </div>
                   <span className="font-semibold text-gray-700">{item.label}</span>
                 </div>

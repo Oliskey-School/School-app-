@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode.react';
 import { Student, Teacher } from '../../types';
-import { useProfile } from '../../contexts/ProfileContext';
+import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 
 interface IDCardGeneratorProps {

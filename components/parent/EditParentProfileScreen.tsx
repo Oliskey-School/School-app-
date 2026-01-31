@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 // import { supabase } from '../../lib/supabase'; // Removed
 import { UserIcon, MailIcon, PhoneIcon, CameraIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
+import { toast } from 'react-hot-toast';
 
 interface EditParentProfileScreenProps {
-    parentId?: number | null;
+    parentId?: string | null;
     onProfileUpdate?: (data?: { name: string; avatarUrl: string }) => void;
 }
 

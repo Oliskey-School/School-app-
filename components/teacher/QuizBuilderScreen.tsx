@@ -1,13 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
-// Note: Using new 'Quiz', 'Question' types from types.ts automatically if imported, ensuring no conflict with 'GamifiedQuiz' if explicit.
+// Note: Using new 'Quiz', 'Question' types from types.ts automatically if imported
 import { Question } from '../../types';
 
 interface QuizBuilderScreenProps {
-    teacherId: number;
+    teacherId?: number; // Kept for compatibility but ignored for logic
     onClose: () => void;
 }
 
@@ -20,7 +20,7 @@ interface WarningQuestionState {
     points: number;
 }
 
-const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ teacherId, onClose }) => {
+const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
     const [title, setTitle] = useState('');
     const [subject, setSubject] = useState('');
     const [grade, setGrade] = useState('');
@@ -28,6 +28,43 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ teacherId, onClos
     const [description, setDescription] = useState('');
     const [questions, setQuestions] = useState<WarningQuestionState[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [classesList, setClassesList] = useState<any[]>([]);
+
+    // New State for correct UUIDs
+    const [authUserId, setAuthUserId] = useState<string | null>(null);
+    const [schoolId, setSchoolId] = useState<string | null>(null);
+
+    // Fetch correctly typed IDs on mount
+    useEffect(() => {
+        const fetchContext = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setAuthUserId(user.id);
+                // Fetch profile to get school_id
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('school_id')
+                    .eq('id', user.id)
+                    .single();
+
+                if (profile) {
+                    setSchoolId(profile.school_id);
+                    // Fetch classes for this school
+                    const { data: classes } = await supabase
+                        .from('classes')
+                        .select('id, name, level_category')
+                        .eq('school_id', profile.school_id)
+                        .order('grade', { ascending: true });
+
+                    if (classes) setClassesList(classes);
+                } else {
+                    console.error('No profile found for user');
+                    toast.error('Could not load user profile');
+                }
+            }
+        };
+        fetchContext();
+    }, []);
 
     const addQuestion = (type: 'MultipleChoice' | 'Theory') => {
         const newQ: WarningQuestionState = {
@@ -84,19 +121,27 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ teacherId, onClos
             return;
         }
 
+        if (!authUserId || !schoolId) {
+            toast.error('Missing user context. Please try reloading.');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            // 1. Create Quiz Record
+            // 1. Create Quiz Record with Correct UUIDs
             const { data: quizData, error: quizError } = await supabase
                 .from('quizzes')
                 .insert([{
                     title,
                     subject,
-                    grade: parseInt(grade) || 0,
-                    teacher_id: teacherId,
+                    // grade: parseInt(grade) || 0, // Removed legacy numeric grade
+                    class_id: grade, // Linking directly to class_id (stored in grade state for convenience)
+                    teacher_id: authUserId, // UUID
+                    school_id: schoolId,    // UUID
                     duration_minutes: duration,
                     description,
-                    is_published: true // auto-publish for now
+                    is_published: true, // auto-publish for now
+                    is_active: true
                 }])
                 .select()
                 .single();
@@ -105,7 +150,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ teacherId, onClos
 
             // 2. Create Questions
             const formattedQuestions = questions.map(q => ({
-                quiz_id: quizData.id,
+                quiz_id: quizData.id, // UUID
                 text: q.text,
                 type: q.type,
                 points: q.points,
@@ -179,14 +224,17 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ teacherId, onClos
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Grade Level</label>
-                            <input
-                                type="number"
-                                value={grade}
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Target Class</label>
+                            <select
+                                value={grade} // Storing class_id in 'grade' state for now to minimize refactor, or better rename state if possible. Let's keep 'grade' state but store ID.
                                 onChange={e => setGrade(e.target.value)}
                                 className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                placeholder="e.g. 10"
-                            />
+                            >
+                                <option value="">Select a Class</option>
+                                {classesList.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.name} ({c.level_category})</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Duration (Minutes)</label>

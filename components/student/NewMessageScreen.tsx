@@ -163,7 +163,7 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
                     .upsert([{
                         name: student.name,
                         email: student.email,
-                        role: 'Student',
+                        role: 'student',
                         avatar_url: student.avatarUrl,
                         user_id: student.user_id
                     }], { onConflict: 'email' }) // Assuming email is unique constraint

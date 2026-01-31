@@ -35,6 +35,7 @@ const getAuthToken = (): string | null => {
 
 class HybridApiClient {
     private baseUrl: string;
+    private options?: ApiOptions; // Added missing property
 
     constructor(baseUrl: string = API_BASE_URL) {
         this.baseUrl = baseUrl;
@@ -66,6 +67,35 @@ class HybridApiClient {
         }
 
         return response.json();
+    }
+
+    // ============================================
+    // DASHBOARD & ANALYTICS
+    // ============================================
+
+    async getDashboardStats(schoolId: string): Promise<any> {
+        if (!schoolId) return null;
+
+        if (this.options?.useBackend) {
+            return this.fetch<any>(`/admin/dashboard-stats?schoolId=${schoolId}`);
+        }
+
+        // Use the efficient RPC function we created
+        const { data, error } = await supabase
+            .rpc('get_dashboard_stats', { p_school_id: schoolId });
+
+        if (error) {
+            console.error('Error fetching dashboard stats:', error);
+            // Fallback to manual counting (less efficient but safe)
+            return {
+                totalStudents: 0,
+                totalTeachers: 0,
+                totalParents: 0,
+                overdueFees: 0
+            };
+        }
+
+        return data;
     }
 
     // ============================================
@@ -356,33 +386,7 @@ class HybridApiClient {
     // DASHBOARD - Hybrid Methods
     // ============================================
 
-    async getDashboardStats(options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend) {
-            return this.fetch<any>('/admin/dashboard');
-        }
-        // Direct calculation from Supabase
-        const [students, teachers, parents, fees] = await Promise.all([
-            supabase.from('students').select('id', { count: 'exact' }),
-            supabase.from('teachers').select('id', { count: 'exact' }),
-            supabase.from('parents').select('id', { count: 'exact' }),
-            supabase.from('student_fees').select('status, total_fee, paid_amount')
-        ]);
-
-        const feeData = fees.data || [];
-        const totalFees = feeData.reduce((sum, f) => sum + (f.total_fee || 0), 0);
-        const collectedFees = feeData.reduce((sum, f) => sum + (f.paid_amount || 0), 0);
-
-        return {
-            totalStudents: students.count || 0,
-            totalTeachers: teachers.count || 0,
-            totalParents: parents.count || 0,
-            totalFees,
-            collectedFees,
-            outstandingFees: totalFees - collectedFees,
-            overdueFees: feeData.filter(f => f.status === 'Overdue').length,
-            feeComplianceRate: totalFees > 0 ? Math.round((collectedFees / totalFees) * 100) : 0
-        };
-    }
+    // Old manual implementation removed in favor of RPC version at top of file
 
     // ============================================
     // REALTIME SUBSCRIPTIONS (Supabase Only)

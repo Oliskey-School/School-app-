@@ -399,7 +399,12 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
         } catch (error: any) {
             console.error('Error saving timetable:', error);
-            setToastMessage('Failed to save: ' + error.message);
+            // Enhanced error message for conflicts
+            if (error.message?.includes('Teacher Conflict')) {
+                setToastMessage('Conflict: ' + error.message);
+            } else {
+                setToastMessage('Failed to save: ' + error.message);
+            }
         } finally {
             setIsSaving(false);
         }
@@ -490,7 +495,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             const result = await generateTimetableAI({
                 className: selectedClass || "Grade X",
                 subjects: Object.keys(SUBJECT_COLORS),
-                teachers: teachers,
+                teachers: teachers.map(t => ({ id: 'unknown', name: t })),
                 days: DAYS,
                 periodsPerDay: PERIODS.length
             });

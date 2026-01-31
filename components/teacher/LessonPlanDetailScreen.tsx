@@ -54,10 +54,14 @@ const LessonPlanLink: React.FC<{ plan: GeneratedLessonPlan, onClick: () => void 
     );
 };
 
-const LessonPlansTab: React.FC<{ plans: TermResources['lessonPlans'], notes?: DetailedNote[], navigateTo: (view: string, title: string, props: any) => void; }> = ({ plans, notes, navigateTo }) => {
+const LessonPlansTab: React.FC<{ plans: TermResources['lessonPlans'], notes?: DetailedNote[], context: any, navigateTo: (view: string, title: string, props: any) => void; }> = ({ plans, notes, context, navigateTo }) => {
     const handlePlanClick = (plan: GeneratedLessonPlan) => {
         const noteData = notes?.find(n => n.topic === plan.topic);
-        navigateTo('lessonContent', `Week ${plan.week}`, { lessonPlan: plan, detailedNote: noteData });
+        navigateTo('lessonContent', `Week ${plan.week}`, {
+            lessonPlan: plan,
+            detailedNote: noteData,
+            context: context
+        });
     };
 
     // Check if plans exist and have content
@@ -127,6 +131,14 @@ const TermContent: React.FC<{
     navigateTo: (view: string, title: string, props?: any) => void;
 }> = ({ termResource, resources, navigateTo }) => {
     const [activeTab, setActiveTab] = useState<'scheme' | 'plans' | 'assessments'>('scheme');
+
+    // Extract context IDs from resources (passed from LessonPlannerScreen)
+    const context = {
+        subjectId: (resources as any).subjectId,
+        classId: (resources as any).classId,
+        teacherId: (resources as any).teacherId
+    };
+
     return (
         <div>
             <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg mb-4 print:hidden">
@@ -135,7 +147,7 @@ const TermContent: React.FC<{
                 <button onClick={() => setActiveTab('assessments')} className={`w-1/3 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === 'assessments' ? 'bg-white shadow text-black' : 'text-gray-600 hover:bg-gray-300/50'}`}>Assessments</button>
             </div>
             {activeTab === 'scheme' && <SchemeOfWorkTab scheme={termResource.schemeOfWork} />}
-            {activeTab === 'plans' && <LessonPlansTab plans={termResource.lessonPlans} notes={resources.detailedNotes} navigateTo={navigateTo} />}
+            {activeTab === 'plans' && <LessonPlansTab plans={termResource.lessonPlans} notes={resources.detailedNotes} context={context} navigateTo={navigateTo} />}
             {activeTab === 'assessments' && <AssessmentsTab assessments={termResource.assessments} navigateTo={navigateTo} />}
         </div>
     );

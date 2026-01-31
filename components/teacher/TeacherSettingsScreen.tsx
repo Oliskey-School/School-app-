@@ -23,6 +23,8 @@ import TeacherSecurityScreen from './TeacherSecurityScreen';
 import ProfessionalDevelopmentScreen from './ProfessionalDevelopmentScreen';
 import CBTManagementScreen from './CBTManagementScreen';
 import { supabase } from '../../lib/supabase';
+import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
+import { Copy } from 'lucide-react';
 
 interface TeacherSettingsScreenProps {
     onLogout: () => void;
@@ -48,6 +50,7 @@ const SettingsPlaceholder: React.FC = () => (
 
 
 const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({ onLogout, navigateTo, profile: propProfile, refreshDashboardProfile, teacherId, currentUser }) => {
+    const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
     const theme = THEME_CONFIG[DashboardType.Teacher];
     const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
@@ -106,7 +109,17 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({ onLogout,
                             </div>
                         )}
                         <h3 className="text-2xl font-bold text-gray-800">{profile.name}</h3>
-                        <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full">Subject Teacher</span>
+                        <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full mb-2">Subject Teacher</span>
+                        <div
+                            className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition-colors"
+                            onClick={() => copyToClipboard(customId)}
+                        >
+                            <span className="text-xs text-gray-600 font-mono font-medium">
+                                {formatId(customId) || 'ID: Loading...'}
+                            </span>
+                            <Copy className="w-3 h-3 text-gray-400" />
+                            {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm p-2">

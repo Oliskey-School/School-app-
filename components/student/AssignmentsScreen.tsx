@@ -29,7 +29,7 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                 if (assignError) throw assignError;
 
                 const { data: submissionsData, error: subError } = await supabase
-                    .from('submissions')
+                    .from('assignment_submissions')
                     .select('*')
                     .eq('student_id', studentId);
 
@@ -42,12 +42,12 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
                         studentSubmissionsMap.set(s.assignment_id, {
                             id: s.id,
                             assignmentId: s.assignment_id,
-                            student: { id: studentId, name: 'You', avatarUrl: '' }, // minimal mock or fetch
+                            student: { id: studentId.toString(), name: 'You', avatarUrl: '' }, // minimal mock or fetch
                             submittedAt: s.submission_date || s.submitted_at || new Date().toISOString(),
                             isLate: s.is_late || false,
-                            files: s.file_url ? [{ name: 'Submission', size: 0 }] : [],
+                            files: s.attachment_url ? [{ name: 'Submission', size: 0 }] : [],
                             status: s.status || 'Ungraded',
-                            grade: s.grade,
+                            grade: s.score, // Corrected from grade to score based on schema
                             feedback: s.feedback
                         });
                     });
@@ -81,7 +81,7 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
             .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => {
                 fetchAssignments();
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions', filter: `student_id=eq.${studentId}` }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignment_submissions', filter: `student_id=eq.${studentId}` }, () => {
                 fetchAssignments();
             })
             .subscribe();

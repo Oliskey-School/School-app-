@@ -28,7 +28,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const [uploadType, setUploadType] = useState<'Test' | 'Exam'>('Test');
 
     const [isUploading, setIsUploading] = useState(false);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -119,14 +119,16 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 
             console.log("Parsed questions:", parsedQuestions);
 
-            // 1. Create Exam Record
-            const { data: examData, error: examError } = await supabase
-                .from('cbt_exams')
+            // 1. Create Quiz Record (quizzes table)
+            // Ensure teacherId and other IDs are strings if needed, or rely on Postgres implicit cast from JS strings
+            const { data: quizData, error: quizError } = await supabase
+                .from('quizzes')
                 .insert([{
                     title: file.name.replace('.xlsx', '').replace('.xls', ''),
-                    type: uploadType,
-                    class_id: parseInt(selectedClassId),
-                    subject_id: selectedSubjectId,
+                    description: uploadType, // Mapping 'type' to description or status if needed
+                    status: 'Draft', // Default status
+                    class_id: selectedClassId, // UUID string
+                    subject_id: selectedSubjectId, // UUID string
                     duration_minutes: duration,
                     total_marks: totalMarks,
                     teacher_id: teacherId,
@@ -135,21 +137,26 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 .select()
                 .single();
 
-            if (examError) throw examError;
+            if (quizError) throw quizError;
 
-            // 2. Insert Questions
-            const questionsPayload = parsedQuestions.map(q => ({
-                exam_id: examData.id,
-                ...q
+            // 2. Insert Questions (quiz_questions table)
+            const questionsPayload = parsedQuestions.map((q, index) => ({
+                quiz_id: quizData.id,
+                question_text: q.question_text,
+                question_type: 'multiple_choice', // improved
+                options: [q.option_a, q.option_b, q.option_c, q.option_d], // Store as array
+                correct_option: q.correct_option,
+                points: q.marks,
+                order_index: index + 1
             }));
 
             const { error: qError } = await supabase
-                .from('cbt_questions')
+                .from('quiz_questions')
                 .insert(questionsPayload);
 
             if (qError) throw qError;
 
-            toast.success("Exam uploaded successfully!");
+            toast.success("Quiz uploaded successfully!");
             loadInitialData();
 
         } catch (err: any) {
@@ -168,7 +175,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
         setExams(prev => prev.map(e => e.id === exam.id ? { ...e, isPublished: newStatus } : e));
 
         const { error } = await supabase
-            .from('cbt_exams')
+            .from('quizzes')
             .update({ is_published: newStatus })
             .eq('id', exam.id);
 
@@ -178,7 +185,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
         }
     };
 
-    const handleDelete = async (id: number) => {
+    const handleDelete = async (id: string) => {
         const success = await deleteCBTExam(id);
         if (success) {
             toast.success("Exam deleted successfully");

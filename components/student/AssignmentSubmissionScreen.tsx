@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { StudentAssignment, Submission } from '../../types';
 import { SUBJECT_COLORS, ClockIcon, PaperclipIcon, XCircleIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -34,13 +35,14 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
+  const { currentSchool } = useAuth(); // Need school_id for insert
 
   // Load existing submission
   React.useEffect(() => {
     const loadSubmission = async () => {
       try {
         const { data, error } = await supabase
-          .from('submissions')
+          .from('assignment_submissions')
           .select('*')
           .eq('assignment_id', assignment.id)
           .eq('student_id', studentId)
@@ -48,12 +50,8 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
 
         if (data) {
           setExistingSubmission(data);
-          setTextAnswer(data.text_submission || '');
-          // Parse file_url (assuming it might be a JSON string of file names for now, or just a single string)
-          // For this demo, if it's a string, we treat it as one file
-          // If we want to persist real files without storage, we can't really restore File objects easily.
-          // We will rely on `existingSubmission` to show "Previously submitted files" if needed, 
-          // but for now let's just show text answer and allow new upload or overwrite.
+          setTextAnswer(data.submission_text || '');
+          // Parse attachment_url
         }
       } catch (err) {
         console.error(err);
@@ -89,39 +87,50 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
 
     try {
       // Prepare file "URLs" (mocking upload since no storage bucket)
-      // We'll just save the filenames as a comma-separated string in file_url for this demo
       const fileNames = attachedFiles.map(f => f.name).join(',');
 
+      // Common payload mapping
       const submissionPayload = {
         assignment_id: assignment.id,
         student_id: studentId,
-        text_submission: textAnswer,
-        file_url: fileNames || (existingSubmission?.file_url),
+        submission_text: textAnswer,
+        attachment_url: fileNames || (existingSubmission?.attachment_url),
         submitted_at: new Date().toISOString(),
-        is_late: new Date() > new Date(assignment.dueDate),
-        status: 'Submitted'
+        // is_late: new Date() > new Date(assignment.dueDate), // 'is_late' not in schema, ignoring for now
+        status: 'submitted',
+        school_id: currentSchool?.id
       };
+
+      if (!submissionPayload.school_id && !existingSubmission) {
+        // Fallback if context missing, try to get from student record or just fail gracefully?
+        // For now, if no school_id, we might fail RLS or constraint.
+        // Let's assume studentId implies school context not needed for update, but needed for insert.
+        // We can fetch school_id from assignment if needed.
+        const { data: assignData } = await supabase.from('assignments').select('school_id').eq('id', assignment.id).single();
+        if (assignData) submissionPayload.school_id = assignData.school_id;
+      }
 
       if (existingSubmission) {
         // Update
         const { error } = await supabase
-          .from('submissions')
-          .update(submissionPayload)
+          .from('assignment_submissions')
+          .update({
+            submission_text: textAnswer,
+            attachment_url: submissionPayload.attachment_url,
+            submitted_at: new Date().toISOString()
+          })
           .eq('id', existingSubmission.id);
 
         if (error) throw error;
       } else {
         // Insert
         const { error } = await supabase
-          .from('submissions')
+          .from('assignment_submissions')
           .insert(submissionPayload);
 
         if (error) throw error;
 
         // Increment assignment count (best effort)
-        await supabase.rpc('increment_submission_count', { row_id: assignment.id });
-        // If RPC doesn't exist, we might fail or need simpler approach. 
-        // Simpler approach: read-modify-write (unsafe for concurrency but ok for demo)
         const { data: assignData } = await supabase.from('assignments').select('submissions_count').eq('id', assignment.id).single();
         if (assignData) {
           await supabase.from('assignments').update({ submissions_count: (assignData.submissions_count || 0) + 1 }).eq('id', assignment.id);

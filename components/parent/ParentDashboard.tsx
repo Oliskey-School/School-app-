@@ -35,7 +35,7 @@ import GlobalSearchScreen from '../shared/GlobalSearchScreen';
 
 import { supabase } from '../../lib/supabase';
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
-import { realtimeService } from '../../services/RealtimeService';
+// import { realtimeService } from '../../services/RealtimeService';
 import { toast } from 'react-hot-toast';
 
 // Import all view components
@@ -126,6 +126,7 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
                         <div>
                             <h3 className="font-bold text-lg text-gray-800">{student.name}</h3>
                             <p className="text-sm font-semibold" style={{ color: colorTheme.text }}>{formattedClassName}</p>
+                            <p className="text-xs text-gray-500 mt-1">ID: {student.schoolId || `SCH-${student.id}`}</p>
                         </div>
                     </div>
                     <button onClick={() => navigateTo('childDetail', student.name, { student: student })} className="bg-white p-2 rounded-full shadow-sm hover:bg-gray-100">
@@ -434,14 +435,14 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Stude
     );
 };
 
-const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title: string, props?: any) => void, parentId?: number | null }) => {
+const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo: (view: string, title: string, props?: any) => void, parentId?: string | null, currentUser?: any, version?: number }) => {
     const theme = THEME_CONFIG[DashboardType.Parent];
     const [students, setStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchChildren = async () => {
-            const fetchStudents = async (ids: number[]) => {
+            const fetchStudents = async (ids: string[]) => {
                 const { data: studentsData, error: studentsError } = await supabase
                     .from('students')
                     .select('*')
@@ -534,38 +535,35 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
             };
 
             try {
-                if (!parentId) {
-                    // Fallback for demo/dev if no parentId passed yet
-                    const { data: fallbackParent } = await supabase
-                        .from('parents')
-                        .select('id')
-                        .limit(1)
-                        .single();
+                const effectiveParentId = (currentUser as any)?.id || parentId;
 
-                    if (fallbackParent) {
-                        // Use first found parent as fallback
-                        const { data: relations } = await supabase.from('parent_children').select('student_id').eq('parent_id', fallbackParent.id);
-                        if (relations) {
-                            const studentIds = relations.map(r => r.student_id);
-                            fetchStudents(studentIds);
-                        }
-                    }
+                if (!effectiveParentId) {
                     setLoading(false);
                     return;
                 }
 
-
-                // 2. Get Children IDs
+                // Get Children IDs using secure link table
                 const { data: relations, error: relationError } = await supabase
-                    .from('parent_children')
-                    .select('student_id')
-                    .eq('parent_id', parentId);
+                    .from('student_parent_links')
+                    .select('student_user_id')
+                    .eq('parent_user_id', effectiveParentId);
 
                 if (relationError) throw relationError;
 
                 if (relations && relations.length > 0) {
-                    const studentIds = relations.map(r => r.student_id);
-                    await fetchStudents(studentIds);
+                    // Fetch student record IDs based on the user IDs from the link table
+                    const userIds = relations.map((r: any) => r.student_user_id);
+                    const { data: studentsData } = await supabase
+                        .from('students')
+                        .select('id')
+                        .in('user_id', userIds);
+
+                    if (studentsData && studentsData.length > 0) {
+                        const ids = studentsData.map((s: any) => s.id);
+                        await fetchStudents(ids);
+                    } else {
+                        setStudents([]);
+                    }
                 } else {
                     setStudents([]);
                 }
@@ -581,7 +579,7 @@ const Dashboard = ({ navigateTo, parentId }: { navigateTo: (view: string, title:
 
 
         fetchChildren();
-    }, [parentId]);
+    }, [parentId, version]);
 
     const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -756,6 +754,7 @@ interface ParentDashboardProps {
 }
 
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { useAuth } from '../../context/AuthContext';
 
 // ... (top level)
 
@@ -764,12 +763,13 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [parentId, setParentId] = useState<number | null>(null);
-    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+    const [parentId, setParentId] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [parentProfile, setParentProfile] = useState<{ name: string; avatarUrl: string }>({
         name: 'Parent',
         avatarUrl: 'https://i.pravatar.cc/150?u=parent'
     });
+    const { currentSchool } = useAuth();
 
     // Real-time notifications
     const notificationCount = useRealtimeNotifications('parent');
@@ -785,10 +785,11 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                 if (userData) {
                     setCurrentUserId(userData.id);
                 } else {
-                    setCurrentUserId((currentUser as any)?.id ? parseInt((currentUser as any).id) : 0);
+                    setCurrentUserId((currentUser as any)?.id || '');
                 }
 
-                // Global Real-time Service Integration for Parent
+                // Global Real-time Service Integration for Parent - Removed
+                /*
                 realtimeService.subscribeToNotifications(user.id, (notif) => {
                     toast(notif.message || notif.content || 'New Event', {
                         icon: '🔔',
@@ -804,13 +805,14 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     });
                     forceUpdate();
                 });
+                */
             }
         };
         getUser();
 
-        return () => {
-            realtimeService.unsubscribeAll();
-        };
+        // return () => {
+        //     realtimeService.unsubscribeAll();
+        // };
     }, [currentUser]);
 
     const fetchProfile = async () => {
@@ -828,11 +830,45 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             }
         }
 
-        const { data, error } = await query.single();
+        const { data, error } = await query.maybeSingle();
 
         if (error) {
             console.error('Error fetching parent profile:', error);
             return;
+        }
+
+        if (!data && currentUser?.email?.endsWith('@demo.com')) {
+            // AUTO-HEALING: Create Demo Parent Profile
+            console.log("⚠️ No child-linked parent profile found. Auto-creaing for School App...");
+            const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
+
+            try {
+                const { data: newParent, error: createError } = await supabase
+                    .from('parents')
+                    .insert({
+                        user_id: currentUser.id, // Link to the auth user
+                        email: currentUser.email,
+                        school_id: DEMO_SCHOOL_ID,
+                        name: currentUser.user_metadata?.full_name || 'Demo Parent',
+                        phone: '123-456-7890',
+                        address: '123 School Lane',
+                        school_generated_id: 'P-DEMO-' + Math.floor(Math.random() * 1000)
+                    })
+                    .select()
+                    .single();
+
+                if (newParent) {
+                    console.log("✅ Auto-created parent profile!", newParent);
+                    setParentId(newParent.id);
+                    setParentProfile({
+                        name: newParent.name,
+                        avatarUrl: newParent.avatar_url || 'https://i.pravatar.cc/150?u=parent'
+                    });
+                    return;
+                }
+            } catch (healErr) {
+                console.error("Parent auto-heal failed:", healErr);
+            }
         }
 
         if (data) {
@@ -957,7 +993,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         forceUpdate,
         parentId,
         currentUser,
-        currentUserId
+        currentUserId,
+        version
     };
 
     return (
@@ -968,6 +1005,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     activeScreen={activeBottomNav}
                     setActiveScreen={handleBottomNavClick}
                     onLogout={onLogout}
+                    schoolName={currentSchool?.name}
+                    logoUrl={currentSchool?.logoUrl}
                 />
             </div>
 
@@ -982,6 +1021,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     onNotificationClick={handleNotificationClick}
                     notificationCount={notificationCount}
                     onSearchClick={() => setIsSearchOpen(true)}
+                    customId={currentUser?.user_metadata?.custom_id || currentUser?.app_metadata?.custom_id}
                 />
 
                 <div className="flex-1 overflow-hidden relative">

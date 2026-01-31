@@ -16,7 +16,7 @@ interface ProfileContextType {
   profile: UserProfile;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
-  loadProfileFromDatabase: (userId?: number | string, email?: string) => Promise<void | UserProfile>;
+  loadProfileFromDatabase: (userId?: string, email?: string) => Promise<void | UserProfile>;
   isLoading: boolean;
   setProfile: (profile: UserProfile) => void;
 }
@@ -29,7 +29,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     email: 'user@school.com',
     phone: '+234 801 234 5678',
     avatarUrl: 'https://i.pravatar.cc/150?u=user',
-    role: 'Admin',
+    role: 'admin',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -44,29 +44,38 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           // Fetch user profile from users table by email
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, name, email, avatar_url, role')
+            .select('id, name, email, avatar_url, role, school_id')
             .eq('email', authData.user.email)
             .single();
 
           if (!userError && userData) {
-            let schoolId: string | undefined;
+            let schoolId: string | undefined = userData.school_id;
 
-            // Fetch School ID based on role
-            if (['Admin', 'Proprietor'].includes(userData.role)) {
+            // Fallback 1: Auth Metadata (Source of truth for session tenancy)
+            if (!schoolId || schoolId === '00000000-0000-0000-0000-000000000000') {
+              const { data: { user: authUser } } = await supabase.auth.getUser();
+              schoolId = authUser?.user_metadata?.school_id || authUser?.app_metadata?.school_id;
+
+              // Healing: If we found it in metadata but not DB, sync it!
+              if (schoolId && (!userData.school_id || userData.school_id === '00000000-0000-0000-0000-000000000000')) {
+                console.log('🔄 Auto-syncing school_id to DB...');
+                await supabase.rpc('sync_user_metadata', { p_school_id: schoolId });
+              }
+            }
+
+            // Fallback 2: Healing Logic (Look up school by admin email if still missing)
+            if ((!schoolId || schoolId === '00000000-0000-0000-0000-000000000000') && ['Admin', 'Proprietor'].includes(userData.role)) {
+              console.log('Attempting school_id healing via email...');
               const { data: schoolData } = await supabase
                 .from('schools')
                 .select('id')
-                .eq('email', userData.email)
+                .eq('contact_email', userData.email)
                 .single();
-              if (schoolData) schoolId = schoolData.id;
-            } else if (userData.role === 'Student') {
-              const { data: sData } = await supabase.from('students').select('school_id').eq('user_id', userData.id).single();
-              if (sData) schoolId = sData.school_id;
-            } else if (userData.role === 'Teacher') {
-              const { data: tData } = await supabase.from('teachers').select('school_id').eq('user_id', userData.id).single();
-              if (tData) schoolId = tData.school_id;
+              if (schoolData) {
+                schoolId = schoolData.id;
+                await supabase.rpc('sync_user_metadata', { p_school_id: schoolId });
+              }
             }
-            // For Parents, complex. Skip for now or default.
 
             const dbProfile: UserProfile = {
               id: userData.id,
@@ -108,24 +117,24 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     sessionStorage.setItem('userProfile', JSON.stringify(newProfile));
   }, []);
 
-  const loadProfileFromDatabase = useCallback(async (userId?: number | string, email?: string) => {
+  const loadProfileFromDatabase = useCallback(async (userId?: string, email?: string) => {
     setIsLoading(true);
     try {
       let userData = null;
       let error = null;
 
-      if (userId && !isNaN(Number(userId))) {
+      if (userId) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, role')
-          .eq('id', Number(userId))
+          .select('id, name, email, avatar_url, role, school_id')
+          .eq('id', userId)
           .single();
         userData = result.data;
         error = result.error;
       } else if (email) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, role')
+          .select('id, name, email, avatar_url, role, school_id')
           .eq('email', email)
           .single();
         userData = result.data;
@@ -140,6 +149,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           phone: profile.phone,
           avatarUrl: userData.avatar_url || profile.avatarUrl,
           role: (userData.role as any) || profile.role,
+          schoolId: userData.school_id,
         };
         setProfileState(dbProfile);
         sessionStorage.setItem('userProfile', JSON.stringify(dbProfile));
@@ -162,7 +172,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Save to Supabase `users` table (PRIMARY storage)
       let saveSuccess = false;
 
-      if (updated.id && !isNaN(Number(updated.id))) {
+      if (updated.id) {
         const { error } = await supabase
           .from('users')
           .update({
@@ -171,7 +181,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             avatar_url: updated.avatarUrl
             // phone removed as it is not in users table
           })
-          .eq('id', Number(updated.id));
+          .eq('id', updated.id);
 
         if (error) {
           console.error('Error saving profile to Supabase:', error);
@@ -231,8 +241,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (tableName) {
             let query = supabase.from(tableName).update(commonUpdates);
 
-            // Try to match by user_id first, fallback to email
-            if (!isNaN(userId)) {
+            // Match by user_id first, fallback to email
+            if (userId) {
               query = query.eq('user_id', userId);
             } else if (userEmail) {
               // Students table might not have email column in some schemas, 
@@ -241,8 +251,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 query = query.eq('email', userEmail);
               } else {
                 // For students without ID, we can't reliably update purely by email 
-                // if the student table doesn't have an email column (it's on the user).
-                // Skipping update if no ID for student.
                 console.warn('Cannot update student record without valid user_id');
                 return;
               }
@@ -271,21 +279,45 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsLoading(true);
     try {
       // Fetch latest profile from Supabase
-      if (profile.id && !isNaN(Number(profile.id))) {
+      if (profile.id) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, phone, role')
-          .eq('id', Number(profile.id))
+          .select('id, name, email, avatar_url, role, school_id')
+          .eq('id', profile.id)
           .single();
 
         if (!error && data) {
+          let schoolId = data.school_id;
+
+          // Fallback 1: Metadata
+          if (!schoolId || schoolId === '00000000-0000-0000-0000-000000000000') {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            schoolId = authUser?.user_metadata?.school_id || authUser?.app_metadata?.school_id;
+          }
+
+          // Fallback 2: Healing Logic (Look up school by admin email if still missing)
+          if ((!schoolId || schoolId === '00000000-0000-0000-0000-000000000000') && ['Admin', 'Proprietor'].includes(data.role)) {
+            const { data: schoolData } = await supabase
+              .from('schools')
+              .select('id')
+              .eq('contact_email', data.email)
+              .single();
+            if (schoolData) schoolId = schoolData.id;
+          }
+
+          // Force Sync if healed
+          if (schoolId && schoolId !== data.school_id) {
+            await supabase.rpc('sync_user_metadata', { p_school_id: schoolId });
+          }
+
           const refreshed: UserProfile = {
             id: data.id,
             name: data.name || profile.name,
             email: data.email,
-            phone: data.phone || profile.phone,
+            phone: profile.phone, // Phone not in users table
             avatarUrl: data.avatar_url || profile.avatarUrl,
             role: (data.role as any) || profile.role,
+            schoolId: schoolId,
           };
           setProfileState(refreshed);
           sessionStorage.setItem('userProfile', JSON.stringify(refreshed));
@@ -294,18 +326,42 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (profile.email) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, phone, role')
+          .select('id, name, email, avatar_url, role, school_id')
           .eq('email', profile.email)
           .single();
 
         if (!error && data) {
+          let schoolId = data.school_id;
+
+          // Fallback 1: Metadata
+          if (!schoolId || schoolId === '00000000-0000-0000-0000-000000000000') {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            schoolId = authUser?.user_metadata?.school_id || authUser?.app_metadata?.school_id;
+          }
+
+          // Fallback 2: Healing Logic (Look up school by admin email if still missing)
+          if ((!schoolId || schoolId === '00000000-0000-0000-0000-000000000000') && ['Admin', 'Proprietor'].includes(data.role)) {
+            const { data: schoolData } = await supabase
+              .from('schools')
+              .select('id')
+              .eq('contact_email', data.email)
+              .single();
+            if (schoolData) schoolId = schoolData.id;
+          }
+
+          // Force Sync if healed
+          if (schoolId && schoolId !== data.school_id) {
+            await supabase.rpc('sync_user_metadata', { p_school_id: schoolId });
+          }
+
           const refreshed: UserProfile = {
             id: data.id,
             name: data.name || profile.name,
             email: data.email,
-            phone: profile.phone,
+            phone: profile.phone, // Phone not in users table
             avatarUrl: data.avatar_url || profile.avatarUrl,
             role: (data.role as any) || profile.role,
+            schoolId: schoolId,
           };
           setProfileState(refreshed);
           sessionStorage.setItem('userProfile', JSON.stringify(refreshed));

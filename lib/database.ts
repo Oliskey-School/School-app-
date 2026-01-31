@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { Database } from '../types/supabase';
 import {
     Student,
     Teacher,
@@ -49,7 +50,7 @@ export async function fetchStudents(): Promise<Student[]> {
     }
 }
 
-export async function fetchStudentById(id: number): Promise<Student | null> {
+export async function fetchStudentById(id: string | number): Promise<Student | null> {
     try {
         const { data, error } = await supabase
             .from('students')
@@ -109,7 +110,7 @@ export async function fetchStudentByEmail(email: string): Promise<Student | null
     }
 }
 
-export async function fetchStudentsByClass(grade: number, section: string): Promise<Student[]> {
+export async function fetchStudentsByClass(grade: number | string, section: string): Promise<Student[]> {
     try {
         const { data, error } = await supabase
             .from('students')
@@ -164,7 +165,7 @@ export async function createStudent(studentData: {
     department?: string;
     birthday?: string;
     avatarUrl?: string;
-    userId?: number | string;
+    userId?: string;
 }): Promise<Student | null> {
     try {
         const { data, error } = await supabase
@@ -204,7 +205,7 @@ export async function createStudent(studentData: {
     }
 }
 
-export async function updateStudent(id: number, updates: Partial<{
+export async function updateStudent(id: string | number, updates: Partial<{
     name: string;
     email: string;
     grade: number;
@@ -238,7 +239,7 @@ export async function updateStudent(id: number, updates: Partial<{
     }
 }
 
-export async function deleteStudent(id: number): Promise<boolean> {
+export async function deleteStudent(id: string | number): Promise<boolean> {
     try {
         const { error } = await supabase
             .from('students')
@@ -287,7 +288,7 @@ export async function fetchTeachers(): Promise<Teacher[]> {
     }
 }
 
-export async function fetchTeacherById(id: number): Promise<Teacher | null> {
+export async function fetchTeacherById(id: string | number): Promise<Teacher | null> {
     try {
         const { data, error } = await supabase
             .from('teachers')
@@ -378,7 +379,7 @@ export async function createTeacher(teacherData: {
     }
 }
 
-export async function updateTeacher(id: number, updates: Partial<{
+export async function updateTeacher(id: string | number, updates: Partial<{
     name: string;
     email: string;
     phone: string;
@@ -439,7 +440,7 @@ export async function updateTeacher(id: number, updates: Partial<{
     }
 }
 
-export async function deleteTeacher(id: number): Promise<boolean> {
+export async function deleteTeacher(id: string | number): Promise<boolean> {
     try {
         // Delete related records first (cascade should handle this, but being explicit)
         await supabase.from('teacher_subjects').delete().eq('teacher_id', id);
@@ -519,7 +520,7 @@ export async function fetchParentByEmail(email: string): Promise<Parent | null> 
     }
 }
 
-export async function fetchParentByUserId(userId: number | string): Promise<Parent | null> {
+export async function fetchParentByUserId(userId: string): Promise<Parent | null> {
     try {
         const { data, error } = await supabase
             .from('parents')
@@ -548,7 +549,7 @@ export async function fetchParentByUserId(userId: number | string): Promise<Pare
     }
 }
 
-export async function fetchChildrenForParent(parentId: number): Promise<Student[]> {
+export async function fetchChildrenForParent(parentId: string | number): Promise<Student[]> {
     try {
         // 1. Get student IDs
         const { data: relations, error: relError } = await supabase
@@ -587,7 +588,7 @@ export async function fetchChildrenForParent(parentId: number): Promise<Student[
     }
 }
 
-export async function fetchParentsForStudent(studentId: number): Promise<Parent[]> {
+export async function fetchParentsForStudent(studentId: string | number): Promise<Parent[]> {
     try {
         // 1. Get parent IDs
         const { data: relations, error: relError } = await supabase
@@ -628,7 +629,7 @@ export async function createParent(parentData: {
     name: string;
     email: string;
     phone?: string;
-    childIds?: number[];
+    childIds?: string[];
     avatarUrl?: string;
 }): Promise<Parent | null> {
     try {
@@ -670,12 +671,12 @@ export async function createParent(parentData: {
     }
 }
 
-export async function updateParent(id: number, updates: Partial<{
+export async function updateParent(id: string | number, updates: Partial<{
     name: string;
     email: string;
     phone: string;
     avatarUrl: string;
-    childIds: number[];
+    childIds: string[];
 }>): Promise<boolean> {
     try {
         const dbUpdates: any = {};
@@ -711,7 +712,7 @@ export async function updateParent(id: number, updates: Partial<{
     }
 }
 
-export async function deleteParent(id: number): Promise<boolean> {
+export async function deleteParent(id: string | number): Promise<boolean> {
     try {
         await supabase.from('parent_children').delete().eq('parent_id', id);
         const { error } = await supabase
@@ -837,6 +838,52 @@ export async function deleteNotice(id: number): Promise<boolean> {
 }
 
 // ============================================
+// QUIZZES
+// ============================================
+
+export async function fetchQuizzes(role: 'student' | 'teacher', userId: string, grade?: number): Promise<any[]> {
+    try {
+        let query = supabase
+            .from('quizzes')
+            .select('*')
+            .eq('is_published', true)
+            .order('created_at', { ascending: false });
+
+        if (role === 'student' && grade) {
+            query = query.eq('grade', grade);
+        } else if (role === 'teacher') {
+            query = query.eq('teacher_id', userId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching quizzes:', err);
+        return [];
+    }
+}
+
+export async function fetchQuizById(id: string): Promise<any | null> {
+    try {
+        const { data, error } = await supabase
+            .from('quizzes')
+            .select(`
+                *,
+                questions (*)
+            `)
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (err) {
+        console.error('Error fetching quiz:', err);
+        return null;
+    }
+}
+// ============================================
 // CLASSES
 // ============================================
 
@@ -931,7 +978,7 @@ export async function createAssignment(assignmentData: {
     }
 }
 
-export async function updateAssignment(id: number, updates: Partial<{
+export async function updateAssignment(id: string | number, updates: Partial<{
     title: string;
     description: string;
     className: string;
@@ -959,7 +1006,7 @@ export async function updateAssignment(id: number, updates: Partial<{
     }
 }
 
-export async function deleteAssignment(id: number): Promise<boolean> {
+export async function deleteAssignment(id: string | number): Promise<boolean> {
     try {
         const { error } = await supabase
             .from('assignments')
@@ -973,11 +1020,6 @@ export async function deleteAssignment(id: number): Promise<boolean> {
         return false;
     }
 }
-
-// ============================================
-// EXAMS
-// ============================================
-
 export async function fetchExams(): Promise<Exam[]> {
     try {
         const { data, error } = await supabase
@@ -1007,7 +1049,7 @@ export async function fetchExams(): Promise<Exam[]> {
 // FEE MANAGEMENT
 // ============================================
 
-export async function fetchStudentFees(studentId?: number): Promise<any[]> {
+export async function fetchStudentFees(studentId?: string | number): Promise<any[]> {
     try {
         let query = supabase.from('student_fees').select('*');
 
@@ -1035,7 +1077,7 @@ export async function fetchStudentFees(studentId?: number): Promise<any[]> {
 }
 
 export async function createFeeRecord(feeData: {
-    studentId: number;
+    studentId: string | number;
     amount: number;
     title: string;
     dueDate: string;
@@ -1062,7 +1104,7 @@ export async function createFeeRecord(feeData: {
     }
 }
 
-export async function updateFeeStatus(feeId: number, status: string, amountPaid?: number): Promise<boolean> {
+export async function updateFeeStatus(feeId: string | number, status: string, amountPaid?: number): Promise<boolean> {
     try {
         const updates: any = { status };
         if (amountPaid !== undefined) {
@@ -1088,7 +1130,7 @@ export async function updateFeeStatus(feeId: number, status: string, amountPaid?
 // ============================================
 
 export async function saveAttendanceRecords(records: Array<{
-    studentId: number;
+    studentId: string | number;
     date: string;
     status: string;
     className?: string;
@@ -1101,7 +1143,6 @@ export async function saveAttendanceRecords(records: Array<{
             class_name: r.className
         }));
 
-        // Use upsert to update existing or insert new
         const { error } = await supabase
             .from('student_attendance')
             .upsert(inserts, {
@@ -1190,12 +1231,12 @@ export async function checkTimetableExists(className: string): Promise<boolean> 
 // ============================================
 
 export interface CreateNotificationParams {
-    userId?: number; // Optional if targeting specific user
-    studentId?: number; // Optional if targeting specific student
+    userId?: string; // Optional if targeting specific user
+    studentId?: string | number; // Optional if targeting specific student
     category: string;
     title: string;
     summary: string;
-    relatedId?: number;
+    relatedId?: string | number;
 }
 
 export async function createNotification(params: CreateNotificationParams): Promise<boolean> {
@@ -1302,13 +1343,8 @@ export async function fetchAnalyticsMetrics() {
                 { label: 'Poor', value: Math.round((poor / total) * 100), a11yLabel: `${Math.round((poor / total) * 100)}% Poor` },
             ];
         } else {
-            // Mock fallback if empty
-            stats.performance = [
-                { label: 'Excellent', value: 25, a11yLabel: '25% Excellent' },
-                { label: 'Good', value: 45, a11yLabel: '45% Good' },
-                { label: 'Average', value: 20, a11yLabel: '20% Average' },
-                { label: 'Poor', value: 10, a11yLabel: '10% Poor' },
-            ];
+            // Empty state
+            stats.performance = [];
         }
 
         // 2. Fee Compliance
@@ -1328,7 +1364,7 @@ export async function fetchAnalyticsMetrics() {
                 total: fees.length
             };
         } else {
-            stats.fees = { paid: 75, overdue: 15, unpaid: 10, total: 100 };
+            stats.fees = { paid: 0, overdue: 0, unpaid: 0, total: 0 };
         }
 
         // 3. Teacher Workload (from timetable)
@@ -1343,9 +1379,7 @@ export async function fetchAnalyticsMetrics() {
                 .sort((a, b) => b.value - a.value)
                 .slice(0, 5); // Top 5
         } else {
-            stats.workload = [
-                { label: 'Mr. A', value: 12 }, { label: 'Ms. B', value: 10 }, { label: 'Mr. C', value: 15 }, { label: 'Ms. D', value: 8 }, { label: 'Mr. E', value: 11 }
-            ];
+            stats.workload = [];
         }
 
         // 4. Enrollment
@@ -1384,7 +1418,7 @@ export async function fetchAnalyticsMetrics() {
             const sortedKeys = Object.keys(dailyStats).sort();
             stats.attendance = sortedKeys.map(k => Math.round((dailyStats[k].present / dailyStats[k].total) * 100));
         } else {
-            stats.attendance = [88, 92, 90, 95, 94, 96, 95];
+            stats.attendance = []; // No data
         }
 
         return stats;
@@ -1399,7 +1433,7 @@ export async function fetchAnalyticsMetrics() {
 // PARENT DASHBOARD HELPERS
 // ============================================
 
-export async function fetchStudentAssignments(studentId: number, grade: number, section: string): Promise<Assignment[]> {
+export async function fetchStudentAssignments(studentId: string | number, grade: number, section: string): Promise<Assignment[]> {
     try {
         const { data, error } = await supabase
             .from('assignments')
@@ -1427,7 +1461,52 @@ export async function fetchStudentAssignments(studentId: number, grade: number, 
     }
 }
 
-export async function fetchStudentAttendanceStats(studentId: number): Promise<{ percentage: number }> {
+export async function submitAssignment(submissionData: {
+    studentId: string | number;
+    assignmentId: string | number;
+    submissionText: string;
+    attachmentUrl?: string;
+    studentUserId?: string; // Optional if we look it up
+    schoolId: string;
+}): Promise<boolean> {
+    try {
+        const { error } = await supabase
+            .from('assignment_submissions')
+            .insert({
+                student_id: submissionData.studentId,
+                assignment_id: submissionData.assignmentId,
+                submission_text: submissionData.submissionText,
+                attachment_url: submissionData.attachmentUrl,
+                student_user_id: submissionData.studentUserId,
+                school_id: submissionData.schoolId,
+                status: 'submitted',
+                submitted_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error('Error submitting assignment:', err);
+        return false;
+    }
+}
+
+export async function fetchStudentSubmissions(studentId: string | number): Promise<any[]> {
+    try {
+        const { data, error } = await supabase
+            .from('assignment_submissions')
+            .select('*')
+            .eq('student_id', studentId);
+
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('Error fetching student submissions:', err);
+        return [];
+    }
+}
+
+export async function fetchStudentAttendanceStats(studentId: string | number): Promise<{ percentage: number }> {
     try {
         const { data, error } = await supabase
             .from('student_attendance')
@@ -1448,7 +1527,7 @@ export async function fetchStudentAttendanceStats(studentId: number): Promise<{ 
     }
 }
 
-export async function fetchStudentFeeSummary(studentId: number): Promise<{ totalFee: number; paidAmount: number; status: string; dueDate?: string } | null> {
+export async function fetchStudentFeeSummary(studentId: string | number): Promise<{ totalFee: number; paidAmount: number; status: string; dueDate?: string } | null> {
     try {
         const { data, error } = await supabase
             .from('student_fees')
@@ -1497,7 +1576,7 @@ export async function fetchCurricula(): Promise<any[]> {
     }
 }
 
-export async function fetchSubjects(curriculumId?: number, gradeLevel?: string): Promise<any[]> {
+export async function fetchSubjects(curriculumId?: string | number, gradeLevel?: string): Promise<any[]> {
     try {
         let query = supabase
             .from('subjects')
@@ -1533,7 +1612,7 @@ export async function fetchSubjects(curriculumId?: number, gradeLevel?: string):
 // FEATURE EXPANSION: LESSON NOTES
 // ============================================
 
-export async function fetchLessonNotes(teacherId?: number, subjectId?: number): Promise<any[]> {
+export async function fetchLessonNotes(teacherId?: string | number, subjectId?: string | number): Promise<any[]> {
     try {
         let query = supabase
             .from('lesson_notes')
@@ -1567,9 +1646,9 @@ export async function fetchLessonNotes(teacherId?: number, subjectId?: number): 
 }
 
 export async function createLessonNote(noteData: {
-    teacherId: number;
-    subjectId: number;
-    classId: number;
+    teacherId: string | number;
+    subjectId: string | number;
+    classId: string | number;
     week: number;
     term: string;
     title: string;
@@ -1603,12 +1682,12 @@ export async function createLessonNote(noteData: {
 // FEATURE EXPANSION: CBT EXAMS
 // ============================================
 
-export async function fetchCBTExams(teacherId?: number, isPublished?: boolean): Promise<any[]> {
+export async function fetchCBTExams(teacherId?: string | number, isPublished?: boolean): Promise<any[]> {
     try {
         let query = supabase
-            .from('cbt_exams')
+            .from('quizzes')
             .select('*, classes(grade, section), subjects(name)')
-            .order('created_at', { ascending: false }); // Newest first
+            .order('created_at', { ascending: false });
 
         if (teacherId) query = query.eq('teacher_id', teacherId);
         if (isPublished !== undefined) query = query.eq('is_published', isPublished);
@@ -1616,63 +1695,64 @@ export async function fetchCBTExams(teacherId?: number, isPublished?: boolean): 
         const { data, error } = await query;
         if (error) throw error;
 
-        return (data || []).map(exam => ({
-            id: exam.id,
-            title: exam.title,
-            subjectId: exam.subject_id,
-            subjectName: exam.subjects?.name, // Mapped from join
-            classId: exam.class_id,
-            className: exam.classes ? `Grade ${exam.classes.grade}${exam.classes.section}` : undefined, // Mapped from join
-            classGrade: exam.class_grade,
-            curriculumId: exam.curriculum_id,
-            durationMinutes: exam.duration_minutes,
-            totalQuestions: exam.total_questions,
-            isPublished: exam.is_published,
-            teacherId: exam.teacher_id,
-            createdAt: exam.created_at
+        return (data || []).map(quiz => ({
+            id: quiz.id,
+            title: quiz.title,
+            description: quiz.description,
+            subjectId: quiz.subject_id,
+            subjectName: quiz.subjects?.name,
+            classId: quiz.class_id,
+            className: quiz.classes ? `Grade ${quiz.classes.grade}${quiz.classes.section}` : undefined,
+            durationMinutes: quiz.duration_minutes,
+            totalMarks: quiz.total_marks,
+            isPublished: quiz.is_published,
+            teacherId: quiz.teacher_id,
+            createdAt: quiz.created_at,
+            status: quiz.status,
+            shuffleQuestions: quiz.shuffle_questions
         }));
     } catch (err) {
-        console.error('Error fetching CBT exams:', err);
+        console.error('Error fetching Quizzes:', err);
         return [];
     }
 }
 
-export async function fetchCBTQuestions(examId: number): Promise<any[]> {
+export async function fetchCBTQuestions(examId: string): Promise<any[]> {
     try {
         const { data, error } = await supabase
-            .from('cbt_questions')
+            .from('quiz_questions')
             .select('*')
-            .eq('exam_id', examId)
-            .order('id');
+            .eq('quiz_id', examId)
+            .order('order_index', { ascending: true }); // Assuming order_index exists, or just id
 
         if (error) throw error;
 
         return (data || []).map(q => ({
             id: q.id,
-            examId: q.exam_id,
+            examId: q.quiz_id,
             questionText: q.question_text,
             questionType: q.question_type,
-            options: q.options, // Should be array of strings
+            options: q.options,
             correctOption: q.correct_option,
             points: q.points
         }));
     } catch (err) {
-        console.error('Error fetching CBT questions:', err);
+        console.error('Error fetching Quiz questions:', err);
         return [];
     }
 }
 
-export async function deleteCBTExam(examId: number): Promise<boolean> {
+export async function deleteCBTExam(examId: string): Promise<boolean> {
     try {
         const { error } = await supabase
-            .from('cbt_exams')
+            .from('quizzes')
             .delete()
             .eq('id', examId);
 
         if (error) throw error;
         return true;
     } catch (err) {
-        console.error('Error deleting CBT exam:', err);
+        console.error('Error deleting Quiz:', err);
         return false;
     }
 }
@@ -1840,7 +1920,7 @@ export async function fetchAuditLogs(limit: number = 50): Promise<any[]> {
             .from('audit_logs')
             .select(`
                 *,
-                profiles:user_id (name, avatar_url)
+                profiles:users!audit_logs_user_id_fkey (name, avatar_url)
             `)
             .order('created_at', { ascending: false })
             .limit(limit);
@@ -1963,12 +2043,14 @@ export async function fetchAcademicPerformance(studentId: number): Promise<any[]
 // STUDENT DASHBOARD AGGREGATORS
 // ============================================
 
-export async function fetchStudentStats(studentId: number) {
+export async function fetchStudentStats(studentId: string | number) {
     try {
         // Parallel queries for efficiency
         const [attendanceRes, assignmentsRes, activitiesRes] = await Promise.all([
-            supabase.from('attendance').select('status').eq('student_id', studentId),
-            supabase.from('submissions').select('id').eq('student_id', studentId),
+            // Corrected table name: student_attendance
+            supabase.from('student_attendance').select('status').eq('student_id', studentId),
+            // Corrected table name: assignment_submissions
+            supabase.from('assignment_submissions').select('id').eq('student_id', studentId),
             supabase.from('academic_performance').select('score').eq('student_id', studentId) // Proxy for achievements/activities for now
         ]);
 
@@ -1995,7 +2077,7 @@ export async function fetchStudentStats(studentId: number) {
     }
 }
 
-export async function fetchUpcomingEvents(grade: number | string, section: string, studentId: number) {
+export async function fetchUpcomingEvents(grade: number | string, section: string, studentId: string | number) {
     try {
         const today = new Date().toISOString();
         const nextWeek = new Date();
@@ -2150,5 +2232,20 @@ export async function deleteBus(id: string): Promise<boolean> {
     } catch (err) {
         console.error('Error deleting bus:', err);
         return false;
+    }
+}
+
+export async function linkStudentToParent(studentCode: string, relationship: string): Promise<{ success: boolean; message: string }> {
+    try {
+        const { data, error } = await supabase.rpc('link_student_to_parent', {
+            p_student_code: studentCode,
+            p_relationship: relationship
+        });
+
+        if (error) throw error;
+        return data as { success: boolean; message: string };
+    } catch (err: any) {
+        console.error('Error linking student:', err);
+        return { success: false, message: err.message || 'Failed to link student' };
     }
 }

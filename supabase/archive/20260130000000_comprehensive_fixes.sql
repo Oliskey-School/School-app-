@@ -1,0 +1,3 @@
+-- This file has been superseded and moved to archive.
+-- Content removed to prevent duplicate execution errors.
+-- See migrations/0068_comprehensive_fixes_setup.sql and 0069_comprehensive_fixes_final.sql instead.

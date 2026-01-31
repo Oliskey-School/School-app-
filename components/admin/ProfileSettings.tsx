@@ -11,10 +11,13 @@ import {
     ChevronLeftIcon,
     UserIcon
 } from '../../constants';
+import { Copy as CopyIcon } from 'lucide-react';
 import EditProfileScreen from './EditProfileScreen';
 import NotificationsSettingsScreen from './NotificationsSettingsScreen';
 import PersonalSecuritySettingsScreen from './PersonalSecuritySettingsScreen';
 import { useProfile } from '../../context/ProfileContext';
+import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
+import { toast } from 'react-hot-toast';
 
 type SettingView = 'editProfile' | 'notificationsSettings' | 'personalSecuritySettings' | null;
 
@@ -36,6 +39,7 @@ const SettingsPlaceholder: React.FC = () => (
 
 const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo }) => {
     const { profile } = useProfile();
+    const { customId, copyToClipboard, copied } = useUserIdentity();
     const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
     const settingsItems = [
@@ -83,6 +87,24 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                         />
                         <h3 className="text-2xl font-bold text-gray-800">{profile.name}</h3>
                         <span className="bg-sky-100 text-sky-800 text-xs font-semibold px-3 py-1 rounded-full">{profile.role || 'Administrator'}</span>
+
+                        {/* Custom ID Display */}
+                        {customId && (
+                            <div
+                                onClick={() => copyToClipboard(customId)}
+                                className="mt-2 flex items-center space-x-2 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors group"
+                                title="Click to copy ID"
+                            >
+                                <span className="font-mono text-sm font-semibold text-gray-600 tracking-wider">
+                                    {customId}
+                                </span>
+                                {copied ? (
+                                    <span className="text-green-500 text-xs font-bold animate-pulse">Copied!</span>
+                                ) : (
+                                    <CopyIcon className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600" />
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm p-2">

@@ -39,7 +39,7 @@ const StudentRow: React.FC<{ student: Student; onSelect: (student: Student) => v
     <img src={student.avatarUrl} alt={student.name} className="w-10 h-10 rounded-full object-cover" />
     <div className="flex-grow min-w-0">
       <p className="font-bold text-sm text-gray-800 truncate">{student.name}</p>
-      <p className="text-xs text-gray-500">ID: SCH-0{student.id}</p>
+      <p className="text-xs text-gray-500">ID: {student.schoolId || `SCH-${student.id}`}</p>
     </div>
     <div className="flex items-center space-x-3">
       <AttendanceStatusIndicator status={student.attendanceStatus} />
@@ -173,7 +173,9 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         section: s.section,
         department: s.department,
         attendanceStatus: s.attendance_status || 'Absent',
-        birthday: s.birthday
+        birthday: s.birthday,
+        schoolId: s.school_generated_id,
+        email: s.email || ''
       }));
 
       setStudents(transformedData);

@@ -1,14 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase'; import { Student, Teacher } from '../../types';
 import IDCardGenerator from '../shared/IDCardGenerator';
-import { DocumentTextIcon, UserGroupIcon, AcademicCapIcon } from '../../constants';
+import { CreditCard } from 'lucide-react';
 
-const IDCardManagement: React.FC = () => {
+interface IDCardManagementProps {
+    initialUser?: Student | Teacher;
+    initialView?: 'students' | 'teachers';
+}
+
+const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initialView = 'students' }) => {
     const [view, setView] = useState<'students' | 'teachers'>('students');
     const [students, setStudents] = useState<Student[]>([]);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [selectedUser, setSelectedUser] = useState<Student | Teacher | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [selectedUser, setSelectedUser] = useState<Student | Teacher | null>(initialUser || null);
+    const [loading, setLoading] = useState(!initialUser);
+
+    useEffect(() => {
+        if (initialUser) {
+            setSelectedUser(initialUser);
+            if (initialView) setView(initialView);
+        }
+    }, [initialUser, initialView]);
 
     useEffect(() => {
         if (view === 'students') {
@@ -76,7 +88,7 @@ const IDCardManagement: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                    <DocumentTextIcon className="h-8 w-8 text-indigo-600" />
+                    <CreditCard className="h-8 w-8 text-indigo-600" />
                     <h2 className="text-2xl font-bold text-gray-800">ID Card Management</h2>
                 </div>
 

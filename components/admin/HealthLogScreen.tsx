@@ -64,7 +64,7 @@ const HealthLogScreen: React.FC = () => {
                     recordedBy:recorded_by,
                     students (
                         name,
-                        avatarUrl
+                        avatarUrl:avatar_url
                     )
                 `)
                 .order('date', { ascending: false });

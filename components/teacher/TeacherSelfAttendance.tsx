@@ -82,7 +82,10 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
     }, [loadAttendanceData]);
 
     const handleCheckIn = async () => {
-        if (!teacherId) return;
+        if (!teacherId) {
+            toast.error("Teacher profile not found. Please contact admin.");
+            return;
+        }
 
         setSubmitting(true);
         try {

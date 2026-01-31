@@ -6,14 +6,12 @@ import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../.
 
 
 interface GradebookEntry {
-    studentId: number;
+    studentId: string;
     studentName: string;
     avatarUrl: string;
     ca: string;   // max 40
     exam: string; // max 60
     total: number;
-    grade: string;
-    remark: string;
     grade: string;
     remark: string;
     status: 'Draft' | 'Published'; // Draft = Saved locally, Published = Visible to Parents
@@ -36,7 +34,7 @@ const getRemark = (score: number, grade: string): string => {
     return 'Needs Improvement';
 };
 
-const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void }> = ({ teacherId, handleBack }) => {
+const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void }> = ({ teacherId, handleBack }) => {
     const [classes, setClasses] = useState<ClassInfo[]>([]);
     const [selectedClass, setSelectedClass] = useState<string>('');
     const [selectedSubject, setSelectedSubject] = useState<string>('');
@@ -148,7 +146,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: number; handleBack: () => void
                         ca: ca === 0 ? '' : ca.toString(),
                         exam: exam === 0 ? '' : exam.toString(),
                         total: total,
-
+                        grade: getGrade(total),
                         remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
                         status: (rc?.status as 'Draft' | 'Published') || 'Draft',
                         isDirty: false

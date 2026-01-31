@@ -17,7 +17,15 @@ export const generateUsername = (fullName: string, userType: string): string => 
  * Example: "Adewale" -> "adewale1234"
  */
 export const generatePassword = (surname: string): string => {
-  return `${surname.toLowerCase()}1234`;
+  // Ensure password is at least 8 characters for Supabase Auth requirements
+  const cleanSurname = surname.toLowerCase().trim();
+  const base = cleanSurname.length > 0 ? cleanSurname : 'user';
+  // Append sufficient numbers to guarantee length
+  const password = `${base}123456`;
+  if (password.length < 8) {
+    return `${password}78`; // Pad if still too short (e.g. surname 'a')
+  }
+  return password;
 };
 
 /**
@@ -33,8 +41,9 @@ export const createUserAccount = async (
   fullName: string,
   userType: 'Student' | 'Teacher' | 'Parent' | 'Admin' | 'Principal' | 'Counselor',
   email: string,
+  schoolId: string, // REQUIRED: New users must belong to a school
   userId?: number
-): Promise<{ username: string; password: string; error?: string }> => {
+): Promise<{ username: string; password: string; error?: string; userId?: string }> => {
   try {
     // Extract surname (last name)
     const nameParts = fullName.trim().split(/\s+/);
@@ -46,7 +55,6 @@ export const createUserAccount = async (
 
     // Create a temporary client that DOES NOT persist the session.
     // This is critical so the Admin performing this action doesn't get logged out
-    // and switched to the new user's session.
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -57,7 +65,7 @@ export const createUserAccount = async (
     const { createClient } = await import('@supabase/supabase-js');
     const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: false, // Don't save this session to localStorage
+        persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false
       }
@@ -69,11 +77,12 @@ export const createUserAccount = async (
       email: email,
       password: password,
       options: {
-        emailRedirectTo: window.location.origin, // Redirect back to app after confirmation
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           full_name: fullName,
-          user_type: userType,
+          role: userType.toLowerCase(), // CRITICAL: Database constraints expect lowercase
           username: username,
+          school_id: schoolId, // CRITICAL: Pass school_id for the database trigger
         }
       }
     });
@@ -104,7 +113,7 @@ export const createUserAccount = async (
       console.warn('Auth created but DB save failed:', dbError.message);
     }
 
-    return { username, password };
+    return { username, password, userId: authData.user?.id };
   } catch (err: any) {
     console.error('Error in createUserAccount:', err);
     return { username: '', password: '', error: err.message };

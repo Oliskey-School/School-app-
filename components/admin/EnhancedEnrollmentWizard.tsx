@@ -103,7 +103,7 @@ export default function EnhancedEnrollmentWizard({
             const fullName = `${formData.firstName} ${formData.lastName}`;
 
             // 1. Create Student Auth (Check duplicate first)
-            const authResult = await createUserAccount(fullName, 'Student', studentEmail);
+            const authResult = await createUserAccount(fullName, 'student', studentEmail);
 
             if (authResult.error) {
                 if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
@@ -122,7 +122,7 @@ export default function EnhancedEnrollmentWizard({
                 .insert([{
                     email: studentEmail,
                     name: fullName,
-                    role: 'Student',
+                    role: 'student',
                     // avatar_url: ... // Optional
                 }])
                 .select()
@@ -260,7 +260,7 @@ export default function EnhancedEnrollmentWizard({
                         .insert([{
                             email: pEmail,
                             name: pName,
-                            role: 'Parent'
+                            role: 'parent'
                         }])
                         .select()
                         .single();
@@ -280,7 +280,7 @@ export default function EnhancedEnrollmentWizard({
                         if (newParent) {
                             parentIdToLink = newParent.id;
                             // Create Auth
-                            await createUserAccount(pName, 'Parent', pEmail, newUser.id);
+                            await createUserAccount(pName, 'parent', pEmail, newUser.id);
                             await sendVerificationEmail(pName, pEmail, 'Welcome Parent');
                         }
                     }
