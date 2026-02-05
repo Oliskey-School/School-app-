@@ -144,7 +144,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
 
     // ... (Existing useEffects)
     const forceUpdate = () => setVersion(v => v + 1);
-    const { currentSchool, user } = useAuth();
+    const { currentSchool, currentBranchId, user } = useAuth();
 
     useEffect(() => {
         setIsHomePage(viewStack.length === 1 && !isSearchOpen);
@@ -400,7 +400,16 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
     const currentNavigation = viewStack[viewStack.length - 1];
     const ComponentToRender = viewComponents[currentNavigation.view];
 
-    const commonProps = { navigateTo, onLogout, handleBack, forceUpdate, currentUserId };
+    const commonProps = {
+        navigateTo,
+        onLogout,
+        handleBack,
+        forceUpdate,
+        currentUserId,
+        currentSchool,
+        schoolId: currentSchool?.id,
+        currentBranchId
+    };
 
     const renderContent = () => {
         if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {currentNavigation.view}</div>;

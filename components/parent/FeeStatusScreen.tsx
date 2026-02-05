@@ -14,11 +14,13 @@ import { generateReceipt } from '../../lib/receipt-generator';
 import { toast } from 'react-hot-toast';
 
 interface FeeStatusScreenProps {
-    parentId?: number | null;
+    parentId?: string | null;
+    schoolId?: string;
+    currentBranchId?: string | null;
     navigateTo: (view: string, title: string, props?: any) => void;
 }
 
-const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo }) => {
+const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo, schoolId, currentBranchId }) => {
     const [students, setStudents] = useState<any[]>([]);
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [fees, setFees] = useState<Fee[]>([]);
@@ -39,12 +41,13 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
             const authEmail = user?.email || '';
             setUserEmail(authEmail);
 
-            // 2. Fetch parent profile details from parents table
-            if (parentId) {
-                const { data: parentProfile, error } = await supabase
+            // 2. Fetch parent profile details from parents table (Isolated)
+            if (parentId && schoolId) {
+                const { data: parentProfile } = await supabase
                     .from('parents')
                     .select('name, email, phone')
                     .eq('id', parentId)
+                    .eq('school_id', schoolId)
                     .single();
 
                 if (parentProfile) {
@@ -57,17 +60,27 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
                     }
                 }
 
-                // 3. Fetch Children
+                // 3. Fetch Children (Using Student-Parent Links)
                 const { data: relations } = await supabase
-                    .from('parent_children')
-                    .select('student_id, students:student_id(id, name, grade, section, avatar_url)')
-                    .eq('parent_id', parentId);
+                    .from('student_parent_links')
+                    .select('student_user_id')
+                    .eq('school_id', schoolId)
+                    .eq('parent_user_id', parentId);
 
                 if (relations && relations.length > 0) {
-                    // Flatten structure safely
-                    const kids = relations.map((r: any) => r.students);
-                    setStudents(kids);
-                    setSelectedStudent(kids[0]);
+                    const studentUserIds = relations.map((r: any) => r.student_user_id);
+                    const { data: kidsData } = await supabase
+                        .from('students')
+                        .select('id, name, grade, section, avatar_url')
+                        .eq('school_id', schoolId)
+                        .in('user_id', studentUserIds);
+
+                    if (kidsData && kidsData.length > 0) {
+                        setStudents(kidsData);
+                        setSelectedStudent(kidsData[0]);
+                    } else {
+                        toast('No student records found linked to your account.');
+                    }
                 } else {
                     toast('No children found for this parent.');
                 }
@@ -102,9 +115,9 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
         }
     }, [selectedStudent]);
 
-    const loadFees = async (studentId: number) => {
+    const loadFees = async (studentId: string) => {
         setLoading(true);
-        const data = await fetchStudentFees(studentId);
+        const data = await fetchStudentFees(studentId, schoolId);
         setFees(data);
 
         // Check which fees have payment plans
@@ -126,6 +139,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
             const { data: transactions, error } = await supabase
                 .from('transactions')
                 .select('*')
+                .eq('school_id', schoolId)
                 .eq('fee_id', fee.id)
                 .eq('status', 'Success')
                 .order('created_at', { ascending: false })
@@ -343,6 +357,8 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
                                         <PaystackButton
                                             fee={fee}
                                             email={userEmail}
+                                            schoolId={schoolId}
+                                            branchId={currentBranchId}
                                             onSuccess={() => {
                                                 toast.success('Payment Successful!');
                                                 loadFees(selectedStudent.id); // Refresh
@@ -353,6 +369,8 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
                                             email={userEmail}
                                             phone={parentPhone}
                                             name={parentName}
+                                            schoolId={schoolId}
+                                            branchId={currentBranchId}
                                             onSuccess={() => {
                                                 toast.success('Payment Successful!');
                                                 loadFees(selectedStudent.id); // Refresh
@@ -362,6 +380,8 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo 
                                             fee={fee}
                                             email={userEmail}
                                             name={parentName}
+                                            schoolId={schoolId}
+                                            branchId={currentBranchId}
                                             onSuccess={() => {
                                                 toast.success('Payment Successful!');
                                                 loadFees(selectedStudent.id); // Refresh

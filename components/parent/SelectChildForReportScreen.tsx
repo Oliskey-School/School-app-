@@ -5,10 +5,11 @@ import { ChevronRightIcon, ReportIcon } from '../../constants';
 
 interface SelectChildForReportScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
-  parentId?: number | null;
+  parentId?: string | null;
+  schoolId?: string;
 }
 
-const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({ navigateTo, parentId }) => {
+const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({ navigateTo, parentId, schoolId }) => {
   const [children, setChildren] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,16 +21,18 @@ const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({
       }
       try {
         const { data: relations } = await supabase
-          .from('parent_children')
-          .select('student_id')
-          .eq('parent_id', parentId);
+          .from('student_parent_links')
+          .select('student_user_id')
+          .eq('school_id', schoolId)
+          .eq('parent_user_id', parentId);
 
         if (relations && relations.length > 0) {
-          const studentIds = relations.map(r => r.student_id);
+          const studentUserIds = relations.map(r => r.student_user_id);
           const { data: students } = await supabase
             .from('students')
             .select('*')
-            .in('id', studentIds);
+            .eq('school_id', schoolId)
+            .in('user_id', studentUserIds);
 
           if (students) {
             const mappedStudents = students.map((s: any) => ({

@@ -22,9 +22,10 @@ interface AttendanceRecord {
 
 interface AttendanceOverviewScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    schoolId?: string;
 }
 
-const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ navigateTo }) => {
+const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ navigateTo, schoolId }) => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [attendanceData, setAttendanceData] = useState<ClassAttendanceSummary[]>([]);
     const [loading, setLoading] = useState(false);
@@ -35,12 +36,14 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
     }, [selectedDate]);
 
     const fetchAttendanceData = async () => {
+        if (!schoolId) return;
         setLoading(true);
         try {
             // 1. Fetch all classes to ensure we list everyone
             const { data: classesData } = await supabase
                 .from('classes')
                 .select('grade, section')
+                .eq('school_id', schoolId)
                 .order('grade')
                 .order('section');
 
@@ -48,6 +51,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
             const { data: attendanceRecords } = await supabase
                 .from('attendance')
                 .select('*')
+                .eq('school_id', schoolId)
                 .eq('date', selectedDate);
 
             // 3. Process data
@@ -80,7 +84,10 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
 
             // refined implementation:
             // Fetch students to count total per class
-            const { data: allStudents } = await supabase.from('students').select('id, grade, section');
+            const { data: allStudents } = await supabase
+                .from('students')
+                .select('id, grade, section')
+                .eq('school_id', schoolId);
 
             const processedData: ClassAttendanceSummary[] = [];
 

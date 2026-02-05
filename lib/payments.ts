@@ -10,12 +10,15 @@ import { Fee, Transaction, PaymentHistoryItem } from '../types';
 /**
  * Fetch fees for a specific student
  */
-export async function fetchStudentFees(studentId: number): Promise<Fee[]> {
-    const { data, error } = await supabase
+export async function fetchStudentFees(studentId: string | number, schoolId?: string): Promise<Fee[]> {
+    let query = supabase
         .from('fees')
         .select('*')
-        .eq('student_id', studentId)
-        .order('due_date', { ascending: true });
+        .eq('student_id', studentId);
+
+    if (schoolId) query = query.eq('school_id', schoolId);
+
+    const { data, error } = await query.order('due_date', { ascending: true });
 
     if (error) {
         console.error('Error fetching fees:', error);
@@ -28,11 +31,14 @@ export async function fetchStudentFees(studentId: number): Promise<Fee[]> {
 /**
  * Fetch all fees (for Admin)
  */
-export async function fetchAllFees(): Promise<Fee[]> {
-    const { data, error } = await supabase
+export async function fetchAllFees(schoolId?: string): Promise<Fee[]> {
+    let query = supabase
         .from('fees')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
+
+    if (schoolId) query = query.eq('school_id', schoolId);
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
         console.error('Error fetching all fees:', error);
@@ -44,11 +50,13 @@ export async function fetchAllFees(): Promise<Fee[]> {
 /**
  * Assign a new fee to a student
  */
-export async function assignFee(fee: Omit<Fee, 'id' | 'paidAmount' | 'status'>): Promise<Fee> {
+export async function assignFee(fee: Omit<Fee, 'id' | 'paidAmount' | 'status'>, schoolId: string, branchId?: string | null): Promise<Fee> {
     const { data, error } = await supabase
         .from('fees')
         .insert([{
             student_id: fee.studentId,
+            school_id: schoolId,
+            branch_id: branchId,
             title: fee.title,
             description: fee.description,
             amount: fee.amount,
@@ -76,10 +84,12 @@ export async function assignFee(fee: Omit<Fee, 'id' | 'paidAmount' | 'status'>):
  * Initialize a pending transaction before payment
  */
 export async function initializeTransaction(
-    feeId: number,
-    studentId: number,
+    feeId: string | number,
+    studentId: string | number,
     amount: number,
     reference: string,
+    schoolId: string,
+    branchId?: string | null,
     provider: 'Paystack' | 'Flutterwave' | 'Mobile Money' = 'Paystack'
 ): Promise<void> {
     // Get current user (payer)
@@ -90,6 +100,8 @@ export async function initializeTransaction(
         .insert([{
             fee_id: feeId,
             student_id: studentId,
+            school_id: schoolId,
+            branch_id: branchId,
             payer_id: user?.id,
             amount,
             reference,
@@ -152,17 +164,17 @@ export async function verifyTransaction(reference: string): Promise<{ success: b
 /**
  * Fetch Payment History
  */
-export async function fetchPaymentHistory(studentId?: number): Promise<Transaction[]> {
+export async function fetchPaymentHistory(studentId?: string | number, schoolId?: string): Promise<Transaction[]> {
     let query = supabase
         .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
+    if (schoolId) query = query.eq('school_id', schoolId);
     if (studentId) {
         query = query.eq('student_id', studentId);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (error) return [];
     return data.map(normalizeTransaction);
 }

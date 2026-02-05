@@ -10,6 +10,7 @@ import { THEME_CONFIG } from '../../constants';
 import { DashboardType, Student, AttendanceStatus, ClassInfo } from '../../types';
 import { getFormattedClassName } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 
 const AttendanceStatusButtons = ({ status, onStatusChange }: { status: AttendanceStatus, onStatusChange: (newStatus: AttendanceStatus) => void }) => {
@@ -58,8 +59,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 const { data: classStudents, error: studentError } = await supabase
                     .from('students')
                     .select('*')
-                    .eq('grade', classInfo.grade)
-                    .eq('section', classInfo.section)
+                    .eq('current_class_id', classInfo.id)
                     .order('name');
 
                 if (studentError) throw studentError;
@@ -69,16 +69,12 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                     return;
                 }
 
-                // 2. Fetch Existing Attendance for Selected Date
-                const { data: attendanceData } = await supabase
-                    .from('student_attendance')
-                    .select('*')
-                    .in('student_id', classStudents.map(s => s.id))
-                    .eq('date', selectedDate);
+                // 2. Fetch Existing Attendance for Selected Date using api client
+                const attendanceData = await api.getAttendance(classInfo.id, selectedDate);
 
                 // Map API data to UI model
                 const studentsWithAttendance = classStudents.map((s: any) => {
-                    const record = attendanceData?.find(a => a.student_id === s.id);
+                    const record = attendanceData?.find((a: any) => a.student_id === s.id);
                     return {
                         id: s.id,
                         name: s.name,
@@ -102,10 +98,10 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     }, [classInfo, selectedDate]);
 
 
-    const handleStatusChange = useCallback((studentId: number, status: AttendanceStatus) => {
+    const handleStatusChange = useCallback((studentId: string | number, status: AttendanceStatus) => {
         setStudents(currentStudents =>
             currentStudents.map(student =>
-                student.id === studentId ? { ...student, attendanceStatus: status } : student
+                String(student.id) === String(studentId) ? { ...student, attendanceStatus: status } : student
             )
         );
     }, []);
@@ -119,16 +115,13 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     const submitAttendance = async () => {
         const upsertData = students.map(s => ({
             student_id: s.id,
+            class_id: classInfo.id,
             date: selectedDate,
             status: s.attendanceStatus
         }));
 
         try {
-            const { error } = await supabase
-                .from('student_attendance')
-                .upsert(upsertData, { onConflict: 'student_id,date' });
-
-            if (error) throw error;
+            await api.saveAttendance(upsertData);
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
         } catch (err) {
             console.error('Error submitting attendance:', err);

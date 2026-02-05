@@ -7,7 +7,7 @@ BEGIN;
 -- 1. Modify handle_new_user to strictly ignore 'new_school' signup flows
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
-DECLARE
+DECLARE 
     v_role TEXT;
     v_school_id UUID;
     v_signup_type TEXT;

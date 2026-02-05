@@ -98,7 +98,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { currentSchool } = useAuth();
+  const { currentSchool, currentBranchId, user } = useAuth();
+  const schoolId = currentSchool?.id;
 
   // Fetch Integer User ID for Chat
   useEffect(() => {
@@ -129,9 +130,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     }
 
     try {
-      let query = supabase.from('teachers').select('id, name, avatar_url, email');
+      if (!schoolId) return;
 
-      let emailToQuery = currentUser?.email;
+      let query = supabase.from('teachers')
+        .select('id, name, avatar_url, email')
+        .eq('school_id', schoolId);
+
+      let emailToQuery = user?.email || currentUser?.email;
 
       if (!emailToQuery) {
         // Fallback: Check active session if prop is missing
@@ -334,8 +339,10 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     teacherProfile, // Make profile available to all screens
     refreshProfile: fetchProfile, // Allow any screen to trigger refresh
     teacherId, // Pass the dynamic teacher ID
-    currentUser,
+    currentUser: user,
     currentUserId,
+    schoolId,
+    currentBranchId
   };
 
   return (
@@ -362,7 +369,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           onNotificationClick={handleNotificationClick}
           notificationCount={notificationCount}
           onSearchClick={() => setIsSearchOpen(true)}
-          customId={currentUser?.user_metadata?.custom_id || currentUser?.app_metadata?.custom_id}
+          customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
         />
         <div className="flex-1 overflow-y-auto pb-56 lg:pb-0" style={{ marginTop: '-5rem' }}>
           <main className="min-h-full pt-20">

@@ -3,9 +3,11 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { PinIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { Notice, AnnouncementCategory } from '../../types';
+import { fetchNotices } from '../../lib/database';
 
 interface NoticeboardScreenProps {
   userType: 'parent' | 'student' | 'teacher' | 'admin';
+  schoolId?: string;
 }
 
 const categoryStyles: { [key in AnnouncementCategory]: { bg: string, text: string, border: string } } = {
@@ -51,17 +53,23 @@ const NoticeCard: React.FC<{ notice: Notice }> = ({ notice }) => {
 };
 
 
-const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType }) => {
+const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType, schoolId }) => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadNotices();
 
-    // Realtime subscription
+    // Realtime subscription - Scoped to school
+    const channelName = schoolId ? `public:notices:school:${schoolId}` : 'public:notices';
     const subscription = supabase
-      .channel('public:notices')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' }, () => {
+      .channel(channelName)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notices',
+        filter: schoolId ? `school_id=eq.${schoolId}` : undefined
+      }, () => {
         console.log('Notice change detected');
         loadNotices();
       })
@@ -74,7 +82,7 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType }) => {
 
   const loadNotices = async () => {
     setLoading(true);
-    const data = await fetchNotices();
+    const data = await fetchNotices(schoolId);
     // fetchNotices already returns Notice[], so no mapping needed if types align
     // But fetchNotices in DB returns basic shape, might need to ensure mapped correctly?
     // Let's check fetchNotices implementation again.

@@ -16,6 +16,8 @@ interface FlutterwaveWrapperProps {
     name: string;
     onSuccess?: () => void;
     onClose?: () => void;
+    schoolId?: string;
+    branchId?: string | null;
 }
 
 // Declare FlutterwaveCheckout type for TypeScript
@@ -31,7 +33,9 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
     phone,
     name,
     onSuccess,
-    onClose
+    onClose,
+    schoolId,
+    branchId
 }) => {
     const [loading, setLoading] = useState(false);
     const [scriptLoaded, setScriptLoaded] = useState(false);
@@ -86,6 +90,8 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
                 fee.studentId,
                 fee.amount,
                 txRef,
+                schoolId || '',
+                branchId,
                 'Flutterwave'
             );
 

@@ -20,7 +20,11 @@ interface Class {
     class_name: string;
 }
 
-const AttendanceHeatmap: React.FC = () => {
+interface AttendanceHeatmapProps {
+    schoolId?: string;
+}
+
+const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({ schoolId }) => {
     const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
     const [selectedClass, setSelectedClass] = useState<number | 'all'>('all');
@@ -43,10 +47,12 @@ const AttendanceHeatmap: React.FC = () => {
     }, [selectedClass, dateRange, viewMode]);
 
     const fetchClasses = async () => {
+        if (!schoolId) return;
         try {
             const { data, error } = await supabase
                 .from('classes')
                 .select('id, class_name')
+                .eq('school_id', schoolId)
                 .order('class_name');
 
             if (error) throw error;
@@ -84,6 +90,7 @@ const AttendanceHeatmap: React.FC = () => {
                         classes (class_name)
                     )
                 `)
+                .eq('school_id', schoolId)
                 .gte('date', dateRange.start)
                 .lte('date', dateRange.end);
 

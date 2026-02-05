@@ -32,7 +32,12 @@ ALTER FUNCTION public.on_school_id_change_sync() SET search_path = public, pg_te
 
 -- 10. authenticate_user
 -- Note: Already has SET search_path = public in 0095, upgrading to include pg_temp
-ALTER FUNCTION public.authenticate_user(TEXT, TEXT) SET search_path = public, pg_temp;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'authenticate_user') THEN
+        ALTER FUNCTION public.authenticate_user(TEXT, TEXT) SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- 11. clone_school_data
 -- Note: Already has SET search_path = public in 0091, upgrading to include pg_temp

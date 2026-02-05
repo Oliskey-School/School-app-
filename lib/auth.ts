@@ -218,47 +218,48 @@ export const authenticateUser = async (
 ): Promise<{
   success: boolean;
   userType?: 'Student' | 'Teacher' | 'Parent' | 'Admin' | 'Principal' | 'Counselor';
-  userId?: string; // We return string for compatibility, though DB gives number
+  userId?: string;
   email?: string;
-  error?: string
+  error?: string;
+  schoolGeneratedId?: string;
+  token?: string; // JWT from backend
+  userData?: any;
 }> => {
   try {
-    // Call the database function to verify credentials
-    // This bypasses Supabase Auth email verification requirement for a smoother UX
-    const { data, error } = await supabase.rpc('authenticate_user', {
-      username_input: username.toLowerCase(),
-      password_input: password
+    // Determine API URL (Hardcoded for dev, should be env-aware)
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+    // Call Backend Login
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email: username, password }) // Note: username param acts as email/identifier
     });
 
-    if (error) {
-      console.error('RPC Error:', error);
-      return { success: false, error: 'Invalid credentials' };
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Invalid credentials' };
     }
 
-    // RPC returns an array (set of rows). If empty, no match.
-    if (!data || data.length === 0) {
-      return { success: false, error: 'Invalid credentials' };
-    }
-
-    const user = data[0];
-
-    // Handle both UUID (string) and Numeric ID (number)
-    // The new RPC 'authenticate_user' returns UUID 'id' (from auth.users) and 'user_id' (could be same)
-    // Legacy schema might use numbers. Convert safely.
-    let finalUserId = user.id.toString();
-    if (user.user_id) {
-      finalUserId = user.user_id.toString();
-    }
+    // Success
+    const { user, token } = data;
 
     return {
       success: true,
-      userType: user.role as any,
-      userId: finalUserId,
+      userType: user.role,
+      userId: user.id || user.user_id,
       email: user.email,
+      token: token, // Return the JWT
+      userData: user,
+      schoolGeneratedId: user.school_generated_id
     };
+
   } catch (err: any) {
     console.error('Error in authenticateUser:', err);
-    return { success: false, error: err.message };
+    return { success: false, error: err.message || 'Network error during login' };
   }
 };
 

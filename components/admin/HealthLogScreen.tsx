@@ -28,7 +28,12 @@ const getAilmentColor = (reason: string) => {
 };
 
 
-const HealthLogScreen: React.FC = () => {
+interface HealthLogProps {
+    schoolId?: string;
+    currentUserId?: string;
+}
+
+const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) => {
     const [logs, setLogs] = useState<HealthLogEntry[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -55,19 +60,18 @@ const HealthLogScreen: React.FC = () => {
                 .select(`
                     id,
                     studentId:student_id,
-                    date,
-                    time,
-                    reason,
-                    notes,
+                    loggedDate:logged_date,
+                    reason:log_type,
+                    notes:description,
+                    recordedBy:logged_by,
                     medicationAdministered:medication_administered,
                     parentNotified:parent_notified,
-                    recordedBy:recorded_by,
                     students (
                         name,
                         avatarUrl:avatar_url
                     )
                 `)
-                .order('date', { ascending: false });
+                .order('logged_date', { ascending: false });
 
             if (error) {
                 console.error('Error fetching health logs:', error);
@@ -80,8 +84,8 @@ const HealthLogScreen: React.FC = () => {
                     studentId: log.studentId,
                     studentName: log.students?.name || 'Unknown',
                     studentAvatar: log.students?.avatarUrl || '',
-                    date: log.date,
-                    time: log.time,
+                    date: log.loggedDate,
+                    time: '',
                     reason: log.reason,
                     notes: log.notes,
                     medicationAdministered: log.medicationAdministered,
@@ -160,14 +164,14 @@ const HealthLogScreen: React.FC = () => {
 
         try {
             const { error } = await supabase.from('health_logs').insert({
-                student_id: parseInt(selectedStudent),
-                date: new Date().toISOString(),
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                reason,
-                notes,
+                student_id: selectedStudent, // UUID string
+                school_id: schoolId,
+                logged_date: new Date().toISOString().split('T')[0],
+                log_type: reason,
+                description: notes,
                 medication_administered: medication ? { name: medication, dosage } : null,
                 parent_notified: parentNotified,
-                recorded_by: 'Admin' // Should be current user
+                logged_by: currentUserId || null // Use actual user ID
             });
 
             if (error) throw error;

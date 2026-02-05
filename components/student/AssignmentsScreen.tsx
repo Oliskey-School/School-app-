@@ -4,12 +4,14 @@ import { supabase } from '../../lib/supabase';
 import { CheckCircleIcon, ClockIcon, ExclamationCircleIcon, DocumentTextIcon, SUBJECT_COLORS } from '../../constants';
 
 interface StudentAssignmentsScreenProps {
-    studentId: number;
+    studentId: string | number;
+    schoolId?: string;
+    currentBranchId?: string | null;
     subjectFilter?: string;
     navigateTo: (view: string, title: string, props?: any) => void;
 }
 
-const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId, subjectFilter, navigateTo }) => {
+const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId, subjectFilter, navigateTo, schoolId, currentBranchId }) => {
 
     const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -17,21 +19,27 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
     useEffect(() => {
         const fetchAssignments = async () => {
             try {
-                // Fetch all assignments (or filtered by class/grade if we had that info, 
-                // but we might need to assume all assignments or fetch based on some criteria)
-                // For now, fetching all assignments.Ideally should filter by grade.
-
-                const { data: assignmentsData, error: assignError } = await supabase
+                // Fetch assignments scoped by school and branch
+                let assignmentsQuery = supabase
                     .from('assignments')
                     .select('*')
                     .order('due_date', { ascending: true });
 
+                if (schoolId) assignmentsQuery = assignmentsQuery.eq('school_id', schoolId);
+                if (currentBranchId) assignmentsQuery = assignmentsQuery.eq('branch_id', currentBranchId);
+
+                const { data: assignmentsData, error: assignError } = await assignmentsQuery;
+
                 if (assignError) throw assignError;
 
-                const { data: submissionsData, error: subError } = await supabase
+                let submissionsQuery = supabase
                     .from('assignment_submissions')
                     .select('*')
                     .eq('student_id', studentId);
+
+                if (schoolId) submissionsQuery = submissionsQuery.eq('school_id', schoolId);
+
+                const { data: submissionsData, error: subError } = await submissionsQuery;
 
                 // If submissions table doesn't exist or error, we just assume no submissions or handle gracefully
                 // but we will throw if real error to see it.
@@ -78,10 +86,20 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
         fetchAssignments();
         // Realtime Subscription
         const channel = supabase.channel(`student_assignments_${studentId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => {
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'assignments',
+                filter: schoolId ? `school_id=eq.${schoolId}` : undefined
+            }, () => {
                 fetchAssignments();
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignment_submissions', filter: `student_id=eq.${studentId}` }, () => {
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'assignment_submissions',
+                filter: `student_id=eq.${studentId}`
+            }, () => {
                 fetchAssignments();
             })
             .subscribe();

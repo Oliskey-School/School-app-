@@ -46,39 +46,87 @@ GRANT EXECUTE ON FUNCTION public.authenticate_user(TEXT, TEXT) TO anon, authenti
 -- This prevents search path hijacking attacks.
 
 -- check_tenant_user_limit()
-ALTER FUNCTION public.check_tenant_user_limit() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'check_tenant_user_limit') THEN
+        ALTER FUNCTION public.check_tenant_user_limit() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- clone_school_data(uuid,uuid)
-ALTER FUNCTION public.clone_school_data(UUID, UUID) SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'clone_school_data') THEN
+        ALTER FUNCTION public.clone_school_data(UUID, UUID) SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- ensure_user_school_id()
-ALTER FUNCTION public.ensure_user_school_id() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'ensure_user_school_id') THEN
+        ALTER FUNCTION public.ensure_user_school_id() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- generate_school_role_id(text)
-ALTER FUNCTION public.generate_school_role_id(TEXT) SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'generate_school_role_id') THEN
+        ALTER FUNCTION public.generate_school_role_id(TEXT) SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- get_my_school_id()
-ALTER FUNCTION public.get_my_school_id() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'get_my_school_id') THEN
+        ALTER FUNCTION public.get_my_school_id() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- handle_new_user()
-ALTER FUNCTION public.handle_new_user() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'handle_new_user') THEN
+        ALTER FUNCTION public.handle_new_user() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- link_student_to_parent(text,text)
-ALTER FUNCTION public.link_student_to_parent(TEXT, TEXT) SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'link_student_to_parent') THEN
+        ALTER FUNCTION public.link_student_to_parent(TEXT, TEXT) SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- set_parent_generated_id()
-ALTER FUNCTION public.set_parent_generated_id() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'set_parent_generated_id') THEN
+        ALTER FUNCTION public.set_parent_generated_id() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- set_student_generated_id()
-ALTER FUNCTION public.set_student_generated_id() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'set_student_generated_id') THEN
+        ALTER FUNCTION public.set_student_generated_id() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- set_teacher_generated_id()
-ALTER FUNCTION public.set_teacher_generated_id() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'set_teacher_generated_id') THEN
+        ALTER FUNCTION public.set_teacher_generated_id() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- update_school_user_count()
-ALTER FUNCTION public.update_school_user_count() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_school_user_count') THEN
+        ALTER FUNCTION public.update_school_user_count() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 -- update_updated_at_column()
-ALTER FUNCTION public.update_updated_at_column() SET search_path = public, pg_temp;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column') THEN
+        ALTER FUNCTION public.update_updated_at_column() SET search_path = public, pg_temp;
+    END IF;
+END $$;
 
 COMMIT;

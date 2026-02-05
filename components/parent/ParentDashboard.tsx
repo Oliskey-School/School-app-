@@ -146,7 +146,7 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
 };
 
 
-const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (view: string, title: string, props?: any) => void }) => {
+const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { student: Student; navigateTo: (view: string, title: string, props?: any) => void; schoolId?: string; currentBranchId?: string | null }) => {
     const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
     const [progressReport, setProgressReport] = useState<ProgressReport | null>(null);
     const [loading, setLoading] = useState(true);
@@ -154,17 +154,23 @@ const AcademicsTab = ({ student, navigateTo }: { student: Student; navigateTo: (
     useEffect(() => {
         const fetchAcademics = async () => {
             try {
-                // Fetch Assignments
-                const { data: assignmentsData } = await supabase
+                // Fetch Assignments scoped by school and branch
+                let assignmentsQuery = supabase
                     .from('assignments')
                     .select('*')
                     .or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`)
+                    .eq('school_id', schoolId)
                     .gt('due_date', new Date().toISOString())
                     .order('due_date', { ascending: true });
+
+                if (currentBranchId) assignmentsQuery = assignmentsQuery.eq('branch_id', currentBranchId);
+
+                const { data: assignmentsData } = await assignmentsQuery;
 
                 const { data: submissionsData } = await supabase
                     .from('assignment_submissions')
                     .select('*')
+                    .eq('school_id', schoolId)
                     .eq('student_id', student.id);
 
                 if (assignmentsData) {
@@ -393,7 +399,7 @@ const AttendanceTab = ({ student }: { student: Student }) => {
 
 type ChildDetailTab = 'academics' | 'behavior' | 'attendance';
 
-const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Student, initialTab?: ChildDetailTab, navigateTo: (view: string, title: string, props?: any) => void }) => {
+const ChildDetailScreen = ({ student, initialTab, navigateTo, schoolId, currentBranchId }: { student: Student, initialTab?: ChildDetailTab, navigateTo: (view: string, title: string, props?: any) => void, schoolId?: string, currentBranchId?: string | null }) => {
     const [activeTab, setActiveTab] = useState<ChildDetailTab>(initialTab || 'academics');
 
     const TabButton = ({ id, label }: { id: ChildDetailTab, label: string }) => (
@@ -427,7 +433,7 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Stude
             </div>
 
             <div className="flex-grow overflow-y-auto">
-                {activeTab === 'academics' && <AcademicsTab student={student} navigateTo={navigateTo} />}
+                {activeTab === 'academics' && <AcademicsTab student={student} navigateTo={navigateTo} schoolId={schoolId} currentBranchId={currentBranchId} />}
                 {activeTab === 'behavior' && <BehaviorTab student={student} />}
                 {activeTab === 'attendance' && <div className="p-4"><AttendanceTab student={student} /></div>}
             </div>
@@ -435,7 +441,7 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo }: { student: Stude
     );
 };
 
-const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo: (view: string, title: string, props?: any) => void, parentId?: string | null, currentUser?: any, version?: number }) => {
+const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, currentBranchId }: { navigateTo: (view: string, title: string, props?: any) => void, parentId?: string | null, currentUser?: any, version?: number, schoolId?: string, currentBranchId?: string | null }) => {
     const theme = THEME_CONFIG[DashboardType.Parent];
     const [students, setStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
@@ -446,6 +452,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
                 const { data: studentsData, error: studentsError } = await supabase
                     .from('students')
                     .select('*')
+                    .eq('school_id', schoolId)
                     .in('id', ids);
 
                 if (studentsError) throw studentsError;
@@ -456,19 +463,22 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
                     const { data: academicData } = await supabase
                         .from('academic_performance')
                         .select('*')
+                        .eq('school_id', schoolId)
                         .eq('student_id', s.id);
 
-                    // 2. Behavior Records
+                    // 2. Behavior Records (Scoped)
                     const { data: behaviorData } = await supabase
                         .from('behavior_records')
                         .select('*')
+                        .eq('school_id', schoolId)
                         .eq('student_id', s.id)
                         .order('date', { ascending: false });
 
-                    // 3. Report Cards
+                    // 3. Report Cards (Scoped)
                     const { data: reportCardsData } = await supabase
                         .from('report_cards')
                         .select('*')
+                        .eq('school_id', schoolId)
                         .eq('student_id', s.id)
                         .eq('status', 'Published') // Only published for parents
                         .order('created_at', { ascending: false });
@@ -546,6 +556,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
                 const { data: relations, error: relationError } = await supabase
                     .from('student_parent_links')
                     .select('student_user_id')
+                    .eq('school_id', schoolId)
                     .eq('parent_user_id', effectiveParentId);
 
                 if (relationError) throw relationError;
@@ -556,6 +567,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
                     const { data: studentsData } = await supabase
                         .from('students')
                         .select('id')
+                        .eq('school_id', schoolId)
                         .in('user_id', userIds);
 
                     if (studentsData && studentsData.length > 0) {
@@ -589,6 +601,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
             const { data } = await supabase
                 .from('notifications')
                 .select('*')
+                .eq('school_id', schoolId)
                 .eq('is_read', false)
                 .contains('audience', ['parent']);
             if (data) setNotifications(data);
@@ -610,6 +623,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
                 const { data: feesData } = await supabase
                     .from('fees')
                     .select('*')
+                    .eq('school_id', schoolId)
                     .eq('student_id', student.id)
                     .in('status', ['pending', 'partial'])
                     .order('due_date', { ascending: true });
@@ -625,11 +639,13 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
                 const { count: totalAtt } = await supabase
                     .from('student_attendance')
                     .select('id', { count: 'exact', head: true })
+                    .eq('school_id', schoolId)
                     .eq('student_id', student.id);
 
                 const { count: presentAtt } = await supabase
                     .from('student_attendance')
                     .select('id', { count: 'exact', head: true })
+                    .eq('school_id', schoolId)
                     .eq('student_id', student.id)
                     .eq('status', 'Present');
 
@@ -640,6 +656,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version }: { navigateTo:
                     .from('assignments')
                     .select('*')
                     .or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`)
+                    .eq('school_id', schoolId)
                     .gt('due_date', new Date().toISOString())
                     .order('due_date', { ascending: true })
                     .limit(1)
@@ -769,7 +786,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         name: 'Parent',
         avatarUrl: 'https://i.pravatar.cc/150?u=parent'
     });
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId, user } = useAuth();
+    const schoolId = currentSchool?.id;
 
     // Real-time notifications
     const notificationCount = useRealtimeNotifications('parent');
@@ -785,7 +803,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                 if (userData) {
                     setCurrentUserId(userData.id);
                 } else {
-                    setCurrentUserId((currentUser as any)?.id || '');
+                    setCurrentUserId(user?.id || '');
                 }
 
                 // Global Real-time Service Integration for Parent - Removed
@@ -816,13 +834,22 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     }, [currentUser]);
 
     const fetchProfile = async () => {
-        let query = supabase.from('parents').select('id, name, email, phone, avatar_url');
+        if (!schoolId) return;
 
-        if (currentUser?.email) {
+        let query = supabase.from('parents')
+            .select('id, name, email, phone, avatar_url')
+            .eq('school_id', schoolId);
+
+        if (user?.email) {
+            query = query.eq('email', user.email);
+        } else if (currentUser?.email) {
             query = query.eq('email', currentUser.email);
         } else {
             // Fallback for dev/demo if no user is passed
-            const { data: demo } = await supabase.from('parents').select('id, name, email, phone').limit(1).single();
+            const { data: demo } = await supabase.from('parents')
+                .select('id, name, email, phone')
+                .eq('school_id', schoolId)
+                .limit(1).single();
             if (demo) {
                 setParentId(demo.id);
                 setParentProfile({ name: demo.name || 'Parent', avatarUrl: 'https://i.pravatar.cc/150?u=parent' });
@@ -846,10 +873,10 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                 const { data: newParent, error: createError } = await supabase
                     .from('parents')
                     .insert({
-                        user_id: currentUser.id, // Link to the auth user
-                        email: currentUser.email,
-                        school_id: DEMO_SCHOOL_ID,
-                        name: currentUser.user_metadata?.full_name || 'Demo Parent',
+                        user_id: user?.id, // Link to the auth user
+                        email: user?.email,
+                        school_id: schoolId || DEMO_SCHOOL_ID,
+                        name: user?.user_metadata?.full_name || 'Demo Parent',
                         phone: '123-456-7890',
                         address: '123 School Lane',
                         school_generated_id: 'P-DEMO-' + Math.floor(Math.random() * 1000)
@@ -992,8 +1019,10 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         handleBack,
         forceUpdate,
         parentId,
-        currentUser,
+        currentUser: user,
         currentUserId,
+        schoolId,
+        currentBranchId,
         version
     };
 
@@ -1021,7 +1050,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     onNotificationClick={handleNotificationClick}
                     notificationCount={notificationCount}
                     onSearchClick={() => setIsSearchOpen(true)}
-                    customId={currentUser?.user_metadata?.custom_id || currentUser?.app_metadata?.custom_id}
+                    customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
                 />
 
                 <div className="flex-1 overflow-hidden relative">

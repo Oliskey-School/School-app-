@@ -104,12 +104,14 @@ const MobileDayView: React.FC<{ day: string; timetable: { [key: string]: string 
 interface TimetableScreenProps {
     context: {
         userType: 'teacher' | 'student' | 'parent';
-        userId: number;
+        userId: string | number;
     },
+    schoolId?: string;
+    currentBranchId?: string | null;
     title?: string; // Optional title override
 }
 
-const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
+const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, currentBranchId }) => {
     const [timetable, setTimetable] = useState<{ [key: string]: string | null }>({});
     const [teacherAssignments, setTeacherAssignments] = useState<{ [key: string]: string | null }>({});
     const [loading, setLoading] = useState(true);
@@ -145,19 +147,27 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context }) => {
 
                 // 2. Identify Target Class/Teacher
                 if (context.userType === 'student' || context.userType === 'parent') {
-                    const { data: student } = await supabase
+                    let studentQuery = supabase
                         .from('students')
                         .select('grade, section')
-                        .eq('id', context.userId)
-                        .maybeSingle();
+                        .eq('id', context.userId);
+
+                    if (schoolId) studentQuery = studentQuery.eq('school_id', schoolId);
+
+                    const { data: student } = await studentQuery.maybeSingle();
 
                     if (student) {
                         targetClassName = `${student.grade}${student.section}`;
                     }
                 }
 
-                // 3. Fetch Timetable Data with Timeout
-                let query = supabase.from('timetable').select('day, start_time, end_time, subject, class_name, teacher_id').eq('status', 'Published');
+                // 3. Fetch Timetable Data with Timeout & Scoping
+                let query = supabase.from('timetable')
+                    .select('day, start_time, end_time, subject, class_name, teacher_id')
+                    .eq('status', 'Published');
+
+                if (schoolId) query = query.eq('school_id', schoolId);
+                if (currentBranchId) query = query.eq('branch_id', currentBranchId);
 
                 if (context.userType === 'teacher') {
                     query = query.eq('teacher_id', context.userId);

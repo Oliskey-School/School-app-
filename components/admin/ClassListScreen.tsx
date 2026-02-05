@@ -4,6 +4,7 @@ import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName, Boo
 
 interface ClassListScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    schoolId?: string;
 }
 
 interface ClassInfo {
@@ -19,15 +20,20 @@ interface ClassInfo {
     academic_level?: string; // e.g., 'JSS1'
 }
 
-const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo }) => {
+const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId }) => {
     const [classes, setClasses] = useState<ClassInfo[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchClasses = async () => {
+            if (!schoolId) {
+                setLoading(false);
+                return;
+            }
             const { data, error } = await supabase
                 .from('classes')
                 .select('*, curricula(name, code)')
+                .eq('school_id', schoolId)
                 .order('grade')
                 .order('section');
 

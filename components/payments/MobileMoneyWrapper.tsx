@@ -15,6 +15,8 @@ interface MobileMoneyWrapperProps {
     name: string;
     onSuccess?: () => void;
     onClose?: () => void;
+    schoolId?: string;
+    branchId?: string | null;
 }
 
 type MobileMoneyProvider = 'mpesa' | 'mtn' | 'airtel';
@@ -24,7 +26,9 @@ export const MobileMoneyWrapper: React.FC<MobileMoneyWrapperProps> = ({
     email,
     name,
     onSuccess,
-    onClose
+    onClose,
+    schoolId,
+    branchId
 }) => {
     const [provider, setProvider] = useState<MobileMoneyProvider>('mpesa');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -63,6 +67,8 @@ export const MobileMoneyWrapper: React.FC<MobileMoneyWrapperProps> = ({
                 fee.studentId,
                 fee.amount,
                 reference,
+                schoolId || '',
+                branchId,
                 'Mobile Money'
             );
 

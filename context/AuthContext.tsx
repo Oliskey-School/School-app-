@@ -8,6 +8,7 @@ interface AuthContextType {
     user: User | null;
     role: DashboardType | null;
     currentSchool: School | null;
+    currentBranchId: string | null;
     loading: boolean;
     sessionExpiresAt: number | null;
     isSessionExpired: boolean;
@@ -26,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<DashboardType | null>(null);
     const [currentSchool, setCurrentSchool] = useState<School | null>(null);
+    const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
     const [isSessionExpired, setIsSessionExpired] = useState(false);
@@ -89,52 +91,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log(`🔐 Auth Event: ${event}`);
 
-            if (event === 'SIGNED_IN' && session) {
-                // Determine role from metadata or profile table
-                let userRole = session.user.user_metadata?.role || session.user.user_metadata?.user_type;
-
-                // Also fetch school association
-                await fetchUserSchool(session.user.id);
-
-                if (!userRole) {
-                    // Fallback to fetching from profiles table (now users table in SaaS schema)
-                    const { data: profile } = await supabase.from('users').select('role').eq('id', session.user.id).single();
-                    if (profile) userRole = profile.role;
-                }
+            if (session) {
+                // Determine role and school from app_metadata (Synced by Ironclad Engine)
+                const metadata = session.user.app_metadata || {};
+                const userRole = metadata.role || session.user.user_metadata?.role;
+                const schoolId = metadata.school_id;
+                const branchId = metadata.branch_id;
 
                 if (userRole) {
                     const dashboardRole = getDashboardTypeFromUserType(userRole);
                     setRole(dashboardRole);
                     sessionStorage.setItem('role', dashboardRole);
-                    sessionStorage.setItem('user', JSON.stringify(session.user));
+                }
+
+                if (schoolId) {
+                    fetchUserSchool(session.user.id, schoolId);
+                }
+
+                if (branchId) {
+                    setCurrentBranchId(branchId);
                 }
 
                 setSession(session);
                 setUser(session.user);
-            } else if (event === 'SIGNED_OUT') {
+                sessionStorage.setItem('user', JSON.stringify(session.user));
+            }
+
+            if (event === 'SIGNED_OUT') {
                 // SCOPED SESSION LOGIC: 
                 // Only clear state if the session is truly gone from this tab's storage.
-                // This prevents "Session Bleeding" where one tab logging out affects others.
-
                 const { data: { session: existingSession } } = await supabase.auth.getSession();
 
                 if (existingSession) {
                     console.log('🛡️ Ignoring global SIGNED_OUT event - Session still valid in this tab');
-                    return; // EXIT: Do not clear state
+                    return;
                 }
 
-                // If we get here, the session is truly gone
                 console.log('👋 Processing local SIGNED_OUT');
                 setRole(null);
                 setSession(null);
                 setUser(null);
                 setCurrentSchool(null);
+                setCurrentBranchId(null);
                 sessionStorage.removeItem('user');
                 sessionStorage.removeItem('role');
                 sessionStorage.removeItem('school');
-            } else if (session) {
-                setSession(session);
-                setUser(session.user);
             }
 
             setLoading(false);
@@ -145,45 +146,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    const fetchUserSchool = async (userId: string) => {
+    const fetchUserSchool = async (userId: string, providedSchoolId?: string) => {
         try {
-            // Get user from JWT to check metadata first
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-
-            // Triple-Source Detection + Fallback Cache
-            let schoolId = authUser?.user_metadata?.school_id || authUser?.app_metadata?.school_id;
+            // Priority 1: Provided via JWT / App Metadata
+            let schoolId = providedSchoolId;
 
             if (!schoolId) {
-                // Fallback to database
-                const { data: userRecord } = await supabase.from('users').select('school_id').eq('id', userId).single();
-                schoolId = userRecord?.school_id;
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                schoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
             }
 
-            if (!schoolId) {
-                // Fallback 2: Healing Logic (Look up school by admin email if still missing)
-                if (authUser?.email) {
-                    const { data: schoolData } = await supabase
-                        .from('schools')
-                        .select('id')
-                        .eq('contact_email', authUser.email)
-                        .single();
-                    if (schoolData) schoolId = schoolData.id;
-                }
-            }
-
-            // Fallback 3: Local Cache (Persistent across sessions/refreshes)
+            // Priority 2: Local Cache
             if (!schoolId) {
                 schoolId = localStorage.getItem('last_school_id');
             }
 
             if (schoolId) {
-                // Cache for future fallback
                 localStorage.setItem('last_school_id', schoolId);
 
-                const { data: schoolData, error: fetchError } = await supabase.from('schools').select('*').eq('id', schoolId).single();
+                // We still fetch the School details (UI Branding)
+                const { data: schoolData, error: fetchError } = await supabase
+                    .from('schools')
+                    .select('*')
+                    .eq('id', schoolId)
+                    .single();
 
                 if (fetchError) {
-                    console.error("Failed to fetch school data for ID:", schoolId, fetchError);
+                    console.error("Failed to fetch school details:", fetchError);
                     return;
                 }
 
@@ -258,7 +247,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.setItem('user', JSON.stringify(mockUser));
         sessionStorage.setItem('role', dashboard);
 
-        console.log('✅ Auth state updated:', { dashboard, user: mockUser.email });
+        // [NEW] Persist Backend Token for API calls
+        if (userData.token) {
+            localStorage.setItem('auth_token', userData.token);
+        }
+
+        console.log('✅ Auth state updated:', { dashboard, user: mockUser.email, tokenSaved: !!userData.token });
     };
 
     const signOut = async () => {
@@ -392,6 +386,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             user,
             role,
             currentSchool,
+            currentBranchId,
             loading,
             sessionExpiresAt,
             isSessionExpired,

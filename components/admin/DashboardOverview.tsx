@@ -272,14 +272,13 @@ interface DashboardOverviewProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     handleBack: () => void;
     forceUpdate: () => void;
+    schoolId: string;
+    currentBranchId: string | null;
 }
 
-const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handleBack, forceUpdate }) => {
+const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handleBack, forceUpdate, schoolId, currentBranchId }) => {
     const { currentSchool, user } = useAuth();
     const { profile } = useProfile();
-
-    // Triple-layer schoolId detection for the dashboard
-    const schoolId = currentSchool?.id || profile.schoolId || user?.user_metadata?.school_id;
 
     useEffect(() => {
         console.log('[Dashboard] Detected Context:', {
@@ -342,7 +341,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         if (isSupabaseConfigured) {
             const { data, error } = await supabase
                 .from('transport_buses')
-                .select('id, driver_name, status');
+                .select('id, driver_name, status')
+                .eq('school_id', schoolId)
+                .filter('branch_id', 'in', `(${currentBranchId || ''},null)`); // Show global or branch-specific
 
             if (!error && data) {
                 setBusRosterTotal(data.length);
@@ -375,7 +376,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
         // 1. Fetch Core Stats via Bridge
         const stats = await fetchStats(async () => {
-            const data = await api.getDashboardStats(schoolId);
+            const data = await api.getDashboardStats(schoolId, currentBranchId || undefined);
             return { data, error: null };
         });
 
@@ -387,8 +388,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
 
         try {
-            // Fetch recent audit logs
-            const auditData = await fetchAuditLogs(4);
+            // Fetch recent audit logs (Scoped by school/branch)
+            const auditData = await fetchAuditLogs(4, schoolId, currentBranchId || undefined);
 
             if (auditData) {
                 const transformed = auditData.map((log: any) => ({
@@ -412,6 +413,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     *,
                     students(name)
                 `)
+                .eq('school_id', schoolId)
                 .order('date', { ascending: false })
                 .order('id', { ascending: false })
                 .limit(1)
@@ -427,11 +429,10 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             }
 
             // Calculate enrollment trend
-            // Note: Optimizing to only select needed fields
             const { data: studentsData } = await supabase
                 .from('students')
                 .select('created_at')
-                .eq('school_id', schoolId); // Added schoolId filter for safety
+                .eq('school_id', schoolId);
 
             if (studentsData) {
                 const yearCounts: { [year: number]: number } = {};
@@ -452,6 +453,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             const { count: unpublishedCount } = await supabase
                 .from('report_cards')
                 .select('*', { count: 'exact', head: true })
+                .eq('school_id', schoolId)
                 .eq('status', 'Submitted');
 
             setUnpublishedReports(unpublishedCount || 0);
@@ -460,6 +462,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             const { data: attendanceData } = await supabase
                 .from('student_attendance')
                 .select('status')
+                .eq('school_id', schoolId)
                 .eq('date', new Date().toISOString().split('T')[0]);
 
             if (attendanceData && attendanceData.length > 0) {
@@ -475,6 +478,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             const { data: timetableData } = await supabase
                 .from('timetable')
                 .select('*')
+                .eq('school_id', schoolId)
                 .eq('day', todayName)
                 .order('start_time', { ascending: true })
                 .limit(5);

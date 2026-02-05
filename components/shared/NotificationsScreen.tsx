@@ -9,14 +9,14 @@ import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
 
 // Defining local interface to match DB schema if needed, or use types
 interface Notification {
-  id: number;
+  id: string;
   title: string;
   summary: string;
   category: 'System' | 'Message' | 'Alert' | 'Event' | 'Assignment' | 'Grades' | 'Attendance' | 'Fees';
   audience: string[];
   is_read: boolean;
   timestamp: string;
-  student_id?: number;
+  student_id?: string;
   link?: string;
 }
 
@@ -38,9 +38,10 @@ const formatDistanceToNow = (isoDate: string): string => {
 interface NotificationsScreenProps {
   userType: 'admin' | 'parent' | 'student' | 'teacher';
   navigateTo: (view: string, title: string, props?: any) => void;
+  schoolId?: string;
 }
 
-const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, navigateTo }) => {
+const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, navigateTo, schoolId }) => {
   const { profile } = useProfile();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
       let query = supabase
         .from('notifications')
         .select('*')
+        .eq('school_id', schoolId)
         .order('created_at', { ascending: false });
 
       // Ideally, backend should handle "For Me" logic via RLS. 
@@ -98,8 +100,13 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
   useEffect(() => {
     fetchNotifications();
 
-    const channel = supabase.channel('public:notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
+    const channel = supabase.channel(`public:notifications:school:${schoolId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: schoolId ? `school_id=eq.${schoolId}` : undefined
+      }, (payload) => {
         fetchNotifications();
       })
       .subscribe();
@@ -108,7 +115,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
   }, [profile, userType]);
 
 
-  const markAsRead = async (notificationId: number) => {
+  const markAsRead = async (notificationId: string) => {
     // Optimistic update
     setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
 

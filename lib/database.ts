@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { toast } from 'react-hot-toast';
 import { Database } from '../types/supabase';
 import {
     Student,
@@ -259,21 +260,25 @@ export async function deleteStudent(id: string | number): Promise<boolean> {
 // TEACHERS
 // ============================================
 
-export async function fetchTeachers(): Promise<Teacher[]> {
+export async function fetchTeachers(schoolId?: string): Promise<Teacher[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('teachers')
             .select(`
-        *,
-        teacher_subjects(subject),
-        teacher_classes(class_name)
-      `);
+                *,
+                teacher_subjects(subject),
+                teacher_classes(class_name)
+            `);
 
-        if (error) throw error;
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query;
 
         return (data || []).map((t: any) => ({
             id: t.id,
-            schoolId: t.school_generated_id,
+            schoolId: t.school_id, // Fixed mapping
             name: t.name,
             avatarUrl: t.avatar_url || 'https://i.pravatar.cc/150?u=teacher',
             email: t.email,
@@ -732,11 +737,17 @@ export async function deleteParent(id: string | number): Promise<boolean> {
 // NOTICES & ANNOUNCEMENTS
 // ============================================
 
-export async function fetchNotices(): Promise<Notice[]> {
+export async function fetchNotices(schoolId?: string): Promise<Notice[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('notices')
-            .select('*')
+            .select('*');
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query
             .order('timestamp', { ascending: false });
 
         if (error) throw error;
@@ -887,12 +898,19 @@ export async function fetchQuizById(id: string): Promise<any | null> {
 // CLASSES
 // ============================================
 
-export async function fetchClasses(): Promise<ClassInfo[]> {
+export async function fetchClasses(schoolId?: string): Promise<ClassInfo[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('classes')
-            .select('*')
-            .order('grade', { ascending: false });
+            .select('*');
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query
+            .order('grade', { ascending: false })
+            .order('section', { ascending: true });
 
         if (error) throw error;
 
@@ -1197,11 +1215,12 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 // TIMETABLE
 // ============================================
 
-export async function fetchTimetableForClass(className: string): Promise<any[]> {
+export async function fetchTimetableForClass(className: string, schoolId: string): Promise<any[]> {
     try {
         const { data, error } = await supabase
             .from('timetable')
             .select('*')
+            .eq('school_id', schoolId)
             .eq('class_name', className);
 
         if (error) throw error;
@@ -1212,11 +1231,12 @@ export async function fetchTimetableForClass(className: string): Promise<any[]> 
     }
 }
 
-export async function checkTimetableExists(className: string): Promise<boolean> {
+export async function checkTimetableExists(className: string, schoolId: string): Promise<boolean> {
     try {
         const { count, error } = await supabase
             .from('timetable')
             .select('*', { count: 'exact', head: true })
+            .eq('school_id', schoolId)
             .eq('class_name', className);
 
         if (error) throw error;
@@ -1914,14 +1934,19 @@ export async function upsertReportCard(studentId: number, reportCard: ReportCard
 // AUDIT LOGS
 // ============================================
 
-export async function fetchAuditLogs(limit: number = 50): Promise<any[]> {
+export async function fetchAuditLogs(limit: number = 50, schoolId?: string, branchId?: string): Promise<any[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('audit_logs')
             .select(`
                 *,
                 profiles:users!audit_logs_user_id_fkey (name, avatar_url)
-            `)
+            `);
+
+        if (schoolId) query = query.eq('school_id', schoolId);
+        if (branchId) query = query.eq('branch_id', branchId);
+
+        const { data, error } = await query
             .order('created_at', { ascending: false })
             .limit(limit);
 
@@ -2125,12 +2150,15 @@ export async function fetchUpcomingEvents(grade: number | string, section: strin
 // BUS & TRANSPORT
 // ============================================
 
-export async function fetchBuses(): Promise<Bus[]> {
+export async function fetchBuses(schoolId?: string): Promise<Bus[]> {
     try {
-        const { data, error } = await supabase
-            .from('transport_buses')
-            .select('*')
-            .order('name', { ascending: true });
+        let query = supabase.from('transport_buses').select('*');
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query.order('name', { ascending: true });
 
         if (error) throw error;
 
@@ -2157,8 +2185,13 @@ export async function createBus(busData: {
     plateNumber: string;
     driverName?: string;
     status: 'active' | 'inactive' | 'maintenance';
+    schoolId?: string;
 }): Promise<Bus | null> {
     try {
+        if (!busData.schoolId) {
+            console.warn('createBus called without schoolId. This may fail RLS checks.');
+        }
+
         const { data, error } = await supabase
             .from('transport_buses')
             .insert({
@@ -2167,12 +2200,22 @@ export async function createBus(busData: {
                 capacity: busData.capacity,
                 plate_number: busData.plateNumber,
                 driver_name: busData.driverName,
-                status: busData.status
+                status: busData.status,
+                school_id: busData.schoolId
             })
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase error creating bus:', error);
+            // Provide more specific feedback via toast if it's an RLS error
+            if (error.code === '42501') {
+                toast.error('Permission denied: You cannot add buses to this school.');
+            } else if (error.code === '23502') {
+                toast.error('Required data missing. Please check your inputs.');
+            }
+            throw error;
+        }
 
         return {
             id: data.id,
@@ -2184,8 +2227,8 @@ export async function createBus(busData: {
             status: data.status,
             createdAt: data.created_at
         };
-    } catch (err) {
-        console.error('Error creating bus:', err);
+    } catch (err: any) {
+        console.error('Error in createBus wrapper:', err);
         return null;
     }
 }
@@ -2212,10 +2255,16 @@ export async function updateBus(id: string, updates: Partial<{
             .update(dbUpdates)
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase error updating bus:', error);
+            if (error.code === '42501') {
+                toast.error('Permission denied: You cannot modify this bus.');
+            }
+            throw error;
+        }
         return true;
-    } catch (err) {
-        console.error('Error updating bus:', err);
+    } catch (err: any) {
+        console.error('Error in updateBus wrapper:', err);
         return false;
     }
 }
@@ -2227,10 +2276,16 @@ export async function deleteBus(id: string): Promise<boolean> {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase error deleting bus:', error);
+            if (error.code === '42501') {
+                toast.error('Permission denied: You cannot delete this bus.');
+            }
+            throw error;
+        }
         return true;
-    } catch (err) {
-        console.error('Error deleting bus:', err);
+    } catch (err: any) {
+        console.error('Error in deleteBus wrapper:', err);
         return false;
     }
 }

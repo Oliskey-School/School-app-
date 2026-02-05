@@ -149,7 +149,12 @@ const TodayFocus: React.FC<{ schedule: any[], assignments: any[], theme: any, na
     );
 };
 
-const Overview: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; student: Student }> = ({ navigateTo, student }) => {
+const Overview: React.FC<{
+    navigateTo: (view: string, title: string, props?: any) => void;
+    student: Student;
+    schoolId: string;
+    currentBranchId: string | null;
+}> = ({ navigateTo, student, schoolId, currentBranchId }) => {
     const theme = THEME_CONFIG[DashboardType.Student];
     const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
     const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
@@ -163,17 +168,27 @@ const Overview: React.FC<{ navigateTo: (view: string, title: string, props?: any
                 const timetablePromise = supabase
                     .from('timetable')
                     .select('*')
+                    .eq('school_id', schoolId)
                     .eq('day', today)
                     .ilike('class_name', `%${student.grade}%`)
                     .order('start_time', { ascending: true })
                     .limit(3);
 
+                if (currentBranchId) {
+                    timetablePromise.eq('branch_id', currentBranchId);
+                }
+
                 const assignmentsPromise = supabase
                     .from('assignments')
                     .select('*')
+                    .eq('school_id', schoolId)
                     .gt('due_date', new Date().toISOString())
                     .order('due_date', { ascending: true })
                     .limit(2);
+
+                if (currentBranchId) {
+                    assignmentsPromise.eq('branch_id', currentBranchId);
+                }
 
                 // Add timeout to prevent hanging
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
@@ -326,8 +341,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Student Dashboard', props: {} }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-    const { currentSchool } = useAuth();
+    const [currentUserId, setCurrentUserId] = useState<string | number | null>(null);
+    const { currentSchool, currentBranchId, user } = useAuth();
+    const schoolId = currentSchool?.id;
 
     // Fetch Integer User ID
     useEffect(() => {
@@ -385,7 +401,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     currentUser.email?.endsWith('@demo.com'); // Updated domain to match Login.tsx mock logic
 
                 const createDemoStudent = (): Student => ({
-                    id: 1,
+                    id: '00000000-0000-0000-0000-000000000001',
                     name: currentUser.user_metadata?.full_name || 'Demo Student',
                     grade: 10,
                     section: 'A',
@@ -396,12 +412,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     user_id: currentUser.id,
                 } as Student);
 
-                // 1. Try to fetch Student Data by user_id
+                // 1. Try to fetch Student Data (Isolated by School)
+                if (!schoolId) {
+                    setLoadingStudent(false);
+                    return;
+                }
+
                 let studentData = null;
                 const { data: students } = await supabase
                     .from('students')
                     .select('*')
-                    .eq('user_id', currentUser.id)
+                    .eq('user_id', user?.id)
+                    .eq('school_id', schoolId)
                     .maybeSingle();
 
                 studentData = students;
@@ -440,9 +462,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         const { data: newStudent, error: createError } = await supabase
                             .from('students')
                             .insert({
-                                user_id: currentUser.id,
-                                email: currentUser.email,
-                                school_id: DEMO_SCHOOL_ID,
+                                user_id: user?.id,
+                                email: user?.email,
+                                school_id: schoolId || DEMO_SCHOOL_ID,
                                 name: currentUser.user_metadata?.full_name || 'Demo Student',
                                 grade: 10,
                                 section: 'A',
@@ -609,7 +631,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     };
 
     const viewComponents = React.useMemo(() => ({
-        overview: Overview,
+        overview: (props: any) => <Overview {...props} schoolId={schoolId || ''} currentBranchId={currentBranchId} />,
         studyBuddy: StudyBuddy,
         adventureQuest: AdventureQuestHost,
         examSchedule: ExamSchedule,
@@ -708,7 +730,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         </button>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100">
-                        <p className="text-xs text-gray-400">User ID: {currentUser?.id || 'N/A'}</p>
+                        <p className="text-xs text-gray-400">User ID: {user?.id || 'N/A'}</p>
                     </div>
                 </div>
             </div>
@@ -722,6 +744,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         handleBack,
         forceUpdate,
         currentUserId,
+        schoolId,
+        currentBranchId
     };
 
 
@@ -751,7 +775,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                             onNotificationClick={handleNotificationClick}
                             notificationCount={notificationCount}
                             onSearchClick={() => setIsSearchOpen(true)}
-                            customId={currentUser?.user_metadata?.custom_id || currentUser?.app_metadata?.custom_id}
+                            customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
                         />
                     )}
 

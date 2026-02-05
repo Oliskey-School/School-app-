@@ -4,7 +4,11 @@ import { supabase } from '../../lib/supabase';
 import { TrashIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ClipboardListIcon, UserIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
-const ManagePermissionSlipsScreen: React.FC = () => {
+interface ManagePermissionSlipsScreenProps {
+    schoolId?: string;
+}
+
+const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = ({ schoolId }) => {
     const [classes, setClasses] = useState<any[]>([]);
     const [recentSlips, setRecentSlips] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -28,7 +32,12 @@ const ManagePermissionSlipsScreen: React.FC = () => {
     }, []);
 
     const fetchClasses = async () => {
-        const { data } = await supabase.from('classes').select('*').order('id');
+        if (!schoolId) return;
+        const { data } = await supabase
+            .from('classes')
+            .select('*')
+            .eq('school_id', schoolId)
+            .order('id');
         setClasses(data || []);
     };
 
@@ -37,6 +46,7 @@ const ManagePermissionSlipsScreen: React.FC = () => {
             const { data, error } = await supabase
                 .from('permission_slips')
                 .select('*, students(name, grade, section)')
+                .eq('school_id', schoolId)
                 .order('created_at', { ascending: false })
                 .limit(50);
 
@@ -66,6 +76,7 @@ const ManagePermissionSlipsScreen: React.FC = () => {
             const { data: students, error: studentError } = await supabase
                 .from('students')
                 .select('id')
+                .eq('school_id', schoolId)
                 .eq('grade', selectedClass.grade)
                 .eq('section', selectedClass.section);
 
@@ -79,6 +90,7 @@ const ManagePermissionSlipsScreen: React.FC = () => {
             // 3. Prepare inserts
             const inserts = students.map(s => ({
                 student_id: s.id,
+                school_id: schoolId,
                 title: newItem.title,
                 description: newItem.description,
                 location: newItem.location,

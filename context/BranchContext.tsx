@@ -24,7 +24,7 @@ interface BranchContextType {
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
 
 export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user, role } = useAuth();
+    const { user, role, currentSchool, currentBranchId } = useAuth();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -33,69 +33,47 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const canSwitchBranches = (role === DashboardType.Proprietor) || (role === DashboardType.SuperAdmin);
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !currentSchool) {
+            setIsLoading(false);
+            return;
+        }
 
         const fetchBranches = async () => {
             try {
                 setIsLoading(true);
 
-                // Get user's school_id first
-                let { data: userData, error: userError } = await supabase
-                    .from('users')
-                    .select('school_id')
-                    .eq('id', user.id)
-                    .single();
-
-                // If user not found in public.users, try to get from auth metadata
-                if (!userData?.school_id) {
-                    const { data: { user: authUser } } = await supabase.auth.getUser();
-                    const metaSchoolId = authUser?.user_metadata?.school_id || authUser?.app_metadata?.school_id;
-
-                    if (metaSchoolId) {
-                        userData = { school_id: metaSchoolId };
-                    } else {
-                        console.warn('No school_id found for user. Redirecting to setup...');
-                        // Optional: trigger redirect here if not handled by a higher-level guard
-                        // window.location.href = '/setup-school'; 
-
-                        // For now, just set empty branches and stop loading
-                        setBranches([]);
-                        setIsLoading(false);
-                        return;
-                    }
-                }
-
-                if (!userData?.school_id) {
-                    console.warn('Still no school_id found');
-                    setIsLoading(false);
-                    return;
-                }
-
                 // Fetch all branches for this school
                 const { data, error } = await supabase
                     .from('branches')
                     .select('id, name, is_main, curriculum_type, location')
-                    .eq('school_id', userData.school_id)
+                    .eq('school_id', currentSchool.id)
                     .order('is_main', { ascending: false });
 
                 if (error) throw error;
 
                 if (data && data.length > 0) {
                     setBranches(data);
-                    // Default to first branch (or Main) if not set
-                    if (!currentBranch) {
-                        const savedBranchId = localStorage.getItem('selected_branch_id');
-                        const savedBranch = data.find(b => b.id === savedBranchId);
-                        setCurrentBranch(savedBranch || data[0]);
-                    }
+
+                    // Determine which branch to select:
+                    // 1. Saved in localStorage
+                    // 2. Assigned via JWT (Project Ironclad claim)
+                    // 3. Main branch (fallback)
+
+                    const savedBranchId = localStorage.getItem('selected_branch_id');
+                    const assignedBranchId = currentBranchId;
+
+                    const branchToSelect =
+                        data.find(b => b.id === savedBranchId) ||
+                        data.find(b => b.id === assignedBranchId) ||
+                        data[0];
+
+                    setCurrentBranch(branchToSelect);
                 } else {
-                    // No branches found - this is ok for now
                     console.log('No branches found for school');
                     setBranches([]);
                 }
             } catch (err) {
                 console.error('Error fetching branches:', err);
-                // Don't crash the app if branches fail to load
                 setBranches([]);
             } finally {
                 setIsLoading(false);
@@ -103,7 +81,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
 
         fetchBranches();
-    }, [user]);
+    }, [user, currentSchool, currentBranchId]);
 
     const switchBranch = (branchId: string) => {
         const branch = branches.find(b => b.id === branchId);

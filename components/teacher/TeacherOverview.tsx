@@ -21,9 +21,11 @@ import { supabase } from '../../lib/supabase';
 
 interface TeacherOverviewProps {
   navigateTo: (view: string, title: string, props?: any) => void;
-  currentUser?: { userId: string; email: string; userType: string };
+  currentUser?: any;
   profile?: any;
-  teacherId?: number | null;
+  teacherId?: string | null;
+  schoolId: string;
+  currentBranchId: string | null;
 }
 
 const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactElement<{ className?: string }>; }> = ({ label, value, icon }) => {
@@ -80,7 +82,7 @@ const parseClassName = (name: string) => {
   return { grade, section };
 };
 
-const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherId }) => {
+const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherId, schoolId, currentBranchId }) => {
   const theme = THEME_CONFIG[DashboardType.Teacher];
 
   const [teacherName, setTeacherName] = useState('Teacher');
@@ -92,22 +94,17 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Get Logged In Teacher
-        let query = supabase.from('teachers').select('id, name');
+        // 1. Get Logged In Teacher (Isolated by School)
+        let query = supabase.from('teachers').select('id, name').eq('school_id', schoolId);
 
         if (teacherId) {
-          // Direct ID override (e.g. admin viewing)
           query = query.eq('id', teacherId);
         } else if (profile?.id) {
-          // Best: Query by User ID
           query = query.eq('user_id', profile.id);
         } else if (currentUser?.email || profile?.email) {
-          // Fallback: Query by Email
           const email = currentUser?.email || profile?.email;
           query = query.eq('email', email);
         } else {
-          // Ultimate Fallback (Demo) - REMOVED to ensure real data usage
-          // query = query.eq('email', 'f.akintola@school.com');
           console.warn("No logged in user found for Teacher Overview");
           setLoading(false);
           return;
@@ -123,19 +120,30 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
         setTeacherName(teacher.name);
 
-        // 2. Get Teacher Classes
-        const { data: teacherClasses } = await supabase
+        // 2. Get Teacher Classes (Scoped by Branch if applicable)
+        let classesQuery = supabase
           .from('teacher_classes')
           .select('class_name')
-          .eq('teacher_id', teacher.id);
+          .eq('teacher_id', teacher.id)
+          .eq('school_id', schoolId);
+
+        if (currentBranchId) {
+          classesQuery = classesQuery.eq('branch_id', currentBranchId);
+        }
+
+        const { data: teacherClasses } = await classesQuery;
 
         const classes = teacherClasses?.map(c => c.class_name) || [];
         setStats(prev => ({ ...prev, classesTaught: classes.length }));
 
-        // 3. Get Total Students (by querying students in those classes)
-        // Assuming class_name format "10A" or similar matching students grade/section
+        // 3. Get Total Students (Scoped by School + Branch + My Classes)
         if (classes.length > 0) {
-          const { data: students } = await supabase.from('students').select('grade, section');
+          let studentsQuery = supabase.from('students').select('grade, section').eq('school_id', schoolId);
+          if (currentBranchId) {
+            studentsQuery = studentsQuery.eq('branch_id', currentBranchId);
+          }
+
+          const { data: students } = await studentsQuery;
           let count = 0;
           if (students) {
             classes.forEach(clsName => {
@@ -149,24 +157,31 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           setStats(prev => ({ ...prev, totalStudents: count }));
         }
 
-        // 4. Get Today's Schedule
+        // 4. Get Today's Schedule (Scoped by Branch)
         const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-        const { data: timetable } = await supabase
+        let scheduleQuery = supabase
           .from('timetable')
           .select('*')
           .eq('teacher_id', teacher.id)
+          .eq('school_id', schoolId)
           .eq('day', todayName)
-          .eq('status', 'Published')
-          .order('start_time', { ascending: true });
+          .eq('status', 'Published');
+
+        if (currentBranchId) {
+          scheduleQuery = scheduleQuery.eq('branch_id', currentBranchId);
+        }
+
+        const { data: timetable } = await scheduleQuery.order('start_time', { ascending: true });
 
         setTodaySchedule(timetable || []);
 
-        // 5. Get Recent Assignments for My Classes
+        // 5. Get Recent Assignments for My Classes (Scoped by School)
         let recentAssignments: any[] = [];
         if (classes.length > 0) {
           const { data } = await supabase
             .from('assignments')
             .select('*')
+            .eq('school_id', schoolId)
             .in('class_name', classes)
             .order('created_at', { ascending: false })
             .limit(3);

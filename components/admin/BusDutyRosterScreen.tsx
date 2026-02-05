@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { BusVehicleIcon, PlusIcon, TrashIcon, EditIcon } from '../../constants';
 import { Bus } from '../../types';
-import { fetchBuses, createBus, updateBus, deleteBus } from '../../lib/database';
 import { isSupabaseConfigured } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
+import { AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
 
 interface BusFormData {
     name: string;
@@ -14,7 +17,17 @@ interface BusFormData {
     status: 'active' | 'inactive' | 'maintenance';
 }
 
-const BusDutyRosterScreen: React.FC = () => {
+interface BusDutyRosterProps {
+    schoolId?: string;
+}
+
+const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoolId }) => {
+    const { currentSchool } = useAuth();
+    const { profile, refreshProfile } = useProfile();
+
+    // Multi-source schoolId detection
+    const schoolId = propSchoolId || profile.schoolId || currentSchool?.id;
+
     const [buses, setBuses] = useState<Bus[]>([]);
     const [isAddingBus, setIsAddingBus] = useState(false);
     const [editingBusId, setEditingBusId] = useState<string | null>(null);
@@ -28,6 +41,13 @@ const BusDutyRosterScreen: React.FC = () => {
         status: 'active'
     });
 
+    useEffect(() => {
+        if (!schoolId && isSupabaseConfigured) {
+            console.log("School ID missing in BusDutyRoster, refreshing profile...");
+            refreshProfile();
+        }
+    }, [schoolId, refreshProfile]);
+
     // Load buses from Supabase (or fallback/mock)
     useEffect(() => {
         loadBuses();
@@ -35,10 +55,31 @@ const BusDutyRosterScreen: React.FC = () => {
 
     const loadBuses = async () => {
         setLoading(true);
-        if (isSupabaseConfigured) {
-            const data = await fetchBuses();
-            setBuses(data);
-        } else {
+        if (isSupabaseConfigured && schoolId) {
+            try {
+                const data = await api.getBuses(schoolId, { useBackend: true });
+                setBuses(data.map((b: any) => ({
+                    id: b.id,
+                    name: b.name,
+                    routeName: b.route_name || b.routeName,
+                    capacity: b.capacity,
+                    plateNumber: b.plate_number || b.plateNumber,
+                    driverName: b.driver_name || b.driverName,
+                    status: b.status,
+                    createdAt: b.created_at || b.createdAt
+                })));
+            } catch (err) {
+                console.error('API error fetching buses:', err);
+                // Try fallback to direct supabase
+                try {
+                    const data = await api.getBuses(schoolId);
+                    setBuses(data);
+                } catch (fallbackErr) {
+                    console.error('Fallback fetching buses failed:', fallbackErr);
+                    toast.error("Could not load buses.");
+                }
+            }
+        } else if (!isSupabaseConfigured) {
             // Fallback to LocalStorage for Mock Mode / No Connection
             const saved = localStorage.getItem('schoolApp_buses');
             if (saved) {
@@ -70,16 +111,24 @@ const BusDutyRosterScreen: React.FC = () => {
         }
 
         try {
-            if (isSupabaseConfigured) {
-                const newBus = await createBus(formData);
+            if (isSupabaseConfigured && schoolId) {
+                const newBus = await api.createBus({ ...formData, school_id: schoolId }, { useBackend: true });
                 if (newBus) {
-                    setBuses([...buses, newBus]);
+                    const mappedBus: Bus = {
+                        id: newBus.id,
+                        name: newBus.name,
+                        routeName: newBus.route_name || newBus.routeName,
+                        capacity: newBus.capacity,
+                        plateNumber: newBus.plate_number || newBus.plateNumber,
+                        driverName: newBus.driver_name || newBus.driverName,
+                        status: newBus.status,
+                        createdAt: newBus.created_at || newBus.createdAt
+                    };
+                    setBuses([...buses, mappedBus]);
                     toast.success(`Bus "${formData.name}" added successfully!`);
                     resetForm();
-                } else {
-                    toast.error("Failed to add bus to database.");
                 }
-            } else {
+            } else if (!isSupabaseConfigured) {
                 // Mock Mode
                 const newBus: Bus = {
                     id: Date.now().toString(),
@@ -108,15 +157,23 @@ const BusDutyRosterScreen: React.FC = () => {
 
         try {
             if (isSupabaseConfigured) {
-                const success = await updateBus(editingBusId, formData);
-                if (success) {
-                    setBuses(buses.map(bus => bus.id === editingBusId ? { ...bus, ...formData } : bus));
+                const updatedBus = await api.updateBus(editingBusId, formData, { useBackend: true });
+                if (updatedBus) {
+                    const mappedBus: Bus = {
+                        id: updatedBus.id,
+                        name: updatedBus.name,
+                        routeName: updatedBus.route_name || updatedBus.routeName,
+                        capacity: updatedBus.capacity,
+                        plateNumber: updatedBus.plate_number || updatedBus.plateNumber,
+                        driverName: updatedBus.driver_name || updatedBus.driverName,
+                        status: updatedBus.status,
+                        createdAt: updatedBus.created_at || updatedBus.createdAt
+                    };
+                    setBuses(buses.map(bus => bus.id === editingBusId ? mappedBus : bus));
                     toast.success('Bus updated successfully!');
                     resetForm();
-                } else {
-                    toast.error("Failed to update bus in database.");
                 }
-            } else {
+            } else if (!isSupabaseConfigured) {
                 // Mock Mode
                 const updatedBuses = buses.map(bus =>
                     bus.id === editingBusId
@@ -157,14 +214,10 @@ const BusDutyRosterScreen: React.FC = () => {
         if (confirm('Are you sure you want to delete this bus?')) {
             try {
                 if (isSupabaseConfigured) {
-                    const success = await deleteBus(busId);
-                    if (success) {
-                        setBuses(buses.filter(bus => bus.id !== busId));
-                        toast.success('Bus deleted successfully');
-                    } else {
-                        toast.error("Failed to delete bus from database.");
-                    }
-                } else {
+                    await api.deleteBus(busId, { useBackend: true });
+                    setBuses(buses.filter(bus => bus.id !== busId));
+                    toast.success('Bus deleted successfully');
+                } else if (!isSupabaseConfigured) {
                     const filtered = buses.filter(bus => bus.id !== busId);
                     setBuses(filtered);
                     localStorage.setItem('schoolApp_buses', JSON.stringify(filtered));
@@ -186,8 +239,37 @@ const BusDutyRosterScreen: React.FC = () => {
         }
     };
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <div className="ml-3 text-lg text-gray-600">Loading buses...</div>
+            </div>
+        );
+    }
+
+    if (!schoolId && isSupabaseConfigured) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 bg-amber-50 rounded-2xl border border-amber-100 m-4 shadow-sm">
+                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                    <ExclamationTriangleIcon className="w-8 h-8 text-amber-600" />
+                </div>
+                <div className="text-xl font-bold text-slate-800 mb-2">School Identity Missing</div>
+                <p className="text-slate-600 mb-6 text-center max-w-xs text-sm">
+                    We're having trouble identifying which school these buses belong to.
+                </p>
+                <button
+                    onClick={() => refreshProfile()}
+                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+                >
+                    Sync School Profile
+                </button>
+            </div>
+        );
+    }
+
     return (
-        <div className="p-4 space-y-4 bg-gray-50 h-full overflow-y-auto">
+        <div className="p-4 space-y-4 bg-gray-50 h-full overflow-y-auto pb-32">
             {/* Header */}
             <div className="bg-indigo-50 p-4 rounded-xl text-center border border-indigo-200">
                 <BusVehicleIcon className="h-10 w-10 mx-auto text-indigo-400 mb-2" />

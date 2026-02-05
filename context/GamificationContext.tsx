@@ -20,7 +20,7 @@ interface GamificationState {
 
 const GamificationContext = createContext<GamificationState | undefined>(undefined);
 
-export const GamificationProvider: React.FC<{ children: React.ReactNode; studentId?: number }> = ({ children, studentId }) => {
+export const GamificationProvider: React.FC<{ children: React.ReactNode; studentId?: string | number }> = ({ children, studentId }) => {
     const [xp, setXp] = useState(0);
     const [level, setLevel] = useState(1);
     const [badges, setBadges] = useState<Badge[]>([

@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 
 interface TimetableOverviewProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    schoolId?: string;
 }
 
 interface ClassTimetable {
@@ -14,7 +15,7 @@ interface ClassTimetable {
     lastUpdated: string;
 }
 
-const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => {
+const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoolId }) => {
     const [timetables, setTimetables] = useState<ClassTimetable[]>([]);
     const [loading, setLoading] = useState(true);
     // New state for Level Filter
@@ -26,10 +27,14 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
     }, []);
 
     const fetchTimetables = async () => {
+        if (!schoolId) return;
         setLoading(true);
         try {
             // Fetch classes to know their levels
-            const { data: classesData, error: classError } = await supabase.from('classes').select('name, level');
+            const { data: classesData, error: classError } = await supabase
+                .from('classes')
+                .select('name, level')
+                .eq('school_id', schoolId);
             if (classError) throw classError;
 
             const classLevelMap = new Map<string, string>();
@@ -38,7 +43,8 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
             // Fetch timetable entries
             const { data, error } = await supabase
                 .from('timetable')
-                .select('class_name, updated_at, status');
+                .select('class_name, updated_at, status')
+                .eq('school_id', schoolId);
 
             if (error) throw error;
 
@@ -157,8 +163,8 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                             key={s}
                             onClick={() => setStatusFilter(s as any)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-colors ${statusFilter === s
-                                    ? 'bg-gray-800 text-white'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-gray-800 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             {s}
@@ -217,6 +223,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                                                 const { data: entries, error } = await supabase
                                                     .from('timetable')
                                                     .select('*')
+                                                    .eq('school_id', schoolId)
                                                     .eq('class_name', tt.className);
 
                                                 if (error) throw error;
@@ -228,7 +235,11 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo }) => 
                                                 // So let's fetch unique teacher IDs
                                                 const teacherIds = Array.from(new Set(entries.map((e: any) => e.teacher_id).filter(Boolean)));
 
-                                                const { data: teachers } = await supabase.from('teachers').select('id, name').in('id', teacherIds);
+                                                const { data: teachers } = await supabase
+                                                    .from('teachers')
+                                                    .select('id, name')
+                                                    .eq('school_id', schoolId)
+                                                    .in('id', teacherIds);
                                                 const teacherMap = new Map();
                                                 teachers?.forEach((t: any) => teacherMap.set(t.id, t.name));
 

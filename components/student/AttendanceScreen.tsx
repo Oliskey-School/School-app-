@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StudentAttendance, AttendanceStatus } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { ChevronLeftIcon, ChevronRightIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 
@@ -55,19 +56,11 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
 
     useEffect(() => {
         const fetchAttendance = async () => {
-            // Mock fallback for now to ensure UI shows something if table is empty, 
-            // but strictly we should fetch.
+            setLoading(true);
             try {
-                const { data, error } = await supabase
-                    .from('student_attendance')
-                    .select('*')
-                    .eq('student_id', studentId);
+                const data = await api.getAttendanceByStudent(studentId);
 
-                if (error) throw error;
                 if (data) {
-                    // Map to ensure it matches StudentAttendance type if needed, 
-                    // assuming DB columns match: id, studentId, date, status, remarks
-                    // If DB uses snack_case (student_id), we might need to map.
                     const formatted: StudentAttendance[] = data.map((d: any) => ({
                         id: d.id,
                         studentId: d.student_id,

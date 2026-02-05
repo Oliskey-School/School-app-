@@ -13,7 +13,7 @@ export interface UseClassesResult {
     deleteClass: (id: string) => Promise<boolean>;
 }
 
-export function useClasses(): UseClassesResult {
+export function useClasses(schoolId?: string): UseClassesResult {
     const [classes, setClasses] = useState<ClassInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -27,10 +27,18 @@ export function useClasses(): UseClassesResult {
 
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
+            let query = supabase
                 .from('classes')
-                .select('*')
-                .order('grade,section,subject', { ascending: true });
+                .select('*');
+
+            if (schoolId) {
+                query = query.eq('school_id', schoolId);
+            }
+
+            const { data, error: fetchError } = await query
+                .order('grade', { ascending: true })
+                .order('section', { ascending: true })
+                .order('subject', { ascending: true });
 
             if (fetchError) throw fetchError;
 

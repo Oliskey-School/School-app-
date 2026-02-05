@@ -10,9 +10,11 @@ interface PaystackButtonProps {
     email: string;
     onSuccess?: () => void;
     onClose?: () => void;
+    schoolId?: string;
+    branchId?: string | null;
 }
 
-export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSuccess, onClose }) => {
+export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSuccess, onClose, schoolId, branchId }) => {
     const [loading, setLoading] = useState(false);
 
     // Get Paystack public key from environment
@@ -99,7 +101,15 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSu
 
         setLoading(true);
         // Create Pending Transaction in DB
-        await initializeTransaction(fee.id, fee.studentId, fee.amount, config.reference, 'Paystack');
+        await initializeTransaction(
+            fee.id,
+            fee.studentId,
+            fee.amount,
+            config.reference,
+            schoolId || '',
+            branchId,
+            'Paystack'
+        );
 
         // We can't actually trigger the Hook manually nicely here without using the hook at top level
         // So usually we just let the hook handle the click.

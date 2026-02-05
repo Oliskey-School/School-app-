@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { SchoolLogoIcon, DocumentTextIcon } from '../../constants';
 import { Student, ReportCard } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
     <div className="bg-gray-100 p-2 rounded-md my-4">
@@ -16,13 +16,20 @@ const InfoField: React.FC<{ label: string; value: string | number }> = ({ label,
     </div>
 );
 
-const TermReport: React.FC<{ report: ReportCard, student: Student }> = ({ report, student }) => (
+const TermReport: React.FC<{ report: ReportCard, student: Student, schoolName?: string, logoUrl?: string }> = ({ report, student, schoolName, logoUrl }) => (
     <div className="printable-area bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
         <header className="text-center border-b-2 border-gray-300 pb-4 mb-4">
-            <div className="flex justify-center items-center gap-2"><SchoolLogoIcon className="text-green-500 h-10 w-10"/><h1 className="text-2xl font-bold text-gray-800">Smart School Academy</h1></div>
+            <div className="flex justify-center items-center gap-2">
+                {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" className="h-10 w-10 object-contain" />
+                ) : (
+                    <SchoolLogoIcon className="text-green-500 h-10 w-10" />
+                )}
+                <h1 className="text-2xl font-bold text-gray-800">{schoolName || 'School Academy'}</h1>
+            </div>
             <p className="text-gray-600 font-sans font-semibold mt-1">END OF TERM REPORT CARD</p>
         </header>
-        
+
         <SectionHeader title="Student Information" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-gray-900 font-sans">
             <InfoField label="Full Name" value={student.name} />
@@ -61,26 +68,27 @@ const TermReport: React.FC<{ report: ReportCard, student: Student }> = ({ report
 
         <SectionHeader title="Comments" />
         <div className="space-y-4 font-sans">
-             <div>
+            <div>
                 <h4 className="font-bold text-gray-800">Teacher's Comment</h4>
                 <div className="mt-1 p-3 text-sm bg-gray-50 rounded-md text-gray-800 italic">"{report.teacherComment}"</div>
-             </div>
-             <div>
+            </div>
+            <div>
                 <h4 className="font-bold text-gray-800">Principal's Comment</h4>
                 <div className="mt-1 p-3 text-sm bg-gray-50 rounded-md text-gray-800 italic">"{report.principalComment}"</div>
-             </div>
+            </div>
         </div>
     </div>
 );
 
 
 interface ReportCardScreenProps {
-  student: Student;
+    student: Student;
 }
 
 const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
-    const publishedReports = useMemo(() => 
-        (student.reportCards || []).filter(r => r.status === 'Published'), 
+    const { currentSchool } = useAuth();
+    const publishedReports = useMemo(() =>
+        (student.reportCards || []).filter(r => r.status === 'Published'),
         [student]
     );
 
@@ -89,7 +97,7 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
     const handlePrint = () => {
         window.print();
     };
-    
+
     const activeReport = publishedReports.find(r => r.term === activeTerm);
 
     if (publishedReports.length === 0) {
@@ -100,7 +108,7 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
             </div>
         );
     }
-    
+
     return (
         <div className="p-2 sm:p-4 bg-gray-50 font-serif min-h-full">
             <div className="max-w-4xl mx-auto">
@@ -110,22 +118,21 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
                             <button
                                 key={report.term}
                                 onClick={() => setActiveTerm(report.term)}
-                                className={`px-3 py-1.5 text-sm font-sans font-semibold rounded-md transition-colors ${
-                                    activeTerm === report.term ? 'bg-white text-green-600 shadow-sm' : 'text-gray-600'
-                                }`}
+                                className={`px-3 py-1.5 text-sm font-sans font-semibold rounded-md transition-colors ${activeTerm === report.term ? 'bg-white text-green-600 shadow-sm' : 'text-gray-600'
+                                    }`}
                             >
                                 {report.term}
                             </button>
                         ))}
                     </div>
                     <button onClick={handlePrint} className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white font-sans font-semibold rounded-lg shadow-md hover:bg-green-600">
-                        <DocumentTextIcon className="w-5 h-5"/>
+                        <DocumentTextIcon className="w-5 h-5" />
                         <span>Print</span>
                     </button>
                 </div>
-                
+
                 {activeReport ? (
-                    <TermReport report={activeReport} student={student} />
+                    <TermReport report={activeReport} student={student} schoolName={currentSchool?.name} logoUrl={currentSchool?.logoUrl} />
                 ) : (
                     <p>Select a term to view the report.</p>
                 )}

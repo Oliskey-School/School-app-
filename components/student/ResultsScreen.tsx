@@ -5,8 +5,9 @@ import { BookOpenIcon, CheckCircleIcon, ClipboardListIcon, SUBJECT_COLORS } from
 import DonutChart from '../ui/DonutChart';
 
 interface ResultsScreenProps {
-    studentId: number;
+    studentId: string | number;
     student?: Student;
+    schoolId?: string;
 }
 
 const TermTab: React.FC<{ term: string; isActive: boolean; onClick: () => void; }> = ({ term, isActive, onClick }) => (
@@ -19,7 +20,7 @@ const TermTab: React.FC<{ term: string; isActive: boolean; onClick: () => void; 
     </button>
 );
 
-const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student }) => {
+const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoolId }) => {
     // State for fetched data
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -31,11 +32,15 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student }) => 
             if (!studentId) return;
 
             try {
-                // Fetch Academic Performance
-                const { data: grades } = await supabase
+                // Fetch Academic Performance (Isolated by School)
+                let performanceQuery = supabase
                     .from('academic_performance')
                     .select('*')
                     .eq('student_id', studentId);
+
+                if (schoolId) performanceQuery = performanceQuery.eq('school_id', schoolId);
+
+                const { data: grades } = await performanceQuery;
 
                 if (grades) {
                     setPerformanceData(grades);
@@ -54,10 +59,13 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student }) => 
         };
 
         const fetchQuizResults = async () => {
-            const { data } = await supabase.from('quiz_submissions')
+            let quizzesQuery = supabase.from('quiz_submissions')
                 .select('*, quizzes(title, subject)')
-                .eq('student_id', studentId)
-                .order('submitted_at', { ascending: false });
+                .eq('student_id', studentId);
+
+            if (schoolId) quizzesQuery = quizzesQuery.eq('school_id', schoolId);
+
+            const { data } = await quizzesQuery.order('submitted_at', { ascending: false });
             if (data) setQuizResults(data);
         };
 

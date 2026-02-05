@@ -104,7 +104,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     };
 
     return (
-        <div className={`relative ${className}`}>
+        <div className={`relative ${className} ${circular ? 'rounded-full' : ''}`}>
             <input
                 ref={fileInputRef}
                 type="file"
@@ -116,7 +116,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             {preview ? (
                 // Preview State
                 <div className="relative group mx-auto">
-                    <div className={`relative ${circular ? 'w-32 h-32 rounded-full' : 'w-full h-48 rounded-xl'} overflow-hidden border-2 border-slate-200 bg-slate-50 transition-all duration-300 group-hover:border-indigo-400`}>
+                    <div className={`relative ${circular ? 'w-32 h-32 rounded-full' : 'w-full h-48 rounded-xl'} overflow-hidden transition-all duration-300`}>
                         <img
                             src={preview}
                             alt="Preview"

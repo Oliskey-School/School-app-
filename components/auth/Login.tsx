@@ -53,26 +53,25 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     setIsLoading(true);
 
     try {
-      // 1. Attempt Real Auth (Supabase)
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // 1. Attempt Unified Auth (Backend + Supabase Fallback inside authenticateUser)
+      const result = await authenticateUser(email, password);
 
-      // 2. FALLBACK: Mock Patterns
-      if (authError) {
-        console.warn("Auth Failed, trying Fallback/Mock", authError.message);
+      if (!result.success) {
+        // If real auth fails, we might check for mock credentials if configured
+        console.warn("Auth Failed:", result.error);
 
-        // Check mock credentials
+        // 2. FALLBACK: Mock Patterns (Only if backend auth explicitly failed)
+        // Check mock credentials locally
         const mockResult = await checkMockCredentials(email, password);
         if (mockResult.success) {
           await signIn(mockResult.dashboardType, {
             userId: mockResult.userId,
             email: email,
             userType: mockResult.role,
+            isDemo: true, // Mark as demo
             school: {
               id: '00000000-0000-0000-0000-000000000000',
-              name: 'School App',
+              name: 'School App Demo',
               slug: 'demo',
               subscriptionStatus: 'active',
               createdAt: new Date().toISOString()
@@ -81,18 +80,20 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           return;
         }
 
-        throw authError;
+        throw new Error(result.error || 'Invalid credentials');
       }
 
-      if (data.session) {
-        // Real session - fetch role
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
-        const role = profile?.role || 'student';
+      // 3. Success - Backend Auth
+      if (result.success) {
+        const dashboardType = mapRoleToDashboard(result.userType || 'student');
 
-        await signIn(mapRoleToDashboard(role), {
-          userId: data.user.id,
-          email: data.user.email!,
-          userType: role
+        await signIn(dashboardType, {
+          userId: result.userId,
+          email: result.email,
+          userType: result.userType,
+          token: result.token, // Pass the JWT from backend
+          schoolGeneratedId: result.schoolGeneratedId,
+          school: result.userData?.school_id ? { id: result.userData.school_id } : undefined
         });
       }
 

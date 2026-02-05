@@ -16,6 +16,7 @@ interface SubjectPeriod {
 }
 interface TimetableGeneratorScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
+    schoolId?: string;
 }
 
 // --- SUB-COMPONENTS ---
@@ -76,7 +77,7 @@ const TagInput: React.FC<{ tags: string[]; setTags: (newTags: string[]) => void;
 };
 
 // --- MAIN COMPONENT ---
-const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ navigateTo }) => {
+const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ navigateTo, schoolId }) => {
     const [className, setClassName] = useState('');
     const [classes, setClasses] = useState<{ id: string; name: string; grade: number; section: string; }[]>([]);
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -105,11 +106,18 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     // Fetch classes from database
     useEffect(() => {
         const fetchClasses = async () => {
+            if (!schoolId) {
+                console.warn('TimetableGeneratorScreen: No schoolId provided, skipping fetch.');
+                setIsLoadingClasses(false);
+                return;
+            }
+
             setIsLoadingClasses(true);
             try {
                 const { data, error } = await supabase
                     .from('classes')
-                    .select('id, subject, grade, section, department')
+                    .select('id, grade, section, department')
+                    .eq('school_id', schoolId)
                     .order('grade', { ascending: true })
                     .order('section', { ascending: true });
 
@@ -169,8 +177,8 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     // Check for existing timetable when className changes
     useEffect(() => {
         const checkExistence = () => {
-            if (className) {
-                checkTimetableExists(className).then(exists => {
+            if (className && schoolId) {
+                checkTimetableExists(className, schoolId).then(exists => {
                     setExistingTimetableFound(exists);
                 });
             }
@@ -193,10 +201,11 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
     }, [className]);
 
     const handleLoadExisting = async () => {
+        if (!schoolId) return;
         setIsLoadingExisting(true);
         try {
-            const data = await fetchTimetableForClass(className);
-            const dbTeachers = await fetchTeachers();
+            const data = await fetchTimetableForClass(className, schoolId);
+            const dbTeachers = await fetchTeachers(schoolId);
 
             // Reconstruct timetable map
             const timetableMap: { [key: string]: string } = {};
@@ -204,7 +213,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ nav
             const subjectsSet = new Set<string>();
 
             // Helper to find teacher name
-            const getTeacherName = (id: number) => {
+            const getTeacherName = (id: string | number) => {
                 const t = dbTeachers.find(dt => dt.id === id);
                 return t ? t.name : 'Unknown Teacher';
             };
