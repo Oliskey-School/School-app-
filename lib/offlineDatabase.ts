@@ -95,7 +95,7 @@ class OfflineDatabase {
     private createStores(db: IDBDatabase) {
         const tables: TableName[] = [
             'students', 'teachers', 'parents', 'users',
-            'classes', 'subjects', 'timetable',
+            'classes', 'subjects', 'timetable', 'conversations',
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
             'sync_queue', 'conflict_log'
@@ -302,7 +302,7 @@ class OfflineDatabase {
     async clearAll(): Promise<void> {
         const tables: TableName[] = [
             'students', 'teachers', 'parents', 'users',
-            'classes', 'subjects', 'timetable',
+            'classes', 'subjects', 'timetable', 'conversations',
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
             'sync_queue', 'conflict_log'
@@ -444,7 +444,7 @@ class OfflineDatabase {
     async exportDatabase(): Promise<Record<TableName, any[]>> {
         const tables: TableName[] = [
             'students', 'teachers', 'parents', 'users',
-            'classes', 'subjects', 'timetable',
+            'classes', 'subjects', 'timetable', 'conversations',
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
             'sync_queue', 'conflict_log'

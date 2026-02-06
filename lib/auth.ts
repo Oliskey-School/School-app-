@@ -53,67 +53,39 @@ export const createUserAccount = async (
     const username = generateUsername(fullName, userType);
     const password = generatePassword(surname);
 
-    // Create a temporary client that DOES NOT persist the session.
-    // This is critical so the Admin performing this action doesn't get logged out
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    // Call Backend API to create user (Bypasses Email Confirmation via Admin API)
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return { username, password, error: 'Supabase configuration missing' };
-    }
-
-    const { createClient } = await import('@supabase/supabase-js');
-    const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false
-      }
-    });
-
-    // 1. Create Supabase Auth user
-    // This sends the confirmation email automatically if "Confirm Email" is enabled in Supabase
-    const { data: authData, error: authError } = await tempClient.auth.signUp({
-      email: email,
-      password: password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
+    try {
+      const response = await fetch(`${API_URL}/auth/create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          username,
           full_name: fullName,
-          role: userType.toLowerCase(), // CRITICAL: Database constraints expect lowercase
-          username: username,
-          school_id: schoolId, // CRITICAL: Pass school_id for the database trigger
-        }
+          role: userType,
+          school_id: schoolId
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Backend Create User Error:', data);
+        return { username, password, error: data.message || 'Failed to create account' };
       }
-    });
 
-    if (authError) {
-      console.error('Error creating auth user:', authError);
-      return { username, password, error: authError.message };
+      // Success
+      return { username, password, userId: data.id };
+
+    } catch (apiError: any) {
+      console.error('API Network Error:', apiError);
+      return { username, password, error: apiError.message || 'Network error' };
     }
-
-    // 2. Insert into auth_accounts table (Legacy support / Quick Login mapping)
-    // We use the MAIN supabase client here because we need RLS permissions of the Admin
-    // (Ensure Admin has INSERT permission on auth_accounts)
-    const { error: dbError } = await supabase
-      .from('auth_accounts')
-      .insert([{
-        username: username,
-        email: email,
-        password: password, // Storing plaintext for "Quick Login" features (Demo only)
-        user_type: userType,
-        user_id: userId,
-        is_verified: false, // Wait for email confirmation
-        verification_sent_at: new Date().toISOString(),
-      }]);
-
-    if (dbError) {
-      console.error('Error inserting into auth_accounts:', dbError);
-      // We don't return error here because Auth User was created successfully
-      console.warn('Auth created but DB save failed:', dbError.message);
-    }
-
-    return { username, password, userId: authData.user?.id };
   } catch (err: any) {
     console.error('Error in createUserAccount:', err);
     return { username: '', password: '', error: err.message };

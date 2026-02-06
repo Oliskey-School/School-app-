@@ -44,6 +44,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useApi } from '../../lib/hooks/useApi';
 import api from '../../lib/api';
+import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 
 
 // --- NEW, REFINED UI/UX COMPONENTS ---
@@ -57,20 +58,20 @@ const StatCard: React.FC<{
     trend: string;
     trendColor: string;
 }> = ({ label, value, icon, colorClasses, onClick, trend, trendColor }) => (
-    <button onClick={onClick} className={`w-full text-left p-5 rounded-2xl text-white relative overflow-hidden transition-transform transform hover:-translate-y-1 ${colorClasses}`}>
-        {React.cloneElement(icon, { className: "absolute -right-4 -bottom-4 h-24 w-24 text-white/10" })}
+    <button onClick={onClick} className={`w-full text-left p-6 rounded-3xl text-white relative overflow-hidden transition-transform transform hover:-translate-y-1 ${colorClasses}`}>
+        {React.cloneElement(icon, { className: "absolute -right-6 -bottom-6 h-32 w-32 text-white/10" })}
         <div className="relative z-10">
             <div className="flex justify-between items-start">
-                <p className="text-white/90 font-medium">{label}</p>
-                <div className="p-3 bg-white/20 rounded-xl">
-                    {React.cloneElement(icon, { className: "h-6 w-6" })}
+                <p className="text-white/90 font-bold text-lg">{label}</p>
+                <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                    {React.cloneElement(icon, { className: "h-10 w-10" })}
                 </div>
             </div>
-            <p className="text-4xl font-bold mt-2">{value}</p>
-            <div className={`mt-1 text-sm font-semibold flex items-center space-x-1 ${trendColor}`}>
-                {trend.startsWith('+') ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />}
+            <p className="text-5xl font-bold mt-3 tracking-tight">{value}</p>
+            <div className={`mt-2 text-sm font-bold flex items-center space-x-1 ${trendColor}`}>
+                {trend.startsWith('+') ? <ArrowUpIcon className="w-5 h-5" /> : <ArrowDownIcon className="w-5 h-5" />}
                 <span>{trend}</span>
-                <span className="text-white/70 font-normal text-xs">vs last month</span>
+                <span className="text-white/70 font-medium ml-1">vs last month</span>
             </div>
         </div>
     </button>
@@ -78,25 +79,25 @@ const StatCard: React.FC<{
 
 
 const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, icon, onClick, color }) => (
-    <button onClick={onClick} className="bg-white p-3 rounded-xl shadow-sm flex flex-col items-center justify-center text-center hover:bg-gray-100 hover:ring-2 hover:ring-indigo-200 transition-all duration-200">
-        <div className={`p-3 rounded-full ${color}`}>
-            {React.cloneElement(icon, { className: "h-6 w-6 text-white" })}
+    <button onClick={onClick} className="bg-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center hover:bg-gray-50 hover:shadow-md hover:ring-2 hover:ring-indigo-200 transition-all duration-200 group">
+        <div className={`p-4 rounded-full ${color} group-hover:scale-110 transition-transform duration-200`}>
+            {React.cloneElement(icon, { className: "h-8 w-8 text-white" })}
         </div>
-        <p className="font-semibold text-gray-700 mt-2 text-xs">{label}</p>
+        <p className="font-bold text-gray-700 mt-3 text-sm leading-tight">{label}</p>
     </button>
 );
 
 // Added Register Exams button locally since previous edit failed
 const AlertCard: React.FC<{ label: string; value: string | number; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, value, icon, onClick, color }) => (
-    <button onClick={onClick} className={`w-full bg-white p-3 rounded-xl shadow-sm flex items-center space-x-3 text-left border-l-4 ${color.replace('text-', 'border-')} hover:bg-gray-50 transition-colors`}>
-        <div className={`${color.replace('text-', 'bg-').replace('-500', '-100')} p-2 rounded-lg`}>
-            {React.cloneElement(icon, { className: `h-5 w-5 ${color}` })}
+    <button onClick={onClick} className={`w-full bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4 text-left border-l-4 ${color.replace('text-', 'border-')} hover:bg-gray-50 transition-colors`}>
+        <div className={`${color.replace('text-', 'bg-').replace('-500', '-100')} p-3 rounded-xl`}>
+            {React.cloneElement(icon, { className: `h-6 w-6 ${color}` })}
         </div>
         <div>
-            <p className="font-bold text-gray-800">{value} {label}</p>
-            <p className="text-xs text-gray-500">Action required</p>
+            <p className="font-bold text-gray-800 text-lg">{value} {label}</p>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Action required</p>
         </div>
-        <ChevronRightIcon className="h-5 w-5 text-gray-400 ml-auto" />
+        <ChevronRightIcon className="h-6 w-6 text-gray-400 ml-auto" />
     </button>
 );
 
@@ -280,6 +281,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const { currentSchool, user } = useAuth();
     const { profile } = useProfile();
 
+    // Fallback: If prop is missing (race condition), try to use profile or auth context
+    const activeSchoolId = schoolId || profile?.schoolId || user?.user_metadata?.school_id;
+
     useEffect(() => {
         console.log('[Dashboard] Detected Context:', {
             currentSchoolId: currentSchool?.id,
@@ -314,28 +318,52 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     // Fetch real counts from Supabase
     useEffect(() => {
-        // Consolidated fetching - fetchCounts removed as it's now part of fetchDashboardData via api.ts
-        fetchDashboardData();
-        fetchBusRoster();
+        if (activeSchoolId) {
+            fetchDashboardData();
+            fetchBusRoster();
+        }
+    }, [activeSchoolId]);
 
-        // 1. SUPABASE REALTIME SUBSCRIPTION (Global Refresh)
-        const channel = supabase.channel('dashboard-global-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public' },
-                (payload) => {
-                    console.log('Real-time change detected:', payload);
-                    // Re-fetch data instantly
-                    fetchDashboardData();
-                    fetchBusRoster();
-                }
-            )
-            .subscribe();
+    // Real-time Subscriptions using our new hook
+    // 1. Students
+    useRealtimeSubscription({
+        table: 'students',
+        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
+        callback: () => {
+            console.log('Real-time update: Students');
+            fetchDashboardData();
+        }
+    });
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, []);
+    // 2. Teachers
+    useRealtimeSubscription({
+        table: 'teachers',
+        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
+        callback: () => {
+            console.log('Real-time update: Teachers');
+            fetchDashboardData();
+        }
+    });
+
+    // 3. Parents
+    useRealtimeSubscription({
+        table: 'parents',
+        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
+        callback: () => {
+            console.log('Real-time update: Parents');
+            fetchDashboardData();
+        }
+    });
+
+    // 4. Fees
+    useRealtimeSubscription({
+        table: 'student_fees',
+        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
+        callback: () => {
+            console.log('Real-time update: Fees');
+            fetchDashboardData();
+        }
+    });
 
     const fetchBusRoster = async () => {
         if (isSupabaseConfigured) {
@@ -370,13 +398,13 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const fetchDashboardData = async () => {
         if (!isSupabaseConfigured) return;
 
-        if (!schoolId) {
+        if (!activeSchoolId) {
             console.warn('[Dashboard] No School ID detected. Fetching ALL data (Admin Mode).');
         }
 
         // 1. Fetch Core Stats via Bridge
         const stats = await fetchStats(async () => {
-            const data = await api.getDashboardStats(schoolId, currentBranchId || undefined);
+            const data = await api.getDashboardStats(activeSchoolId, currentBranchId || undefined);
             return { data, error: null };
         });
 
@@ -389,7 +417,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
         try {
             // Fetch recent audit logs (Scoped by school/branch)
-            const auditData = await fetchAuditLogs(4, schoolId, currentBranchId || undefined);
+            const auditData = await fetchAuditLogs(4, activeSchoolId, currentBranchId || undefined);
 
             if (auditData) {
                 const transformed = auditData.map((log: any) => ({

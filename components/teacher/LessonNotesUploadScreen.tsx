@@ -7,7 +7,7 @@ import { BookOpenIcon, PlusIcon, UploadIcon, CheckCircleIcon, ClockIcon } from '
 
 interface LessonNotesUploadScreenProps {
     handleBack: () => void;
-    teacherId: number; // Passed from dashboard
+    teacherId: string; // Passed from dashboard (UUID)
 }
 
 const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handleBack, teacherId }) => {
@@ -41,7 +41,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
 
         const formattedClasses = allClasses.map((c: any) => ({
             id: c.id,
-            name: `${getGradeDisplayName(c.grade)} ${c.section}`
+            name: `${getGradeDisplayName(c.grade)}${c.section ? ` ${c.section}` : ''}`
         }));
         setClasses(formattedClasses);
     };

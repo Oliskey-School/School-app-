@@ -51,6 +51,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [guardianName, setGuardianName] = useState('');
     const [guardianPhone, setGuardianPhone] = useState('');
     const [guardianEmail, setGuardianEmail] = useState('');
+    const [admissionNumber, setAdmissionNumber] = useState(''); // ⚠️ Added orphaned field
+    const [studentAddress, setStudentAddress] = useState(''); // ⚠️ Added orphaned field
 
     const grade = useMemo(() => {
         const match = className.match(/\d+/);
@@ -99,7 +101,7 @@ parents(
                             }
                         }
                     } catch (err) {
-                        console.error("Error fetching guardian:", err);
+                        console.error("Error fetching guardian info:", err);
                     }
                 } else {
                     // Mock Mode Lookup
@@ -111,7 +113,13 @@ parents(
                     }
                 }
             };
+
             fetchGuardian();
+
+            // ⚠️ Set orphaned fields if available
+            setAdmissionNumber(studentToEdit.admission_number || '');
+            setStudentAddress(studentToEdit.address || '');
+            setGender(studentToEdit.gender || '');
         }
     }, [studentToEdit]);
 
@@ -180,9 +188,9 @@ parents(
                     toast.success('Student updated successfully (Mock Mode - Session Only)');
                 } else {
                     // Create new mock student
-                    const newId = mockStudents.length > 0 ? Math.max(...mockStudents.map(s => s.id)) + 1 : 1;
+                    const newId = mockStudents.length > 0 ? Math.max(...mockStudents.map(s => parseInt(s.id))) + 1 : 1;
                     const newStudent = {
-                        id: newId,
+                        id: newId.toString(), // Convert to string
                         name: fullName,
                         email: generatedEmail,
                         avatarUrl: avatarUrl,
@@ -204,20 +212,20 @@ parents(
                         if (existingParent) {
                             // Link to existing parent
                             if (!existingParent.childIds) existingParent.childIds = [];
-                            if (!existingParent.childIds.includes(newId)) {
-                                existingParent.childIds.push(newId);
+                            if (!existingParent.childIds.includes(newId.toString())) {
+                                existingParent.childIds.push(newId.toString());
                             }
                             successMessage += `Linked to existing guardian: ${existingParent.name}.\nNotification sent to ${gEmail}.`;
                         } else {
                             // Create new parent
-                            const newParentId = mockParents.length > 0 ? Math.max(...mockParents.map(p => p.id)) + 1 : 1;
+                            const newParentId = mockParents.length > 0 ? Math.max(...mockParents.map(p => parseInt(p.id))) + 1 : 1;
                             mockParents.push({
-                                id: newParentId,
+                                id: newParentId.toString(), // Convert to string
                                 name: gName,
                                 email: gEmail,
                                 phone: guardianPhone,
                                 avatarUrl: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                childIds: [newId]
+                                childIds: [newId.toString()] // Convert to string
                             });
                             successMessage += `New Guardian account created for ${gName}.\nCredentials sent to ${gEmail}.`;
                         }
@@ -253,7 +261,12 @@ parents(
                         section,
                         department: department || null,
                         birthday: birthday || null,
-                        avatar_url: avatarUrl
+                        dob: birthday || null, // Also update dob column
+                        avatar_url: avatarUrl,
+                        admission_number: admissionNumber || null, // ⚠️ Added
+                        address: studentAddress || null, // ⚠️ Added
+                        gender: gender || null,
+                        status: 'Active' // Set status
                     })
                     .eq('id', studentToEdit.id);
 
@@ -271,7 +284,7 @@ parents(
                             .eq('email', gEmail)
                             .maybeSingle();
 
-                        let parentIdToLink: number | null = null;
+                        let parentIdToLink: string | null = null; // UUID type
                         let parentNameForMsg = gName;
 
                         if (existingUser) {
@@ -339,8 +352,18 @@ parents(
                         }
 
                         // 2. Link if we have a Parent ID
-                        if (parentIdToLink) {
-                            // Check if already linked
+                        if (parentIdToLink && studentToEdit?.id) {
+                            // ✅ FIX 1: Update student.parent_id FK
+                            const { error: linkError } = await supabase
+                                .from('students')
+                                .update({ parent_id: parentIdToLink })
+                                .eq('id', studentToEdit.id);
+
+                            if (linkError) {
+                                console.error('Failed to link parent_id to student:', linkError);
+                            }
+
+                            // ✅ FIX 2: Check if already linked in junction table
                             const { data: link } = await supabase
                                 .from('parent_children')
                                 .select('*')
@@ -349,11 +372,19 @@ parents(
                                 .maybeSingle();
 
                             if (!link) {
-                                await supabase.from('parent_children').insert({
-                                    parent_id: parentIdToLink,
-                                    student_id: studentToEdit.id
-                                });
+                                const { error: junctionError } = await supabase
+                                    .from('parent_children')
+                                    .insert({
+                                        parent_id: parentIdToLink,
+                                        student_id: studentToEdit.id
+                                    });
+
+                                if (junctionError && junctionError.code !== '23505') {
+                                    console.warn('Junction table insert failed:', junctionError);
+                                }
                                 guardianMessage += `\nLinked to guardian: ${parentNameForMsg}.`;
+                            } else {
+                                guardianMessage += `\nAlready linked to ${parentNameForMsg}.`;
                             }
                         }
 
@@ -405,26 +436,36 @@ parents(
                     return;
                 }
 
-                // 2. Create User account (Legacy Table)
-                // MUST include ID (match Auth) and SCHOOL_ID (for RLS)
-                // 2. Create User Profile (using Secure RPC to bypass RLS)
-                const { error: rpcError } = await supabase.rpc('create_user_managed', {
-                    p_id: authResult.userId,
-                    p_email: generatedEmail,
-                    p_password: authResult.password,
-                    p_full_name: fullName,
-                    p_role: 'student', // CRITICAL: Lowercase required for DB constraint
-                    p_school_id: schoolId, // Use robust local schoolId
-                    p_avatar_url: avatarUrl,
-                    p_phone: ''
-                });
+                // 2. Create User Profile in users table (with conflict handling)
+                // The auth trigger already created a record in profiles table,
+                // now we ensure the users table is also populated
+                const { error: userInsertError } = await supabase
+                    .from('users')
+                    .insert([{
+                        id: authResult.userId,
+                        email: generatedEmail,
+                        name: fullName,
+                        role: 'student',
+                        school_id: schoolId,
+                        avatar_url: avatarUrl
+                    }])
+                    .select()
+                    .single();
 
-                if (rpcError) {
-                    console.error('Error creating user profile (RPC):', rpcError);
-                    throw new Error(`Failed to create user profile: ${rpcError.message}`);
+                if (userInsertError) {
+                    // If it's a duplicate key error, it means the user already exists (created by trigger)
+                    // This is fine, we can continue
+                    if (userInsertError.code !== '23505') { // 23505 is duplicate key violation
+                        console.error('Error creating user profile:', userInsertError);
+                        throw new Error(`Failed to create user profile: ${userInsertError.message}`);
+                    } else {
+                        console.log('User profile already exists (created by trigger), continuing...');
+                    }
                 }
 
+                // Reference to the created/existing user
                 const userData = { id: authResult.userId };
+
 
                 // 3. Create Student Profile
                 const { error: studentError } = await supabase
@@ -433,11 +474,17 @@ parents(
                         user_id: userData.id,
                         school_id: schoolId,
                         name: fullName,
+                        email: generatedEmail, // Add email
                         avatar_url: avatarUrl,
                         grade: grade,
                         section: section,
                         department: department || null,
                         birthday: birthday || null,
+                        dob: birthday || null, // Also save to dob column
+                        admission_number: admissionNumber || null, // ⚠️ Added
+                        address: studentAddress || null, // ⚠️ Added
+                        gender: gender || null,
+                        status: 'Active',
                         attendance_status: 'Present'
                     }]);
                 if (studentError) throw studentError;
@@ -472,7 +519,7 @@ parents(
                             .eq('email', gEmail)
                             .maybeSingle();
 
-                        let parentIdToLink: number | null = null;
+                        let parentIdToLink: string | null = null; // UUID type
 
                         if (existingUser) {
                             // User exists, find/create Parent
@@ -544,11 +591,29 @@ parents(
                             }
                         }
 
-                        if (parentIdToLink) {
-                            await supabase.from('parent_children').insert({
-                                parent_id: parentIdToLink,
-                                student_id: studentData.id
-                            });
+                        if (parentIdToLink && studentData?.id) {
+                            // ✅ FIX 1: Update student.parent_id FK
+                            const { error: linkError } = await supabase
+                                .from('students')
+                                .update({ parent_id: parentIdToLink })
+                                .eq('id', studentData.id);
+
+                            if (linkError) {
+                                console.error('Failed to link parent_id to student:', linkError);
+                            }
+
+                            // ✅ FIX 2: Also create junction table record (if table exists)
+                            const { error: junctionError } = await supabase
+                                .from('parent_children')
+                                .insert({
+                                    parent_id: parentIdToLink,
+                                    student_id: studentData.id
+                                });
+
+                            if (junctionError && junctionError.code !== '23505') { // Ignore duplicate key errors
+                                console.warn('Junction table insert failed (table may not exist):', junctionError);
+                            }
+
                             if (existingUser) {
                                 toast.success(`Linked to existing guardian: ${gName}.`, { duration: 4000 });
                                 await sendVerificationEmail(gName, gEmail, 'Student Added');
@@ -711,6 +776,33 @@ parents(
                                         </select>
                                     </div>
                                 )}
+
+                                {/* ⚠️ Added orphaned database fields */}
+                                <div>
+                                    <label htmlFor="admissionNumber" className="block text-sm font-medium text-gray-700 mb-1">Admission Number <span className="text-gray-400 text-xs">(Optional)</span></label>
+                                    <input
+                                        type="text"
+                                        name="admissionNumber"
+                                        id="admissionNumber"
+                                        value={admissionNumber}
+                                        onChange={e => setAdmissionNumber(e.target.value)}
+                                        className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500"
+                                        placeholder="ADM-2024-001"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="studentAddress" className="block text-sm font-medium text-gray-700 mb-1">Address <span className="text-gray-400 text-xs">(Optional)</span></label>
+                                    <textarea
+                                        name="studentAddress"
+                                        id="studentAddress"
+                                        value={studentAddress}
+                                        onChange={e => setStudentAddress(e.target.value)}
+                                        className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500"
+                                        placeholder="24 Ademola Street, Ikeja, Lagos"
+                                        rows={2}
+                                    />
+                                </div>
                             </div>
                         </div>
 

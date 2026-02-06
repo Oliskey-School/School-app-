@@ -1,5 +1,5 @@
 
-import React, { useState, lazy, Suspense, useEffect } from 'react';
+import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import DashboardRouter from './components/DashboardRouter';
 import { DashboardType } from './types';
 import Login from './components/auth/Login';
@@ -179,23 +179,6 @@ const AuthenticatedApp: React.FC = () => {
     }
   }, [user, role]);
 
-  if (loading) return <LoadingScreen />;
-
-  // Show auth confirmation screen if callback detected
-  if (showAuthConfirm) {
-    return <AuthCallback />;
-  }
-
-  if (!user || !role) {
-    if (authView === 'signup') {
-      return <Signup onNavigateToLogin={() => setAuthView('login')} />;
-    }
-    if (authView === 'create-school') {
-      return <CreateSchoolSignup onNavigateToLogin={() => setAuthView('login')} />;
-    }
-    return <Login onNavigateToSignup={() => setAuthView('signup')} onNavigateToCreateSchool={() => setAuthView('create-school')} />;
-  }
-
   const handleLogout = async () => {
     // Check if current user is a demo user before signing out
     const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo;
@@ -215,11 +198,29 @@ const AuthenticatedApp: React.FC = () => {
      Dynamic Dashboard Router 
      Handles role-based rendering and school branding injection
   */
-  const renderDashboard = () => {
+  const renderDashboard = useMemo(() => {
+    if (!user || !role) return null;
     const props = { onLogout: handleLogout, setIsHomePage, currentUser: user };
     console.log(`🚀 Routing to Dashboard for role: ${role}`);
     return <DashboardRouter {...props} />;
-  };
+  }, [user?.id, role]); // Only re-render when user ID or role changes
+
+  if (loading) return <LoadingScreen />;
+
+  // Show auth confirmation screen if callback detected
+  if (showAuthConfirm) {
+    return <AuthCallback />;
+  }
+
+  if (!user || !role) {
+    if (authView === 'signup') {
+      return <Signup onNavigateToLogin={() => setAuthView('login')} />;
+    }
+    if (authView === 'create-school') {
+      return <CreateSchoolSignup onNavigateToLogin={() => setAuthView('login')} />;
+    }
+    return <Login onNavigateToSignup={() => setAuthView('signup')} onNavigateToCreateSchool={() => setAuthView('create-school')} />;
+  }
 
   if (isChatOpen) {
     return <AIChatScreen onBack={() => setIsChatOpen(false)} dashboardType={role} />;
@@ -231,11 +232,7 @@ const AuthenticatedApp: React.FC = () => {
         <MobileNavigationHandler />
         <ContextualMarquee />
         <VerificationGuard>
-          {/* Branch Switcher Floating in Top Right */}
-          <div className="absolute top-12 right-4 z-50">
-            <BranchSwitcher />
-          </div>
-          {renderDashboard()}
+          {renderDashboard}
         </VerificationGuard>
       </Suspense>
     </ErrorBoundary>

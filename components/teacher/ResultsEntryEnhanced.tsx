@@ -10,9 +10,9 @@ import { BookOpen, AlertCircle, Save, TrendingUp } from 'lucide-react';
 import { CurriculumMismatchWarning } from '../shared/TeacherCurriculumBadges';
 
 interface ResultsEntryProps {
-    teacherId: number;
-    classId: number;
-    examId: number;
+    teacherId: string;
+    classId: string;
+    examId: string;
     teacherCurriculumEligibility: 'Nigerian' | 'British' | 'Both' | null;
 }
 
@@ -24,7 +24,7 @@ export default function ResultsEntryEnhanced({
 }: ResultsEntryProps) {
     const [selectedCurriculum, setSelectedCurriculum] = useState<'Nigerian' | 'British'>('Nigerian');
     const [students, setStudents] = useState<any[]>([]);
-    const [results, setResults] = useState<{ [key: number]: { ca: string; exam: string; total: number; grade: string } }>({});
+    const [results, setResults] = useState<{ [key: string]: { ca: string; exam: string; total: number; grade: string } }>({});
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [exam, setExam] = useState<any>(null);
@@ -138,7 +138,7 @@ export default function ResultsEntryEnhanced({
                 .select('*')
                 .eq('exam_id', examId);
 
-            const resultsMap: { [key: number]: any } = {};
+            const resultsMap: { [key: string]: any } = {};
             existingResults?.forEach(result => {
                 resultsMap[result.student_id] = {
                     ca: result.ca_score?.toString() || '',
@@ -182,7 +182,7 @@ export default function ResultsEntryEnhanced({
         }
     };
 
-    const handleScoreChange = (studentId: number, field: 'ca' | 'exam', value: string) => {
+    const handleScoreChange = (studentId: string, field: 'ca' | 'exam', value: string) => {
         const numValue = parseFloat(value) || 0;
         const maxCA = selectedCurriculum === 'Nigerian' ? 40 : 50;
         const maxExam = selectedCurriculum === 'Nigerian' ? 60 : 50;
@@ -228,7 +228,7 @@ export default function ResultsEntryEnhanced({
         setSaving(true);
         try {
             const resultRecords = Object.entries(results).map(([studentId, result]) => ({
-                student_id: parseInt(studentId),
+                student_id: studentId,
                 exam_id: examId,
                 class_id: classId,
                 teacher_id: teacherId,

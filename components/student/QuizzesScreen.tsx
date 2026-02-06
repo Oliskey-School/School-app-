@@ -65,7 +65,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
             .filter((exam: any) => {
               if (exam.classes) {
                 return String(exam.classes.grade) === String(student.grade) &&
-                  (!exam.classes.section || exam.classes.section === student.section);
+                  (!exam.classes.section || !student.section || exam.classes.section === student.section);
               }
               if (exam.class_grade) {
                 return exam.class_grade.toLowerCase().includes(String(student.grade).toLowerCase());

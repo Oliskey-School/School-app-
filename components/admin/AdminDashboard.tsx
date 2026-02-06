@@ -23,7 +23,7 @@ const TeacherPerformanceScreen = lazy(() => import('../admin/TeacherPerformanceS
 const TimetableGeneratorScreen = lazy(() => import('../admin/TimetableGeneratorScreen'));
 const TimetableEditor = lazy(() => import('../admin/TimetableEditor'));
 const TeacherAttendanceScreen = lazy(() => import('../admin/TeacherAttendanceScreen'));
-const TeacherAttendanceApproval = lazy(() => import('../admin/TeacherAttendanceApproval'));
+const TeacherAttendanceApproval = lazy(() => import('./TeacherAttendanceApproval'));
 const FeeManagement = lazy(() => import('../admin/FeeManagement'));
 const FeeDetailsScreen = lazy(() => import('../admin/FeeDetailsScreen'));
 const ExamManagement = lazy(() => import('../admin/ExamManagement'));
@@ -145,6 +145,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
     // ... (Existing useEffects)
     const forceUpdate = () => setVersion(v => v + 1);
     const { currentSchool, currentBranchId, user } = useAuth();
+    const { profile } = useProfile();
 
     useEffect(() => {
         setIsHomePage(viewStack.length === 1 && !isSearchOpen);
@@ -407,7 +408,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
         forceUpdate,
         currentUserId,
         currentSchool,
-        schoolId: currentSchool?.id,
+        schoolId: currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id,
         currentBranchId
     };
 

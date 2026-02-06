@@ -16,8 +16,24 @@ interface ApiOptions {
     headers?: Record<string, string>;
 }
 
-const getAuthToken = (): string | null => {
-    return localStorage.getItem('auth_token');
+const getAuthToken = async (): Promise<string | null> => {
+    const local = localStorage.getItem('auth_token');
+    if (local) {
+        console.log('🔑 [API] Found cached auth_token in localStorage');
+        return local;
+    }
+
+    // Fallback to Supabase session
+    const { data } = await supabase.auth.getSession();
+    const sessionToken = data.session?.access_token || null;
+
+    if (sessionToken) {
+        console.log('🔑 [API] Retrieved access_token from Supabase session');
+    } else {
+        console.warn('⚠️ [API] No auth token found in localStorage or Supabase session');
+    }
+
+    return sessionToken;
 };
 
 class HybridApiClient {
@@ -34,7 +50,8 @@ class HybridApiClient {
     }
 
     private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        const token = getAuthToken();
+        console.log(`🌐 [API Request] ${endpoint}`);
+        const token = await getAuthToken();
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             ...(options.headers as Record<string, string>),
@@ -42,6 +59,8 @@ class HybridApiClient {
 
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
+        } else {
+            console.warn(`⚠️ [API] Sending request to ${endpoint} WITHOUT token!`);
         }
 
         const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -51,6 +70,7 @@ class HybridApiClient {
 
         if (!response.ok) {
             const error = await response.json();
+            console.error(`❌ [API Error] ${endpoint}:`, error);
             throw new Error(error.message || 'API request failed');
         }
 

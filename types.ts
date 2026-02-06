@@ -106,41 +106,53 @@ export interface ReportCard {
 }
 
 export interface Student {
-  id: string; // Changed to UUID string
-  schoolId?: string;
-  name: string;
-  email: string;
-  avatarUrl: string;
-  grade: number;
-  section: string;
-  rollNumber?: string;
-  dateOfBirth?: string;
-  gender?: string;
-  address?: string;
-  phone?: string;
-  parentName?: string;
-  parentPhone?: string;
-  parentEmail?: string;
-  admissionDate?: string;
-  bloodGroup?: string;
-  status?: 'Active' | 'Inactive' | 'Suspended';
-  attendance?: number;
-  performance?: number;
-  subjects?: string[];
+  // Database Fields (from students table)
+  id: string; // UUID PRIMARY KEY
+  user_id?: string; // UUID FK to auth.users(id)
+  schoolId?: string; // school_id UUID FK
+  name: string; // TEXT NOT NULL
+  email: string; // TEXT
+  admission_number?: string; // TEXT (⚠️ orphaned - not in form)
+  current_class_id?: string; // UUID FK to classes(id) (⚠️ orphaned)
+  parent_id?: string; // UUID FK to parents(id) (⚠️ deprecated?)
+
+  // Academic Info (Database Fields)
+  grade: number; // INTEGER (1-12)
+  section: string; // TEXT
+  department?: Department; // TEXT ('Science' | 'Commercial' | 'Arts')
+
+  // Personal Info (Database Fields)
+  gender?: string; // TEXT ('Male' | 'Female')
+  birthday?: string; // DATE (dob column in DB) - YYYY-MM-DD
+  dateOfBirth?: string; // Alias for birthday (backwards compatibility)
+  address?: string; // TEXT (⚠️ orphaned - not in form)
+  avatarUrl: string; // avatar_url TEXT
+
+  // Status (Database Fields)
+  status?: 'Active' | 'Inactive' | 'Suspended'; // TEXT DEFAULT 'Active'
+  attendanceStatus: AttendanceStatus; // attendance_status TEXT DEFAULT 'Present'
+
+  // Joined/Computed Fields (NOT in database, from other tables/joins)
+  rollNumber?: string; // Alias for admission_number
+  phone?: string; // NOT IN DB
+  parentName?: string; // From parent JOIN
+  parentPhone?: string; // From parent JOIN
+  parentEmail?: string; // From parent JOIN
+  admissionDate?: string; // NOT IN DB
+  bloodGroup?: string; // NOT IN DB
+  attendance?: number; // Computed percentage
+  performance?: number; // Computed score
+  subjects?: string[]; // From student_subjects table
   fees?: {
     total: number;
     paid: number;
     pending: number;
-  };
-  department?: Department;
-  attendanceStatus: AttendanceStatus;
-  academicPerformance?: AcademicRecord[];
-  behaviorNotes?: BehaviorNote[];
-  reportCards?: ReportCard[];
-  birthday?: string; // YYYY-MM-DD
-  user_id?: string; // Link to auth user
+  }; // From student_fees table
+  academicPerformance?: AcademicRecord[]; // From academic_performance table
+  behaviorNotes?: BehaviorNote[]; // From behavior_notes table
+  reportCards?: ReportCard[]; // From report_cards table
 
-  // Gamification
+  // Gamification (from separate system)
   xp?: number;
   level?: number;
   badges?: Badge[];
@@ -156,15 +168,26 @@ export interface StudentAttendance {
 }
 
 export interface Teacher {
-  id: string; // Changed to UUID string
-  schoolId?: string;
-  name: string;
-  avatarUrl: string;
-  subjects: string[];
-  classes: string[];
-  email: string;
-  phone: string;
-  status: 'Active' | 'Inactive' | 'On Leave';
+  // Database Fields (from teachers table)
+  id: string; // UUID PRIMARY KEY
+  user_id?: string; // UUID FK to auth.users(id)
+  schoolId?: string; // school_id UUID FK
+  schoolGeneratedId?: string; // e.g. SCH_2024_TCH_001
+  name: string; // TEXT NOT NULL
+  email: string; // TEXT
+  phone: string; // TEXT
+  avatarUrl: string; // avatar_url TEXT
+  status: 'Active' | 'Inactive' | 'On Leave'; // TEXT DEFAULT 'Active'
+
+  // Professional Info (Database Fields)
+  curriculum_eligibility?: string[]; // TEXT[] (⚠️ newly added)
+  compliance_documents?: Record<string, any>; // JSONB (⚠️ newly added)
+
+  // Joined/Computed Fields (NOT in database directly)
+  subjects: string[]; // From teacher_subjects junction table (NOT subject_specialization column)
+  classes: string[]; // From teacher_classes junction table
+
+  // Additional Fields (NOT IN DB - consider adding)
   dateOfJoining?: string;
   qualification?: string;
   experience?: string;
@@ -174,9 +197,31 @@ export interface Teacher {
   bloodGroup?: string;
   emergencyContact?: string;
   salary?: number;
-  attendance?: number;
-  performance?: number;
+  attendance?: number; // Computed percentage
+  performance?: number; // Computed score
 }
+
+export interface Parent {
+  // Database Fields (from parents table)
+  id: string; // UUID PRIMARY KEY
+  user_id?: string; // UUID FK to auth.users(id)
+  schoolId?: string; // school_id UUID FK
+  name: string; // TEXT NOT NULL
+  email?: string; // TEXT
+  phone?: string; // TEXT
+  avatarUrl?: string; // avatar_url TEXT
+
+  // Additional Info (Database Fields)
+  address?: string; // TEXT (⚠️ orphaned - not in form)
+  occupation?: string; // TEXT (⚠️ orphaned - not in form)
+  relationship?: string; // TEXT ('Mother' | 'Father' | 'Guardian' | 'Other')
+  emergency_contact?: string; // TEXT
+
+  // Joined/Computed Fields (NOT in database directly)
+  childIds?: string[]; // From student_parent_links junction table
+  children?: Student[]; // Joined student data
+}
+
 
 export interface ClassInfo {
   id: string;
@@ -553,20 +598,7 @@ export interface BehaviorAlert {
   timestamp: string; // ISO string
 }
 
-export interface Parent {
-  id: string; // Changed to UUID string
-  schoolId?: string;
-  name: string;
-  email: string;
-  phone: string;
-  avatarUrl: string;
-  childIds?: string[]; // Changed to UUID string array
-  address?: string;
-  occupation?: string;
-  relationship?: string;
-  emergencyContact?: string;
-  user_id?: string; // Link to auth/users table
-}
+
 
 export type ComplaintStatus = 'Submitted' | 'In Progress' | 'Resolved' | 'Closed';
 
@@ -981,7 +1013,7 @@ export interface Subject {
 
 export interface LessonNote {
   id: number;
-  teacherId: number;
+  teacherId: string;
   subjectId: number;
   classId: number;
   week: number;

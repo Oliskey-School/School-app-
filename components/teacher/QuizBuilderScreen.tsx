@@ -23,11 +23,12 @@ interface WarningQuestionState {
 const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
     const [title, setTitle] = useState('');
     const [subject, setSubject] = useState('');
-    const [grade, setGrade] = useState('');
+    const [selectedClassId, setSelectedClassId] = useState('');
     const [duration, setDuration] = useState(30);
     const [description, setDescription] = useState('');
     const [questions, setQuestions] = useState<WarningQuestionState[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [classesList, setClassesList] = useState<any[]>([]);
 
     // New State for correct UUIDs
@@ -37,30 +38,42 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
     // Fetch correctly typed IDs on mount
     useEffect(() => {
         const fetchContext = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setAuthUserId(user.id);
-                // Fetch profile to get school_id
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('school_id')
-                    .eq('id', user.id)
-                    .single();
+            setIsLoading(true);
+            try {
+                const { data: { user }, error: authError } = await supabase.auth.getUser();
+                if (authError) throw authError;
 
-                if (profile) {
-                    setSchoolId(profile.school_id);
-                    // Fetch classes for this school
-                    const { data: classes } = await supabase
-                        .from('classes')
-                        .select('id, name, level_category')
-                        .eq('school_id', profile.school_id)
-                        .order('grade', { ascending: true });
+                if (user) {
+                    setAuthUserId(user.id);
+                    // Fetch profile to get school_id
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('school_id')
+                        .eq('id', user.id)
+                        .single();
 
-                    if (classes) setClassesList(classes);
-                } else {
-                    console.error('No profile found for user');
-                    toast.error('Could not load user profile');
+                    if (profileError) throw profileError;
+
+                    if (profile) {
+                        setSchoolId(profile.school_id);
+                        // Fetch classes for this school
+                        const { data: classes, error: classesError } = await supabase
+                            .from('classes')
+                            .select('id, name, level_category')
+                            .eq('school_id', profile.school_id)
+                            .order('grade', { ascending: true });
+
+                        if (classesError) throw classesError;
+                        if (classes) setClassesList(classes);
+                    } else {
+                        throw new Error('No profile record found');
+                    }
                 }
+            } catch (error: any) {
+                console.error('Quiz context fetch error:', error);
+                toast.error(`Context load failed: ${error.message}`);
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchContext();
@@ -134,13 +147,12 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
                 .insert([{
                     title,
                     subject,
-                    // grade: parseInt(grade) || 0, // Removed legacy numeric grade
-                    class_id: grade, // Linking directly to class_id (stored in grade state for convenience)
-                    teacher_id: authUserId, // UUID
-                    school_id: schoolId,    // UUID
+                    class_id: selectedClassId || null,
+                    teacher_id: authUserId,
+                    school_id: schoolId,
                     duration_minutes: duration,
                     description,
-                    is_published: true, // auto-publish for now
+                    is_published: true,
                     is_active: true
                 }])
                 .select()
@@ -226,11 +238,12 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Target Class</label>
                             <select
-                                value={grade} // Storing class_id in 'grade' state for now to minimize refactor, or better rename state if possible. Let's keep 'grade' state but store ID.
-                                onChange={e => setGrade(e.target.value)}
-                                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={selectedClassId}
+                                onChange={e => setSelectedClassId(e.target.value)}
+                                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                                disabled={isLoading}
                             >
-                                <option value="">Select a Class</option>
+                                <option value="">{isLoading ? 'Loading classes...' : 'Select a Class'}</option>
                                 {classesList.map((c: any) => (
                                     <option key={c.id} value={c.id}>{c.name} ({c.level_category})</option>
                                 ))}

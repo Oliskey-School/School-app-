@@ -27,8 +27,7 @@ export const VerificationGuard: React.FC<VerificationGuardProps> = ({
     if (!user) {
         const storedUser = sessionStorage.getItem('user');
         if (!storedUser) {
-            console.log('🔒 VerificationGuard: No user/session, redirecting to login');
-            window.location.href = '/';
+            console.log('🔒 VerificationGuard: No user session found. Content hidden.');
             return null;
         }
     }

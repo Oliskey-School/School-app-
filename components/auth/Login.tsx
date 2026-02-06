@@ -53,8 +53,33 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     setIsLoading(true);
 
     try {
+      // 1. Resolve Username to Email (if needed)
+      let resolvedEmail = email;
+
+      // Simple check: if no '@', assume it's a username
+      if (!email.includes('@')) {
+        console.log(`Checking for username: ${email}`);
+
+        try {
+          const { data: userData } = await supabase
+            .from('auth_accounts')
+            .select('email')
+            .eq('username', email.toLowerCase())
+            .maybeSingle();
+
+          if (userData?.email) {
+            resolvedEmail = userData.email;
+            console.log(`Resolved username ${email} to ${resolvedEmail}`);
+          } else {
+            console.warn('Username lookup failed, attempting direct auth anyway...');
+          }
+        } catch (err) {
+          console.error('Error resolving username:', err);
+        }
+      }
+
       // 1. Attempt Unified Auth (Backend + Supabase Fallback inside authenticateUser)
-      const result = await authenticateUser(email, password);
+      const result = await authenticateUser(resolvedEmail, password);
 
       if (!result.success) {
         // If real auth fails, we might check for mock credentials if configured
@@ -130,36 +155,71 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
       // 2. Fallback to MOCK AUTH if Real Auth fails
       if (authError) {
-        console.warn("Real Auth failed, falling back to Mock Auth as requested:", authError.message);
+        console.warn("Real Auth failed:", authError.message);
 
-        const dashboardType = mapRoleToDashboard(mockUser.role);
-
-        // Directly update local state via AuthContext
-        await signIn(dashboardType, {
-          userId: mockUser.id,
-          email: mockUser.email!,
-          userType: dashboardType,
-          isDemo: true,
-          school: {
-            id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', // Fixed Demo School ID
-            name: 'Demo School',
-            slug: 'demo',
-            subscriptionStatus: 'active',
-            createdAt: new Date().toISOString()
-          }
-        });
-
-        console.log('✅ Mock Login Successful (Fallback Mode)');
+        // Disable Mock Fallback for connected demo users to avoid confusion
+        // The backend requires a real token.
+        setError(`Login failed: ${authError.message}. Ensure the demo account exists.`);
         return;
+
+        /* 
+        // Disabled Mock Fallback
+        const dashboardType = mapRoleToDashboard(mockUser.role);
+        await signIn(dashboardType, { ... });
+        */
       }
 
       if (data.session) {
         const dashboardType = mapRoleToDashboard(mockUser.role);
+
+        // Fetch schoolGeneratedId from the relevant table based on role
+        let schoolGeneratedId = undefined;
+        try {
+          const userId = data.user.id;
+          let tableName = '';
+
+          // Determine which table to query based on role
+          if (dashboardType === 'student') {
+            tableName = 'students';
+          } else if (dashboardType === 'teacher') {
+            tableName = 'teachers';
+          } else if (dashboardType === 'parent') {
+            tableName = 'parents';
+          } else if (dashboardType === 'admin') {
+            tableName = 'admin_users';
+          }
+
+          // Fetch the school_generated_id if we have a valid table
+          if (tableName) {
+            const { data: userData, error: fetchError } = await supabase
+              .from(tableName)
+              .select('school_generated_id')
+              .eq('user_id', userId)
+              .maybeSingle();
+
+            if (!fetchError && userData?.school_generated_id) {
+              schoolGeneratedId = userData.school_generated_id;
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Failed to fetch schoolGeneratedId:', fetchErr);
+        }
+
+        const DEMO_SCHOOL = {
+          id: '00000000-0000-0000-0000-000000000000',
+          name: 'School App Demo',
+          slug: 'demo',
+          subscriptionStatus: 'active',
+          createdAt: new Date().toISOString()
+        };
+
         await signIn(dashboardType, {
           userId: data.user.id,
           email: data.user.email!,
           userType: dashboardType,
-          isDemo: true
+          isDemo: true,
+          schoolGeneratedId: schoolGeneratedId,
+          school: DEMO_SCHOOL
         });
       }
     } catch (err: any) {
@@ -186,6 +246,13 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Welcome Back</h2>
             <p className="text-sm text-slate-500 mt-1">Sign in to your demo portal</p>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="absolute top-4 right-4 max-w-[200px] bg-red-50 text-red-600 text-xs p-3 rounded-lg border border-red-100 shadow-sm animate-fade-in z-50">
+              {error}
+            </div>
+          )}
 
           {/* Mock Login Form */}
           <div className="space-y-4 mb-8 opacity-40 pointer-events-none scale-[0.98]">
@@ -252,10 +319,10 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
         {/* Form Section */}
         <div className="px-8 pb-8">
-          <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
+          <form onSubmit={handleLogin} className="space-y-4" autoComplete="off" noValidate>
             <div>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="Gmail"

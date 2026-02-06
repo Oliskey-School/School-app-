@@ -6,17 +6,22 @@ import {
     DollarSignIcon,
     CheckCircleIcon,
     CalendarIcon,
-    DocumentTextIcon
+    DocumentTextIcon,
+    XCircleIcon,
+    CloudUploadIcon,
+    VideoIcon,
+    PhotoIcon,
+    MicrophoneIcon
 } from '../../constants';
 
 interface Teacher {
-    id: number;
+    id: string;
     full_name: string;
     email: string;
 }
 
 interface Payslip {
-    id: number;
+    id: string;
     period_start: string;
     period_end: string;
     gross_salary: number;
@@ -25,8 +30,8 @@ interface Payslip {
 }
 
 interface PaymentFormData {
-    teacher_id: number;
-    payslip_id: number;
+    teacher_id: string;
+    payslip_id: string;
     amount: number;
     payment_method: 'Bank Transfer' | 'Mobile Money' | 'Cash';
     transaction_reference: string;
@@ -46,13 +51,13 @@ interface PaymentFormData {
 const PaymentRecording: React.FC = () => {
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [payslips, setPayslips] = useState<Payslip[]>([]);
-    const [selectedTeacher, setSelectedTeacher] = useState<number>(0);
+    const [selectedTeacher, setSelectedTeacher] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
     const [formData, setFormData] = useState<PaymentFormData>({
-        teacher_id: 0,
-        payslip_id: 0,
+        teacher_id: '',
+        payslip_id: '',
         amount: 0,
         payment_method: 'Bank Transfer',
         transaction_reference: '',
@@ -88,7 +93,7 @@ const PaymentRecording: React.FC = () => {
         }
     };
 
-    const fetchPayslips = async (teacherId: number) => {
+    const fetchPayslips = async (teacherId: string) => {
         try {
             const { data, error } = await supabase
                 .from('payslips')
@@ -115,7 +120,7 @@ const PaymentRecording: React.FC = () => {
         }
     };
 
-    const handlePayslipChange = (payslipId: number) => {
+    const handlePayslipChange = (payslipId: string) => {
         const payslip = payslips.find(p => p.id === payslipId);
         if (payslip) {
             setFormData(prev => ({
@@ -190,15 +195,15 @@ const PaymentRecording: React.FC = () => {
 
             // Reset form
             setFormData({
-                teacher_id: 0,
-                payslip_id: 0,
+                teacher_id: '',
+                payslip_id: '',
                 amount: 0,
                 payment_method: 'Bank Transfer',
                 transaction_reference: '',
                 payment_date: new Date().toISOString().split('T')[0],
                 notes: ''
             });
-            setSelectedTeacher(0);
+            setSelectedTeacher('');
             setPayslips([]);
         } catch (error: any) {
             console.error('Error recording payment:', error);
@@ -226,11 +231,10 @@ const PaymentRecording: React.FC = () => {
                         </label>
                         <select
                             value={selectedTeacher}
-                            onChange={(e) => setSelectedTeacher(Number(e.target.value))}
+                            onChange={(e) => setSelectedTeacher(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            required
                         >
-                            <option value={0}>Choose a teacher</option>
+                            <option value="">Choose a teacher</option>
                             {teachers.map((teacher) => (
                                 <option key={teacher.id} value={teacher.id}>
                                     {teacher.full_name} ({teacher.email})
@@ -240,14 +244,14 @@ const PaymentRecording: React.FC = () => {
                     </div>
 
                     {/* Payslip Selection */}
-                    {selectedTeacher > 0 && payslips.length > 0 && (
+                    {selectedTeacher !== '' && payslips.length > 0 && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Select Payslip Period
                             </label>
                             <select
                                 value={formData.payslip_id}
-                                onChange={(e) => handlePayslipChange(Number(e.target.value))}
+                                onChange={(e) => handlePayslipChange(e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 required
                             >
@@ -261,13 +265,13 @@ const PaymentRecording: React.FC = () => {
                         </div>
                     )}
 
-                    {selectedTeacher > 0 && payslips.length === 0 && (
+                    {selectedTeacher !== '' && payslips.length === 0 && (
                         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <p className="text-yellow-800 text-sm">No unpaid/approved payslips found for this teacher.</p>
                         </div>
                     )}
 
-                    {formData.payslip_id > 0 && (
+                    {formData.payslip_id !== '' && (
                         <>
                             {/* Payment Details */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

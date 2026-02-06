@@ -28,3 +28,6 @@ dist-ssr
 
 # Owner-only secrets folder
 owner/secrets/
+.gemini/
+test_output.txt
+test_output_utf8.txt

@@ -371,6 +371,12 @@ class SyncEngine extends EventEmitter {
                 const { data, error } = await query;
 
                 if (error) {
+                    // Skip permission errors silently (common for demo users without RLS policies)
+                    if (error.code === '42501' || error.message?.includes('permission denied')) {
+                        console.log(`⏭️ Skipping ${table} - no permission (expected for demo users)`);
+                        continue; // Skip this table, don't count as failed
+                    }
+
                     if (error.message?.includes('AbortError')) {
                         console.warn(`⚠️ Fetch for ${table} was aborted. This usually happens on navigation or multiple sync triggers. Skipping.`);
                     } else {

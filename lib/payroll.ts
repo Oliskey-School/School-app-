@@ -8,8 +8,8 @@ import { supabase } from './supabase';
 // ==================== TYPES ====================
 
 export interface TeacherSalary {
-    id: number;
-    teacher_id: number;
+    id: string;
+    teacher_id: string;
     base_salary: number;
     currency: string;
     payment_frequency: string;
@@ -28,8 +28,8 @@ export interface SalaryComponent {
 }
 
 export interface Payslip {
-    id?: number;
-    teacher_id: number;
+    id?: string;
+    teacher_id: string;
     period_start: string;
     period_end: string;
     gross_salary: number;
@@ -191,7 +191,7 @@ export function calculateNetSalary(
 /**
  * Get teacher's active salary configuration
  */
-export async function getTeacherSalary(teacherId: number): Promise<TeacherSalary | null> {
+export async function getTeacherSalary(teacherId: string): Promise<TeacherSalary | null> {
     const { data, error } = await supabase
         .from('teacher_salaries')
         .select('*')
@@ -212,7 +212,7 @@ export async function getTeacherSalary(teacherId: number): Promise<TeacherSalary
 /**
  * Get salary components for a teacher
  */
-export async function getSalaryComponents(salaryId: number): Promise<SalaryComponent[]> {
+export async function getSalaryComponents(salaryId: string): Promise<SalaryComponent[]> {
     const { data, error } = await supabase
         .from('salary_components')
         .select('*')
@@ -231,7 +231,7 @@ export async function getSalaryComponents(salaryId: number): Promise<SalaryCompo
  * Generate payslip for a teacher for a given period
  */
 export async function generatePayslip(
-    teacherId: number,
+    teacherId: string,
     periodStart: string,
     periodEnd: string
 ): Promise<{ payslip: Payslip; items: PayslipItem[] } | null> {
@@ -337,7 +337,7 @@ export async function generatePayslip(
 export async function savePayslip(
     payslip: Payslip,
     items: PayslipItem[]
-): Promise<number | null> {
+): Promise<string | null> {
     try {
         // Generate payslip number
         const payslipNumber = `PAY-${Date.now()}-${payslip.teacher_id}`;
@@ -395,7 +395,7 @@ export function formatCurrency(amount: number, currency: string = 'NGN'): string
  * Get payslips for a teacher
  */
 export async function getTeacherPayslips(
-    teacherId: number,
+    teacherId: string,
     limit: number = 12
 ): Promise<Payslip[]> {
     const { data, error } = await supabase
@@ -417,8 +417,8 @@ export async function getTeacherPayslips(
  * Approve payslip
  */
 export async function approvePayslip(
-    payslipId: number,
-    approvedBy: number
+    payslipId: string,
+    approvedBy: string
 ): Promise<boolean> {
     const { error } = await supabase
         .from('payslips')

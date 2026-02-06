@@ -2,14 +2,14 @@
 import React, { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase'; // Assuming strict supabase client
-import { XCircleIcon, CloudUploadIcon, DocumentTextIcon, FilmIcon, PhotographIcon, MusicNoteIcon } from '../../constants';
+import { XCircleIcon, CloudUploadIcon, DocumentTextIcon, VideoIcon, PhotoIcon, MicrophoneIcon } from '../../constants';
 // import { useAuth } from '../../context/AuthContext'; // If needed for uploader ref
 
 interface ResourceUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     onUploadComplete: () => void;
-    teacherId: number; // passed from parent
+    teacherId: string; // passed from parent
 }
 
 const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClose, onUploadComplete, teacherId }) => {

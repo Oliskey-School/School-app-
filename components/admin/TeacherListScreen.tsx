@@ -79,9 +79,24 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo }) => 
 
     const loadTeachers = async () => {
         setIsLoading(true);
-        const data = await fetchTeachers();
-        setTeachers(data);
-        setIsLoading(false);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const schoolId = user?.user_metadata?.school_id;
+
+            if (schoolId) {
+                const data = await fetchTeachers(schoolId);
+                setTeachers(data);
+            } else {
+                // Fallback or error if no school ID?
+                // Trying to fetch without ID might fail RLS or return nothing.
+                const data = await fetchTeachers(schoolId);
+                setTeachers(data);
+            }
+        } catch (error) {
+            console.error("Error loading teachers:", error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const allSubjects = useMemo(() => {

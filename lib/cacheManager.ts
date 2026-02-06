@@ -49,7 +49,17 @@ export async function clearStaleCache(maxAgeDays: number = 30): Promise<number> 
  */
 export async function clearAllCachesOnLogout(): Promise<void> {
     try {
-        await offlineDB.clearAll();
+        // Try to clear offlineDB, but don't crash if it fails
+        try {
+            await offlineDB.clearAll();
+        } catch (dbError: any) {
+            // Silently handle IndexedDB errors (object store not found, etc.)
+            if (dbError?.name === 'NotFoundError' || dbError?.message?.includes('object store')) {
+                console.log('⏭️ Skipping IndexedDB clear (database not initialized)');
+            } else {
+                console.warn('Failed to clear offlineDB:', dbError);
+            }
+        }
     } catch (e) {
         console.warn('Failed to clear offlineDB:', e);
     }

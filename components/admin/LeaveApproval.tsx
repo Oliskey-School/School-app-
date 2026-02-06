@@ -11,7 +11,7 @@ import {
 
 interface LeaveRequestData {
     id: number;
-    teacher_id: number;
+    teacher_id: string;
     teacher_name: string;
     leave_type: string;
     start_date: string;
@@ -94,7 +94,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
         }
     };
 
-    const updateLeaveBalance = async (teacherId: number, leaveTypeId: number, days: number, approved: boolean) => {
+    const updateLeaveBalance = async (teacherId: string, leaveTypeId: number, days: number, approved: boolean) => {
         try {
             if (!approved) return; // Don't update balance if rejected
 
@@ -259,8 +259,8 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}

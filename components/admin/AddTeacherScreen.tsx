@@ -241,7 +241,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     }
                     toast.success('Teacher updated successfully (Mock Mode - Session Only)');
                 } else {
-                    const newId = mockTeachers.length > 0 ? Math.max(...mockTeachers.map(t => t.id)) + 1 : 1;
+                    const newId = `mock-${Date.now()}`;
                     mockTeachers.push({
                         id: newId,
                         name,
@@ -282,6 +282,31 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     .eq('id', teacherToEdit.id);
 
                 if (updateError) throw updateError;
+
+                // Sync with profiles/users if user_id exists
+                if (teacherToEdit.user_id) {
+                    // Sync Public Profile
+                    const { error: profileError } = await supabase
+                        .from('profiles')
+                        .update({
+                            full_name: name,
+                            avatar_url: avatarUrl
+                        })
+                        .eq('id', teacherToEdit.user_id);
+
+                    if (profileError) console.warn('Warning: Could not sync profile:', profileError);
+
+                    // Sync Users Table
+                    const { error: userSyncError } = await supabase
+                        .from('users')
+                        .update({
+                            name: name,
+                            avatar_url: avatarUrl
+                        })
+                        .eq('id', teacherToEdit.user_id);
+
+                    if (userSyncError) console.warn('Warning: Could not sync user:', userSyncError);
+                }
 
                 // 2. Update Subjects (Delete all, re-insert)
                 await supabase.from('teacher_subjects').delete().eq('teacher_id', teacherToEdit.id);

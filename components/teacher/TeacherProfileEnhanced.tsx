@@ -9,7 +9,7 @@ import TeacherCurriculumBadges from '../shared/TeacherCurriculumBadges';
 import { User, FileText, BookOpen, CheckCircle, Upload, AlertCircle } from 'lucide-react';
 
 interface TeacherProfileProps {
-    teacherId: number;
+    teacherId: string;
 }
 
 export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProps) {

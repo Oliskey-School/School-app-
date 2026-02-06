@@ -131,6 +131,11 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                 <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${teacher.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                     {teacher.status}
                                 </span>
+                                {teacher.schoolGeneratedId && (
+                                    <span className="px-2 py-0.5 text-xs font-mono bg-gray-100 text-gray-600 rounded-full border border-gray-200">
+                                        {teacher.schoolGeneratedId}
+                                    </span>
+                                )}
                                 <button
                                     onClick={async () => {
                                         try {

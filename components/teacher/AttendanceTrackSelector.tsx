@@ -7,8 +7,8 @@ import { supabase } from '../../lib/supabase';
 import { BookOpen, AlertCircle, Save, CheckCircle } from 'lucide-react';
 
 interface AttendanceTrackSelectorProps {
-    teacherId: number;
-    classId: number;
+    teacherId: string;
+    classId: string;
     onCurriculumChange?: (curriculum: 'Nigerian' | 'British') => void;
 }
 

@@ -24,6 +24,10 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [childIds, setChildIds] = useState('');
+    const [address, setAddress] = useState(''); // Existing field
+    const [occupation, setOccupation] = useState(''); // Existing field
+    const [relationship, setRelationship] = useState<'Father' | 'Mother' | 'Guardian' | 'Other'>('Father'); // ✅ NEW
+    const [emergencyContact, setEmergencyContact] = useState(''); // ✅ NEW
     const [avatar, setAvatar] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
@@ -40,6 +44,10 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 setEmail(parentToEdit.email);
                 setPhone(parentToEdit.phone);
                 setAvatar(parentToEdit.avatarUrl);
+                setAddress(parentToEdit.address || ''); // ✅ NEW
+                setOccupation(parentToEdit.occupation || ''); // ✅ NEW
+                setRelationship((parentToEdit.relationship as any) || 'Father'); // ✅ NEW
+                setEmergencyContact(parentToEdit.emergencyContact || ''); // ✅ NEW
 
                 if (isSupabaseConfigured) {
                     try {
@@ -129,11 +137,11 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     if (parentToEdit) {
                         const index = mockParents.findIndex(p => p.id === parentToEdit.id);
                         if (index !== -1) {
-                            mockParents[index] = { ...mockParents[index], name, email, phone, avatarUrl, childIds: childIdArray };
+                            mockParents[index] = { ...mockParents[index], name, email, phone, avatarUrl, childIds: childIdArray.map(String) };
                         }
                     } else {
-                        const newId = mockParents.length > 0 ? Math.max(...mockParents.map(p => p.id)) + 1 : 1;
-                        mockParents.push({ id: newId, name, email, phone, avatarUrl, childIds: childIdArray });
+                        const newId = mockParents.length > 0 ? Math.max(...mockParents.map(p => parseInt(p.id))) + 1 : 1;
+                        mockParents.push({ id: newId.toString(), name, email, phone, avatarUrl, childIds: childIdArray.map(String) });
                         setCredentials({ username: email.split('@')[0], password: 'password123', email });
                         setShowCredentialsModal(true);
                         return; // Modal handles close
@@ -147,7 +155,16 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     // UPDATE MODE
                     const { error: updateError } = await supabase
                         .from('parents')
-                        .update({ name, email, phone, avatar_url: avatarUrl })
+                        .update({
+                            name,
+                            email,
+                            phone,
+                            address: address || null, // ✅ NEW
+                            occupation: occupation || null, // ✅ NEW
+                            relationship: relationship, // ✅ NEW
+                            emergency_contact: emergencyContact || null, // ✅ NEW
+                            avatar_url: avatarUrl
+                        })
                         .eq('id', parentToEdit.id);
 
                     if (updateError) throw updateError;
@@ -203,7 +220,18 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     // 3. Create Parent Profile
                     const { data: newParentData, error: parentError } = await supabase
                         .from('parents')
-                        .insert([{ user_id: newUserData.id, school_id: profile.schoolId, name, email, phone, avatar_url: avatarUrl }])
+                        .insert([{
+                            user_id: newUserData.id,
+                            school_id: profile.schoolId,
+                            name,
+                            email,
+                            phone,
+                            address: address || null, // ✅ NEW
+                            occupation: occupation || null, // ✅ NEW
+                            relationship: relationship, // ✅ NEW
+                            emergency_contact: emergencyContact || null, // ✅ NEW
+                            avatar_url: avatarUrl
+                        }])
                         .select()
                         .single();
 
@@ -268,6 +296,55 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                                 <InputField id="phone" label="Phone Number" value={phone} onChange={setPhone} icon={<PhoneIcon className="w-5 h-5" />} type="tel" placeholder="+1234567890" />
                             </div>
                             <InputField id="email" label="Email Address" value={email} onChange={setEmail} icon={<MailIcon className="w-5 h-5" />} type="email" placeholder="john.doe@example.com" />
+
+                            {/* ✅ NEW FIELDS */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="relationship" className="block text-sm font-medium text-gray-700 mb-1">
+                                        Relationship to Student *
+                                    </label>
+                                    <select
+                                        id="relationship"
+                                        value={relationship}
+                                        onChange={(e) => setRelationship(e.target.value as any)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                                        required
+                                    >
+                                        <option value="Father">Father</option>
+                                        <option value="Mother">Mother</option>
+                                        <option value="Guardian">Guardian</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <InputField
+                                    id="occupation"
+                                    label="Occupation"
+                                    value={occupation}
+                                    onChange={setOccupation}
+                                    icon={<UserIcon className="w-5 h-5" />}
+                                    placeholder="e.g. Software Engineer"
+                                    required={false}
+                                />
+                            </div>
+                            <InputField
+                                id="address"
+                                label="Home Address"
+                                value={address}
+                                onChange={setAddress}
+                                icon={<UserIcon className="w-5 h-5" />}
+                                placeholder="123 Main St, City, State"
+                                required={false}
+                            />
+                            <InputField
+                                id="emergencyContact"
+                                label="Emergency Contact Number"
+                                value={emergencyContact}
+                                onChange={setEmergencyContact}
+                                icon={<PhoneIcon className="w-5 h-5" />}
+                                type="tel"
+                                placeholder="+1234567890 (Alternative contact)"
+                                required={false}
+                            />
                         </div>
 
                         {/* Student Linking Section */}

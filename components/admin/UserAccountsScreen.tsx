@@ -48,7 +48,7 @@ const UserAccountsScreen: React.FC = () => {
             if (data) {
                 const mapped = data.map((acc: any) => ({
                     ...acc,
-                    name: acc.name || 'Unknown User' // Name now comes directly from the View
+                    name: acc.full_name || acc.name || 'Unknown User'
                 }));
                 setAccounts(mapped);
             }

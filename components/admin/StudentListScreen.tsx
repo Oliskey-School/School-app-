@@ -154,9 +154,18 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     setIsLoading(true);
     setFetchError(null);
     try {
+      // Get current school context
+      const { data: { user } } = await supabase.auth.getUser();
+      const schoolId = user?.user_metadata?.school_id;
+
+      if (!schoolId) {
+        throw new Error('No school context found');
+      }
+
       const { data, error } = await supabase
         .from('students')
         .select('*')
+        .eq('school_id', schoolId)
         .order('grade', { ascending: false });
 
       // log response for debugging

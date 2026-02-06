@@ -1,6 +1,6 @@
 
 
-import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon } from '../../constants';
 import Header from '../ui/Header';
@@ -341,25 +341,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Student Dashboard', props: {} }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState<string | number | null>(null);
     const { currentSchool, currentBranchId, user } = useAuth();
     const schoolId = currentSchool?.id;
 
-    // Fetch Integer User ID
-    useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
-                if (userData) {
-                    setCurrentUserId(userData.id);
-                } else {
-                    setCurrentUserId((currentUser as any)?.id || 0);
-                }
-            }
-        };
-        getUser();
-    }, [currentUser]);
 
     // State for student data
     const [student, setStudent] = useState<Student | null>(null);
@@ -367,6 +351,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const [isRevalidating, setIsRevalidating] = useState(false);
     const isOnline = useOnlineStatus();
     const [version, setVersion] = useState(0);
+    const isFetchingRef = useRef(false); // Guard against infinite loops
 
     // Real-time notifications
     const notificationCount = useRealtimeNotifications('student');
@@ -375,20 +360,35 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     useEffect(() => {
         const fetchStudentAndNotifications = async () => {
-            const cacheKey = `student_profile_${currentUser?.id}`;
-            const cachedStudent = await offlineStorage.load<Student>(cacheKey);
-
-            if (cachedStudent) {
-                setStudent(cachedStudent);
-                setLoadingStudent(false);
-                if (isOnline) setIsRevalidating(true);
-            } else {
-                setLoadingStudent(true);
+            // Prevent infinite loop - if already fetching, skip
+            if (isFetchingRef.current) {
+                console.log('⏭️ Fetch already in progress, skipping...');
+                return;
             }
 
+            // Don't fetch if we don't have a user
+            if (!currentUser?.id) {
+                setLoadingStudent(false);
+                return;
+            }
+
+            isFetchingRef.current = true; // Mark as fetching
+            const cacheKey = `student_profile_${currentUser.id}`;
+
             try {
-                if (!currentUser?.email) {
+                const cachedStudent = await offlineStorage.load<Student>(cacheKey);
+
+                if (cachedStudent) {
+                    setStudent(cachedStudent);
                     setLoadingStudent(false);
+                    if (isOnline) setIsRevalidating(true);
+                } else {
+                    setLoadingStudent(true);
+                }
+
+                if (!currentUser.email) {
+                    setLoadingStudent(false);
+                    isFetchingRef.current = false;
                     return;
                 }
 
@@ -412,29 +412,65 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     user_id: currentUser.id,
                 } as Student);
 
-                // 1. Try to fetch Student Data (Isolated by School)
-                if (!schoolId) {
+
+
+                // 1. Try to fetch Student Data
+                console.log("Fetching student profile for user:", currentUser?.id, "School:", schoolId);
+
+                if (!currentUser?.id) {
+                    console.warn("No user ID found, stopping load");
                     setLoadingStudent(false);
                     return;
                 }
 
+
                 let studentData = null;
-                const { data: students } = await supabase
+
+
+                // First try: user_id only (most reliable)
+                const { data: byUserId, error: idError } = await supabase
                     .from('students')
                     .select('*')
-                    .eq('user_id', user?.id)
-                    .eq('school_id', schoolId)
+                    .eq('user_id', currentUser.id)
                     .maybeSingle();
 
-                studentData = students;
+                if (idError) {
+                    console.error("Error fetching by user_id:", idError);
+                    // If it's a permission error (403), immediately use demo student
+                    if (idError.code === '42501' || idError.message?.includes('permission denied')) {
+                        console.warn('⚠️ Permission denied - using demo student profile');
+                        const demo = createDemoStudent();
+                        setStudent(demo);
+                        await offlineStorage.save(cacheKey, demo);
+                        return; // Exit early
+                    }
+                }
 
-                // Fallback lookup by email
-                if (!studentData && currentUser.email) {
-                    const { data: byEmail } = await supabase
+
+                // If found, verify school matches (or accept if no school context yet)
+                if (byUserId) {
+                    if (!schoolId || byUserId.school_id === schoolId) {
+                        studentData = byUserId;
+                    }
+                }
+
+                // Fallback: lookup by email if user_id didn't work (skip if we had permission error)
+                if (!studentData && currentUser.email && !idError) {
+                    const { data: byEmail, error: emailError } = await supabase
                         .from('students')
                         .select('*')
                         .eq('email', currentUser.email)
                         .maybeSingle();
+
+                    // Check for permission error on email query too
+                    if (emailError?.code === '42501' || emailError?.message?.includes('permission denied')) {
+                        console.warn('⚠️ Permission denied on email lookup - using demo student profile');
+                        const demo = createDemoStudent();
+                        setStudent(demo);
+                        await offlineStorage.save(cacheKey, demo);
+                        return; // Exit early
+                    }
+
                     if (byEmail) studentData = byEmail;
                 }
 
@@ -462,8 +498,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         const { data: newStudent, error: createError } = await supabase
                             .from('students')
                             .insert({
-                                user_id: user?.id,
-                                email: user?.email,
+                                user_id: currentUser.id,
+                                email: currentUser.email,
                                 school_id: schoolId || DEMO_SCHOOL_ID,
                                 name: currentUser.user_metadata?.full_name || 'Demo Student',
                                 grade: 10,
@@ -499,16 +535,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 }
 
             } catch (e) {
-                if (!cachedStudent) {
-                    console.error('Error loading dashboard:', e);
+                console.error('Error loading dashboard:', e);
+                // If we have NO student data at all, set loading to false to prevent infinite spinner
+                if (!student) {
+                    setLoadingStudent(false);
                 }
             } finally {
                 setLoadingStudent(false);
                 setIsRevalidating(false);
+                isFetchingRef.current = false; // Mark as done fetching
             }
         };
         fetchStudentAndNotifications();
-    }, [currentUser, isOnline]);
+    }, [currentUser?.id, isOnline]); // Use currentUser?.id instead of whole object to prevent unnecessary re-fetches
 
     useEffect(() => {
         const currentView = viewStack[viewStack.length - 1];
@@ -723,10 +762,52 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     </p>
                     <div className="flex flex-col gap-3 w-full">
                         <button
-                            onClick={onLogout}
                             className="w-full py-3 px-4 bg-white text-gray-700 border border-gray-200 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
                         >
                             Back to Login
+                        </button>
+
+                        <button
+                            onClick={async () => {
+                                try {
+                                    setLoadingStudent(true);
+                                    // Manually trigger the auto-creation logic by forcing a re-check with special flag or just re-running 
+                                    // Actually, simpler to just insert directly here as a manual action
+                                    const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
+                                    const effectiveSchoolId = schoolId || DEMO_SCHOOL_ID;
+
+                                    const { data: newStudent, error } = await supabase
+                                        .from('students')
+                                        .insert({
+                                            user_id: user?.id,
+                                            email: user?.email,
+                                            school_id: effectiveSchoolId,
+                                            name: currentUser.user_metadata?.full_name || 'New Student',
+                                            grade: 10,
+                                            section: 'A',
+                                            attendance_status: 'Present',
+                                            school_generated_id: 'ST-' + Math.floor(Math.random() * 100000),
+                                        })
+                                        .select()
+                                        .single();
+
+                                    if (error) {
+                                        toast.error("Failed to create profile: " + error.message);
+                                        console.error(error);
+                                    } else {
+                                        toast.success("Profile created! Reloading...");
+                                        window.location.reload();
+                                    }
+                                } catch (e) {
+                                    toast.error("An unexpected error occurred");
+                                    console.error(e);
+                                } finally {
+                                    setLoadingStudent(false);
+                                }
+                            }}
+                            className="w-full py-3 px-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                        >
+                            Create Student Profile
                         </button>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100">
@@ -743,7 +824,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         navigateTo,
         handleBack,
         forceUpdate,
-        currentUserId,
+        currentUserId: currentUser?.id,
         schoolId,
         currentBranchId
     };

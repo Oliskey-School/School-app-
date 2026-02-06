@@ -35,34 +35,58 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
   useEffect(() => {
     const fetchParents = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        // Fallback to profile or metadata
+        const schoolId = user?.user_metadata?.school_id || (user as any)?.school_id;
+
+        if (!schoolId) {
+          console.warn("No school context found");
+          return;
+        }
+
+        // 1. Fetch Parents
+        const { data: parentsData, error: parentsError } = await supabase
           .from('parents')
-          .select(`
-                id,
-                phone,
-                user:users (
-                    name,
-                    email,
-                    avatar_url
-                ),
-                student_parent_links (
-                    student:students (
-                        id,
-                        name
-                    )
-                )
-            `);
+          .select('*')
+          .eq('school_id', schoolId);
 
-        if (error) throw error;
+        if (parentsError) throw parentsError;
 
-        if (data) {
-          const mappedParents: Parent[] = data.map((p: any) => ({
+        if (parentsData) {
+          // 2. Fetch Links manually (since FK is missing/complex)
+          const parentUserIds = parentsData.map(p => p.user_id).filter(Boolean);
+
+          let linksMap: Record<string, string[]> = {};
+
+          if (parentUserIds.length > 0) {
+            const { data: linksData } = await supabase
+              .from('student_parent_links')
+              .select(`
+                        parent_user_id,
+                        student:students (name)
+                    `)
+              .in('parent_user_id', parentUserIds)
+              .eq('is_active', true);
+
+            if (linksData) {
+              linksData.forEach((link: any) => {
+                if (!linksMap[link.parent_user_id]) {
+                  linksMap[link.parent_user_id] = [];
+                }
+                if (link.student?.name) {
+                  linksMap[link.parent_user_id].push(link.student.name);
+                }
+              });
+            }
+          }
+
+          const mappedParents: Parent[] = parentsData.map((p: any) => ({
             id: p.id,
-            name: p.user?.name || 'Unknown',
-            email: p.user?.email || '',
-            avatarUrl: p.user?.avatar_url || 'https://via.placeholder.com/150',
+            name: p.name || 'Unknown',
+            email: p.email || '',
+            avatarUrl: p.avatar_url || 'https://via.placeholder.com/150',
             phone: p.phone,
-            childIds: p.student_parent_links?.map((pc: any) => pc.student?.name || pc.student?.id) || []
+            childIds: linksMap[p.user_id] || []
           }));
           setParents(mappedParents);
         }

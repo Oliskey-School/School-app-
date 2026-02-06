@@ -31,7 +31,7 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [processingId, setProcessingId] = useState<number | null>(null);
+    const [processingId, setProcessingId] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
@@ -100,7 +100,7 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
     // So I will REVERT this thought process and modify 'lib/teacherAttendanceService.ts' instead.
     // I will pass the user.id as is (any) and let the service deal with it.
 
-    const handleApprove = async (attendanceId: number) => {
+    const handleApprove = async (attendanceId: string) => {
         if (!user?.id) return;
 
         setProcessingId(attendanceId);
@@ -121,7 +121,7 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
         }
     };
 
-    const handleReject = async (attendanceId: number) => {
+    const handleReject = async (attendanceId: string) => {
         if (!user?.id) return;
 
         const reason = prompt('Please enter a reason for rejection (optional):');
@@ -150,8 +150,16 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
     };
 
     const formatTime = (timeString: string) => {
-        const time = new Date(timeString);
-        return time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        if (!timeString) return 'N/A';
+        // If it's already HH:mm format, just return it or format to AM/PM
+        if (timeString.includes(':')) {
+            const [hours, minutes] = timeString.split(':');
+            const h = parseInt(hours);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${minutes} ${ampm}`;
+        }
+        return timeString;
     };
 
     const filteredRequests = pendingRequests.filter((request) =>
@@ -243,7 +251,7 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
                                     </div>
                                     <div className="flex justify-between items-center text-sm">
                                         <span className="text-gray-500 font-medium">Check-in</span>
-                                        <span className="text-gray-900 font-semibold font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{formatTime(request.check_in_time)}</span>
+                                        <span className="text-gray-900 font-semibold font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{formatTime(request.check_in)}</span>
                                     </div>
                                 </div>
 

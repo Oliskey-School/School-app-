@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 // Force Rebuild
 import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 import {
     ChartBarIcon,
     DollarSignIcon,
@@ -34,6 +35,7 @@ interface ProprietorDashboardProps {
 
 const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { profile } = useProfile();
+    const { user } = useAuth();
     const [currentView, setCurrentView] = useState<'overview' | 'finance' | 'compliance' | 'academic' | 'stem' | 'people'>('overview');
 
     // Kept for overview stats
@@ -300,6 +302,7 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
                     bgColor="bg-gradient-to-r from-purple-600 to-purple-800 text-white border-0"
                     onLogout={onLogout}
                     notificationCount={3}
+                    customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
                 />
 
                 <main className="flex-1 overflow-y-auto bg-gray-50 pb-56 lg:pb-6">

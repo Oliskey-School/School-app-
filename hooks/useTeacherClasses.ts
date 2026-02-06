@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useProfile } from '../context/ProfileContext';
+import { useAuth } from '../context/AuthContext';
 import { getFormattedClassName } from '../constants';
 
 export interface ClassInfo {
@@ -11,43 +12,79 @@ export interface ClassInfo {
     studentCount?: number;
 }
 
-export const useTeacherClasses = (teacherId?: number | null) => {
+export const useTeacherClasses = (teacherId?: string | null) => {
     const { profile } = useProfile();
+    const { user } = useAuth();
     const [classes, setClasses] = useState<ClassInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<any>(null);
 
     useEffect(() => {
         const fetchClasses = async () => {
-            let resolvedTeacherId: number | null = null;
+            let resolvedTeacherId: string | null = null;
 
-            // 1. Determine Teacher ID
+            console.log('🔍 [useTeacherClasses] Starting fetch with:', {
+                providedTeacherId: teacherId,
+                profileId: profile?.id,
+                profileEmail: profile?.email,
+                userEmail: user?.email
+            });
+
+            // 1. Determine Teacher ID - Multiple fallback strategies
             if (teacherId) {
                 resolvedTeacherId = teacherId;
-            } else if (profile?.email) {
-                // Try fetching by email if no ID provided
+                console.log('✅ Using provided teacherId:', resolvedTeacherId);
+            } else if (profile?.id) {
+                // Try using profile ID directly if it exists
+                resolvedTeacherId = profile.id;
+                console.log('✅ Using profile.id:', resolvedTeacherId);
+            } else {
+                // Fallback: fetch teacher by email
+                const emailToQuery = profile?.email || user?.email;
+
+                if (!emailToQuery) {
+                    console.warn('⚠️ No email available to query teacher profile');
+                    setLoading(false);
+                    return;
+                }
+
+                console.log('🔍 Fetching teacher by email:', emailToQuery);
+
                 try {
                     const { data: teacherData, error: teacherError } = await supabase
                         .from('teachers')
-                        .select('id')
-                        .eq('email', profile.email)
-                        .single();
+                        .select('id, name, email')
+                        .eq('email', emailToQuery)
+                        .maybeSingle();
+
+                    if (teacherError) {
+                        console.error('❌ Error fetching teacher profile by email:', teacherError);
+                        setError(teacherError);
+                        setLoading(false);
+                        return;
+                    }
 
                     if (teacherData) {
                         resolvedTeacherId = teacherData.id;
-                    } else if (teacherError) {
-                        console.error('Error fetching teacher profile by email:', teacherError);
+                        console.log('✅ Found teacher by email:', { id: resolvedTeacherId, name: teacherData.name });
+                    } else {
+                        console.warn('⚠️ No teacher profile found for email:', emailToQuery);
                     }
                 } catch (err) {
-                    console.error('Error in teacher lookup:', err);
+                    console.error('❌ Error in teacher lookup:', err);
+                    setError(err);
+                    setLoading(false);
+                    return;
                 }
             }
 
             if (!resolvedTeacherId) {
+                console.warn('⚠️ Could not resolve teacher ID');
                 setLoading(false);
                 return;
             }
 
+            console.log('🔍 Fetching classes for teacher ID:', resolvedTeacherId);
             setLoading(true);
             try {
                 // 2. Fetch Assignments using the resolved ID
@@ -56,7 +93,12 @@ export const useTeacherClasses = (teacherId?: number | null) => {
                     .select('class_name, id')
                     .eq('teacher_id', resolvedTeacherId);
 
-                if (assignmentError) throw assignmentError;
+                if (assignmentError) {
+                    console.error('❌ Error fetching assignments:', assignmentError);
+                    throw assignmentError;
+                }
+
+                console.log('📋 Found assignments:', assignments);
                 const assignedClassNames = assignments?.map(a => a.class_name) || [];
 
                 // 3. Fetch ALL classes
@@ -66,7 +108,12 @@ export const useTeacherClasses = (teacherId?: number | null) => {
                     .order('grade', { ascending: true })
                     .order('section', { ascending: true });
 
-                if (classesError) throw classesError;
+                if (classesError) {
+                    console.error('❌ Error fetching classes:', classesError);
+                    throw classesError;
+                }
+
+                console.log('📚 All classes from DB:', classesData);
 
                 // 4. Robust Matching & Parsing Logic
                 const parseAssignment = (name: string) => {
@@ -95,6 +142,8 @@ export const useTeacherClasses = (teacherId?: number | null) => {
                 };
 
                 const parsedAssignments = assignedClassNames.map(parseAssignment);
+                console.log('🔍 Parsed assignments:', parsedAssignments);
+
                 const finalClasses: ClassInfo[] = [];
                 const addedKeys = new Set<string>();
 
@@ -141,6 +190,8 @@ export const useTeacherClasses = (teacherId?: number | null) => {
                     }
                 });
 
+                console.log('✅ Final matched classes:', finalClasses);
+
                 // Sort
                 setClasses(finalClasses.sort((a, b) => {
                     if (a.grade !== b.grade) return a.grade - b.grade;
@@ -148,7 +199,7 @@ export const useTeacherClasses = (teacherId?: number | null) => {
                 }));
 
             } catch (err) {
-                console.error('Error fetching teacher classes:', err);
+                console.error('❌ Error fetching teacher classes:', err);
                 setError(err);
             } finally {
                 setLoading(false);
@@ -156,7 +207,7 @@ export const useTeacherClasses = (teacherId?: number | null) => {
         };
 
         fetchClasses();
-    }, [profile?.email, teacherId]);
+    }, [profile?.email, profile?.id, user?.email, teacherId]);
 
     return { classes, loading, error };
 };

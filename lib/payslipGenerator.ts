@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
-import { calculateGrossSalary, calculateTax, calculatePension, calculateNetSalary } from './payroll';
+import { calculateGrossSalary, calculateMonthlyTax, calculatePension, calculateNetSalary } from './payroll';
+import { SalaryComponent } from './payroll';
 
 export interface PayslipItem {
     description: string;
@@ -8,8 +9,8 @@ export interface PayslipItem {
 }
 
 export interface PayslipData {
-    payslip_id?: number;
-    teacher_id: number;
+    payslip_id?: string;
+    teacher_id: string;
     teacher_name: string;
     period_start: string;
     period_end: string;
@@ -26,7 +27,7 @@ export interface PayslipData {
  * Generate a payslip for a teacher
  */
 export async function generatePayslip(
-    teacherId: number,
+    teacherId: string,
     periodStart: string,
     periodEnd: string,
     allowances: PayslipItem[] = [],
@@ -51,11 +52,19 @@ export async function generatePayslip(
         const teacherName = (salaryData.teachers as any)?.full_name || 'Unknown';
 
         // Calculate salary components
-        const grossSalary = calculateGrossSalary(baseSalary, allowances, bonuses);
-        const tax = calculateTax(grossSalary);
+        const components: SalaryComponent[] = [
+            ...allowances.map(a => ({ component_type: 'Allowance', component_name: a.description, amount: a.amount, is_taxable: true, is_recurring: false } as SalaryComponent)),
+            ...bonuses.map(b => ({ component_type: 'Bonus', component_name: b.description, amount: b.amount, is_taxable: true, is_recurring: false } as SalaryComponent)),
+            ...deductions.map(d => ({ component_type: 'Deduction', component_name: d.description, amount: d.amount, is_taxable: false, is_recurring: false } as SalaryComponent))
+        ];
+
+        const { gross: grossSalary, allowances: totalAllowances, bonuses: totalBonuses } = calculateGrossSalary(baseSalary, components);
+        const tax = calculateMonthlyTax(grossSalary);
         const pension = calculatePension(grossSalary);
+
         const totalAdditionalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
-        const netSalary = calculateNetSalary(grossSalary, tax, pension, deductions);
+        const totalDeductions = tax + pension + totalAdditionalDeductions;
+        const netSalary = calculateNetSalary(grossSalary, totalDeductions);
 
         // Build items array
         const items: PayslipItem[] = [
@@ -91,7 +100,7 @@ export async function generatePayslip(
 /**
  * Save payslip to database
  */
-export async function savePayslip(payslipData: PayslipData): Promise<number | null> {
+export async function savePayslip(payslipData: PayslipData): Promise<string | null> {
     try {
         // Insert payslip
         const { data: payslip, error: payslipError } = await supabase
@@ -144,7 +153,7 @@ export async function savePayslip(payslipData: PayslipData): Promise<number | nu
 /**
  * Approve a payslip
  */
-export async function approvePayslip(payslipId: number): Promise<boolean> {
+export async function approvePayslip(payslipId: string): Promise<boolean> {
     try {
         const { error } = await supabase
             .from('payslips')

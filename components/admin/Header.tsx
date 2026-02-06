@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
                         </button>
                     )}
 
-                    <h1 className="text-xl font-bold tracking-tight truncate max-w-[200px] sm:max-w-md">
+                    <h1 className="text-3xl font-extrabold tracking-tight truncate max-w-[200px] sm:max-w-md">
                         {title}
                     </h1>
                 </div>

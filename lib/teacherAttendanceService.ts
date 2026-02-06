@@ -1,22 +1,21 @@
 import { supabase } from './supabase';
 
 export interface TeacherAttendance {
-    id: number;
-    teacher_id: number;
+    id: string;
+    teacher_id: string;
     date: string;
-    check_in_time: string;
-    status: 'Pending' | 'Approved' | 'Rejected';
-    approved_by?: number;
-    approved_at?: string;
-    rejection_reason?: string;
+    check_in: string;
+    check_out?: string;
+    status: string; // e.g. present
+    approval_status: 'pending' | 'approved' | 'rejected';
+    approved_by?: string;
     created_at: string;
-    updated_at: string;
 }
 
 /**
  * Submit teacher attendance (teacher marks themselves as present)
  */
-export async function submitTeacherAttendance(teacherId: number, date: string = new Date().toISOString().split('T')[0]) {
+export async function submitTeacherAttendance(teacherId: string, date: string = new Date().toISOString().split('T')[0]) {
     try {
         // 1. Fetch school_id for this teacher to satisfy RLS and Not-Null constraint
         const { data: teacherData, error: teacherError } = await supabase
@@ -33,7 +32,9 @@ export async function submitTeacherAttendance(teacherId: number, date: string = 
                 teacher_id: teacherId,
                 school_id: teacherData.school_id,
                 date,
-                status: 'Pending',
+                status: 'present',
+                approval_status: 'pending',
+                check_in: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
             })
             .select()
             .single();
@@ -43,7 +44,7 @@ export async function submitTeacherAttendance(teacherId: number, date: string = 
         // Create notification for all admins
         await createAdminNotification(
             'Teacher Attendance',
-            `New attendance request from teacher ID ${teacherId}`,
+            `New attendance request from teacher`,
             data.id
         );
 
@@ -57,7 +58,7 @@ export async function submitTeacherAttendance(teacherId: number, date: string = 
 /**
  * Get teacher attendance history
  */
-export async function getTeacherAttendanceHistory(teacherId: number, limit: number = 30) {
+export async function getTeacherAttendanceHistory(teacherId: string, limit: number = 30) {
     try {
         const { data, error } = await supabase
             .from('teacher_attendance')
@@ -90,7 +91,7 @@ export async function getPendingAttendanceRequests() {
           avatar_url
         )
       `)
-            .eq('status', 'Pending')
+            .eq('approval_status', 'pending')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -105,36 +106,21 @@ export async function getPendingAttendanceRequests() {
  * Approve teacher attendance (admin action)
  */
 // Helper to resolve a valid Admin ID if a mock string ID is passed
-async function resolveAdminId(userId: string | number): Promise<number> {
-    if (typeof userId === 'number') return userId;
-    if (!isNaN(Number(userId))) return Number(userId);
-
-    // If string ID (mock), fetch the first real admin from DB
-    console.warn(`Resolving mock Admin ID '${userId}' to a real database ID...`);
-    const { data } = await supabase
-        .from('users')
-        .select('id')
-        .eq('role', 'Admin')
-        .limit(1)
-        .maybeSingle();
-
-    return data?.id || 0; // Return Found ID or 0 (which might still fail constraint if no users, but better than string syntax error)
+async function resolveAdminId(userId: string): Promise<string> {
+    // In UUID mode, we just return the string if it's a valid UUID
+    return userId;
 }
 
 /**
  * Approve teacher attendance (admin action)
  */
-export async function approveAttendance(attendanceId: number, adminUserId: number | string) {
+export async function approveAttendance(attendanceId: string, adminUserId: string) {
     try {
-        const resolvedAdminId = await resolveAdminId(adminUserId);
-
         const { data, error } = await supabase
             .from('teacher_attendance')
             .update({
-                status: 'Approved',
-                approved_by: resolvedAdminId,
-                approved_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
+                approval_status: 'approved',
+                approved_by: adminUserId,
             })
             .eq('id', attendanceId)
             .select(`
@@ -170,18 +156,13 @@ export async function approveAttendance(attendanceId: number, adminUserId: numbe
 /**
  * Reject teacher attendance (admin action)
  */
-export async function rejectAttendance(attendanceId: number, adminUserId: number | string, reason?: string) {
+export async function rejectAttendance(attendanceId: string, adminUserId: string, reason?: string) {
     try {
-        const resolvedAdminId = await resolveAdminId(adminUserId);
-
         const { data, error } = await supabase
             .from('teacher_attendance')
             .update({
-                status: 'Rejected',
-                approved_by: resolvedAdminId,
-                approved_at: new Date().toISOString(),
-                rejection_reason: reason,
-                updated_at: new Date().toISOString(),
+                approval_status: 'rejected',
+                approved_by: adminUserId,
             })
             .eq('id', attendanceId)
             .select(`
@@ -222,11 +203,11 @@ export async function rejectAttendance(attendanceId: number, adminUserId: number
  * Create notification for a specific user
  */
 async function createNotification(
-    userId: number,
+    userId: string,
     title: string,
     summary: string,
     category: string,
-    relatedId?: number
+    relatedId?: string
 ) {
     try {
         const { error } = await supabase
@@ -249,7 +230,7 @@ async function createNotification(
 /**
  * Create notification for all admins
  */
-async function createAdminNotification(title: string, summary: string, relatedId?: number) {
+async function createAdminNotification(title: string, summary: string, relatedId?: string) {
     try {
         // Get all admin users
         const { data: adminUsers, error: userError } = await supabase
@@ -259,7 +240,7 @@ async function createAdminNotification(title: string, summary: string, relatedId
 
         if (userError) throw userError;
 
-        // Create notifications for each admin
+        // Create notifications for each admin (Note: users.id is UUID in this project)
         const notifications = adminUsers?.map(admin => ({
             user_id: admin.id,
             title,
@@ -284,7 +265,7 @@ async function createAdminNotification(title: string, summary: string, relatedId
 /**
  * Get today's attendance status for a teacher
  */
-export async function getTodayAttendanceStatus(teacherId: number) {
+export async function getTodayAttendanceStatus(teacherId: string) {
     const today = new Date().toISOString().split('T')[0];
 
     try {

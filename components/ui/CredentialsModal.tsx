@@ -221,18 +221,18 @@ Visit: https://your-school-app.com/login
   };
 
   return (
-    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${fullscreen ? 'p-0' : 'p-2 sm:p-4'} overflow-y-auto`}>
+    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${fullscreen ? 'p-0' : 'p-3 sm:p-4'} overflow-y-auto`}>
       <div
         ref={modalRef}
-        className={`bg-white ${fullscreen ? 'rounded-none w-full h-full max-w-full max-h-full' : 'rounded-2xl w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto max-h-[95vh]'} shadow-2xl overflow-hidden flex flex-col`}
+        className={`bg-white ${fullscreen ? 'rounded-none w-full h-full max-w-full max-h-full' : 'rounded-2xl w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto max-h-[90vh]'} shadow-2xl overflow-hidden flex flex-col`}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 sm:p-6">
           <div className="flex items-center space-x-3">
-            <CheckCircleIcon className="w-8 h-8" />
+            <CheckCircleIcon className="w-8 h-8 flex-shrink-0" />
             <div>
-              <h2 className="text-2xl font-bold">Success!</h2>
-              <p className="text-green-100 text-sm">
+              <h2 className="text-xl sm:text-2xl font-bold break-words">Success!</h2>
+              <p className="text-green-100 text-sm break-words">
                 {secondaryCredentials ? 'Accounts created successfully' : 'Account created successfully'}
               </p>
             </div>
@@ -240,7 +240,7 @@ Visit: https://your-school-app.com/login
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
 
           {renderCredentialBlock(userName, email, userType, username, password, 'primary')}
 

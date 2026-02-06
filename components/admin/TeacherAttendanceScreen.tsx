@@ -12,7 +12,7 @@ type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Pending' | 'Not Marked
 interface TeacherWithAttendance extends Teacher {
     attendanceStatus: AttendanceStatus;
     checkInTime?: string;
-    attendanceId?: number; // to approve/reject
+    attendanceId?: string; // to approve/reject
 }
 
 interface TeacherAttendanceScreenProps {
@@ -46,15 +46,15 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
                 // Map DB status to UI Status
                 let status: AttendanceStatus = 'Not Marked';
                 if (record) {
-                    if (record.status === 'Approved') status = 'Present';
-                    else if (record.status === 'Pending') status = 'Pending';
-                    else if (record.status === 'Rejected') status = 'Absent'; // Or keep as Rejected? Using Absent for simplicity based on previous UI, but Pending is key.
+                    if (record.approval_status === 'approved') status = 'Present';
+                    else if (record.approval_status === 'pending') status = 'Pending';
+                    else if (record.approval_status === 'rejected') status = 'Absent';
                 }
 
                 return {
                     ...teacher,
                     attendanceStatus: status,
-                    checkInTime: record?.check_in_time,
+                    checkInTime: record?.check_in,
                     attendanceId: record?.id
                 };
             });
@@ -90,7 +90,7 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
     }, []);
 
 
-    const handleStatusChange = useCallback(async (teacherId: number, status: AttendanceStatus) => {
+    const handleStatusChange = useCallback(async (teacherId: string, status: AttendanceStatus) => {
         // Optimistic update
         setTeachers(currentTeachers =>
             currentTeachers.map(teacher =>

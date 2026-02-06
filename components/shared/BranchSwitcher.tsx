@@ -1,5 +1,6 @@
 import React from 'react';
 import { useBranch } from '../../context/BranchContext';
+import { Building2, ChevronDown, Check } from 'lucide-react';
 
 /**
  * Premium BranchSwitcher Component
@@ -14,7 +15,11 @@ interface Branch {
     location?: string;
 }
 
-export const BranchSwitcher: React.FC = () => {
+interface BranchSwitcherProps {
+    align?: 'left' | 'right' | 'center';
+}
+
+export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' }) => {
     const { currentBranch, branches, switchBranch, isLoading } = useBranch();
     const [isOpen, setIsOpen] = React.useState(false);
 
@@ -46,48 +51,29 @@ export const BranchSwitcher: React.FC = () => {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`
-                    group relative px-4 py-2.5 rounded-2xl
-                    backdrop-blur-xl bg-white/10 
-                    border border-white/20
-                    shadow-2xl shadow-black/10
-                    hover:bg-white/20 hover:shadow-black/20
+                    group relative p-1 rounded-lg
+                    backdrop-blur-md bg-white/5 
+                    border border-white/10
+                    shadow-sm
+                    hover:bg-white/10 hover:shadow-md
                     transition-all duration-300 ease-out
-                    ${isOpen ? 'bg-white/20 scale-95' : 'scale-100'}
+                    ${isOpen ? 'bg-white/10 shadow-inner' : ''}
                 `}
             >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                     {/* Branch Icon */}
                     <div className={`
-                        w-8 h-8 rounded-xl bg-gradient-to-br ${getCurriculumColor(currentBranch?.curriculum_type || 'nigerian')}
+                        w-6 h-6 rounded-md bg-gradient-to-br ${getCurriculumColor(currentBranch?.curriculum_type || 'nigerian')}
                         flex items-center justify-center
                         border
                         transition-all duration-300
                         group-hover:scale-110 group-hover:rotate-3
                     `}>
-                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                    </div>
-
-                    {/* Branch Name & Curriculum */}
-                    <div className="flex flex-col items-start">
-                        <span className="text-sm font-bold text-white/90 leading-none">
-                            {currentBranch?.name || 'Select Branch'}
-                        </span>
-                        <span className="text-xs text-white/60 mt-0.5">
-                            {getCurriculumLabel(currentBranch?.curriculum_type || 'nigerian')}
-                        </span>
+                        <Building2 className="w-3.5 h-3.5 text-white" />
                     </div>
 
                     {/* Chevron */}
-                    <svg
-                        className={`w-4 h-4 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <ChevronDown className={`w-3.5 h-3.5 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
                 </div>
             </button>
 
@@ -100,23 +86,26 @@ export const BranchSwitcher: React.FC = () => {
                         onClick={() => setIsOpen(false)}
                     />
 
-                    {/* Dropdown Panel */}
-                    <div className="
-                        absolute top-full right-0 mt-2 w-80 z-50
-                        origin-top-right
-                        animate-scale-in
-                    ">
+                    {/* Dropdown Panel - Mobile: Fixed Modal, Desktop: Absolute Dropdown */}
+                    <div className={`
+                        z-50
+                        fixed left-4 right-4 top-24 w-auto max-w-xs mx-auto
+                        sm:absolute sm:inset-auto sm:top-full sm:mt-2 sm:w-80 sm:mx-0
+                        ${align === 'right' ? 'sm:right-0 sm:origin-top-right' : align === 'center' ? 'sm:left-1/2 sm:-translate-x-1/2 sm:origin-top' : 'sm:left-0 sm:origin-top-left'}
+                    `}>
                         <div className="
-                            backdrop-blur-2xl bg-white/10
-                            border border-white/20
-                            rounded-3xl
-                            shadow-2xl shadow-black/20
+                            animate-scale-in
+                            bg-white
+                            border border-gray-100
+                            rounded-2xl
+                            shadow-2xl shadow-indigo-500/10
                             overflow-hidden
+                            ring-1 ring-black/5
                         ">
                             {/* Header */}
-                            <div className="px-4 py-3 border-b border-white/10">
-                                <h3 className="text-sm font-bold text-white/90">Switch Branch</h3>
-                                <p className="text-xs text-white/60 mt-0.5">Select a different campus or curriculum</p>
+                            <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50">
+                                <h3 className="text-sm font-bold text-gray-900">Switch Branch</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">Select a different campus or curriculum</p>
                             </div>
 
                             {/* Branch List */}
@@ -132,50 +121,50 @@ export const BranchSwitcher: React.FC = () => {
                                             }}
                                             disabled={isLoading || isActive}
                                             className={`
-                                                w-full px-4 py-3 rounded-2xl
+                                                w-full px-3 py-3 rounded-xl
                                                 flex items-center gap-3
                                                 transition-all duration-200
+                                                text-left
                                                 ${isActive
-                                                    ? 'bg-white/20 border border-white/30 shadow-lg'
-                                                    : 'hover:bg-white/10 border border-transparent'
+                                                    ? 'bg-indigo-50/80 border border-indigo-100'
+                                                    : 'hover:bg-gray-50 border border-transparent'
                                                 }
                                                 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                                 mb-1 last:mb-0
+                                                group
                                             `}
                                         >
                                             {/* Branch Icon with Curriculum Color */}
                                             <div className={`
-                                                w-12 h-12 rounded-xl
-                                                bg-gradient-to-br ${getCurriculumColor(branch.curriculum_type)}
+                                                w-10 h-10 rounded-lg
+                                                bg-gradient-to-br ${getCurriculumColor(branch.curriculum_type).replace('border-', '')}
                                                 flex items-center justify-center
-                                                border
+                                                shadow-sm
                                                 flex-shrink-0
                                             `}>
-                                                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                </svg>
+                                                <Building2 className="w-5 h-5 text-white" />
                                             </div>
 
                                             {/* Branch Details */}
-                                            <div className="flex-1 text-left">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-bold text-white/90">
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`text-sm font-bold ${isActive ? 'text-indigo-900' : 'text-gray-900'}`}>
                                                         {branch.name}
                                                     </span>
                                                     {isActive && (
-                                                        <span className="px-2 py-0.5 rounded-full bg-green-500/20 border border-green-500/30 text-xs text-green-300 font-medium">
+                                                        <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-[10px] text-indigo-700 font-bold uppercase tracking-wider">
                                                             Active
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-xs text-white/60">
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-xs text-gray-500 font-medium">
                                                         {getCurriculumLabel(branch.curriculum_type)}
                                                     </span>
                                                     {branch.location && (
                                                         <>
-                                                            <span className="text-white/30">•</span>
-                                                            <span className="text-xs text-white/50">
+                                                            <span className="text-gray-300">•</span>
+                                                            <span className="text-xs text-gray-400">
                                                                 {branch.location}
                                                             </span>
                                                         </>
@@ -185,9 +174,7 @@ export const BranchSwitcher: React.FC = () => {
 
                                             {/* Checkmark for active */}
                                             {isActive && (
-                                                <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                                </svg>
+                                                <Check className="w-5 h-5 text-indigo-600" />
                                             )}
                                         </button>
                                     );

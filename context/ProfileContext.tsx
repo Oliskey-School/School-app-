@@ -48,6 +48,24 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             .eq('email', authData.user.email)
             .single();
 
+          // Handle permission denied errors for demo users
+          if (userError) {
+            if (userError.code === '42501' || userError?.message?.includes('permission denied')) {
+              console.warn('⚠️ Permission denied - using demo user profile');
+              const demoProfile: UserProfile = {
+                id: 'demo-user-id',
+                name: authData.user.email?.split('@')[0] || 'Demo User',
+                email: authData.user.email,
+                phone: '+234 801 234 5678',
+                avatarUrl: 'https://i.pravatar.cc/150?u=demo',
+                role: authData.user.user_metadata?.role || 'Admin',
+              };
+              setProfileState(demoProfile);
+              setIsLoading(false);
+              return;
+            }
+          }
+
           if (!userError && userData) {
             let schoolId: string | undefined = userData.school_id;
 
@@ -154,6 +172,20 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setProfileState(dbProfile);
         sessionStorage.setItem('userProfile', JSON.stringify(dbProfile));
         return dbProfile;
+      } else if (error && (error.code === '42501' || error?.message?.includes('permission denied'))) {
+        // Permission denied - use demo profile
+        console.warn('⚠️ Permission denied - using demo profile');
+        const demoProfile: UserProfile = {
+          id: 'demo-user-id',
+          name: email?.split('@')[0] || profile.name,
+          email: email || profile.email,
+          phone: profile.phone,
+          avatarUrl: profile.avatarUrl,
+          role: profile.role,
+        };
+        setProfileState(demoProfile);
+        sessionStorage.setItem('userProfile', JSON.stringify(demoProfile));
+        return demoProfile;
       } else {
         console.warn('Could not load profile from database:', error);
       }

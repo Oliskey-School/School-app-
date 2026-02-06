@@ -12,7 +12,7 @@ import { Student, Teacher, StoreProduct, Badge } from './types';
 export interface IDCard {
     id: number;
     userType: 'student' | 'teacher';
-    userId: number;
+    userId: string;
     cardNumber: string;
     qrCodeData: string;
     generatedAt: string;
@@ -25,8 +25,8 @@ export interface IDCard {
 // ===================================================================
 export interface Alumni {
     id: number;
-    userId: number;
-    studentId?: number;
+    userId: string;
+    studentId?: string;
     graduationYear: number;
     degreeObtained?: string;
     currentOccupation?: string;
@@ -54,7 +54,7 @@ export interface FundraisingCampaign {
     endDate: string;
     status: 'active' | 'completed' | 'cancelled';
     imageUrl?: string;
-    createdBy: number;
+    createdBy: string;
     createdAt: string;
     donations?: Donation[];
 }
@@ -62,7 +62,7 @@ export interface FundraisingCampaign {
 export interface Donation {
     id: number;
     campaignId: number;
-    donorId?: number;
+    donorId?: string;
     donorName?: string;
     amount: number;
     isAnonymous: boolean;
@@ -74,8 +74,8 @@ export interface Donation {
 
 export interface MentorshipRequest {
     id: number;
-    studentId: number;
-    mentorId: number;
+    studentId: string;
+    mentorId: string;
     status: 'pending' | 'accepted' | 'declined' | 'completed';
     subjectArea?: string;
     message?: string;
@@ -100,7 +100,7 @@ export interface EnhancedStoreProduct extends StoreProduct {
 
 export interface ShoppingCartItem {
     id: number;
-    userId: number;
+    userId: string;
     productId: number;
     quantity: number;
     size?: string;
@@ -112,7 +112,7 @@ export interface ShoppingCartItem {
 export interface StoreOrderFull {
     id: number;
     orderNumber: string;
-    userId: number;
+    userId: string;
     totalAmount: number;
     shippingAddress?: string;
     contactPhone?: string;
@@ -142,7 +142,7 @@ export interface OrderItem {
 // ===================================================================
 export interface StudentPoints {
     id: number;
-    studentId: number;
+    studentId: string;
     points: number;
     level: number;
     totalEarned: number;
@@ -152,12 +152,12 @@ export interface StudentPoints {
 
 export interface PointTransaction {
     id: number;
-    studentId: number;
+    studentId: string;
     points: number;
     reason: string;
     category: 'academic' | 'behavior' | 'attendance' | 'participation' | 'redemption';
     referenceId?: number;
-    awardedBy?: number;
+    awardedBy?: string;
     createdAt: string;
     awardedByUser?: {
         name: string;
@@ -173,7 +173,7 @@ export interface BadgeFull extends Badge {
 
 export interface StudentBadge {
     id: number;
-    studentId: number;
+    studentId: string;
     badgeId: number;
     earnedAt: string;
     badge?: BadgeFull;
@@ -200,7 +200,7 @@ export interface RewardItem {
 
 export interface RewardRedemption {
     id: number;
-    studentId: number;
+    studentId: string;
     rewardId: number;
     pointsSpent: number;
     status: 'pending' | 'approved' | 'delivered' | 'cancelled';
@@ -216,7 +216,7 @@ export interface VirtualClass {
     id: number;
     title: string;
     description?: string;
-    teacherId: number;
+    teacherId: string;
     classGrade: number;
     classSection: string;
     subject: string;
@@ -236,7 +236,7 @@ export interface VirtualClass {
 export interface VirtualClassAttendance {
     id: number;
     classId: number;
-    studentId: number;
+    studentId: string;
     joinedAt?: string;
     leftAt?: string;
     durationMinutes?: number;
@@ -255,7 +255,7 @@ export interface LearningPathFull {
     gradeLevel: number;
     difficultyLevel: 'beginner' | 'intermediate' | 'advanced';
     estimatedDurationHours?: number;
-    createdBy: number;
+    createdBy: string;
     isActive: boolean;
     isPublic: boolean;
     tags?: string[];
@@ -281,9 +281,9 @@ export interface LearningPathModule {
 
 export interface StudentLearningPath {
     id: number;
-    studentId: number;
+    studentId: string;
     pathId: number;
-    assignedBy: number;
+    assignedBy: string;
     assignedAt: string;
     startedAt?: string;
     completedAt?: string;
@@ -295,7 +295,7 @@ export interface StudentLearningPath {
 
 export interface ModuleProgress {
     id: number;
-    studentId: number;
+    studentId: string;
     moduleId: number;
     status: 'not_started' | 'in_progress' | 'completed';
     score?: number;
@@ -308,7 +308,7 @@ export interface ModuleProgress {
 
 export interface AdaptiveRecommendation {
     id: number;
-    studentId: number;
+    studentId: string;
     recommendedPathId: number;
     reason?: string;
     confidenceScore: number;

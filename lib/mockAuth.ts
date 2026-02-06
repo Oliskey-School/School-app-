@@ -1,36 +1,36 @@
 // Mock user data for Quick Login buttons (Synced with Shared Reality Demo School)
 export const MOCK_USERS: Record<string, any> = {
     admin: {
-        id: 'd3300000-0000-0000-0000-000000000001',
-        email: 'demo_admin@school.com',
+        id: '11111111-1111-1111-1111-111111111111',
+        email: 'admin@demo.com',
         password: 'password123',
         role: 'admin',
         name: 'Demo Admin',
-        metadata: { role: 'admin', full_name: 'Demo Admin', school_id: '00000000-0000-0000-0000-00000000d330' }
+        metadata: { role: 'admin', full_name: 'Demo Admin', school_id: '00000000-0000-0000-0000-000000000000' }
     },
     teacher: {
-        id: 'd3300000-0000-0000-0000-000000000002',
-        email: 'demo_teacher@school.com',
+        id: '22222222-2222-2222-2222-222222222222',
+        email: 'teacher@demo.com',
         password: 'password123',
         role: 'teacher',
         name: 'Demo Teacher',
-        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics', 'Science'], school_id: '00000000-0000-0000-0000-00000000d330' }
+        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics', 'Science'], school_id: '00000000-0000-0000-0000-000000000000' }
     },
     parent: {
-        id: 'd3300000-0000-0000-0000-000000000003',
-        email: 'demo_parent@school.com',
+        id: '12345678-1234-1234-1234-123456781234',
+        email: 'parent@demo.com',
         password: 'password123',
         role: 'parent',
         name: 'Demo Parent',
-        metadata: { role: 'parent', full_name: 'Demo Parent', school_id: '00000000-0000-0000-0000-00000000d330' }
+        metadata: { role: 'parent', full_name: 'Demo Parent', school_id: '00000000-0000-0000-0000-000000000000' }
     },
     student: {
-        id: 'd3300000-0000-0000-0000-000000000004',
-        email: 'demo_student@school.com',
+        id: '87654321-4321-4321-4321-876543218765',
+        email: 'student@demo.com',
         password: 'password123',
         role: 'student',
         name: 'Demo Student',
-        metadata: { role: 'student', full_name: 'Demo Student', school_id: '00000000-0000-0000-0000-00000000d330' }
+        metadata: { role: 'student', full_name: 'Demo Student', school_id: '00000000-0000-0000-0000-000000000000' }
     },
     proprietor: {
         id: 'd3300000-0000-0000-0000-000000000005',

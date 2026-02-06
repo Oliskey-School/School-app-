@@ -118,24 +118,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (event === 'SIGNED_OUT') {
-                // SCOPED SESSION LOGIC: 
-                // Only clear state if the session is truly gone from this tab's storage.
-                const { data: { session: existingSession } } = await supabase.auth.getSession();
-
-                if (existingSession) {
-                    console.log('🛡️ Ignoring global SIGNED_OUT event - Session still valid in this tab');
-                    return;
-                }
-
                 console.log('👋 Processing local SIGNED_OUT');
                 setRole(null);
                 setSession(null);
                 setUser(null);
                 setCurrentSchool(null);
                 setCurrentBranchId(null);
+
+                // Nuclear clear of all sensitive data
                 sessionStorage.removeItem('user');
                 sessionStorage.removeItem('role');
                 sessionStorage.removeItem('school');
+                sessionStorage.removeItem('sessionExpiresAt');
+                localStorage.removeItem('auth_token');
             }
 
             setLoading(false);
@@ -226,8 +221,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: userData.userType?.toLowerCase(),
                 full_name: userData.email?.split('@')[0],
                 is_demo: userData.isDemo, // Persist demo flag
+                custom_id: userData.schoolGeneratedId, // Include custom ID in user_metadata
             },
-            app_metadata: {},
+            app_metadata: {
+                custom_id: userData.schoolGeneratedId, // Include custom ID in app_metadata
+            },
             aud: 'authenticated',
             created_at: new Date().toISOString(),
         } as unknown as User;
@@ -256,42 +254,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
-        // 1. OPTIMISTIC UPDATE: Clear local state IMMEDIATELY
-        // This ensures the UI feels instant to the user.
+        console.log('🔄 Starting sign out process (tab-specific)...');
+
+        // 1. CLEAR STATE IMMEDIATELY (Atomic & Synchronous)
         setRole(null);
-        setSession(null);
         setUser(null);
+        setSession(null);
         setCurrentSchool(null);
+        setCurrentBranchId(null);
         setSessionExpiresAt(null);
         setIsSessionExpired(false);
+        setLoading(false);
 
-        // 2. Clear all session storage
-        sessionStorage.removeItem('user');
-        sessionStorage.removeItem('role');
-        sessionStorage.removeItem('school');
-        sessionStorage.removeItem('userProfile');
-        sessionStorage.removeItem('sessionExpiresAt');
-        sessionStorage.removeItem('lastOnlineCheck');
+        // 2. Clear THIS TAB'S session storage only (not localStorage to keep other tabs active)
+        sessionStorage.clear();
+        console.log('✅ Tab-specific storage cleared (other tabs unaffected)');
 
-        // 3. Clear offline cache (now scoped)
-        const { clearAllCachesOnLogout } = await import('../lib/cacheManager');
-        await clearAllCachesOnLogout();
+        // 3. Clear offline cache for this tab (non-blocking)
+        try {
+            const { clearAllCachesOnLogout } = await import('../lib/cacheManager');
+            clearAllCachesOnLogout().catch(e => console.warn('Cache clear background error:', e));
+        } catch (e) {
+            console.warn('Cache manager import failed:', e);
+        }
 
-        console.log('✅ Auth state cleared locally');
+        // NOTE: We do NOT call supabase.auth.signOut() to avoid logging out other tabs
+        // Each tab maintains its own session in sessionStorage
 
-        // 4. Trigger Supabase SignOut in Background (Fire & Forget)
-        // We don't await this because network latency shouldn't block the UI.
-        supabase.auth.signOut().then(() => {
-            console.log('✅ Supabase session terminated on server');
-        }).catch((err) => {
-            console.warn('⚠️ Supabase signOut network error (ignored):', err);
-        });
-
-        // Return immediately so the UI can update
-        return;
-
-
+        console.log('👋 Tab-specific logout complete - other tabs remain active');
     };
+
+
 
     /**
      * Refresh session token

@@ -12,13 +12,13 @@ import {
 } from '../../constants';
 
 interface Teacher {
-    id: number;
+    id: string;
     full_name: string;
 }
 
 const PayslipGenerator: React.FC = () => {
     const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [selectedTeacher, setSelectedTeacher] = useState<number>(0);
+    const [selectedTeacher, setSelectedTeacher] = useState<string>('');
     const [periodStart, setPeriodStart] = useState('');
     const [periodEnd, setPeriodEnd] = useState('');
     const [allowances, setAllowances] = useState<PayslipItem[]>([]);
@@ -193,10 +193,10 @@ const PayslipGenerator: React.FC = () => {
                         </label>
                         <select
                             value={selectedTeacher}
-                            onChange={(e) => setSelectedTeacher(Number(e.target.value))}
+                            onChange={(e) => setSelectedTeacher(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         >
-                            <option value={0}>Choose a teacher</option>
+                            <option value="">Choose a teacher</option>
                             {teachers.map((teacher) => (
                                 <option key={teacher.id} value={teacher.id}>
                                     {teacher.full_name}

@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { LogoutIcon, ChevronLeftIcon, NotificationIcon, SearchIcon, UserIcon } from '../../constants';
 import { Menu } from 'lucide-react';
 
+import { BranchSwitcher } from '../shared/BranchSwitcher';
+
 interface HeaderProps {
   title: string;
   avatarUrl: string;
@@ -65,7 +67,9 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
               <ChevronLeftIcon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
             </button>
           )}
-          <h1 className="text-2xl sm:text-3xl font-bold truncate">{title}</h1>
+          <div className="flex flex-col">
+            <h1 className="text-3xl sm:text-4xl font-extrabold truncate tracking-tight">{title}</h1>
+          </div>
         </div>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           {onSearchClick && (
@@ -109,6 +113,9 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
           aria-orientation="vertical"
           aria-labelledby="user-menu-button"
         >
+          <div className="flex justify-center py-2 border-b border-gray-100">
+            <BranchSwitcher align="right" />
+          </div>
           {customId && (
             <div className="px-4 py-2 border-b border-gray-100">
               <span className="text-xs text-gray-500 uppercase font-semibold">ID</span>

@@ -157,6 +157,18 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
       if (error) {
         console.error('Error fetching dashboard profile:', error);
+
+        // Handle permission denied errors (403) for demo users
+        if (error.code === '42501' || error.message?.includes('permission denied')) {
+          console.warn('⚠️ Permission denied - using demo teacher profile');
+          setTeacherId('demo-teacher-id');
+          setTeacherProfile({
+            name: 'Demo Teacher',
+            avatarUrl: undefined
+          });
+          return; // Exit early
+        }
+
         return;
       }
 

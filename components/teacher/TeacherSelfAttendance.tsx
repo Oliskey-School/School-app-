@@ -7,79 +7,142 @@ import {
 } from '../../lib/teacherAttendanceService';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
-import { CheckCircleIcon, ClockIcon, XCircleIcon, CalendarIcon } from '../../constants';
+import { CheckCircleIcon, CalendarIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface TeacherSelfAttendanceProps {
     navigateTo: (view: string, title: string, props?: any) => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
 }
 
-const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateTo, teacherId }) => {
+const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateTo, teacherId: propTeacherId }) => {
+    const { profile } = useProfile();
+    const { user } = useAuth();
+    const [teacherId, setTeacherId] = useState<string | null>(propTeacherId || null);
     const [todayStatus, setTodayStatus] = useState<TeacherAttendance | null>(null);
     const [attendanceHistory, setAttendanceHistory] = useState<TeacherAttendance[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
-        if (teacherId) {
-            loadAttendanceData();
-        }
-    }, [teacherId]);
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Resolve teacher ID if not provided
+    useEffect(() => {
+        const resolveTeacherId = async () => {
+            if (propTeacherId) {
+                setTeacherId(propTeacherId);
+                return;
+            }
+
+            // Try using profile ID directly
+            if (profile?.id) {
+                const resolvedId = String(profile.id); // Ensure it's a string
+                console.log('✅ Using profile.id as teacherId:', resolvedId);
+                setTeacherId(resolvedId);
+                return;
+            }
+
+            // Fallback: fetch teacher by email
+            const emailToQuery = profile?.email || user?.email;
+
+            if (!emailToQuery) {
+                console.warn('⚠️ No email available to query teacher profile');
+                setLoading(false);
+                return;
+            }
+
+            console.log('🔍 Fetching teacher by email:', emailToQuery);
+
+            try {
+                const { data: teacherData, error: teacherError } = await supabase
+                    .from('teachers')
+                    .select('id, name, email')
+                    .eq('email', emailToQuery)
+                    .maybeSingle();
+
+                if (teacherError) {
+                    console.error('❌ Error fetching teacher profile by email:', teacherError);
+                    setLoading(false);
+                    return;
+                }
+
+                if (teacherData) {
+                    const resolvedId = String(teacherData.id); // Ensure it's a string
+                    console.log('✅ Found teacher by email:', { id: resolvedId, name: teacherData.name });
+                    setTeacherId(resolvedId);
+                } else {
+                    console.warn('⚠️ No teacher profile found for email:', emailToQuery);
+                    setLoading(false);
+                }
+            } catch (err) {
+                console.error('❌ Error in teacher lookup:', err);
+                setLoading(false);
+            }
+        };
+
+        resolveTeacherId();
+    }, [propTeacherId, profile?.id, profile?.email, user?.email]);
 
     const loadAttendanceData = async () => {
-        if (!teacherId) return;
+
+        if (!teacherId) {
+            setLoading(false);
+            return;
+        }
 
         setLoading(true);
         try {
             // Get today's status
-            const todayResult = await getTodayAttendanceStatus(teacherId);
-            if (todayResult.success && todayResult.data) {
-                setTodayStatus(todayResult.data);
+            const statusRes = await getTodayAttendanceStatus(teacherId);
+            if (statusRes.success) {
+                setTodayStatus(statusRes.data);
             }
 
             // Get attendance history
-            const historyResult = await getTeacherAttendanceHistory(teacherId, 30);
-            if (historyResult.success && historyResult.data) {
-                setAttendanceHistory(historyResult.data);
+            const historyRes = await getTeacherAttendanceHistory(teacherId, 30);
+            if (historyRes.success) {
+                setAttendanceHistory(historyRes.data || []);
             }
         } catch (error) {
             console.error('Error loading attendance data:', error);
+            toast.error("Failed to load attendance records");
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        if (!teacherId) return;
+        if (teacherId) {
+            loadAttendanceData();
 
-        // Subscribe to real-time updates for THIS teacher
-        const channel = supabase.channel(`teacher_attendance_${teacherId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'teacher_attendance',
-                    filter: `teacher_id=eq.${teacherId}`,
-                },
-                (payload) => {
-                    console.log('Real-time update received for teacher attendance:', payload);
-                    // Refresh data on any change (insert, update, delete)
-                    loadAttendanceDataRef.current();
-                }
-            )
-            .subscribe();
+            // Subscribe to real-time updates for THIS teacher
+            const channel = supabase.channel(`teacher_attendance_${teacherId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'teacher_attendance',
+                        filter: `teacher_id=eq.${teacherId}`,
+                    },
+                    () => {
+                        loadAttendanceData();
+                    }
+                )
+                .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        } else {
+            setLoading(false);
+        }
     }, [teacherId]);
-
-    // Use ref to avoid stale closure in subscription callback if we called loadAttendanceData directly
-    const loadAttendanceDataRef = React.useRef(loadAttendanceData);
-    useEffect(() => {
-        loadAttendanceDataRef.current = loadAttendanceData;
-    }, [loadAttendanceData]);
 
     const handleCheckIn = async () => {
         if (!teacherId) {
@@ -89,145 +152,121 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
 
         setSubmitting(true);
         try {
-            const result = await submitTeacherAttendance(teacherId);
-            if (result.success) {
-                toast.success('Attendance submitted successfully! Waiting for admin approval.');
-                loadAttendanceData();
+            const res = await submitTeacherAttendance(teacherId);
+            if (res.success) {
+                toast.success("Attendance marked successfully!");
+                loadAttendanceData(); // Refresh
             } else {
-                toast.error(`Failed to submit attendance: ${result.error}`);
+                toast.error(res.error || "Failed to mark attendance");
             }
         } catch (error) {
-            console.error('Error submitting attendance:', error);
-            toast.error('An error occurred while submitting attendance.');
+            console.error('Check-in error:', error);
+            toast.error("An unexpected error occurred");
         } finally {
             setSubmitting(false);
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'Approved':
-                return (
-                    <div className="flex items-center space-x-1 text-green-600">
-                        <CheckCircleIcon className="h-5 w-5" />
-                        <span className="font-semibold">Approved</span>
-                    </div>
-                );
-            case 'Pending':
-                return (
-                    <div className="flex items-center space-x-1 text-amber-600">
-                        <ClockIcon className="h-5 w-5" />
-                        <span className="font-semibold">Pending</span>
-                    </div>
-                );
-            case 'Rejected':
-                return (
-                    <div className="flex items-center space-x-1 text-red-600">
-                        <XCircleIcon className="h-5 w-5" />
-                        <span className="font-semibold">Rejected</span>
-                    </div>
-                );
-            default:
-                return null;
+    const getStatusColor = (status: string) => {
+        const lowerStatus = status.toLowerCase();
+        switch (lowerStatus) {
+            case 'approved': return 'bg-green-100 text-green-700';
+            case 'pending': return 'bg-amber-100 text-amber-700';
+            case 'rejected': return 'bg-red-100 text-red-700';
+            default: return 'bg-gray-100 text-gray-700';
         }
     };
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    };
-
-    const formatTime = (timeString: string) => {
-        const time = new Date(timeString);
-        return time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    };
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center p-10">
+                <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-gray-500 font-medium">Loading attendance records...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="flex flex-col h-full bg-gray-100">
-            <main className="flex-grow flex flex-col overflow-y-auto">
-                {/* Today's Status Card */}
-                <div className="p-4 bg-white border-b border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <h3 className="font-bold text-lg text-gray-800">Today's Attendance</h3>
-                            <p className="text-sm text-gray-500">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-                        </div>
-                        <CalendarIcon className="h-8 w-8 text-purple-600" />
+        <div className="p-4 space-y-6">
+            {/* Header / Intro */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800">Today's Attendance</h2>
+                        <p className="text-sm text-gray-500 font-medium">
+                            {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                        </p>
                     </div>
-
-                    {loading ? (
-                        <div className="text-center py-4">
-                            <p className="text-gray-500">Loading...</p>
-                        </div>
-                    ) : todayStatus ? (
-                        <div className="bg-purple-50 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-gray-600">Status:</span>
-                                {getStatusBadge(todayStatus.status)}
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">Check-in Time:</span>
-                                <span className="font-semibold text-gray-800">{formatTime(todayStatus.check_in_time)}</span>
-                            </div>
-                            {todayStatus.status === 'Rejected' && todayStatus.rejection_reason && (
-                                <div className="mt-3 p-2 bg-red-50 rounded border border-red-200">
-                                    <p className="text-xs text-red-700">
-                                        <strong>Reason:</strong> {todayStatus.rejection_reason}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <button
-                            onClick={handleCheckIn}
-                            disabled={submitting}
-                            className={`w-full py-3 rounded-lg font-bold text-white transition-all ${submitting
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-purple-600 hover:bg-purple-700 active:scale-95'
-                                }`}
-                        >
-                            {submitting ? 'Submitting...' : '✓ Mark Attendance (Check In)'}
-                        </button>
-                    )}
+                    <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center">
+                        <CalendarIcon className="h-6 w-6 text-purple-600" />
+                    </div>
                 </div>
 
-                {/* Attendance History */}
-                <div className="flex-grow p-4">
-                    <h3 className="font-bold text-lg text-gray-800 mb-3">Attendance History</h3>
+                {todayStatus ? (
+                    <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                                <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Check-in Time</p>
+                                <p className="text-lg font-bold text-gray-800">{todayStatus.check_in}</p>
+                            </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(todayStatus.approval_status)}`}>
+                            {todayStatus.approval_status.charAt(0).toUpperCase() + todayStatus.approval_status.slice(1)}
+                        </span>
+                    </div>
+                ) : (
+                    <button
+                        onClick={handleCheckIn}
+                        disabled={submitting}
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-purple-100 transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2"
+                    >
+                        {submitting ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                            <CheckCircleIcon className="h-5 w-5" />
+                        )}
+                        {submitting ? 'Processing...' : 'Mark Attendance (Check In)'}
+                    </button>
+                )}
+            </div>
 
+            {/* Attendance History */}
+            <div className="space-y-4">
+                <h3 className="text-lg font-bold text-gray-800 px-1">Attendance History</h3>
+
+                <div className="space-y-3">
                     {attendanceHistory.length === 0 ? (
                         <div className="text-center py-10">
                             <p className="text-gray-500">No attendance records yet.</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {attendanceHistory.map((record) => (
-                                <div key={record.id} className="bg-white rounded-lg shadow-sm p-4">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="font-semibold text-gray-800">{formatDate(record.date)}</span>
-                                        {getStatusBadge(record.status)}
+                        attendanceHistory.map((record) => (
+                            <div key={record.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="text-center bg-gray-50 rounded-lg p-2 min-w-[50px]">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                            {new Date(record.date).toLocaleDateString('en-US', { month: 'short' })}
+                                        </p>
+                                        <p className="text-lg font-bold text-gray-700">
+                                            {new Date(record.date).getDate()}
+                                        </p>
                                     </div>
-                                    <div className="text-sm text-gray-600">
-                                        <p>Check-in: {formatTime(record.check_in_time)}</p>
-                                        {record.approved_at && (
-                                            <p className="mt-1">
-                                                {record.status === 'Approved' ? 'Approved' : 'Rejected'} on: {formatDate(record.approved_at)}
-                                            </p>
-                                        )}
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-800">Check-in: {record.check_in}</p>
+                                        <p className="text-xs text-gray-500">{record.status || 'Present'}</p>
                                     </div>
-                                    {record.status === 'Rejected' && record.rejection_reason && (
-                                        <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
-                                            <p className="text-xs text-red-700">
-                                                <strong>Reason:</strong> {record.rejection_reason}
-                                            </p>
-                                        </div>
-                                    )}
                                 </div>
-                            ))}
-                        </div>
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${getStatusColor(record.approval_status)}`}>
+                                    {record.approval_status.charAt(0).toUpperCase() + record.approval_status.slice(1)}
+                                </span>
+                            </div>
+                        ))
                     )}
                 </div>
-            </main>
+            </div>
         </div>
     );
 };

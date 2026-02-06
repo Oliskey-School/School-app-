@@ -147,9 +147,21 @@ export const offlineStorage = {
             // Try localStorage first
             let item = localStorage.getItem(STORAGE_PREFIX + key);
 
-            // Fallback to IndexedDB
+            // Fallback to IndexedDB with timeout
             if (!item) {
-                item = await get(STORAGE_PREFIX + key);
+                const getWithTimeout = Promise.race([
+                    get(STORAGE_PREFIX + key),
+                    new Promise<undefined>((_, reject) =>
+                        setTimeout(() => reject(new Error('IDB load timeout')), 2000)
+                    )
+                ]);
+
+                try {
+                    item = await getWithTimeout;
+                } catch (timeoutErr) {
+                    console.warn('Offline storage fetch timed out, skipping cache');
+                    return null;
+                }
             }
 
             if (!item) return null;

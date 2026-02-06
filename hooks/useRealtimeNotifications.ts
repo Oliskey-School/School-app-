@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useProfile } from '../context/ProfileContext';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 export function useRealtimeNotifications(userRole?: string) {
     const { profile } = useProfile();
+    const { currentSchool } = useAuth();
     const [notificationCount, setNotificationCount] = useState(0);
     const [currentUserId, setCurrentUserId] = useState<string | number | null>(profile?.id || null);
 
@@ -12,7 +15,6 @@ export function useRealtimeNotifications(userRole?: string) {
         if (profile?.id) {
             setCurrentUserId(profile.id);
         } else {
-            // Fallback for Admin or specialized roles without standard profiles
             supabase.auth.getUser().then(({ data }) => {
                 if (data.user) setCurrentUserId(data.user.id);
             });
@@ -21,9 +23,6 @@ export function useRealtimeNotifications(userRole?: string) {
 
     const fetchCount = async () => {
         try {
-            // 1. Fetch all unread notifications (we'll filter in memory for complex OR logic)
-            // Ideally, this uses an RPC or complex filter string, but client-side filtering 
-            // is reliable for "User ID OR Audience Array" logic.
             const { data, error } = await supabase
                 .from('notifications')
                 .select('id, user_id, audience')
@@ -34,17 +33,13 @@ export function useRealtimeNotifications(userRole?: string) {
                 return;
             }
 
-            const roleToCheck = userRole || profile?.role || 'student'; // Default fallback
+            const roleToCheck = userRole || profile?.role || 'student';
 
             const count = data.filter(n => {
-                // Match 1: Specific User ID
-                // Handle type mismatch (DB might be int, Auth might be UUID)
                 const isUserMatch = n.user_id && String(n.user_id) === String(currentUserId);
-
-                // Match 2: Audience (Role)
                 const audience = n.audience || [];
                 const isAudienceMatch = Array.isArray(audience)
-                    ? audience.map(s => s.toLowerCase()).includes(roleToCheck.toLowerCase())
+                    ? audience.map((s: string) => s.toLowerCase()).includes(roleToCheck.toLowerCase())
                     : JSON.stringify(audience).toLowerCase().includes(roleToCheck.toLowerCase());
 
                 return isUserMatch || isAudienceMatch;
@@ -57,22 +52,34 @@ export function useRealtimeNotifications(userRole?: string) {
     };
 
     useEffect(() => {
-        if (!currentUserId) return;
+        if (!currentUserId || !currentSchool) return;
 
         fetchCount();
 
-        // Subscribe to ANY change in notifications table
-        // We filter events locally by just refreshing the count on any event
+        // 1. Subscribe with School Filtering (Live Handshake)
         const channel = supabase
-            .channel('global_notifications')
+            .channel(`school_notifications_${currentSchool.id}`)
             .on(
                 'postgres_changes',
                 {
-                    event: '*',
+                    event: 'INSERT',
                     schema: 'public',
                     table: 'notifications',
+                    filter: `school_id=eq.${currentSchool.id}`
                 },
-                () => {
+                (payload) => {
+                    console.log('🔔 Live Notification Received:', payload.new);
+
+                    // 2. The Reaction: Immediate Toast/Alert
+                    toast(payload.new.title || 'New Notification', {
+                        icon: '🔔',
+                        style: {
+                            borderRadius: '10px',
+                            background: '#333',
+                            color: '#fff',
+                        },
+                    });
+
                     fetchCount();
                 }
             )
@@ -81,7 +88,7 @@ export function useRealtimeNotifications(userRole?: string) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [currentUserId, userRole, profile?.role]);
+    }, [currentUserId, currentSchool?.id, userRole, profile?.role]);
 
     return notificationCount;
 }

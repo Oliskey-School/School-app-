@@ -278,7 +278,8 @@ export async function fetchTeachers(schoolId?: string): Promise<Teacher[]> {
 
         return (data || []).map((t: any) => ({
             id: t.id,
-            schoolId: t.school_id, // Fixed mapping
+            schoolId: t.school_id,
+            schoolGeneratedId: t.school_generated_id,
             name: t.name,
             avatarUrl: t.avatar_url || 'https://i.pravatar.cc/150?u=teacher',
             email: t.email,
@@ -310,6 +311,8 @@ export async function fetchTeacherById(id: string | number): Promise<Teacher | n
 
         return {
             id: data.id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=teacher',
             email: data.email,
@@ -909,7 +912,7 @@ export async function fetchClasses(schoolId?: string): Promise<ClassInfo[]> {
         }
 
         const { data, error } = await query
-            .order('grade', { ascending: false })
+            .order('grade', { ascending: true })
             .order('section', { ascending: true });
 
         if (error) throw error;
