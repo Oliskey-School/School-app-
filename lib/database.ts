@@ -1603,14 +1603,15 @@ export async function fetchSubjects(curriculumId?: string | number, gradeLevel?:
     try {
         let query = supabase
             .from('subjects')
-            .select('id, name, code, category, curriculum_id, grade_level, school_id')
+            .select('id, name, code, category, curriculum_id, grade_level_category, school_id')
+            .eq('is_active', true)
             .order('name');
 
         if (curriculumId) {
             query = query.eq('curriculum_id', curriculumId);
         }
         if (gradeLevel) {
-            query = query.eq('grade_level', gradeLevel);
+            query = query.eq('grade_level_category', gradeLevel);
         }
 
         const { data, error } = await query;
@@ -1622,7 +1623,7 @@ export async function fetchSubjects(curriculumId?: string | number, gradeLevel?:
             code: s.code,
             category: s.category,
             curriculumId: s.curriculum_id,
-            gradeLevel: s.grade_level,
+            gradeLevel: s.grade_level_category,
             schoolId: s.school_id
         }));
     } catch (err) {

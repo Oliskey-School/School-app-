@@ -36,7 +36,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                 console.log('✅ Using provided teacherId:', resolvedTeacherId);
             } else if (profile?.id) {
                 // Try using profile ID directly if it exists
-                resolvedTeacherId = profile.id;
+                resolvedTeacherId = String(profile.id);
                 console.log('✅ Using profile.id:', resolvedTeacherId);
             } else {
                 // Fallback: fetch teacher by email
@@ -148,8 +148,8 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                 const addedKeys = new Set<string>();
 
                 (classesData || []).forEach((c: any) => {
-                    // STRICT FILTER: Skip if section is missing or empty
-                    if (!c.section || c.section.trim() === '') return;
+                    // ALLOW classes even if section is missing (fallback to General/None)
+                    // if (!c.section || c.section.trim() === '') return;
 
                     const fname = getFormattedClassName(c.grade, c.section);
                     const key = `${c.grade}-${c.section}`;

@@ -10,7 +10,7 @@ import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface CBTManagementScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
 }
 
 const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, teacherId }) => {
@@ -310,7 +310,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                                         </div>
                                         <h4 className="font-bold text-slate-800 text-lg">{exam.title}</h4>
                                         <p className="text-sm text-slate-600 mt-1">
-                                            {exam.type} • {exam.duration} mins • {exam.totalMarks || exam.totalQuestions} Marks • {exam.totalQuestions} Questions
+                                            {exam.description || 'Test'} • {exam.durationMinutes} mins • {exam.totalMarks || exam.totalQuestions} Marks • {exam.totalQuestions} Questions
                                         </p>
                                     </div>
                                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-50">
