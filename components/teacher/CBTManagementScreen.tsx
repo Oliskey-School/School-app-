@@ -7,6 +7,7 @@ import { CBTExam, Subject } from '../../types';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { fetchSubjects, fetchCBTExams, deleteCBTExam } from '../../lib/database';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+import { useProfile } from '../../context/ProfileContext';
 
 interface CBTManagementScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -16,6 +17,7 @@ interface CBTManagementScreenProps {
 const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, teacherId }) => {
     const [exams, setExams] = useState<CBTExam[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
+    const { profile } = useProfile();
 
     // Use the comprehensive hook for classes
     const { classes: teacherClasses, loading: loadingClasses } = useTeacherClasses(teacherId);
@@ -132,6 +134,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                     duration_minutes: duration,
                     total_marks: totalMarks,
                     teacher_id: teacherId,
+                    school_id: profile.schoolId,
                     is_published: false
                 }])
                 .select()

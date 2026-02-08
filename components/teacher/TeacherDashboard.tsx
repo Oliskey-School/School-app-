@@ -133,7 +133,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       if (!schoolId) return;
 
       let query = supabase.from('teachers')
-        .select('id, name, avatar_url, email')
+        .select('id, name, avatar_url, email, school_generated_id')
         .eq('school_id', schoolId);
 
       let emailToQuery = user?.email || currentUser?.email;
@@ -176,8 +176,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         setTeacherId(data.id);
         setTeacherProfile({
           name: data.name || 'Teacher',
-          avatarUrl: data.avatar_url
-        });
+          avatarUrl: data.avatar_url,
+          schoolGeneratedId: data.school_generated_id
+        } as any);
       } else if (emailToQuery) {
         // AUTO-HEALING: If no teacher profile found, create one automatically
         // linked to the Demo School (School App) so they are "connected" immediately.

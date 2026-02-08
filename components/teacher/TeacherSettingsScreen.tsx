@@ -115,7 +115,7 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({ onLogout,
                             onClick={() => copyToClipboard(customId)}
                         >
                             <span className="text-xs text-gray-600 font-mono font-medium">
-                                {formatId(customId) || 'ID: Loading...'}
+                                {formatId(customId) || (profile as any).schoolGeneratedId || 'ID: Loading...'}
                             </span>
                             <Copy className="w-3 h-3 text-gray-400" />
                             {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}

@@ -254,6 +254,25 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         );
     }
 
+    // Empty state - Timetable not published yet
+    const hasNoData = Object.keys(timetable).length === 0;
+    if (hasNoData && !loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-8">
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-12 max-w-md text-center">
+                    <CalendarIcon className="w-20 h-20 text-gray-300 mb-6 mx-auto" />
+                    <h3 className="text-2xl font-bold text-gray-800 mb-3">Timetable Not Yet Released</h3>
+                    <p className="text-gray-500 text-base leading-relaxed mb-2">
+                        Your class timetable will appear here once it has been published by your school administrator.
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                        Please check back later or contact your teacher for updates.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-gray-50 relative animate-fade-in">
             {/* Header */}

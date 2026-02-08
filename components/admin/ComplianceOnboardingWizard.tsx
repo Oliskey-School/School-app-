@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,7 @@ export default function ComplianceOnboardingWizard({
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
+    const [fetching, setFetching] = useState(true);
 
     const [formData, setFormData] = useState<DocumentData>({
         cacExpiryDate: '',
@@ -55,8 +56,74 @@ export default function ComplianceOnboardingWizard({
         curriculumType: '',
     });
 
+    useEffect(() => {
+        const fetchExistingDocs = async () => {
+            if (!schoolId) return;
+            setFetching(true);
+            try {
+                // Fetch Documents
+                const { data: docs, error } = await supabase
+                    .from('school_documents')
+                    .select('*')
+                    .eq('school_id', schoolId);
+
+                if (error) throw error;
+
+                // Fetch School for curriculum
+                const { data: school, error: schoolErr } = await supabase
+                    .from('schools')
+                    .select('curriculum_type')
+                    .eq('id', schoolId)
+                    .single();
+
+                if (schoolErr && schoolErr.code !== 'PGRST116') throw schoolErr;
+
+                if (docs || school) {
+                    setFormData(prev => {
+                        const next = { ...prev };
+                        if (school?.curriculum_type) {
+                            next.curriculumType = school.curriculum_type;
+                        }
+
+                        docs?.forEach(doc => {
+                            switch (doc.document_type) {
+                                case 'CAC':
+                                    next.cacExpiryDate = doc.expiry_date || '';
+                                    break;
+                                case 'MinistryApproval':
+                                    next.ministryExpiryDate = doc.expiry_date || '';
+                                    break;
+                                case 'FireSafety':
+                                    next.fireSafetyExpiry = doc.expiry_date || '';
+                                    break;
+                                case 'Health':
+                                    next.healthExpiry = doc.expiry_date || '';
+                                    break;
+                                case 'Insurance':
+                                    next.insuranceExpiry = doc.expiry_date || '';
+                                    break;
+                                case 'BuildingPlan':
+                                    next.buildingExpiry = doc.expiry_date || '';
+                                    break;
+                            }
+                        });
+                        return next;
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching existing compliance data:", err);
+            } finally {
+                setFetching(false);
+            }
+        };
+
+        fetchExistingDocs();
+    }, [schoolId]);
+
     const handleInputChange = (field: keyof DocumentData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        // Explicitly ensuring NO backend write happens here
+        console.log(`[Compliance] Local state update: ${field} = ${value}`);
     };
 
     const handleFileChange = (field: keyof DocumentData, file: File | undefined) => {
@@ -129,6 +196,8 @@ export default function ComplianceOnboardingWizard({
                 { document_type: 'CAC', file_url: documentUrls.cac, expiry_date: formData.cacExpiryDate },
                 { document_type: 'MinistryApproval', file_url: documentUrls.ministryApproval, expiry_date: formData.ministryExpiryDate },
                 { document_type: 'FireSafety', file_url: documentUrls.fireSafety, expiry_date: formData.fireSafetyExpiry },
+                { document_type: 'Health', file_url: documentUrls.health, expiry_date: formData.healthExpiry },
+                { document_type: 'Insurance', file_url: documentUrls.insurance, expiry_date: formData.insuranceExpiry },
                 { document_type: 'BuildingPlan', file_url: documentUrls.building, expiry_date: formData.buildingExpiry },
             ].filter(doc => doc.file_url);
 
@@ -187,8 +256,8 @@ export default function ComplianceOnboardingWizard({
                         {[1, 2, 3, 4].map((s) => (
                             <div key={s} className="flex items-center gap-2">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${s < step ? 'bg-green-500 text-white' :
-                                        s === step ? 'bg-primary text-white' :
-                                            'bg-gray-200 text-gray-600'
+                                    s === step ? 'bg-primary text-white' :
+                                        'bg-gray-200 text-gray-600'
                                     }`}>
                                     {s < step ? <CheckCircle className="h-4 w-4" /> : s}
                                 </div>
@@ -199,6 +268,13 @@ export default function ComplianceOnboardingWizard({
                 </CardHeader>
 
                 <CardContent className="space-y-6">
+                    {fetching && (
+                        <div className="flex items-center justify-center p-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            <span className="ml-2">Loading existing documents...</span>
+                        </div>
+                    )}
+
                     {/* Step 1: Legal Documents */}
                     {step === 1 && (
                         <div className="space-y-4">

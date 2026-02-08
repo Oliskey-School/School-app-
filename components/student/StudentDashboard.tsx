@@ -17,6 +17,7 @@ import { offlineStorage } from '../../lib/offlineStorage';
 import { useOnlineStatus, OfflineIndicator } from '../shared/OfflineIndicator';
 
 // Lazy load all view components
+import IncomingClassModal from './IncomingClassModal'; // Import non-lazy for speed/critical alert
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
 const StudyBuddy = lazy(() => import('../student/StudyBuddy'));
 const AdventureQuestHost = lazy(() => import('../student/adventure/AdventureQuestHost'));
@@ -581,6 +582,69 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     // Real-time Service Integration
+    // Listen for Virtual Class Sessions
+    const [incomingClass, setIncomingClass] = useState<any | null>(null);
+
+    useEffect(() => {
+        if (!student) return;
+
+        let myClassId: string | null = null;
+        let channel: any = null;
+
+        const setupListener = async () => {
+            // 1. Get Class ID
+            try {
+                const { data: cls } = await supabase
+                    .from('classes')
+                    .select('id')
+                    .eq('grade', student.grade)
+                    .eq('section', student.section)
+                    .single();
+
+                if (cls) {
+                    myClassId = cls.id;
+                    console.log('Listening for class sessions for:', myClassId);
+
+                    // 2. Subscribe
+                    channel = supabase
+                        .channel('student-class-sessions')
+                        .on(
+                            'postgres_changes',
+                            {
+                                event: '*',
+                                schema: 'public',
+                                table: 'virtual_class_sessions',
+                                filter: `class_id=eq.${myClassId}`
+                            },
+                            async (payload: any) => {
+                                console.log('Class session event:', payload);
+                                if (payload.new && payload.new.status === 'active') {
+                                    // Fetch teacher name
+                                    const { data: teacher } = await supabase.from('teachers').select('name').eq('id', payload.new.teacher_id).single();
+
+                                    setIncomingClass({
+                                        ...payload.new,
+                                        teacherName: teacher?.name || 'Teacher'
+                                    });
+                                } else if (payload.new && payload.new.status === 'ended') {
+                                    setIncomingClass(null);
+                                }
+                            }
+                        )
+                        .subscribe();
+                }
+            } catch (err) {
+                console.error("Error setting up class listener:", err);
+            }
+        };
+
+        setupListener();
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [student]);
+
     // Real-time Service Integration Removed
     /*
     useEffect(() => {
@@ -899,6 +963,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     </Suspense>
                 </div>
             </div>
+            <IncomingClassModal
+                isOpen={!!incomingClass}
+                classInfo={incomingClass}
+                onJoin={() => {
+                    setIncomingClass(null);
+                    navigateTo('classroom', 'Live Class', { session: incomingClass });
+                }}
+                onDecline={() => setIncomingClass(null)}
+            />
         </GamificationProvider>
     );
 

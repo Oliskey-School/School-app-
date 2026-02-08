@@ -114,6 +114,8 @@ export const UploadIcon = ({ className }: { className?: string }) => <svg xmlns=
 export const GlobeIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></svg>;
 export const MapPinIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /><path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.828 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" /></svg>;
 export const BuildingLibraryIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4l8 4v14" /><path d="M10 10v4" /><path d="M14 10v4" /><path d="M10 14h4" /></svg>;
+export const XIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>;
+export const CheckIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M5 12l5 5l10 -10" /></svg>;
 
 
 // Theme Configuration
@@ -194,7 +196,7 @@ export const gradeColors: { [key: number]: string } = {
   12: 'bg-indigo-100 text-indigo-800',
 };
 
-export const getFormattedClassName = (grade: number, section: string, includeGradeWord: boolean = true) => {
+export const getFormattedClassName = (grade: number, section: string | null | undefined, includeGradeWord: boolean = true) => {
   let suffix = '';
   if (grade >= 1 && grade <= 6) suffix = 'Primary ';
   else if (grade >= 7 && grade <= 9) suffix = 'JSS ';
@@ -205,12 +207,15 @@ export const getFormattedClassName = (grade: number, section: string, includeGra
   if (grade >= 7 && grade <= 9) displayGrade = grade - 6;
   if (grade >= 10 && grade <= 12) displayGrade = grade - 9;
 
-  return `${includeGradeWord ? suffix : ''}${displayGrade}${section}`;
+  // Fix for "null" string appearing in class names
+  const cleanSection = (!section || section === 'null' || section === 'undefined') ? '' : section;
+
+  return `${includeGradeWord ? suffix : ''}${displayGrade}${cleanSection}`;
 };
 
 export const SUBJECTS_LIST = [
   { id: 1, name: 'Mathematics' },
-  { id: 2, name: 'English' },
+  { id: 2, name: 'English Studies' },
   { id: 3, name: 'Basic Science' },
   { id: 4, name: 'Basic Technology' },
   { id: 5, name: 'Social Studies' },
@@ -223,6 +228,24 @@ export const SUBJECTS_LIST = [
   { id: 12, name: 'Economics' },
   { id: 13, name: 'Geography' },
   { id: 14, name: 'History' },
+  { id: 15, name: 'Agricultural Science' },
+  { id: 16, name: 'Home Economics' },
+  { id: 17, name: 'Business Studies' },
+  { id: 18, name: 'Christian Religious Studies' },
+  { id: 19, name: 'Islamic Religious Studies' },
+  { id: 20, name: 'Financial Accounting' },
+  { id: 21, name: 'Commerce' },
+  { id: 22, name: 'Literature-in-English' },
+  { id: 23, name: 'Government' },
+  { id: 24, name: 'Further Mathematics' },
+  { id: 25, name: 'Technical Drawing' },
+  { id: 26, name: 'Office Practice' },
+  { id: 27, name: 'Food and Nutrition' },
+  { id: 28, name: 'Data Processing' },
+  { id: 29, name: 'Visual Arts' },
+  { id: 30, name: 'Music' },
+  { id: 31, name: 'Physical and Health Education' },
+  { id: 32, name: 'Computer Studies' }
 ];
 
 export const EXAM_TYPE_COLORS: { [key: string]: string } = {

@@ -6,7 +6,7 @@ export const MOCK_USERS: Record<string, any> = {
         password: 'password123',
         role: 'admin',
         name: 'Demo Admin',
-        metadata: { role: 'admin', full_name: 'Demo Admin', school_id: '00000000-0000-0000-0000-000000000000' }
+        metadata: { role: 'admin', full_name: 'Demo Admin', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     teacher: {
         id: '22222222-2222-2222-2222-222222222222',
@@ -14,7 +14,7 @@ export const MOCK_USERS: Record<string, any> = {
         password: 'password123',
         role: 'teacher',
         name: 'Demo Teacher',
-        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics', 'Science'], school_id: '00000000-0000-0000-0000-000000000000' }
+        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics', 'Science'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     parent: {
         id: '12345678-1234-1234-1234-123456781234',
@@ -22,7 +22,7 @@ export const MOCK_USERS: Record<string, any> = {
         password: 'password123',
         role: 'parent',
         name: 'Demo Parent',
-        metadata: { role: 'parent', full_name: 'Demo Parent', school_id: '00000000-0000-0000-0000-000000000000' }
+        metadata: { role: 'parent', full_name: 'Demo Parent', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     student: {
         id: '87654321-4321-4321-4321-876543218765',
@@ -30,7 +30,7 @@ export const MOCK_USERS: Record<string, any> = {
         password: 'password123',
         role: 'student',
         name: 'Demo Student',
-        metadata: { role: 'student', full_name: 'Demo Student', school_id: '00000000-0000-0000-0000-000000000000' }
+        metadata: { role: 'student', full_name: 'Demo Student', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     proprietor: {
         id: 'd3300000-0000-0000-0000-000000000005',

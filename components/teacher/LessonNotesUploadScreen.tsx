@@ -37,7 +37,8 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
             fetchClasses()
         ]);
 
-        setSubjects(allSubjects);
+        const { SUBJECTS_LIST } = await import('../../constants');
+        setSubjects(allSubjects.length > 0 ? allSubjects : SUBJECTS_LIST.map(s => ({ ...s, category: 'General', gradeLevel: 'All' })));
 
         const formattedClasses = allClasses.map((c: any) => ({
             id: c.id,
@@ -58,7 +59,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
             const success = await createLessonNote({
                 teacherId,
                 subjectId: selectedSubjectId as any, // UUID string, cast to avoid type error if interface expects number (needs fix in types but works in JS)
-                classId: parseInt(selectedClassId),
+                classId: selectedClassId as any,
                 week,
                 term,
                 title,

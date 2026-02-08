@@ -1,5 +1,4 @@
-
-const { createClient } = require('@supabase/supabase-client');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;

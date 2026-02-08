@@ -344,7 +344,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
                                 <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">3</span>
                                 <h2 className="text-xl font-bold text-gray-800">Details</h2>
                             </div>
-                            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-4">
                                 <textarea
                                     id="reason"
                                     value={reason}
@@ -354,29 +354,20 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
                                     className="w-full p-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-green-100 text-gray-700 placeholder-gray-400 resize-none transition-shadow"
                                 />
                                 <div className="text-right mt-2 text-xs text-gray-400">{reason.length} / 500</div>
+
+                                <button
+                                    onClick={handleBooking}
+                                    disabled={!selectedTeacher || !selectedSlot || !reason}
+                                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-100 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center space-x-2"
+                                >
+                                    <span>Confirm Appointment</span>
+                                    <ChevronRightIcon className="w-5 h-5" />
+                                </button>
                             </div>
                         </section>
                     </div>
                 </div>
             </main>
-
-            {/* Bottom Sticky Action Bar */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-200 z-10">
-                <div className="max-w-4xl mx-auto flex items-center justify-between">
-                    <div className="hidden md:block">
-                        <p className="text-xs text-gray-500 uppercase font-bold">Total</p>
-                        <p className="text-gray-900 font-bold">1 Appointment</p>
-                    </div>
-                    <button
-                        onClick={handleBooking}
-                        disabled={!selectedTeacher || !selectedSlot || !reason}
-                        className="w-full md:w-auto md:px-12 py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed transition-all transform active:scale-95 flex items-center justify-center"
-                    >
-                        <span>Confirm Appointment</span>
-                        <ChevronRightIcon className="w-5 h-5 ml-2" />
-                    </button>
-                </div>
-            </div>
         </div>
     );
 };

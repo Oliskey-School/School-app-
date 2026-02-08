@@ -42,7 +42,7 @@ BEGIN
 
         -- Teacher Record
         INSERT INTO public.teachers (id, user_id, school_id, name, email, subject_specialization)
-        VALUES (v_teacher_id, v_teacher_id, v_school_id, 'Demo Teacher', 'teacher@demo.com', '{"General"}')
+        VALUES (v_teacher_id, v_teacher_id, v_school_id, 'Demo Teacher', 'teacher@demo.com', ARRAY['General'])
         ON CONFLICT (id) DO UPDATE SET school_id = v_school_id;
     END IF;
 

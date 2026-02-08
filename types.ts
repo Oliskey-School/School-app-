@@ -996,19 +996,19 @@ export interface AIGame {
 // ============================================
 
 export interface Curriculum {
-  id: number; // BigInt from DB
+  id: string; // UUID from DB
   name: string;
   description: string;
 }
 
 export interface Subject {
-  id: number;
+  id: string; // UUID
   name: string;
   code?: string;
   category: string;
-  curriculumId: number;
+  curriculumId: string; // UUID
   gradeLevel: string;
-  schoolId?: number;
+  schoolId?: string; // UUID
 }
 
 export interface LessonNote {

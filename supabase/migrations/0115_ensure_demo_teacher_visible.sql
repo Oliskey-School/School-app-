@@ -6,7 +6,7 @@ SELECT
     school_id,
     email,
     full_name,
-    'General',
+    ARRAY['General'], -- Fixed: PostgreSQL requires ARRAY[] syntax for array types
     'Active'
 FROM public.profiles
 WHERE email = 'teacher@demo.com'

@@ -40,7 +40,7 @@ class HybridApiClient {
     private baseUrl: string;
     private options: ApiOptions;
 
-    constructor(baseUrl: string = API_BASE_URL, options: ApiOptions = { useBackend: true }) {
+    constructor(baseUrl: string = API_BASE_URL, options: ApiOptions = { useBackend: false }) {
         this.baseUrl = baseUrl;
         this.options = options;
     }

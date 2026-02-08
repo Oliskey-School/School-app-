@@ -32,33 +32,45 @@ const UserAccountsScreen: React.FC = () => {
 
     const fetchAccounts = React.useCallback(async () => {
         setLoading(true);
-        try {
-            let query = supabase
-                .from('auth_accounts')
-                .select('*');
+        console.log('🔍 [UserAccounts] Fetching data for school context:', {
+            currentSchoolId: currentSchool?.id,
+            userMetadataSchoolId: user?.user_metadata?.school_id,
+            resolvedSchoolId: schoolId
+        });
 
-            if (schoolId) {
-                query = query.eq('school_id', schoolId);
+        try {
+            if (!schoolId) {
+                console.warn('⚠️ [UserAccounts] No schoolId resolved, skipping fetch to prevent broad access');
+                setAccounts([]);
+                setLoading(false);
+                return;
             }
 
-            const { data, error } = await query;
+            const { data, error } = await supabase
+                .from('auth_accounts')
+                .select('*')
+                .eq('school_id', schoolId);
 
-            if (error) throw error;
+            if (error) {
+                console.error("❌ [UserAccounts] Supabase query error:", error);
+                throw error;
+            }
 
             if (data) {
+                console.log(`✅ [UserAccounts] Loaded ${data.length} accounts`);
                 const mapped = data.map((acc: any) => ({
                     ...acc,
                     name: acc.full_name || acc.name || 'Unknown User'
                 }));
                 setAccounts(mapped);
             }
-        } catch (err) {
-            console.error("Error fetching accounts:", err);
-            toast.error("Failed to load accounts");
+        } catch (err: any) {
+            console.error("❌ [UserAccounts] Fatal error:", err);
+            toast.error(`Failed to load accounts: ${err.message || 'Unknown error'}`);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [schoolId]);
 
     useEffect(() => {
         fetchAccounts();

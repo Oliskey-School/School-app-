@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 import {
     MicrophoneIcon,
     VideoIcon,
@@ -347,6 +349,7 @@ const ClassSelectionScreen: React.FC<{ onStartClass: (session: ClassSession, sub
 
 
 const VirtualClassScreen: React.FC = () => {
+    const { user } = useAuth();
     // Session State
     const [activeSession, setActiveSession] = useState<{ classDetails: ClassSession, subject: string, topic: string, duration: string } | null>(null);
 
@@ -455,10 +458,26 @@ const VirtualClassScreen: React.FC = () => {
         }
     };
 
-    const handleStartClass = (cls: ClassSession, subject: string, topic: string, duration: string, initialMuted: boolean, initialCameraOff: boolean) => {
+    const handleStartClass = async (cls: ClassSession, subject: string, topic: string, duration: string, initialMuted: boolean, initialCameraOff: boolean) => {
         setIsMuted(initialMuted);
         setIsCameraOff(initialCameraOff);
         setActiveSession({ classDetails: cls, subject, topic, duration });
+
+        if (user) {
+            try {
+                const { error } = await supabase.from('virtual_class_sessions').insert({
+                    teacher_id: user.id,
+                    class_id: cls.id, // Ensure this is UUID
+                    subject: subject,
+                    topic: topic,
+                    status: 'active',
+                    start_time: new Date().toISOString(),
+                    meeting_link: 'internal_jitsi'
+                });
+                if (error) console.error('Error starting session:', error);
+                else toast.success('Class session started live!');
+            } catch (e) { console.error(e); }
+        }
     };
 
     // --- Render Logic ---
@@ -664,7 +683,14 @@ const VirtualClassScreen: React.FC = () => {
 
                         {/* End Button */}
                         <div className="pl-1 md:pl-4 md:border-l md:border-slate-200 ml-1 md:ml-4">
-                            <button onClick={() => setActiveSession(null)} className="hidden md:block px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-200 transition-transform hover:scale-105 active:scale-95 whitespace-nowrap">
+                            <button onClick={async () => {
+                                if (window.confirm('End class for everyone?')) {
+                                    if (user) {
+                                        await supabase.from('virtual_class_sessions').update({ status: 'ended', end_time: new Date().toISOString() }).eq('teacher_id', user.id).eq('status', 'active');
+                                    }
+                                    setActiveSession(null);
+                                }
+                            }} className="hidden md:block px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-200 transition-transform hover:scale-105 active:scale-95 whitespace-nowrap">
                                 End Class
                             </button>
                             <button onClick={() => setActiveSession(null)} className="md:hidden bg-red-600 text-white p-2.5 rounded-xl shadow-lg shadow-red-200">

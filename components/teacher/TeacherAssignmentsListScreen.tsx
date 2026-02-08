@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Assignment } from '../../types';
 import { ChevronRightIcon, PlusIcon, CheckCircleIcon, ClipboardListIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { useRealtimeAssignments } from '../../lib/hooks/useRealtimeAssignments';
 
 interface TeacherAssignmentsListScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
@@ -12,8 +12,26 @@ interface TeacherAssignmentsListScreenProps {
 
 const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> = ({ navigateTo, handleBack, forceUpdate, teacherId }) => {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    const [assignments, setAssignments] = useState<Assignment[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    // Use real-time hook - automatically subscribes and updates
+    const { data: rawAssignments, loading, isSubscribed } = useRealtimeAssignments(
+        teacherId ? String(teacherId) : undefined
+    );
+
+    // Map raw data to TypeScript interface
+    const assignments: Assignment[] = useMemo(() => {
+        return rawAssignments.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            className: item.class_name,
+            subject: item.subject,
+            dueDate: item.due_date,
+            totalStudents: item.total_students || 0,
+            submissionsCount: item.submissions_count || 0
+        }));
+    }, [rawAssignments]);
+
 
     useEffect(() => {
         if (successMessage) {
@@ -22,59 +40,9 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
         }
     }, [successMessage]);
 
-    // Fetch assignments from Supabase
-    const fetchAssignments = async () => {
-        try {
-            setLoading(true);
-
-            let query = supabase.from('assignments').select('*').order('id', { ascending: false });
-
-            // If we have a teacherId, restrict to classes taught by this teacher
-            if (teacherId) {
-                const { data: classes } = await supabase
-                    .from('teacher_classes')
-                    .select('class_name')
-                    .eq('teacher_id', teacherId);
-
-                if (classes && classes.length > 0) {
-                    const classNames = classes.map(c => c.class_name);
-                    query = query.in('class_name', classNames);
-                }
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            if (data) {
-                // Map DB columns (snake_case) to TypeScript interface (camelCase)
-                const mappedAssignments: Assignment[] = data.map((item: any) => ({
-                    id: item.id,
-                    title: item.title,
-                    description: item.description,
-                    className: item.class_name,
-                    subject: item.subject,
-                    dueDate: item.due_date,
-                    totalStudents: item.total_students || 0,
-                    submissionsCount: item.submissions_count || 0
-                }));
-                setAssignments(mappedAssignments);
-            }
-        } catch (error) {
-            console.error('Error fetching assignments:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchAssignments();
-    }, [forceUpdate, teacherId]); // Re-fetch when forceUpdate or teacherId changes
-
     const handleAssignmentAdded = (newAssignmentData: Omit<Assignment, 'id'>) => {
-        // Optimistic update or simple re-fetch
+        // No need to manually refetch - real-time subscription handles it automatically!
         setSuccessMessage('Assignment added successfully!');
-        fetchAssignments();
         handleBack();
     };
 
@@ -93,6 +61,21 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
 
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">
+            {/* Real-time Connection Indicator */}
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm">
+                {isSubscribed ? (
+                    <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-green-700 font-medium">Live</span>
+                    </>
+                ) : (
+                    <>
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <span className="text-xs text-yellow-700 font-medium">Connecting...</span>
+                    </>
+                )}
+            </div>
+
             <main className="flex-grow p-4 overflow-y-auto pb-24">
                 {/* Empty State */}
                 {!loading && assignments.length === 0 && (

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useBranch } from '../../context/BranchContext';
+import { useAuth } from '../../context/AuthContext';
+import { DashboardType } from '../../types';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 
 /**
@@ -21,7 +23,8 @@ interface BranchSwitcherProps {
 
 export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' }) => {
     const { currentBranch, branches, switchBranch, isLoading } = useBranch();
-    const [isOpen, setIsOpen] = React.useState(false);
+    const { role } = useAuth();
+    const [isOpen, setIsOpen] = useState(false);
 
     const getCurriculumLabel = (type: string) => {
         const labels = {
@@ -43,6 +46,11 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
 
     if (!branches || branches.length <= 1) {
         return null; // Don't show if only one branch
+    }
+
+    // Hide for non-admin roles
+    if (role !== DashboardType.Admin && role !== DashboardType.SuperAdmin && role !== DashboardType.Proprietor) {
+        return null;
     }
 
     return (

@@ -57,28 +57,42 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
 // But the user said "any where class ... is requested".
 // Let's modify the display logic in the component loop to use the standard helper if we have the grade number.
 
+// Helper: Parse Class Names (Supports: "10A", "Grade 10A", "JSS 1A", "SSS 2 Gold")
+// Returns standardized grade number and section
 const parseClassName = (name: string) => {
-  // If the name is already in "Grade Display Name - Section" format, we might want to extract just the grade number?
-  // Or if we are just displaying, we might not need this if we fetch structured data.
-  // In TeacherOverview, we fetch from 'teacher_classes.class_name'. 
-  // If 'teacher_classes' stores simple names (like "10A"), we parse.
-
-  // This local helper seems to assume "Grade X" or "X".
-  // Let's leave it for now but update where it is USED if we can get structured data.
-  // Actually, 'teacher_classes' table usually stores a simple string. 
-
-  // Let's look at where it's used: line 123.
-
-  const clean = name.replace(/^Grade\s+/i, '');
-  const parts = clean.split(/\s*[-–]\s*/);
-  const classPart = parts[0].trim();
+  const clean = name.trim();
   let grade = 0;
   let section = '';
-  const match = classPart.match(/^(\d+)([A-Za-z]+)?$/);
-  if (match) {
-    grade = parseInt(match[1]);
-    section = match[2] || '';
+
+  // 1. Try Standard Patterns
+  // Matches: "10A", "10 A", "Grade 10A", "Year 10A"
+  const standardMatch = clean.match(/^(?:Grade|Year)?\s*(\d+)\s*(.*)$/i);
+
+  // 2. Try Nigerian Secondary Patterns
+  // Matches: "JSS 1A", "JSS1 A", "SSS 3 Gold"
+  const jsMatch = clean.match(/^JSS\s*(\d+)\s*(.*)$/i);
+  const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i); // Matches SS or SSS
+
+  // 3. Try Primary Patterns
+  const primaryMatch = clean.match(/^Primary\s*(\d+)\s*(.*)$/i);
+
+  if (standardMatch) {
+    grade = parseInt(standardMatch[1]);
+    section = standardMatch[2];
+  } else if (jsMatch) {
+    grade = 6 + parseInt(jsMatch[1]); // JSS1 = 7
+    section = jsMatch[2];
+  } else if (ssMatch) {
+    grade = 9 + parseInt(ssMatch[1]); // SS1 = 10
+    section = ssMatch[2];
+  } else if (primaryMatch) {
+    grade = parseInt(primaryMatch[1]);
+    section = primaryMatch[2];
   }
+
+  // Clean section (remove hyphens, extra spaces)
+  section = section.replace(/^[-–]\s*/, '').trim();
+
   return { grade, section };
 };
 
@@ -147,14 +161,28 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           let count = 0;
           if (students) {
             classes.forEach(clsName => {
-              const cleanName = clsName.replace('Grade ', '');
-              const { grade, section } = parseClassName(cleanName);
+              const { grade, section } = parseClassName(clsName);
               if (grade > 0) {
-                count += students.filter(s => s.grade === grade && s.section === section).length;
+                // Determine if we should match section strictly
+                // If the class name has a section (e.g. "10A"), match strictly.
+                // If class name is generic (e.g. "Grade 10"), maybe just match grade?
+                // For now, let's try fuzzy match on section if present.
+
+                count += students.filter(s => {
+                  if (s.grade !== grade) return false;
+                  if (!section) return true; // Class has no section implies all sections? Or maybe need to be careful.
+                  // If student section is empty but class has section, mismatch?
+                  // If class has section, student MUST match or be loosely equal
+                  return s.section?.toLowerCase() === section.toLowerCase() ||
+                    s.section === section || // Exact match
+                    (!s.section && !section);
+                }).length;
               }
             });
           }
           setStats(prev => ({ ...prev, totalStudents: count }));
+        } else {
+          setStats(prev => ({ ...prev, totalStudents: 0 }));
         }
 
         // 4. Get Today's Schedule (Scoped by Branch)
@@ -205,6 +233,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_classes' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => fetchData())
       .subscribe();
 
     return () => {

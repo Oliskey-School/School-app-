@@ -186,7 +186,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           } else if (dashboardType === 'parent') {
             tableName = 'parents';
           } else if (dashboardType === 'admin') {
-            tableName = 'admin_users';
+            tableName = 'users'; // Admins are in the users table
           }
 
           // Fetch the school_generated_id if we have a valid table
@@ -197,8 +197,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
               .eq('user_id', userId)
               .maybeSingle();
 
-            if (!fetchError && userData?.school_generated_id) {
-              schoolGeneratedId = userData.school_generated_id;
+            if (!fetchError && userData) {
+              schoolGeneratedId = userData.school_generated_id || (userData as any).custom_id || (userData as any).staff_id;
             }
           }
         } catch (fetchErr) {
@@ -206,8 +206,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
         }
 
         const DEMO_SCHOOL = {
-          id: '00000000-0000-0000-0000-000000000000',
-          name: 'School App Demo',
+          id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+          name: 'Oliskey Demo School',
           slug: 'demo',
           subscriptionStatus: 'active',
           createdAt: new Date().toISOString()

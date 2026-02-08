@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import {
   PaperclipIcon,
   CalendarIcon,
@@ -44,6 +45,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
   const [subject, setSubject] = useState(classInfo?.subject || '');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // const teacher = useMemo(() => mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!, []);
@@ -70,11 +72,29 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
           ...c,
           displayName: `${getGradeDisplayName(c.grade)} ${c.section}`
         }));
-        setAvailableClasses(enhancedClasses);
+
+        // Deduplicate classes based on displayName
+        const uniqueClasses = enhancedClasses.filter((v: any, i: number, a: any[]) =>
+          a.findIndex((t: any) => (t.displayName === v.displayName)) === i
+        );
+
+        setAvailableClasses(uniqueClasses);
       }
 
       const subjects = await fetchSubjects();
-      setDbSubjects(subjects);
+
+      // Merge with SUBJECTS_LIST to ensure completeness
+      const existingNames = new Set(subjects?.map((s: any) => s.name) || []);
+      const missingSubjects = SUBJECTS_LIST
+        .filter(s => !existingNames.has(s.name))
+        .map(s => ({
+          id: `static-${s.id}`,
+          name: s.name,
+          category: 'General',
+          gradeLevel: 'All'
+        }));
+
+      setDbSubjects([...(subjects || []), ...missingSubjects]);
     };
     fetchClassesAndSubjects();
   }, []);
@@ -114,7 +134,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
       due_date: new Date(dueDate).toISOString(),
       total_students: totalStudents || 25,
       submissions_count: 0,
-      // teacher_id: 2 // TEMPORARY: Commented out to prevent schema error until DB is updated
+      teacher_id: user?.id,
     };
 
     try {

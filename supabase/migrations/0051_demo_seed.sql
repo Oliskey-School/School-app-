@@ -83,7 +83,7 @@ ON CONFLICT DO NOTHING;
 -- Teachers (using the demo teacher)
 INSERT INTO teachers (user_id, school_id, name, email, subject_specialization, created_at)
 VALUES 
-    ('22222222-2222-2222-2222-222222222222', demo_school_id, 'Demo Teacher', 'teacher@demo.com', '{"Mathematics", "Physics"}', NOW())
+    ('22222222-2222-2222-2222-222222222222', demo_school_id, 'Demo Teacher', 'teacher@demo.com', ARRAY['Mathematics', 'Physics'], NOW())
 ON CONFLICT DO NOTHING;
 
 -- Students (using the demo student)

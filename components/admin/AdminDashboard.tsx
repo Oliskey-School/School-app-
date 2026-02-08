@@ -116,6 +116,7 @@ const ChatScreen = lazy(() => import('../shared/ChatScreen'));
 const EmergencyAlert = lazy(() => import('../admin/EmergencyAlert'));
 // StaffManagement removed
 const InviteStaffScreen = lazy(() => import('../admin/InviteStaffScreen'));
+const TimetableCreator = lazy(() => import('../admin/TimetableCreator'));
 
 type ViewStackItem = {
     view: string;
@@ -238,6 +239,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
         teacherPerformance: TeacherPerformanceScreen,
         timetable: TimetableGeneratorScreen,
         timetableEditor: TimetableEditor,
+        timetableCreator: TimetableCreator,
         teacherAttendance: TeacherAttendanceScreen,
         teacherAttendanceApproval: TeacherAttendanceApproval,
         feeManagement: FeeManagement,

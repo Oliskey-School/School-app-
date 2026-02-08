@@ -134,8 +134,17 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
             return;
         }
 
-        if (!authUserId || !schoolId) {
-            toast.error('Missing user context. Please try reloading.');
+        // Debugging context before save
+        console.log('Attempting to save quiz with context:', { authUserId, schoolId, selectedClassId });
+
+        if (!authUserId) {
+            toast.error('Missing user ID. Please try reloading.');
+            return;
+        }
+
+        if (!schoolId) {
+            toast.error('Missing School ID. Please try reloading or contact support.');
+            console.error('CRITICAL: School ID is missing in QuizBuilder state');
             return;
         }
 
