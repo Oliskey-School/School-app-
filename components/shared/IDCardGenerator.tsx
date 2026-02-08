@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import QRCode from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { Student, Teacher } from '../../types';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
@@ -134,7 +134,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
                     {/* QR Code */}
                     <div className="flex-shrink-0">
                         <div className="bg-white p-3 rounded-xl shadow-xl">
-                            <QRCode value={qrData} size={100} level="H" />
+                            <QRCodeCanvas value={qrData} size={100} level="H" />
                         </div>
                     </div>
                 </div>
