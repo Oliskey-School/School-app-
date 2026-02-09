@@ -122,19 +122,32 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
             console.log("Parsed questions:", parsedQuestions);
 
             // 1. Create Quiz Record (quizzes table)
-            // Ensure teacherId and other IDs are strings if needed, or rely on Postgres implicit cast from JS strings
+            // Ensure teacherId and other IDs are strings if needed.
+            // Validate School ID
+            let schoolId = profile.schoolId;
+            if (!schoolId) {
+                // Fallback: Try fetching from Auth
+                const { data: { user } } = await supabase.auth.getUser();
+                schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+
+                if (!schoolId) {
+                    console.warn("School ID missing from profile and auth. Using Demo School ID.");
+                    schoolId = "fa9bc997-21cb-4d8a-988a-a1e698e04e87"; // Demo School ID
+                }
+            }
+
             const { data: quizData, error: quizError } = await supabase
                 .from('quizzes')
                 .insert([{
                     title: file.name.replace('.xlsx', '').replace('.xls', ''),
                     description: uploadType, // Mapping 'type' to description or status if needed
-                    status: 'Draft', // Default status
+                    status: 'draft', // Default status (must be lowercase per DB constraint)
                     class_id: selectedClassId, // UUID string
                     subject_id: selectedSubjectId, // UUID string
                     duration_minutes: duration,
                     total_marks: totalMarks,
                     teacher_id: teacherId,
-                    school_id: profile.schoolId,
+                    school_id: schoolId,
                     is_published: false
                 }])
                 .select()
@@ -146,9 +159,9 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
             const questionsPayload = parsedQuestions.map((q, index) => ({
                 quiz_id: quizData.id,
                 question_text: q.question_text,
-                question_type: 'multiple_choice', // improved
+                question_type: 'multiple_choice',
                 options: [q.option_a, q.option_b, q.option_c, q.option_d], // Store as array
-                correct_option: q.correct_option,
+                correct_answer: q.correct_option, // The schema expects 'correct_answer', parsed data has 'correct_option'
                 points: q.marks,
                 order_index: index + 1
             }));
@@ -304,47 +317,63 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-4">
-                            {exams.map(exam => (
-                                <div key={exam.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-                                    <div className="flex flex-col mb-2">
-                                        <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                                            {exam.className && <span className="bg-slate-100 px-2 py-0.5 rounded">{exam.className}</span>}
-                                            {exam.subjectName && <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">{exam.subjectName}</span>}
+                            {exams
+                                .filter(exam => {
+                                    // Filter by selected Class and Subject if they are selected
+                                    if (selectedClassId && exam.classId !== selectedClassId) return false;
+                                    if (selectedSubjectId && exam.subjectId !== selectedSubjectId) return false;
+                                    return true;
+                                })
+                                .map(exam => (
+                                    <div key={exam.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                                        <div className="flex flex-col mb-2">
+                                            <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                                                <span className={`px-2 py-0.5 rounded ${exam.description === 'Exam' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                    {exam.description || 'Test'}
+                                                </span>
+                                                {exam.className && <span className="bg-slate-100 px-2 py-0.5 rounded">{exam.className}</span>}
+                                                {exam.subjectName && <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">{exam.subjectName}</span>}
+                                            </div>
+                                            <h4 className="font-bold text-slate-800 text-lg">{exam.title}</h4>
+                                            <p className="text-sm text-slate-600 mt-1">
+                                                {exam.durationMinutes} mins • {exam.totalMarks || exam.totalQuestions} Marks • {exam.totalQuestions} Questions
+                                            </p>
                                         </div>
-                                        <h4 className="font-bold text-slate-800 text-lg">{exam.title}</h4>
-                                        <p className="text-sm text-slate-600 mt-1">
-                                            {exam.description || 'Test'} • {exam.durationMinutes} mins • {exam.totalMarks || exam.totalQuestions} Marks • {exam.totalQuestions} Questions
-                                        </p>
+                                        <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-50">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${exam.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                    {exam.isPublished ? 'Live' : 'Draft'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => navigateTo('cbtScores', 'Assessment Results', { test: exam })}
+                                                    className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold uppercase rounded hover:bg-indigo-100 transition-colors"
+                                                >
+                                                    Results
+                                                </button>
+                                                <button
+                                                    onClick={() => togglePublish(exam)}
+                                                    className="text-sm text-indigo-600 font-semibold hover:underline"
+                                                >
+                                                    {exam.isPublished ? 'Unpublish' : 'Publish'}
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setDeleteId(exam.id);
+                                                    }}
+                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                                                    title="Delete Exam"
+                                                >
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-50">
-                                        <div className="flex items-center gap-3">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${exam.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                {exam.isPublished ? 'Live' : 'Draft'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <button
-                                                onClick={() => togglePublish(exam)}
-                                                className="text-sm text-indigo-600 font-semibold hover:underline"
-                                            >
-                                                {exam.isPublished ? 'Unpublish' : 'Publish'}
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setDeleteId(exam.id);
-                                                }}
-                                                className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
-                                                title="Delete Exam"
-                                            >
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
                             {exams.length === 0 && (
-                                <div className="text-center py-12 text-slate-400 bg-slate-50 rounded-lg">No exams found. Upload one to start.</div>
+                                <div className="text-center py-12 text-slate-400 bg-slate-50 rounded-lg">No assessment found. Upload one to start.</div>
                             )}
                         </div>
                     )}

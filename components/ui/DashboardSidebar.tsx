@@ -39,7 +39,7 @@ export const StudentSidebar = ({ activeScreen, setActiveScreen, onLogout, school
                         <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'S'}</span>
                     </div>
                 )}
-                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'School App'}</span>
+                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
             </div>
 
             <nav className="flex-1 py-6 overflow-y-auto">
@@ -85,7 +85,7 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
                         <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'A'}</span>
                     </div>
                 )}
-                <span className="text-lg font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'School App'}</span>
+                <span className="text-lg font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
             </div>
 
             <nav className="flex-1 py-6 overflow-y-auto">
@@ -133,7 +133,7 @@ export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout, school
                         <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'T'}</span>
                     </div>
                 )}
-                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'School App'}</span>
+                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
             </div>
 
             <nav className="flex-1 py-6 overflow-y-auto">
@@ -185,7 +185,7 @@ export const ParentSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolN
                         <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'P'}</span>
                     </div>
                 )}
-                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'School App'}</span>
+                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
             </div>
 
             <nav className="flex-1 py-6 overflow-y-auto">

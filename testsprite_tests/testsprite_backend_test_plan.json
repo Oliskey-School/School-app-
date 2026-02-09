@@ -1,0 +1,22 @@
+[
+  {
+    "id": "TC001",
+    "title": "create_new_quiz",
+    "description": "Test the API endpoint POST /quizzes to ensure that a teacher can successfully create a new quiz with valid title, description, school_id, teacher_id, class_id, is_published status, and duration_minutes."
+  },
+  {
+    "id": "TC002",
+    "title": "add_questions_to_quiz",
+    "description": "Test the API endpoint POST /quiz_questions to verify that multiple questions can be added to a quiz, including different question types such as multiple_choice and theory, with correct marks, options, and correct_answer fields."
+  },
+  {
+    "id": "TC003",
+    "title": "get_quiz_details_by_id",
+    "description": "Test the API endpoint GET /quizzes/{id} to ensure that a student can retrieve the details of a quiz by its unique ID, and the response contains all relevant quiz information."
+  },
+  {
+    "id": "TC004",
+    "title": "fetch_questions_for_quiz",
+    "description": "Test the API endpoint GET /quiz_questions with a quiz_id query parameter to verify that the questions for the specified quiz are correctly fetched and returned to the student."
+  }
+]

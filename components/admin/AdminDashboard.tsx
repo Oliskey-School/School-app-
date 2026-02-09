@@ -447,7 +447,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
                     activeScreen={activeBottomNav}
                     setActiveScreen={handleBottomNavClick}
                     onLogout={onLogout}
-                    schoolName={currentSchool?.name || 'School Portal'}
+                    schoolName={currentSchool?.name || 'Oliskey Demo School'}
                     logoUrl={currentSchool?.logoUrl}
                 />
             </div>

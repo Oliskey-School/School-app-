@@ -20,8 +20,8 @@ DECLARE
 BEGIN
     -- 0. Ensure Demo School Exists
     INSERT INTO public.schools (id, name, slug, subscription_status, is_active)
-    VALUES (v_school_id, 'Demo Academy', 'demo-academy', 'active', true)
-    ON CONFLICT (id) DO UPDATE SET is_active = true, subscription_status = 'active';
+    VALUES (v_school_id, 'Oliskey Demo School', 'oliskey-demo', 'active', true)
+    ON CONFLICT (id) DO UPDATE SET is_active = true, subscription_status = 'active', name = 'Oliskey Demo School', slug = 'oliskey-demo';
 
     -- Ensure a main branch exists
     INSERT INTO public.branches (school_id, name, is_main, location)

@@ -110,6 +110,7 @@ export interface Student {
   id: string; // UUID PRIMARY KEY
   user_id?: string; // UUID FK to auth.users(id)
   schoolId?: string; // school_id UUID FK
+  schoolGeneratedId?: string; // e.g. OLISKEY_MAIN_STD_0001
   name: string; // TEXT NOT NULL
   email: string; // TEXT
   admission_number?: string; // TEXT (⚠️ orphaned - not in form)
@@ -206,6 +207,7 @@ export interface Parent {
   id: string; // UUID PRIMARY KEY
   user_id?: string; // UUID FK to auth.users(id)
   schoolId?: string; // school_id UUID FK
+  schoolGeneratedId?: string; // e.g. OLISKEY_MAIN_PAR_0001
   name: string; // TEXT NOT NULL
   email?: string; // TEXT
   phone?: string; // TEXT
@@ -230,6 +232,7 @@ export interface ClassInfo {
   section: string;
   department?: Department;
   studentCount: number;
+  schoolId?: string;
 }
 
 
@@ -721,6 +724,23 @@ export interface Quiz {
   questions?: Question[];
   createdAt: string;
   points?: number; // Total points
+}
+
+export interface CBTTest {
+  id: string;
+  title: string;
+  type: string;
+  className: string;
+  subject: string;
+  duration: number; // in minutes
+  attempts: number;
+  totalMarks: number;
+  fileName: string;
+  questionsCount: number;
+  questions: any[];
+  createdAt: string; // ISO
+  isPublished: boolean;
+  results: any[];
 }
 
 export interface QuizSubmission {

@@ -83,13 +83,18 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo }) => 
             const { data: { user } } = await supabase.auth.getUser();
             const schoolId = user?.user_metadata?.school_id;
 
+            console.log('[TeacherList] User:', user);
+            console.log('[TeacherList] School ID:', schoolId);
+
             if (schoolId) {
                 const data = await fetchTeachers(schoolId);
+                console.log('[TeacherList] Fetched Teachers:', data);
                 setTeachers(data);
             } else {
-                // Fallback or error if no school ID?
-                // Trying to fetch without ID might fail RLS or return nothing.
+                console.warn('[TeacherList] No school ID found in user metadata');
+                // Fallback attempt
                 const data = await fetchTeachers(schoolId);
+                console.log('[TeacherList] Fetched (Fallback):', data);
                 setTeachers(data);
             }
         } catch (error) {

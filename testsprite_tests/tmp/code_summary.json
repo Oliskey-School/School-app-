@@ -1,0 +1,139 @@
+{
+    "tech_stack": [
+        "TypeScript",
+        "React",
+        "Next.js",
+        "Supabase",
+        "TailwindCSS"
+    ],
+    "features": [
+        {
+            "name": "QuizBuilder",
+            "description": "API for teachers to create manual quizzes.",
+            "files": [
+                "components/teacher/QuizBuilderScreen.tsx",
+                "components/teacher/CBTManagementScreen.tsx"
+            ],
+            "api_doc": {
+                "openapi": "3.0.0",
+                "paths": {
+                    "/quizzes": {
+                        "post": {
+                            "summary": "Create a new quiz",
+                            "requestBody": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "title": {
+                                                    "type": "string"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                },
+                                                "school_id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "teacher_id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "class_id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "is_published": {
+                                                    "type": "boolean"
+                                                },
+                                                "duration_minutes": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/quiz_questions": {
+                        "post": {
+                            "summary": "Add questions to a quiz",
+                            "requestBody": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "quiz_id": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "question_text": {
+                                                        "type": "string"
+                                                    },
+                                                    "question_type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "multiple_choice",
+                                                            "theory"
+                                                        ]
+                                                    },
+                                                    "marks": {
+                                                        "type": "number"
+                                                    },
+                                                    "options": {
+                                                        "type": "array"
+                                                    },
+                                                    "correct_answer": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "QuizPlayer",
+            "description": "API for students to fetch and play quizzes.",
+            "files": [
+                "components/student/QuizPlayerScreen.tsx"
+            ],
+            "api_doc": {
+                "openapi": "3.0.0",
+                "paths": {
+                    "/quizzes/{id}": {
+                        "get": {
+                            "summary": "Get quiz details by ID"
+                        }
+                    },
+                    "/quiz_questions": {
+                        "get": {
+                            "summary": "Fetch questions for a quiz",
+                            "parameters": [
+                                {
+                                    "name": "quiz_id",
+                                    "in": "query",
+                                    "required": true,
+                                    "schema": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

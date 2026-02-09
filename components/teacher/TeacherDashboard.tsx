@@ -382,7 +382,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           onNotificationClick={handleNotificationClick}
           notificationCount={notificationCount}
           onSearchClick={() => setIsSearchOpen(true)}
-          customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
+          customId={(teacherProfile.schoolGeneratedId || user?.app_metadata?.custom_id || user?.user_metadata?.custom_id)?.replace(/-/g, '_')}
         />
         <div className="flex-1 overflow-y-auto pb-56 lg:pb-0" style={{ marginTop: '-5rem' }}>
           <main className="min-h-full pt-20">

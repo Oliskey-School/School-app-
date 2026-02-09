@@ -48,6 +48,58 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
     return () => clearInterval(timer);
   }, [timeLeft, isFinished, loading]);
 
+  // Real-time Subscription
+  useEffect(() => {
+    if (!quizInfo?.id) return;
+
+    console.log('🔌 Setting up Real-time connection for Quiz:', quizInfo.id);
+
+    const channel = supabase
+      .channel(`quiz-player-${quizInfo.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'quiz_questions',
+          filter: `quiz_id=eq.${quizInfo.id}`
+        },
+        (payload) => {
+          console.log('⚡ Real-time update received:', payload);
+          // Refresh questions on any change
+          // Ideally we would optimistically update state, but refetching is safer for consistency
+          fetchQuizDetails();
+          toast('Assessment updated by teacher', { icon: '🔄' });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'quizzes',
+          filter: `id=eq.${quizInfo.id}`
+        },
+        (payload: any) => {
+          if (payload.new && !payload.new.is_active) {
+            toast.error('Teacher has ended the assessment.');
+            handleBack(); // Kick out if deactivated
+          }
+          if (payload.new && payload.new.duration_minutes !== payload.old.duration_minutes) {
+            toast('Duration updated!');
+            // Basic logic: if duration changes, we might want to adjust timer? 
+            // specific business logic can be added here.
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔌 Cleaning up Real-time connection');
+      supabase.removeChannel(channel);
+    };
+  }, [quizInfo?.id]); // Re-sub if ID changes (unlikely)
+
   // Focus Mode Logic (Anti-Cheat)
   useEffect(() => {
     if (isFinished || loading) return;
@@ -71,76 +123,92 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
   const fetchQuizDetails = async () => {
     setLoading(true);
     try {
-      if (cbtExamId) {
-        // Fetch CBT Exam
-        const { data: examData, error: examError } = await supabase
-          .from('cbt_exams')
-          .select('*')
-          .eq('id', cbtExamId)
-          .single();
+      // Whether it's a CBT Exam or a regular Quiz, we now treat them similarly as they both come from 'quizzes' (conceptually unified).
+      // However, if we separated logic before, we can unify it now.
+      // If `cbtExamId` is passed, it refers to a 'CBT' type quiz in the `quizzes` table (formerly `cbt_exams` was removed).
 
-        if (examError) throw examError;
-
-        setQuizInfo({
-          id: examData.id,
-          title: examData.title,
-          durationMinutes: examData.duration_minutes || 0,
-          type: 'cbt'
-        });
-
-        if (examData.duration_minutes) {
-          setTimeLeft(examData.duration_minutes * 60);
-        }
-
-        const { data: qData, error: qError } = await supabase
-          .from('cbt_questions')
-          .select('*')
-          .eq('exam_id', cbtExamId); // Field might be exam_id or cbt_exam_id
-
-        if (qError) {
-          // Try fallback field name if needed
-          const { data: qData2, error: qError2 } = await supabase
-            .from('cbt_questions')
-            .select('*')
-            .eq('cbt_exam_id', cbtExamId);
-          if (qError2) throw qError;
-          setQuestions(mapCBTQuestions(qData2, cbtExamId));
-        } else {
-          setQuestions(mapCBTQuestions(qData, cbtExamId));
-        }
-
-      } else if (quizId) {
-        // Fetch Regular Quiz
-        const { data: quizData, error: quizError } = await supabase
-          .from('quizzes')
-          .select('*')
-          .eq('id', quizId)
-          .single();
-
-        if (quizError) throw quizError;
-
-        setQuizInfo({
-          id: quizData.id,
-          title: quizData.title,
-          durationMinutes: quizData.duration_minutes || 0,
-          type: 'quiz'
-        });
-
-        if (quizData.duration_minutes) {
-          setTimeLeft(quizData.duration_minutes * 60);
-        }
-
-        const { data: qData, error: qError } = await supabase
-          .from('questions')
-          .select('*')
-          .eq('quiz_id', quizId);
-
-        if (qError) throw qError;
-        setQuestions(mapRegularQuestions(qData, quizId));
+      const targetId = cbtExamId || quizId;
+      if (!targetId) {
+        throw new Error("No Quiz ID provided");
       }
+
+      // 1. Fetch Quiz Metadata
+      const { data: quizData, error: quizError } = await supabase
+        .from('quizzes')
+        .select('*')
+        .eq('id', targetId)
+        .single();
+
+      if (quizError) throw quizError;
+
+      setQuizInfo({
+        id: quizData.id,
+        title: quizData.title,
+        durationMinutes: quizData.duration_minutes || 0,
+        type: quizData.description === 'Exam' ? 'cbt' : 'quiz' // Basic mapping
+      });
+
+      if (quizData.duration_minutes) {
+        setTimeLeft(quizData.duration_minutes * 60);
+      }
+
+      // 2. Fetch Questions (from quiz_questions)
+      const { data: qData, error: qError } = await supabase
+        .from('quiz_questions')
+        .select('*')
+        .eq('quiz_id', targetId)
+        .order('order_index', { ascending: true }); // Ensure ordered
+
+      if (qError) throw qError;
+
+      // Map to local Question format
+      const mappedQuestions: Question[] = (qData || []).map((q: any) => {
+        // Check if options are JSON or specific columns (CBT logic used separate columns, Quiz logic used JSON)
+        // `CBTManagementScreen` saves options as JSON array in `options` column.
+        // `quiz_questions` schema usually has `options` as JSONB.
+
+        let options: QuestionOption[] = [];
+
+        if (Array.isArray(q.options)) {
+          if (q.options.length > 0 && typeof q.options[0] === 'string') {
+            // CBT Upload format: ["Option A", "Option B", ...]
+            // Map to {id: 'A', text: '...'}
+            options = q.options.map((opt: string, idx: number) => ({
+              id: String.fromCharCode(65 + idx), // A, B, C...
+              text: opt,
+              isCorrect: String.fromCharCode(65 + idx) === q.correct_answer // Compare A, B...
+            }));
+          } else {
+            // Manual Builder format: [{id: 'opt1', text: '...', isCorrect: ...}]
+            // Already in correct format, just ensure types
+            options = q.options.map((opt: any) => ({
+              id: opt.id,
+              text: opt.text,
+              isCorrect: opt.isCorrect
+            }));
+          }
+        } else if (typeof q.options === 'object' && q.options !== null) {
+          // Fallback/Legacy object format
+          // If it's the old 'questions' table JSONB structure, it might vary.
+          // Try to cast or wrap.
+          options = Object.values(q.options);
+        }
+
+        return {
+          id: q.id,
+          quizId: String(targetId),
+          text: q.question_text,
+          type: q.question_type === 'multiple_choice' ? 'MultipleChoice' : 'Theory',
+          points: q.marks || 1,
+          options: options
+        };
+      });
+
+      setQuestions(mappedQuestions);
+
     } catch (err: any) {
       console.error('Error fetching details:', err);
-      toast.error('Failed to load quiz content');
+      toast.error('Failed to load assessment content');
       handleBack();
     } finally {
       setLoading(false);
@@ -367,8 +435,8 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
                   key={option.id}
                   onClick={() => handleAnswerSelect(option.id)}
                   className={`w-full group p-4 md:p-5 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${isSelected
-                      ? 'bg-orange-50 border-orange-500 shadow-md ring-1 ring-orange-500/20'
-                      : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50'
+                    ? 'bg-orange-50 border-orange-500 shadow-md ring-1 ring-orange-500/20'
+                    : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50'
                     }`}
                 >
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'

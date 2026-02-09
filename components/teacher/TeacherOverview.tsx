@@ -96,8 +96,12 @@ const parseClassName = (name: string) => {
   return { grade, section };
 };
 
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+
 const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherId, schoolId, currentBranchId }) => {
   const theme = THEME_CONFIG[DashboardType.Teacher];
+
+  const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(teacherId || currentUser?.id);
 
   const [teacherName, setTeacherName] = useState('Teacher');
   const [stats, setStats] = useState({ totalStudents: 0, classesTaught: 0 });
@@ -105,85 +109,65 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   const [ungradedAssignments, setUngradedAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Effect to calculate stats from teacherClasses
+  useEffect(() => {
+    const calculateStats = async () => {
+      if (classesLoading) return;
+
+      // 1. Classes Taught
+      const classCount = teacherClasses.length;
+
+      // 2. Total Students
+      let studentCount = 0;
+      if (classCount > 0) {
+        // Fetch students for these classes
+        // Optimization: Fetch all students for the grades present
+        const grades = [...new Set(teacherClasses.map(c => c.grade))];
+
+        if (grades.length > 0) {
+          const { data: students } = await supabase
+            .from('students')
+            .select('grade, section')
+            .eq('school_id', schoolId)
+            .in('grade', grades); // Filter by relevant grades
+
+          if (students) {
+            // Filter by section matches
+            studentCount = students.filter(s => {
+              // Find matching class for this student's grade/section
+              return teacherClasses.some(c =>
+                c.grade === s.grade &&
+                // Fuzzy section match: same logic as useTeacherClasses
+                (
+                  (c.section?.trim().toLowerCase() === s.section?.trim().toLowerCase()) ||
+                  (!c.section && !s.section) ||
+                  (c.section && !s.section && c.section.toLowerCase() === 'general') // Handle explicit 'General' section vs null
+                )
+              );
+            }).length;
+          }
+        }
+      }
+
+      setStats({ totalStudents: studentCount, classesTaught: classCount });
+    };
+
+    calculateStats();
+  }, [teacherClasses, classesLoading, schoolId]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Get Logged In Teacher (Isolated by School)
-        let query = supabase.from('teachers').select('id, name').eq('school_id', schoolId);
+        // 1. Get Logged In Teacher Name
+        let query = supabase.from('teachers').select('name, id').eq('school_id', schoolId);
+        if (teacherId) query = query.eq('id', teacherId);
+        else if (profile?.id) query = query.eq('user_id', profile.id);
+        else if (currentUser?.email) query = query.eq('email', currentUser.email);
 
-        if (teacherId) {
-          query = query.eq('id', teacherId);
-        } else if (profile?.id) {
-          query = query.eq('user_id', profile.id);
-        } else if (currentUser?.email || profile?.email) {
-          const email = currentUser?.email || profile?.email;
-          query = query.eq('email', email);
-        } else {
-          console.warn("No logged in user found for Teacher Overview");
-          setLoading(false);
-          return;
-        }
+        const { data: teacher } = await query.maybeSingle();
+        if (teacher) setTeacherName(teacher.name);
 
-        const { data: teacher, error: teacherError } = await query.maybeSingle();
-
-        if (teacherError || !teacher) {
-          if (teacherError) console.error('Teacher fetch error', teacherError);
-          else { /* console.log('Teacher profile not found for user'); */ }
-          return;
-        }
-
-        setTeacherName(teacher.name);
-
-        // 2. Get Teacher Classes (Scoped by Branch if applicable)
-        let classesQuery = supabase
-          .from('teacher_classes')
-          .select('class_name')
-          .eq('teacher_id', teacher.id)
-          .eq('school_id', schoolId);
-
-        if (currentBranchId) {
-          classesQuery = classesQuery.eq('branch_id', currentBranchId);
-        }
-
-        const { data: teacherClasses } = await classesQuery;
-
-        const classes = teacherClasses?.map(c => c.class_name) || [];
-        setStats(prev => ({ ...prev, classesTaught: classes.length }));
-
-        // 3. Get Total Students (Scoped by School + Branch + My Classes)
-        if (classes.length > 0) {
-          let studentsQuery = supabase.from('students').select('grade, section').eq('school_id', schoolId);
-          if (currentBranchId) {
-            studentsQuery = studentsQuery.eq('branch_id', currentBranchId);
-          }
-
-          const { data: students } = await studentsQuery;
-          let count = 0;
-          if (students) {
-            classes.forEach(clsName => {
-              const { grade, section } = parseClassName(clsName);
-              if (grade > 0) {
-                // Determine if we should match section strictly
-                // If the class name has a section (e.g. "10A"), match strictly.
-                // If class name is generic (e.g. "Grade 10"), maybe just match grade?
-                // For now, let's try fuzzy match on section if present.
-
-                count += students.filter(s => {
-                  if (s.grade !== grade) return false;
-                  if (!section) return true; // Class has no section implies all sections? Or maybe need to be careful.
-                  // If student section is empty but class has section, mismatch?
-                  // If class has section, student MUST match or be loosely equal
-                  return s.section?.toLowerCase() === section.toLowerCase() ||
-                    s.section === section || // Exact match
-                    (!s.section && !section);
-                }).length;
-              }
-            });
-          }
-          setStats(prev => ({ ...prev, totalStudents: count }));
-        } else {
-          setStats(prev => ({ ...prev, totalStudents: 0 }));
-        }
+        // (Classes and Students fetching removed - handled by hook above)
 
         // 4. Get Today's Schedule (Scoped by Branch)
         const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -205,12 +189,26 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
         // 5. Get Recent Assignments for My Classes (Scoped by School)
         let recentAssignments: any[] = [];
-        if (classes.length > 0) {
+        if (teacherClasses.length > 0) {
+          // Construct class names from teacherClasses to match assignment 'class_name'
+          // This assumes assignments are stored with "Grade X Section Y" format or similar.
+          // Ideally assignments should link to class_id, but legacy likely uses string names.
+          // We'll try to match somewhat broadly or use the IDs if available.
+          // For now, let's stick to the current pattern if possible, or construct standard names.
+          const classNames = teacherClasses.map(c => `Grade ${c.grade} ${c.section}`).concat(
+            teacherClasses.map(c => `JSS ${c.grade} ${c.section}`) // Add other formats if needed
+          );
+
           const { data } = await supabase
             .from('assignments')
             .select('*')
             .eq('school_id', schoolId)
-            .in('class_name', classes)
+            // We can't easily 'in' query with fuzzy names. 
+            // Ideally we should use class_id if assignments have it.
+            // If not, we might miss some. 
+            // Let's try to fetch assignments created by THIS teacher instead?
+            // That's usually safer for "My Assignments".
+            .eq('teacher_id', teacherId || currentUser?.id) // Filter by creator
             .order('created_at', { ascending: false })
             .limit(3);
           recentAssignments = data || [];

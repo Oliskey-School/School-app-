@@ -133,7 +133,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                 </span>
                                 {teacher.schoolGeneratedId && (
                                     <span className="px-2 py-0.5 text-xs font-mono bg-gray-100 text-gray-600 rounded-full border border-gray-200">
-                                        {teacher.schoolGeneratedId}
+                                        {teacher.schoolGeneratedId?.replace(/-/g, '_')}
                                     </span>
                                 )}
                                 <button

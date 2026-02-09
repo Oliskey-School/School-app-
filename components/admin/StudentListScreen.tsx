@@ -158,7 +158,11 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       const { data: { user } } = await supabase.auth.getUser();
       const schoolId = user?.user_metadata?.school_id;
 
+      console.log('[StudentList] User:', user);
+      console.log('[StudentList] School ID:', schoolId);
+
       if (!schoolId) {
+        console.warn('[StudentList] No school context found');
         throw new Error('No school context found');
       }
 
@@ -187,6 +191,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         email: s.email || ''
       }));
 
+      console.log('[StudentList] Transformed Data:', transformedData);
       setStudents(transformedData);
     } catch (error) {
       console.error('Error fetching students:', error);

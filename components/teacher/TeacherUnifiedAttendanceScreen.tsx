@@ -4,14 +4,7 @@ import { getFormattedClassName } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
-
-interface ClassData {
-    id: string; // e.g. '10A'
-    grade: number;
-    section: string;
-    subject: string;
-    department?: string;
-}
+import { ClassInfo as ClassData } from '../../types';
 
 interface TeacherSelectClassForAttendanceProps {
     navigateTo: (view: string, title: string, props: any) => void;

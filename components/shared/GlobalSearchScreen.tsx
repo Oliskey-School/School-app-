@@ -1,139 +1,193 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardType } from '../../types';
-import { mockStudents, mockTeachers, mockAssignments, mockNotices } from '../../data';
-import { SearchIcon, XCircleIcon, UserIcon, BriefcaseIcon, MegaphoneIcon } from '../../constants';
+import { supabase } from '../../lib/supabase';
+import { useProfile } from '../../context/ProfileContext';
+import {
+    SearchIcon,
+    XCircleIcon,
+    UserIcon,
+    BriefcaseIcon,
+    MegaphoneIcon,
+    StaffIcon,
+    DocumentTextIcon,
+    ExamIcon,
+    BookOpenIcon,
+    BuildingLibraryIcon
+} from '../../constants';
 
 interface SearchResult {
     id: number | string;
     title: string;
     subtitle: string;
-    type: 'Student' | 'Teacher' | 'Assignment' | 'Notice';
+    type: 'Student' | 'Teacher' | 'Assignment' | 'Notice' | 'Quiz' | 'Class' | 'Resource';
+    data?: any;
     onClick: () => void;
 }
 
 interface GlobalSearchScreenProps {
     dashboardType: DashboardType;
-    navigateTo: (view: string, title:string, props?: any) => void;
+    navigateTo: (view: string, title: string, props?: any) => void;
     onClose: () => void;
 }
 
 const getIconForType = (type: SearchResult['type']) => {
     switch (type) {
         case 'Student': return <UserIcon className="text-sky-500" />;
-        case 'Teacher': return <BriefcaseIcon className="text-purple-500" />;
-        case 'Assignment': return <BriefcaseIcon className="text-orange-500" />;
+        case 'Teacher': return <StaffIcon className="text-purple-500" />;
+        case 'Assignment': return <DocumentTextIcon className="text-orange-500" />;
         case 'Notice': return <MegaphoneIcon className="text-green-500" />;
-        default: return null;
+        case 'Quiz': return <ExamIcon className="text-indigo-500" />;
+        case 'Class': return <BuildingLibraryIcon className="text-teal-500" />;
+        case 'Resource': return <BookOpenIcon className="text-amber-500" />;
+        default: return <SearchIcon className="text-gray-400" />;
     }
 };
 
 const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, navigateTo, onClose }) => {
+    const { profile } = useProfile();
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     useEffect(() => {
-        // Debounce search
         const handler = setTimeout(() => {
             if (searchTerm.trim().length > 1) {
-                performSearch(searchTerm.trim().toLowerCase());
+                performSearch(searchTerm.trim());
             } else {
                 setResults([]);
             }
-        }, 300);
+        }, 400);
 
-        return () => {
-            clearTimeout(handler);
-        };
+        return () => clearTimeout(handler);
     }, [searchTerm, dashboardType]);
 
-    const performSearch = (term: string) => {
+    const performSearch = async (term: string) => {
+        const schoolId = profile?.schoolId;
+        if (!schoolId) return;
+
+        setIsSearching(true);
         const newResults: SearchResult[] = [];
 
-        // Admin can search almost everything
-        if (dashboardType === DashboardType.Admin) {
-            mockStudents.filter(s => s.name.toLowerCase().includes(term)).forEach(s => {
+        try {
+            // Parallel fetch from multiple tables
+            const [
+                { data: students },
+                { data: teachers },
+                { data: classes },
+                { data: assignments },
+                { data: quizzes },
+                { data: notices },
+                { data: parents }
+            ] = await Promise.all([
+                supabase.from('students').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,school_generated_id.ilike.%${term}%`).limit(10),
+                supabase.from('teachers').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`).limit(5),
+                supabase.from('classes').select('*').eq('school_id', schoolId).ilike('name', `%${term}%`).limit(5),
+                supabase.from('assignments').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`).limit(5),
+                supabase.from('quizzes').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`).limit(5),
+                supabase.from('notices').select('*').eq('school_id', schoolId).or(`title.ilike.%${term}%,content.ilike.%${term}%`).limit(5),
+                supabase.from('parents').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`).limit(5)
+            ]);
+
+            // Map Students
+            students?.forEach(s => {
                 newResults.push({
                     id: s.id,
                     title: s.name,
-                    subtitle: `Grade ${s.grade}${s.section}`,
+                    subtitle: s.school_generated_id || `Grade ${s.grade}${s.section || ''}`,
                     type: 'Student',
-                    onClick: () => navigateTo('studentProfileAdminView', s.name, { student: s })
+                    onClick: () => {
+                        if (dashboardType === DashboardType.Admin) navigateTo('studentProfileAdminView', s.name, { student: s });
+                        else if (dashboardType === DashboardType.Teacher) navigateTo('studentProfile', s.name, { student: s });
+                        else if (dashboardType === DashboardType.Parent) navigateTo('childDetail', s.name, { student: s });
+                    }
                 });
             });
-            mockTeachers.filter(t => t.name.toLowerCase().includes(term)).forEach(t => {
+
+            // Map Teachers
+            teachers?.forEach(t => {
                 newResults.push({
                     id: t.id,
                     title: t.name,
-                    subtitle: t.subjects.join(', '),
+                    subtitle: t.email,
                     type: 'Teacher',
-                    onClick: () => navigateTo('teacherDetailAdminView', t.name, { teacher: t })
+                    onClick: () => {
+                        if (dashboardType === DashboardType.Admin) navigateTo('teacherDetailAdminView', t.name, { teacher: t });
+                    }
                 });
             });
-        }
 
-        // Teacher search
-        if (dashboardType === DashboardType.Teacher) {
-            const teacher = mockTeachers.find(t => t.id === 2); // Logged in teacher
-            const teacherClassNames = teacher?.classes.map(c => c) || [];
-             mockStudents.filter(s => s.name.toLowerCase().includes(term) && teacherClassNames.some(cn => `${s.grade}${s.section}` === cn)).forEach(s => {
+            // Map Classes
+            classes?.forEach(c => {
                 newResults.push({
-                    id: s.id,
-                    title: s.name,
-                    subtitle: `Grade ${s.grade}${s.section}`,
-                    type: 'Student',
-                    onClick: () => navigateTo('studentProfile', s.name, { student: s })
+                    id: c.id,
+                    title: c.name,
+                    subtitle: `Grade ${c.grade}${c.section || ''}`,
+                    type: 'Class',
+                    onClick: () => {
+                        if (dashboardType === DashboardType.Admin) navigateTo('classListScreen', 'Classes', {});
+                        else if (dashboardType === DashboardType.Teacher) navigateTo('classDetail', c.name, { classInfo: c });
+                    }
                 });
             });
-            mockAssignments.filter(a => a.title.toLowerCase().includes(term) && teacherClassNames.some(cn => a.className.includes(cn))).forEach(a => {
-                newResults.push({
-                    id: a.id,
-                    title: a.title,
-                    subtitle: `Due: ${new Date(a.dueDate).toLocaleDateString()}`,
-                    type: 'Assignment',
-                    onClick: () => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a })
-                });
-            });
-        }
 
-        // Parent search (children and announcements)
-        if (dashboardType === DashboardType.Parent) {
-            const parentChildrenIds = [3, 4];
-            mockStudents.filter(s => s.name.toLowerCase().includes(term) && parentChildrenIds.includes(s.id)).forEach(s => {
-                newResults.push({
-                    id: s.id,
-                    title: s.name,
-                    subtitle: `Your child`,
-                    type: 'Student',
-                    onClick: () => navigateTo('childDetail', s.name, { student: s })
-                });
-            });
-        }
-
-        // Student search
-        if (dashboardType === DashboardType.Student) {
-            mockAssignments.filter(a => a.title.toLowerCase().includes(term)).forEach(a => {
+            // Map Assignments
+            assignments?.forEach(a => {
                 newResults.push({
                     id: a.id,
                     title: a.title,
-                    subtitle: `Subject: ${a.subject}`,
+                    subtitle: `Due: ${a.due_date ? new Date(a.due_date).toLocaleDateString() : 'N/A'}`,
                     type: 'Assignment',
-                    onClick: () => navigateTo('assignments', 'Assignments', {}) // Navigate to list view
+                    onClick: () => {
+                        if (dashboardType === DashboardType.Teacher) navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a });
+                        else if (dashboardType === DashboardType.Student) navigateTo('assignmentDetail', a.title, { assignment: a });
+                    }
                 });
             });
+
+            // Map Quizzes
+            quizzes?.forEach(q => {
+                newResults.push({
+                    id: q.id,
+                    title: q.title,
+                    subtitle: `ID: ${q.id.slice(0, 8)}`,
+                    type: 'Quiz',
+                    onClick: () => {
+                        if (dashboardType === DashboardType.Student) navigateTo('takeQuiz', q.title, { quiz: q });
+                        else navigateTo('quizList', 'Quizzes', {});
+                    }
+                });
+            });
+
+            // Map Notices
+            notices?.forEach(n => {
+                newResults.push({
+                    id: n.id,
+                    title: n.title,
+                    subtitle: n.category || 'Announcement',
+                    type: 'Notice',
+                    onClick: () => navigateTo('noticeboard', 'Noticeboard', {})
+                });
+            });
+
+            // Map Parents
+            parents?.forEach(p => {
+                newResults.push({
+                    id: p.id,
+                    title: p.name,
+                    subtitle: p.email || 'No email',
+                    type: 'Teacher', // Reusing StaffIcon for now as Parent icon
+                    onClick: () => {
+                        if (dashboardType === DashboardType.Admin) navigateTo('parentDetailAdminView', p.name, { parentId: p.id });
+                    }
+                });
+            });
+
+        } catch (error) {
+            console.error('Global search error:', error);
+        } finally {
+            setIsSearching(false);
         }
 
-        // Announcements for all relevant users
-        const relevantAudiences = ['all', dashboardType.toLowerCase() + 's'];
-        mockNotices.filter(n => (n.title.toLowerCase().includes(term) || n.content.toLowerCase().includes(term)) && n.audience.some(aud => relevantAudiences.includes(aud))).forEach(n => {
-            newResults.push({
-                id: n.id,
-                title: n.title,
-                subtitle: `Category: ${n.category}`,
-                type: 'Notice',
-                onClick: () => navigateTo('noticeboard', 'Noticeboard', {})
-            });
-        });
-        
         setResults(newResults);
     };
 
@@ -162,9 +216,14 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
                         onChange={e => setSearchTerm(e.target.value)}
                         placeholder={`Search in ${dashboardType} Dashboard...`}
                         autoFocus
-                        className="w-full pl-10 pr-10 py-3 text-lg bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                        className={`w-full pl-10 pr-10 py-3 text-lg bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent ${isSearching ? 'opacity-70' : ''}`}
                     />
-                     <button onClick={onClose} className="absolute inset-y-0 right-0 flex items-center pr-3">
+                    {isSearching && (
+                        <div className="absolute right-12 inset-y-0 flex items-center">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-sky-500"></div>
+                        </div>
+                    )}
+                    <button onClick={onClose} className="absolute inset-y-0 right-0 flex items-center pr-3">
                         <XCircleIcon className="text-gray-400 hover:text-gray-600 w-7 h-7" />
                     </button>
                 </div>

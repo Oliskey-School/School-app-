@@ -1726,7 +1726,7 @@ export async function fetchCBTExams(teacherId?: string | number, isPublished?: b
             subjectId: quiz.subject_id,
             subjectName: quiz.subjects?.name,
             classId: quiz.class_id,
-            className: quiz.classes ? `Grade ${quiz.classes.grade}${quiz.classes.section}` : undefined,
+            className: quiz.classes ? `Grade ${quiz.classes.grade} ${quiz.classes.section || ''}` : undefined,
             durationMinutes: quiz.duration_minutes,
             totalMarks: quiz.total_marks,
             isPublished: quiz.is_published,

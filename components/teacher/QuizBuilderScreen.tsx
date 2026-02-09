@@ -1,10 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
 // Note: Using new 'Quiz', 'Question' types from types.ts automatically if imported
 import { Question } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface QuizBuilderScreenProps {
     teacherId?: number; // Kept for compatibility but ignored for logic
@@ -21,6 +22,10 @@ interface WarningQuestionState {
 }
 
 const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
+    const { user, currentSchool } = useAuth();
+    // Pass user.id to the hook. The hook handles null/undefined gracefully.
+    const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(user?.id);
+
     const [title, setTitle] = useState('');
     const [subject, setSubject] = useState('');
     const [selectedClassId, setSelectedClassId] = useState('');
@@ -28,56 +33,23 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
     const [description, setDescription] = useState('');
     const [questions, setQuestions] = useState<WarningQuestionState[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [classesList, setClassesList] = useState<any[]>([]);
 
-    // New State for correct UUIDs
-    const [authUserId, setAuthUserId] = useState<string | null>(null);
+    // Derived state for saving
     const [schoolId, setSchoolId] = useState<string | null>(null);
 
-    // Fetch correctly typed IDs on mount
     useEffect(() => {
-        const fetchContext = async () => {
-            setIsLoading(true);
-            try {
-                const { data: { user }, error: authError } = await supabase.auth.getUser();
-                if (authError) throw authError;
-
-                if (user) {
-                    setAuthUserId(user.id);
-                    // Fetch profile to get school_id
-                    const { data: profile, error: profileError } = await supabase
-                        .from('profiles')
-                        .select('school_id')
-                        .eq('id', user.id)
-                        .single();
-
-                    if (profileError) throw profileError;
-
-                    if (profile) {
-                        setSchoolId(profile.school_id);
-                        // Fetch classes for this school
-                        const { data: classes, error: classesError } = await supabase
-                            .from('classes')
-                            .select('id, name, level_category')
-                            .eq('school_id', profile.school_id)
-                            .order('grade', { ascending: true });
-
-                        if (classesError) throw classesError;
-                        if (classes) setClassesList(classes);
-                    } else {
-                        throw new Error('No profile record found');
-                    }
-                }
-            } catch (error: any) {
-                console.error('Quiz context fetch error:', error);
-                toast.error(`Context load failed: ${error.message}`);
-            } finally {
-                setIsLoading(false);
+        if (currentSchool?.id) {
+            setSchoolId(currentSchool.id);
+        } else if (user) {
+            // Fallback to metadata
+            const metaId = user.app_metadata?.school_id || user.user_metadata?.school_id;
+            if (metaId) setSchoolId(metaId);
+            else {
+                // Demo Fallback
+                setSchoolId("fa9bc997-21cb-4d8a-988a-a1e698e04e87");
             }
-        };
-        fetchContext();
-    }, []);
+        }
+    }, [currentSchool, user]);
 
     const addQuestion = (type: 'MultipleChoice' | 'Theory') => {
         const newQ: WarningQuestionState = {
@@ -135,10 +107,10 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
         }
 
         // Debugging context before save
-        console.log('Attempting to save quiz with context:', { authUserId, schoolId, selectedClassId });
+        console.log('Attempting to save quiz with context:', { userId: user?.id, schoolId, selectedClassId });
 
-        if (!authUserId) {
-            toast.error('Missing user ID. Please try reloading.');
+        if (!user?.id) {
+            toast.error('Missing user Session. Please try reloading.');
             return;
         }
 
@@ -157,7 +129,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
                     title,
                     subject,
                     class_id: selectedClassId || null,
-                    teacher_id: authUserId,
+                    teacher_id: user.id, // Use from hook
                     school_id: schoolId,
                     duration_minutes: duration,
                     description,
@@ -170,16 +142,28 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
             if (quizError) throw quizError;
 
             // 2. Create Questions
-            const formattedQuestions = questions.map(q => ({
-                quiz_id: quizData.id, // UUID
-                text: q.text,
-                type: q.type,
-                points: q.points,
-                options: q.type === 'MultipleChoice' ? q.options : null
-            }));
+            // 2. Create Questions
+            const formattedQuestions = questions.map((q, index) => {
+                // Determine correct answer for local state
+                let correctAnswer = '';
+                if (q.type === 'MultipleChoice' && q.options) {
+                    const found = q.options.find(o => o.isCorrect);
+                    if (found) correctAnswer = found.id;
+                }
+
+                return {
+                    quiz_id: quizData.id, // UUID
+                    question_text: q.text,
+                    question_type: q.type === 'MultipleChoice' ? 'multiple_choice' : 'theory',
+                    marks: q.points,
+                    options: q.type === 'MultipleChoice' ? q.options : null, // Store full option objects
+                    correct_answer: correctAnswer,
+                    question_order: index + 1
+                };
+            });
 
             const { error: qError } = await supabase
-                .from('questions')
+                .from('quiz_questions')
                 .insert(formattedQuestions);
 
             if (qError) throw qError;
@@ -250,11 +234,13 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
                                 value={selectedClassId}
                                 onChange={e => setSelectedClassId(e.target.value)}
                                 className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-50 disabled:text-gray-400"
-                                disabled={isLoading}
+                                disabled={classesLoading}
                             >
-                                <option value="">{isLoading ? 'Loading classes...' : 'Select a Class'}</option>
-                                {classesList.map((c: any) => (
-                                    <option key={c.id} value={c.id}>{c.name} ({c.level_category})</option>
+                                <option value="">{classesLoading ? 'Loading classes...' : 'Select a Class'}</option>
+                                {teacherClasses.map((c: any) => (
+                                    <option key={c.id} value={c.id}>
+                                        {`Grade ${c.grade} ${c.section || ''}`}
+                                    </option>
                                 ))}
                             </select>
                         </div>

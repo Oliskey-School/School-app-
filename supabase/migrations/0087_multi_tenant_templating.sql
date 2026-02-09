@@ -105,7 +105,7 @@ BEGIN
     -- 5. CLONE TEMPLATE DATA (New Logic)
     -- =========================================================
     -- Look for a school with specific ID or slug 'demo'
-    -- HARDCODED TEMPLATE ID: d0ff3e95-9b4c-4c12-989c-e5640d3cacd1 (Demo Academy)
+    -- HARDCODED TEMPLATE ID: d0ff3e95-9b4c-4c12-989c-e5640d3cacd1 (Oliskey Demo School)
     -- Fallback to name search if ID not found
     
     SELECT id INTO v_template_school_id FROM public.schools 

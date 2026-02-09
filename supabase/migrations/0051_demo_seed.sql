@@ -31,10 +31,10 @@ BEGIN
 -- Removed 'updated_at' per user error report that it doesn't exist
 INSERT INTO schools (id, name, slug, motto, created_at)
 VALUES 
-    (demo_school_id, 'School App', 'school-app', 'Excellence in Testing', NOW())
+    (demo_school_id, 'School App (Legacy)', 'school-app-legacy', 'Excellence in Testing', NOW())
 ON CONFLICT (id) DO UPDATE SET 
-    name = 'School App',
-    slug = 'school-app';
+    name = 'School App (Legacy)',
+    slug = 'school-app-legacy';
 
 -- 1. Create Auth Users (Required for FK constraint)
 -- We insert into auth.users so that public.users can reference them.

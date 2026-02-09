@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-hot-toast';
 import { CBTTest, Student } from '../../../types';
 import { ClockIcon, CheckCircleIcon } from '../../../constants';
 import { mockCBTTests } from '../../../data';
@@ -17,11 +18,32 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
 
-    // Mock questions if not provided (fallback for demo stability)
-    const questions = test.questions && test.questions.length > 0 ? test.questions : [
-        { id: 1, text: 'Sample Question 1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' },
-        { id: 2, text: 'Sample Question 2', options: ['A', 'B', 'C', 'D'], correctAnswer: 'B' }
-    ];
+    const [questions, setQuestions] = useState<any[]>(test.questions || []);
+
+    useEffect(() => {
+        // If questions were not passed (lazy loaded), fetch them now
+        const loadQuestions = async () => {
+            if (questions.length === 0 && test.id) {
+                const { data, error } = await import('../../../lib/supabase').then(m => m.supabase
+                    .from('quiz_questions')
+                    .select('*')
+                    .eq('quiz_id', test.id)
+                    .order('order_index', { ascending: true })
+                );
+
+                if (data) {
+                    const mapped = data.map((q: any) => ({
+                        id: q.id,
+                        text: q.question_text,
+                        options: q.options, // Assuming JSON array ["A", "B", ...]
+                        correctAnswer: q.correct_option // 'A', 'B'...
+                    }));
+                    setQuestions(mapped);
+                }
+            }
+        };
+        loadQuestions();
+    }, [test.id]);
 
     useEffect(() => {
         if (timeLeft > 0 && !isSubmitted) {
@@ -44,34 +66,45 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
 
         // Calculate score
         let correctCount = 0;
+        // Logic depends on how questions are passed. 
+        // If coming from StudentCBTList, questions might be empty because we optimized the list fetch.
+        // We really should fetch questions HERE if they are missing.
+        // But for now, assuming they are passed or mock fallback in the component top level.
+
         questions.forEach(q => {
-            if (answers[q.id] === q.correctAnswer) {
+            // Check if q.correctAnswer matches answers[q.id]
+            // Note: In refined logic, q object structure might vary. 
+            // The fallback mock uses 'correctAnswer', but our DB object uses 'correct_option' usually.
+            // Let's normalize in the fetch or here.
+
+            const correct = q.correctAnswer || (q as any).correct_option;
+            if (answers[q.id] === correct) {
                 correctCount++;
             }
         });
 
         const finalScore = correctCount;
-        const percentage = Math.round((finalScore / questions.length) * 100); // FIXED: Use length directly
+        const percentage = questions.length > 0 ? Math.round((finalScore / questions.length) * 100) : 0;
         setScore(finalScore);
         setIsSubmitted(true);
 
-        // Save to Database
+        // Save to Database (quiz_submissions)
         try {
-            // Check if result exists first (optional, but good for safety)
-            // For now, simple insert
-            const { error } = await import('../../../lib/supabase').then(m => m.supabase.from('cbt_submissions').insert([{
-                test_id: test.id,
+            const { error } = await import('../../../lib/supabase').then(m => m.supabase.from('quiz_submissions').insert([{
+                quiz_id: test.id,
                 student_id: studentId,
-                score: finalScore,
-                total_score: test.totalMarks || questions.length, // Ensure total_score is sent
+                score: percentage,
                 total_questions: questions.length,
-                answers: answers, // Store the student's answers JSON
+                answers: answers, // JSON
+                status: 'Graded',
                 submitted_at: new Date().toISOString()
             }]));
 
             if (error) {
                 console.error("Failed to save result:", error);
-                // We don't block the UI for now, but in prod we should retry
+                toast.error("Result save failed, but score is recorded locally.");
+            } else {
+                toast.success("Exam submitted successfully!");
             }
         } catch (err) {
             console.error("Error saving result:", err);

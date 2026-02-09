@@ -8,24 +8,24 @@ export function generateCustomId(options: {
     role: string;
     sequenceNumber: number;
 }): string {
-    const sch = options.schoolShortName || 'SCH';
-    const branch = options.branch || 'Main';
+    const sch = options.schoolShortName || 'OLISKEY';
+    const branch = options.branch || 'MAIN';
 
-    // Map roles to short codes
+    // Map roles to standard short codes (uppercase)
     const roleMap: Record<string, string> = {
-        'admin': 'Admin',
-        'teacher': 'Teach',
-        'student': 'Stud',
-        'parent': 'Prnt',
-        'superadmin': 'SAdm',
-        'proprietor': 'Prop',
-        'inspector': 'Insp',
-        'examofficer': 'Exam',
-        'compliance': 'Comp'
+        'admin': 'ADM',
+        'teacher': 'TCH',
+        'student': 'STD',
+        'parent': 'PAR',
+        'superadmin': 'SADM',
+        'proprietor': 'PROP',
+        'inspector': 'INSP',
+        'examofficer': 'EXAM',
+        'compliance': 'COMP'
     };
 
     const roleCode = roleMap[options.role.toLowerCase()] || options.role.substring(0, 4);
     const paddedNumber = options.sequenceNumber.toString().padStart(4, '0');
 
-    return `${sch}-${branch}-${roleCode}-${paddedNumber}`;
+    return `${sch}_${branch}_${roleCode}_${paddedNumber}`;
 }

@@ -126,7 +126,7 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
                         <div>
                             <h3 className="font-bold text-lg text-gray-800">{student.name}</h3>
                             <p className="text-sm font-semibold" style={{ color: colorTheme.text }}>{formattedClassName}</p>
-                            <p className="text-xs text-gray-500 mt-1">ID: {student.schoolId || `SCH-${student.id}`}</p>
+                            <p className="text-xs text-gray-500 mt-1">ID: {student.schoolGeneratedId || `SCH-${student.id}`}</p>
                         </div>
                     </div>
                     <button onClick={() => navigateTo('childDetail', student.name, { student: student })} className="bg-white p-2 rounded-full shadow-sm hover:bg-gray-100">
@@ -493,6 +493,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, curre
                         department: s.department,
                         attendanceStatus: s.attendance_status || 'Present',
                         birthday: s.birthday,
+                        schoolGeneratedId: s.school_generated_id,
 
                         // Map Real Data
                         academicPerformance: academicData?.map((a: any) => ({

@@ -35,9 +35,9 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
         const fetchTests = async () => {
             setLoading(true);
             try {
-                // 1. Get student details (Class/Grade)
-                // We'll rely on the parent matching or fetch it. 
-                // Since we only have studentId, let's fetch the student profile first to be sure.
+                // 1. Get student details to filter by grade/section
+                // In a real scenario, we should have the full student object. 
+                // We'll trust the studentId and fetch their class details.
                 const { data: studentData } = await supabase
                     .from('students')
                     .select('*')
@@ -50,39 +50,64 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                     return;
                 }
 
-                // Construct class name to match Teacher's save format: "Grade 10A"
-                // Teacher saves content of 'classes' table or "Grade 10A" fallback.
-                const studentClass = `Grade ${studentData.grade}${studentData.section}`;
+                // 2. Fetch Quizzes (CBT & Exams)
+                // Teacher saves description as 'Test' or 'Exam'.
+                // We filter by school_id and (class_id OR generic grade match if implemented)
+                // For now, let's filter by school_id and allow all published for that school+grade?
+                // Ideally we match class_id. But teacher selects a specific class_id.
+                // We need to find quizzes where class_id matches student's class_id OR generic grade match.
+                // Let's first try matching by school_id and is_published.
 
-                // 2. Fetch Published Tests
-                const { data: cbtData, error } = await supabase
-                    .from('cbt_tests')
-                    .select('*')
+                let query = supabase
+                    .from('quizzes')
+                    .select('*, classes(grade, section), subjects(name)')
+                    .eq('school_id', studentData.school_id)
                     .eq('is_published', true)
-                    .or(`class_name.eq.${studentClass},class_name.eq.All`)
                     .order('created_at', { ascending: false });
 
+                const { data: quizzesData, error } = await query;
                 if (error) throw error;
 
-                if (cbtData) {
-                    const formattedTests: CBTTest[] = cbtData.map((t: any) => ({
-                        id: t.id,
-                        title: t.title,
-                        type: t.type,
-                        className: t.class_name,
-                        subject: t.subject,
-                        duration: t.duration,
-                        attempts: t.attempts,
-                        totalMarks: t.total_mark,
-                        fileName: 'Question Bank',
-                        questionsCount: (t.questions || []).length,
-                        questions: t.questions || [], // Critical: Pass the actual questions to the player
-                        createdAt: t.created_at,
-                        isPublished: t.is_published,
-                        results: t.results || [] // We need to fetch results from cbt_results ideally
-                    }));
-                    setTests(formattedTests);
-                }
+                // Client-side filter for Class Match (Logic can be improved to DB filter if class_id is consistent)
+                // We want to show quizzes that are for this student's class.
+                const filteredQuizzes = (quizzesData || []).filter((quiz: any) => {
+                    if (quiz.classes) {
+                        // Strict class match
+                        const sGrade = String(studentData.grade);
+                        const sSection = studentData.section;
+                        const qGrade = String(quiz.classes.grade);
+                        const qSection = quiz.classes.section;
+
+                        // Match Grade
+                        if (sGrade !== qGrade) return false;
+
+                        // Match Section if specified in quiz
+                        if (qSection && sSection && qSection !== sSection) return false;
+
+                        return true;
+                    }
+                    // If no class linked, maybe it's general? Assume NO for now to be safe.
+                    return false;
+                });
+
+                const formattedTests: CBTTest[] = filteredQuizzes.map((q: any) => ({
+                    id: q.id,
+                    title: q.title,
+                    type: (q.description === 'Exam' ? 'Exam' : 'Test'), // Map description to Type
+                    className: q.classes ? `Grade ${q.classes.grade}${q.classes.section}` : 'General',
+                    subject: q.subjects?.name || 'General',
+                    duration: q.duration_minutes,
+                    attempts: 0, // Not tracking attempts yet
+                    totalMarks: q.total_marks,
+                    fileName: 'Question Bank',
+                    questionsCount: 0, // We don't fetch questions here to save bandwidth
+                    questions: [],
+                    createdAt: q.created_at,
+                    isPublished: q.is_published,
+                    results: []
+                }));
+
+                setTests(formattedTests);
 
             } catch (err) {
                 console.error("Error fetching available tests:", err);
@@ -93,6 +118,19 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
 
         if (studentId) {
             fetchTests();
+
+            // Real-time Subscription
+            const channel = supabase
+                .channel('public:quizzes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'quizzes' }, (payload) => {
+                    console.log('Real-time update received!', payload);
+                    fetchTests();
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     }, [studentId]);
 

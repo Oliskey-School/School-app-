@@ -1,6 +1,6 @@
--- DATA SEEDING SCRIPT for 'Demo Academy' (FIXED SCHEMA v9: Lowercase Status)
+-- DATA SEEDING SCRIPT for 'Oliskey Demo School' (FIXED SCHEMA v9: Lowercase Status)
 -- Purpose: Populate the database with realistic demo data.
--- Target School: Demo Academy (d0ff3e95-9b4c-4c12-989c-e5640d3cacd1)
+-- Target School: Oliskey Demo School (d0ff3e95-9b4c-4c12-989c-e5640d3cacd1)
 
 DO $$
 DECLARE
@@ -134,7 +134,8 @@ BEGIN
             grade, 
             section, 
             enrollment_number, 
-            attendance_status
+            attendance_status,
+            current_class_id
         )
         VALUES (
             gen_random_uuid(), 
@@ -145,7 +146,8 @@ BEGIN
             (i % 6) + 1, 
             CASE WHEN (i % 2) = 0 THEN 'A' ELSE 'B' END, 
             'ENR'||2024000||i, 
-            'present'      -- Lowercase
+            'Present',
+            (SELECT id FROM classes WHERE school_id = v_school_id AND grade = (i % 6) + 1 LIMIT 1)
         );
     END LOOP;
 
@@ -209,7 +211,7 @@ BEGIN
             ) VALUES (
                 v_student_rec.id,
                 CURRENT_DATE,
-                'present',   -- Lowercase
+                'present',   -- MUST be lowercase for student_attendance
                 v_class_map_id,
                 v_school_id
             ) ON CONFLICT DO NOTHING;

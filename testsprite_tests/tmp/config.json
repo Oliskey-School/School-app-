@@ -1,0 +1,9 @@
+{
+  "status": "commited",
+  "type": "backend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5000/School App test ",
+  "backendAuthType": "API key",
+  "backendApiKey": "Authorization",
+  "backendApiValue": "secure-backend-secret-key-12345"
+}

@@ -11,6 +11,7 @@ import { DashboardType, Student, AttendanceStatus, ClassInfo } from '../../types
 import { getFormattedClassName } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+import { useProfile } from '../../context/ProfileContext';
 
 
 const AttendanceStatusButtons = ({ status, onStatusChange }: { status: AttendanceStatus, onStatusChange: (newStatus: AttendanceStatus) => void }) => {
@@ -46,6 +47,7 @@ interface TeacherMarkAttendanceScreenProps {
 
 const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = ({ classInfo }) => {
     const theme = THEME_CONFIG[DashboardType.Teacher];
+    const { profile } = useProfile();
     const [students, setStudents] = useState<Student[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -56,10 +58,21 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
             setIsLoading(true);
             try {
                 // 1. Fetch Students in Class
-                const { data: classStudents, error: studentError } = await supabase
+                let studentQuery = supabase
                     .from('students')
-                    .select('*')
-                    .eq('current_class_id', classInfo.id)
+                    .select('*');
+
+                // If class has a specific section, fetch by class ID
+                // Otherwise fetch all students in that grade for the school
+                if (classInfo.section) {
+                    studentQuery = studentQuery.eq('current_class_id', classInfo.id);
+                } else {
+                    studentQuery = studentQuery
+                        .eq('grade', classInfo.grade)
+                        .eq('school_id', classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1');
+                }
+
+                const { data: classStudents, error: studentError } = await studentQuery
                     .order('name');
 
                 if (studentError) throw studentError;
@@ -75,13 +88,20 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 // Map API data to UI model
                 const studentsWithAttendance = classStudents.map((s: any) => {
                     const record = attendanceData?.find((a: any) => a.student_id === s.id);
+
+                    // Normalize DB status (likely lowercase) to UI (PascalCase)
+                    let displayStatus = 'Present';
+                    if (record?.status) {
+                        displayStatus = record.status.charAt(0).toUpperCase() + record.status.slice(1).toLowerCase();
+                    }
+
                     return {
                         id: s.id,
                         name: s.name,
                         grade: s.grade,
                         section: s.section,
                         avatarUrl: s.avatar_url,
-                        attendanceStatus: (record?.status || 'Present') as AttendanceStatus, // Default to Present for easier workflow
+                        attendanceStatus: displayStatus as AttendanceStatus,
                     } as unknown as Student;
                 });
 
@@ -113,11 +133,20 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     }, []);
 
     const submitAttendance = async () => {
+        const schoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
+
+        if (!schoolId) {
+            console.error("DEBUG: School ID missing. ClassInfo:", classInfo, "Profile:", profile);
+            toast.error("School Context is missing. Please refresh.");
+            return;
+        }
+
         const upsertData = students.map(s => ({
             student_id: s.id,
             class_id: classInfo.id,
             date: selectedDate,
-            status: s.attendanceStatus
+            status: s.attendanceStatus.toLowerCase(), // MUST be lowercase for DB check constraints in some environments
+            school_id: schoolId
         }));
 
         try {

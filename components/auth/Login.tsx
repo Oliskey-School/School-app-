@@ -95,8 +95,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
             userType: mockResult.role,
             isDemo: true, // Mark as demo
             school: {
-              id: '00000000-0000-0000-0000-000000000000',
-              name: 'School App Demo',
+              id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', // Key to Oliskey logic
+              name: 'Oliskey Demo School',
               slug: 'demo',
               subscriptionStatus: 'active',
               createdAt: new Date().toISOString()
@@ -441,7 +441,7 @@ async function getMockSessionForRole(roleName: string): Promise<{ success: boole
 
   // PROFESSIONAL ID: SCH-branch-role-number
   const mockId = generateCustomId({
-    schoolShortName: 'DEMO',
+    schoolShortName: 'OLISKEY',
     branch: 'Lagos',
     role: role,
     sequenceNumber: Math.floor(Math.random() * 1000)
