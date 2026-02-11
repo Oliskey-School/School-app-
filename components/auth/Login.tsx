@@ -238,7 +238,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
   if (view === 'demo') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#F8FAFC] p-4 py-8">
-        <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative p-8">
+        <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative p-6 xs:p-8">
           <div className="flex flex-col items-center text-center mb-8">
             <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-6">
               <SchoolLogoIcon className="w-9 h-9 text-white" />
@@ -265,7 +265,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Quick Logins</span>
           </div>
 
-          {/* Interactive Quick Logins - 2 Column Grid */}
+          {/* Interactive Quick Logins - Responsive Grid */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-8">
             {Object.entries(MOCK_USERS).map(([key, user]) => {
               const displayRole = key === 'examofficer' ? 'Exam Officer' : key === 'compliance' ? 'Compliance' : key.charAt(0).toUpperCase() + key.slice(1);
@@ -307,7 +307,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-slate-100 p-4 py-8">
       {/* Centered Card */}
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative">
+      <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative">
 
         {/* Top Header Section */}
         <div className="pt-8 pb-6 px-8 flex flex-col items-center text-center">

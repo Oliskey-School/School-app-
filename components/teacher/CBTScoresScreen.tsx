@@ -31,6 +31,8 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                         const percentage = Math.round((score / total) * 100);
 
                         return {
+                            id: sub.id,
+                            examId: test.id,
                             studentId: sub.student_id,
                             studentName: sub.students?.name || 'Unknown',
                             score: score,

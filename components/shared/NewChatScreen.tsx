@@ -6,9 +6,9 @@ import { supabase } from '../../lib/supabase';
 import { ChatUser } from '../../types';
 
 interface NewChatScreenProps {
-    currentUserId: number;
+    currentUserId: string;
     onBack: () => void;
-    onChatCreated: (conversationId: number) => void;
+    onChatCreated: (conversationId: string) => void;
 }
 
 const NewChatScreen: React.FC<NewChatScreenProps> = ({ currentUserId, onBack, onChatCreated }) => {
@@ -65,7 +65,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ currentUserId, onBack, on
         return () => clearTimeout(timeoutId);
     }, [searchTerm, currentUserId]);
 
-    const startChat = async (targetUserId: number) => {
+    const startChat = async (targetUserId: string) => {
         try {
             setLoading(true);
 
@@ -82,7 +82,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ currentUserId, onBack, on
             // Get direct rooms for current user
             // Check if target user is in any of those rooms
 
-            let roomId: number | null = null;
+            let roomId: string | null = null;
 
             // Special handling for Self Chat
             const isSelfChat = targetUserId === currentUserId;

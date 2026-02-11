@@ -41,7 +41,8 @@ export async function fetchStudents(schoolId?: string): Promise<Student[]> {
 
         return (data || []).map((s: any) => ({
             id: s.id,
-            schoolId: s.school_generated_id,
+            schoolId: s.school_id,
+            schoolGeneratedId: s.school_generated_id,
             name: s.name,
             email: s.email || '',
             avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
@@ -70,7 +71,8 @@ export async function fetchStudentById(id: string | number): Promise<Student | n
 
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150',
             grade: data.grade,
@@ -101,7 +103,8 @@ export async function fetchStudentByEmail(email: string): Promise<Student | null
 
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150',
             grade: data.grade,
@@ -130,7 +133,8 @@ export async function fetchStudentsByClass(grade: number | string, section: stri
 
         return (data || []).map((s: any) => ({
             id: s.id,
-            schoolId: s.school_generated_id,
+            schoolId: s.school_id, // Fixed: Map to UUID
+            schoolGeneratedId: s.school_generated_id, // Map to readable ID
             name: s.name,
             email: s.email || '',
             avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
@@ -1812,7 +1816,7 @@ export async function fetchSchools(): Promise<{ id: number; name: string }[]> {
 // FEATURE EXPANSION: REPORT CARDS & SUBJECTS
 // ============================================
 
-export async function fetchStudentSubjects(studentId: number): Promise<any[]> {
+export async function fetchStudentSubjects(studentId: string | number): Promise<any[]> {
     try {
         const { data: student, error: sErr } = await supabase.from('students').select('grade, section').eq('id', studentId).single();
         if (sErr || !student) return [];
@@ -1828,7 +1832,7 @@ export async function fetchStudentSubjects(studentId: number): Promise<any[]> {
     } catch (e) { return []; }
 }
 
-export async function fetchReportCard(studentId: number, term: string, session: string): Promise<ReportCard | null> {
+export async function fetchReportCard(studentId: string | number, term: string, session: string): Promise<ReportCard | null> {
     try {
         const { data, error } = await supabase
             .from('report_cards')
@@ -1872,13 +1876,14 @@ export async function fetchReportCard(studentId: number, term: string, session: 
     }
 }
 
-export async function upsertReportCard(studentId: number, reportCard: ReportCard): Promise<boolean> {
+export async function upsertReportCard(studentId: string | number, reportCard: ReportCard, schoolId: string): Promise<boolean> {
     try {
         // 1. Save Report Card (Master Record)
         const { data: rcData, error: rcError } = await supabase
             .from('report_cards')
             .upsert({
                 student_id: studentId,
+                school_id: schoolId,
                 term: reportCard.term,
                 session: reportCard.session,
                 status: reportCard.status,
@@ -2002,7 +2007,7 @@ export async function createAuditLog(action: string, tableName: string, recordId
 // BEHAVIOR NOTES
 // ============================================
 
-export async function fetchBehaviorNotes(studentId: number): Promise<any[]> {
+export async function fetchBehaviorNotes(studentId: string | number): Promise<any[]> {
     try {
         const { data, error } = await supabase
             .from('behavior_notes')
@@ -2027,7 +2032,7 @@ export async function fetchBehaviorNotes(studentId: number): Promise<any[]> {
 }
 
 export async function createBehaviorNote(noteData: {
-    studentId: number;
+    studentId: string | number;
     type: 'Positive' | 'Negative';
     title: string;
     note: string;
@@ -2058,7 +2063,7 @@ export async function createBehaviorNote(noteData: {
 // ACADEMIC PERFORMANCE (READ-ONLY VIEW)
 // ============================================
 
-export async function fetchAcademicPerformance(studentId: number): Promise<any[]> {
+export async function fetchAcademicPerformance(studentId: string | number): Promise<any[]> {
     try {
         const { data, error } = await supabase
             .from('academic_performance')

@@ -18,8 +18,9 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     const [loading, setLoading] = useState(true);
 
     const FREE_TIER_LIMIT = 10;
-    const isPremium = currentSchool?.is_premium || false;
-    const planType = currentSchool?.plan_type || 'free';
+    const OLISKEY_DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+    const isPremium = currentSchool?.is_premium || currentSchool?.id === OLISKEY_DEMO_SCHOOL_ID;
+    const planType = currentSchool?.id === OLISKEY_DEMO_SCHOOL_ID ? 'premium' : (currentSchool?.plan_type || 'free');
 
     // Limits based on plan (can be expanded)
     const MAX_LIMIT = isPremium ? Infinity : FREE_TIER_LIMIT;

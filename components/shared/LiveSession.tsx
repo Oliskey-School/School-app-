@@ -77,10 +77,10 @@ const LiveSession: React.FC<LiveSessionProps> = ({ onClose }) => {
                 }
 
                 // Connect to Gemini Live
-                const sessionPromise = ai.live.connect({
+                const sessionPromise = (ai as any).live.connect({
                     model: 'gemini-2.0-flash',
                     config: {
-                        responseModalities: [Modality.AUDIO],
+                        responseModalities: ['AUDIO'],
                         systemInstruction: { parts: [{ text: "You are a helpful school assistant. Keep responses concise and friendly." }] },
                     },
                     callbacks: {
@@ -112,7 +112,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ onClose }) => {
 
                                 const base64Audio = arrayBufferToBase64(pcmData.buffer);
 
-                                sessionPromise.then(currentSession => {
+                                (sessionPromise as Promise<any>).then(currentSession => {
                                     currentSession.sendRealtimeInput({
                                         media: {
                                             mimeType: 'audio/pcm;rate=16000',
@@ -128,7 +128,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ onClose }) => {
                             inputSourceRef.current = source;
                             processorRef.current = processor;
                         },
-                        onmessage: async (msg: LiveServerMessage) => {
+                        onmessage: async (msg: any) => {
                             if (!mounted) return;
 
                             // Handle Audio Output

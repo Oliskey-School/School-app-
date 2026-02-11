@@ -146,7 +146,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   useEffect(() => {
     const fetchData = async () => {
       if (!schoolId) return;
-      
+
       try {
         setLoading(true);
 
@@ -208,6 +208,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     const subscription = supabase
       .channel('teacher_overview_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_classes' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'class_teachers' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable' }, () => fetchData())
       .subscribe();

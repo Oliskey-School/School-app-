@@ -11,7 +11,7 @@ const MicrophoneIcon = ({ className }: { className?: string }) => <svg xmlns="ht
 interface GradeSubmissionScreenProps {
   submission: Submission;
   assignment: Assignment;
-  onGrade: (submissionId: number, grade: number, feedback: string) => void;
+  onGrade: (submissionId: string, grade: number, feedback: string) => void;
 }
 
 const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submission, assignment, onGrade }) => {

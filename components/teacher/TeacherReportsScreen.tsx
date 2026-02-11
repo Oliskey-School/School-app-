@@ -9,7 +9,7 @@ import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface TeacherReportsScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
 }
 
 const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo, teacherId }) => {

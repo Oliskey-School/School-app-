@@ -9,8 +9,8 @@ export interface UseParentsResult {
     error: Error | null;
     refetch: () => Promise<void>;
     createParent: (parent: Partial<Parent>) => Promise<Parent | null>;
-    updateParent: (id: number, updates: Partial<Parent>) => Promise<Parent | null>;
-    deleteParent: (id: number) => Promise<boolean>;
+    updateParent: (id: string | number, updates: Partial<Parent>) => Promise<Parent | null>;
+    deleteParent: (id: string | number) => Promise<boolean>;
 }
 
 export function useParents(): UseParentsResult {
@@ -85,10 +85,9 @@ export function useParents(): UseParentsResult {
                     phone: parentData.phone,
                     address: parentData.address,
                     occupation: parentData.occupation,
-                    child_ids: parentData.childIds,
                     avatar_url: parentData.avatarUrl,
                     relationship: parentData.relationship,
-                    emergency_contact: parentData.emergencyContact,
+                    emergency_contact: parentData.emergency_contact,
                 }])
                 .select()
                 .single();
@@ -103,7 +102,7 @@ export function useParents(): UseParentsResult {
         }
     };
 
-    const updateParent = async (id: number, updates: Partial<Parent>): Promise<Parent | null> => {
+    const updateParent = async (id: string | number, updates: Partial<Parent>): Promise<Parent | null> => {
         if (!isSupabaseConfigured) {
             console.warn('Supabase not configured, cannot update parent');
             return null;
@@ -118,10 +117,9 @@ export function useParents(): UseParentsResult {
                     phone: updates.phone,
                     address: updates.address,
                     occupation: updates.occupation,
-                    child_ids: updates.childIds,
                     avatar_url: updates.avatarUrl,
                     relationship: updates.relationship,
-                    emergency_contact: updates.emergencyContact,
+                    emergency_contact: updates.emergency_contact,
                 })
                 .eq('id', id)
                 .select()
@@ -137,7 +135,7 @@ export function useParents(): UseParentsResult {
         }
     };
 
-    const deleteParent = async (id: number): Promise<boolean> => {
+    const deleteParent = async (id: string | number): Promise<boolean> => {
         if (!isSupabaseConfigured) {
             console.warn('Supabase not configured, cannot delete parent');
             return false;
@@ -180,5 +178,5 @@ const transformSupabaseParent = (p: any): Parent => ({
     childIds: p.child_ids || [],
     avatarUrl: p.avatar_url,
     relationship: p.relationship,
-    emergencyContact: p.emergency_contact,
+    emergency_contact: p.emergency_contact,
 });

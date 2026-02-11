@@ -407,7 +407,22 @@ parents(
                     return;
                 }
 
-                const authResult = await createUserAccount(fullName, 'Student', generatedEmail, schoolId);
+                let authResult = await createUserAccount(fullName, 'Student', generatedEmail, schoolId);
+
+                // Handle already registered error with a unique suffix retry
+                if (authResult.error && (authResult.error.includes('already registered') || authResult.error.includes('duplicate'))) {
+                    console.log(`Email ${generatedEmail} is already registered. Retrying with uniqueness suffix...`);
+                    const randomSuffix = Math.floor(100 + Math.random() * 900); // 3-digit random number
+                    const [localPart, domain] = generatedEmail.split('@');
+                    const uniqueEmail = `${localPart}${randomSuffix}@${domain}`;
+
+                    authResult = await createUserAccount(fullName, 'Student', uniqueEmail, schoolId);
+
+                    if (!authResult.error) {
+                        generatedEmail = uniqueEmail; // Update the email for subsequent profile creation
+                        toast.success(`Account created with unique identifier: ${uniqueEmail}`);
+                    }
+                }
 
                 if (authResult.error) {
                     // Check specifically for email sending errors or rate limits (common in free tier)
@@ -419,7 +434,7 @@ parents(
                             return;
                         }
                     } else if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
-                        toast.error(`Student with email ${generatedEmail} is already registered. Please check the name or email format.`);
+                        toast.error(`Student with email ${generatedEmail} is already registered. Please try a different name or manually edit the email.`);
                         setIsLoading(false);
                         return;
                     } else {

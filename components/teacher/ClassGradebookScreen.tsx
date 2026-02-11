@@ -9,12 +9,13 @@ interface GradebookEntry {
     studentId: string;
     studentName: string;
     avatarUrl: string;
+    schoolId: string; // Added for correct RLS and data integrity
     ca: string;   // max 40
     exam: string; // max 60
     total: number;
     grade: string;
     remark: string;
-    status: 'Draft' | 'Published'; // Draft = Saved locally, Published = Visible to Parents
+    status: 'Draft' | 'Submitted' | 'Published'; // Draft = Saved locally, Submitted = Sent to Admin, Published = Visible to Parents
     isDirty: boolean; // has unsaved changes
 }
 
@@ -143,6 +144,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                         studentId: s.id,
                         studentName: s.name,
                         avatarUrl: s.avatarUrl || '',
+                        schoolId: s.schoolId || '', // Ensure schoolId is captured
                         ca: ca === 0 ? '' : ca.toString(),
                         exam: exam === 0 ? '' : exam.toString(),
                         total: total,
@@ -192,7 +194,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
         }
     };
 
-    const handleSave = async (status: 'Draft' | 'Published' = 'Draft') => {
+    const handleSave = async (status: 'Draft' | 'Submitted' = 'Draft') => {
         const dirtyEntries = students.filter(s => s.isDirty);
         // If publishing, we save ALL students to ensure completeness, or at least dirty ones?
         // Actually, if publishing, we might want to ensure everything is synced.
@@ -203,7 +205,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
         // Let's force save ALL if Publish is clicked, or just handle dirty logic?
         // Simpler: Just save current state.
 
-        const entriesToSave = status === 'Published' ? students : dirtyEntries;
+        const entriesToSave = status === 'Submitted' ? students : dirtyEntries;
 
         if (entriesToSave.length === 0) {
             toast('No changes to save.');
@@ -270,14 +272,14 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                     academicRecords
                 };
 
-                await upsertReportCard(entry.studentId, reportCardToSave as any);
+                await upsertReportCard(entry.studentId, reportCardToSave as any, entry.schoolId);
                 successCount++;
             }
 
             // Mark all as clean
             setStudents(students.map(s => ({ ...s, isDirty: false })));
-            if (status === 'Published') {
-                toast.success(`Published grades for ${successCount} students!`);
+            if (status === 'Submitted') {
+                toast.success(`Submitted grades for ${successCount} students to Admin!`);
             } else {
                 toast.success(`Saved draft for ${successCount} students.`);
             }
@@ -294,13 +296,15 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
     return (
         <div className="flex flex-col h-full bg-gray-50">
             {/* Header */}
-            <div className="px-3 sm:px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            {/* Header */}
+            <div className="px-3 sm:px-6 py-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-20">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                     <div>
-                        <h2 className="text-lg sm:text-xl font-bold text-gray-800">Class Gradebook</h2>
-                        <p className="text-xs sm:text-sm text-gray-500">Manage CA and Exam scores efficiently</p>
+                        <h2 className="text-xl font-bold text-gray-800">Class Gradebook</h2>
+                        <p className="text-sm text-gray-500">Manage CA and Exam scores efficiently</p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
+
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         <select
                             value={selectedClass}
                             onChange={e => {
@@ -308,39 +312,38 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                                 setSelectedClass(e.target.value);
                                 if (cls) setSelectedSubject(cls.subject);
                             }}
-                            className="p-2 text-sm border border-gray-300 rounded-md bg-white text-gray-700 font-medium focus:ring-2 focus:ring-purple-500"
+                            className="w-full sm:w-64 p-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 font-medium focus:ring-2 focus:ring-purple-500 shadow-sm"
                         >
                             {classes.map(c => <option key={c.id} value={c.id}>{c.id} - {c.subject}</option>)}
                         </select>
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
                             <button
                                 onClick={() => handleSave('Draft')}
                                 disabled={saving}
-                                className="flex-1 sm:flex-none flex items-center justify-center px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-semibold"
+                                className="flex-1 sm:flex-none whitespace-nowrap flex items-center justify-center px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-all shadow-sm text-sm font-semibold active:scale-95"
                             >
-                                {saving ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></div> : <SaveIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />}
-                                <span className="hidden sm:inline">Save Draft</span>
-                                <span className="sm:hidden">Save</span>
+                                {saving ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></div> : <SaveIcon className="w-4 h-4 mr-2" />}
+                                <span>Save Draft</span>
                             </button>
 
                             <button
-                                onClick={() => handleSave('Published')}
+                                onClick={() => handleSave('Submitted')}
                                 disabled={saving}
-                                className="flex-1 sm:flex-none flex items-center justify-center px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-semibold"
+                                className="flex-1 sm:flex-none whitespace-nowrap flex items-center justify-center px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-all shadow-sm text-sm font-semibold active:scale-95"
                             >
-                                <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                                <span className="hidden sm:inline">Publish</span>
-                                <span className="sm:hidden">Pub</span>
+                                <CheckCircleIcon className="w-4 h-4 mr-2" />
+                                <span>Submit</span>
                             </button>
 
-                            <button onClick={handleBack} className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium">
+                            <button onClick={handleBack} className="px-4 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium whitespace-nowrap active:scale-95">
                                 Close
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
+
 
             {/* Content - Table for desktop, Cards for mobile */}
             <div className="flex-grow overflow-auto p-3 sm:p-6">
@@ -415,8 +418,11 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                                                 {student.grade}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'Published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                                                    {student.status === 'Published' ? 'Published' : 'Draft'}
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${student.status === 'Published' ? 'bg-green-100 text-green-800' :
+                                                    student.status === 'Submitted' ? 'bg-blue-100 text-blue-800' :
+                                                        'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                    {student.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -436,25 +442,25 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                                     className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 ${student.isDirty ? 'bg-yellow-50 border-yellow-300' : ''}`}
                                 >
                                     {/* Student Header */}
-                                    <div className="flex items-center mb-3 pb-3 border-b border-gray-100">
-                                        <div className="flex-shrink-0 h-12 w-12">
+                                    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
+                                        <div className="flex-shrink-0">
                                             {student.avatarUrl ? (
-                                                <img className="h-12 w-12 rounded-full object-cover border border-gray-200" src={student.avatarUrl} alt="" />
+                                                <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={student.avatarUrl} alt="" />
                                             ) : (
-                                                <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xl">
+                                                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-sm">
                                                     {student.studentName.charAt(0)}
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="ml-3 flex-1">
-                                            <div className="text-sm font-bold text-gray-900">{student.studentName}</div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-bold text-gray-900 truncate">{student.studentName}</div>
                                             <div className="text-xs text-gray-500">ID: {student.studentId}</div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`px-3 py-1 text-sm font-bold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                 {student.total}
                                             </span>
-                                            <span className="text-lg font-bold text-purple-600">{student.grade}</span>
+                                            <span className="text-sm font-bold text-purple-600">{student.grade}</span>
                                         </div>
                                     </div>
 
@@ -493,20 +499,35 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                 )}
 
                 {/* Summary / Legend */}
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <h4 className="font-bold text-gray-700 mb-2 flex items-center text-sm"><CalculatorIcon className="w-4 h-4 mr-1 text-purple-600" /> Grading Scale</h4>
-                        <div className="space-y-1 text-xs sm:text-sm text-gray-600">
-                            <div className="flex justify-between"><span>A (Excellent)</span><span>75 - 100</span></div>
-                            <div className="flex justify-between"><span>B (Very Good)</span><span>65 - 74</span></div>
-                            <div className="flex justify-between"><span>C (Good)</span><span>50 - 64</span></div>
-                            <div className="flex justify-between"><span>D (Fair)</span><span>45 - 49</span></div>
-                            <div className="flex justify-between text-red-600 font-medium"><span>F (Fail)</span><span>0 - 44</span></div>
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <h4 className="font-bold text-gray-800 mb-3 flex items-center text-sm"><CalculatorIcon className="w-4 h-4 mr-2 text-purple-600" /> Grading Scale</h4>
+                        <div className="space-y-2 text-xs sm:text-sm text-gray-600">
+                            <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
+                                <span className="font-medium">A (Excellent)</span>
+                                <span className="text-gray-900 font-bold bg-green-50 px-2 py-0.5 rounded">75 - 100</span>
+                            </div>
+                            <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
+                                <span className="font-medium">B (Very Good)</span>
+                                <span className="text-gray-900 font-bold bg-blue-50 px-2 py-0.5 rounded">65 - 74</span>
+                            </div>
+                            <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
+                                <span className="font-medium">C (Good)</span>
+                                <span className="text-gray-900 font-bold bg-yellow-50 px-2 py-0.5 rounded">50 - 64</span>
+                            </div>
+                            <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
+                                <span className="font-medium">D (Fair)</span>
+                                <span className="text-gray-900 font-bold bg-orange-50 px-2 py-0.5 rounded">45 - 49</span>
+                            </div>
+                            <div className="flex justify-between items-center p-1 hover:bg-gray-50 rounded">
+                                <span className="font-medium text-red-600">F (Fail)</span>
+                                <span className="text-red-700 font-bold bg-red-50 px-2 py-0.5 rounded">0 - 44</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

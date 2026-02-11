@@ -31,9 +31,9 @@ interface TeacherMessagesScreenProps {
 }
 
 interface LocalConversation {
-    id: number;
+    id: string | number;
     participant: {
-        id: number;
+        id: string | number;
         name: string;
         avatarUrl: string;
         role: string;
@@ -219,7 +219,7 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
         if (onSelectChat && originalConvo) {
             // Map LocalConversation to simplified ChatRoom/Conversation
             const conversationObj: Conversation = {
-                id: originalConvo.id,
+                id: originalConvo.id.toString(),
                 participants: [], // Simplified
                 type: 'direct', // Defaulting since LocalConversation doesn't track type extensively yet
                 isGroup: false,

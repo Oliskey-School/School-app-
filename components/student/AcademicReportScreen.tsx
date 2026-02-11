@@ -58,11 +58,11 @@ const SubjectScoresChart = ({ data }: { data: { subject: string, score: number }
 
 
 interface AcademicReportScreenProps {
-    studentId: number;
+    studentId: string | number;
 }
 
 const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }) => {
-    const student = useMemo(() => mockStudents.find(s => s.id === studentId), [studentId]);
+    const student = useMemo(() => mockStudents.find(s => s.id.toString() === studentId.toString()), [studentId]);
 
     const performanceByTerm = useMemo(() => {
         if (!student?.academicPerformance) return [];

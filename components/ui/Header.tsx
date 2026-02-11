@@ -67,8 +67,8 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
               <ChevronLeftIcon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
             </button>
           )}
-          <div className="flex flex-col">
-            <h1 className="text-3xl sm:text-4xl font-extrabold truncate tracking-tight">{title}</h1>
+          <div className="flex flex-col min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold truncate tracking-tight">{title}</h1>
           </div>
         </div>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">

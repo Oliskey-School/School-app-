@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon } from '../../constants';
+import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon, ChevronRightIcon } from '../../constants';
 import ReportCardPreview from './ReportCardPreview';
 import { StudentReportInfo, ReportCard, Student } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -24,6 +24,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   const activeSchoolId = propSchoolId || currentSchool?.id || user?.user_metadata?.school_id;
 
   const [studentsWithReports, setStudentsWithReports] = useState<StudentReportInfo[]>([]);
+  const [reportCards, setReportCards] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<ReportCard['status'] | 'All'>('Submitted');
@@ -186,44 +187,13 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 text-gray-900 font-sans">
-      {/* Controls Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
-        <div className="p-4 md:px-8 md:py-6 max-w-7xl mx-auto w-full space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-100">
-                  <PublishIcon className="w-5 h-5 text-indigo-600" />
-                </div>
-                <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Report Publishing</h1>
-              </div>
-              <p className="text-sm text-gray-500 mt-1 font-medium">Verified for {currentSchool?.name || 'Demo School'}</p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={fetchStudentsWithReports}
-                className="p-3 text-gray-500 bg-white hover:bg-gray-50 rounded-2xl transition-all border border-gray-200 shadow-sm group"
-                title="Refresh Database"
-              >
-                <RefreshIcon className={`w-5 h-5 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-              </button>
-              {activeTab === 'Submitted' && filteredStudents.length > 0 && (
-                <button
-                  onClick={handlePublishAll}
-                  className="flex-1 md:flex-none px-6 py-3 text-sm font-black text-white bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-900/20 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 transform active:scale-95 border border-indigo-400/20"
-                >
-                  <PublishIcon className="w-4 h-4" />
-                  <span>Publish {filteredStudents.length} Reports</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Precision Controls Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+        <div className="px-4 py-4 md:px-6 max-w-7xl mx-auto w-full">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
             {/* Tabs */}
-            <div className="flex p-1.5 bg-gray-100 rounded-[1.25rem] border border-gray-200 w-full lg:w-auto overflow-x-auto no-scrollbar scroll-smooth">
+            <div className="flex p-1 bg-gray-100 rounded-xl border border-gray-200 w-full lg:w-auto overflow-x-auto no-scrollbar">
               {(['Submitted', 'Published', 'Drafts', 'All'] as const).map(tab => {
                 const mappedTab = tab === 'Drafts' ? 'Draft' : tab;
                 const isActive = activeTab === mappedTab;
@@ -231,14 +201,13 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                   <button
                     key={tab}
                     onClick={() => setActiveTab(mappedTab)}
-                    className={`flex items-center gap-2.5 px-5 py-2.5 text-xs font-black rounded-xl transition-all duration-300 whitespace-nowrap ${isActive
-                      ? 'bg-white text-indigo-600 shadow-sm border border-gray-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black rounded-lg transition-all duration-300 whitespace-nowrap ${isActive
+                      ? 'bg-white text-indigo-600 shadow-sm border border-gray-100'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/30'
                       }`}
                   >
                     <span>{tab.toUpperCase()}</span>
-                    <span className={`px-2 py-0.5 text-[10px] rounded-lg ${isActive ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-200 text-gray-500'
-                      }`}>
+                    <span className={`px-1.5 py-0.5 text-[9px] rounded-md ${isActive ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
                       {getCount(mappedTab)}
                     </span>
                   </button>
@@ -246,18 +215,38 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
               })}
             </div>
 
-            {/* Premium Search */}
-            <div className="relative w-full lg:w-80 group">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                <SearchIcon className="w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-              </span>
-              <input
-                type="text"
-                placeholder="Find student..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 text-sm font-bold text-gray-800 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 hover:border-gray-300 transition-all outline-none shadow-sm placeholder-gray-400"
-              />
+            <div className="flex items-center gap-3 w-full lg:w-auto">
+              {/* Premium Search */}
+              <div className="relative flex-1 lg:w-64 group">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <SearchIcon className="w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Filter students..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+                />
+              </div>
+
+              <button
+                onClick={fetchStudentsWithReports}
+                className="p-2 text-gray-500 bg-white hover:bg-gray-50 rounded-xl transition-all border border-gray-200 shadow-sm group"
+                title="Refresh Database"
+              >
+                <RefreshIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+              </button>
+
+              {activeTab === 'Submitted' && filteredStudents.length > 0 && (
+                <button
+                  onClick={handlePublishAll}
+                  className="px-4 py-2 text-[10px] font-black text-white bg-indigo-600 rounded-xl shadow-lg shadow-indigo-900/20 hover:bg-indigo-500 transition-all flex items-center gap-2 transform active:scale-95"
+                >
+                  <PublishIcon className="w-3 h-3" />
+                  <span>PUBLISH ({filteredStudents.length})</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -377,14 +366,32 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
             <div className="w-24 h-24 bg-white border border-gray-200 rounded-[2rem] flex items-center justify-center mb-8 shadow-sm">
               <FilterIcon className="w-10 h-10 text-gray-400" />
             </div>
-            <h3 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-wide">No Records In Frequency</h3>
-            <p className="text-gray-500 max-w-sm font-medium leading-relaxed">No report cards matching "{activeTab}" filter currently exist in the system registry.</p>
-            {searchTerm && (
+            <h3 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-wide">
+              {activeTab === 'All' ? 'No Students Found' : `No ${activeTab} Reports`}
+            </h3>
+            <p className="text-gray-500 max-w-sm font-medium leading-relaxed px-4">
+              {activeTab === 'Submitted'
+                ? 'Teachers have not submitted any report cards for verification yet. Once submitted, they will appear here for publishing.'
+                : activeTab === 'Published'
+                  ? 'No report cards have been published to parents yet. Reports must be "Submitted" before they can be published.'
+                  : activeTab === 'Draft'
+                    ? 'All students currently have submitted or published reports. Check other tabs to manage them.'
+                    : `No records matching the current frequency parameters were found in the neural registry.`}
+            </p>
+            {activeTab !== 'All' ? (
+              <button
+                onClick={() => setActiveTab('All')}
+                className="mt-8 px-8 py-3 bg-white border border-gray-200 text-indigo-600 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-50 transition-all shadow-sm flex items-center gap-2 group"
+              >
+                <span>View All Students</span>
+                <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            ) : searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="mt-8 px-8 py-3 bg-white border border-gray-200 text-indigo-600 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-gray-50 transition-all shadow-sm"
+                className="mt-8 px-8 py-3 bg-white border border-gray-200 text-indigo-600 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-50 transition-all shadow-sm"
               >
-                Reset Frequency
+                Reset Search Filters
               </button>
             )}
           </div>

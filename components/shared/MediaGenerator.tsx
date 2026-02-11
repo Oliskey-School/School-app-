@@ -32,7 +32,7 @@ const MediaGenerator: React.FC = () => {
         setResultUrl(null);
 
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '') as any;
 
             if (mode === 'image') {
                 // Generate Image

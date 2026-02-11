@@ -158,7 +158,8 @@ const Overview: React.FC<{
     schoolId: string;
     currentBranchId: string | null;
     currentUser: any;
-}> = ({ navigateTo, student, schoolId, currentBranchId, currentUser }) => {
+    forceUpdate: () => void;
+}> = ({ navigateTo, student, schoolId, currentBranchId, currentUser, forceUpdate }) => {
     const theme = THEME_CONFIG[DashboardType.Student];
     const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
     const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
@@ -283,9 +284,9 @@ const Overview: React.FC<{
                     <TodayFocus schedule={todaySchedule} assignments={upcomingAssignments} theme={theme} navigateTo={navigateTo} />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {aiTools.map(tool => (
-                                <button key={tool.label} onClick={tool.action} className={`p-4 rounded-2xl shadow-lg text-white bg-gradient-to-r ${tool.color}`}>
+                                <button key={tool.label} onClick={tool.action} className={`p-4 rounded-2xl shadow-lg text-white bg-gradient-to-r ${tool.color} transition-transform active:scale-[0.98]`}>
                                     <SparklesIcon className="h-6 w-6 mb-2" />
                                     <h4 className="font-bold text-left">{tool.label}</h4>
                                     <p className="text-xs opacity-90 text-left">{tool.description}</p>
@@ -724,7 +725,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     };
 
     const viewComponents = React.useMemo(() => ({
-        overview: (props: any) => <Overview {...props} schoolId={schoolId || ''} currentBranchId={currentBranchId} currentUser={currentUser} />,
+        overview: (props: any) => <Overview {...props} schoolId={schoolId || ''} currentBranchId={currentBranchId} currentUser={currentUser} forceUpdate={forceUpdate} />,
         studyBuddy: StudyBuddy,
         adventureQuest: AdventureQuestHost,
         examSchedule: ExamSchedule,

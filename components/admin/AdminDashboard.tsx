@@ -23,6 +23,7 @@ const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
 const TeacherListScreen = lazy(() => import('../admin/TeacherListScreen'));
 const TeacherPerformanceScreen = lazy(() => import('../admin/TeacherPerformanceScreen'));
 const TimetableGeneratorScreen = lazy(() => import('../admin/TimetableGeneratorScreen'));
+const TimetableCreationWizard = lazy(() => import('../admin/TimetableCreationWizard'));
 const TimetableEditor = lazy(() => import('../admin/TimetableEditor'));
 const TeacherAttendanceScreen = lazy(() => import('../admin/TeacherAttendanceScreen'));
 const TeacherAttendanceApproval = lazy(() => import('./TeacherAttendanceApproval'));
@@ -231,6 +232,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
         timetable: TimetableGeneratorScreen,
         timetableEditor: TimetableEditor,
         timetableCreator: TimetableCreator,
+        aiTimetableCreator: TimetableCreationWizard,
         teacherAttendance: TeacherAttendanceScreen,
         teacherAttendanceApproval: TeacherAttendanceApproval,
         feeManagement: FeeManagement,

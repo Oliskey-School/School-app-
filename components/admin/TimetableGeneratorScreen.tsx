@@ -8,7 +8,6 @@ import {
     PlusIcon,
     EditIcon
 } from '../../constants';
-import TimetableCreationWizard from './TimetableCreationWizard';
 
 // --- TYPES ---
 interface TimetableStatus {
@@ -87,10 +86,6 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
     // Dashboard State
     const [classes, setClasses] = useState<any[]>([]);
     const [timetableStatuses, setTimetableStatuses] = useState<{ [key: string]: string | null }>({});
-
-    // Wizard State
-    const [wizardTargetClasses, setWizardTargetClasses] = useState<string[]>(initialSelectedClasses);
-    const [isWizardOpen, setIsWizardOpen] = useState(false);
 
     // Loading States
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -249,8 +244,10 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
     };
 
     const handleOpenWizard = (targetClass?: string) => {
-        setWizardTargetClasses(targetClass ? [targetClass] : []);
-        setIsWizardOpen(true);
+        navigateTo('aiTimetableCreator', 'AI Timetable Creator', {
+            availableClasses: classes,
+            initialSelectedClasses: targetClass ? [targetClass] : [],
+        });
     };
 
     return (
@@ -369,17 +366,6 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                     )}
                 </div>
             </main>
-
-
-            {/* WIZARD OVERLAY */}
-            <TimetableCreationWizard
-                isOpen={isWizardOpen}
-                onClose={() => setIsWizardOpen(false)}
-                availableClasses={classes}
-                initialSelectedClasses={wizardTargetClasses}
-                navigateTo={navigateTo}
-                schoolId={schoolId}
-            />
 
             {isLoadingExisting && (
                 <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">

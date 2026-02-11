@@ -6,7 +6,7 @@ import { mockStudents, mockTeachers, mockNotices } from '../../data';
 import { SUBJECT_COLORS, BookOpenIcon, ClipboardListIcon, MegaphoneIcon, UsersIcon } from '../../constants';
 
 // For this demo, we'll use the logged-in student (ID 4)
-const loggedInStudent: Student = mockStudents.find(s => s.id === 4)!;
+const loggedInStudent: Student = mockStudents.find(s => s.id === '4')!;
 
 interface ClassroomScreenProps {
   subjectName: string;

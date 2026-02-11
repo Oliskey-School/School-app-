@@ -31,7 +31,7 @@ interface GradeEntryScreenProps {
 }
 
 const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
-    const [scores, setScores] = useState<{ [studentId: number]: string }>({});
+    const [scores, setScores] = useState<{ [studentId: string | number]: string }>({});
     const [students, setStudents] = useState<Student[]>([]);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [loading, setLoading] = useState(true);
@@ -104,7 +104,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
     }, [gradeSection, exam.subject]);
 
 
-    const saveGrade = async (studentId: number, value: string) => {
+    const saveGrade = async (studentId: string | number, value: string) => {
         const numericScore = parseInt(value, 10);
 
         // Upsert logic (requires unique constraint usually, but we handle via check first or assume insert/update)
@@ -134,7 +134,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
         setTimeout(() => setSaveStatus('idle'), 2000);
     };
 
-    const handleScoreChange = (studentId: number, value: string) => {
+    const handleScoreChange = (studentId: string | number, value: string) => {
         const numericValue = parseInt(value, 10);
         if (value === '' || (numericValue >= 0 && numericValue <= 100)) {
             setScores(prev => ({ ...prev, [studentId]: value }));
@@ -185,7 +185,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
                                     )}
                                     <div>
                                         <p className="font-bold text-gray-800">{student.name}</p>
-                                        <p className="text-sm text-gray-500">ID: {student.school_generated_id || `SCH-${student.id}`}</p>
+                                        <p className="text-sm text-gray-500">ID: {student.schoolGeneratedId || `SCH-${student.id}`}</p>
                                     </div>
                                 </div>
                                 <input

@@ -9,11 +9,11 @@ export interface UseFeesResult {
     error: Error | null;
     refetch: () => Promise<void>;
     createFee: (fee: Partial<Fee>) => Promise<Fee | null>;
-    updateFee: (id: number, updates: Partial<Fee>) => Promise<Fee | null>;
-    deleteFee: (id: number) => Promise<boolean>;
+    updateFee: (id: string | number, updates: Partial<Fee>) => Promise<Fee | null>;
+    deleteFee: (id: string | number) => Promise<boolean>;
 }
 
-export function useFees(filters?: { studentId?: number; status?: string }): UseFeesResult {
+export function useFees(filters?: { studentId?: string | number; status?: string }): UseFeesResult {
     const [fees, setFees] = useState<Fee[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -86,10 +86,11 @@ export function useFees(filters?: { studentId?: number; status?: string }): UseF
                 .from('student_fees')
                 .insert([{
                     student_id: feeData.studentId,
-                    total_fee: feeData.totalFee,
+                    total_fee: feeData.amount,
                     paid_amount: feeData.paidAmount,
                     due_date: feeData.dueDate,
                     status: feeData.status,
+                    title: feeData.title || 'School Fee'
                 }])
                 .select()
                 .single();
@@ -104,7 +105,7 @@ export function useFees(filters?: { studentId?: number; status?: string }): UseF
         }
     };
 
-    const updateFee = async (id: number, updates: Partial<Fee>): Promise<Fee | null> => {
+    const updateFee = async (id: string | number, updates: Partial<Fee>): Promise<Fee | null> => {
         if (!isSupabaseConfigured) {
             console.warn('Supabase not configured, cannot update fee');
             return null;
@@ -115,10 +116,11 @@ export function useFees(filters?: { studentId?: number; status?: string }): UseF
                 .from('student_fees')
                 .update({
                     student_id: updates.studentId,
-                    total_fee: updates.totalFee,
+                    total_fee: updates.amount,
                     paid_amount: updates.paidAmount,
                     due_date: updates.dueDate,
                     status: updates.status,
+                    title: updates.title
                 })
                 .eq('id', id)
                 .select()
@@ -134,7 +136,7 @@ export function useFees(filters?: { studentId?: number; status?: string }): UseF
         }
     };
 
-    const deleteFee = async (id: number): Promise<boolean> => {
+    const deleteFee = async (id: string | number): Promise<boolean> => {
         if (!isSupabaseConfigured) {
             console.warn('Supabase not configured, cannot delete fee');
             return false;
@@ -170,8 +172,9 @@ setError(err as Error);
 const transformSupabaseFee = (f: any): Fee => ({
     id: f.id,
     studentId: f.student_id,
-    totalFee: f.total_fee,
+    amount: f.total_fee,
     paidAmount: f.paid_amount,
     dueDate: f.due_date,
     status: f.status,
+    title: f.title || 'School Fee'
 });

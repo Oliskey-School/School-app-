@@ -15,7 +15,7 @@ interface TeacherCurriculumSelectionScreenProps {
   navigateTo: (view: string, title: string, props: any) => void;
 }
 
-const LOGGED_IN_TEACHER_ID = 2;
+const LOGGED_IN_TEACHER_ID = '2';
 
 const TeacherCurriculumSelectionScreen: React.FC<TeacherCurriculumSelectionScreenProps> = ({ navigateTo }) => {
     const teacher = useMemo(() => mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!, []);

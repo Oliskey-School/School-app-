@@ -461,7 +461,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
             if (healthRes.data) {
                 setLatestHealthLog({
-                    studentName: healthRes.data.students?.name || 'Unknown',
+                    studentName: (Array.isArray(healthRes.data.students) ? healthRes.data.students[0]?.name : (healthRes.data.students as any)?.name) || 'Unknown',
                     reason: healthRes.data.reason,
                     time: healthRes.data.time,
                     date: healthRes.data.date

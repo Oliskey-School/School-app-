@@ -10,9 +10,11 @@ import { useOnlineStatus } from '../shared/OfflineIndicator';
 import { toast } from 'react-hot-toast';
 
 interface InspectorDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
-    currentUser: any;
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
+    inspectorId?: string;
+    onNavigate?: (view: string, props?: any) => void;
 }
 
 type ViewStackItem = {

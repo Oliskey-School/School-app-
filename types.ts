@@ -259,6 +259,7 @@ export interface CalendarEvent {
   date: string; // YYYY-MM-DD format
   title: string;
   type: EventType;
+  category?: string; // Added for UI grouping/labels
   description?: string;
 }
 
@@ -1078,13 +1079,15 @@ export interface CBTQuestion {
 }
 
 export interface CBTResult {
-  id: number;
-  examId: number;
-  studentId: number;
+  id: string | number;
+  examId: string | number;
+  studentId: string | number;
+  studentName?: string; // Added for UI convenience
   score: number;
-  totalScore: number;
+  totalScore?: number;
+  totalQuestions?: number; // Added for UI convenience
   percentage: number;
-  answers: any; // JSONB
+  answers?: any; // JSONB
   submittedAt: string;
 }
 
@@ -1127,8 +1130,11 @@ export interface BusRoute {
 export interface BusRosterEntry {
   id: number;
   busId: string;
+  routeId?: string;
+  driverId?: number;
   driverName: string;
   assistantName: string;
+  date?: string;
 }
 
 export interface EmergencyBroadcast {

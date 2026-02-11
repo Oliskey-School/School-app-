@@ -25,8 +25,9 @@ export function useRealtimeNotifications(userRole?: string) {
         try {
             const { data, error } = await supabase
                 .from('notifications')
-                .select('id, user_id, audience')
-                .eq('is_read', false);
+                .select('id, user_id, audience, school_id')
+                .eq('is_read', false)
+                .eq('school_id', currentSchool?.id); // Ensure we only count for current school
 
             if (error) {
                 console.error('Error fetching notification count:', error);
@@ -68,23 +69,26 @@ export function useRealtimeNotifications(userRole?: string) {
             .on(
                 'postgres_changes',
                 {
-                    event: 'INSERT',
+                    event: '*', // Listen to INSERT and UPDATE
                     schema: 'public',
                     table: 'notifications',
                     filter: `school_id=eq.${currentSchool.id}`
                 },
                 (payload) => {
-                    console.log('🔔 Live Notification Received:', payload.new);
+                    const newRecord = payload.new as any;
+                    console.log('🔔 Live Notification Received:', newRecord);
 
-                    // 2. The Reaction: Immediate Toast/Alert
-                    toast(payload.new.title || 'New Notification', {
-                        icon: '🔔',
-                        style: {
-                            borderRadius: '10px',
-                            background: '#333',
-                            color: '#fff',
-                        },
-                    });
+                    // 2. The Reaction: Immediate Toast/Alert (Only for INSERT)
+                    if (payload.eventType === 'INSERT') {
+                        toast(newRecord.title || 'New Notification', {
+                            icon: '🔔',
+                            style: {
+                                borderRadius: '10px',
+                                background: '#333',
+                                color: '#fff',
+                            },
+                        });
+                    }
 
                     fetchCount();
                 }

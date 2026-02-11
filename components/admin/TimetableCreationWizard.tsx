@@ -7,7 +7,7 @@ import MultiClassSelector from '../shared/MultiClassSelector';
 
 // --- TYPES ---
 interface TimetableCreationWizardProps {
-    isOpen: boolean;
+    isOpen?: boolean;
     onClose: () => void;
     availableClasses: { id: string; name: string; grade: number; section: string; }[];
     initialSelectedClasses?: string[];
@@ -233,189 +233,207 @@ const TimetableCreationWizard: React.FC<TimetableCreationWizardProps> = ({ isOpe
         }
     };
 
-    if (!isOpen) return null;
+    // If rendered as a page, we always show content. `isOpen` is for backward compat or modal usage.
+    const isModal = isOpen !== undefined;
 
-    const totalPeriods = subjectPeriods.reduce((acc, curr) => acc + curr.periods, 0);
+    // Auto-fetch classes if not provided (e.g. direct nav)
+    useEffect(() => {
+        if (!availableClasses || availableClasses.length === 0) {
+            // Ideally we fetch here, but for now relying on props is safer or basic fetch
+            // logic can be added if needed.
+        }
+    }, []);
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            <div className="relative w-full max-w-6xl h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
-                {isGenerating && <GeneratingScreen />}
+    const content = (
+        <div className={`flex flex-col h-full bg-gray-50 overflow-hidden ${isModal ? 'rounded-3xl' : ''}`}>
+            {isGenerating && <GeneratingScreen />}
 
-                {/* HEADER */}
-                <div className="flex items-center justify-between px-8 py-5 border-b border-gray-100 bg-white z-20">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                            <SparklesIcon className="w-6 h-6 text-indigo-600" />
-                            AI Timetable Creator
-                        </h2>
-                        <p className="text-sm text-gray-500">Configure parameters and generate schedules for multiple classes instantly.</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600">
-                        <XCircleIcon className="w-8 h-8" />
-                    </button>
+            {/* HEADER */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white z-20 flex-shrink-0">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <SparklesIcon className="w-6 h-6 text-indigo-600" />
+                        AI Timetable Creator
+                    </h2>
+                    <p className="text-sm text-gray-500">Configure parameters and generate schedules.</p>
                 </div>
+                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600">
+                    <XCircleIcon className="w-8 h-8" />
+                </button>
+            </div>
 
-                {/* SCROLLABLE BODY */}
-                <div className="flex-grow overflow-y-auto bg-gray-50/50 p-8">
-                    <div className="max-w-5xl mx-auto space-y-6">
+            {/* SCROLLABLE BODY */}
+            <div className="flex-grow overflow-y-auto p-4 md:p-8">
+                <div className="max-w-6xl mx-auto space-y-6">
 
-                        {/* SECTION 1: CONFIGURATION */}
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <CalendarIcon className="w-4 h-4" /> Configuration
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                                <div className="md:col-span-6">
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Target Classes</label>
-                                    <MultiClassSelector classes={availableClasses} selectedClasses={selectedClasses} onChange={setSelectedClasses} />
-                                </div>
-                                <div className="md:col-span-3">
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Academic Session</label>
-                                    <select
-                                        value={sessionTerm}
-                                        onChange={(e) => setSessionTerm(e.target.value)}
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
-                                    >
-                                        <option>2025/2026 - 1st Term</option>
-                                        <option>2025/2026 - 2nd Term</option>
-                                        <option>2025/2026 - 3rd Term</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
-                                    <input
-                                        type="text"
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="e.g. Draft 1"
-                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                                    />
-                                </div>
+                    {/* SECTION 1: CONFIGURATION */}
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <CalendarIcon className="w-4 h-4" /> Configuration
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                            <div className="md:col-span-6">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Target Classes</label>
+                                <MultiClassSelector classes={availableClasses || []} selectedClasses={selectedClasses} onChange={setSelectedClasses} />
+                            </div>
+                            <div className="md:col-span-3">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Academic Session</label>
+                                <select
+                                    value={sessionTerm}
+                                    onChange={(e) => setSessionTerm(e.target.value)}
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
+                                >
+                                    <option>2025/2026 - 1st Term</option>
+                                    <option>2025/2026 - 2nd Term</option>
+                                    <option>2025/2026 - 3rd Term</option>
+                                </select>
+                            </div>
+                            <div className="md:col-span-3">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                                <input
+                                    type="text"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="e.g. Draft 1"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SECTION 2: RESOURCES */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                        {/* SUBJECTS COLUMN */}
+                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col h-[500px]">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                    <ClockIcon className="w-4 h-4" /> Subjects & Load
+                                </h3>
+                                <button onClick={handleAddSubjectPeriod} className="text-indigo-600 text-xs font-bold hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
+                                    + Add Subject
+                                </button>
+                            </div>
+                            <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                                {subjectPeriods.map((subject, index) => (
+                                    <div key={index} className="flex gap-2 items-center group">
+                                        <input
+                                            type="text"
+                                            value={subject.name}
+                                            onChange={(e) => handleSubjectPeriodChange(index, 'name', e.target.value)}
+                                            placeholder="Subject Name"
+                                            className="flex-grow p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium text-gray-700"
+                                        />
+                                        <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase">Periods</span>
+                                            <input
+                                                type="number"
+                                                value={subject.periods}
+                                                onChange={(e) => handleSubjectPeriodChange(index, 'periods', parseInt(e.target.value) || 0)}
+                                                className="w-10 bg-transparent text-center font-bold text-indigo-600 text-sm focus:outline-none"
+                                            />
+                                        </div>
+                                        <button onClick={() => handleRemoveSubjectPeriod(index)} className="text-gray-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                                            <XCircleIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-sm">
+                                <span className="text-gray-500">Total Weekly Periods:</span>
+                                <span className={`font-bold ${totalPeriods > 40 ? 'text-red-500' : 'text-gray-900'}`}>{totalPeriods} / 40</span>
                             </div>
                         </div>
 
-                        {/* SECTION 2: RESOURCES */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-                            {/* SUBJECTS COLUMN */}
-                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-[500px]">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                                        <ClockIcon className="w-4 h-4" /> Subjects & Load
-                                    </h3>
-                                    <button onClick={handleAddSubjectPeriod} className="text-indigo-600 text-xs font-bold hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
-                                        + Add Subject
-                                    </button>
-                                </div>
-                                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                                    {subjectPeriods.map((subject, index) => (
-                                        <div key={index} className="flex gap-2 items-center group">
+                        {/* TEACHERS COLUMN */}
+                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col h-[500px]">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                    <UserGroupIcon className="w-4 h-4" /> Teachers
+                                </h3>
+                                <button onClick={handleAddTeacher} className="text-purple-600 text-xs font-bold hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors">
+                                    + Add Teacher
+                                </button>
+                            </div>
+                            <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                                {teachers.map((teacher, index) => (
+                                    <div key={index} className="p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all group">
+                                        <div className="flex justify-between mb-2">
                                             <input
                                                 type="text"
-                                                value={subject.name}
-                                                onChange={(e) => handleSubjectPeriodChange(index, 'name', e.target.value)}
-                                                placeholder="Subject Name"
-                                                className="flex-grow p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium text-gray-700"
+                                                value={teacher.name}
+                                                onChange={(e) => handleTeacherChange(index, 'name', e.target.value)}
+                                                placeholder="Teacher Name"
+                                                className="font-bold text-sm bg-transparent focus:bg-white focus:ring-2 focus:ring-purple-100 rounded px-1.5 py-0.5 outline-none w-full text-gray-800"
                                             />
-                                            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase">Periods</span>
-                                                <input
-                                                    type="number"
-                                                    value={subject.periods}
-                                                    onChange={(e) => handleSubjectPeriodChange(index, 'periods', parseInt(e.target.value) || 0)}
-                                                    className="w-10 bg-transparent text-center font-bold text-indigo-600 text-sm focus:outline-none"
-                                                />
-                                            </div>
-                                            <button onClick={() => handleRemoveSubjectPeriod(index)} className="text-gray-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => handleRemoveTeacher(index)} className="text-gray-300 hover:text-red-500 transition-colors">
                                                 <XCircleIcon className="w-4 h-4" />
                                             </button>
                                         </div>
-                                    ))}
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-sm">
-                                    <span className="text-gray-500">Total Weekly Periods:</span>
-                                    <span className={`font-bold ${totalPeriods > 40 ? 'text-red-500' : 'text-gray-900'}`}>{totalPeriods} / 40</span>
-                                </div>
+                                        <TagInput
+                                            tags={teacher.subjects}
+                                            setTags={(newTags) => handleTeacherChange(index, 'subjects', newTags)}
+                                            placeholder="Add subjects..."
+                                        />
+                                    </div>
+                                ))}
                             </div>
-
-                            {/* TEACHERS COLUMN */}
-                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-[500px]">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                                        <UserGroupIcon className="w-4 h-4" /> Teachers
-                                    </h3>
-                                    <button onClick={handleAddTeacher} className="text-purple-600 text-xs font-bold hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors">
-                                        + Add Teacher
-                                    </button>
-                                </div>
-                                <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                                    {teachers.map((teacher, index) => (
-                                        <div key={index} className="p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white hover:shadow-sm transition-all group">
-                                            <div className="flex justify-between mb-2">
-                                                <input
-                                                    type="text"
-                                                    value={teacher.name}
-                                                    onChange={(e) => handleTeacherChange(index, 'name', e.target.value)}
-                                                    placeholder="Teacher Name"
-                                                    className="font-bold text-sm bg-transparent focus:bg-white focus:ring-2 focus:ring-purple-100 rounded px-1.5 py-0.5 outline-none w-full text-gray-800"
-                                                />
-                                                <button onClick={() => handleRemoveTeacher(index)} className="text-gray-300 hover:text-red-500 transition-colors">
-                                                    <XCircleIcon className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            <TagInput
-                                                tags={teacher.subjects}
-                                                setTags={(newTags) => handleTeacherChange(index, 'subjects', newTags)}
-                                                placeholder="Add subjects..."
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-sm">
-                                    <span className="text-gray-500">Total Teachers:</span>
-                                    <span className="font-bold text-gray-900">{teachers.length}</span>
-                                </div>
+                            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-sm">
+                                <span className="text-gray-500">Total Teachers:</span>
+                                <span className="font-bold text-gray-900">{teachers.length}</span>
                             </div>
-                        </div>
-
-                        {/* SECTION 3: CONSTRAINTS */}
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <ExclamationCircleIcon className="w-4 h-4" /> Custom Rules
-                            </h3>
-                            <textarea
-                                value={customRules}
-                                onChange={(e) => setCustomRules(e.target.value)}
-                                rows={4}
-                                placeholder="e.g. No Math on Friday afternoons, maximize free periods for Mrs. Johnson..."
-                                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none text-sm text-gray-700 leading-relaxed"
-                            />
                         </div>
                     </div>
-                </div>
 
-                {/* STICKY FOOTER */}
-                <div className="px-8 py-5 bg-white border-t border-gray-100 z-20 flex justify-end gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleGenerate}
-                        disabled={selectedClasses.length === 0}
-                        className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <SparklesIcon className="w-5 h-5" />
-                        Generate Timetable
-                    </button>
+                    {/* SECTION 3: CONSTRAINTS */}
+                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative overflow-hidden">
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                            <ExclamationCircleIcon className="w-4 h-4" /> Custom Rules
+                        </h3>
+                        <textarea
+                            value={customRules}
+                            onChange={(e) => setCustomRules(e.target.value)}
+                            rows={4}
+                            placeholder="e.g. No Math on Friday afternoons, maximize free periods for Mrs. Johnson..."
+                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none text-sm text-gray-700 leading-relaxed"
+                        />
+                    </div>
                 </div>
+            </div>
+
+            {/* STICKY FOOTER */}
+            <div className="px-6 py-4 bg-white border-t border-gray-200 z-20 flex justify-end gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex-shrink-0">
+                <button
+                    onClick={onClose}
+                    className="px-6 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    onClick={handleGenerate}
+                    disabled={selectedClasses.length === 0}
+                    className="px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <SparklesIcon className="w-5 h-5" />
+                    Generate Timetable
+                </button>
             </div>
         </div>
     );
+
+    if (isModal) {
+        if (!isOpen) return null;
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+                <div className="relative w-full max-w-6xl h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
+                    {content}
+                </div>
+            </div>
+        );
+    }
+
+    return content;
 };
 
 export default TimetableCreationWizard;

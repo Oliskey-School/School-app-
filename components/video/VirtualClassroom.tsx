@@ -6,7 +6,7 @@ import { VideoCameraIcon, CalendarIcon, ClockIcon } from '../../constants';
 
 interface VirtualClassroomProps {
     userRole: 'teacher' | 'student';
-    userId: number;
+    userId: string;
 }
 
 const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId }) => {
@@ -136,10 +136,11 @@ const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId })
                                 createClass({
                                     title,
                                     subject,
-                                    scheduled_start: new Date().toISOString(),
-                                    scheduled_end: new Date(Date.now() + 3600000).toISOString(),
-                                    class_grade: 10,
-                                    class_section: 'A'
+                                    scheduledStart: new Date().toISOString(),
+                                    scheduledEnd: new Date(Date.now() + 3600000).toISOString(),
+                                    classGrade: 10,
+                                    classSection: 'A',
+                                    platform: 'jitsi'
                                 });
                             }
                         }}

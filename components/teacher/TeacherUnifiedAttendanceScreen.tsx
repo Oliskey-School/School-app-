@@ -8,7 +8,7 @@ import { ClassInfo as ClassData } from '../../types';
 
 interface TeacherSelectClassForAttendanceProps {
     navigateTo: (view: string, title: string, props: any) => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
 }
 
 const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceProps> = ({ navigateTo, teacherId }) => {

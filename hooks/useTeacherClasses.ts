@@ -40,13 +40,25 @@ export const useTeacherClasses = (teacherId?: string | null) => {
     const [classes, setClasses] = useState<ClassInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<any>(null);
+    const [version, setVersion] = useState(0);
+    const forceUpdate = () => setVersion(v => v + 1);
 
     useEffect(() => {
         const fetchClasses = async () => {
             // 1. Resolve Teacher ID (Row ID, not Auth UID)
-            let resolvedTeacherId = teacherId;
+            let resolvedTeacherId = null;
 
-            // If no teacherId provided, look up by profile.id (which is user_id) or email
+            // Step A: If an ID is provided, it might be the Row ID OR the Auth User ID
+            if (teacherId) {
+                const { data: teacherRow } = await supabase
+                    .from('teachers')
+                    .select('id')
+                    .or(`id.eq.${teacherId},user_id.eq.${teacherId}`)
+                    .maybeSingle();
+                if (teacherRow) resolvedTeacherId = teacherRow.id;
+            }
+
+            // Step B: Fallback to context if still not resolved
             if (!resolvedTeacherId) {
                 const { data: teacherRow } = await supabase
                     .from('teachers')
@@ -64,6 +76,24 @@ export const useTeacherClasses = (teacherId?: string | null) => {
             }
 
             setLoading(true);
+
+            // REAL-TIME SUBSCRIPTION
+            const channel = supabase
+                .channel(`teacher - classes - ${resolvedTeacherId} `)
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'class_teachers',
+                    filter: `teacher_id=eq.${resolvedTeacherId}`
+                }, () => forceUpdate())
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'teacher_classes',
+                    filter: `teacher_id=eq.${resolvedTeacherId}`
+                }, () => forceUpdate())
+                .subscribe();
+
             try {
                 // 2. Fetch Assignments via class_teachers (modern table)
                 const { data: assignments, error: assignmentError } = await supabase
@@ -89,7 +119,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                     const c = assignment.classes;
                     if (!c) return;
 
-                    const key = `${c.grade}-${c.section}`;
+                    const key = `${c.id} `; // Use ID as key for uniqueness
                     if (!addedKeys.has(key)) {
                         finalClasses.push({
                             id: c.id,
@@ -149,7 +179,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                                 });
 
                                 if (match) {
-                                    const key = `${match.grade}-${match.section}`;
+                                    const key = `${match.id} `;
                                     if (!addedKeys.has(key)) {
                                         finalClasses.push({
                                             id: match.id,
@@ -175,10 +205,14 @@ export const useTeacherClasses = (teacherId?: string | null) => {
             } finally {
                 setLoading(false);
             }
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         };
 
         fetchClasses();
-    }, [profile?.email, profile?.id, user?.email, teacherId]);
+    }, [profile?.email, profile?.id, user?.email, teacherId, version]);
 
     return { classes, loading, error };
 };

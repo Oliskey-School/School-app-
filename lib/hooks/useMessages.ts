@@ -11,7 +11,7 @@ export interface UseMessagesResult {
     sendMessage: (message: Partial<ChatMessage>) => Promise<ChatMessage | null>;
 }
 
-export function useMessages(conversationId: number): UseMessagesResult {
+export function useMessages(conversationId: string | number): UseMessagesResult {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -19,7 +19,7 @@ export function useMessages(conversationId: number): UseMessagesResult {
     const fetchMessages = useCallback(async () => {
         if (!isSupabaseConfigured || !conversationId) {
             // Find mock messages for the room
-            const conversation = mockConversations.find(c => c.id === conversationId);
+            const conversation = mockConversations.find(c => c.id.toString() === conversationId.toString());
             setMessages(conversation?.lastMessage ? [conversation.lastMessage] : []);
             setLoading(false);
             return;

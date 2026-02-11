@@ -17,7 +17,7 @@ interface ReportCardInputScreenProps {
 }
 
 // In a real app, this would be from auth context.
-const LOGGED_IN_TEACHER_ID = 2; // Mrs. Funke Akintola
+const LOGGED_IN_TEACHER_ID = '2'; // Mrs. Funke Akintola
 const teacher: Teacher = mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!;
 
 

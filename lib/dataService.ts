@@ -472,7 +472,7 @@ class DataService {
      */
     private getDefaultStrategy(table: TableName): CacheStrategy {
         // Critical real-time data uses network-first
-        const networkFirst: TableName[] = ['grades', 'attendance', 'messages'];
+        const networkFirst: TableName[] = ['grades', 'attendance_records', 'messages'];
         if (networkFirst.includes(table)) {
             return 'network-first';
         }

@@ -138,7 +138,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   }, [user?.id, schoolId]);
 
   // Profile State
-  const [teacherProfile, setTeacherProfile] = useState({
+  const [teacherProfile, setTeacherProfile] = useState<{
+    name: string;
+    avatarUrl: string;
+    schoolGeneratedId?: string;
+  }>({
     name: 'Teacher',
     avatarUrl: ''
   });

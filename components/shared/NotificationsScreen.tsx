@@ -200,8 +200,37 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
     }
   };
 
+  const markAllAsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+
+    // Optimistic update
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .in('id', unreadIds);
+
+      if (error) throw error;
+      toast.success('All marked as read');
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+      toast.error('Failed to update');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-100">
+      <div className="flex justify-between items-center p-4 pb-0">
+        <h2 className="text-lg font-bold text-gray-800">Notifications</h2>
+        {notifications.some(n => !n.is_read) && (
+          <button onClick={markAllAsRead} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+            Mark all as read
+          </button>
+        )}
+      </div>
       <main className="flex-grow p-4 space-y-3 overflow-y-auto">
         {loading ? (
           <div className="flex justify-center pt-10"><div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent"></div></div>

@@ -11,7 +11,7 @@ interface TeacherExamManagementProps {
     handleBack: () => void;
 }
 
-const LOGGED_IN_TEACHER_ID = 2;
+const LOGGED_IN_TEACHER_ID = '2';
 
 const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateTo, forceUpdate, handleBack }) => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -64,7 +64,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
     const handleAddNew = () => {
         navigateTo('addExam', 'Add New Exam', {
             onSave: (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
-                const newId = Math.max(0, ...mockExamsData.map(e => e.id)) + 1;
+                const newId = `exam-${Date.now()}`;
                 mockExamsData.unshift({ id: newId, ...examData, isPublished: false, teacherId: LOGGED_IN_TEACHER_ID });
                 forceUpdate();
                 handleBack();

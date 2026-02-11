@@ -137,7 +137,7 @@ const GeneratedHistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; hi
 
 // --- MAIN COMPONENT ---
 
-const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; teacherId?: number | null; }> = ({ navigateTo, teacherId }) => {
+const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; teacherId?: string | null; }> = ({ navigateTo, teacherId }) => {
     const [subject, setSubject] = useState('');
     const [className, setClassName] = useState('');
     const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -161,7 +161,7 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
     const [isGeneratedHistoryOpen, setIsGeneratedHistoryOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
 
-    const effectiveTeacherId = teacherId || 2; // Fallback to 2 only if no auth provided (dev mode)
+    const effectiveTeacherId = teacherId || '2'; // Fallback to '2' only if no auth provided (dev mode)
 
     const fetchHistory = useCallback(async () => {
         const { data, error } = await supabase

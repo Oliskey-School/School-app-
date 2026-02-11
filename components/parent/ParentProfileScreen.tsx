@@ -38,7 +38,7 @@ interface ParentProfileScreenProps {
   onLogout: () => void;
   navigateTo: (view: string, title: string, props?: any) => void;
   forceUpdate: () => void;
-  parentId?: number;
+  parentId?: string;
 }
 
 type SettingView = 'linkChild' | 'editParentProfile' | 'learningResources' | 'schoolPolicies' | 'ptaMeetings' | 'photoGallery' | 'volunteering' | 'permissionSlips' | 'feedback' | 'notificationSettings' | 'securitySettings' | null;

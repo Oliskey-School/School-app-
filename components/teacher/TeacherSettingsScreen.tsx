@@ -32,7 +32,7 @@ interface TeacherSettingsScreenProps {
     dashboardProfile?: { name: string; avatarUrl: string; };
     profile?: { name: string; avatarUrl: string; };
     refreshDashboardProfile?: (data?: { name: string; avatarUrl: string }) => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
     currentUser?: any;
 }
 

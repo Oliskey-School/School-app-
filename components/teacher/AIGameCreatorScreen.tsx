@@ -11,7 +11,7 @@ interface AIGameCreatorScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
     handleBack: () => void;
     forceUpdate: () => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
 }
 
 const GeneratingScreen: React.FC = () => (
@@ -95,7 +95,7 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
                 subject,
                 topic,
                 level,
-                creatorId: teacherId || 2,
+                creatorId: teacherId || '2',
                 status: 'Draft',
                 questions: generatedData.questions,
             });

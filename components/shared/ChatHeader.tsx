@@ -17,9 +17,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ conversation, onBack }) => {
                     </button>
                 )}
                 <div className="flex items-center space-x-4">
-                    <img src={conversation.participant.avatarUrl} alt={conversation.participant.name} className="w-10 h-10 rounded-full" />
+                    <img src={conversation.participants[0]?.user?.avatarUrl} alt={conversation.participants[0]?.user?.name} className="w-10 h-10 rounded-full" />
                     <div>
-                        <p className="font-semibold text-gray-800">{conversation.participant.name}</p>
+                        <p className="font-semibold text-gray-800">{conversation.participants[0]?.user?.name}</p>
                         <p className="text-xs text-gray-500">online</p>
                     </div>
                 </div>

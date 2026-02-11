@@ -4,7 +4,7 @@ import { mockTeachers, mockConversations } from '../../data';
 import { SearchIcon } from '../../constants';
 
 type UserListItem = {
-    id: number;
+    id: string;
     name: string;
     avatarUrl: string;
     subtitle: string;
@@ -65,7 +65,7 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo, c
             // Mock new conversation
             // Note: In real app, we would make an API call to create conversation
             const newConversation: Conversation = {
-                id: Date.now(),
+                id: Date.now().toString(),
                 type: 'direct',
                 isGroup: false,
                 creatorId: 1002, // Mock curr parent
