@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { UsersIcon, ParentNavIcon, TeacherNavIcon, StudentNavIcon, AIIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 type Audience = 'all' | 'parents' | 'teachers' | 'students';
 
@@ -27,6 +29,8 @@ const CommunicationHub: React.FC = () => {
     const [showAiPrompt, setShowAiPrompt] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isSending, setIsSending] = useState(false);
+    const { user, currentSchool } = useAuth();
 
 
     const audiences: { id: Audience, label: string, icon: React.ReactNode }[] = [
@@ -74,16 +78,45 @@ const CommunicationHub: React.FC = () => {
         }
     };
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!selectedAudience || !title || !message) {
             toast.error('Please select an audience, and fill in the title and message.');
             return;
         }
-        toast.success(`Message sent to ${selectedAudience}`);
-        // Reset form
-        setSelectedAudience(null);
-        setTitle('');
-        setMessage('');
+
+        if (!currentSchool?.id || !user?.id) {
+            toast.error('Authentication error. Please try logging in again.');
+            return;
+        }
+
+        setIsSending(true);
+        try {
+            const { error } = await supabase
+                .from('notices')
+                .insert({
+                    school_id: currentSchool.id,
+                    title,
+                    content: message,
+                    audience: selectedAudience === 'all' ? ['all'] : [selectedAudience],
+                    created_by: user.id,
+                    category: 'General',
+                    is_pinned: false,
+                    timestamp: new Date().toISOString()
+                });
+
+            if (error) throw error;
+
+            toast.success(`Message sent to ${selectedAudience}`);
+            // Reset form
+            setSelectedAudience(null);
+            setTitle('');
+            setMessage('');
+        } catch (error) {
+            console.error('Error sending message:', error);
+            toast.error('Failed to send message. Please try again.');
+        } finally {
+            setIsSending(false);
+        }
     };
 
     return (
@@ -134,8 +167,12 @@ const CommunicationHub: React.FC = () => {
                 </div>
             </main>
             <div className="p-4 mt-auto bg-white border-t border-gray-200">
-                <button onClick={handleSend} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-                    Send
+                <button
+                    onClick={handleSend}
+                    disabled={isSending || !selectedAudience || !title || !message}
+                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-gray-400"
+                >
+                    {isSending ? 'Sending...' : 'Send'}
                 </button>
             </div>
         </div>

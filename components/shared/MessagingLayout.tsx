@@ -37,15 +37,16 @@ const MessagingLayout: React.FC<MessagingLayoutProps> = ({ dashboardType, curren
         }
     }, [dashboardType, propUserId]);
     const ChatListComponent = useMemo(() => {
+        const stringUserId = String(currentUserId);
         switch (dashboardType) {
             case DashboardType.Admin:
-                return <AdminMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={currentUserId} />;
+                return <AdminMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={stringUserId} />;
             case DashboardType.Teacher:
-                return <TeacherMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={currentUserId} />;
+                return <TeacherMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={stringUserId} />;
             case DashboardType.Parent:
-                return <ParentMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={currentUserId} />;
+                return <ParentMessagesScreen onSelectChat={handleSelectConversation} navigateTo={navigateTo} currentUserId={stringUserId} />;
             case DashboardType.Student:
-                return <StudentMessagesScreen onSelectChat={handleSelectConversation} studentId={currentUserId} navigateTo={navigateTo} />;
+                return <StudentMessagesScreen onSelectChat={handleSelectConversation} studentId={stringUserId} navigateTo={navigateTo} />;
             default:
                 return <div>Error: Invalid user type</div>;
         }
@@ -73,7 +74,7 @@ const MessagingLayout: React.FC<MessagingLayoutProps> = ({ dashboardType, curren
                         <ChatHeader conversation={selectedConversation} onBack={handleBackToList} />
                         <div className="flex-grow overflow-y-auto relative">
                             <div className="absolute inset-0 whatsapp-bg-light"></div>
-                            <ChatScreen conversation={selectedConversation} currentUserId={currentUserId} />
+                            <ChatScreen conversation={selectedConversation} currentUserId={String(currentUserId)} />
                         </div>
                     </>
                 ) : (

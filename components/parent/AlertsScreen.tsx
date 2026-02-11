@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { toast } from 'react-hot-toast';
 import { mockNotifications } from '../../data';
 import { mockStudents, mockFees } from '../../data';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
@@ -29,13 +30,13 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
   const handleNotificationClick = (notification: Notification) => {
     switch (notification.category) {
       case 'Fees':
-        const feeStudentInfo = mockFees.find(f => f.id === notification.studentId);
+        const feeStudentInfo = mockFees.find(f => String(f.id) === String(notification.studentId));
         if (feeStudentInfo) {
           navigateTo('feeStatus', 'Fee Status', { student: feeStudentInfo });
         }
         break;
       case 'Attendance':
-        const student = mockStudents.find(s => s.id === notification.studentId);
+        const student = mockStudents.find(s => String(s.id) === String(notification.studentId));
         if (student) {
           navigateTo('childDetail', student.name, { student, initialTab: 'attendance' });
         }

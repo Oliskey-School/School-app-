@@ -1,9 +1,17 @@
 {
   "status": "commited",
-  "type": "backend",
+  "type": "frontend",
   "scope": "codebase",
-  "localEndpoint": "http://localhost:5000/School App test ",
-  "backendAuthType": "API key",
-  "backendApiKey": "Authorization",
-  "backendApiValue": "secure-backend-secret-key-12345"
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "school-app-",
+    "projectPath": "c:/Users/USER/OneDrive/Desktop/Project/school-app-",
+    "testIds": [],
+    "additionalInstruction": "Verify that when a new notification is inserted into Supabase (school-wide or user-specific), a toast notification appears and the notification badge in the header increments by 1. Also verify that teacher/admin dashboard data (like stats or classes) refreshes when relevant tables change.",
+    "envs": {
+      "API_KEY": "sk-user-A9YetBA150ilVUUauGnc-E_a9RcVG2q4a1Vl-XtQOVwGvJH9UKanyhbGUZb3YFi049dZR3b8WXatWYM--Tr3U4pyWEmRI6VHZjyjs2R5Uj4kLlt4mwUKyD23X2L88zbwmUo"
+    }
+  },
+  "serverPort": 59504,
+  "proxy": "http://f264a612-af1b-45fe-9cb4-c9894ad64fb7:NTDjRdU9m8jXkg3UPWoUg9cAjlvCqhgr@tun.testsprite.com:8080"
 }

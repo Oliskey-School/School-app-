@@ -59,7 +59,20 @@ export function OfflineIndicator({ className = '' }: OfflineIndicatorProps) {
         await syncEngine.triggerSync();
     };
 
+    const [isOfflineDismissed, setIsOfflineDismissed] = useState(false);
     const [isSlowDismissed, setIsSlowDismissed] = useState(false);
+
+    // Auto-dismiss offline banner after 6 seconds
+    useEffect(() => {
+        if (!isOnline) {
+            const timer = setTimeout(() => {
+                setIsOfflineDismissed(true);
+            }, 6000);
+            return () => clearTimeout(timer);
+        } else {
+            setIsOfflineDismissed(false);
+        }
+    }, [isOnline]);
 
     // Reset dismissal when quality improves
     useEffect(() => {
@@ -91,7 +104,7 @@ export function OfflineIndicator({ className = '' }: OfflineIndicatorProps) {
     }
 
     // Show offline indicator
-    if (!isOnline) {
+    if (!isOnline && !isOfflineDismissed) {
         return (
             <div className={`fixed top-0 left-0 right-0 z-[60] ${className}`}>
                 <div className="bg-yellow-500 text-white px-4 py-3 text-center font-medium shadow-lg">

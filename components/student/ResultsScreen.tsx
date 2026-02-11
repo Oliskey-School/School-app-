@@ -80,6 +80,14 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
             .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_submissions', filter: `student_id=eq.${studentId}` }, () => {
                 fetchQuizResults();
             })
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'report_cards',
+                filter: `student_id=eq.${studentId}`
+            }, () => {
+                fetchData();
+            })
             .subscribe();
 
         return () => {

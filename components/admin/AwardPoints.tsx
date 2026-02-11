@@ -2,20 +2,20 @@ import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Student } from '../../types';
 import { toast } from 'react-hot-toast';
-import { GiftIcon, AcademicCapIcon, CheckCircleIcon, ClockIcon } from '../../constants';
+import { AwardIcon, SchoolLogoIcon, CheckCircleIcon, ClockIcon } from '../../constants';
 
 interface AwardPointsProps {
     students: Student[];
 }
 
 const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
-    const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+    const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
     const [points, setPoints] = useState<number>(10);
     const [reason, setReason] = useState('');
     const [category, setCategory] = useState<'academic' | 'behavior' | 'attendance' | 'participation'>('academic');
     const [submitting, setSubmitting] = useState(false);
 
-    const toggleStudent = (studentId: number) => {
+    const toggleStudent = (studentId: string) => {
         setSelectedStudents(prev =>
             prev.includes(studentId)
                 ? prev.filter(id => id !== studentId)
@@ -108,7 +108,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
         <div className="space-y-6">
             <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-6 text-white">
                 <div className="flex items-center space-x-3">
-                    <GiftIcon className="h-8 w-8" />
+                    <AwardIcon className="h-8 w-8" />
                     <h2 className="text-2xl font-bold">Award Points</h2>
                 </div>
                 <p className="mt-2 opacity-90">Reward students for their achievements</p>
@@ -189,7 +189,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
                             </>
                         ) : (
                             <>
-                                <GiftIcon className="h-5 w-5" />
+                                <AwardIcon className="h-5 w-5" />
                                 <span>Award to {selectedStudents.length} Student(s)</span>
                             </>
                         )}

@@ -24,7 +24,7 @@ interface AdminMessagesScreenProps {
     onSelectChat: (conversation: Conversation) => void;
     onNewChat?: () => void;
     navigateTo?: (view: string, title: string, props?: any) => void;
-    currentUserId?: number;
+    currentUserId?: string;
 }
 
 const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat, onNewChat, navigateTo, currentUserId }) => {

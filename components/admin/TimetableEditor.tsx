@@ -315,12 +315,12 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     const [showAiModal, setShowAiModal] = useState(false);
 
     // Mobile State
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [selectedDay, setSelectedDay] = useState(DAYS[(new Date().getDay() - 1)] || 'Monday');
     const [editingSlot, setEditingSlot] = useState<{ day: string, period: string } | null>(null);
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -347,20 +347,40 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         }
     }, [timetableData]);
 
-    // Fetch teachers with PT/FT availability data
+    const [userSchoolId, setUserSchoolId] = useState<string | null>(null);
+
+    // Fetch teachers and user school_id
     useEffect(() => {
-        const fetchTeachers = async () => {
+        const fetchContext = async () => {
+            // Get user's school_id
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('school_id')
+                    .eq('id', user.id)
+                    .single();
+                if (profile) setUserSchoolId(profile.school_id);
+            }
+
+            // Get teachers
             const { data } = await supabase
                 .from('teachers')
-                .select('id, name, employment_type, available_days, subject_specialization');
+                .select('id, name, employment_type, available_days, subject_specialization, school_id');
             if (data) {
-                setTeachers(data.map(t => t.name)); // Keep existing state for compatibility
-                // Store full teacher data for AI generation
+                setTeachers(data.map(t => t.name));
                 (window as any).__teacherData = data;
             }
         };
-        fetchTeachers();
+        fetchContext();
     }, []);
+
+    // ... (rest of code)
+
+    // In saveIndividualTimetable:
+    // ...
+
+
 
 
     const handleDrop = (day: string, periodIndex: number, e: React.DragEvent<HTMLDivElement>) => {
@@ -437,7 +457,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         try {
             // Bulk save all schedules
             // Using Promise.allSettled to attempt saving all
-            const results = await Promise.all(schedules.map(async (sched) => {
+            const results = await Promise.allSettled(schedules.map(async (sched) => {
                 return saveIndividualTimetable(sched, sched.status || 'Draft');
             }));
 
@@ -455,9 +475,14 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         }
     };
 
-    const handlePublish = async () => {
-        if (!window.confirm("Are you sure you want to publish ALL these timetables? This will make them visible to students/parents.")) return;
+    const [showPublishModal, setShowPublishModal] = useState(false);
 
+    const handlePublishClick = () => {
+        setShowPublishModal(true);
+    };
+
+    const confirmPublish = async () => {
+        setShowPublishModal(false);
         setIsSaving(true);
         try {
             const results = await Promise.all(schedules.map(async (sched) => {
@@ -491,63 +516,62 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 const subject = schedTimetable[key];
                 const teacherName = schedAssignments[key];
 
-                if (subject && teacherName) {
-                    const teacher = (window as any).__teacherData?.find((t: any) => t.name === teacherName);
-                    if (teacher) {
-                        // BACKEND CHECK
-                        const { data: conflictData, error: conflictErr } = await supabase.rpc('check_teacher_conflict', {
-                            p_teacher_id: teacher.id,
-                            p_day: day,
-                            p_start_time: PERIODS[i].start,
-                            p_end_time: PERIODS[i].end,
-                            p_exclude_class_name: className
-                        });
+                if (subject) {
+                    let teacherId = null;
+                    let schoolId = userSchoolId; // Default to user's school_id
 
-                        if (conflictErr) console.error('Error checking conflict:', conflictErr);
-                        else if (conflictData?.conflict) {
-                            // We might want to allow saving Drafts even with conflicts?
-                            // For now, strict check.
-                            if (statusToSave === 'Published') throw new Error(`Conflict for ${className}: ${conflictData.message}`);
+                    if (teacherName) {
+                        const teacher = (window as any).__teacherData?.find((t: any) => t.name === teacherName);
+                        if (teacher) {
+                            teacherId = teacher.id;
+                            schoolId = teacher.school_id || userSchoolId;
+
+                            // BACKEND CHECK
+                            const { data: conflictData, error: conflictErr } = await supabase.rpc('check_teacher_conflict', {
+                                p_teacher_id: teacher.id,
+                                p_day: day,
+                                p_start_time: PERIODS[i].start,
+                                p_end_time: PERIODS[i].end,
+                                p_exclude_class_name: className
+                            });
+
+                            if (conflictErr) console.error('Error checking conflict:', conflictErr);
+                            else if (conflictData?.conflict) {
+                                if (statusToSave === 'Published') throw new Error(`Conflict for ${className}: ${conflictData.message}`);
+                            }
                         }
-
-                        entries.push({
-                            day: day,
-                            period_index: i,
-                            start_time: PERIODS[i].start,
-                            end_time: PERIODS[i].end,
-                            subject,
-                            class_name: className,
-                            teacher_id: teacher.id,
-                            status: statusToSave,
-                            school_id: teacher.school_id
-                        });
                     }
+
+                    // For now, if no teacher found, we still save the subject slot? 
+                    // Or require teacher? The UI allows just subject.
+
+                    entries.push({
+                        day: day,
+                        period_index: i,
+                        start_time: PERIODS[i].start,
+                        end_time: PERIODS[i].end,
+                        subject,
+                        class_name: className,
+                        teacher_id: teacherId,
+                        status: statusToSave,
+                        school_id: schoolId // Ensure this is handled if null (RLS might handle it or default)
+                    });
                 }
             }
         }
 
         // Database interaction (Batch insert via RPC or basic upsert loop)
-        // Since Supabase doesn't have an easy "Replace All for Class" (unless we delete first),
-        // we usually delete existing for this class/term and insert new.
-        // Assuming we have a way to clear old entries.
-
-        // Simple strategy: Delete all draft entries for this class, then insert.
-        // NOTE: This logic assumes 'timetable_entries' table.
-        // Ideally we use a transaction.
-
-        // Since we don't have a specific backend endpoint ready in this snippet context, 
-        // we'll assume a 'save_timetable_entries' RPC exists or we do it raw.
-        // Let's rely on valid logic:
+        // Corrected table name from 'timetable_entries' to 'timetable'
 
         const { error: deleteError } = await supabase
-            .from('timetable_entries')
+            .from('timetable')
             .delete()
             .eq('class_name', className); // Delete ALL for this class (dangerous? should filter by term?)
 
         if (deleteError) throw deleteError;
 
         if (entries.length > 0) {
-            const { error: insertError } = await supabase.from('timetable_entries').insert(entries);
+            const { error: insertError } = await supabase.from('timetable').insert(entries);
             if (insertError) throw insertError;
         }
 
@@ -578,8 +602,13 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
             });
 
             if (result && result.schedule) {
-                setTimetable(result.schedule);
-                setTeacherAssignments(result.assignments);
+                // Update current schedule with AI results
+                const newSchedules = [...schedules];
+                if (newSchedules[activeIndex]) {
+                    newSchedules[activeIndex].timetable = result.schedule;
+                    newSchedules[activeIndex].teacherAssignments = result.assignments;
+                    setSchedules(newSchedules);
+                }
 
                 // Check validation from AI
                 if (result.validation) {
@@ -662,7 +691,13 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         <input
                             type="text"
                             value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
+                            onChange={(e) => {
+                                const newSchedules = [...schedules];
+                                if (newSchedules[activeIndex]) {
+                                    newSchedules[activeIndex].className = e.target.value;
+                                    setSchedules(newSchedules);
+                                }
+                            }}
                             placeholder="e.g. Grade 5A"
                             className="bg-transparent text-sm font-bold text-gray-800 focus:outline-none w-32"
                         />
@@ -679,7 +714,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
 
                         <button
-                            onClick={handlePublish}
+                            onClick={handlePublishClick}
                             disabled={isSaving}
                             className={`flex-shrink-0 px-5 py-2.5 text-sm font-bold rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 ${status === 'Published' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-900 text-white hover:bg-gray-800'}`}
                         >
@@ -693,6 +728,37 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     </div>
                 </div>
             </header>
+
+            {/* Custom Publish Confirmation Modal */}
+            {showPublishModal && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 animate-scale-up border border-gray-100">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <CloudUploadIcon className="w-6 h-6 text-indigo-600" />
+                            </div>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Publish Timetable?</h3>
+                        <p className="text-gray-500 text-center text-sm mb-6">
+                            This will make the timetable visible to all students and parents in <strong>{schedules.map(s => s.className).join(', ')}</strong> immediately.
+                        </p>
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => setShowPublishModal(false)}
+                                className="flex-1 py-3 px-4 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmPublish}
+                                className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                            >
+                                Confirm Publish
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex-grow flex flex-col lg:flex-row overflow-hidden relative">
 
@@ -744,8 +810,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                         key={idx}
                                         onClick={() => setActiveIndex(idx)}
                                         className={`px-6 py-3 font-bold text-sm rounded-t-xl transition-all border-t border-x border-b-0 translate-y-[1px] leading-none ${activeIndex === idx
-                                                ? 'bg-white text-indigo-600 border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.02)]'
-                                                : 'bg-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50/50 border-transparent'
+                                            ? 'bg-white text-indigo-600 border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.02)]'
+                                            : 'bg-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50/50 border-transparent'
                                             }`}
                                     >
                                         {sched.className}

@@ -71,7 +71,7 @@ const StatCard: React.FC<{
             <div className={`mt-2 text-sm font-bold flex items-center space-x-1 ${trendColor}`}>
                 {trend.startsWith('+') ? <ArrowUpIcon className="w-5 h-5" /> : <ArrowDownIcon className="w-5 h-5" />}
                 <span>{trend}</span>
-                <span className="text-white/70 font-medium ml-1">vs last month</span>
+                <span className="text-white/70 font-medium ml-1">last 30 days</span>
             </div>
         </div>
     </button>
@@ -294,8 +294,13 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     }, [schoolId, currentSchool, profile, user]);
 
     const [totalStudents, setTotalStudents] = useState(0);
+    const [studentTrend, setStudentTrend] = useState(0);
+
     const [totalStaff, setTotalStaff] = useState(0);
+    const [teacherTrend, setTeacherTrend] = useState(0);
+
     const [totalParents, setTotalParents] = useState(0);
+    const [parentTrend, setParentTrend] = useState(0);
     const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
     // Additional dashboard data
@@ -410,17 +415,38 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
         if (stats) {
             setTotalStudents(stats.totalStudents);
+            setStudentTrend(stats.studentTrend || 0);
             setTotalStaff(stats.totalTeachers);
+            setTeacherTrend(stats.teacherTrend || 0);
             setTotalParents(stats.totalParents);
+            setParentTrend(stats.parentTrend || 0);
             setOverdueFees(stats.overdueFees);
         }
 
         try {
-            // Fetch recent audit logs (Scoped by school/branch)
-            const auditData = await fetchAuditLogs(4, activeSchoolId, currentBranchId || undefined);
+            // 2. Parallelize all other dashboard data fetches
+            const today = new Date().toISOString().split('T')[0];
+            const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
+            const [
+                auditData,
+                healthRes,
+                studentsDataRes,
+                unpublishedRes,
+                attendanceRes,
+                timetableRes
+            ] = await Promise.all([
+                fetchAuditLogs(4, activeSchoolId, currentBranchId || undefined),
+                supabase.from('health_logs').select('id, reason, time, date, students(name)').eq('school_id', schoolId).order('date', { ascending: false }).order('id', { ascending: false }).limit(1).single(),
+                supabase.from('students').select('created_at').eq('school_id', schoolId),
+                supabase.from('report_cards').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'Submitted'),
+                supabase.from('student_attendance').select('status').eq('school_id', schoolId).eq('date', today),
+                supabase.from('timetable').select('id, start_time, subject, class_name').eq('school_id', schoolId).eq('day', todayName).order('start_time', { ascending: true }).limit(5)
+            ]);
+
+            // 3. Process results
             if (auditData) {
-                const transformed = auditData.map((log: any) => ({
+                setRecentActivities(auditData.map((log: any) => ({
                     id: log.id,
                     user: {
                         name: log.profiles?.name || log.user_name || 'System',
@@ -430,41 +456,21 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     action: log.action,
                     timestamp: log.created_at,
                     type: log.action.toLowerCase() as any
-                }));
-                setRecentActivities(transformed);
+                })));
             }
 
-            // Fetch latest health log
-            const { data: healthData } = await supabase
-                .from('health_logs')
-                .select(`
-                    *,
-                    students(name)
-                `)
-                .eq('school_id', schoolId)
-                .order('date', { ascending: false })
-                .order('id', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (healthData) {
+            if (healthRes.data) {
                 setLatestHealthLog({
-                    studentName: healthData.students?.name || 'Unknown',
-                    reason: healthData.reason,
-                    time: healthData.time,
-                    date: healthData.date
+                    studentName: healthRes.data.students?.name || 'Unknown',
+                    reason: healthRes.data.reason,
+                    time: healthRes.data.time,
+                    date: healthRes.data.date
                 });
             }
 
-            // Calculate enrollment trend
-            const { data: studentsData } = await supabase
-                .from('students')
-                .select('created_at')
-                .eq('school_id', schoolId);
-
-            if (studentsData) {
+            if (studentsDataRes.data) {
                 const yearCounts: { [year: number]: number } = {};
-                studentsData.forEach((s: any) => {
+                studentsDataRes.data.forEach((s: any) => {
                     const year = new Date(s.created_at).getFullYear();
                     yearCounts[year] = (yearCounts[year] || 0) + 1;
                 });
@@ -477,41 +483,17 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 setEnrollmentData(trendData.length > 0 ? trendData : [{ year: new Date().getFullYear(), count: stats?.totalStudents || 0 }]);
             }
 
-            // Fetch unpublished reports count
-            const { count: unpublishedCount } = await supabase
-                .from('report_cards')
-                .select('*', { count: 'exact', head: true })
-                .eq('school_id', schoolId)
-                .eq('status', 'Submitted');
+            setUnpublishedReports(unpublishedRes.count || 0);
 
-            setUnpublishedReports(unpublishedCount || 0);
-
-            // Fetch today's attendance stats
-            const { data: attendanceData } = await supabase
-                .from('student_attendance')
-                .select('status')
-                .eq('school_id', schoolId)
-                .eq('date', new Date().toISOString().split('T')[0]);
-
-            if (attendanceData && attendanceData.length > 0) {
-                const presentCount = attendanceData.filter(a => a.status === 'Present').length;
-                const totalRecorded = attendanceData.length;
-                setAttendancePercentage(Math.round((presentCount / totalRecorded) * 100));
+            if (attendanceRes.data && attendanceRes.data.length > 0) {
+                const presentCount = attendanceRes.data.filter((a: any) => a.status === 'Present').length;
+                setAttendancePercentage(Math.round((presentCount / attendanceRes.data.length) * 100));
             } else {
                 setAttendancePercentage(0);
             }
 
-            // Fetch today's timetable
-            const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-            const { data: timetableData } = await supabase
-                .from('timetable')
-                .select('*')
-                .eq('school_id', schoolId)
-                .eq('day', todayName)
-                .order('start_time', { ascending: true })
-                .limit(5);
+            setTimetablePreview(timetableRes.data || []);
 
-            setTimetablePreview(timetableData || []);
         } catch (err) {
             console.error('Error fetching dashboard data:', err);
         }
@@ -528,9 +510,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         <h2 className="text-2xl font-bold text-white mb-1">Welcome, Admin!</h2>
                         <p className="text-white/80">Here's your school's command center.</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                            <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-sky-400 to-sky-600" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend="+12" trendColor="text-sky-200" />
-                            <StatCard label="Total Teachers" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend="+2" trendColor="text-purple-200" />
-                            <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend="+8" trendColor="text-orange-200" />
+                            <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-sky-400 to-sky-600" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={`+${studentTrend}`} trendColor="text-sky-200" />
+                            <StatCard label="Total Teachers" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={`+${teacherTrend}`} trendColor="text-purple-200" />
+                            <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={`+${parentTrend}`} trendColor="text-orange-200" />
                         </div>
                     </div>
 

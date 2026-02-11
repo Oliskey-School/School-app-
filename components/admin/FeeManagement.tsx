@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
@@ -8,12 +7,14 @@ import { Fee } from '../../types';
 import { fetchAllFees, assignFee } from '../../lib/payments';
 import { Plus, Search, Filter, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { PaymentPlanModal } from './PaymentPlanModal';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 
 const AssignFeeSchema = Yup.object().shape({
   title: Yup.string().required('Title is required'),
   amount: Yup.number().min(100, 'Minimum 100').required('Required'),
   dueDate: Yup.date().required('Due date is required'),
-  studentId: Yup.number().required('Select a student'),
+  studentId: Yup.string().required('Select a student'),
   curriculumType: Yup.string().oneOf(['Nigerian', 'British', 'Dual', 'General']).required('Required')
 });
 
@@ -24,6 +25,9 @@ const FeeManagement: React.FC = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
   const [selectedFee, setSelectedFee] = useState<Fee | null>(null);
+  const { profile } = useProfile();
+  const { currentSchool } = useAuth();
+  const schoolId = profile.schoolId || currentSchool?.id;
 
   useEffect(() => {
     loadData();
@@ -43,27 +47,33 @@ const FeeManagement: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    const [feesData, studentsData] = await Promise.all([
-      fetchAllFees(),
-      supabase.from('students').select('id, name, grade, section')
-    ]);
+    if (schoolId) {
+      const [feesData, studentsData] = await Promise.all([
+        fetchAllFees(schoolId),
+        supabase.from('students').select('id, name, grade, section').eq('school_id', schoolId)
+      ]);
 
-    setFees(feesData);
-    if (studentsData.data) setStudents(studentsData.data);
+      setFees(feesData);
+      if (studentsData.data) setStudents(studentsData.data);
+    }
     setLoading(false);
   };
 
   const handleAssign = async (values: any, { resetForm }: any) => {
     try {
+      if (!schoolId) {
+        toast.error("School ID not found. Please ensure you are logged in correctly.");
+        return;
+      }
       const newFee = await assignFee({
-        studentId: parseInt(values.studentId),
+        studentId: values.studentId,
         title: values.title,
         description: values.description,
         amount: parseFloat(values.amount),
         dueDate: values.dueDate,
         type: 'Tuition',
         curriculumType: values.curriculumType
-      });
+      }, schoolId);
 
       // Send fee assignment notification
       try {

@@ -5,10 +5,12 @@ import { AdminBottomNav } from '../ui/DashboardBottomNav';
 import { AdminSidebar } from '../ui/DashboardSidebar';
 import PremiumLoader from '../ui/PremiumLoader';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { syncEngine } from '../../lib/syncEngine';
 import { DashboardType } from '../../types';
-// import { realtimeService } from '../../services/RealtimeService';
+import { realtimeService } from '../../services/RealtimeService';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
 // Lazy load all admin screens
 const DashboardOverview = lazy(() => import('../admin/DashboardOverview'));
@@ -125,9 +127,9 @@ type ViewStackItem = {
 };
 
 interface AdminDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
-    currentUser: any;
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
 }
 
 const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
@@ -187,36 +189,25 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
 
 
     // Real-time Service Integration
-    // Real-time Service Integration Removed
-    /*
     useEffect(() => {
-        const userId = currentUser?.id;
-        const schoolId = currentUser?.user_metadata?.school_id || 'default-school';
-    
-        if (userId) {
-            // Subscribe to user notifications
-            realtimeService.subscribeToNotifications(userId, (notif) => {
-                toast(notif.message || notif.content || 'New Update Received', {
-                    icon: '🔔',
-                    duration: 4000
-                });
-                forceUpdate(); // Re-render to show new data indicators
-            });
-    
-            // Subscribe to school-wide transactions
-            realtimeService.subscribeToTransactions(schoolId, (transaction) => {
-                toast.success(`Payment Received: ${transaction.amount} ${transaction.currency}`, {
-                    duration: 5000
-                });
+        const userId = user?.id;
+        const schoolId = currentSchool?.id;
+
+        if (userId && schoolId) {
+            realtimeService.initialize(userId, schoolId);
+
+            const handleUpdate = () => {
                 forceUpdate();
-            });
+            };
+
+            (syncEngine as any).on('realtime-update', handleUpdate);
+
+            return () => {
+                (syncEngine as any).off('realtime-update', handleUpdate);
+                realtimeService.destroy();
+            };
         }
-    
-        return () => {
-            realtimeService.unsubscribeAll();
-        };
-    }, [currentUser]);
-    */
+    }, [user, currentSchool?.id]);
 
     // ... (AnalyticsWrapper)
     const AnalyticsWrapper = (props: any) => (
@@ -338,24 +329,19 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
         idCardManagement: IDCardManagement,
     };
 
-    const [notificationCount, setNotificationCount] = useState(0);
+    const notificationCount = useRealtimeNotifications('admin');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-    // ... (User & Notification Logic - Keep Existing)
     useEffect(() => {
         const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
-                setCurrentUserId(userData ? userData.id : '0');
+                setCurrentUserId(userData ? userData.id : (user.id as any));
             }
         };
         getUser();
     }, []);
-
-    useEffect(() => {
-        // ... (Keep existing notification subscription logic)
-    }, [currentUserId]);
 
 
     // Header Avatar
@@ -468,7 +454,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
                     customId={user?.user_metadata?.custom_id || user?.app_metadata?.custom_id}
                 />
 
-                <div className="flex-1 overflow-y-auto pb-56 lg:pb-0">
+                <div className="flex-1 overflow-y-auto pb-24 lg:pb-0">
                     <div className="min-h-full">
                         {/* ErrorBoundary removed */}
                         <Suspense fallback={<PremiumLoader message="Loading admin workspace..." />}>

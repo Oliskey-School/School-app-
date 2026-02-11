@@ -56,7 +56,7 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
 
             // 1. Upload to Supabase Storage
             const { error: uploadError } = await supabase.storage
-                .from('lesson-materials')
+                .from('resources')
                 .upload(filePath, file, {
                     cacheControl: '3600',
                     upsert: false
@@ -68,7 +68,7 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
 
             // 2. Get Public URL
             const { data: { publicUrl } } = supabase.storage
-                .from('lesson-materials')
+                .from('resources')
                 .getPublicUrl(filePath);
 
             // 3. Insert into Resources Table

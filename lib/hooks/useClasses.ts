@@ -92,7 +92,6 @@ export function useClasses(schoolId?: string): UseClassesResult {
                     grade: classData.grade,
                     section: classData.section,
                     department: classData.department,
-                    student_count: classData.studentCount,
                 }])
                 .select()
                 .single();
@@ -121,7 +120,6 @@ export function useClasses(schoolId?: string): UseClassesResult {
                     grade: updates.grade,
                     section: updates.section,
                     department: updates.department,
-                    student_count: updates.studentCount,
                 })
                 .eq('id', id)
                 .select()
@@ -176,5 +174,5 @@ const transformSupabaseClass = (c: any): ClassInfo => ({
     grade: c.grade,
     section: c.section,
     department: c.department,
-    studentCount: c.student_count,
+    studentCount: 0,
 });

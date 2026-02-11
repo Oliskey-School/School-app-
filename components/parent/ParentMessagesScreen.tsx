@@ -21,9 +21,9 @@ const formatTimestamp = (isoDate: string): string => {
 
 interface ParentMessagesScreenProps {
     navigateTo?: (view: string, title: string, props?: any) => void;
-    parentId?: number | null;
+    parentId?: string | null;
     onSelectChat?: (conversation: any) => void;
-    currentUserId?: number;
+    currentUserId?: string;
 }
 
 const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo, parentId, onSelectChat, currentUserId }) => {
@@ -292,8 +292,8 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
                 <div className="flex-grow h-full bg-gray-50 hidden md:block">
                     <React.Suspense fallback={<div className="h-full flex items-center justify-center">Loading...</div>}>
                         <ChatScreen
-                            conversationId={selectedRoomId!}
-                            currentUserId={parentId!}
+                            conversationId={String(selectedRoomId!)}
+                            currentUserId={myId!}
                             roomDetails={selectedRoom}
                         />
                     </React.Suspense>

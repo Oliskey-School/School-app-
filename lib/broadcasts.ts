@@ -75,12 +75,10 @@ export async function fetchBroadcasts(): Promise<EmergencyBroadcast[]> {
 
     return data.map((b: any) => ({
         id: b.id,
-        title: b.title,
         message: b.message,
-        senderId: b.sender_id,
-        audience: b.audience,
-        channels: b.channels,
-        deliveryStats: b.delivery_stats,
-        createdAt: b.created_at
+        type: 'general', // Default type as DB might not store it yet
+        sentAt: b.created_at,
+        sentBy: b.sender_id,
+        targetAudience: Array.isArray(b.audience) ? b.audience : [b.audience]
     }));
 }

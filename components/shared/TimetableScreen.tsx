@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { SUBJECT_COLORS, CalendarIcon, ChevronLeftIcon, RefreshIcon } from '../../constants';
+import { getGradeDisplayName } from '../../lib/schoolSystem';
 import { TimetableEntry } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { offlineStorage } from '../../lib/offlineStorage';
@@ -157,7 +158,10 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                     const { data: student } = await studentQuery.maybeSingle();
 
                     if (student) {
-                        targetClassName = `${student.grade}${student.section}`;
+                        const gradeName = getGradeDisplayName(student.grade);
+                        targetClassName = gradeName;
+                        // Optional: Append section if necessary, but keep broad for now to match 'SSS 1'
+                        // if (student.section) targetClassName += ` ${student.section}`;
                     }
                 }
 

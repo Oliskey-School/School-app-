@@ -309,7 +309,7 @@ export const generateInvoice = async (data: InvoiceData): Promise<void> => {
 /**
  * Generate unique invoice number
  */
-export const generateInvoiceNumber = (feeId: number, studentId: number): string => {
+export const generateInvoiceNumber = (feeId: string, studentId: string): string => {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

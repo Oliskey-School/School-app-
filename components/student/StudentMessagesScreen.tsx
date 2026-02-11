@@ -20,7 +20,7 @@ const formatTimestamp = (isoDate: string): string => {
 
 interface StudentMessagesScreenProps {
     navigateTo?: (view: string, title: string, props?: any) => void;
-    studentId?: number; // Made optional to support MessagingLayout which might need to pass it
+    studentId?: string; // Made optional to support MessagingLayout which might need to pass it
     onSelectChat?: (conversation: any) => void;
 }
 
@@ -284,7 +284,7 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
                     {/* I will use a dynamic load here just to be safe if I didn't add import top */}
                     <React.Suspense fallback={<div className="h-full flex items-center justify-center">Loading...</div>}>
                         <ChatScreen
-                            conversationId={selectedRoomId!}
+                            conversationId={String(selectedRoomId!)}
                             currentUserId={studentId!}
                             roomDetails={selectedRoom}
                         />

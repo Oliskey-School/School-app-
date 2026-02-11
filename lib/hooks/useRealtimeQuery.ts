@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabase';
-import { RealtimeChannel, PostgrestFilterBuilder } from '@supabase/supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface UseRealtimeQueryOptions<T> {
     table: string;
     select?: string;
-    filter?: (query: PostgrestFilterBuilder<any, any, any>) => PostgrestFilterBuilder<any, any, any>;
+    filter?: (query: any) => any;
     orderBy?: { column: string; ascending?: boolean };
     enabled?: boolean;
     onInsert?: (record: T) => void;

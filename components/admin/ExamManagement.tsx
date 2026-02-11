@@ -15,13 +15,13 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>('all');
     const [selectedCurriculum, setSelectedCurriculum] = useState<string>('all');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [examToDelete, setExamToDelete] = useState<number | null>(null);
+    const [examToDelete, setExamToDelete] = useState<string | null>(null);
 
     const filteredExams = useMemo(() => {
         let exams = [...mockExamsData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         if (selectedTeacherId !== 'all') {
-            exams = exams.filter(exam => exam.teacherId === parseInt(selectedTeacherId, 10));
+            exams = exams.filter(exam => exam.teacherId === selectedTeacherId);
         }
 
         if (selectedCurriculum !== 'all') {
@@ -51,7 +51,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
         });
     };
 
-    const confirmDelete = (examId: number) => {
+    const confirmDelete = (examId: string) => {
         setExamToDelete(examId);
         setShowDeleteModal(true);
     };
@@ -71,7 +71,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
         setExamToDelete(null);
     };
 
-    const handlePublish = (examId: number) => {
+    const handlePublish = (examId: string) => {
         const index = mockExamsData.findIndex(e => e.id === examId);
         if (index > -1) {
             mockExamsData[index].isPublished = true;
@@ -83,8 +83,8 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
     const handleAddNew = () => {
         navigateTo('addExam', 'Add New Exam', {
             onSave: (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
-                const newId = Math.max(0, ...mockExamsData.map(e => e.id)) + 1;
-                const teacherId = selectedTeacherId === 'all' ? undefined : parseInt(selectedTeacherId, 10);
+                const newId = Math.random().toString(36).substring(2);
+                const teacherId = selectedTeacherId === 'all' ? undefined : selectedTeacherId;
                 mockExamsData.unshift({ id: newId, ...examData, isPublished: false, teacherId });
                 forceUpdate();
                 handleBack();

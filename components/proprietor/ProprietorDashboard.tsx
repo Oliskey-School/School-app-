@@ -305,7 +305,7 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
                     customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
                 />
 
-                <main className="flex-1 overflow-y-auto bg-gray-50 pb-56 lg:pb-6">
+                <main className="flex-1 overflow-y-auto bg-gray-50 pb-24 lg:pb-6">
                     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
                         {renderContent()}
                     </div>

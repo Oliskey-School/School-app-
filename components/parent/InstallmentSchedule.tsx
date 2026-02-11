@@ -8,7 +8,7 @@ import { getPaymentPlan, Installment, PaymentPlan } from '../../lib/payment-plan
 import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 interface InstallmentScheduleProps {
-    feeId: number;
+    feeId: string;
     onPayInstallment: (installment: Installment) => void;
 }
 

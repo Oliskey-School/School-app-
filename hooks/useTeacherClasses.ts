@@ -6,6 +6,34 @@ import { getFormattedClassName } from '../constants';
 
 import { ClassInfo } from '../types';
 
+const parseClassName = (name: string) => {
+    const clean = name.trim();
+    let grade = 0;
+    let section = '';
+
+    const standardMatch = clean.match(/^(?:Grade|Year)?\s*(\d+)\s*(.*)$/i);
+    const jsMatch = clean.match(/^JSS\s*(\d+)\s*(.*)$/i);
+    const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i);
+    const primaryMatch = clean.match(/^Primary\s*(\d+)\s*(.*)$/i);
+
+    if (standardMatch) {
+        grade = parseInt(standardMatch[1]);
+        section = standardMatch[2];
+    } else if (jsMatch) {
+        grade = 6 + parseInt(jsMatch[1]);
+        section = jsMatch[2];
+    } else if (ssMatch) {
+        grade = 9 + parseInt(ssMatch[1]);
+        section = ssMatch[2];
+    } else if (primaryMatch) {
+        grade = parseInt(primaryMatch[1]);
+        section = primaryMatch[2];
+    }
+
+    section = section.replace(/^[-–]\s*/, '').trim();
+    return { grade, section };
+};
+
 export const useTeacherClasses = (teacherId?: string | null) => {
     const { profile } = useProfile();
     const { user } = useAuth();
@@ -15,82 +43,129 @@ export const useTeacherClasses = (teacherId?: string | null) => {
 
     useEffect(() => {
         const fetchClasses = async () => {
-            // ... (Teacher ID resolution remains same) ...
-            // Simplified Teacher ID Resolution for brevity in this replace block, 
-            // but assuming we keep the existing logic, I will focus on the MATCHING part below.
+            // 1. Resolve Teacher ID (Row ID, not Auth UID)
+            let resolvedTeacherId = teacherId;
 
-            let resolvedTeacherId = teacherId || profile?.id; // simplified local var for context
-            if (!resolvedTeacherId && (profile?.email || user?.email)) {
-                // Quick fetch by email if ID missing
-                const { data } = await supabase.from('teachers').select('id').eq('email', profile?.email || user?.email).maybeSingle();
-                if (data) resolvedTeacherId = data.id;
+            // If no teacherId provided, look up by profile.id (which is user_id) or email
+            if (!resolvedTeacherId) {
+                const { data: teacherRow } = await supabase
+                    .from('teachers')
+                    .select('id')
+                    .or(`user_id.eq.${profile?.id || user?.id},email.eq.${profile?.email || user?.email}`)
+                    .maybeSingle();
+
+                if (teacherRow) resolvedTeacherId = teacherRow.id;
             }
 
             if (!resolvedTeacherId) {
+                console.warn('⚠️ Could not resolve teacher ID for classes hook');
                 setLoading(false);
                 return;
             }
 
             setLoading(true);
             try {
-                // 2. Fetch Assignments
+                // 2. Fetch Assignments via class_teachers (modern table)
                 const { data: assignments, error: assignmentError } = await supabase
-                    .from('teacher_classes')
-                    .select('class_name, id')
+                    .from('class_teachers')
+                    .select(`
+                        class_id,
+                        classes (
+                            id,
+                            name,
+                            grade,
+                            section,
+                            school_id
+                        )
+                    `)
                     .eq('teacher_id', resolvedTeacherId);
 
                 if (assignmentError) throw assignmentError;
 
-                const assignedClassNames = assignments?.map(a => a.class_name) || [];
-
-                // 3. Fetch ALL classes
-                const { data: classesData, error: classesError } = await supabase
-                    .from('classes')
-                    .select('*')
-                    .order('grade', { ascending: true });
-
-                if (classesError) throw classesError;
-
-
                 const finalClasses: ClassInfo[] = [];
                 const addedKeys = new Set<string>();
 
-                // Helper to normalize strings: remove spaces, lowercase
-                const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+                (assignments || []).forEach((assignment: any) => {
+                    const c = assignment.classes;
+                    if (!c) return;
 
-                (classesData || []).forEach((c: any) => {
-                    // DB Class Name construction suggestion
-                    const dbName1 = `Grade ${c.grade} ${c.section || ''}`.trim();
-                    const dbName2 = `Primary ${c.grade} ${c.section || ''}`.trim();
-                    const dbName3 = (c.grade >= 7 && c.grade <= 9) ? `JSS ${c.grade - 6} ${c.section || ''}`.trim() : `JSS ${c.grade} ${c.section || ''}`.trim();
-                    const dbName4 = (c.grade >= 10 && c.grade <= 12) ? `SSS ${c.grade - 9} ${c.section || ''}`.trim() : `SSS ${c.grade} ${c.section || ''}`.trim();
-
-                    // Strict matching to prevent "Grade 10" matching "Grade 1"
-                    const isMatch = assignedClassNames.some(assignedName => {
-                        const normAssigned = normalize(assignedName);
-                        // Check for exact matches against normalized variants
-                        return normAssigned === normalize(dbName1) ||
-                            normAssigned === normalize(dbName2) ||
-                            normAssigned === normalize(dbName3) ||
-                            normAssigned === normalize(dbName4) ||
-                            normAssigned === `${c.grade}${normalize(c.section || '')}`;
-                    });
-
-                    if (isMatch) {
-                        const key = `${c.grade}-${c.section}`;
-                        if (!addedKeys.has(key)) {
-                            finalClasses.push({
-                                id: c.id,
-                                grade: c.grade,
-                                section: c.section,
-                                subject: 'General', // We can improve subject extraction later if needed
-                                studentCount: 0,
-                                schoolId: c.school_id
-                            });
-                            addedKeys.add(key);
-                        }
+                    const key = `${c.grade}-${c.section}`;
+                    if (!addedKeys.has(key)) {
+                        finalClasses.push({
+                            id: c.id,
+                            grade: c.grade,
+                            section: c.section || '',
+                            subject: 'General',
+                            studentCount: 0,
+                            schoolId: c.school_id
+                        });
+                        addedKeys.add(key);
                     }
                 });
+
+                // 3. Fetch assignments via teacher_classes (Legacy String based)
+                const { data: legacyAssignments, error: legacyError } = await supabase
+                    .from('teacher_classes')
+                    .select('class_name')
+                    .eq('teacher_id', resolvedTeacherId);
+
+                if (legacyError) console.warn('Error fetching legacy classes:', legacyError);
+
+                // 4. Resolve Legacy Classes
+                if (legacyAssignments && legacyAssignments.length > 0) {
+                    // Fetch all classes for this school to match against
+                    // We need schoolId. Try profile.schoolId or infer from existing classes
+                    let targetSchoolId = profile?.schoolId;
+
+                    // If we don't have schoolId from profile, try to get it from the first resolved class
+                    if (!targetSchoolId && finalClasses.length > 0) {
+                        targetSchoolId = finalClasses[0].schoolId;
+                    }
+
+                    if (targetSchoolId) {
+                        const { data: allClasses } = await supabase
+                            .from('classes')
+                            .select('id, name, grade, section, school_id')
+                            .eq('school_id', targetSchoolId);
+
+                        if (allClasses) {
+                            const normalize = (s: string) => s.replace(/Grade|Year|JSS|SSS|SS|\s/gi, '').toUpperCase();
+
+                            legacyAssignments.forEach((legacy: any) => {
+                                const name = legacy.class_name;
+                                if (!name) return;
+
+                                // Try to find a match in allClasses
+                                // Strategy 1: Exact string match on name (unlikely but possible)
+                                // Strategy 2: Parse Grade/Section and match
+
+                                const parsed = parseClassName(name); // Need to define this helper
+
+                                const match = allClasses.find(c => {
+                                    if (c.name === name) return true;
+                                    if (c.grade === parsed.grade &&
+                                        normalize(c.section || '') === normalize(parsed.section)) return true;
+                                    return false;
+                                });
+
+                                if (match) {
+                                    const key = `${match.grade}-${match.section}`;
+                                    if (!addedKeys.has(key)) {
+                                        finalClasses.push({
+                                            id: match.id,
+                                            grade: match.grade,
+                                            section: match.section || '',
+                                            subject: 'General',
+                                            studentCount: 0,
+                                            schoolId: match.school_id
+                                        });
+                                        addedKeys.add(key);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
 
                 setClasses(finalClasses);
 

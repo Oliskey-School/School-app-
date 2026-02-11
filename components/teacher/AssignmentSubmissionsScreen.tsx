@@ -174,7 +174,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
     const gradedCount = submissions.filter(s => s.status === 'Graded').length;
     const ungradedCount = submissions.length - gradedCount;
 
-    const handleGradeSubmission = async (submissionId: number, grade: number, feedback: string) => {
+    const handleGradeSubmission = async (submissionId: string, grade: number, feedback: string) => {
         try {
             const { error } = await supabase
                 .from('submissions')
@@ -186,6 +186,34 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                 .eq('id', submissionId);
 
             if (error) throw error;
+
+            if (error) throw error;
+
+            // Send Notification to Student
+            const submission = submissions.find(s => s.id === submissionId);
+            if (submission) {
+                const studentProfile = allClassStudents.find(s => s.id === submission.student.id);
+                // @ts-ignore - user_id might not be in Student type definition but is fetched
+                const studentUserId = studentProfile?.user_id;
+
+                if (studentUserId) {
+                    const { error: notifError } = await supabase
+                        .from('notifications')
+                        .insert({
+                            user_id: studentUserId, // The auth user ID of the student
+                            category: 'Homework',
+                            title: 'Assignment Graded',
+                            summary: `Your assignment for ${assignment.title} has been graded. Score: ${grade}/100`,
+                            timestamp: new Date().toISOString(),
+                            is_read: false,
+                            audience: ['student'],
+                            student_id: submission.student.id,
+                            related_id: assignment.id // Link to assignment
+                        });
+
+                    if (notifError) console.error("Failed to send notification:", notifError);
+                }
+            }
 
             // Optimistic update
             setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, grade, feedback, status: 'Graded' } : s));

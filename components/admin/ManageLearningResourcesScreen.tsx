@@ -223,7 +223,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onUploadComplete={fetchResources}
-                teacherId={1} // TODO: Get actual logged in teacher ID
+                teacherId={'1'} // TODO: Get actual logged in teacher ID
             />
 
             <ConfirmationModal

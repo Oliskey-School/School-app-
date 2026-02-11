@@ -24,12 +24,18 @@ import {
 // STUDENTS
 // ============================================
 
-export async function fetchStudents(): Promise<Student[]> {
+export async function fetchStudents(schoolId?: string): Promise<Student[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('students')
-            .select('*')
+            .select('id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday, school_id')
             .order('grade', { ascending: false });
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -473,14 +479,20 @@ export async function deleteTeacher(id: string | number): Promise<boolean> {
 // PARENTS
 // ============================================
 
-export async function fetchParents(): Promise<Parent[]> {
+export async function fetchParents(schoolId?: string): Promise<Parent[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('parents')
             .select(`
-        *,
-        parent_children(student_id)
-      `);
+                id, school_generated_id, name, email, phone, avatar_url, school_id, user_id,
+                parent_children(student_id)
+            `);
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 

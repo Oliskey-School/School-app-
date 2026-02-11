@@ -35,7 +35,8 @@ import GlobalSearchScreen from '../shared/GlobalSearchScreen';
 
 import { supabase } from '../../lib/supabase';
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
-// import { realtimeService } from '../../services/RealtimeService';
+import { realtimeService } from '../../services/RealtimeService';
+import { syncEngine } from '../../lib/syncEngine';
 import { toast } from 'react-hot-toast';
 
 // Import all view components
@@ -441,158 +442,9 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo, schoolId, currentB
     );
 };
 
-const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, currentBranchId }: { navigateTo: (view: string, title: string, props?: any) => void, parentId?: string | null, currentUser?: any, version?: number, schoolId?: string, currentBranchId?: string | null }) => {
+const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, currentBranchId, students, loading, forceUpdate }: { navigateTo: (view: string, title: string, props?: any) => void, parentId?: string | null, currentUser?: any, version?: number, schoolId?: string, currentBranchId?: string | null, students: Student[], loading: boolean, forceUpdate: () => void }) => {
     const theme = THEME_CONFIG[DashboardType.Parent];
-    const [students, setStudents] = useState<Student[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchChildren = async () => {
-            const fetchStudents = async (ids: string[]) => {
-                const { data: studentsData, error: studentsError } = await supabase
-                    .from('students')
-                    .select('*')
-                    .eq('school_id', schoolId)
-                    .in('id', ids);
-
-                if (studentsError) throw studentsError;
-
-                // Fetch Related Data for all students in parallel
-                const studentsWithData = await Promise.all(studentsData.map(async (s: any) => {
-                    // 1. Academic Performance
-                    const { data: academicData } = await supabase
-                        .from('academic_performance')
-                        .select('*')
-                        .eq('school_id', schoolId)
-                        .eq('student_id', s.id);
-
-                    // 2. Behavior Records (Scoped)
-                    const { data: behaviorData } = await supabase
-                        .from('behavior_records')
-                        .select('*')
-                        .eq('school_id', schoolId)
-                        .eq('student_id', s.id)
-                        .order('date', { ascending: false });
-
-                    // 3. Report Cards (Scoped)
-                    const { data: reportCardsData } = await supabase
-                        .from('report_cards')
-                        .select('*')
-                        .eq('school_id', schoolId)
-                        .eq('student_id', s.id)
-                        .eq('status', 'Published') // Only published for parents
-                        .order('created_at', { ascending: false });
-
-                    return {
-                        id: s.id,
-                        name: s.name,
-                        email: s.user?.email || '',
-                        avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
-                        grade: s.grade,
-                        section: s.section,
-                        department: s.department,
-                        attendanceStatus: s.attendance_status || 'Present',
-                        birthday: s.birthday,
-                        schoolGeneratedId: s.school_generated_id,
-
-                        // Map Real Data
-                        academicPerformance: academicData?.map((a: any) => ({
-                            subject: a.subject,
-                            score: a.total || a.score, // Handle potential schema diff
-                            term: a.term,
-                            teacherRemark: a.remark
-                        })) || [],
-
-                        behaviorNotes: behaviorData?.map((b: any) => ({
-                            id: b.id,
-                            date: b.date,
-                            type: b.type,
-                            title: b.title,
-                            note: b.description || '',
-                            by: b.reporter_name || 'Teacher',
-                            suggestions: b.suggestions || []
-                        })) || [],
-
-                        reportCards: reportCardsData?.map((r: any) => ({
-                            term: r.term,
-                            session: r.session,
-                            academicRecords: academicData && academicData.length > 0
-                                ? academicData.filter((a: any) => a.term === r.term && a.session === r.session).map((a: any) => ({
-                                    subject: a.subject,
-                                    ca: a.ca || 0,
-                                    exam: a.exam || 0,
-                                    total: a.total || a.score,
-                                    grade: a.grade || 'N/A',
-                                    remark: a.remark || ''
-                                }))
-                                : [], // If no detailed records, might rely on summary or fetch specifically. 
-                            // Logic assumes academic_performance held the details.
-                            skills: {}, // Placeholder as schema doesn't have skills table yet (Phase 2)
-                            psychomotor: {},
-                            attendance: {
-                                total: r.attendance_total || 0,
-                                present: r.attendance_present || 0,
-                                absent: r.attendance_absent || 0,
-                                late: r.attendance_late || 0
-                            },
-                            teacherComment: r.teacher_comment || '',
-                            principalComment: r.principal_comment || '',
-                            status: r.status
-                        })) || []
-                    };
-                }));
-
-                setStudents(studentsWithData);
-            };
-
-            try {
-                const effectiveParentId = (currentUser as any)?.id || parentId;
-
-                if (!effectiveParentId) {
-                    setLoading(false);
-                    return;
-                }
-
-                // Get Children IDs using secure link table
-                const { data: relations, error: relationError } = await supabase
-                    .from('student_parent_links')
-                    .select('student_user_id')
-                    .eq('school_id', schoolId)
-                    .eq('parent_user_id', effectiveParentId);
-
-                if (relationError) throw relationError;
-
-                if (relations && relations.length > 0) {
-                    // Fetch student record IDs based on the user IDs from the link table
-                    const userIds = relations.map((r: any) => r.student_user_id);
-                    const { data: studentsData } = await supabase
-                        .from('students')
-                        .select('id')
-                        .eq('school_id', schoolId)
-                        .in('user_id', userIds);
-
-                    if (studentsData && studentsData.length > 0) {
-                        const ids = studentsData.map((s: any) => s.id);
-                        await fetchStudents(ids);
-                    } else {
-                        setStudents([]);
-                    }
-                } else {
-                    setStudents([]);
-                }
-
-            } catch (err) {
-                // Silent fail or warn in dev
-                if (import.meta.env.DEV) console.warn("Error fetching children:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-
-
-        fetchChildren();
-    }, [parentId, version]);
 
     const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -618,111 +470,70 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, curre
     useEffect(() => {
         const fetchStats = async () => {
             if (students.length === 0) return;
+            const ids = students.map(s => s.id);
 
-            const stats = await Promise.all(students.map(async (student) => {
-                // Fee - Query from fees table (not student_fees)
-                const { data: feesData } = await supabase
-                    .from('fees')
-                    .select('*')
-                    .eq('school_id', schoolId)
-                    .eq('student_id', student.id)
-                    .in('status', ['pending', 'partial'])
-                    .order('due_date', { ascending: true });
+            try {
+                // 1. Parallel fetch all required data for all children
+                const today = new Date().toISOString();
+                const [allFees, allAttendance, allAssignments] = await Promise.all([
+                    supabase.from('fees').select('*').eq('school_id', schoolId).in('student_id', ids).in('status', ['pending', 'partial']).order('due_date', { ascending: true }),
+                    supabase.from('student_attendance').select('student_id, status').eq('school_id', schoolId).in('student_id', ids),
+                    supabase.from('assignments').select('*').eq('school_id', schoolId).gt('due_date', today).order('due_date', { ascending: true })
+                ]);
 
-                const feeInfo = feesData && feesData.length > 0 ? {
-                    totalDue: feesData.reduce((sum, fee) => sum + (fee.amount - (fee.paid_amount || 0)), 0),
-                    nextDueDate: feesData[0]?.due_date,
-                    status: feesData[0]?.status || 'pending',
-                    count: feesData.length
-                } : null;
+                // 2. Map data to each student
+                const stats = students.map(student => {
+                    // Fees for this student
+                    const studentFees = (allFees.data || []).filter((f: any) => f.student_id === student.id);
+                    const feeInfo = studentFees.length > 0 ? {
+                        totalDue: studentFees.reduce((sum: number, fee: any) => sum + (fee.amount - (fee.paid_amount || 0)), 0),
+                        nextDueDate: studentFees[0]?.due_date,
+                        status: studentFees[0]?.status || 'pending',
+                        count: studentFees.length
+                    } : null;
 
-                // Attendance %
-                const { count: totalAtt } = await supabase
-                    .from('student_attendance')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('school_id', schoolId)
-                    .eq('student_id', student.id);
+                    // Attendance for this student
+                    const studentAtt = (allAttendance.data || []).filter((a: any) => a.student_id === student.id);
+                    const presentCount = studentAtt.filter((a: any) => a.status === 'Present').length;
+                    const attendancePercentage = studentAtt.length > 0 ? Math.round((presentCount / studentAtt.length) * 100) : 0;
 
-                const { count: presentAtt } = await supabase
-                    .from('student_attendance')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('school_id', schoolId)
-                    .eq('student_id', student.id)
-                    .eq('status', 'Present');
+                    // Homework for this student (matching class/section)
+                    const nextHomework = (allAssignments.data || []).find((a: any) =>
+                        a.class_name?.toLowerCase().includes(String(student.grade).toLowerCase()) &&
+                        a.class_name?.toLowerCase().includes(String(student.section).toLowerCase())
+                    );
 
-                const attendancePercentage = totalAtt && totalAtt > 0 ? Math.round(((presentAtt || 0) / totalAtt) * 100) : 0;
+                    return {
+                        student,
+                        feeInfo,
+                        nextHomework: nextHomework ? { subject: nextHomework.subject, title: nextHomework.title } : null,
+                        attendancePercentage
+                    };
+                });
 
-                // Next Homework
-                const { data: homework } = await supabase
-                    .from('assignments')
-                    .select('*')
-                    .or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`)
-                    .eq('school_id', schoolId)
-                    .gt('due_date', new Date().toISOString())
-                    .order('due_date', { ascending: true })
-                    .limit(1)
-                    .single();
-
-                return {
-                    student,
-                    feeInfo,
-                    nextHomework: homework ? { subject: homework.subject, title: homework.title } : null,
-                    attendancePercentage
-                };
-            }));
-
-            setChildrenStats(stats);
+                setChildrenStats(stats);
+            } catch (err) {
+                console.error("Error batch fetching dashboard stats:", err);
+            }
         };
 
         fetchStats();
 
-        // Real-time subscriptions for updates
-        const studentIds = students.map(s => s.id);
+        // Real-time Service Integration
+        if (currentUser?.id && schoolId) {
+            realtimeService.initialize(currentUser.id, schoolId);
 
-        // Subscribe to fee updates
-        const feeChannel = supabase.channel('parent_fees_realtime')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'student_fees',
-                filter: `student_id=in.(${studentIds.join(',')})`
-            }, () => {
-                console.log('Fee update received, refreshing...');
-                fetchStats(); // Refresh stats when fees change
-            })
-            .subscribe();
+            const handleRealtimeUpdate = (event: any) => {
+                console.log('📢 ParentDashboard: Real-time update received', event);
+                fetchStats();
+                forceUpdate();
+            };
 
-        // Subscribe to attendance updates
-        const attendanceChannel = supabase.channel('parent_attendance_realtime')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'student_attendance',
-                filter: `student_id=in.(${studentIds.join(',')})`
-            }, () => {
-                console.log('Attendance update received, refreshing...');
-                fetchStats(); // Refresh stats when attendance changes
-            })
-            .subscribe();
-
-        // Subscribe to fees table updates (new fee assignments)
-        const feesChannel = supabase.channel('parent_fees_table_realtime')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'fees',
-                filter: `student_id=in.(${studentIds.join(',')})`
-            }, () => {
-                console.log('New fee assigned, refreshing...');
-                fetchStats(); // Refresh when new fees are assigned
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(feeChannel);
-            supabase.removeChannel(attendanceChannel);
-            supabase.removeChannel(feesChannel);
-        };
+            window.addEventListener('realtime-update' as any, handleRealtimeUpdate);
+            return () => {
+                window.removeEventListener('realtime-update' as any, handleRealtimeUpdate);
+            };
+        }
     }, [students]);
 
     const quickAccessItems = [
@@ -739,26 +550,29 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, curre
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
+                    {/* School Utilities at the top for parents */}
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-800">School Utilities</h3>
+                            <button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="text-sm text-blue-600 hover:text-blue-800 font-medium">View All</button>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {quickAccessItems.map((item) => (
+                                <button key={item.label} onClick={item.action} className="bg-gray-50 p-4 rounded-xl flex flex-col items-center justify-center space-y-2 hover:bg-gray-100 transition-all active:scale-95 border border-transparent hover:border-gray-200">
+                                    <div className="text-blue-600">{item.icon}</div>
+                                    <span className="font-semibold text-gray-700 text-center text-xs">{item.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {childrenStats.map((data, index) => (
                         <ChildStatCard key={data.student.id} data={data} navigateTo={navigateTo} colorTheme={childColorThemes[index % childColorThemes.length]} />
                     ))}
                 </div>
                 {/* Sidebar */}
                 <div className="lg:col-span-1 space-y-6">
-                    <div>
-                        <div className="flex justify-between items-center mb-2 px-1">
-                            <h3 className="text-lg font-bold text-gray-800">School Utilities</h3>
-                            <button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="text-sm text-blue-600 hover:text-blue-800 font-medium">View All</button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            {quickAccessItems.map((item) => (
-                                <button key={item.label} onClick={item.action} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2 hover:bg-gray-100 transition-colors">
-                                    <div className="text-gray-600">{item.icon}</div>
-                                    <span className="font-semibold text-gray-700 text-center text-xs">{item.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    {/* Potential future sidebar content can go here */}
                 </div>
             </div>
         </div>
@@ -766,9 +580,9 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, curre
 };
 
 interface ParentDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
-    currentUser: any;
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
 }
 
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
@@ -787,6 +601,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         name: 'Parent',
         avatarUrl: 'https://i.pravatar.cc/150?u=parent'
     });
+    const [students, setStudents] = useState<Student[]>([]);
+    const [loadingStudents, setLoadingStudents] = useState(true);
     const { currentSchool, currentBranchId, user } = useAuth();
     const schoolId = currentSchool?.id;
 
@@ -913,6 +729,107 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     }, [currentUser]);
 
     useEffect(() => {
+        const fetchChildren = async () => {
+            if (!schoolId) return;
+
+            const fetchStudentsList = async (ids: string[]) => {
+                try {
+                    // 1. Fetch all students basic data
+                    const { data: studentsData, error: studentsError } = await supabase
+                        .from('students')
+                        .select('*, user:user_id(email)')
+                        .eq('school_id', schoolId)
+                        .in('id', ids);
+
+                    if (studentsError) throw studentsError;
+                    if (!studentsData || studentsData.length === 0) return;
+
+                    // 2. Parallel fetch all related data for ALL children in batch
+                    const [allAcademic, allBehavior, allReportCards] = await Promise.all([
+                        supabase.from('academic_performance').select('*').eq('school_id', schoolId).in('student_id', ids),
+                        supabase.from('behavior_records').select('*').eq('school_id', schoolId).in('student_id', ids).order('date', { ascending: false }),
+                        supabase.from('report_cards').select('*').eq('school_id', schoolId).in('student_id', ids).eq('status', 'Published').order('created_at', { ascending: false })
+                    ]);
+
+                    // 3. Map data to students in memory
+                    const studentsWithData = studentsData.map((s: any) => ({
+                        id: s.id,
+                        name: s.name,
+                        email: s.user?.email || '',
+                        avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
+                        grade: s.grade,
+                        section: s.section,
+                        department: s.department,
+                        attendanceStatus: s.attendance_status || 'Present',
+                        birthday: s.birthday,
+                        schoolGeneratedId: s.school_generated_id,
+                        academicPerformance: (allAcademic.data || [])
+                            .filter((a: any) => a.student_id === s.id)
+                            .map((a: any) => ({
+                                subject: a.subject,
+                                score: a.total || a.score,
+                                term: a.term,
+                                teacherRemark: a.remark
+                            })),
+                        behaviorNotes: (allBehavior.data || [])
+                            .filter((b: any) => b.student_id === s.id)
+                            .map((b: any) => ({
+                                id: b.id,
+                                date: b.date,
+                                type: b.type,
+                                title: b.title,
+                                note: b.description || '',
+                                by: b.reporter_name || 'Teacher',
+                                suggestions: b.suggestions || []
+                            })),
+                        reportCards: (allReportCards.data || [])
+                            .filter((r: any) => r.student_id === s.id)
+                            .map((r: any) => ({
+                                term: r.term,
+                                session: r.session,
+                                attendance: { total: r.attendance_total || 0, present: r.attendance_present || 0, absent: r.attendance_absent || 0, late: r.attendance_late || 0 },
+                                teacherComment: r.teacher_comment || '',
+                                principalComment: r.principal_comment || '',
+                                status: r.status,
+                                academicRecords: [],
+                                skills: {},
+                                psychomotor: {}
+                            })),
+                        schoolId: s.school_id,
+                        user_id: s.user_id
+                    }));
+
+                    setStudents(studentsWithData);
+                } catch (err) {
+                    console.error("Error batch fetching children data:", err);
+                }
+            };
+
+            try {
+                const effectiveParentId = (user as any)?.id || parentId;
+                if (!effectiveParentId) {
+                    setLoadingStudents(false);
+                    return;
+                }
+                const { data: relations } = await supabase.from('student_parent_links').select('student_user_id').eq('school_id', schoolId).eq('parent_user_id', effectiveParentId);
+                if (relations && relations.length > 0) {
+                    const userIds = Array.from(new Set(relations.map((r: any) => r.student_user_id)));
+                    const { data: stData } = await supabase.from('students').select('id').eq('school_id', schoolId).in('user_id', userIds);
+                    if (stData && stData.length > 0) {
+                        const uniqueStudentIds = Array.from(new Set(stData.map((s: any) => s.id)));
+                        await fetchStudentsList(uniqueStudentIds);
+                    }
+                }
+            } catch (err) {
+                console.warn("Error fetching children:", err);
+            } finally {
+                setLoadingStudents(false);
+            }
+        };
+        fetchChildren();
+    }, [parentId, schoolId, version, user]);
+
+    useEffect(() => {
         const currentView = viewStack[viewStack.length - 1];
         setIsHomePage(currentView.view === 'dashboard' && !isSearchOpen);
     }, [viewStack, isSearchOpen, setIsHomePage]);
@@ -984,7 +901,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         photoGallery: ParentPhotoGalleryScreen,
         volunteering: VolunteeringScreen,
         permissionSlips: PermissionSlipScreen,
-        appointments: AppointmentScreen,
+        appointments: (props: any) => <AppointmentScreen {...props} parentId={user?.id} students={students} />,
         aiParentingTips: AIParentingTipsScreen,
         messages: (props: any) => {
             const { navigateTo } = props;
@@ -1024,7 +941,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         currentUserId,
         schoolId,
         currentBranchId,
-        version
+        version,
+        students,
+        loading: loadingStudents
     };
 
     return (
@@ -1062,7 +981,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                         </div>
                     )}
 
-                    <div ref={scrollRef} className="h-full overflow-y-auto pb-56 lg:pb-0">
+                    <div ref={scrollRef} className="h-full overflow-y-auto pb-24 lg:pb-0">
                         <Suspense fallback={<DashboardSuspenseFallback />}>
                             <ComponentToRender {...commonProps} {...currentNavigation.props} />
                         </Suspense>

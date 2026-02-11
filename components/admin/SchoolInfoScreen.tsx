@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, MusicIcon } from '../../constants';
+import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, BellIcon } from '../../constants';
 
 // Since we don't have a MusicIcon in constants, I'll use a fallback or add it if I could.
 // I'll stick to what is available or define a simple SVG locally if needed. 

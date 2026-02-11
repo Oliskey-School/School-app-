@@ -7,8 +7,8 @@ import { supabase } from './supabase';
 
 export interface PaymentPlan {
     id: number;
-    feeId: number;
-    studentId: number;
+    feeId: string;
+    studentId: string;
     totalAmount: number;
     installmentCount: number;
     frequency: 'weekly' | 'monthly' | 'termly' | 'custom';
@@ -29,8 +29,8 @@ export interface Installment {
 }
 
 export interface CreatePaymentPlanParams {
-    feeId: number;
-    studentId: number;
+    feeId: string;
+    studentId: string;
     totalAmount: number;
     installmentCount: number;
     frequency: 'weekly' | 'monthly' | 'termly' | 'custom';
@@ -175,7 +175,7 @@ function calculateDueDate(startDate: Date, frequency: string, installmentIndex: 
 /**
  * Get payment plan with installments
  */
-export async function getPaymentPlan(feeId: number): Promise<{ plan: PaymentPlan; installments: Installment[] } | null> {
+export async function getPaymentPlan(feeId: string): Promise<{ plan: PaymentPlan; installments: Installment[] } | null> {
     try {
         // Get plan
         const { data: plan, error: planError } = await supabase
@@ -213,7 +213,7 @@ export async function getPaymentPlan(feeId: number): Promise<{ plan: PaymentPlan
 /**
  * Check if fee has payment plan
  */
-export async function hasPaymentPlan(feeId: number): Promise<boolean> {
+export async function hasPaymentPlan(feeId: string): Promise<boolean> {
     const { data } = await supabase
         .from('payment_plans')
         .select('id')
@@ -226,7 +226,7 @@ export async function hasPaymentPlan(feeId: number): Promise<boolean> {
 /**
  * Get upcoming installments (due within X days)
  */
-export async function getUpcomingInstallments(studentId: number, daysAhead: number = 7): Promise<Installment[]> {
+export async function getUpcomingInstallments(studentId: string, daysAhead: number = 7): Promise<Installment[]> {
     try {
         const today = new Date();
         const futureDate = new Date();

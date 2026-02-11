@@ -2,7 +2,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SearchIcon, MailIcon, PhoneIcon, PlusIcon, StudentsIcon } from '../../constants';
 import { Parent } from '../../types';
+import { fetchParents } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 
 interface ParentListScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -33,63 +36,20 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchParents = async () => {
+    const fetchParentsData = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         // Fallback to profile or metadata
         const schoolId = user?.user_metadata?.school_id || (user as any)?.school_id;
 
         if (!schoolId) {
-          console.warn("No school context found");
-          return;
+          console.warn("No school context found, fetching all parents as fallback");
         }
 
-        // 1. Fetch Parents
-        const { data: parentsData, error: parentsError } = await supabase
-          .from('parents')
-          .select('*')
-          .eq('school_id', schoolId);
+        // Use centralized fetch function which handles the data transformation
+        const parentsData = await fetchParents(schoolId);
+        setParents(parentsData);
 
-        if (parentsError) throw parentsError;
-
-        if (parentsData) {
-          // 2. Fetch Links manually (since FK is missing/complex)
-          const parentUserIds = parentsData.map(p => p.user_id).filter(Boolean);
-
-          let linksMap: Record<string, string[]> = {};
-
-          if (parentUserIds.length > 0) {
-            const { data: linksData } = await supabase
-              .from('student_parent_links')
-              .select(`
-                        parent_user_id,
-                        student:students (name)
-                    `)
-              .in('parent_user_id', parentUserIds)
-              .eq('is_active', true);
-
-            if (linksData) {
-              linksData.forEach((link: any) => {
-                if (!linksMap[link.parent_user_id]) {
-                  linksMap[link.parent_user_id] = [];
-                }
-                if (link.student?.name) {
-                  linksMap[link.parent_user_id].push(link.student.name);
-                }
-              });
-            }
-          }
-
-          const mappedParents: Parent[] = parentsData.map((p: any) => ({
-            id: p.id,
-            name: p.name || 'Unknown',
-            email: p.email || '',
-            avatarUrl: p.avatar_url || 'https://via.placeholder.com/150',
-            phone: p.phone,
-            childIds: linksMap[p.user_id] || []
-          }));
-          setParents(mappedParents);
-        }
       } catch (err) {
         console.error("Error fetching parents:", err);
       } finally {
@@ -97,7 +57,7 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
       }
     };
 
-    fetchParents();
+    fetchParentsData();
 
     // Realtime Subscription
     const subscription = supabase

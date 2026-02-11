@@ -30,7 +30,8 @@ export type TableName =
     | 'classes' | 'subjects' | 'timetable' | 'conversations'
     | 'assignments' | 'grades' | 'attendance_records'
     | 'notices' | 'messages' | 'schools' | 'branches'
-    | 'sync_queue' | 'conflict_log';
+    | 'sync_queue' | 'conflict_log' | 'notifications'
+    | 'class_teachers' | 'teacher_subjects';
 
 export interface SyncQueueItem {
     id: string;
@@ -47,6 +48,7 @@ export interface QueryOptions {
     orderBy?: string;
     limit?: number;
     offset?: number;
+    columns?: string;
 }
 
 // ============================================================================
@@ -98,7 +100,8 @@ class OfflineDatabase {
             'classes', 'subjects', 'timetable', 'conversations',
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
-            'sync_queue', 'conflict_log'
+            'sync_queue', 'conflict_log', 'notifications',
+            'class_teachers', 'teacher_subjects'
         ];
 
         tables.forEach(table => {
@@ -305,7 +308,8 @@ class OfflineDatabase {
             'classes', 'subjects', 'timetable', 'conversations',
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
-            'sync_queue', 'conflict_log'
+            'sync_queue', 'conflict_log', 'notifications',
+            'class_teachers', 'teacher_subjects'
         ];
 
         await Promise.all(tables.map(table => this.clearTable(table)));
@@ -447,7 +451,8 @@ class OfflineDatabase {
             'classes', 'subjects', 'timetable', 'conversations',
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
-            'sync_queue', 'conflict_log'
+            'sync_queue', 'conflict_log', 'notifications',
+            'class_teachers', 'teacher_subjects'
         ];
 
         const exported: any = {};

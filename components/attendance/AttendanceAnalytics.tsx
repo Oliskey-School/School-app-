@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { getStudentAttendanceStats, getDropoutAlerts, resolveDropoutAlert } from '../../lib/qr-attendance';
 
 export function AttendanceAnalytics() {

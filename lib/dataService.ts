@@ -205,7 +205,7 @@ class DataService {
         table: TableName,
         options: QueryOptions = {}
     ): Promise<T[]> {
-        let query = supabase.from(table).select('*');
+        let query = supabase.from(table).select(options.columns || '*');
 
         // Apply filters
         if (options.where) {

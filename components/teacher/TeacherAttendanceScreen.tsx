@@ -64,12 +64,26 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
                 // If class has a specific section, fetch by class ID
                 // Otherwise fetch all students in that grade for the school
+                // Helper to get valid school ID
+                const getEffectiveSchoolId = () => {
+                    const cId = classInfo.schoolId || (classInfo as any).school_id;
+                    if (cId && cId !== '00000000-0000-0000-0000-000000000000') return cId;
+                    return profile?.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+                };
+                const effectiveSchoolId = getEffectiveSchoolId();
+
+                // If class has a specific section, fetch by class ID
+                // Otherwise fetch all students in that grade for the school
                 if (classInfo.section) {
-                    studentQuery = studentQuery.eq('current_class_id', classInfo.id);
+                    // Match by grade and section to ensure consistency with Admin list
+                    studentQuery = studentQuery
+                        .eq('grade', classInfo.grade)
+                        .eq('section', classInfo.section)
+                        .eq('school_id', effectiveSchoolId);
                 } else {
                     studentQuery = studentQuery
                         .eq('grade', classInfo.grade)
-                        .eq('school_id', classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1');
+                        .eq('school_id', effectiveSchoolId);
                 }
 
                 const { data: classStudents, error: studentError } = await studentQuery
@@ -141,13 +155,20 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
             return;
         }
 
-        const upsertData = students.map(s => ({
-            student_id: s.id,
-            class_id: classInfo.id,
-            date: selectedDate,
-            status: s.attendanceStatus.toLowerCase(), // MUST be lowercase for DB check constraints in some environments
-            school_id: schoolId
-        }));
+        const upsertData = students.map(s => {
+            let status = s.attendanceStatus.toLowerCase();
+            if (status === 'leave') status = 'excused'; // Map UI 'Leave' to DB 'excused'
+
+            return {
+                student_id: s.id,
+                class_id: classInfo.id,
+                date: selectedDate,
+                status: status,
+                school_id: schoolId
+            };
+        });
+
+        console.log("DEBUG: Submitting Attendance Payload:", upsertData);
 
         try {
             await api.saveAttendance(upsertData);

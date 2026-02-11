@@ -132,6 +132,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     // Validation Lists
     const [validSubjects, setValidSubjects] = useState<string[]>([]);
     const [validClasses, setValidClasses] = useState<string[]>([]);
+    const [classIdMap, setClassIdMap] = useState<Record<string, string>>({});
     const [loadingRefs, setLoadingRefs] = useState(true);
 
     const [credentials, setCredentials] = useState<{
@@ -157,8 +158,15 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 if (sData) setValidSubjects(sData.map(d => d.name));
 
                 // Fetch Classes
-                const { data: cData } = await supabase.from('classes').select('class_name');
-                if (cData) setValidClasses(cData.map(d => d.class_name));
+                const { data: cData } = await supabase.from('classes').select('id, class_name');
+                if (cData) {
+                    setValidClasses(cData.map(d => d.class_name));
+                    const map: Record<string, string> = {};
+                    cData.forEach(c => {
+                        map[c.class_name] = c.id;
+                    });
+                    setClassIdMap(map);
+                }
 
             } catch (err) {
                 console.error("Error fetching reference data:", err);
@@ -338,6 +346,28 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         class_name: className
                     }));
                     await supabase.from('teacher_classes').insert(classInserts);
+
+                    // 4. Update ID-based Class Assignments (class_teachers) - Critical for Teacher Dashboard
+                    await supabase.from('class_teachers').delete().eq('teacher_id', teacherToEdit.id);
+
+                    // Map selected class names (which matches validClasses) to IDs using classIdMap
+                    // Note: 'classes' state contains the raw selected names from TagInput (which matches validOptions)
+                    const classIdsToLink = classes
+                        .map(clsName => classIdMap[clsName])
+                        .filter(id => !!id); // Filter out any that don't match (shouldn't happen with validOptions)
+
+                    if (classIdsToLink.length > 0) {
+                        const classTeacherInserts = classIdsToLink.map(classId => ({
+                            teacher_id: teacherToEdit.id,
+                            class_id: classId,
+                            school_id: schoolId,
+                            academic_year: '2025-2026', // Hardcoded or fetch from context
+                            is_class_teacher: false // Default
+                        }));
+
+                        const { error: ctError } = await supabase.from('class_teachers').insert(classTeacherInserts);
+                        if (ctError) console.error("Failed to sync class_teachers:", ctError);
+                    }
                 }
 
                 toast.success('Teacher updated successfully!');
@@ -435,6 +465,24 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         class_name: className
                     }));
                     await supabase.from('teacher_classes').insert(classInserts);
+
+                    // 5b. Update ID-based Class Assignments (class_teachers)
+                    const classIdsToLink = classes
+                        .map(clsName => classIdMap[clsName])
+                        .filter(id => !!id);
+
+                    if (classIdsToLink.length > 0) {
+                        const classTeacherInserts = classIdsToLink.map(classId => ({
+                            teacher_id: teacherData.id,
+                            class_id: classId,
+                            school_id: schoolId,
+                            academic_year: '2025-2026',
+                            is_class_teacher: false
+                        }));
+
+                        const { error: ctError } = await supabase.from('class_teachers').insert(classTeacherInserts);
+                        if (ctError) console.error("Failed to sync class_teachers (Create):", ctError);
+                    }
                 }
 
                 // 6. (Auth was already created)

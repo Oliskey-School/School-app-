@@ -47,7 +47,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 setAddress(parentToEdit.address || ''); // ✅ NEW
                 setOccupation(parentToEdit.occupation || ''); // ✅ NEW
                 setRelationship((parentToEdit.relationship as any) || 'Father'); // ✅ NEW
-                setEmergencyContact(parentToEdit.emergencyContact || ''); // ✅ NEW
+                setEmergencyContact(parentToEdit.emergency_contact || ''); // ✅ NEW
 
                 if (isSupabaseConfigured) {
                     try {

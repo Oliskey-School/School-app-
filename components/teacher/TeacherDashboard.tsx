@@ -9,6 +9,8 @@ import PremiumLoader from '../ui/PremiumLoader';
 import { mockNotifications } from '../../data';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useAuth } from '../../context/AuthContext';
+import { realtimeService } from '../../services/RealtimeService';
+import { syncEngine } from '../../lib/syncEngine';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -81,8 +83,8 @@ interface ViewStackItem {
 }
 
 interface TeacherDashboardProps {
-  onLogout: () => void;
-  setIsHomePage: (isHome: boolean) => void;
+  onLogout?: () => void;
+  setIsHomePage?: (isHome: boolean) => void;
   currentUser?: any;
 }
 
@@ -116,6 +118,24 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     };
     getUser();
   }, [currentUser]);
+
+  // Real-time Service Integration
+  useEffect(() => {
+    if (user?.id && schoolId) {
+      realtimeService.initialize(user.id, schoolId);
+
+      const handleUpdate = () => {
+        forceUpdate();
+      };
+
+      (syncEngine as any).on('realtime-update', handleUpdate);
+
+      return () => {
+        (syncEngine as any).off('realtime-update', handleUpdate);
+        realtimeService.destroy();
+      };
+    }
+  }, [user?.id, schoolId]);
 
   // Profile State
   const [teacherProfile, setTeacherProfile] = useState({
@@ -384,7 +404,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           onSearchClick={() => setIsSearchOpen(true)}
           customId={(teacherProfile.schoolGeneratedId || user?.app_metadata?.custom_id || user?.user_metadata?.custom_id)?.replace(/-/g, '_')}
         />
-        <div className="flex-1 overflow-y-auto pb-56 lg:pb-0" style={{ marginTop: '-5rem' }}>
+        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0" style={{ marginTop: '-5rem' }}>
           <main className="min-h-full pt-20">
             <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up">
               {ComponentToRender ? (

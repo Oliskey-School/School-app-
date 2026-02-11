@@ -41,60 +41,104 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [selectedClass, setSelectedClass] = useState(classInfo ? `Grade ${classInfo.grade}${classInfo.section}` : '');
-  const [subject, setSubject] = useState(classInfo?.subject || '');
+  const [selectedClassId, setSelectedClassId] = useState(classInfo?.id || '');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
-  const { user } = useAuth();
+  const [rawAssignments, setRawAssignments] = useState<any[]>([]); // To store UUIDs for insertion
+  const { user, currentSchool } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // const teacher = useMemo(() => mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!, []);
   // const teacherSubjects = useMemo(() => SUBJECTS_LIST.filter(s => teacher.subjects.includes(s.name)), [teacher]);
   const [dbSubjects, setDbSubjects] = useState<any[]>([]);
-  const teacherSubjects = dbSubjects.length > 0 ? dbSubjects : SUBJECTS_LIST;
+  // STRICT: Only show subjects from DB. If empty, show empty.
+  const teacherSubjects = dbSubjects;
 
   useEffect(() => {
     const fetchClassesAndSubjects = async () => {
-
       // Dynamic import
       const { fetchSubjects } = await import('../../lib/database');
       const { getGradeDisplayName } = await import('../../lib/schoolSystem');
 
-      const { data: classData } = await supabase
-        .from('classes')
-        .select('*')
-        .order('grade', { ascending: true })
-        .order('section', { ascending: true });
+      if (!user?.id) return;
 
-      if (classData) {
-        // Enhance with formatted name for display, but keep original structure
-        const enhancedClasses = classData.map((c: any) => ({
-          ...c,
-          displayName: `${getGradeDisplayName(c.grade)} ${c.section}`
-        }));
+      try {
+        // STRICT: First get ALL teacher profile IDs linked to the auth user ID
+        const { data: teacherProfiles, error: profileError } = await supabase
+          .from('teachers')
+          .select('id')
+          .eq('user_id', user.id);
 
-        // Deduplicate classes based on displayName
-        const uniqueClasses = enhancedClasses.filter((v: any, i: number, a: any[]) =>
-          a.findIndex((t: any) => (t.displayName === v.displayName)) === i
-        );
+        if (profileError || !teacherProfiles || teacherProfiles.length === 0) {
+          console.error("Teacher profile not found for user:", user.id);
+          setAvailableClasses([]);
+          setDbSubjects([]);
+          return;
+        }
 
-        setAvailableClasses(uniqueClasses);
+        const teacherIds = teacherProfiles.map(t => t.id);
+
+        // Use the strict teacher.id(s) to fetch assignments
+        const { data: teacherClassesData, error: teacherClassesError } = await supabase
+          .from('class_teachers')
+          .select(`
+            teacher_id,
+            school_id,
+            class_id,
+            subject_id,
+            classes (
+              id,
+              grade,
+              section,
+              branch_id
+            ),
+            subjects (
+              id,
+              name
+            )
+          `)
+          .in('teacher_id', teacherIds);
+
+        if (teacherClassesData && teacherClassesData.length > 0) {
+          setRawAssignments(teacherClassesData);
+          const uniqueClasses = teacherClassesData
+            .map((item: any) => item.classes)
+            .filter((c: any) => c) // Filter out nulls
+            .map((c: any) => ({
+              ...c,
+              displayName: `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`
+            }))
+            .filter((v: any, i: number, a: any[]) =>
+              a.findIndex((t: any) => (t.id === v.id)) === i
+            );
+
+          setAvailableClasses(uniqueClasses);
+
+          const teacherSubjectsData = teacherClassesData
+            .map((item: any) => item.subjects)
+            .filter((s: any) => s);
+
+          const uniqueSubjects = teacherSubjectsData.filter((v: any, i: number, a: any[]) =>
+            a.findIndex((t: any) => (t.id === v.id)) === i
+          );
+
+          setDbSubjects(uniqueSubjects);
+
+          // Auto-select if subject IDs are available
+          if (classInfo?.subject) {
+            const matchedSub = uniqueSubjects.find(s => s.name === classInfo.subject);
+            if (matchedSub) setSelectedSubjectId(matchedSub.id);
+          }
+        } else {
+          setAvailableClasses([]);
+          setDbSubjects([]);
+          toast('No classes assigned to this account.', { icon: 'ℹ️' });
+        }
+
+      } catch (err) {
+        console.error("Error fetching teacher assignments:", err);
       }
-
-      const subjects = await fetchSubjects();
-
-      // Merge with SUBJECTS_LIST to ensure completeness
-      const existingNames = new Set(subjects?.map((s: any) => s.name) || []);
-      const missingSubjects = SUBJECTS_LIST
-        .filter(s => !existingNames.has(s.name))
-        .map(s => ({
-          id: `static-${s.id}`,
-          name: s.name,
-          category: 'General',
-          gradeLevel: 'All'
-        }));
-
-      setDbSubjects([...(subjects || []), ...missingSubjects]);
     };
     fetchClassesAndSubjects();
   }, []);
@@ -117,25 +161,43 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description || !dueDate || !selectedClass || !subject) {
+    if (!title || !description || !dueDate || !selectedClassId || !selectedSubjectId) {
       toast.error("Please fill out all required fields.");
       return;
     }
 
-    const targetClass = availableClasses.find(c => `Grade ${c.grade}${c.section}` === selectedClass);
-    const totalStudents = targetClass ? targetClass.student_count : 0;
+    const targetClass = availableClasses.find(c => c.id === selectedClassId);
+    const targetSubject = dbSubjects.find(s => s.id === selectedSubjectId);
+
+    const targetNode = rawAssignments.find(item =>
+      item.class_id === selectedClassId && item.subject_id === selectedSubjectId
+    );
+
+    const totalStudentsCount = 25; // Default fallback
 
     // Prepare payload for Database (Snake Case for columns)
-    const dbPayload = {
+    const dbPayload: any = {
       title,
       description,
-      class_name: selectedClass,
-      subject,
+      content_summary: description, // REQUIRED column
+      class_name: targetClass?.displayName || 'Unknown Class',
+      subject: targetSubject?.name || 'Unknown Subject',
       due_date: new Date(dueDate).toISOString(),
-      total_students: totalStudents || 25,
+      total_students: totalStudentsCount,
       submissions_count: 0,
-      teacher_id: user?.id,
+      teacher_id: targetNode?.teacher_id || user.id,
+      school_id: targetNode?.school_id || classInfo?.schoolId || currentSchool?.id,
+      class_id: selectedClassId,
+      subject_id: selectedSubjectId,
+      branch_id: targetClass?.branch_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
+
+    if (!dbPayload.school_id) {
+      toast.error("School ID is missing. Please refresh or contact support.");
+      return;
+    }
 
     try {
       // 1. Save to Supabase
@@ -148,16 +210,14 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
         throw error;
       }
 
-      // console.log('Assignment saved:', data);
-
       // 2. Update Local State (Camel Case for frontend)
       const newAssignmentData = {
         title,
         description,
-        className: selectedClass,
-        subject,
+        className: targetClass?.displayName || 'Unknown Class',
+        subject: targetSubject?.name || 'Unknown Subject',
         dueDate: new Date(dueDate).toISOString(),
-        totalStudents: totalStudents || 25,
+        totalStudents: totalStudentsCount,
         submissionsCount: 0,
       };
 
@@ -171,10 +231,10 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
         const newAssignmentData = {
           title,
           description,
-          className: selectedClass,
-          subject,
+          className: targetClass?.displayName || 'Unknown Class',
+          subject: targetSubject?.name || 'Unknown Subject',
           dueDate: new Date(dueDate).toISOString(),
-          totalStudents: totalStudents || 25,
+          totalStudents: totalStudentsCount,
           submissionsCount: 0,
         };
         onAssignmentAdded(newAssignmentData);
@@ -206,20 +266,24 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
               <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                 <div>
                   <label htmlFor="assignment-class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                  <select id="assignment-class" value={selectedClass} onChange={e => setSelectedClass(e.target.value)} required className="w-full px-3 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                  <select id="assignment-class" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} required className="w-full px-3 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
                     <option value="" disabled>Select a class</option>
                     {availableClasses.map(c => (
-                      <option key={c.id} value={`Grade ${c.grade}${c.section}`}>
-                        Grade {c.grade}{c.section}
+                      <option key={c.id} value={c.id}>
+                        {c.displayName}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                  <select id="subject" value={subject} onChange={e => setSubject(e.target.value)} required className="w-full px-3 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                  <select id="subject" value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} required className="w-full px-3 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
                     <option value="" disabled>Select subject...</option>
-                    {teacherSubjects.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
+                    {teacherSubjects.length > 0 ? (
+                      teacherSubjects.map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)
+                    ) : (
+                      <option value="" disabled>No subjects assigned</option>
+                    )}
                   </select>
                 </div>
                 <div>

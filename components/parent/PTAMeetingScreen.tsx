@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { PtaMeeting } from '../../types';
+import { PTAMeeting } from '../../types';
 import { CalendarIcon, ClockIcon, UsersIcon, CheckCircleIcon } from '../../constants';
 
 const PTAMeetingScreen: React.FC = () => {
-    const [meeting, setMeeting] = useState<PtaMeeting | null>(null);
+    const [meeting, setMeeting] = useState<PTAMeeting | null>(null);
     const [loading, setLoading] = useState(true);
     const [isRegistered, setIsRegistered] = useState(false);
 

@@ -12,11 +12,12 @@ interface Notification {
   id: string;
   title: string;
   summary: string;
-  category: 'System' | 'Message' | 'Alert' | 'Event' | 'Assignment' | 'Grades' | 'Attendance' | 'Fees';
+  category: 'System' | 'Message' | 'Alert' | 'Event' | 'Assignment' | 'Grades' | 'Attendance' | 'Fees' | 'Homework';
   audience: string[];
   is_read: boolean;
   timestamp: string;
   student_id?: string;
+  related_id?: string;
   link?: string;
 }
 
@@ -74,7 +75,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
       const filtered = (data || []).filter((n: any) => {
         const aud = n.audience || []; // Assuming audience is array string in DB
         const isForRole = aud.includes('all') || aud.includes(userType);
-        const isForUser = n.recipient_id === profile.id || !n.recipient_id; // If recipient_id exists, it must match
+        const isForUser = n.user_id === profile.id || !n.user_id; // Check user_id matches profile.id
+        return isForRole && isForUser;
         return isForRole && isForUser;
       }).map((n: any) => ({
         id: n.id,
@@ -84,7 +86,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
         audience: n.audience,
         is_read: n.is_read || false,
         timestamp: n.created_at,
-        student_id: n.related_entity_id, // flexible mapping
+        student_id: n.student_id, // flexible mapping
+        related_id: n.related_id,
         link: n.link
       }));
 
@@ -168,6 +171,30 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
         case 'Fees': navigateTo('feeManagement', 'Fee Management', {}); break;
         case 'System': navigateTo('systemSettings', 'System Settings', {}); break;
         case 'Message': navigateTo('messages', 'Messages', {}); break;
+        default: break;
+      }
+    } else if (userType === 'student') {
+      // Student navigation logic
+      switch (notification.category) {
+        case 'Homework':
+          // Check if we have an assignment ID linked
+          if (notification.student_id) { // mapped from related_id/student_id
+            // We need to fetch the assignment details or pass ID
+            // Ideally navigate to assignment detail. 
+            // For now, go to Assignments list or specific assignment if possible
+            // Assuming 'link' might contain ID or related_id is assignment ID
+
+            // In AssignmentSubmissionScreen, we stored 'related_id: assignment.id'
+            // In NotificationsScreen, we mapped 'student_id: n.related_entity_id' (Wait, check map)
+            // Let's check the map in fetchNotifications:
+            // student_id: n.related_entity_id 
+            // BUT in insert we used 'related_id'. 
+            // We should fix the mapping first to be sure.
+          }
+          navigateTo('assignments', 'My Assignments', {});
+          break;
+        case 'Message': navigateTo('messages', 'My Messages', {}); break;
+        case 'Grades': navigateTo('results', 'My Results', { studentId: profile.id }); break;
         default: break;
       }
     }

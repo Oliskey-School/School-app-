@@ -57,7 +57,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         setLoading(true);
         if (isSupabaseConfigured && schoolId) {
             try {
-                const data = await api.getBuses(schoolId, { useBackend: true });
+                const data = await api.getBuses({ useBackend: true });
                 setBuses(data.map((b: any) => ({
                     id: b.id,
                     name: b.name,
@@ -72,7 +72,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                 console.error('API error fetching buses:', err);
                 // Try fallback to direct supabase
                 try {
-                    const data = await api.getBuses(schoolId);
+                    const data = await api.getBuses();
                     setBuses(data);
                 } catch (fallbackErr) {
                     console.error('Fallback fetching buses failed:', fallbackErr);

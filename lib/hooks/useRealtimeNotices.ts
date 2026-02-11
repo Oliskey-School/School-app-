@@ -13,7 +13,7 @@ export function useRealtimeNotices(classId?: string, role?: 'student' | 'teacher
             if (role) query = query.eq('target_role', role);
             return query;
         },
-        orderBy: { column: 'created_at', ascending: false }
+        orderBy: { column: 'timestamp', ascending: false }
     });
 }
 

@@ -73,7 +73,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                     onLogout={handleLogout}
                     notificationCount={notificationCount}
                 />
-                <div className="flex-1 overflow-y-auto pb-56 lg:pb-0" style={{ marginTop: '-5rem' }}>
+                <div className="flex-1 overflow-y-auto pb-24 lg:pb-0" style={{ marginTop: '-5rem' }}>
                     <main className="min-h-full pt-20 px-4 sm:px-6 lg:px-8">
                         <div className="animate-slide-in-up">
                             {children}

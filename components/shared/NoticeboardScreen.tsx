@@ -78,7 +78,7 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType, schoolI
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, []);
+  }, [schoolId]);
 
   const loadNotices = async () => {
     setLoading(true);

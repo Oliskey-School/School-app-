@@ -11,7 +11,8 @@ import ErrorBoundary from '../ui/ErrorBoundary';
 import { StudentSidebar } from '../ui/DashboardSidebar';
 import PremiumLoader from '../ui/PremiumLoader';
 import { GamificationProvider } from '../../context/GamificationContext';
-// import { realtimeService } from '../../services/RealtimeService';
+import { realtimeService } from '../../services/RealtimeService';
+import { syncEngine } from '../../lib/syncEngine';
 import { toast } from 'react-hot-toast';
 import { offlineStorage } from '../../lib/offlineStorage';
 import { useOnlineStatus, OfflineIndicator } from '../shared/OfflineIndicator';
@@ -74,6 +75,7 @@ const CBTExamGame = lazy(() => import('./games/CBTExamGame'));
 const VocabularyPictionaryGame = lazy(() => import('./games/VocabularyPictionaryGame'));
 const SimpleMachineScavengerHuntGame = lazy(() => import('./games/SimpleMachineScavengerHuntGame'));
 const HistoricalHotSeatGame = lazy(() => import('./games/HistoricalHotSeatGame'));
+const SchoolUtilitiesScreen = lazy(() => import('../parent/SchoolUtilitiesScreen'));
 const GamePlayerScreen = lazy(() => import('../shared/GamePlayerScreen'));
 
 const DashboardSuspenseFallback = () => (
@@ -155,7 +157,8 @@ const Overview: React.FC<{
     student: Student;
     schoolId: string;
     currentBranchId: string | null;
-}> = ({ navigateTo, student, schoolId, currentBranchId }) => {
+    currentUser: any;
+}> = ({ navigateTo, student, schoolId, currentBranchId, currentUser }) => {
     const theme = THEME_CONFIG[DashboardType.Student];
     const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
     const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
@@ -238,39 +241,21 @@ const Overview: React.FC<{
         if (student) {
             fetchData();
 
-            // Real-time Subscription
-            const channel = supabase
-                .channel('student_dashboard_overview')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'assignments',
-                    },
-                    (payload) => {
-                        console.log('Assignment change received!', payload);
-                        // Ideally check if it matches student class, but for MVP simple refresh is safer
-                        fetchData();
-                    }
-                )
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'timetable',
-                    },
-                    (payload) => {
-                        console.log('Timetable change received!', payload);
-                        fetchData();
-                    }
-                )
-                .subscribe();
+            // Real-time Service Integration
+            if (currentUser?.id && schoolId) {
+                realtimeService.initialize(currentUser.id, schoolId);
 
-            return () => {
-                supabase.removeChannel(channel);
-            };
+                const handleRealtimeUpdate = (event: any) => {
+                    console.log('📢 StudentDashboard: Real-time update received', event);
+                    fetchData();
+                    forceUpdate();
+                };
+
+                window.addEventListener('realtime-update' as any, handleRealtimeUpdate);
+                return () => {
+                    window.removeEventListener('realtime-update' as any, handleRealtimeUpdate);
+                };
+            }
         }
     }, [student]);
 
@@ -293,6 +278,8 @@ const Overview: React.FC<{
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
+
+
                     <TodayFocus schedule={todaySchedule} assignments={upcomingAssignments} theme={theme} navigateTo={navigateTo} />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
@@ -327,9 +314,9 @@ const Overview: React.FC<{
 };
 
 interface StudentDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
-    currentUser: any;
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
 }
 
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
@@ -433,6 +420,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     .from('students')
                     .select('*')
                     .eq('user_id', currentUser.id)
+                    .limit(1)
                     .maybeSingle();
 
                 if (idError) {
@@ -461,6 +449,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         .from('students')
                         .select('*')
                         .eq('email', currentUser.email)
+                        .limit(1)
                         .maybeSingle();
 
                     // Check for permission error on email query too
@@ -506,7 +495,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 grade: 10,
                                 section: 'A',
                                 attendance_status: 'Present',
-                                school_generated_id: 'ST-DEMO-' + Math.floor(Math.random() * 10000),
+                                // school_generated_id will be handled by DB trigger
                                 // created_at defaults to NOW()
                             })
                             .select()
@@ -599,7 +588,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     .select('id')
                     .eq('grade', student.grade)
                     .eq('section', student.section)
-                    .single();
+                    .limit(1)
+                    .maybeSingle();
 
                 if (cls) {
                     myClassId = cls.id;
@@ -620,7 +610,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 console.log('Class session event:', payload);
                                 if (payload.new && payload.new.status === 'active') {
                                     // Fetch teacher name
-                                    const { data: teacher } = await supabase.from('teachers').select('name').eq('id', payload.new.teacher_id).single();
+                                    const { data: teacher } = await supabase.from('teachers').select('name').eq('id', payload.new.teacher_id).limit(1).maybeSingle();
 
                                     setIncomingClass({
                                         ...payload.new,
@@ -734,7 +724,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     };
 
     const viewComponents = React.useMemo(() => ({
-        overview: (props: any) => <Overview {...props} schoolId={schoolId || ''} currentBranchId={currentBranchId} />,
+        overview: (props: any) => <Overview {...props} schoolId={schoolId || ''} currentBranchId={currentBranchId} currentUser={currentUser} />,
         studyBuddy: StudyBuddy,
         adventureQuest: AdventureQuestHost,
         examSchedule: ExamSchedule,
@@ -804,7 +794,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         cbtExamGame: (props: any) => <CBTExamGame onBack={handleBack} />,
         vocabularyPictionary: (props: any) => <VocabularyPictionaryGame onBack={handleBack} />,
         simpleMachineHunt: (props: any) => <SimpleMachineScavengerHuntGame onBack={handleBack} />,
-        historicalHotSeat: (props: any) => <HistoricalHotSeatGame onBack={handleBack} />,
+        historicalHotSeat: HistoricalHotSeatGame,
+        schoolUtilities: SchoolUtilitiesScreen,
     }), [student]);
 
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
@@ -929,7 +920,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         ref={scrollContainerRef}
                         className={`flex-1 ${['chat', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view) ? 'h-full overflow-hidden' : 'overflow-y-auto'}`}
                     >
-                        <div className={`${['chat', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view) ? 'h-full' : 'min-h-full pb-56 lg:pb-0'}`}>
+                        <div className={`${['chat', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view) ? 'h-full' : 'min-h-full pb-24 lg:pb-0'}`}>
                             <ErrorBoundary>
                                 <div key={`${viewStack.length}-${currentNavigation.view}`} className="animate-slide-in-up h-full">
                                     <Suspense fallback={<DashboardSuspenseFallback />}>

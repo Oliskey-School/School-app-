@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-import { Teacher, AppointmentSlot } from '../../types';
-import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CalendarIcon, UserIcon } from '../../constants';
+import { Teacher, AppointmentSlot, Student } from '../../types';
+import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CalendarIcon, UserIcon, StudentNavIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 // Inline mock data to guarantee availability
 const mockAppointmentSlots: AppointmentSlot[] = [
@@ -21,30 +22,45 @@ const mockAppointmentSlots: AppointmentSlot[] = [
 ];
 
 interface AppointmentScreenProps {
-    parentId?: number | null;
+    parentId?: string | null;
+    students: Student[];
     navigateTo: (view: string, title: string, props?: any) => void;
 }
 
-const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigateTo }) => {
+const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, students, navigateTo }) => {
+    const { currentSchool } = useAuth();
+    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [reason, setReason] = useState('');
     const [isBooked, setIsBooked] = useState(false);
+    const [isBooking, setIsBooking] = useState(false);
 
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [loadingTeachers, setLoadingTeachers] = useState(true);
 
     useEffect(() => {
         const fetchTeachers = async () => {
+            // 1. Get School ID from Students prop (safest as it's already scoped to parent)
+            const studentSchoolId = students.length > 0 ? students[0].schoolId : currentSchool?.id;
+
+            if (!studentSchoolId) {
+                console.warn("No school ID found for teacher fetch");
+                setLoadingTeachers(false);
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('teachers')
                 .select('*')
+                .eq('school_id', studentSchoolId) // Scope to school
                 .eq('status', 'Active');
 
             if (data) {
                 const mapTeacher = (t: any) => ({
                     id: t.id,
+                    user_id: t.user_id, // Ensure user_id is mapped
                     name: t.name,
                     avatarUrl: t.avatar_url,
                     subjects: [], // Fetch or mock subjects if needed
@@ -55,7 +71,10 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
                     phone: t.phone || ''
                 } as Teacher);
 
-                const mappedTeachers = data.map(mapTeacher);
+
+                const mappedTeachers = data
+                    .filter((t: any) => t.user_id) // Only allow teachers with a linked user account
+                    .map(mapTeacher);
                 setTeachers(mappedTeachers);
             }
             setLoadingTeachers(false);
@@ -154,34 +173,90 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
 
     const handleBooking = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedTeacher || !selectedSlot || !reason) {
-            toast.error("Please select a teacher, time slot, and provide a reason.");
+        if (!selectedStudent || !selectedTeacher || !selectedSlot || !reason) {
+            toast.error("Please select a student, teacher, time slot, and provide a reason.");
             return;
         }
 
-        if (!parentId) {
+        if (!parentId || !currentSchool?.id) {
             toast.error("You must be logged in as a parent to book appointments.");
             return;
         }
 
+        setIsBooking(true);
         try {
-            const { error } = await supabase
+            // Parse time (e.g., "08:00 AM")
+            const [time, modifier] = selectedSlot.split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+            if (modifier === 'PM' && hours < 12) hours += 12;
+            if (modifier === 'AM' && hours === 12) hours = 0;
+
+            const startsAt = new Date(selectedDate);
+            startsAt.setHours(hours, minutes, 0, 0);
+
+            const endsAt = new Date(startsAt);
+            endsAt.setMinutes(startsAt.getMinutes() + 30);
+
+            const { data: appointmentData, error } = await supabase
                 .from('appointments')
                 .insert([{
-                    parent_id: parentId,
-                    teacher_id: selectedTeacher.id,
-                    date: selectedDate,
-                    time: selectedSlot,
+                    school_id: currentSchool.id,
+                    requested_by_parent_id: parentId,
+                    staff_user_id: selectedTeacher.user_id,
+                    teacher_id: selectedTeacher.id, // Ensure this is saved for Teacher Dashboard filtering
+                    student_user_id: selectedStudent.user_id,
+                    staff_type: 'teacher',
+                    starts_at: startsAt.toISOString(),
+                    ends_at: endsAt.toISOString(),
                     reason: reason,
-                    status: 'Pending'
-                }]);
+                }])
+                .select()
+                .single();
 
-            if (error) throw error;
+            console.log("Booking Payload:", {
+                school_id: currentSchool.id,
+                requested_by_parent_id: parentId,
+                staff_user_id: selectedTeacher.user_id,
+                teacher_id: selectedTeacher.id,
+                student_user_id: selectedStudent.user_id,
+                staff_type: 'teacher',
+                starts_at: startsAt.toISOString(),
+                ends_at: endsAt.toISOString(),
+                reason: reason,
+                status: 'Pending'
+            });
+
+            if (error) {
+                console.error("Supabase Booking Error:", error);
+                throw error;
+            }
+
+            // Trigger Notification for Teacher
+            if (selectedTeacher.user_id) {
+                try {
+                    await supabase.from('notifications').insert({
+                        recipient_type: 'teacher',
+                        recipient_id: selectedTeacher.user_id,
+                        title: 'New Appointment Request',
+                        message: `Parent of ${selectedStudent.name} has requested an appointment for ${startsAt.toLocaleDateString()}.`,
+                        metadata: {
+                            appointmentId: appointmentData?.id,
+                            studentId: selectedStudent.id,
+                            parentId: parentId
+                        }
+                    });
+                } catch (notifError) {
+                    console.error("Failed to send notification:", notifError);
+                    // Don't block success UI if notification fails
+                }
+            }
             setIsBooked(true);
 
         } catch (err) {
             console.error("Booking error:", err);
             toast.error("Failed to book appointment. Please try again.");
+        } finally {
+            setIsBooking(false);
         }
     };
 
@@ -242,54 +317,98 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
             <main className="flex-grow overflow-y-auto pb-24 no-scrollbar">
                 <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
 
-                    {/* Step 1: Teacher Selection */}
+                    {/* Step 1: Student Selection */}
                     <section>
                         <div className="flex items-center mb-4">
-                            <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">1</span>
-                            <h2 className="text-xl font-bold text-gray-800">Select Teacher</h2>
+                            <span className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold mr-3 text-sm">1</span>
+                            <h2 className="text-xl font-bold text-gray-800">Select Student</h2>
                         </div>
 
                         <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
-                            {activeTeachers.map(teacher => (
+                            {students.map(student => (
                                 <button
-                                    key={teacher.id}
-                                    onClick={() => setSelectedTeacher(teacher)}
-                                    className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
-                                        ? 'bg-white border-green-500 ring-2 ring-green-200 shadow-lg scale-105'
-                                        : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-md'
+                                    key={student.id}
+                                    onClick={() => setSelectedStudent(student)}
+                                    className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedStudent?.id === student.id
+                                        ? 'bg-white border-sky-500 ring-2 ring-sky-200 shadow-lg scale-105'
+                                        : 'bg-white border-gray-200 hover:border-sky-300 hover:shadow-md'
                                         }`}
                                 >
                                     <div className="relative inline-block mb-3">
-                                        {teacher.avatarUrl ? (
+                                        {student.avatarUrl ? (
                                             <img
-                                                src={teacher.avatarUrl}
-                                                alt={teacher.name}
+                                                src={student.avatarUrl}
+                                                alt={student.name}
                                                 className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
                                             />
                                         ) : (
-                                            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center border-2 border-white shadow-sm text-green-600 font-bold text-xl">
-                                                {teacher.name.charAt(0)}
+                                            <div className="w-16 h-16 rounded-full bg-sky-100 flex items-center justify-center border-2 border-white shadow-sm text-sky-600 font-bold text-xl">
+                                                {student.name.charAt(0)}
                                             </div>
                                         )}
-                                        {selectedTeacher?.id === teacher.id && (
-                                            <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
+                                        {selectedStudent?.id === student.id && (
+                                            <div className="absolute -bottom-1 -right-1 bg-sky-500 rounded-full p-1 border-2 border-white">
                                                 <CheckCircleIcon className="w-3 h-3 text-white" />
                                             </div>
                                         )}
                                     </div>
-                                    <h3 className="font-bold text-gray-800 text-sm truncate">{teacher.name}</h3>
-                                    <p className="text-xs text-gray-500 mt-1 truncate">{teacher.subjects[0]}</p>
+                                    <h3 className="font-bold text-gray-800 text-sm truncate">{student.name}</h3>
+                                    <p className="text-xs text-gray-500 mt-1 truncate">Grade {student.grade}</p>
                                 </button>
                             ))}
                         </div>
                     </section>
 
-                    {/* Step 2 & 3 Combined Container */}
-                    <div className={`transition-opacity duration-500 ${selectedTeacher ? 'opacity-100' : 'opacity-40 pointer-events-none filter blur-sm'}`}>
-                        {/* Step 2: Date & Time */}
-                        <section className="mb-8">
+                    {/* Step 2: Teacher Selection */}
+                    <div className={`transition-opacity duration-500 ${selectedStudent ? 'opacity-100' : 'opacity-40 pointer-events-none filter blur-sm'}`}>
+                        <section>
                             <div className="flex items-center mb-4">
                                 <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">2</span>
+                                <h2 className="text-xl font-bold text-gray-800">Select Teacher</h2>
+                            </div>
+
+                            <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
+                                {activeTeachers.map(teacher => (
+                                    <button
+                                        key={teacher.id}
+                                        onClick={() => setSelectedTeacher(teacher)}
+                                        className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
+                                            ? 'bg-white border-green-500 ring-2 ring-green-200 shadow-lg scale-105'
+                                            : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-md'
+                                            }`}
+                                    >
+                                        <div className="relative inline-block mb-3">
+                                            {teacher.avatarUrl ? (
+                                                <img
+                                                    src={teacher.avatarUrl}
+                                                    alt={teacher.name}
+                                                    className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
+                                                />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center border-2 border-white shadow-sm text-green-600 font-bold text-xl">
+                                                    {teacher.name.charAt(0)}
+                                                </div>
+                                            )}
+                                            {selectedTeacher?.id === teacher.id && (
+                                                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
+                                                    <CheckCircleIcon className="w-3 h-3 text-white" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <h3 className="font-bold text-gray-800 text-sm truncate">{teacher.name}</h3>
+                                        <p className="text-xs text-gray-500 mt-1 truncate">{teacher.subjects[0] || 'General'}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* Step 3 & 4 Combined Container */}
+                    <div className={`transition-opacity duration-500 ${selectedTeacher ? 'opacity-100' : 'opacity-40 pointer-events-none filter blur-sm'}`}>
+                        {/* Step 3: Date & Time */}
+                        <section className="mb-8">
+                            <div className="flex items-center mb-4">
+                                <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">3</span>
                                 <h2 className="text-xl font-bold text-gray-800">Date & Time</h2>
                             </div>
 
@@ -341,7 +460,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
                         {/* Step 3: Reason */}
                         <section>
                             <div className="flex items-center mb-4">
-                                <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">3</span>
+                                <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">4</span>
                                 <h2 className="text-xl font-bold text-gray-800">Details</h2>
                             </div>
                             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-4">
@@ -357,10 +476,10 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, navigat
 
                                 <button
                                     onClick={handleBooking}
-                                    disabled={!selectedTeacher || !selectedSlot || !reason}
+                                    disabled={isBooking || !selectedStudent || !selectedTeacher || !selectedSlot || !reason}
                                     className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-100 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center space-x-2"
                                 >
-                                    <span>Confirm Appointment</span>
+                                    <span>{isBooking ? 'Booking...' : 'Confirm Appointment'}</span>
                                     <ChevronRightIcon className="w-5 h-5" />
                                 </button>
                             </div>

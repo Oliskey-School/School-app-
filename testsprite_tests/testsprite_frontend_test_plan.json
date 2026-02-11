@@ -1,0 +1,345 @@
+[
+  {
+    "id": "TC001",
+    "title": "Verify role-based access control for all user roles",
+    "description": "Check that Owners, Admins, Teachers, Students, and Parents have correct module and feature access permissions as per the RBAC design.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as Owner and verify access to all modules and administrative features."
+      },
+      {
+        "type": "assertion",
+        "description": "Owner has unrestricted access."
+      },
+      {
+        "type": "action",
+        "description": "Log in as Admin and verify access to school configuration, user management, and audit logs."
+      },
+      {
+        "type": "assertion",
+        "description": "Admin has access restricted to assigned schools with configuration permissions."
+      },
+      {
+        "type": "action",
+        "description": "Log in as Teacher and access class management, attendance, grading, and communication features."
+      },
+      {
+        "type": "assertion",
+        "description": "Teacher can access only assigned classes and related student data."
+      },
+      {
+        "type": "action",
+        "description": "Log in as Student and verify access to learning materials, assignments, attendance, and progress reports."
+      },
+      {
+        "type": "assertion",
+        "description": "Student has access strictly to their own academic and personal data."
+      },
+      {
+        "type": "action",
+        "description": "Log in as Parent and check monitoring features for their children’s academic progress, fees, and messaging."
+      },
+      {
+        "type": "assertion",
+        "description": "Parent access limited to their registered children only."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Real-time data synchronization across dashboards",
+    "description": "Ensure that changes in student data, attendance, and academic progress reflect instantaneously for all role dashboards viewing that data.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "As Teacher, update attendance record for a student."
+      },
+      {
+        "type": "assertion",
+        "description": "Student, Parent, and Admin dashboards show updated attendance data immediately without refresh."
+      },
+      {
+        "type": "action",
+        "description": "Modify student behaviour record and check Teacher and Admin dashboards."
+      },
+      {
+        "type": "assertion",
+        "description": "Changes appear in real-time across user sessions."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Audit log functionality and accuracy",
+    "description": "Verify that all critical user actions such as login, data changes, role assignments, and configuration updates are logged with correct user info and timestamps.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform a set of administrative changes, including user role modifications and school branding updates."
+      },
+      {
+        "type": "assertion",
+        "description": "Audit log entries appear with accurate actions, users, and timestamps."
+      },
+      {
+        "type": "action",
+        "description": "Check that audit logs are accessible and readable by authorized roles only."
+      },
+      {
+        "type": "assertion",
+        "description": "Logs are protected from unauthorized access."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Student admission and lifecycle management",
+    "description": "Test student admission through to alumni status updates with all intermediate academic and behavioral data tracked correctly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Add a new student admission with complete required details."
+      },
+      {
+        "type": "assertion",
+        "description": "Student appears in the school roster with correct assigned class/stream."
+      },
+      {
+        "type": "action",
+        "description": "Update attendance, behavior, and health records periodically."
+      },
+      {
+        "type": "assertion",
+        "description": "All updates are reflected in student profile and reports."
+      },
+      {
+        "type": "action",
+        "description": "Change student status to alumni upon graduation."
+      },
+      {
+        "type": "assertion",
+        "description": "Alumni status is set and student record locked from academic modification."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Class and timetable management with clash detection",
+    "description": "Generate class schedules and exam timetables verifying clash-free allocations and room assignments.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create class schedules with multiple subjects and assign classrooms."
+      },
+      {
+        "type": "assertion",
+        "description": "Conflicting room or teacher assignments are flagged and prevented."
+      },
+      {
+        "type": "action",
+        "description": "Schedule exams ensuring no student has overlapping sessions."
+      },
+      {
+        "type": "assertion",
+        "description": "System detects and disallows conflicting exam times."
+      },
+      {
+        "type": "action",
+        "description": "Sync timetable with external calendar platforms."
+      },
+      {
+        "type": "assertion",
+        "description": "External calendar updates accurately match system schedule."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Multi-channel communication delivery",
+    "description": "Validate messaging, notifications, email, and SMS dispatch to correct recipients based on roles and message types.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send an in-app announcement to teachers and parents."
+      },
+      {
+        "type": "assertion",
+        "description": "Announcement appears in respective user dashboards promptly."
+      },
+      {
+        "type": "action",
+        "description": "Send email and SMS notifications to students for exam alerts."
+      },
+      {
+        "type": "assertion",
+        "description": "Emails and SMS are received successfully by intended users."
+      },
+      {
+        "type": "action",
+        "description": "Trigger emergency broadcast and check receipt across all user roles."
+      },
+      {
+        "type": "assertion",
+        "description": "Message delivered instantly and prominently to all users."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Finance and billing operations and reconciliation",
+    "description": "Test fee structures setup, invoice generation, online payment processing, discounts application, and financial report accuracy.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Configure multiple fee structures including discounts."
+      },
+      {
+        "type": "assertion",
+        "description": "Fee structures applied correctly per class or student category."
+      },
+      {
+        "type": "action",
+        "description": "Generate invoices and process online payments."
+      },
+      {
+        "type": "assertion",
+        "description": "Payments recorded and reflected accurately in balances."
+      },
+      {
+        "type": "action",
+        "description": "Generate monthly financial reports."
+      },
+      {
+        "type": "assertion",
+        "description": "Reports reconcile exactly with transaction data."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Offline data capture and synchronization",
+    "description": "Verify system behavior when operating offline including data capture and subsequent synchronization upon reconnect.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "With mobile app, switch to offline mode."
+      },
+      {
+        "type": "action",
+        "description": "Enter attendance records and update student data offline."
+      },
+      {
+        "type": "assertion",
+        "description": "Data is cached locally without errors."
+      },
+      {
+        "type": "action",
+        "description": "Restore internet connectivity."
+      },
+      {
+        "type": "assertion",
+        "description": "Offline entries synchronize with central database and reflect on other user dashboards."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Customization and module toggle per school",
+    "description": "Confirm enabling or disabling modules and applying custom branding works per tenant and affects available UI and features accordingly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Disable Library module for a particular school."
+      },
+      {
+        "type": "assertion",
+        "description": "Library features and UI are no longer accessible for users of that school."
+      },
+      {
+        "type": "action",
+        "description": "Apply custom logo and color scheme for a school."
+      },
+      {
+        "type": "assertion",
+        "description": "Branding changes appear correctly in all relevant user interfaces."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "AI-powered performance prediction and risk alert accuracy",
+    "description": "Evaluate AI outputs for student performance predictions, attendance risk alerts, and timetable optimizations against historical and real-time data.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Input historical academic and attendance data for students."
+      },
+      {
+        "type": "assertion",
+        "description": "System generates performance predictions matching expected trends."
+      },
+      {
+        "type": "action",
+        "description": "Trigger attendance risk algorithm after low attendance events."
+      },
+      {
+        "type": "assertion",
+        "description": "Risk alerts are generated correctly and notified to teachers and parents."
+      },
+      {
+        "type": "action",
+        "description": "Optimize timetable using AI-based clash resolution."
+      },
+      {
+        "type": "assertion",
+        "description": "Suggested timetable reduces conflicts and improves resource utilization."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Mobile application responsiveness and data integrity",
+    "description": "Verify that mobile apps on Android/iOS respond correctly to different screen sizes, maintain data integrity in offline/online modes, and sync without loss.",
+    "category": "ui",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the app on multiple mobile devices with varying screen sizes."
+      },
+      {
+        "type": "assertion",
+        "description": "UI components scale and rearrange appropriately for all devices."
+      },
+      {
+        "type": "action",
+        "description": "Capture data offline on mobile then reconnect."
+      },
+      {
+        "type": "assertion",
+        "description": "Data syncs correctly and no data is lost or duplicated."
+      }
+    ]
+  }
+]

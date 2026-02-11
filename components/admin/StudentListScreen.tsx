@@ -12,7 +12,10 @@ import {
   ChevronRightIcon
 } from '../../constants';
 import { Student, AttendanceStatus } from '../../types';
+import { fetchStudents } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 
 const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ status }) => {
   switch (status) {
@@ -134,14 +137,16 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
   // Fetch students from Supabase
   useEffect(() => {
-    fetchStudents();
+    if (user || profile) {
+      loadStudents();
+    }
 
     // Realtime Subscription
     const subscription = supabase
       .channel('public:students')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, (payload) => {
         console.log('Student change received:', payload);
-        fetchStudents();
+        loadStudents();
       })
       .subscribe();
 
@@ -150,49 +155,31 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     };
   }, []);
 
-  const fetchStudents = async () => {
+  const { user } = useAuth();
+  const { profile } = useProfile();
+
+  const loadStudents = async () => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      // Get current school context
-      const { data: { user } } = await supabase.auth.getUser();
-      const schoolId = user?.user_metadata?.school_id;
+      // Align with Dashboard logic: profile.schoolId is primary, metadata is fallback
+      const schoolId = profile?.schoolId || user?.user_metadata?.school_id;
 
-      console.log('[StudentList] User:', user);
-      console.log('[StudentList] School ID:', schoolId);
+      console.log('[StudentList] Loading for School ID:', schoolId);
 
       if (!schoolId) {
-        console.warn('[StudentList] No school context found');
-        throw new Error('No school context found');
+        console.warn('[StudentList] No school context found. Aborting fetch to prevent data leak.');
+        setStudents([]);
+        setIsLoading(false);
+        return;
       }
 
-      const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('school_id', schoolId)
-        .order('grade', { ascending: false });
+      // Use centralized fetch function
+      // Now strictly passing schoolId. fetchStudents in db handles the query.
+      const data = await fetchStudents(schoolId);
 
-      // log response for debugging
-      console.debug('fetchStudents response', { data, error });
-
-      if (error) throw error;
-
-      // Transform Supabase data to match Student interface
-      const transformedData: Student[] = (data || []).map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
-        grade: s.grade,
-        section: s.section,
-        department: s.department,
-        attendanceStatus: s.attendance_status || 'Absent',
-        birthday: s.birthday,
-        schoolId: s.school_generated_id,
-        email: s.email || ''
-      }));
-
-      console.log('[StudentList] Transformed Data:', transformedData);
-      setStudents(transformedData);
+      console.log('[StudentList] Fetched Data:', data.length);
+      setStudents(data);
     } catch (error) {
       console.error('Error fetching students:', error);
       setFetchError((error as any)?.message || String(error));

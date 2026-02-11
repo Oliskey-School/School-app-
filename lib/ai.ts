@@ -160,9 +160,18 @@ export class GeminiClient {
     get models() {
         return {
             generateContent: this.generateContent.bind(this),
-            generateVideos: async () => {
+            generateVideos: async (params: any) => {
                 console.warn("Video generation stub called.");
                 throw new Error("Video generation is currently unavailable.");
+            }
+        };
+    }
+
+    get operations() {
+        return {
+            getVideosOperation: async (params: any) => {
+                console.warn("getVideosOperation stub called.");
+                return { done: true, response: { generatedVideos: [] } };
             }
         };
     }

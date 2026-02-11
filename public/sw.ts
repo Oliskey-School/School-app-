@@ -191,7 +191,7 @@ self.addEventListener('push', (event: PushEvent) => {
 
     const data = event.data?.json() || {};
 
-    const options: NotificationOptions = {
+    const options: any = {
         body: data.body || 'New update available',
         icon: '/icon-192.png',
         badge: '/badge-72.png',

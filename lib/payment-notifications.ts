@@ -215,7 +215,7 @@ export const sendPaymentConfirmation = async (params: PaymentConfirmationParams)
 /**
  * Send fee assignment notification to parent
  */
-export const sendFeeAssignmentNotification = async (feeId: number): Promise<{ success: boolean; error?: string }> => {
+export const sendFeeAssignmentNotification = async (feeId: string): Promise<{ success: boolean; error?: string }> => {
     try {
         // Get fee details
         const { data: fee, error: feeError } = await supabase

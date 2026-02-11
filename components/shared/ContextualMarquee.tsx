@@ -21,7 +21,7 @@ export const ContextualMarquee: React.FC = () => {
                     .select('title')
                     .eq('school_id', user.user_metadata.school_id)
                     .in('category', ['Event', 'Urgent', 'Holiday'])
-                    .gt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
+                    .gt('timestamp', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
                     .limit(5);
 
                 if (data && data.length > 0) {

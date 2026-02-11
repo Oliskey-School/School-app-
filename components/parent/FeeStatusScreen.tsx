@@ -32,7 +32,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo,
     const [paymentGateway, setPaymentGateway] = useState<'paystack' | 'flutterwave' | 'mobilemoney'>('paystack');
     const [parentName, setParentName] = useState<string>('');
     const [parentPhone, setParentPhone] = useState<string>('');
-    const [feesWithPlans, setFeesWithPlans] = useState<Set<number>>(new Set());
+    const [feesWithPlans, setFeesWithPlans] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const init = async () => {
@@ -121,7 +121,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo,
         setFees(data);
 
         // Check which fees have payment plans
-        const plansSet = new Set<number>();
+        const plansSet = new Set<string>();
         await Promise.all(
             data.map(async (fee) => {
                 const hasPlan = await hasPaymentPlan(fee.id);

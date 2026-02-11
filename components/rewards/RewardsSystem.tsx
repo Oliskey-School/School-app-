@@ -48,7 +48,11 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
                 .order('created_at', { ascending: false })
                 .limit(10);
 
-            setTransactions(transData || []);
+            setTransactions(transData?.map((t: any) => ({
+                ...t,
+                createdAt: t.created_at,
+                awardedByUser: t.awarded_by_user
+            })) || []);
 
             // Fetch earned badges
             const { data: badgesData } = await supabase
@@ -56,7 +60,10 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
                 .select('*, badge:badges(*)')
                 .eq('student_id', student.id);
 
-            setBadges(badgesData || []);
+            setBadges(badgesData?.map((b: any) => ({
+                ...b,
+                earnedAt: b.earned_at
+            })) || []);
 
         } catch (error) {
             console.error('Error fetching rewards:', error);
@@ -136,7 +143,7 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
                                     🏆
                                 </div>
                                 <p className="text-sm font-semibold text-gray-800 text-center">{studentBadge.badge?.name}</p>
-                                <p className="text-xs text-gray-500 text-center">{new Date(studentBadge.earned_at).toLocaleDateString()}</p>
+                                <p className="text-xs text-gray-500 text-center">{new Date(studentBadge.earnedAt).toLocaleDateString()}</p>
                             </div>
                         ))}
                     </div>
@@ -158,8 +165,8 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
                             <div className="flex-1">
                                 <p className="font-medium text-gray-800">{transaction.reason}</p>
                                 <p className="text-xs text-gray-500">
-                                    {new Date(transaction.created_at).toLocaleString()}
-                                    {transaction.awarded_by_user && ` • by ${transaction.awarded_by_user.name}`}
+                                    {new Date(transaction.createdAt).toLocaleString()}
+                                    {transaction.awardedByUser && ` • by ${transaction.awardedByUser.name}`}
                                 </p>
                             </div>
                             <div className={`font-bold text-lg ${transaction.points > 0 ? 'text-green-600' : 'text-red-600'}`}>

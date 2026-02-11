@@ -336,7 +336,12 @@ const App: React.FC = () => {
       <ProfileProvider>
         <BranchProvider>
           {/* Toast Notifications */}
-          <Toaster position="top-right" />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 6000,
+            }}
+          />
 
           {/* Offline indicator - shows when no internet connection */}
           <OfflineIndicator />

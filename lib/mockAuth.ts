@@ -13,8 +13,8 @@ export const MOCK_USERS: Record<string, any> = {
         email: 'teacher@demo.com',
         password: 'password123',
         role: 'teacher',
-        name: 'Demo Teacher',
-        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics', 'Science'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        name: 'New Teacher',
+        metadata: { role: 'teacher', full_name: 'New Teacher', subjects: ['Mathematics'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     parent: {
         id: '12345678-1234-1234-1234-123456781234',

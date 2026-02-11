@@ -33,14 +33,20 @@ export function useRealtimeNotifications(userRole?: string) {
                 return;
             }
 
-            const roleToCheck = userRole || profile?.role || 'student';
+            const roleToCheck = (userRole || profile?.role || 'student').toLowerCase();
 
             const count = data.filter(n => {
                 const isUserMatch = n.user_id && String(n.user_id) === String(currentUserId);
-                const audience = n.audience || [];
-                const isAudienceMatch = Array.isArray(audience)
-                    ? audience.map((s: string) => s.toLowerCase()).includes(roleToCheck.toLowerCase())
-                    : JSON.stringify(audience).toLowerCase().includes(roleToCheck.toLowerCase());
+
+                let isAudienceMatch = false;
+                const audience = n.audience;
+
+                if (Array.isArray(audience)) {
+                    isAudienceMatch = audience.some((s: string) => s.toLowerCase() === roleToCheck || s.toLowerCase() === 'all');
+                } else if (typeof audience === 'string') {
+                    const audienceLower = audience.toLowerCase();
+                    isAudienceMatch = audienceLower === roleToCheck || audienceLower === 'all';
+                }
 
                 return isUserMatch || isAudienceMatch;
             }).length;

@@ -6,10 +6,11 @@
 import React, { useState } from 'react';
 import { createPaymentPlan } from '../../lib/payment-plans';
 import { Calendar, DollarSign, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface PaymentPlanModalProps {
-    feeId: number;
-    studentId: number;
+    feeId: string;
+    studentId: string;
     totalAmount: number;
     onClose: () => void;
     onSuccess: () => void;

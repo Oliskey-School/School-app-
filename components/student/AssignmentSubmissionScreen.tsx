@@ -35,7 +35,7 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
-  const { currentSchool } = useAuth(); // Need school_id for insert
+  const { currentSchool, user } = useAuth(); // Need school_id and user_id for insert
 
   // Load existing submission
   React.useEffect(() => {
@@ -93,6 +93,7 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       const submissionPayload = {
         assignment_id: assignment.id,
         student_id: studentId,
+        student_user_id: user?.id,
         submission_text: textAnswer,
         attachment_url: fileNames || (existingSubmission?.attachment_url),
         submitted_at: new Date().toISOString(),

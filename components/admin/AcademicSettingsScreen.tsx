@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { BookOpenIcon, SaveIcon } from '../../constants';
+import { BookOpenIcon, SaveIcon, ChevronRightIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {

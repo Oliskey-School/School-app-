@@ -103,6 +103,8 @@ export interface ReportCard {
   teacherComment: string;
   principalComment: string;
   status: 'Draft' | 'Submitted' | 'Published';
+  position?: number;
+  totalStudents?: number;
 }
 
 export interface Student {
@@ -159,7 +161,7 @@ export interface Student {
   badges?: Badge[];
 }
 
-export type StudentReportInfo = Student & { status: 'Draft' | 'Submitted' | 'Published'; };
+export type StudentReportInfo = Omit<Student, 'status'> & { status: 'Draft' | 'Submitted' | 'Published'; };
 
 export interface StudentAttendance {
   id: number;
@@ -1006,7 +1008,7 @@ export interface AIGame {
   subject: string;
   topic: string;
   level: GameLevel;
-  creatorId: number; // Teacher's ID
+  creatorId: string; // Teacher's ID
   status: 'Draft' | 'Published';
   questions: AIGameQuestion[];
 }
@@ -1104,5 +1106,37 @@ export interface GeneratedAssessment {
   type: string;
   totalMarks: number;
   questions: GeneratedQuestion[];
+}
+
+export interface StudentFeeInfo {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  grade: number;
+  section: string;
+  totalFee: number;
+  paidAmount: number;
+}
+
+export interface BusRoute {
+  id: number;
+  name: string;
+  stops: string[];
+}
+
+export interface BusRosterEntry {
+  id: number;
+  busId: string;
+  driverName: string;
+  assistantName: string;
+}
+
+export interface EmergencyBroadcast {
+  id: string;
+  message: string;
+  type: 'lockdown' | 'fire' | 'weather' | 'general';
+  sentAt: string;
+  sentBy: string;
+  targetAudience: string[];
 }
 

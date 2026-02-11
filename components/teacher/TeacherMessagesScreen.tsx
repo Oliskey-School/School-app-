@@ -25,9 +25,9 @@ const formatTimestamp = (isoDate: string): string => {
 interface TeacherMessagesScreenProps {
     onSelectChat?: (conversation: Conversation) => void;
     navigateTo: (view: string, title: string, props?: any) => void;
-    teacherId?: number | null;
+    teacherId?: string | null;
     currentUser?: any;
-    currentUserId?: number;
+    currentUserId?: string;
 }
 
 interface LocalConversation {
@@ -48,7 +48,7 @@ interface LocalConversation {
 
 const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateTo, onSelectChat, teacherId, currentUser, currentUserId }) => {
     // Determine current user ID logic (prefer currentUserId)
-    const myId = currentUserId || teacherId || (currentUser?.userId ? parseInt(currentUser.userId) : null) || 2;
+    const myId = currentUserId || teacherId || currentUser?.userId || '2';
 
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState<'All' | 'Unread'>('All');

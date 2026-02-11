@@ -120,31 +120,19 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       // 2. Total Students
       let studentCount = 0;
       if (classCount > 0) {
-        // Fetch students for these classes
-        // Optimization: Fetch all students for the grades present
-        const grades = [...new Set(teacherClasses.map(c => c.grade))];
+        const classIds = teacherClasses.map(c => c.id);
 
-        if (grades.length > 0) {
-          const { data: students } = await supabase
+        if (classIds.length > 0) {
+          const { data: students, error: studentError } = await supabase
             .from('students')
-            .select('grade, section')
+            .select('id')
             .eq('school_id', schoolId)
-            .in('grade', grades); // Filter by relevant grades
+            .in('class_id', classIds);
 
-          if (students) {
-            // Filter by section matches
-            studentCount = students.filter(s => {
-              // Find matching class for this student's grade/section
-              return teacherClasses.some(c =>
-                c.grade === s.grade &&
-                // Fuzzy section match: same logic as useTeacherClasses
-                (
-                  (c.section?.trim().toLowerCase() === s.section?.trim().toLowerCase()) ||
-                  (!c.section && !s.section) ||
-                  (c.section && !s.section && c.section.toLowerCase() === 'general') // Handle explicit 'General' section vs null
-                )
-              );
-            }).length;
+          if (studentError) {
+            console.error('❌ Error fetching students for stats:', studentError);
+          } else if (students) {
+            studentCount = students.length;
           }
         }
       }
@@ -157,67 +145,58 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!schoolId) return;
+      
       try {
-        // 1. Get Logged In Teacher Name
-        let query = supabase.from('teachers').select('name, id').eq('school_id', schoolId);
-        if (teacherId) query = query.eq('id', teacherId);
-        else if (profile?.id) query = query.eq('user_id', profile.id);
-        else if (currentUser?.email) query = query.eq('email', currentUser.email);
+        setLoading(true);
 
-        const { data: teacher } = await query.maybeSingle();
-        if (teacher) setTeacherName(teacher.name);
+        // 1. Prepare Queries
+        let teacherQuery = supabase
+          .from('teachers')
+          .select('id, name')
+          .eq('school_id', schoolId);
 
-        // (Classes and Students fetching removed - handled by hook above)
+        if (teacherId) teacherQuery = teacherQuery.eq('id', teacherId);
+        else if (profile?.id) teacherQuery = teacherQuery.eq('user_id', profile.id);
+        else if (currentUser?.email) teacherQuery = teacherQuery.eq('email', currentUser.email);
 
-        // 4. Get Today's Schedule (Scoped by Branch)
-        const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-        let scheduleQuery = supabase
-          .from('timetable')
-          .select('*')
-          .eq('teacher_id', teacher.id)
-          .eq('school_id', schoolId)
-          .eq('day', todayName)
-          .eq('status', 'Published');
+        // 2. Fetch basic info first to get teacher ID if needed
+        const { data: teacher } = await teacherQuery.maybeSingle();
+        if (teacher) {
+          setTeacherName(teacher.name);
 
-        if (currentBranchId) {
-          scheduleQuery = scheduleQuery.eq('branch_id', currentBranchId);
-        }
-
-        const { data: timetable } = await scheduleQuery.order('start_time', { ascending: true });
-
-        setTodaySchedule(timetable || []);
-
-        // 5. Get Recent Assignments for My Classes (Scoped by School)
-        let recentAssignments: any[] = [];
-        if (teacherClasses.length > 0) {
-          // Construct class names from teacherClasses to match assignment 'class_name'
-          // This assumes assignments are stored with "Grade X Section Y" format or similar.
-          // Ideally assignments should link to class_id, but legacy likely uses string names.
-          // We'll try to match somewhat broadly or use the IDs if available.
-          // For now, let's stick to the current pattern if possible, or construct standard names.
-          const classNames = teacherClasses.map(c => `Grade ${c.grade} ${c.section}`).concat(
-            teacherClasses.map(c => `JSS ${c.grade} ${c.section}`) // Add other formats if needed
-          );
-
-          const { data } = await supabase
-            .from('assignments')
-            .select('*')
+          // 3. Parallelize subsequent fetches
+          const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+          let scheduleQuery = supabase
+            .from('timetable')
+            .select('id, start_time, subject, class_name')
+            .eq('teacher_id', teacher.id)
             .eq('school_id', schoolId)
-            // We can't easily 'in' query with fuzzy names. 
-            // Ideally we should use class_id if assignments have it.
-            // If not, we might miss some. 
-            // Let's try to fetch assignments created by THIS teacher instead?
-            // That's usually safer for "My Assignments".
-            .eq('teacher_id', teacherId || currentUser?.id) // Filter by creator
-            .order('created_at', { ascending: false })
-            .limit(3);
-          recentAssignments = data || [];
-        }
+            .eq('day', todayName)
+            .eq('status', 'Published');
 
-        setUngradedAssignments(recentAssignments);
+          if (currentBranchId) {
+            scheduleQuery = scheduleQuery.eq('branch_id', currentBranchId);
+          }
+
+          // Fetch schedule and assignments in parallel
+          const [scheduleRes, assignmentsRes] = await Promise.all([
+            scheduleQuery.order('start_time', { ascending: true }),
+            supabase
+              .from('assignments')
+              .select('id, title, class_name, created_at')
+              .eq('school_id', schoolId)
+              .eq('teacher_id', teacher.id)
+              .order('created_at', { ascending: false })
+              .limit(3)
+          ]);
+
+          setTodaySchedule(scheduleRes.data || []);
+          setUngradedAssignments(assignmentsRes.data || []);
+        }
 
       } catch (err) {
-        console.error(err);
+        console.error('❌ Error fetching overview data:', err);
       } finally {
         setLoading(false);
       }
@@ -231,14 +210,13 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_classes' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => fetchData())
       .subscribe();
 
     return () => {
       supabase.removeChannel(subscription);
     };
 
-  }, [currentUser, teacherId, profile]);
+  }, [currentUser, teacherId, profile, schoolId]);
 
   const formatTime12Hour = (timeStr: string) => {
     if (!timeStr) return '';
@@ -273,7 +251,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
       <div className="grid grid-cols-2 gap-4">
         <StatCard label="Total Students" value={stats.totalStudents} icon={<BriefcaseIcon />} />
-        <StatCard label="Classes Taught" value={stats.classesTaught} icon={<ViewGridIcon />} />
+        <StatCard label="Total Assigned Classes" value={stats.classesTaught} icon={<ViewGridIcon />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

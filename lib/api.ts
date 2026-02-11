@@ -86,12 +86,45 @@ class HybridApiClient {
         if (this.options.useBackend) {
             return this.fetch<any>('/dashboard/stats');
         }
-        const { data, error } = await supabase.rpc('get_dashboard_stats', {
-            p_school_id: schoolId,
-            p_branch_id: branchId
-        });
-        if (error) throw error;
-        return data;
+
+        try {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const isoDate = thirtyDaysAgo.toISOString();
+
+            // Parallelize count queries for performance
+            // We fetch total counts AND new counts (created > 30 days ago)
+            const [
+                studentsTotal, studentsNew,
+                teachersTotal, teachersNew,
+                parentsTotal, parentsNew
+            ] = await Promise.all([
+                supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).gt('created_at', isoDate),
+
+                supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).gt('created_at', isoDate),
+
+                supabase.from('parents').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('parents').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).gt('created_at', isoDate)
+            ]);
+
+            return {
+                totalStudents: studentsTotal.count || 0,
+                studentTrend: studentsNew.count || 0,
+
+                totalTeachers: teachersTotal.count || 0,
+                teacherTrend: teachersNew.count || 0,
+
+                totalParents: parentsTotal.count || 0,
+                parentTrend: parentsNew.count || 0,
+
+                overdueFees: 0 // TODO: Implement specific fee calculation logic if needed
+            };
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            throw error;
+        }
     }
 
     // ============================================
@@ -102,7 +135,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>('/students');
         }
-        const { data, error } = await supabase.from('students').select('*').order('name');
+        const { data, error } = await supabase.from('students').select('id, name, avatar_url, grade, section, status, school_generated_id').order('name');
         if (error) throw error;
         return data || [];
     }
@@ -157,7 +190,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>('/teachers');
         }
-        const { data, error } = await supabase.from('teachers').select('*').order('name');
+        const { data, error } = await supabase.from('teachers').select('id, name, avatar_url, email, status, school_generated_id').order('name');
         if (error) throw error;
         return data || [];
     }
@@ -203,7 +236,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>('/fees');
         }
-        const { data, error } = await supabase.from('student_fees').select('*, students(*)').order('due_date');
+        const { data, error } = await supabase.from('student_fees').select('id, amount, paid_amount, due_date, status, student_id, students(name, grade, section)').order('due_date');
         if (error) throw error;
         return data || [];
     }
@@ -228,7 +261,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>('/classes');
         }
-        const { data, error } = await supabase.from('classes').select('*').order('grade');
+        const { data, error } = await supabase.from('classes').select('id, subject, grade, section, department').order('grade');
         if (error) throw error;
         return data || [];
     }
@@ -241,7 +274,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>('/parents');
         }
-        const { data, error } = await supabase.from('parents').select('*').order('name');
+        const { data, error } = await supabase.from('parents').select('id, name, email, phone, avatar_url, school_generated_id').order('name');
         if (error) throw error;
         return data || [];
     }
@@ -275,7 +308,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>('/notices');
         }
-        const { data, error } = await supabase.from('notices').select('*').order('timestamp', { ascending: false });
+        const { data, error } = await supabase.from('notices').select('id, title, content, timestamp, category, is_pinned, audience').order('timestamp', { ascending: false });
         if (error) throw error;
         return data || [];
     }
@@ -303,7 +336,7 @@ class HybridApiClient {
                 body: JSON.stringify({ records }),
             });
         }
-        const { data, error } = await supabase.from('student_attendance').upsert(records).select();
+        const { data, error } = await supabase.from('student_attendance').upsert(records, { onConflict: 'student_id,date' }).select();
         if (error) throw error;
         return data;
     }
@@ -337,6 +370,30 @@ class HybridApiClient {
         const { data, error } = await supabase.from('transport_buses').select('*').order('name');
         if (error) throw error;
         return data || [];
+    }
+
+    async createBus(busData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/buses', {
+                method: 'POST',
+                body: JSON.stringify(busData),
+            });
+        }
+        const { data, error } = await supabase.from('transport_buses').insert([busData]).select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async updateBus(id: string, busData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>(`/buses/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(busData),
+            });
+        }
+        const { data, error } = await supabase.from('transport_buses').update(busData).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
     }
 
     async deleteBus(id: string, options: ApiOptions = {}): Promise<void> {
