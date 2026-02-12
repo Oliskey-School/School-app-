@@ -37,73 +37,59 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
       const loadData = async () => {
         let loadedItems: any[] = [];
 
-        if (activeCategory === 'cbt') {
-          // Keep CBT logic distinct if it differs significantly, or move it later.
-          // For now, focusing on the standard 'quiz' refactor as requested.
-          const { data: examsData, error: examError } = await supabase
-            .from('cbt_exams')
-            .select(`
-                  *,
-                  subjects ( name ),
-                  classes ( id, grade, section )
-              `)
-            .eq('is_published', true)
-            .order('created_at', { ascending: false });
+        // Unified fetch from 'quizzes' table
+        let query = supabase
+          .from('quizzes')
+          .select(`
+              *,
+              classes ( id, grade, section ),
+              subjects ( name )
+          `)
+          .eq('school_id', student.schoolId || (student as any).school_id)
+          .eq('is_published', true)
+          .order('created_at', { ascending: false });
 
-          if (examError) throw examError;
+        const { data: quizzesData, error: quizError } = await query;
+        if (quizError) throw quizError;
 
-          // Fetch submissions
-          const { data: submissions } = await supabase
-            .from('cbt_submissions')
-            .select('exam_id, score, status')
-            .eq('student_id', student.id);
+        // Fetch submissions
+        const { data: submissions } = await supabase
+          .from('quiz_submissions')
+          .select('quiz_id, score, status')
+          .eq('student_id', student.id);
 
-          const subMap: Record<string, any> = {};
-          submissions?.forEach(s => { subMap[s.exam_id] = s; });
+        const subMap: Record<string, any> = {};
+        submissions?.forEach(s => { subMap[s.quiz_id] = s; });
 
-          loadedItems = (examsData || [])
-            .filter((exam: any) => {
-              if (exam.classes) {
-                return String(exam.classes.grade) === String(student.grade) &&
-                  (!exam.classes.section || !student.section || exam.classes.section === student.section);
-              }
-              if (exam.class_grade) {
-                return exam.class_grade.toLowerCase().includes(String(student.grade).toLowerCase());
-              }
-              return false;
-            })
-            .map((exam: any) => ({
-              id: exam.id,
-              title: exam.title,
-              subject: exam.subjects?.name || 'General',
-              className: exam.classes ? `Grade ${exam.classes.grade}${exam.classes.section}` : exam.class_grade,
-              durationMinutes: exam.duration_minutes,
-              submission: subMap[exam.id],
-              type: 'cbt'
-            }));
-        } else {
-          // REFACTORED: Use centralized service
-          const { fetchQuizzes } = await import('../../lib/database');
-          const quizzesData = await fetchQuizzes('student', student.id.toString(), student.grade);
+        // Filter and map
+        loadedItems = (quizzesData || [])
+          .filter((q: any) => {
+            // Category filtering
+            const isExam = q.description === 'Exam' || q.description === 'Test';
+            if (activeCategory === 'cbt' && !isExam) return false;
+            if (activeCategory === 'quiz' && isExam) return false;
 
-          // Still need submissions for now, can be moved to service later or joined in query
-          const { data: submissions } = await supabase
-            .from('quiz_submissions')
-            .select('quiz_id, score, status')
-            .eq('student_id', student.id);
-
-          const subMap: Record<string, any> = {};
-          submissions?.forEach(s => { subMap[s.quiz_id] = s; });
-
-          loadedItems = (quizzesData || []).map((quiz: any) => ({
-            id: quiz.id,
-            title: quiz.title,
-            subject: quiz.subject,
-            durationMinutes: quiz.duration_minutes,
-            submission: subMap[quiz.id],
-            type: 'quiz'
+            // Class filtering
+            if (q.classes) {
+              return String(q.classes.grade) === String(student.grade) &&
+                (!q.classes.section || !student.section || q.classes.section === student.section);
+            }
+            // Fallback grade filter
+            if (q.grade) {
+              return String(q.grade) === String(student.grade);
+            }
+            return true; // Default to showing if no class/grade restriction
+          })
+          .map((q: any) => ({
+            id: q.id,
+            title: q.title,
+            subject: q.subjects?.name || q.subject || 'General',
+            className: q.classes ? `Grade ${q.classes.grade}${q.classes.section || ''}` : `Grade ${q.grade || ''}`,
+            durationMinutes: q.duration_minutes,
+            submission: subMap[q.id],
+            type: activeCategory
           }));
-        }
+
         return loadedItems;
       };
 

@@ -1,32 +1,32 @@
 // Mock user data for Quick Login buttons (Synced with Shared Reality Demo School)
 export const MOCK_USERS: Record<string, any> = {
     admin: {
-        id: '11111111-1111-1111-1111-111111111111',
-        email: 'admin@demo.com',
+        id: 'd3300000-0000-0000-0000-000000000001',
+        email: 'demo_admin@school.com',
         password: 'password123',
         role: 'admin',
         name: 'Demo Admin',
         metadata: { role: 'admin', full_name: 'Demo Admin', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     teacher: {
-        id: '22222222-2222-2222-2222-222222222222',
-        email: 'teacher@demo.com',
+        id: 'd3300000-0000-0000-0000-000000000002',
+        email: 'demo_teacher@school.com',
         password: 'password123',
         role: 'teacher',
-        name: 'New Teacher',
-        metadata: { role: 'teacher', full_name: 'New Teacher', subjects: ['Mathematics'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        name: 'Demo Teacher',
+        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     parent: {
-        id: '12345678-1234-1234-1234-123456781234',
-        email: 'parent@demo.com',
+        id: 'd3300000-0000-0000-0000-000000000003',
+        email: 'demo_parent@school.com',
         password: 'password123',
         role: 'parent',
         name: 'Demo Parent',
         metadata: { role: 'parent', full_name: 'Demo Parent', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     student: {
-        id: '87654321-4321-4321-4321-876543218765',
-        email: 'student@demo.com',
+        id: 'd3300000-0000-0000-0000-000000000004',
+        email: 'demo_student@school.com',
         password: 'password123',
         role: 'student',
         name: 'Demo Student',

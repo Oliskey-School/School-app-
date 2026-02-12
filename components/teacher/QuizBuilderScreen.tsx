@@ -21,7 +21,7 @@ interface WarningQuestionState {
     points: number;
 }
 
-const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
+const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherId: passedTeacherId }) => {
     const { user, currentSchool } = useAuth();
     // Pass user.id to the hook. The hook handles null/undefined gracefully.
     const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(user?.id);
@@ -36,18 +36,20 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
 
     // Derived state for saving
     const [schoolId, setSchoolId] = useState<string | null>(null);
+    const [profileId, setProfileId] = useState<string | null>(null);
 
     useEffect(() => {
         if (currentSchool?.id) {
             setSchoolId(currentSchool.id);
         } else if (user) {
-            // Fallback to metadata
             const metaId = user.app_metadata?.school_id || user.user_metadata?.school_id;
             if (metaId) setSchoolId(metaId);
-            else {
-                // Demo Fallback
-                setSchoolId("fa9bc997-21cb-4d8a-988a-a1e698e04e87");
-            }
+            else setSchoolId("fa9bc997-21cb-4d8a-988a-a1e698e04e87");
+        }
+
+        // Ensure we have a profile ID (UUID)
+        if (user?.id) {
+            setProfileId(user.id);
         }
     }, [currentSchool, user]);
 
@@ -106,30 +108,29 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose }) => {
             return;
         }
 
-        // Debugging context before save
-        console.log('Attempting to save quiz with context:', { userId: user?.id, schoolId, selectedClassId });
+        // Use the passed teacherId (from teachers table) if available, otherwise fallback
+        const finalTeacherId = passedTeacherId || profileId;
 
-        if (!user?.id) {
-            toast.error('Missing user Session. Please try reloading.');
+        if (!finalTeacherId) {
+            toast.error('Teacher profile not found. Please try reloading.');
             return;
         }
 
         if (!schoolId) {
-            toast.error('Missing School ID. Please try reloading or contact support.');
-            console.error('CRITICAL: School ID is missing in QuizBuilder state');
+            toast.error('Missing School ID. Please try reloading.');
             return;
         }
 
         setIsSubmitting(true);
         try {
-            // 1. Create Quiz Record with Correct UUIDs
+            // 1. Create Quiz Record
             const { data: quizData, error: quizError } = await supabase
                 .from('quizzes')
                 .insert([{
                     title,
                     subject,
                     class_id: selectedClassId || null,
-                    teacher_id: user.id, // Use from hook
+                    teacher_id: finalTeacherId,
                     school_id: schoolId,
                     duration_minutes: duration,
                     description,

@@ -3,6 +3,9 @@
 
 BEGIN;
 
+-- 0. Enable required extensions for GIN indexes
+CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public;
+
 -- 1. Core Multi-Tenancy Indexes (High Impact)
 -- school_id is used in almost every query to scope data.
 CREATE INDEX IF NOT EXISTS idx_students_school_id ON public.students(school_id);
@@ -33,9 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_student_fees_student_id ON public.student_fees(st
 CREATE INDEX IF NOT EXISTS idx_students_name ON public.students USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_teachers_name ON public.teachers USING gin (name gin_trgm_ops);
 
--- 4. Messaging Performance
-CREATE INDEX IF NOT EXISTS idx_chat_messages_room_id ON public.chat_messages(room_id);
-CREATE INDEX IF NOT EXISTS idx_chat_participants_user_id ON public.chat_participants(user_id);
+
 
 -- 5. Statistics Update
 ANALYZE public.students;

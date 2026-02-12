@@ -13,9 +13,14 @@ import {
 import { Teacher } from '../../types';
 import { fetchTeachers } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
+import { formatSchoolId } from '../../utils/idFormatter';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 
 interface TeacherListScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    currentBranchId?: string | null;
+    schoolId?: string; // Added prop
 }
 
 const TeacherCard: React.FC<{ teacher: Teacher, onSelect: (teacher: Teacher) => void }> = ({ teacher, onSelect }) => {
@@ -36,6 +41,7 @@ const TeacherCard: React.FC<{ teacher: Teacher, onSelect: (teacher: Teacher) => 
             {/* Info */}
             <div className="flex-1 min-w-0">
                 <p className="font-bold text-lg text-gray-900 truncate">{teacher.name}</p>
+                <p className="text-xs text-gray-500 mb-1 font-mono">{formatSchoolId(teacher.schoolGeneratedId || teacher.id, 'Teacher')}</p>
                 <div className="mt-1">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                         {teacher.subjects[0] || 'Unassigned'}
@@ -56,7 +62,9 @@ const TeacherCard: React.FC<{ teacher: Teacher, onSelect: (teacher: Teacher) => 
     );
 };
 
-const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo }) => {
+const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, currentBranchId, schoolId: propSchoolId }) => {
+    const { user } = useAuth();
+    const { profile } = useProfile();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterSubject, setFilterSubject] = useState<string>('All');
     const [filterStatus, setFilterStatus] = useState<string>('All');
@@ -64,7 +72,9 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo }) => 
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        loadTeachers();
+        if (user || profile || propSchoolId) {
+            loadTeachers();
+        }
         const subscription = supabase
             .channel('public:teachers')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
@@ -75,30 +85,33 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo }) => 
         return () => {
             supabase.removeChannel(subscription);
         };
-    }, []);
+    }, [currentBranchId, propSchoolId, profile?.schoolId, user?.id]);
 
     const loadTeachers = async () => {
         setIsLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            const schoolId = user?.user_metadata?.school_id;
+            // Robust school ID retrieval: Check prop first, then profile context, then user metadata
+            const schoolId = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
 
-            console.log('[TeacherList] User:', user);
-            console.log('[TeacherList] School ID:', schoolId);
+            console.log('[TeacherList] Context Status:', {
+                propSchoolId,
+                profileSchoolId: profile?.schoolId,
+                metadataSchoolId: user?.user_metadata?.school_id,
+                resolvedSchoolId: schoolId,
+                branchId: currentBranchId
+            });
 
             if (schoolId) {
-                const data = await fetchTeachers(schoolId);
-                console.log('[TeacherList] Fetched Teachers:', data);
+                const data = await fetchTeachers(schoolId, currentBranchId || undefined);
+                console.log('[TeacherList] Fetched Teachers:', data.length);
                 setTeachers(data);
             } else {
-                console.warn('[TeacherList] No school ID found in user metadata');
-                // Fallback attempt
-                const data = await fetchTeachers(schoolId);
-                console.log('[TeacherList] Fetched (Fallback):', data);
-                setTeachers(data);
+                console.warn('[TeacherList] No school context found. Aborting fetch.');
+                setTeachers([]);
             }
         } catch (error) {
             console.error("Error loading teachers:", error);
+            setTeachers([]);
         } finally {
             setIsLoading(false);
         }

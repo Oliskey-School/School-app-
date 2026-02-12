@@ -94,6 +94,20 @@ const EditProfileScreen: React.FC = () => {
                     {/* Form Fields */}
                     <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Admin ID</label>
+                            <div className="relative">
+                                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs font-bold bg-gray-100 rounded-l-lg h-full px-2 border-r border-gray-300">ID</span>
+                                <input 
+                                    type="text" 
+                                    value={(profile.schoolGeneratedId || "0001").replace(/-/g, '_').includes('OLISKEY') 
+                                        ? (profile.schoolGeneratedId || "0001").replace(/-/g, '_').toUpperCase() 
+                                        : `OLISKEY_MAIN_ADM_${(profile.schoolGeneratedId || "0001").replace(/-/g, '_').toUpperCase()}`} 
+                                    readOnly 
+                                    className="w-full pl-12 pr-3 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg font-mono font-bold" 
+                                />
+                            </div>
+                        </div>
+                        <div>
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                             <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">

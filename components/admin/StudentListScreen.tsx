@@ -127,17 +127,22 @@ const ClassAccordion: React.FC<{ title: string; count: number; children: React.R
 interface StudentListScreenProps {
   filter?: { grade: number; section: string; };
   navigateTo: (view: string, title: string, props?: any) => void;
+  currentBranchId?: string | null;
+  schoolId?: string; // Added prop
 }
 
-const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateTo }) => {
+const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateTo, currentBranchId, schoolId: propSchoolId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  const { user } = useAuth();
+  const { profile } = useProfile();
+
   // Fetch students from Supabase
   useEffect(() => {
-    if (user || profile) {
+    if (user || profile || propSchoolId) {
       loadStudents();
     }
 
@@ -153,19 +158,16 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, []);
-
-  const { user } = useAuth();
-  const { profile } = useProfile();
+  }, [currentBranchId, propSchoolId, profile?.schoolId, user?.id]); // Re-load when branch or context changes
 
   const loadStudents = async () => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      // Align with Dashboard logic: profile.schoolId is primary, metadata is fallback
-      const schoolId = profile?.schoolId || user?.user_metadata?.school_id;
+      // Use prop first, then profile, then metadata
+      const schoolId = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
 
-      console.log('[StudentList] Loading for School ID:', schoolId);
+      console.log('[StudentList] Loading for School ID:', schoolId, 'Branch:', currentBranchId);
 
       if (!schoolId) {
         console.warn('[StudentList] No school context found. Aborting fetch to prevent data leak.');
@@ -174,9 +176,8 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         return;
       }
 
-      // Use centralized fetch function
-      // Now strictly passing schoolId. fetchStudents in db handles the query.
-      const data = await fetchStudents(schoolId);
+      // Use centralized fetch function with branch support
+      const data = await fetchStudents(schoolId, currentBranchId || undefined);
 
       console.log('[StudentList] Fetched Data:', data.length);
       setStudents(data);
@@ -206,8 +207,13 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     const allStudents = students.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     allStudents.forEach(student => {
-      const className = `Grade ${student.grade}${student.section}`;
-      if (student.grade >= 1 && student.grade <= 3) { // Lower Primary
+      const className = student.grade ? `Grade ${student.grade}${student.section || ''}` : 'Unassigned';
+
+      if (!student.grade) {
+        // Handle unassigned students
+        if (!stages.primary.lower['Unassigned']) stages.primary.lower['Unassigned'] = [];
+        stages.primary.lower['Unassigned'].push(student);
+      } else if (student.grade >= 1 && student.grade <= 3) { // Lower Primary
         if (!stages.primary.lower[className]) stages.primary.lower[className] = [];
         stages.primary.lower[className].push(student);
       } else if (student.grade >= 4 && student.grade <= 6) { // Upper Primary
@@ -294,47 +300,59 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       </div>
 
       <main className="flex-grow px-4 pb-24 space-y-4 overflow-y-auto">
-        {seniorCount > 0 && (
-          <StageAccordion title="Senior Secondary" count={seniorCount}>
-            {Object.entries(studentsByStageAndClass.senior).map(([className, students]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={students.length}>
-                {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
-              </SubStageAccordion>
-            ))}
-          </StageAccordion>
-        )}
-
-        {juniorCount > 0 && (
-          <StageAccordion title="Junior Secondary" count={juniorCount}>
-            {Object.entries(studentsByStageAndClass.junior).map(([className, students]: [string, Student[]]) => (
-              <SubStageAccordion key={className} title={className} count={students.length}>
-                {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
-              </SubStageAccordion>
-            ))}
-          </StageAccordion>
-        )}
-
-        {primaryCount > 0 && (
-          <StageAccordion title="Primary School" count={primaryCount}>
-            {upperPrimaryCount > 0 && (
-              <SubStageAccordion title="Upper Primary (4-6)" count={upperPrimaryCount}>
-                {Object.entries(studentsByStageAndClass.primary.upper).map(([className, students]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={students.length}>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
+          </div>
+        ) : (seniorCount === 0 && juniorCount === 0 && primaryCount === 0) ? (
+          <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-200 m-2">
+            <p className="text-gray-500 font-medium">No students found matching your search.</p>
+          </div>
+        ) : (
+          <>
+            {seniorCount > 0 && (
+              <StageAccordion title="Senior Secondary" count={seniorCount}>
+                {Object.entries(studentsByStageAndClass.senior).map(([className, students]: [string, Student[]]) => (
+                  <SubStageAccordion key={className} title={className} count={students.length}>
                     {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
-                  </ClassAccordion>
+                  </SubStageAccordion>
                 ))}
-              </SubStageAccordion>
+              </StageAccordion>
             )}
-            {lowerPrimaryCount > 0 && (
-              <SubStageAccordion title="Lower Primary (1-3)" count={lowerPrimaryCount}>
-                {Object.entries(studentsByStageAndClass.primary.lower).map(([className, students]: [string, Student[]]) => (
-                  <ClassAccordion key={className} title={className} count={students.length}>
+
+            {juniorCount > 0 && (
+              <StageAccordion title="Junior Secondary" count={juniorCount}>
+                {Object.entries(studentsByStageAndClass.junior).map(([className, students]: [string, Student[]]) => (
+                  <SubStageAccordion key={className} title={className} count={students.length}>
                     {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
-                  </ClassAccordion>
+                  </SubStageAccordion>
                 ))}
-              </SubStageAccordion>
+              </StageAccordion>
             )}
-          </StageAccordion>
+
+            {primaryCount > 0 && (
+              <StageAccordion title="Primary School" count={primaryCount}>
+                {upperPrimaryCount > 0 && (
+                  <SubStageAccordion title="Upper Primary (4-6)" count={upperPrimaryCount}>
+                    {Object.entries(studentsByStageAndClass.primary.upper).map(([className, students]: [string, Student[]]) => (
+                      <ClassAccordion key={className} title={className} count={students.length}>
+                        {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+                      </ClassAccordion>
+                    ))}
+                  </SubStageAccordion>
+                )}
+                {lowerPrimaryCount > 0 && (
+                  <SubStageAccordion title="Lower Primary (1-3)" count={lowerPrimaryCount}>
+                    {Object.entries(studentsByStageAndClass.primary.lower).map(([className, students]: [string, Student[]]) => (
+                      <ClassAccordion key={className} title={className} count={students.length}>
+                        {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+                      </ClassAccordion>
+                    ))}
+                  </SubStageAccordion>
+                )}
+              </StageAccordion>
+            )}
+          </>
         )}
       </main>
 

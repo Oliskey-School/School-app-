@@ -24,15 +24,19 @@ import {
 // STUDENTS
 // ============================================
 
-export async function fetchStudents(schoolId?: string): Promise<Student[]> {
+export async function fetchStudents(schoolId?: string, branchId?: string): Promise<Student[]> {
     try {
         let query = supabase
             .from('students')
-            .select('id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday, school_id')
+            .select('id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday, school_id, branch_id')
             .order('grade', { ascending: false });
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
+        }
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
         }
 
         const { data, error } = await query;
@@ -270,7 +274,7 @@ export async function deleteStudent(id: string | number): Promise<boolean> {
 // TEACHERS
 // ============================================
 
-export async function fetchTeachers(schoolId?: string): Promise<Teacher[]> {
+export async function fetchTeachers(schoolId?: string, branchId?: string): Promise<Teacher[]> {
     try {
         let query = supabase
             .from('teachers')
@@ -282,6 +286,10 @@ export async function fetchTeachers(schoolId?: string): Promise<Teacher[]> {
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
+        }
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
         }
 
         const { data, error } = await query;
@@ -483,17 +491,21 @@ export async function deleteTeacher(id: string | number): Promise<boolean> {
 // PARENTS
 // ============================================
 
-export async function fetchParents(schoolId?: string): Promise<Parent[]> {
+export async function fetchParents(schoolId?: string, branchId?: string): Promise<Parent[]> {
     try {
         let query = supabase
             .from('parents')
             .select(`
-                id, school_generated_id, name, email, phone, avatar_url, school_id, user_id,
+                id, school_generated_id, name, email, phone, avatar_url, school_id, user_id, branch_id,
                 parent_children(student_id)
             `);
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
+        }
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
         }
 
         const { data, error } = await query;

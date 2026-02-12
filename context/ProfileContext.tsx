@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { formatSchoolId } from '../utils/idFormatter';
 
 interface UserProfile {
   id?: number | string;
@@ -10,6 +11,8 @@ interface UserProfile {
   role?: 'Student' | 'Teacher' | 'Parent' | 'Admin' | 'Proprietor' | 'Inspector' | 'Exam Officer' | 'Compliance Officer' | 'Super Admin' | 'Counselor' | string;
   supabaseId?: string;
   schoolId?: string;
+  branchId?: string; // Added branchId
+  schoolGeneratedId?: string;
 }
 
 interface ProfileContextType {
@@ -25,11 +28,11 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profile, setProfileState] = useState<UserProfile>({
-    name: 'Demo User',
+    name: 'User',
     email: 'user@school.com',
-    phone: '+234 801 234 5678',
+    phone: '',
     avatarUrl: 'https://i.pravatar.cc/150?u=user',
-    role: 'admin',
+    role: 'Student',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -44,7 +47,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           // Fetch user profile from users table by email
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('id, name, email, avatar_url, role, school_id')
+            .select('id, name, email, avatar_url, role, school_id, school_generated_id')
             .eq('email', authData.user.email)
             .single();
 
@@ -58,7 +61,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 email: authData.user.email,
                 phone: '+234 801 234 5678',
                 avatarUrl: 'https://i.pravatar.cc/150?u=demo',
-                role: authData.user.user_metadata?.role || 'Admin',
+                role: authData.user.user_metadata?.role || authData.user.app_metadata?.role || 'Admin',
+                schoolId: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+                schoolGeneratedId: formatSchoolId(authData.user.user_metadata?.school_generated_id || authData.user.app_metadata?.school_generated_id, authData.user.user_metadata?.role || 'Admin'),
               };
               setProfileState(demoProfile);
               setIsLoading(false);
@@ -103,6 +108,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
               avatarUrl: userData.avatar_url || 'https://i.pravatar.cc/150?u=user',
               role: (userData.role as any) || profile.role,
               schoolId: schoolId,
+              schoolGeneratedId: userData.school_generated_id || authData.user.app_metadata?.school_generated_id || authData.user.user_metadata?.school_generated_id,
             };
             setProfileState(dbProfile);
             return;
@@ -144,7 +150,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (userId) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, role, school_id')
+          .select('id, name, email, avatar_url, role, school_id, school_generated_id')
           .eq('id', userId)
           .single();
         userData = result.data;
@@ -152,7 +158,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (email) {
         const result = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, role, school_id')
+          .select('id, name, email, avatar_url, role, school_id, school_generated_id')
           .eq('email', email)
           .single();
         userData = result.data;
@@ -168,6 +174,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           avatarUrl: userData.avatar_url || profile.avatarUrl,
           role: (userData.role as any) || profile.role,
           schoolId: userData.school_id,
+          schoolGeneratedId: userData.school_generated_id,
         };
         setProfileState(dbProfile);
         sessionStorage.setItem('userProfile', JSON.stringify(dbProfile));
@@ -314,7 +321,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (profile.id) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, role, school_id')
+          .select('id, name, email, avatar_url, role, school_id, school_generated_id')
           .eq('id', profile.id)
           .single();
 
@@ -350,6 +357,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             avatarUrl: data.avatar_url || profile.avatarUrl,
             role: (data.role as any) || profile.role,
             schoolId: schoolId,
+            schoolGeneratedId: data.school_generated_id,
           };
           setProfileState(refreshed);
           sessionStorage.setItem('userProfile', JSON.stringify(refreshed));
@@ -358,7 +366,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       } else if (profile.email) {
         const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, avatar_url, role, school_id')
+          .select('id, name, email, avatar_url, role, school_id, school_generated_id')
           .eq('email', profile.email)
           .single();
 
@@ -394,6 +402,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             avatarUrl: data.avatar_url || profile.avatarUrl,
             role: (data.role as any) || profile.role,
             schoolId: schoolId,
+            schoolGeneratedId: data.school_generated_id,
           };
           setProfileState(refreshed);
           sessionStorage.setItem('userProfile', JSON.stringify(refreshed));

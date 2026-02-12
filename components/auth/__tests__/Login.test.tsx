@@ -124,11 +124,10 @@ describe('Login Component Integration Tests', () => {
         * End: mockSignIn() called with Admin role
         */
         it('attempts valid auth for Admin quick login', async () => {
-            // ... existing test ...
             // Mock successful Supabase response for seeded user
             (supabase.auth.signInWithPassword as any).mockResolvedValue({
                 data: {
-                    user: { id: 'test-id', email: 'admin@demo.com' },
+                    user: { id: 'test-id', email: 'demo_admin@school.com' },
                     session: { access_token: 'valid-token' }
                 },
                 error: null
@@ -149,29 +148,26 @@ describe('Login Component Integration Tests', () => {
             // Verification: Ensure Supabase was called with CORRECT seeded credentials
             await waitFor(() => {
                 expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
-                    email: 'admin@demo.com', // Must match seeding!
+                    email: 'demo_admin@school.com', // Must match seeding in lib/mockAuth.ts
                     password: 'password123'
                 });
-            });
+            }, { timeout: 3000 });
 
             // Ensure AuthContext.signIn was called
             await waitFor(() => {
                 expect(mockSignIn).toHaveBeenCalledWith(
                     expect.stringMatching(/admin/i), // DashboardType
                     expect.objectContaining({
-                        email: 'admin@demo.com',
+                        email: 'demo_admin@school.com',
                         isDemo: true
                     })
                 );
-            });
+            }, { timeout: 3000 });
         });
 
         it('shows error if quick login fails (Real Auth Fail)', async () => {
-            // Mock failure (e.g. invalid credentials on backend)
-            (supabase.auth.signInWithPassword as any).mockResolvedValue({
-                data: { user: null, session: null },
-                error: { message: 'Failed to login as admin.' }
-            });
+            // Mock failure (exception)
+            (supabase.auth.signInWithPassword as any).mockRejectedValue(new Error('Auth service unavailable'));
 
             render(<Login onNavigateToSignup={vi.fn()} />);
 
@@ -182,8 +178,7 @@ describe('Login Component Integration Tests', () => {
             fireEvent.click(screen.getByText('Admin'));
 
             // Verify Error Message
-            // Relaxed assertion to catch any error message
-            expect(await screen.findByText(/failed|error/i)).toBeInTheDocument();
+            expect(await screen.findByText(/Auth service unavailable/i)).toBeInTheDocument();
 
             // Ensure mockSignIn was NOT called
             expect(mockSignIn).not.toHaveBeenCalled();

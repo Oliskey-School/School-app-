@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { DashboardType } from '../types';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
+import PremiumErrorPage from './ui/PremiumErrorPage';
 
 // Import Dashboards (Placeholder imports - these components need to exist or be lazy loaded)
 // Assuming these components are already created or I should mock them for now.
@@ -100,11 +101,11 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
 
             default:
                 return (
-                    <div className="min-h-screen flex flex-col items-center justify-center">
-                        <h2 className="text-xl font-bold text-gray-800">Role Not Recognized</h2>
-                        <p className="text-gray-500">Please contact support.</p>
-                        <button onClick={() => props.onLogout ? props.onLogout() : (window.location.href = '/login')} className="mt-4 text-indigo-600 underline">Back to Login</button>
-                    </div>
+                    <PremiumErrorPage
+                        title="Access Denied"
+                        message="Your current role is not recognized or you don't have permission to access this area."
+                        resetErrorBoundary={() => props.onLogout ? props.onLogout() : (window.location.href = '/login')}
+                    />
                 );
         }
     };

@@ -29,12 +29,39 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         phone: '' // Added phone field as per screenshot often having it
     });
 
+    // Branch State
+    const [hasBranches, setHasBranches] = useState(false);
+    const [numBranches, setNumBranches] = useState(1);
+    const [branchNames, setBranchNames] = useState<string[]>(['Main Campus']);
+
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleBranchNameChange = (index: number, value: string) => {
+        const newNames = [...branchNames];
+        newNames[index] = value;
+        setBranchNames(newNames);
+    };
+
+    const handleNumBranchesChange = (val: number) => {
+        const n = Math.max(1, Math.min(10, val));
+        setNumBranches(n);
+        
+        // Adjust branchNames array size
+        const newNames = [...branchNames];
+        if (n + 1 > newNames.length) {
+            for (let i = newNames.length; i <= n; i++) {
+                newNames.push(`Branch ${i}`);
+            }
+        } else {
+            newNames.splice(n + 1);
+        }
+        setBranchNames(newNames);
     };
 
     const nextStep = (e: React.FormEvent) => {
@@ -47,7 +74,10 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                 setError('School Name is required.');
                 return;
             }
-            // Optional: Email validation if "School Email" is separate from Admin Email
+            if (hasBranches && branchNames.some(name => !name.trim())) {
+                setError('All branch names must be filled.');
+                return;
+            }
         }
 
         setStep(prev => prev + 1);
@@ -81,7 +111,8 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                         motto: formData.motto,
                         address: formData.address,
                         role: 'admin',
-                        signup_type: 'new_school'
+                        signup_type: 'new_school',
+                        branch_names: hasBranches ? branchNames : null
                     }
                 }
             });
@@ -358,6 +389,72 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                                     placeholder="City, State, Country"
                                                                 />
                                                             </div>
+                                                        </div>
+
+                                                        {/* Branch Configuration Section */}
+                                                        <div className="col-span-1 md:col-span-2 pt-4">
+                                                            <label className="flex items-center gap-3 cursor-pointer group">
+                                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${hasBranches ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-300'}`}>
+                                                                    {hasBranches && <CheckCircleIcon className="w-4 h-4 text-white" />}
+                                                                </div>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    className="sr-only" 
+                                                                    checked={hasBranches} 
+                                                                    onChange={(e) => setHasBranches(e.target.checked)} 
+                                                                />
+                                                                <span className="text-sm font-bold text-slate-600">This institution has multiple branches</span>
+                                                            </label>
+
+                                                            {hasBranches && (
+                                                                <motion.div 
+                                                                    initial={{ opacity: 0, height: 0 }}
+                                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                                    className="mt-6 p-6 bg-indigo-50/50 border-2 border-indigo-100 rounded-[2rem] space-y-6"
+                                                                >
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                                                            <BuildingLibraryIcon className="w-4 h-4 text-indigo-600" />
+                                                                        </div>
+                                                                        <h3 className="font-black text-xs text-indigo-900 uppercase tracking-widest">Branch Setup</h3>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 px-1">Number of Additional Branches</label>
+                                                                        <input 
+                                                                            type="number" 
+                                                                            min="1" 
+                                                                            max="10" 
+                                                                            value={numBranches} 
+                                                                            onChange={(e) => handleNumBranchesChange(parseInt(e.target.value) || 1)}
+                                                                            className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-bold text-indigo-900"
+                                                                        />
+                                                                    </div>
+
+                                                                    <div className="space-y-4">
+                                                                        <div className="relative">
+                                                                            <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 px-1">Main Branch Name</label>
+                                                                            <input 
+                                                                                value={branchNames[0]} 
+                                                                                onChange={(e) => handleBranchNameChange(0, e.target.value)}
+                                                                                className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-medium text-slate-700"
+                                                                                placeholder="e.g. Main Campus"
+                                                                            />
+                                                                        </div>
+                                                                        {Array.from({ length: numBranches }).map((_, idx) => (
+                                                                            <div key={idx + 1} className="relative">
+                                                                                <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 px-1">Branch {idx + 1} Name</label>
+                                                                                <input 
+                                                                                    value={branchNames[idx + 1] || ''} 
+                                                                                    onChange={(e) => handleBranchNameChange(idx + 1, e.target.value)}
+                                                                                    className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-medium text-slate-700"
+                                                                                    placeholder={`Branch ${idx + 1} Name`}
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </>

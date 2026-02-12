@@ -11,6 +11,7 @@ const SelectUserTypeToAddScreen: React.FC<SelectUserTypeToAddScreenProps> = ({ n
     { type: 'Student', icon: <StudentsIcon className="h-8 w-8 text-sky-500" />, action: () => navigateTo('addStudent', 'Add New Student', {}) },
     { type: 'Teacher', icon: <StaffIcon className="h-8 w-8 text-purple-500" />, action: () => navigateTo('addTeacher', 'Add New Teacher', {}) },
     { type: 'Parent', icon: <UsersIcon className="h-8 w-8 text-orange-500" />, action: () => navigateTo('addParent', 'Add New Parent', {}) },
+    { type: 'Branch Admin', icon: <UsersIcon className="h-8 w-8 text-indigo-500" />, action: () => navigateTo('addBranchAdmin', 'Add Branch Admin', {}) },
   ];
 
   return (

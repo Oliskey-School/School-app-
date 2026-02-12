@@ -371,6 +371,23 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 }
 
                 toast.success('Teacher updated successfully!');
+
+                // NOTIFICATION: Inform the teacher about the profile update
+                if (teacherToEdit.user_id) {
+                    try {
+                        await supabase.from('notifications').insert({
+                            user_id: teacherToEdit.user_id,
+                            school_id: schoolId,
+                            title: 'Profile Updated',
+                            message: 'Your profile details have been updated by the administrator.',
+                            type: 'system',
+                            audience: 'teacher',
+                            is_read: false
+                        });
+                    } catch (notifyErr) {
+                        console.error('Failed to send update notification:', notifyErr);
+                    }
+                }
             } else {
                 // CREATE MODE
                 const teacherEmail = email || `teacher${Date.now()}@school.com`;

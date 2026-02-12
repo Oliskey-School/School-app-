@@ -175,11 +175,14 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                     {/* Form Fields */}
                     <div className="w-full space-y-2">
                         <div className="flex gap-4">
-                            <div className="w-1/2">
-                                <InputField label="Student ID" value={user?.code || "ST-2024-001"} readOnly />
-                            </div>
-                            <div className="w-1/2">
-                                <InputField label="Class" value={user?.grade ? `${user.grade}${user.section || ''}` : "10-A"} readOnly />
+                            <div className="w-full">
+                                <InputField 
+                                    label="Student ID" 
+                                    value={(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').includes('OLISKEY') 
+                                        ? (user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase() 
+                                        : `OLISKEY_MAIN_STD_${(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase()}`} 
+                                    readOnly 
+                                />
                             </div>
                         </div>
                         <InputField label="Full Name" value={name} onChange={setName} />

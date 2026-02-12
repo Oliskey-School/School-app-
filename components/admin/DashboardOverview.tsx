@@ -303,6 +303,28 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const [parentTrend, setParentTrend] = useState(0);
     const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
+    // --- DIAGNOSTIC LOGGING ---
+    useEffect(() => {
+        const runDiagnostics = async () => {
+            if (isSupabaseConfigured) {
+                console.log('🔍 [Diagnostic] Running RLS Inspection...');
+                const { data, error } = await supabase.rpc('inspect_rls_context');
+                if (error) {
+                    console.error('❌ [Diagnostic] RPC Error:', error);
+                } else {
+                    console.log('✅ [Diagnostic] RLS Context Result:', JSON.stringify(data, null, 2));
+                    // Check if current user has a profile
+                    if (!data.context.profile_school_id) {
+                        console.warn('⚠️ [Diagnostic] Current user has NO school_id in public.profiles!');
+                    }
+                }
+            }
+        };
+        runDiagnostics();
+    }, []);
+    // --------------------------
+
+
     // Additional dashboard data
     const [overdueFees, setOverdueFees] = useState(0);
     const [recentActivities, setRecentActivities] = useState<AuditLog[]>([]);
@@ -312,6 +334,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const [enrollmentData, setEnrollmentData] = useState<{ year: number; count: number }[]>([]);
 
     const [unpublishedReports, setUnpublishedReports] = useState(0);
+    const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0); // Added for student approvals
 
     const [timetablePreview, setTimetablePreview] = useState<any[]>([]);
     const [attendancePercentage, setAttendancePercentage] = useState(0);
@@ -327,7 +350,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             fetchDashboardData();
             fetchBusRoster();
         }
-    }, [activeSchoolId]);
+    }, [activeSchoolId, currentBranchId]); // Added currentBranchId
 
     // Real-time Subscriptions using our new hook
     // 1. Students
@@ -428,23 +451,34 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             const today = new Date().toISOString().split('T')[0];
             const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
+            // Helper to apply branch filter to direct supabase queries
+            const applyBranch = (query: any) => {
+                if (currentBranchId && currentBranchId !== 'all') {
+                    return query.eq('branch_id', currentBranchId);
+                }
+                return query;
+            };
+
             const [
                 auditData,
                 healthRes,
                 studentsDataRes,
                 unpublishedRes,
+                pendingApprovalsRes,
                 attendanceRes,
                 timetableRes
             ] = await Promise.all([
                 fetchAuditLogs(4, activeSchoolId, currentBranchId || undefined),
-                supabase.from('health_logs').select('id, reason, time, date, students(name)').eq('school_id', schoolId).order('date', { ascending: false }).order('id', { ascending: false }).limit(1).single(),
-                supabase.from('students').select('created_at').eq('school_id', schoolId),
-                supabase.from('report_cards').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'Submitted'),
-                supabase.from('student_attendance').select('status').eq('school_id', schoolId).eq('date', today),
-                supabase.from('timetable').select('id, start_time, subject, class_name').eq('school_id', schoolId).eq('day', todayName).order('start_time', { ascending: true }).limit(5)
+                applyBranch(supabase.from('health_logs').select('id, reason, time, date, students(name)').eq('school_id', activeSchoolId)).order('date', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle(),
+                applyBranch(supabase.from('students').select('created_at').eq('school_id', activeSchoolId)),
+                applyBranch(supabase.from('report_cards').select('id', { count: 'exact', head: true }).eq('school_id', activeSchoolId).eq('status', 'Submitted')),
+                applyBranch(supabase.from('students').select('id', { count: 'exact', head: true }).eq('school_id', activeSchoolId).eq('status', 'Pending')),
+                applyBranch(supabase.from('student_attendance').select('status').eq('school_id', activeSchoolId).eq('date', today)),
+                applyBranch(supabase.from('timetable').select('id, start_time, subject, class_name').eq('school_id', activeSchoolId).eq('day', todayName)).order('start_time', { ascending: true }).limit(5)
             ]);
 
             // 3. Process results
+            setPendingApprovalsCount(pendingApprovalsRes.count || 0); // Added
             if (auditData) {
                 setRecentActivities(auditData.map((log: any) => ({
                     id: log.id,
@@ -521,6 +555,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         {/* Mobile/Tablet view */}
                         <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-3">
                             <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-sky-500" />
+                            <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                             <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
                             <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enhancedEnrollment', 'New Student Enrollment')} color="bg-emerald-600" />
                             <QuickActionCard label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
@@ -703,6 +738,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     <div>
                         <h2 className="text-lg font-bold text-gray-700 mb-3 px-1">Action Required</h2>
                         <div className="space-y-3">
+                            {pendingApprovalsCount > 0 && (
+                                <AlertCard label="Student Approvals" value={pendingApprovalsCount} icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="text-indigo-600" />
+                            )}
                             {unpublishedReports > 0 && (
                                 <AlertCard label="Reports to Publish" value={unpublishedReports} icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports')} color="text-red-500" />
                             )}

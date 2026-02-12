@@ -12,7 +12,7 @@ import { Fee, Transaction, PaymentHistoryItem } from '../types';
  */
 export async function fetchStudentFees(studentId: string | number, schoolId?: string): Promise<Fee[]> {
     let query = supabase
-        .from('fees')
+        .from('student_fees')
         .select('*')
         .eq('student_id', studentId);
 
@@ -33,7 +33,7 @@ export async function fetchStudentFees(studentId: string | number, schoolId?: st
  */
 export async function fetchAllFees(schoolId?: string): Promise<Fee[]> {
     let query = supabase
-        .from('fees')
+        .from('student_fees')
         .select('*');
 
     if (schoolId) query = query.eq('school_id', schoolId);
@@ -52,7 +52,7 @@ export async function fetchAllFees(schoolId?: string): Promise<Fee[]> {
  */
 export async function assignFee(fee: Omit<Fee, 'id' | 'paidAmount' | 'status'>, schoolId: string, branchId?: string | null): Promise<Fee> {
     const { data, error } = await supabase
-        .from('fees')
+        .from('student_fees')
         .insert([{
             student_id: fee.studentId,
             school_id: schoolId,
@@ -136,14 +136,14 @@ export async function verifyTransaction(reference: string): Promise<{ success: b
         const feeId = transaction.fee_id;
         if (feeId) {
             // Fetch current fee state
-            const { data: fee } = await supabase.from('fees').select('amount, paid_amount').eq('id', feeId).single();
+            const { data: fee } = await supabase.from('student_fees').select('amount, paid_amount').eq('id', feeId).single();
 
             if (fee) {
                 const newPaidAmount = (fee.paid_amount || 0) + transaction.amount;
                 const newStatus = newPaidAmount >= fee.amount ? 'paid' : 'partial';
 
                 await supabase
-                    .from('fees')
+                    .from('student_fees')
                     .update({
                         paid_amount: newPaidAmount,
                         status: newStatus,

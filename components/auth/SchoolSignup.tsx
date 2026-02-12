@@ -32,8 +32,19 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
         confirmPassword: ''
     });
 
+    // Branch State
+    const [hasBranches, setHasBranches] = useState(false);
+    const [numBranches, setNumBranches] = useState(1);
+    const [branchNames, setBranchNames] = useState<string[]>([]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleBranchNameChange = (index: number, value: string) => {
+        const newNames = [...branchNames];
+        newNames[index] = value;
+        setBranchNames(newNames);
     };
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,6 +68,12 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
             if (!formData.schoolName || !formData.schoolEmail || !formData.phone) {
                 toast.error("Please fill in all required school details.");
                 return;
+            }
+            if (hasBranches) {
+                if (!branchNames[0]) {
+                     toast.error("Please enter the Main Branch name.");
+                     return;
+                }
             }
         }
         // Validation Step 2
@@ -121,6 +138,38 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
 
             if (schoolError) throw schoolError;
 
+            // 3b. Create Branches if requested
+            if (hasBranches) {
+                // Main Branch
+                const mainBranchName = branchNames[0] || 'Main Campus';
+                await supabase.from('branches').insert({
+                    school_id: schoolId,
+                    name: mainBranchName,
+                    is_main: true
+                });
+
+                // Additional Branches
+                const otherBranches = [];
+                for (let i = 0; i < numBranches; i++) {
+                    const bName = branchNames[i + 1] || `Branch ${i + 1}`;
+                    if (bName) { // Ensure we don't add empty if logic is weird, though loop handles it
+                        otherBranches.push({
+                            school_id: schoolId,
+                            name: bName,
+                            is_main: false
+                        });
+                    }
+                }
+                if (otherBranches.length > 0) {
+                    await supabase.from('branches').insert(otherBranches);
+                }
+            } else {
+                // Always create a Main Branch for consistency? 
+                // Let's create one default branch effectively representing the school itself, 
+                // so we can use branch_id everywhere if we want.
+                // But for now, if no branches, we leave it empty to imply "Single Branch School".
+            }
+
             // 4. Create Basic Subscription (Free Tier)
             await supabase.from('subscriptions').insert({
                 school_id: schoolId,
@@ -130,6 +179,7 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
             });
 
             // 5. Update Users (Primary Record) instead of legacy profiles
+            // Admin is NOT linked to a specific branch (branch_id = null) to oversee all.
             await supabase.from('users').update({
                 school_id: schoolId,
                 role: 'admin',
@@ -203,6 +253,20 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
                     </button>
                 </div>
 
+                {/* Mobile Step Indicator */}
+                <div className="lg:hidden px-6 pt-4 pb-2">
+                    <div className="flex items-center justify-between">
+                        {[1, 2, 3].map((s) => (
+                            <div key={s} className="flex flex-col items-center gap-1 w-1/3">
+                                <div className={`h-1 w-full rounded-full ${step >= s ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+                                <span className={`text-[10px] font-bold uppercase ${step === s ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                    {s === 1 ? 'School' : s === 2 ? 'Admin' : 'Confirm'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="flex-1 flex items-center justify-center p-4 lg:p-8 overflow-y-auto">
                     <div className="w-full max-w-lg bg-white p-0 lg:p-10 rounded-2xl shadow-sm lg:shadow-xl border border-gray-100/50">
                         {step === 1 && (
@@ -235,6 +299,55 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
                                     <Input label="School Email" name="schoolEmail" type="email" value={formData.schoolEmail} onChange={handleChange} placeholder="info@springfield.edu" />
                                     <Input label="Phone Number" name="phone" value={formData.phone} onChange={handleChange} placeholder="+234 800 000 0000" />
                                     <Input label="Address (Optional)" name="address" value={formData.address} onChange={handleChange} placeholder="123 Education Lane, Lagos" />
+                                
+                                    {/* Branch Setup Trigger */}
+                                    <div className="pt-2">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={hasBranches} 
+                                                onChange={(e) => setHasBranches(e.target.checked)} 
+                                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                            />
+                                            <span className="text-sm font-medium text-gray-700">This school has multiple branches</span>
+                                        </label>
+                                    </div>
+
+                                    {hasBranches && (
+                                        <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 space-y-4 animate-fade-in">
+                                            <div className="flex items-center gap-2">
+                                                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                                <h3 className="text-sm font-bold text-indigo-900">Branch Configuration</h3>
+                                            </div>
+                                            
+                                            <Input 
+                                                label="Number of Additional Branches" 
+                                                type="number" 
+                                                min="1" 
+                                                max="10" 
+                                                value={numBranches} 
+                                                onChange={(e: any) => setNumBranches(parseInt(e.target.value) || 1)} 
+                                            />
+
+                                            <div className="space-y-3 pl-2 border-l-2 border-indigo-200">
+                                                <Input 
+                                                    label="Main Branch Name" 
+                                                    value={branchNames[0] || ''} 
+                                                    onChange={(e: any) => handleBranchNameChange(0, e.target.value)} 
+                                                    placeholder="e.g. Main Campus (Lekki)"
+                                                />
+                                                {Array.from({ length: numBranches }).map((_, idx) => (
+                                                    <Input 
+                                                        key={idx + 1}
+                                                        label={`Branch ${idx + 1} Name`}
+                                                        value={branchNames[idx + 1] || ''} 
+                                                        onChange={(e: any) => handleBranchNameChange(idx + 1, e.target.value)} 
+                                                        placeholder={`e.g. Branch ${idx + 1}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="pt-4">
                                     <Button onClick={nextStep}>Next Step</Button>

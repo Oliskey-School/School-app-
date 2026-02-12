@@ -45,28 +45,35 @@ export const useTeacherClasses = (teacherId?: string | null) => {
 
     useEffect(() => {
         const fetchClasses = async () => {
-            // 1. Resolve Teacher ID (Row ID, not Auth UID)
+            // 1. Resolve Teacher ID (Row ID, not Auth UID) & School ID
             let resolvedTeacherId = null;
+            let resolvedSchoolId = null;
 
             // Step A: If an ID is provided, it might be the Row ID OR the Auth User ID
             if (teacherId) {
                 const { data: teacherRow } = await supabase
                     .from('teachers')
-                    .select('id')
+                    .select('id, school_id')
                     .or(`id.eq.${teacherId},user_id.eq.${teacherId}`)
                     .maybeSingle();
-                if (teacherRow) resolvedTeacherId = teacherRow.id;
+                if (teacherRow) {
+                    resolvedTeacherId = teacherRow.id;
+                    resolvedSchoolId = teacherRow.school_id;
+                }
             }
 
             // Step B: Fallback to context if still not resolved
             if (!resolvedTeacherId) {
                 const { data: teacherRow } = await supabase
                     .from('teachers')
-                    .select('id')
+                    .select('id, school_id')
                     .or(`user_id.eq.${profile?.id || user?.id},email.eq.${profile?.email || user?.email}`)
                     .maybeSingle();
 
-                if (teacherRow) resolvedTeacherId = teacherRow.id;
+                if (teacherRow) {
+                    resolvedTeacherId = teacherRow.id;
+                    resolvedSchoolId = teacherRow.school_id;
+                }
             }
 
             if (!resolvedTeacherId) {
@@ -144,8 +151,8 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                 // 4. Resolve Legacy Classes
                 if (legacyAssignments && legacyAssignments.length > 0) {
                     // Fetch all classes for this school to match against
-                    // We need schoolId. Try profile.schoolId or infer from existing classes
-                    let targetSchoolId = profile?.schoolId;
+                    // We need schoolId. Try resolvedSchoolId first, then profile.schoolId, then infer from existing classes
+                    let targetSchoolId = resolvedSchoolId || profile?.schoolId;
 
                     // If we don't have schoolId from profile, try to get it from the first resolved class
                     if (!targetSchoolId && finalClasses.length > 0) {
@@ -169,16 +176,31 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                                 // Strategy 1: Exact string match on name (unlikely but possible)
                                 // Strategy 2: Parse Grade/Section and match
 
-                                const parsed = parseClassName(name); // Need to define this helper
+                                // Strategy: Parse Grade/Section and match ALL corresponding classes
+                                // e.g., "Assign: 4" should match "Primary 4", "Primary 4 A", "Primary 4 B"
 
-                                const match = allClasses.find(c => {
+                                const parsed = parseClassName(name);
+
+                                const matches = allClasses.filter(c => {
                                     if (c.name === name) return true;
-                                    if (c.grade === parsed.grade &&
-                                        normalize(c.section || '') === normalize(parsed.section)) return true;
+
+                                    // If legacy is just a number (e.g. "4"), match any class with that grade
+                                    // But be careful not to mix JSS and Primary if the parser distinguishes them.
+                                    // Our parser returns grade numbers: Primary 4 -> 4, JSS 1 -> 7.
+                                    // So matching on 'grade' field is safe.
+
+                                    if (c.grade === parsed.grade) {
+                                        // If the legacy string specified a section (e.g. "4A"), only match that section.
+                                        // If it didn't (e.g. "4"), match ALL sections.
+                                        if (parsed.section) {
+                                            return normalize(c.section || '') === normalize(parsed.section);
+                                        }
+                                        return true;
+                                    }
                                     return false;
                                 });
 
-                                if (match) {
+                                matches.forEach(match => {
                                     const key = `${match.id} `;
                                     if (!addedKeys.has(key)) {
                                         finalClasses.push({
@@ -191,7 +213,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                                         });
                                         addedKeys.add(key);
                                     }
-                                }
+                                });
                             });
                         }
                     }

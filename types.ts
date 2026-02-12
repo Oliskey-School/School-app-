@@ -132,7 +132,7 @@ export interface Student {
   avatarUrl: string; // avatar_url TEXT
 
   // Status (Database Fields)
-  status?: 'Active' | 'Inactive' | 'Suspended'; // TEXT DEFAULT 'Active'
+  status?: 'Active' | 'Inactive' | 'Suspended' | 'Pending'; // TEXT DEFAULT 'Active'
   attendanceStatus: AttendanceStatus; // attendance_status TEXT DEFAULT 'Present'
 
   // Joined/Computed Fields (NOT in database, from other tables/joins)
@@ -744,6 +744,7 @@ export interface CBTTest {
   createdAt: string; // ISO
   isPublished: boolean;
   results: any[];
+  passPercentage?: number;
 }
 
 export interface QuizSubmission {

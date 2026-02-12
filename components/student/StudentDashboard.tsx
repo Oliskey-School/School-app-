@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { DashboardType, Student, StudentAssignment } from '../../types';
+import { formatSchoolId } from '../../utils/idFormatter';
 import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon } from '../../constants';
 import Header from '../ui/Header';
 import { StudentBottomNav } from '../ui/DashboardBottomNav';
@@ -912,7 +913,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                             onNotificationClick={handleNotificationClick}
                             notificationCount={notificationCount}
                             onSearchClick={() => setIsSearchOpen(true)}
-                            customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
+                            customId={formatSchoolId(student.schoolGeneratedId || (student as any).schoolId || user?.app_metadata?.school_generated_id || user?.user_metadata?.school_generated_id, 'Student')}
                         />
                     )}
 

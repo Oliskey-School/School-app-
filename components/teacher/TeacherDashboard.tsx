@@ -2,6 +2,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
+import { formatSchoolId } from '../../utils/idFormatter';
 import Header from '../ui/Header';
 import { TeacherBottomNav } from '../ui/DashboardBottomNav';
 import { TeacherSidebar } from '../ui/DashboardSidebar';
@@ -71,6 +72,8 @@ import QuizBuilderScreen from '../teacher/QuizBuilderScreen';
 import ClassGradebookScreen from '../teacher/ClassGradebookScreen';
 import LessonNotesUploadScreen from '../teacher/LessonNotesUploadScreen';
 
+// Lazy load AddStudentScreen for teachers
+const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
 
 const DashboardSuspenseFallback = () => (
   <PremiumLoader message="Loading teacher workspace..." />
@@ -121,8 +124,18 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
   // Real-time Service Integration
   useEffect(() => {
-    if (user?.id && schoolId) {
-      realtimeService.initialize(user.id, schoolId);
+    const userId = user?.id;
+    let activeSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+
+    // Fix for demo users
+    const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo;
+    if (!activeSchoolId && isDemo) {
+      activeSchoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+    }
+
+    if (userId && activeSchoolId) {
+      console.log(`🔌 Initializing Teacher Realtime for school: ${activeSchoolId}`);
+      realtimeService.initialize(userId, activeSchoolId);
 
       const handleUpdate = () => {
         forceUpdate();
@@ -142,6 +155,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     name: string;
     avatarUrl: string;
     schoolGeneratedId?: string;
+    schoolId?: string; // Add this
   }>({
     name: 'Teacher',
     avatarUrl: ''
@@ -149,7 +163,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
   const fetchProfile = async (optimisticData?: { name: string; avatarUrl: string }) => {
     if (optimisticData) {
-      setTeacherProfile(optimisticData);
+      setTeacherProfile(prev => ({ ...prev, ...optimisticData }));
       return;
     }
 
@@ -157,7 +171,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       if (!schoolId) return;
 
       let query = supabase.from('teachers')
-        .select('id, name, avatar_url, email, school_generated_id')
+        .select('id, name, avatar_url, email, school_generated_id, school_id') // Add school_id
         .eq('school_id', schoolId);
 
       let emailToQuery = user?.email || currentUser?.email;
@@ -201,25 +215,23 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         setTeacherProfile({
           name: data.name || 'Teacher',
           avatarUrl: data.avatar_url,
-          schoolGeneratedId: data.school_generated_id
+          schoolGeneratedId: data.school_generated_id,
+          schoolId: data.school_id // Set this
         } as any);
       } else if (emailToQuery) {
         // AUTO-HEALING: If no teacher profile found, create one automatically
-        // linked to the Demo School (School App) so they are "connected" immediately.
-        console.log("⚠️ No teacher profile found. Auto-creating for School App...");
-
-        const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
+        // linked to the current school so they are "connected" immediately.
+        console.log("⚠️ No teacher profile found. Auto-creating for School:", schoolId);
 
         try {
           const { data: newTeacher, error: createError } = await supabase
             .from('teachers')
             .insert({
               email: emailToQuery,
-              school_id: DEMO_SCHOOL_ID,
+              school_id: schoolId,
               name: 'New Teacher', // Default name, can be updated later
               status: 'Active',
               user_id: currentUserId || undefined // Link to auth user if we have it
-              // created_at defaults to NOW()
             })
             .select()
             .single();
@@ -231,7 +243,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
             setTeacherId(newTeacher.id);
             setTeacherProfile({
               name: newTeacher.name,
-              avatarUrl: newTeacher.avatar_url
+              avatarUrl: newTeacher.avatar_url,
+              schoolId: newTeacher.school_id,
+              schoolGeneratedId: newTeacher.school_generated_id
             });
             // Force refresh to ensure UI updates
             forceUpdate();
@@ -247,7 +261,33 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
   useEffect(() => {
     fetchProfile();
-  }, [currentUser]);
+
+    // Real-time subscription for profile updates (e.g. Admin edits)
+    let profileSubscription: any = null;
+
+    if (teacherId) {
+      profileSubscription = supabase
+        .channel(`public:teachers:id=eq.${teacherId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'teachers',
+            filter: `id=eq.${teacherId}`
+          },
+          (payload) => {
+            console.log('Teacher profile updated externally:', payload);
+            fetchProfile(); // Refresh profile data
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (profileSubscription) supabase.removeChannel(profileSubscription);
+    };
+  }, [currentUser, teacherId]);
 
   const forceUpdate = () => setVersion(v => v + 1);
 
@@ -357,6 +397,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
     cbtManagement: CBTManagementScreen,
+    addStudent: AddStudentScreen,
     quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId || ''} onClose={handleBack} />,
     classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
     lessonNotesUpload: (props: any) => <LessonNotesUploadScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
@@ -406,7 +447,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           onNotificationClick={handleNotificationClick}
           notificationCount={notificationCount}
           onSearchClick={() => setIsSearchOpen(true)}
-          customId={(teacherProfile.schoolGeneratedId || user?.app_metadata?.custom_id || user?.user_metadata?.custom_id)?.replace(/-/g, '_')}
+          customId={formatSchoolId(teacherProfile.schoolGeneratedId || user?.app_metadata?.school_generated_id || user?.user_metadata?.school_generated_id, 'Teacher')}
+          userName={teacherProfile.name !== 'Teacher' ? teacherProfile.name : (user?.user_metadata?.name || 'Teacher')}
         />
         <div className="flex-1 overflow-y-auto pb-24 lg:pb-0" style={{ marginTop: '-5rem' }}>
           <main className="min-h-full pt-20">

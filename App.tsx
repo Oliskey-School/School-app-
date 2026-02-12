@@ -118,9 +118,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 import { useRealtimeSync } from './hooks/useRealtimeSync';
+import { useBranch } from './context/BranchContext';
 
 const AuthenticatedApp: React.FC = () => {
   const { user, role, signOut, loading } = useAuth();
+  const { currentBranch } = useBranch();
   useRealtimeSync(); // Initialize Global Realtime Sync
 
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -150,9 +152,17 @@ const AuthenticatedApp: React.FC = () => {
       requestNotificationPermission();
 
       // Initialize Realtime Service
-      const schoolId = user.user_metadata?.school_id || (user as any).school_id;
+      let schoolId = user.user_metadata?.school_id || (user as any).school_id || user.app_metadata?.school_id;
+      
+      // Fix for demo users who might not have school_id in metadata
+      const isDemo = user.email?.includes('demo') || user.user_metadata?.is_demo;
+      if (!schoolId && isDemo) {
+        schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1'; // Oliskey Demo School ID
+      }
+
       if (schoolId) {
-        realtimeService.initialize(user.id, schoolId);
+        console.log(`🔌 Initializing Realtime for school: ${schoolId}, branch: ${currentBranch?.id || 'All'}`);
+        realtimeService.initialize(user.id, schoolId, currentBranch?.id);
       }
 
       // Show welcome toast after email verification

@@ -15,11 +15,11 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
         const fetchScores = async () => {
             setLoading(true);
             try {
-                // Fetch submissions with student details
+                // Unified: Fetch from quiz_submissions
                 const { data, error } = await supabase
-                    .from('cbt_submissions')
+                    .from('quiz_submissions')
                     .select('*, students(name)')
-                    .eq('test_id', test.id)
+                    .eq('quiz_id', test.id)
                     .order('submitted_at', { ascending: false });
 
                 if (error) throw error;
@@ -27,8 +27,9 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                 if (data) {
                     const formattedResults: CBTResult[] = data.map((sub: any) => {
                         const score = parseFloat(sub.score);
-                        const total = sub.total_questions || test.questionsCount || 10;
-                        const percentage = Math.round((score / total) * 100);
+                        // In unified schema, score is percentage
+                        const total = 100; 
+                        const percentage = score;
 
                         return {
                             id: sub.id,
@@ -39,7 +40,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                             totalQuestions: total,
                             percentage: percentage,
                             submittedAt: sub.submitted_at,
-                            status: percentage >= 50 ? 'Passed' : 'Failed'
+                            status: percentage >= (test.passPercentage || 50) ? 'Passed' : 'Failed'
                         };
                     });
                     setResults(formattedResults);

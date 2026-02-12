@@ -4,6 +4,7 @@ ALTER TABLE public.timetable ENABLE ROW LEVEL SECURITY;
 -- Drop existing overlapping policies to clean up
 DROP POLICY IF EXISTS "School staff manage timetables" ON public.timetable;
 DROP POLICY IF EXISTS "timetable_unified" ON public.timetable;
+DROP POLICY IF EXISTS "Staff manage timetables" ON public.timetable;
 
 -- Create comprehensive policy for Staff (Admin, Teacher, etc)
 CREATE POLICY "Staff manage timetables"
@@ -28,6 +29,8 @@ WITH CHECK (
 );
 
 -- Ensure students/parents can only SELECT published timetables
+DROP POLICY IF EXISTS "Students/Parents view published timetables" ON public.timetable;
+
 CREATE POLICY "Students/Parents view published timetables"
 ON public.timetable
 FOR SELECT

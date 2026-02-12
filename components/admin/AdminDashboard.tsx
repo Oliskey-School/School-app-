@@ -10,7 +10,9 @@ import { DashboardType } from '../../types';
 import { realtimeService } from '../../services/RealtimeService';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import { useBranch } from '../../context/BranchContext'; // Added
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { formatSchoolId } from '../../utils/idFormatter';
 
 // Lazy load all admin screens
 const DashboardOverview = lazy(() => import('../admin/DashboardOverview'));
@@ -120,6 +122,9 @@ const EmergencyAlert = lazy(() => import('../admin/EmergencyAlert'));
 // StaffManagement removed
 const InviteStaffScreen = lazy(() => import('../admin/InviteStaffScreen'));
 const TimetableCreator = lazy(() => import('../admin/TimetableCreator'));
+const StudentApprovalsScreen = lazy(() => import('./StudentApprovalsScreen'));
+const AddBranchAdminScreen = lazy(() => import('./AddBranchAdminScreen'));
+const AssignFeePage = lazy(() => import('../admin/AssignFeePage'));
 
 type ViewStackItem = {
     view: string;
@@ -149,6 +154,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
     // ... (Existing useEffects)
     const forceUpdate = () => setVersion(v => v + 1);
     const { currentSchool, currentBranchId, user } = useAuth();
+    const { currentBranch } = useBranch();
     const { profile } = useProfile();
 
     useEffect(() => {
@@ -191,11 +197,17 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
 
     // Real-time Service Integration
     useEffect(() => {
-        const userId = user?.id;
-        const schoolId = currentSchool?.id;
+        // Centralized School ID logic
+        let schoolId = currentSchool?.id || user?.user_metadata?.school_id || user?.app_metadata?.school_id || profile?.schoolId;
 
-        if (userId && schoolId) {
-            realtimeService.initialize(userId, schoolId);
+        const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo || !schoolId;
+        if (!schoolId && isDemo) {
+            schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+        }
+
+        if (user?.id && schoolId) {
+            console.log(`🔌 Initializing Admin Realtime for school: ${schoolId}`);
+            realtimeService.initialize(user.id, schoolId);
 
             const handleUpdate = () => {
                 forceUpdate();
@@ -329,6 +341,9 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
         staffManagement: TeacherListScreen,
         inviteStaff: InviteStaffScreen,
         idCardManagement: IDCardManagement,
+        studentApprovals: StudentApprovalsScreen,
+        addBranchAdmin: AddBranchAdminScreen,
+        assignFee: AssignFeePage,
     };
 
     const notificationCount = useRealtimeNotifications('admin');
@@ -373,6 +388,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
             case 'studentList': setViewStack([{ view: 'studentList', props: {}, title: 'Students' }]); break;
             case 'teacherList': setViewStack([{ view: 'teacherList', props: {}, title: 'Teachers' }]); break;
             case 'parentList': setViewStack([{ view: 'parentList', props: {}, title: 'Parents' }]); break;
+            case 'studentApprovals': setViewStack([{ view: 'studentApprovals', props: {}, title: 'Student Approvals' }]); break;
             case 'classList': setViewStack([{ view: 'classList', props: {}, title: 'Classes' }]); break;
             case 'timetable': setViewStack([{ view: 'timetable', props: {}, title: 'Timetable' }]); break;
             case 'examManagement': setViewStack([{ view: 'examManagement', props: {}, title: 'Exams' }]); break;
@@ -398,8 +414,8 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
         forceUpdate,
         currentUserId,
         currentSchool,
-        schoolId: currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id,
-        currentBranchId
+        schoolId: currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined),
+        currentBranchId: currentBranch?.id || currentBranchId
     };
 
     const renderContent = () => {
@@ -453,7 +469,7 @@ const AdminDashboardContent: React.FC<AdminDashboardProps> = ({ onLogout, setIsH
                     onNotificationClick={handleNotificationClick}
                     notificationCount={notificationCount}
                     onSearchClick={() => setIsSearchOpen(true)}
-                    customId={user?.user_metadata?.custom_id || user?.app_metadata?.custom_id}
+                    customId={formatSchoolId(profile?.schoolGeneratedId || user?.app_metadata?.school_generated_id || user?.user_metadata?.school_generated_id, 'Admin')}
                 />
 
                 <div className="flex-1 overflow-y-auto pb-24 lg:pb-0">

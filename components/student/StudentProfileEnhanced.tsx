@@ -253,7 +253,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             onClick={() => copyToClipboard(customId)}
                                         >
                                             <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm flex items-center gap-2">
-                                                ID: {formatId(customId) || student.admission_number || `STU${student.id}`}
+                                                ID: {formatId(customId) || student.admission_number || `OLISKEY_MAIN_STD_${student.id}`}
                                                 <Copy className="w-3 h-3 opacity-70" />
                                                 {copied && <span className="text-xs ml-1">Copied!</span>}
                                             </Badge>

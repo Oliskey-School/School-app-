@@ -49,13 +49,28 @@ const SettingsPlaceholder: React.FC = () => (
 );
 
 
-const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({ onLogout, navigateTo, profile: propProfile, refreshDashboardProfile, teacherId, currentUser }) => {
+import { useTeacherStats } from '../../hooks/useTeacherStats'; // Add import
+
+const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
+    onLogout,
+    navigateTo,
+    profile: propProfile,
+    dashboardProfile, // Add this
+    refreshDashboardProfile,
+    teacherId,
+    currentUser,
+    teacherProfile: commonTeacherProfile // Add this from commonProps if passed
+}: any) => { // Use any to bypass strict prop check for now or update interface
     const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
     const theme = THEME_CONFIG[DashboardType.Teacher];
     const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
-    // Use passed profile or fallback
-    const profile = propProfile || { name: 'Teacher', avatarUrl: '' };
+    // Prioritize the live dashboardProfile or commonTeacherProfile over propProfile (which might be stale navigation props)
+    // and fallback to empty object to prevent crashes.
+    const profile = dashboardProfile || commonTeacherProfile || propProfile || { name: 'Teacher', avatarUrl: '' };
+
+    // Fetch real-time stats
+    const { stats, loading: statsLoading } = useTeacherStats(teacherId || currentUser?.id, (profile as any).schoolId || currentUser?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1');
 
     const settingsItems = [
         { id: 'editTeacherProfile', icon: <EditIcon />, label: 'Edit Profile', color: 'bg-blue-100 text-blue-500' },
@@ -110,15 +125,33 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({ onLogout,
                         )}
                         <h3 className="text-2xl font-bold text-gray-800">{profile.name}</h3>
                         <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full mb-2">Subject Teacher</span>
+
+                        {/* ID Display */}
                         <div
                             className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition-colors"
-                            onClick={() => copyToClipboard(customId)}
+                            onClick={() => copyToClipboard(customId || (profile as any).schoolGeneratedId)}
                         >
                             <span className="text-xs text-gray-600 font-mono font-medium">
-                                {formatId(customId) || (profile as any).schoolGeneratedId || 'ID: Loading...'}
+                                {formatId(customId) || (profile as any).schoolGeneratedId || (profile as any).school_generated_id || 'ID: Loading...'}
                             </span>
                             <Copy className="w-3 h-3 text-gray-400" />
                             {copied && <span className="text-xs text-green-600 font-medium">Copied!</span>}
+                        </div>
+
+                        {/* Stats Row */}
+                        <div className="flex w-full justify-around mt-4 pt-4 border-t border-gray-100">
+                            <div className="text-center">
+                                <p className="text-xs text-gray-500 font-medium">Classes</p>
+                                <p className="text-lg font-bold text-gray-800">{statsLoading ? '-' : stats.totalClasses}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-xs text-gray-500 font-medium">Students</p>
+                                <p className="text-lg font-bold text-gray-800">{statsLoading ? '-' : stats.totalStudents}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-xs text-gray-500 font-medium">Rating</p>
+                                <p className="text-lg font-bold text-gray-800">{statsLoading ? '-' : stats.avgStudentScore + '%'}</p>
+                            </div>
                         </div>
                     </div>
 

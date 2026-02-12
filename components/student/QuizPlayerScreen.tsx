@@ -298,27 +298,18 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       const studentId = student?.id;
       if (!studentId) throw new Error("Student ID missing");
 
-      if (quizInfo?.type === 'cbt') {
-        await supabase.from('cbt_submissions').insert({
-          exam_id: quizInfo.id,
-          student_id: studentId,
-          score: percentage, // Usually stored as percentage in CBT systems
-          answers: submissionAnswers,
-          status: 'Graded',
-          submitted_at: new Date().toISOString()
-        });
-      } else {
-        await supabase.from('quiz_submissions').insert({
-          quiz_id: quizInfo?.id,
-          student_id: studentId,
-          score: percentage,
-          total_questions: questions.length,
-          answers: answersLog,
-          focus_violations: focusViolations,
-          status: 'Graded',
-          submitted_at: new Date().toISOString()
-        });
-      }
+      // Unified submission to quiz_submissions
+      await supabase.from('quiz_submissions').insert({
+        quiz_id: quizInfo?.id,
+        student_id: studentId,
+        school_id: student?.schoolId || (student as any).school_id,
+        score: percentage,
+        total_questions: questions.length,
+        answers: answersLog,
+        focus_violations: focusViolations,
+        status: 'graded',
+        submitted_at: new Date().toISOString()
+      });
 
       toast.dismiss();
       toast.success('Submitted successfully!');

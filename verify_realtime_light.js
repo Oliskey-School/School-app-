@@ -1,49 +1,49 @@
-
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+// Testing with restriction (mimics browser)
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function runLightSimulation() {
-    console.log('🚀 Phase 5: Light Handshake Validation...');
+const SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+const BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f'; // Main Branch
 
-    const schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-    const userId = 'ec8a76f4-9f44-4835-9c3a-a9c8e4e87a8d';
+async function verifyVisibility() {
+    console.log('--- Verifying Data Visibility (Restricted Client) ---');
 
     try {
-        console.log(`[1/2] Injecting Real-time Notification for User: ${userId}...`);
-        const { data, error } = await supabase
-            .from('notifications')
-            .insert({
-                school_id: schoolId,
-                user_id: userId,
-                title: 'Real-time Sync Verified',
-                message: 'The backend audit and remediation are complete. Real-time handshake is active.',
-                is_read: false
-            })
-            .select()
-            .single();
+        // 1. Can I see branches?
+        const { data: branches, error: bErr } = await supabase
+            .from('branches')
+            .select('name, id')
+            .eq('school_id', SCHOOL_ID);
+        
+        if (bErr) {
+            console.error('❌ Cannot see branches:', bErr.message);
+        } else {
+            console.log(`✅ Visible branches: ${branches.length}`);
+        }
 
-        if (error) throw error;
-        console.log(`✅ Notification Inserted (ID: ${data.id})`);
+        // 2. Can I see students in that branch?
+        const { data: students, error: sErr } = await supabase
+            .from('students')
+            .select('name')
+            .eq('school_id', SCHOOL_ID)
+            .eq('branch_id', BRANCH_ID)
+            .limit(1);
 
-        console.log('[2/2] Verifying Channel Infrastructure...');
-        const { data: pub, error: pubError } = await supabase.rpc('get_realtime_status');
-        // Note: get_realtime_status might not exist, we'll check publication directly if it fails
-
-        console.log('🎉 LIGHT VALIDATION SUCCESS: Real-time channel payload delivered.');
+        if (sErr) {
+            console.error('❌ Cannot see students:', sErr.message);
+        } else if (!students || students.length === 0) {
+            console.log('❌ RLS BLOCKED: No students returned (Empty list).');
+        } else {
+            console.log('✅ SUCCESS: Visible students found.');
+        }
 
     } catch (err) {
-        if (err.message.includes('get_realtime_status')) {
-            console.log('🎉 LIGHT VALIDATION SUCCESS (Channel check skipped, insert succeeded).');
-        } else {
-            console.error('❌ Validation Failed:', err.message);
-            process.exit(1);
-        }
+        console.error('Verification failed:', err);
     }
 }
 
-runLightSimulation();
+verifyVisibility();

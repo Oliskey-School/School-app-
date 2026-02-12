@@ -7,24 +7,32 @@ class RealtimeService {
     private channel: any;
     private userId: string | null = null;
     private schoolId: string | null = null;
+    private branchId: string | null = null;
 
     constructor() { }
 
-    initialize(userId: string, schoolId: string) {
+    initialize(userId: string, schoolId: string, branchId?: string | null) {
         if (this.channel) {
-            if (this.userId === userId && this.schoolId === schoolId) return;
+            if (this.userId === userId && this.schoolId === schoolId && this.branchId === branchId) return;
             this.destroy();
         }
 
         this.userId = userId;
         this.schoolId = schoolId;
+        this.branchId = branchId || null;
 
-        console.log(`🔌 Initializing Global Realtime Service for School: ${schoolId}`);
+        console.log(`🔌 Initializing Global Realtime Service for School: ${schoolId}, Branch: ${branchId || 'All'}`);
+
+        // Construct filter
+        let filter = `school_id=eq.${schoolId}`;
+        if (branchId && branchId !== 'all') {
+            filter += `,branch_id=eq.${branchId}`;
+        }
 
         this.channel = supabase.channel('global_changes')
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'messages', filter: `school_id=eq.${schoolId}` },
+                { event: '*', schema: 'public', table: 'messages', filter: filter },
                 (p) => {
                     this.handleDataUpdate('messages', p);
                     if (p.eventType === 'INSERT' && p.new.sender_id !== userId) {
@@ -36,17 +44,17 @@ class RealtimeService {
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'conversations', filter: `school_id=eq.${schoolId}` },
+                { event: '*', schema: 'public', table: 'conversations', filter: filter },
                 (p) => this.handleDataUpdate('conversations', p)
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'auth_accounts' },
-                (p) => this.handleDataUpdate('users', p)
+                { event: '*', schema: 'public', table: 'auth_accounts', filter: `school_id=eq.${schoolId}` }, // Users might span branches in auth_accounts
+                (p) => this.handleDataUpdate('users' as any, p)
             )
             .on(
                 'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'notices', filter: `school_id=eq.${schoolId}` },
+                { event: 'INSERT', schema: 'public', table: 'notices', filter: filter },
                 (payload) => {
                     this.handleDataUpdate('notices', payload);
                     showNotification('New School Notice', {
@@ -55,22 +63,24 @@ class RealtimeService {
                 }
             )
             // Core Tables
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('students', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('teachers', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'classes', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('classes', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('subjects', p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: filter }, (p) => this.handleDataUpdate('students', p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers', filter: filter }, (p) => this.handleDataUpdate('teachers', p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'classes', filter: filter }, (p) => this.handleDataUpdate('classes', p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects', filter: filter }, (p) => this.handleDataUpdate('subjects', p))
 
             // Teacher & Assignment Tables
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'class_teachers', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('assignments' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_subjects', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('subjects' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('assignments', p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_classes', filter: filter }, (p) => this.handleDataUpdate('classes' as any, p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_subjects', filter: filter }, (p) => this.handleDataUpdate('subjects' as any, p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments', filter: filter }, (p) => this.handleDataUpdate('assignments', p))
 
-            // Attendance & Grades
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('attendance_records', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'grades', filter: `school_id=eq.${schoolId}` }, (p) => this.handleDataUpdate('grades', p))
+            // Attendance, Grades & Fees
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_attendance', filter: filter }, (p) => this.handleDataUpdate('student_attendance' as any, p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'grades', filter: filter }, (p) => this.handleDataUpdate('grades', p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees', filter: filter }, (p) => this.handleDataUpdate('student_fees' as any, p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable', filter: filter }, (p) => this.handleDataUpdate('timetable' as any, p))
 
             // Notifications
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `school_id=eq.${schoolId}` }, (p) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: filter }, (p) => {
                 this.handleDataUpdate('notifications' as any, p);
                 const audience = Array.isArray(p.new.audience) ? p.new.audience : [p.new.audience];
                 const lowercaseAudience = audience.map((a: string) => (a || '').toLowerCase());

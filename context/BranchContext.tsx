@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { ChevronDown, Building } from 'lucide-react';
@@ -29,8 +30,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Derived state: Only Proprietors and SuperAdmins can switch
-    const canSwitchBranches = (role === DashboardType.Proprietor) || (role === DashboardType.SuperAdmin);
+    // Derived state: Only Proprietors, SuperAdmins, and Main Admins can switch
+    const canSwitchBranches =
+        (role === DashboardType.Proprietor) ||
+        (role === DashboardType.SuperAdmin) ||
+        (role === DashboardType.Admin && !currentBranchId);
 
     useEffect(() => {
         if (!user || !currentSchool) {
@@ -62,42 +66,72 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     const savedBranchId = localStorage.getItem('selected_branch_id');
                     const assignedBranchId = currentBranchId;
 
-                    const branchToSelect =
-                        data.find(b => b.id === savedBranchId) ||
-                        data.find(b => b.id === assignedBranchId) ||
-                        data[0];
+                    // If user is a Main Admin/Proprietor and has "all" saved, or nothing assigned
+                    if (canSwitchBranches && (savedBranchId === 'all' || (!savedBranchId && !assignedBranchId))) {
+                        setCurrentBranch(null);
+                    } else if (data.length > 0) {
+                        const branchToSelect =
+                            data.find(b => b.id === savedBranchId) ||
+                            data.find(b => b.id === assignedBranchId) ||
+                            data[0];
 
-                    setCurrentBranch(branchToSelect);
+                        setCurrentBranch(branchToSelect);
+                    }
                 } else {
                     console.log('No branches found for school');
                     setBranches([]);
+                    setCurrentBranch(null);
                 }
             } catch (err) {
                 console.error('Error fetching branches:', err);
                 setBranches([]);
+                setCurrentBranch(null);
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchBranches();
-    }, [user, currentSchool, currentBranchId]);
+    }, [user, currentSchool, currentBranchId, canSwitchBranches]);
 
-    const switchBranch = (branchId: string) => {
-        const branch = branches.find(b => b.id === branchId);
-        if (branch) {
-            setCurrentBranch(branch);
-            localStorage.setItem('selected_branch_id', branchId);
+    const switchBranch = async (branchId: string | null) => {
+        try {
+            if (branchId === null) {
+                // Main Admin switching to "All Branches"
+                if (!canSwitchBranches) {
+                    throw new Error("SecurityException: Unauthorized attempt to clear branch context.");
+                }
 
-            // IMPORTANT: Trigger a reload or re-fetch of dashboard data here
-            // Logic: Changing currentBranch should trigger effects in other components
-            // that depend on `useBranch()`.
+                // Sync with backend
+                const { error: rpcError } = await supabase.rpc('sync_active_branch', { p_branch_id: null });
+                if (rpcError) throw rpcError;
 
-            // For "Zero Data Leakage" UI enforcement:
-            // We might want to pass `currentBranch.id` to all future API calls as a filter
-            // if we are a Proprietor simulating a branch view.
-            console.log(`Switched to branch: ${branch.name}`);
-            window.location.reload(); // Simple brute-force reload to refresh all data with new context
+                setCurrentBranch(null);
+                localStorage.setItem('selected_branch_id', 'all');
+                console.log("🔓 [Context Switch] All branches active.");
+            } else {
+                // Switching to a specific branch
+                const branch = branches.find(b => b.id === branchId);
+                if (!branch) {
+                    throw new Error("SecurityException: Target branch not found or unauthorized.");
+                }
+
+                // Sync with backend
+                const { error: rpcError } = await supabase.rpc('sync_active_branch', { p_branch_id: branchId });
+                if (rpcError) throw rpcError;
+
+                setCurrentBranch(branch);
+                localStorage.setItem('selected_branch_id', branchId);
+                console.log(`🔒 [Context Switch] Active branch: ${branch.name}`);
+            }
+
+            // The onAuthStateChange in AuthContext will handle the session update
+            // and trigger a re-render, which will then cause the BranchContext
+            // to re-evaluate the user's branch access.
+            console.log("Branch switched. Auth state will be updated by its own listener.");
+        } catch (err: any) {
+            console.error("❌ [SecurityException] Branch switch failed:", err.message);
+            toast.error(err.message);
         }
     };
 
@@ -120,12 +154,16 @@ export const useBranch = () => {
 // UI Component: Branch Switcher
 // ==========================================
 
-export const BranchSwitcher: React.FC = () => {
+export const BranchSwitcher: React.FC<{ align?: 'left' | 'right' }> = ({ align = 'left' }) => {
     const { currentBranch, branches, switchBranch, canSwitchBranches, isLoading } = useBranch();
     const [isOpen, setIsOpen] = useState(false);
 
-    if (isLoading || !currentBranch) return null;
-    if (!canSwitchBranches && branches.length <= 1) return (
+    if (isLoading) return null;
+
+    // If no branches and can't manage, show nothing or school name?
+    if (branches.length === 0) return null;
+
+    if (!canSwitchBranches && currentBranch) return (
         // Static display for regular staff
         <div className="flex items-center text-gray-600 px-4 py-2">
             <Building className="w-4 h-4 mr-2" />
@@ -140,12 +178,26 @@ export const BranchSwitcher: React.FC = () => {
                 className="flex items-center space-x-2 px-4 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
             >
                 <Building className="w-4 h-4 text-indigo-600" />
-                <span className="font-semibold text-gray-800">{currentBranch.name}</span>
+                <span className="font-semibold text-gray-800">{currentBranch ? currentBranch.name : 'All Branches'}</span>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2`}>
+                    <button
+                        onClick={() => {
+                            switchBranch(null);
+                            setIsOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${!currentBranch ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700'
+                            }`}
+                    >
+                        <span>All Branches</span>
+                        {!currentBranch && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                        )}
+                    </button>
+                    <div className="border-t my-1"></div>
                     {branches.map((branch) => (
                         <button
                             key={branch.id}
@@ -153,19 +205,15 @@ export const BranchSwitcher: React.FC = () => {
                                 switchBranch(branch.id);
                                 setIsOpen(false);
                             }}
-                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${currentBranch.id === branch.id ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700'
+                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${currentBranch?.id === branch.id ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700'
                                 }`}
                         >
                             <span>{branch.name}</span>
-                            {currentBranch.id === branch.id && (
+                            {currentBranch?.id === branch.id && (
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
                             )}
                         </button>
                     ))}
-                    <div className="border-t my-1"></div>
-                    <button className="w-full text-left px-4 py-2 text-xs text-gray-500 hover:text-indigo-600">
-                        + Manage Branches
-                    </button>
                 </div>
             )}
         </div>

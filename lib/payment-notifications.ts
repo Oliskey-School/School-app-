@@ -22,7 +22,7 @@ export const sendPaymentReminder = async (params: PaymentReminderParams): Promis
     try {
         // Get fee details
         const { data: fee, error: feeError } = await supabase
-            .from('fees')
+            .from('student_fees')
             .select(`
                 id,
                 title,
@@ -138,7 +138,7 @@ export const sendPaymentConfirmation = async (params: PaymentConfirmationParams)
 
         // Get fee details
         const { data: fee, error: feeError } = await supabase
-            .from('fees')
+            .from('student_fees')
             .select('id, title, amount, paid_amount')
             .eq('id', transaction.fee_id)
             .single();
@@ -219,7 +219,7 @@ export const sendFeeAssignmentNotification = async (feeId: string): Promise<{ su
     try {
         // Get fee details
         const { data: fee, error: feeError } = await supabase
-            .from('fees')
+            .from('student_fees')
             .select(`
                 id,
                 title,

@@ -21,7 +21,7 @@ interface AddStudentScreenProps {
 
 const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forceUpdate, handleBack }) => {
     const { profile, refreshProfile } = useProfile();
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId, user } = useAuth(); // Added user and currentBranchId
 
     // Triple-layer schoolId detection
     const schoolId = profile.schoolId || currentSchool?.id;
@@ -169,6 +169,13 @@ parents(
             let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com`;
             const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
 
+            // Determine Status and Branch
+            const isTeacher = profile?.role === 'teacher' || user?.user_metadata?.role === 'teacher';
+            // If editing, preserve status unless explicitly approved? For now, keep as is or default to Active.
+            // If creating, Teachers -> Pending, Admins -> Active
+            const initialStatus = (isTeacher ? 'Pending' : 'Active') as 'Pending' | 'Active';
+            const branchId = currentBranchId || profile.branchId || null;
+
             // MOCK MODE HANDLING
             if (!isSupabaseConfigured) {
                 if (studentToEdit) {
@@ -200,11 +207,13 @@ parents(
                         attendanceStatus: 'Present' as const,
                         birthday: birthday || undefined,
                         academicPerformance: [], // Empty for now
-                        behaviorNotes: []
+                        behaviorNotes: [],
+                        status: initialStatus
                     };
                     mockStudents.push(newStudent);
 
                     let successMessage = `Student account created for ${fullName}.\nCredentials: ${generatedEmail.split('@')[0]} / password123\n\n`;
+                    if (isTeacher) successMessage += " (Pending Approval)";
 
                     // Handle Guardian in Mock Mode
                     if (gEmail && gName) {
@@ -266,7 +275,8 @@ parents(
                         admission_number: admissionNumber || null, // ⚠️ Added
                         address: studentAddress || null, // ⚠️ Added
                         gender: gender || null,
-                        status: 'Active' // Set status
+                        // status: 'Active' // Don't reset status on edit unless admin?
+                        // If admin edits, maybe they want to approve? But separate approve action is better.
                     })
                     .eq('id', studentToEdit.id);
 
@@ -307,7 +317,8 @@ parents(
                                         name: gName,
                                         email: gEmail,
                                         phone: guardianPhone || null,
-                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
+                                        branch_id: branchId
                                     }])
                                     .select()
                                     .single();
@@ -323,7 +334,9 @@ parents(
                                     email: gEmail,
                                     name: gName,
                                     role: 'parent',
-                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
+                                    school_id: schoolId,
+                                    branch_id: branchId
                                 }])
                                 .select()
                                 .single();
@@ -337,7 +350,9 @@ parents(
                                     name: gName,
                                     email: gEmail,
                                     phone: guardianPhone || null,
-                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
+                                    school_id: schoolId,
+                                    branch_id: branchId
                                 }])
                                 .select()
                                 .single();
@@ -376,7 +391,9 @@ parents(
                                     .from('parent_children')
                                     .insert({
                                         parent_id: parentIdToLink,
-                                        student_id: studentToEdit.id
+                                        student_id: studentToEdit.id,
+                                        school_id: schoolId,
+                                        branch_id: branchId
                                     });
 
                                 if (junctionError && junctionError.code !== '23505') {
@@ -416,27 +433,39 @@ parents(
                     const [localPart, domain] = generatedEmail.split('@');
                     const uniqueEmail = `${localPart}${randomSuffix}@${domain}`;
 
-                    authResult = await createUserAccount(fullName, 'Student', uniqueEmail, schoolId);
+                    const retryResult = await createUserAccount(fullName, 'Student', uniqueEmail, schoolId);
 
-                    if (!authResult.error) {
+                    if (!retryResult.error) {
+                        authResult = retryResult; // Success on retry
                         generatedEmail = uniqueEmail; // Update the email for subsequent profile creation
                         toast.success(`Account created with unique identifier: ${uniqueEmail}`);
+                    } else {
+                        // Retry failed, keep the original error or the new one?
+                        // If checking for 'already registered' again, it means the random suffix also collided (rare)
+                        // or there is a deeper issue.
+                        console.warn('Retry creation failed:', retryResult.error);
+                        authResult = retryResult;
                     }
                 }
 
                 if (authResult.error) {
-                    // Check specifically for email sending errors or rate limits (common in free tier)
-                    if (authResult.error.toLowerCase().includes('email') || authResult.error.toLowerCase().includes('rate limit')) {
+                    // Check specifically for "already registered" first (in case retry failed)
+                    if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
+                        toast.error(`Student with email ${generatedEmail} is already registered. Please try a different name or manually edit the email.`);
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    // Check specifically for email DELIVERY errors or rate limits
+                    // Avoid catching "user with this *email* exists"
+                    const lowerError = authResult.error.toLowerCase();
+                    if ((lowerError.includes('email') && lowerError.includes('sending')) || lowerError.includes('rate limit')) {
                         // warning but proceed? No, if we don't have an ID, we cannot proceed.
                         if (!authResult.userId) {
                             toast.error(`Fatal: Could not create login account (${authResult.error}). Operations aborted.`);
                             setIsLoading(false);
                             return;
                         }
-                    } else if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
-                        toast.error(`Student with email ${generatedEmail} is already registered. Please try a different name or manually edit the email.`);
-                        setIsLoading(false);
-                        return;
                     } else {
                         // For captive failures etc
                         toast.error('Login account failed: ' + authResult.error + '. Aborting.');
@@ -462,6 +491,7 @@ parents(
                         name: fullName,
                         role: 'student',
                         school_id: schoolId,
+                        branch_id: branchId, // Add Branch
                         avatar_url: avatarUrl
                     }])
                     .select()
@@ -488,6 +518,7 @@ parents(
                     .insert([{
                         user_id: userData.id,
                         school_id: schoolId,
+                        branch_id: branchId, // Add Branch
                         name: fullName,
                         email: generatedEmail, // Add email
                         avatar_url: avatarUrl,
@@ -499,7 +530,7 @@ parents(
                         admission_number: admissionNumber || null, // ⚠️ Added
                         address: studentAddress || null, // ⚠️ Added
                         gender: gender || null,
-                        status: 'Active',
+                        status: initialStatus,
                         attendance_status: 'Present'
                     }]);
                 if (studentError) throw studentError;
@@ -555,7 +586,9 @@ parents(
                                         name: gName,
                                         email: gEmail,
                                         phone: guardianPhone || null,
-                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
+                                        school_id: schoolId,
+                                        branch_id: branchId
                                     }])
                                     .select()
                                     .single();
@@ -570,7 +603,9 @@ parents(
                                     email: gEmail,
                                     name: gName,
                                     role: 'parent',
-                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
+                                    school_id: schoolId,
+                                    branch_id: branchId
                                 }])
                                 .select()
                                 .single();
@@ -583,7 +618,9 @@ parents(
                                         name: gName,
                                         email: gEmail,
                                         phone: guardianPhone || null,
-                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`
+                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
+                                        school_id: schoolId,
+                                        branch_id: branchId
                                     }])
                                     .select()
                                     .single();
@@ -622,7 +659,9 @@ parents(
                                 .from('parent_children')
                                 .insert({
                                     parent_id: parentIdToLink,
-                                    student_id: studentData.id
+                                    student_id: studentData.id,
+                                    school_id: schoolId,
+                                    branch_id: branchId
                                 });
 
                             if (junctionError && junctionError.code !== '23505') { // Ignore duplicate key errors
@@ -845,11 +884,18 @@ parents(
                 </main>
 
                 {/* Action Button */}
-                <div className="p-4 mt-auto bg-gray-50 pb-32 lg:pb-4">
+                <div className="p-4 mt-auto bg-gray-50 pb-32 lg:pb-4 flex gap-3">
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        className="flex-1 py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors"
+                    >
+                        Cancel
+                    </button>
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isLoading ? 'bg-gray-400' : 'bg-sky-500 hover:bg-sky-600'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors`}
+                        className={`flex-1 flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${isLoading ? 'bg-gray-400' : 'bg-sky-500 hover:bg-sky-600'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors`}
                     >
                         {isLoading ? 'Saving...' : (studentToEdit ? 'Update Student' : 'Save Student')}
                     </button>

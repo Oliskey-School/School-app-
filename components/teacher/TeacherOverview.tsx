@@ -18,6 +18,7 @@ import {
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { useTeacherStats } from '../../hooks/useTeacherStats';
 
 interface TeacherOverviewProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -102,98 +103,67 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   const theme = THEME_CONFIG[DashboardType.Teacher];
 
   const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(teacherId || currentUser?.id);
+  const { stats, loading: statsLoading } = useTeacherStats(teacherId || currentUser?.id, schoolId);
 
   const [teacherName, setTeacherName] = useState('Teacher');
-  const [stats, setStats] = useState({ totalStudents: 0, classesTaught: 0 });
+  // const [stats, setStats] = useState({ totalStudents: 0, classesTaught: 0 }); // Replaced by hook
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
   const [ungradedAssignments, setUngradedAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Effect to calculate stats from teacherClasses
+  // Effect to calculate stats from teacherClasses (REMOVED - handled by hook)
+  /*
   useEffect(() => {
     const calculateStats = async () => {
-      if (classesLoading) return;
-
-      // 1. Classes Taught
-      const classCount = teacherClasses.length;
-
-      // 2. Total Students
-      let studentCount = 0;
-      if (classCount > 0) {
-        const classIds = teacherClasses.map(c => c.id);
-
-        if (classIds.length > 0) {
-          const { data: students, error: studentError } = await supabase
-            .from('students')
-            .select('id')
-            .eq('school_id', schoolId)
-            .in('class_id', classIds);
-
-          if (studentError) {
-            console.error('❌ Error fetching students for stats:', studentError);
-          } else if (students) {
-            studentCount = students.length;
-          }
-        }
-      }
-
-      setStats({ totalStudents: studentCount, classesTaught: classCount });
+      // ... logic moved to RPC ...
     };
-
     calculateStats();
   }, [teacherClasses, classesLoading, schoolId]);
+  */
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!schoolId) return;
+      // Use teacherId from props if available, else we wait for TeacherDashboard to resolve it
+      const resolvedId = teacherId;
+      if (!schoolId || !resolvedId) return;
 
       try {
         setLoading(true);
 
-        // 1. Prepare Queries
-        let teacherQuery = supabase
-          .from('teachers')
-          .select('id, name')
-          .eq('school_id', schoolId);
+        const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-        if (teacherId) teacherQuery = teacherQuery.eq('id', teacherId);
-        else if (profile?.id) teacherQuery = teacherQuery.eq('user_id', profile.id);
-        else if (currentUser?.email) teacherQuery = teacherQuery.eq('email', currentUser.email);
-
-        // 2. Fetch basic info first to get teacher ID if needed
-        const { data: teacher } = await teacherQuery.maybeSingle();
-        if (teacher) {
-          setTeacherName(teacher.name);
-
-          // 3. Parallelize subsequent fetches
-          const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-          let scheduleQuery = supabase
-            .from('timetable')
-            .select('id, start_time, subject, class_name')
-            .eq('teacher_id', teacher.id)
-            .eq('school_id', schoolId)
-            .eq('day', todayName)
-            .eq('status', 'Published');
-
-          if (currentBranchId) {
-            scheduleQuery = scheduleQuery.eq('branch_id', currentBranchId);
-          }
-
-          // Fetch schedule and assignments in parallel
-          const [scheduleRes, assignmentsRes] = await Promise.all([
-            scheduleQuery.order('start_time', { ascending: true }),
-            supabase
-              .from('assignments')
-              .select('id, title, class_name, created_at')
-              .eq('school_id', schoolId)
-              .eq('teacher_id', teacher.id)
-              .order('created_at', { ascending: false })
-              .limit(3)
-          ]);
-
-          setTodaySchedule(scheduleRes.data || []);
-          setUngradedAssignments(assignmentsRes.data || []);
+        // 1. Fetch Basic Teacher Name if not available
+        if (!teacherName || teacherName === 'Teacher') {
+          const { data: t } = await supabase.from('teachers').select('name').eq('id', resolvedId).single();
+          if (t) setTeacherName(t.name);
         }
+
+        // 2. Fetch schedule and assignments using the resolved record ID
+        let scheduleQuery = supabase
+          .from('timetable')
+          .select('id, start_time, subject, class_name')
+          .eq('teacher_id', resolvedId)
+          .eq('school_id', schoolId)
+          .eq('day', todayName)
+          .eq('status', 'Published');
+
+        if (currentBranchId) {
+          scheduleQuery = scheduleQuery.eq('branch_id', currentBranchId);
+        }
+
+        const [scheduleRes, assignmentsRes] = await Promise.all([
+          scheduleQuery.order('start_time', { ascending: true }),
+          supabase
+            .from('assignments')
+            .select('id, title, class_name, created_at')
+            .eq('school_id', schoolId)
+            .eq('teacher_id', resolvedId)
+            .order('created_at', { ascending: false })
+            .limit(3)
+        ]);
+
+        setTodaySchedule(scheduleRes.data || []);
+        setUngradedAssignments(assignmentsRes.data || []);
 
       } catch (err) {
         console.error('❌ Error fetching overview data:', err);
@@ -230,6 +200,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   };
 
   const quickActions = [
+    { label: "Add Student", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>, action: () => navigateTo('addStudent', 'Add Student', {}) },
     { label: "My Attendance", icon: <CheckCircleIcon className="h-7 w-7" />, action: () => navigateTo('teacherSelfAttendance', 'My Attendance', {}) },
     { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', {}) },
     { label: "Assignments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assignmentsList', 'Manage Assignments', {}) },
@@ -251,8 +222,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <StatCard label="Total Students" value={stats.totalStudents} icon={<BriefcaseIcon />} />
-        <StatCard label="Total Assigned Classes" value={stats.classesTaught} icon={<ViewGridIcon />} />
+        <StatCard label="Total Students" value={statsLoading ? '...' : stats.totalStudents} icon={<BriefcaseIcon />} />
+        <StatCard label="Total Assigned Classes" value={statsLoading ? '...' : stats.totalClasses} icon={<ViewGridIcon />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

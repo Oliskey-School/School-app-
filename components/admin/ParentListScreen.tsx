@@ -9,6 +9,8 @@ import { useProfile } from '../../context/ProfileContext';
 
 interface ParentListScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
+  currentBranchId?: string | null;
+  schoolId?: string; // Added prop
 }
 
 const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void }> = ({ parent, onSelect }) => (
@@ -30,25 +32,35 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void 
   </button>
 );
 
-const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
+const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, currentBranchId, schoolId: propSchoolId }) => {
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const [searchTerm, setSearchTerm] = useState('');
   const [parents, setParents] = useState<Parent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchParentsData = async () => {
+      setLoading(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        // Fallback to profile or metadata
-        const schoolId = user?.user_metadata?.school_id || (user as any)?.school_id;
+        // Robust school ID retrieval: Check prop first, then profile context, then user metadata
+        const schoolId = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
 
-        if (!schoolId) {
-          console.warn("No school context found, fetching all parents as fallback");
+        console.log('[ParentList] Context Status:', {
+          propSchoolId,
+          profileSchoolId: profile?.schoolId,
+          metadataSchoolId: user?.user_metadata?.school_id,
+          resolvedSchoolId: schoolId,
+          branchId: currentBranchId
+        });
+
+        if (schoolId) {
+          const parentsData = await fetchParents(schoolId, currentBranchId || undefined);
+          setParents(parentsData);
+        } else {
+          console.warn('[ParentList] No school context found. Aborting fetch.');
+          setParents([]);
         }
-
-        // Use centralized fetch function which handles the data transformation
-        const parentsData = await fetchParents(schoolId);
-        setParents(parentsData);
 
       } catch (err) {
         console.error("Error fetching parents:", err);
@@ -62,16 +74,15 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo }) => {
     // Realtime Subscription
     const subscription = supabase
       .channel('public:parents')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parents' }, (payload) => {
-        console.log('Parent change received:', payload);
-        fetchParents();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parents' }, () => {
+        fetchParentsData();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, []);
+  }, [currentBranchId, profile?.schoolId, user?.id]);
 
   const filteredParents = useMemo(() =>
     parents.filter(parent => parent.name.toLowerCase().includes(searchTerm.toLowerCase())),

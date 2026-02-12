@@ -25,6 +25,7 @@ import {
     SparklesIcon,
     getFormattedClassName
 } from '../../constants';
+import { formatSchoolId } from '../../utils/idFormatter';
 
 import Header from '../ui/Header';
 import { ParentBottomNav } from '../ui/DashboardBottomNav';
@@ -520,19 +521,30 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, curre
         fetchStats();
 
         // Real-time Service Integration
-        if (currentUser?.id && schoolId) {
-            realtimeService.initialize(currentUser.id, schoolId);
+        if (currentUser?.id) {
+            let activeSchoolId = schoolId || currentUser?.user_metadata?.school_id || currentUser?.app_metadata?.school_id;
 
-            const handleRealtimeUpdate = (event: any) => {
-                console.log('📢 ParentDashboard: Real-time update received', event);
-                fetchStats();
-                forceUpdate();
-            };
+            // Fix for demo users
+            const isDemo = currentUser?.email?.includes('demo') || currentUser?.user_metadata?.is_demo;
+            if (!activeSchoolId && isDemo) {
+                activeSchoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+            }
 
-            window.addEventListener('realtime-update' as any, handleRealtimeUpdate);
-            return () => {
-                window.removeEventListener('realtime-update' as any, handleRealtimeUpdate);
-            };
+            if (activeSchoolId) {
+                console.log(`🔌 Initializing Parent Realtime for school: ${activeSchoolId}`);
+                realtimeService.initialize(currentUser.id, activeSchoolId);
+
+                const handleRealtimeUpdate = (event: any) => {
+                    console.log('📢 ParentDashboard: Real-time update received', event);
+                    fetchStats();
+                    forceUpdate();
+                };
+
+                window.addEventListener('realtime-update' as any, handleRealtimeUpdate);
+                return () => {
+                    window.removeEventListener('realtime-update' as any, handleRealtimeUpdate);
+                };
+            }
         }
     }, [students]);
 
@@ -597,9 +609,10 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [parentId, setParentId] = useState<string | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-    const [parentProfile, setParentProfile] = useState<{ name: string; avatarUrl: string }>({
+    const [parentProfile, setParentProfile] = useState<{ name: string; avatarUrl: string; schoolGeneratedId?: string }>({
         name: 'Parent',
-        avatarUrl: 'https://i.pravatar.cc/150?u=parent'
+        avatarUrl: 'https://i.pravatar.cc/150?u=parent',
+        schoolGeneratedId: ''
     });
     const [students, setStudents] = useState<Student[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(true);
@@ -654,7 +667,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         if (!schoolId) return;
 
         let query = supabase.from('parents')
-            .select('id, name, email, phone, avatar_url')
+            .select('id, name, email, phone, avatar_url, school_generated_id')
             .eq('school_id', schoolId);
 
         if (user?.email) {
@@ -664,12 +677,12 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         } else {
             // Fallback for dev/demo if no user is passed
             const { data: demo } = await supabase.from('parents')
-                .select('id, name, email, phone')
+                .select('id, name, email, phone, school_generated_id')
                 .eq('school_id', schoolId)
                 .limit(1).single();
             if (demo) {
                 setParentId(demo.id);
-                setParentProfile({ name: demo.name || 'Parent', avatarUrl: 'https://i.pravatar.cc/150?u=parent' });
+                setParentProfile({ name: demo.name || 'Parent', avatarUrl: 'https://i.pravatar.cc/150?u=parent', schoolGeneratedId: demo.school_generated_id });
                 return;
             }
         }
@@ -706,7 +719,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     setParentId(newParent.id);
                     setParentProfile({
                         name: newParent.name,
-                        avatarUrl: newParent.avatar_url || 'https://i.pravatar.cc/150?u=parent'
+                        avatarUrl: newParent.avatar_url || 'https://i.pravatar.cc/150?u=parent',
+                        schoolGeneratedId: newParent.school_generated_id
                     });
                     return;
                 }
@@ -719,7 +733,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             setParentId(data.id);
             setParentProfile({
                 name: data.name || 'Parent',
-                avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent'
+                avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent',
+                schoolGeneratedId: data.school_generated_id
             });
         }
     };
@@ -811,14 +826,57 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     setLoadingStudents(false);
                     return;
                 }
-                const { data: relations } = await supabase.from('student_parent_links').select('student_user_id').eq('school_id', schoolId).eq('parent_user_id', effectiveParentId);
-                if (relations && relations.length > 0) {
-                    const userIds = Array.from(new Set(relations.map((r: any) => r.student_user_id)));
-                    const { data: stData } = await supabase.from('students').select('id').eq('school_id', schoolId).in('user_id', userIds);
-                    if (stData && stData.length > 0) {
-                        const uniqueStudentIds = Array.from(new Set(stData.map((s: any) => s.id)));
-                        await fetchStudentsList(uniqueStudentIds);
-                    }
+
+                // 1. Get IDs from Link Table (User ID based)
+                const { data: relations } = await supabase
+                    .from('student_parent_links')
+                    .select('student_user_id')
+                    .eq('school_id', schoolId)
+                    .eq('parent_user_id', effectiveParentId);
+
+                const linkedUserIds = relations?.map((r: any) => r.student_user_id) || [];
+
+                // 2. Build Query: Get students by User ID (from links) OR by direct Parent ID
+                let studentsQuery = supabase
+                    .from('students')
+                    .select('id')
+                    .eq('school_id', schoolId);
+
+                if (linkedUserIds.length > 0) {
+                    // Syntax: or(condition1,condition2)
+                    // Note: .in() inside .or() is tricky in Supabase JS v1/v2. 
+                    // Safer to fetch both and merge if complex.
+                    // Let's force a simpler approach: fetch by parent_id separately and merge.
+                }
+
+                // Fetch 1: By Parent ID (Direct)
+                const { data: directStudents } = await supabase
+                    .from('students')
+                    .select('id')
+                    .eq('school_id', schoolId)
+                    .eq('parent_id', effectiveParentId);
+
+                // Fetch 2: By User ID (Linked) - Only if we have linked users
+                let linkedStudents: any[] = [];
+                if (linkedUserIds.length > 0) {
+                    const { data: ls } = await supabase
+                        .from('students')
+                        .select('id')
+                        .eq('school_id', schoolId)
+                        .in('user_id', linkedUserIds);
+                    if (ls) linkedStudents = ls;
+                }
+
+                // Merge IDs
+                const allIds = [
+                    ...(directStudents?.map(s => s.id) || []),
+                    ...(linkedStudents?.map(s => s.id) || [])
+                ];
+
+                const uniqueStudentIds = Array.from(new Set(allIds));
+
+                if (uniqueStudentIds.length > 0) {
+                    await fetchStudentsList(uniqueStudentIds);
                 }
             } catch (err) {
                 console.warn("Error fetching children:", err);
@@ -970,7 +1028,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     onNotificationClick={handleNotificationClick}
                     notificationCount={notificationCount}
                     onSearchClick={() => setIsSearchOpen(true)}
-                    customId={user?.app_metadata?.custom_id || user?.user_metadata?.custom_id}
+                    customId={formatSchoolId(parentProfile.schoolGeneratedId || user?.app_metadata?.school_generated_id || user?.user_metadata?.school_generated_id || (user as any)?.schoolGeneratedId, 'Parent')}
                 />
 
                 <div className="flex-1 overflow-hidden relative">

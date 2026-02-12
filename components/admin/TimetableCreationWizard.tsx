@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { getAIClient, SchemaType as Type } from '../../lib/ai';
 import { SparklesIcon, XCircleIcon, ClockIcon, UserGroupIcon, ExclamationCircleIcon, CheckCircleIcon, CalendarIcon } from '../../constants';
@@ -98,6 +98,10 @@ const TimetableCreationWizard: React.FC<TimetableCreationWizardProps> = ({ isOpe
     ]);
     const [customRules, setCustomRules] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+
+    const totalPeriods = useMemo(() => {
+        return subjectPeriods.reduce((sum, sp) => sum + sp.periods, 0);
+    }, [subjectPeriods]);
 
     // Initial Load
     useEffect(() => {

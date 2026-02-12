@@ -45,6 +45,28 @@ class HybridApiClient {
         this.options = options;
     }
 
+    /**
+     * [MASTER PROMPT RULE]: Global Query Scope (The Bouncer)
+     * Injects mandatory school_id and branch_id filters.
+     */
+    getScopedQuery(table: string, schoolId: string, branchId?: string | null) {
+        if (!schoolId) {
+            throw new Error("SecurityException: Mandatory Tenant ID (school_id) is missing.");
+        }
+
+        let query = supabase.from(table).select('*');
+
+        // Automatic school isolation
+        query = query.eq('school_id', schoolId);
+
+        // Automatic branch isolation
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        return query;
+    }
+
     setOptions(options: ApiOptions) {
         this.options = { ...this.options, ...options };
     }
@@ -84,42 +106,32 @@ class HybridApiClient {
     async getDashboardStats(schoolId: string, branchId?: string): Promise<any> {
         if (!schoolId) return null;
         if (this.options.useBackend) {
-            return this.fetch<any>('/dashboard/stats');
+            return this.fetch<any>(`/dashboard/stats${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
         }
 
         try {
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const isoDate = thirtyDaysAgo.toISOString();
+            // Normalize branchId: 'all' or empty string should be null
+            const normalizedBranchId = (branchId === 'all' || !branchId) ? null : branchId;
 
-            // Parallelize count queries for performance
-            // We fetch total counts AND new counts (created > 30 days ago)
-            const [
-                studentsTotal, studentsNew,
-                teachersTotal, teachersNew,
-                parentsTotal, parentsNew
-            ] = await Promise.all([
-                supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).gt('created_at', isoDate),
+            // Use the Security Definer RPC for all counts to ensure robustness against RLS
+            const { data, error } = await supabase.rpc('get_dashboard_stats', {
+                p_school_id: schoolId,
+                p_branch_id: normalizedBranchId
+            });
 
-                supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).gt('created_at', isoDate),
-
-                supabase.from('parents').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('parents').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).gt('created_at', isoDate)
-            ]);
+            if (error) {
+                console.error('RPC Error fetching dashboard stats:', error);
+                throw error;
+            }
 
             return {
-                totalStudents: studentsTotal.count || 0,
-                studentTrend: studentsNew.count || 0,
-
-                totalTeachers: teachersTotal.count || 0,
-                teacherTrend: teachersNew.count || 0,
-
-                totalParents: parentsTotal.count || 0,
-                parentTrend: parentsNew.count || 0,
-
-                overdueFees: 0 // TODO: Implement specific fee calculation logic if needed
+                totalStudents: data.totalStudents || 0,
+                studentTrend: data.studentTrend || 0,
+                totalTeachers: data.totalTeachers || 0,
+                teacherTrend: data.teacherTrend || 0,
+                totalParents: data.totalParents || 0,
+                parentTrend: data.parentTrend || 0,
+                overdueFees: data.overdueFees || 0
             };
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);

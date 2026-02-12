@@ -88,7 +88,7 @@ export async function createPaymentPlan(params: CreatePaymentPlanParams): Promis
 
         // 4. Update fee to indicate it has a payment plan
         const { error: feeUpdateError } = await supabase
-            .from('fees')
+            .from('student_fees')
             .update({
                 has_payment_plan: true,
                 updated_at: new Date().toISOString()

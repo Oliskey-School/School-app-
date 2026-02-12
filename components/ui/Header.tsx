@@ -4,6 +4,7 @@ import { LogoutIcon, ChevronLeftIcon, NotificationIcon, SearchIcon, UserIcon } f
 import { Menu } from 'lucide-react';
 
 import { BranchSwitcher } from '../shared/BranchSwitcher';
+import { useBranch } from '../../context/BranchContext'; // Added
 
 interface HeaderProps {
   title: string;
@@ -17,12 +18,14 @@ interface HeaderProps {
   onSearchClick?: () => void;
   className?: string; // Allow custom classes
   customId?: string;
+  userName?: string; // Add this
 }
 
-const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onMenuClick, onNotificationClick, notificationCount, onSearchClick, className = '', customId }) => {
+const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, onBack, onMenuClick, onNotificationClick, notificationCount, onSearchClick, className = '', customId, userName }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const { canSwitchBranches } = useBranch(); // Added
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -68,10 +71,23 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
             </button>
           )}
           <div className="flex flex-col min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold truncate tracking-tight">{title}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold truncate tracking-tight leading-tight">
+              {title === 'Teacher Dashboard' && userName ? `Welcome, ${userName}!` : title}
+            </h1>
+            {customId && (
+              <div className="flex items-center space-x-1.5 opacity-90 mt-0.5 sm:mt-1">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest bg-white/20 px-1.5 py-0.5 rounded">ID</span>
+                <span className="text-xs sm:text-sm font-mono font-bold tracking-wider truncate">{customId}</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+          {canSwitchBranches && (
+            <div className="hidden md:block mr-2">
+              <BranchSwitcher />
+            </div>
+          )}
           {onSearchClick && (
             <button onClick={onSearchClick} className="relative p-1.5 sm:p-2 rounded-full hover:bg-current/10" aria-label="Search">
               <SearchIcon className={`h-6 w-6 sm:h-7 sm:w-7 ${bgColor.includes('bg-white') || bgColor.includes('bg-gray-50') ? 'text-gray-900' : 'text-white'}`} />

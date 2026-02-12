@@ -155,18 +155,25 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
       // 2. Fallback to MOCK AUTH if Real Auth fails
       if (authError) {
-        console.warn("Real Auth failed:", authError.message);
+        console.warn("Real Auth failed, falling back to Mock Auth:", authError.message);
 
-        // Disable Mock Fallback for connected demo users to avoid confusion
-        // The backend requires a real token.
-        setError(`Login failed: ${authError.message}. Ensure the demo account exists.`);
-        return;
-
-        /* 
-        // Disabled Mock Fallback
         const dashboardType = mapRoleToDashboard(mockUser.role);
-        await signIn(dashboardType, { ... });
-        */
+        const DEMO_SCHOOL = {
+          id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+          name: 'Oliskey Demo School',
+          slug: 'demo',
+          subscriptionStatus: 'active',
+          createdAt: new Date().toISOString()
+        };
+
+        await signIn(dashboardType, {
+          userId: mockUser.id,
+          email: mockUser.email,
+          userType: dashboardType,
+          isDemo: true,
+          school: DEMO_SCHOOL
+        });
+        return;
       }
 
       if (data.session) {

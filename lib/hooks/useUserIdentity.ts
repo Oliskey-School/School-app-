@@ -13,7 +13,12 @@ export const useUserIdentity = () => {
     // If not in AuthContext, we might need to fetch it, but let's assume for this hook 
     // we primarily format and handle the ID passed to it, or derive from user object if available.
 
-    const customId = user?.user_metadata?.custom_id || user?.app_metadata?.custom_id;
+    const customId = user?.app_metadata?.school_generated_id || 
+                     user?.user_metadata?.school_generated_id || 
+                     user?.app_metadata?.custom_id || 
+                     user?.user_metadata?.custom_id ||
+                     user?.app_metadata?.school_id || 
+                     user?.user_metadata?.school_id;
 
     const copyToClipboard = useCallback(async (text: string) => {
         if (!text) return;
@@ -30,7 +35,13 @@ export const useUserIdentity = () => {
 
     const formatId = useCallback((id: string | null | undefined) => {
         if (!id) return '';
-        return id;
+        // Enforce School_branch_role_number format with underscores
+        const clean = id.replace(/-/g, '_').toUpperCase();
+        if (!clean.includes('OLISKEY')) {
+            // Logic to prefix if it's just a sequence or fragment (simplified)
+            return clean; 
+        }
+        return clean;
     }, []);
 
     return {

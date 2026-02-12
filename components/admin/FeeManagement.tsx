@@ -18,10 +18,9 @@ const AssignFeeSchema = Yup.object().shape({
   curriculumType: Yup.string().oneOf(['Nigerian', 'British', 'Dual', 'General']).required('Required')
 });
 
-const FeeManagement: React.FC = () => {
+const FeeManagement: React.FC<any> = (props) => {
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
   const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
   const [selectedFee, setSelectedFee] = useState<Fee | null>(null);
@@ -85,7 +84,6 @@ const FeeManagement: React.FC = () => {
       }
 
       setFees([newFee, ...fees]);
-      setIsModalOpen(false);
       resetForm();
 
       // Success Notification with Action
@@ -131,7 +129,7 @@ const FeeManagement: React.FC = () => {
           <p className="text-gray-500">Track and assign student fees</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => (props as any).navigateTo('assignFee', 'Assign New Fee')}
           className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition"
         >
           <Plus className="w-5 h-5" />
@@ -264,61 +262,7 @@ const FeeManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Assign Fee Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Assign New Fee</h3>
-              <button onClick={() => setIsModalOpen(false)}><Trash2 className="w-5 h-5 text-gray-400" /></button>
-            </div>
-
-            <Formik
-              initialValues={{ title: '', amount: '', description: '', dueDate: '', studentId: '', curriculumType: 'General' }}
-              validationSchema={AssignFeeSchema}
-              onSubmit={handleAssign}
-            >
-              {({ isSubmitting }) => (
-                <Form className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Student</label>
-                    <Field as="select" name="studentId" className="w-full border rounded-lg p-2">
-                      <option value="">Select Student</option>
-                      {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade})</option>)}
-                    </Field>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Fee Title</label>
-                    <Field name="title" className="w-full border rounded-lg p-2" placeholder="e.g. 2nd Term Tuition" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Amount (NGN)</label>
-                    <Field name="amount" type="number" className="w-full border rounded-lg p-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Due Date</label>
-                    <Field name="dueDate" type="date" className="w-full border rounded-lg p-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Curriculum Track</label>
-                    <Field as="select" name="curriculumType" className="w-full border rounded-lg p-2">
-                      <option value="General">General / All-Track</option>
-                      <option value="Nigerian">Nigerian Curriculum</option>
-                      <option value="British">British Curriculum</option>
-                      <option value="Dual">Dual Track (NGN/BRI)</option>
-                    </Field>
-                  </div>
-                  <div className="pt-2">
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700">
-                      {isSubmitting ? 'Assigning...' : 'Assign Fee'}
-                    </button>
-                  </div>
-                </Form>
-              )}
-            </Formik>
-          </div>
-        </div>
-      )}
+      {/* Assign Fee Modal removed - now a page */}
 
       {/* Payment Plan Modal */}
       {showPaymentPlanModal && selectedFee && (

@@ -14,10 +14,16 @@ interface TeacherDetailAdminViewProps {
 }
 
 import { fetchTeacherById } from '../../lib/database';
+import { useTeacherStats } from '../../hooks/useTeacherStats';
 
 const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher: initialTeacher, navigateTo, forceUpdate, handleBack }) => {
     const [teacher, setTeacher] = useState<Teacher>(initialTeacher);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    // Use the new hook for real-time analytics
+    // Note: initialTeacher might not have school_id typed correctly if it's a partial type, 
+    // but usually it should. If missing, we might need to fetch it or fallback.
+    const { stats, loading: statsLoading } = useTeacherStats(teacher.id, teacher.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1');
 
     // Fetch latest data on mount
     React.useEffect(() => {
@@ -34,11 +40,6 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
     // If we have detailed class info in mockClasses, use it. Otherwise, create a placeholder.
     const displayClasses = teacher.classes.map(className => {
         // Parse "Grade 7 - Math" or "10A - Physics"
-        // Try to handle:
-        // 1. "Grade 7 - Math" -> Grade 7, Subject Math
-        // 2. "10A - Physics" -> Grade 10, Section A, Subject Physics
-        // 3. "Grade 7" -> Grade 7, Default Subject
-
         let grade = 0;
         let section = '';
         let subject = teacher.subjects[0] || 'General';
@@ -75,7 +76,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
             grade,
             section,
             subject,
-            studentCount: 0 // Mock/Unknown
+            studentCount: 0 // Still hard to map individual class counts without more complex query
         };
     });
 
@@ -106,8 +107,6 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                 .eq('user_id', teacher.user_id);
 
             if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
-
-
 
             toast.success(`${teacher.name} has been successfully deleted from the database.`);
             forceUpdate();
@@ -148,8 +147,6 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                             if (error) throw error;
 
                                             setTeacher({ ...teacher, status: newStatus });
-
-
                                             forceUpdate();
                                         } catch (err: any) {
                                             toast.error('Failed to update status: ' + err.message);
@@ -175,19 +172,23 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                             <div className="bg-white p-4 rounded-xl shadow-sm text-center">
                                 <p className="text-sm text-gray-500">Attendance</p>
                                 <div className="relative w-20 h-20 mx-auto mt-1">
-                                    <DonutChart percentage={95} color="#4f46e5" size={80} strokeWidth={9} />
-                                    <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-gray-800">95%</div>
+                                    <DonutChart percentage={statsLoading ? 0 : stats.attendanceRate} color="#4f46e5" size={80} strokeWidth={9} />
+                                    <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-gray-800">
+                                        {statsLoading ? '...' : `${stats.attendanceRate}%`}
+                                    </div>
                                 </div>
                             </div>
                             <div className="bg-white p-4 rounded-xl shadow-sm text-center">
                                 <p className="text-sm text-gray-500">Avg. Student Score</p>
-                                <p className="text-5xl font-bold text-indigo-600 mt-2">82%</p>
+                                <p className="text-5xl font-bold text-indigo-600 mt-2">
+                                    {statsLoading ? '...' : `${stats.avgStudentScore}%`}
+                                </p>
                             </div>
                         </div>
 
                         {/* Assigned Classes */}
                         <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <h4 className="font-bold text-gray-800 mb-2">Assigned Classes</h4>
+                            <h4 className="font-bold text-gray-800 mb-2">Assigned Classes ({stats.totalClasses})</h4>
                             <div className="space-y-2">
                                 {displayClasses.length > 0 ? displayClasses.map((c, idx) => (
                                     <div key={idx} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
