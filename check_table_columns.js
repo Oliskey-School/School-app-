@@ -1,3 +1,4 @@
+
 const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
 dotenv.config();
@@ -15,7 +16,7 @@ async function checkColumns() {
     console.log('🔍 Fetching table columns...');
 
     const tables = [
-        'behavior_logs'
+        'report_cards', 'report_card_records'
     ];
 
     for (const table of tables) {
