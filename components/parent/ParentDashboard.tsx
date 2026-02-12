@@ -477,7 +477,7 @@ const Dashboard = ({ navigateTo, parentId, currentUser, version, schoolId, curre
                 // 1. Parallel fetch all required data for all children
                 const today = new Date().toISOString();
                 const [allFees, allAttendance, allAssignments] = await Promise.all([
-                    supabase.from('fees').select('*').eq('school_id', schoolId).in('student_id', ids).in('status', ['pending', 'partial']).order('due_date', { ascending: true }),
+                    supabase.from('student_fees').select('*').eq('school_id', schoolId).in('student_id', ids).in('status', ['Pending', 'Partial', 'Overdue']).order('due_date', { ascending: true }),
                     supabase.from('student_attendance').select('student_id, status').eq('school_id', schoolId).in('student_id', ids),
                     supabase.from('assignments').select('*').eq('school_id', schoolId).gt('due_date', today).order('due_date', { ascending: true })
                 ]);

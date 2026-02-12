@@ -57,7 +57,21 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             .eq('parent_user_id', parentToEdit.user_id);
 
                         if (links && links.length > 0) {
-                            setChildIds(links.map(l => l.student_user_id).join(', '));
+                            // Fetch the readable IDs for these students
+                            const studentUserIds = links.map(l => l.student_user_id);
+                            const { data: students } = await supabase
+                                .from('students')
+                                .select('school_generated_id, admission_number')
+                                .in('user_id', studentUserIds);
+
+                            if (students && students.length > 0) {
+                                // Prefer school_generated_id, fallback to admission_number
+                                const readableIds = students.map(s => s.school_generated_id || s.admission_number).filter(Boolean);
+                                setChildIds(readableIds.join(', '));
+                            } else {
+                                // Fallback to UUIDs if lookup fails (shouldn't happen)
+                                setChildIds(studentUserIds.join(', '));
+                            }
                         } else {
                             // Fallback to prop if DB fetch empty (or just empty)
                             setChildIds((parentToEdit.childIds || []).join(', '));
@@ -122,26 +136,21 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
             const avatarUrl = avatar || `https://i.pravatar.cc/150?u=${name.replace(' ', '')}`;
             // Handle both admission numbers and UUIDs
             const rawChildIds = childIds.split(',').map(id => id.trim()).filter(id => id.length > 0);
-            const childIdArray = rawChildIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+            // const childIdArray = rawChildIds.map(id => parseInt(id)).filter(id => !isNaN(id)); // Removed as we use string IDs now
 
             // Wrap the main logic in a function for retry
             const saveOperation = async () => {
                 // MOCK MODE HANDLING (Keep as is for demo/testing without backend)
                 if (!isSupabaseConfigured) {
                     // ... existing mock logic ...
-                    // For brevity in refactor, I'm assuming mock logic is simple and won't fail with permissions
-                    // But in a real refactor we'd copy it. 
-                    // TO KEEP IT SIMPLE AND WORKING, I will focus on the SUPABASE path which is where the error is.
-                    // But since I am replacing the whole block, I must preserve mock logic logic briefly or assume user wants Supabase fix.
-                    // I will preserve the mock logic structure but simplified for this function focus.
                     if (parentToEdit) {
                         const index = mockParents.findIndex(p => p.id === parentToEdit.id);
                         if (index !== -1) {
-                            mockParents[index] = { ...mockParents[index], name, email, phone, avatarUrl, childIds: childIdArray.map(String) };
+                            mockParents[index] = { ...mockParents[index], name, email, phone, avatarUrl, childIds: rawChildIds };
                         }
                     } else {
                         const newId = mockParents.length > 0 ? Math.max(...mockParents.map(p => parseInt(p.id))) + 1 : 1;
-                        mockParents.push({ id: newId.toString(), name, email, phone, avatarUrl, childIds: childIdArray.map(String) });
+                        mockParents.push({ id: newId.toString(), name, email, phone, avatarUrl, childIds: rawChildIds });
                         setCredentials({ username: email.split('@')[0], password: 'password123', email });
                         setShowCredentialsModal(true);
                         return; // Modal handles close
@@ -159,10 +168,10 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             name,
                             email,
                             phone,
-                            address: address || null, // ✅ NEW
-                            occupation: occupation || null, // ✅ NEW
-                            relationship: relationship, // ✅ NEW
-                            emergency_contact: emergencyContact || null, // ✅ NEW
+                            address: address || null,
+                            occupation: occupation || null,
+                            relationship: relationship,
+                            emergency_contact: emergencyContact || null,
                             avatar_url: avatarUrl
                         })
                         .eq('id', parentToEdit.id);
@@ -176,18 +185,18 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     // Transactional-like update for children
                     await supabase.from('student_parent_links').delete().eq('parent_user_id', parentToEdit.user_id || parentToEdit.id);
                     if (rawChildIds.length > 0) {
-                        // We need to resolve these IDs to student user_ids if they are admission numbers
-                        // For simplicity in this screen, we assume they are student user_ids (UUIDs)
-                        // OR we'd need a lookup here. Since admission numbers are common, let's do a lookup.
+                        // Resolve IDs: Check school_generated_id, admission_number, OR user_id (UUID)
                         const { data: students } = await supabase
                             .from('students')
-                            .select('user_id, admission_number')
-                            .or(`user_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')})`);
+                            .select('user_id')
+                            .or(`school_generated_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')}),user_id.in.(${rawChildIds.join(',')})`);
 
                         if (students && students.length > 0) {
-                            const relations = students.map(s => ({
+                            // Deduplicate user_ids just in case
+                            const uniqueStudentUserIds = [...new Set(students.map(s => s.user_id))];
+                            const relations = uniqueStudentUserIds.map(sid => ({
                                 parent_user_id: parentToEdit.user_id || parentToEdit.id,
-                                student_user_id: s.user_id
+                                student_user_id: sid
                             }));
                             await supabase.from('student_parent_links').insert(relations);
                         }
@@ -226,10 +235,10 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             name,
                             email,
                             phone,
-                            address: address || null, // ✅ NEW
-                            occupation: occupation || null, // ✅ NEW
-                            relationship: relationship, // ✅ NEW
-                            emergency_contact: emergencyContact || null, // ✅ NEW
+                            address: address || null,
+                            occupation: occupation || null,
+                            relationship: relationship,
+                            emergency_contact: emergencyContact || null,
                             avatar_url: avatarUrl
                         }])
                         .select()
@@ -239,15 +248,17 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
 
                     // 4. Link Students
                     if (rawChildIds.length > 0) {
+                        // Resolve IDs: Check school_generated_id, admission_number, OR user_id (UUID)
                         const { data: students } = await supabase
                             .from('students')
-                            .select('user_id, admission_number')
-                            .or(`user_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')})`);
+                            .select('user_id')
+                            .or(`school_generated_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')}),user_id.in.(${rawChildIds.join(',')})`);
 
                         if (students && students.length > 0) {
-                            const relations = students.map(s => ({
+                            const uniqueStudentUserIds = [...new Set(students.map(s => s.user_id))];
+                            const relations = uniqueStudentUserIds.map(sid => ({
                                 parent_user_id: newUserData.id,
-                                student_user_id: s.user_id
+                                student_user_id: sid
                             }));
                             await supabase.from('student_parent_links').insert(relations);
                         }

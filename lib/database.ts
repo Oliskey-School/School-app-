@@ -204,7 +204,8 @@ export async function createStudent(studentData: {
 
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150',
             grade: data.grade,
@@ -512,14 +513,41 @@ export async function fetchParents(schoolId?: string, branchId?: string): Promis
 
         if (error) throw error;
 
-        return (data || []).map((p: any) => ({
+        const parents = data || [];
+
+        // Extract all involved student IDs
+        const allStudentIds = new Set<string>();
+        parents.forEach((p: any) => {
+            if (p.parent_children) {
+                p.parent_children.forEach((c: any) => allStudentIds.add(c.student_id));
+            }
+        });
+
+        // Fetch readable IDs for these students
+        let studentMap: Record<string, string> = {};
+        if (allStudentIds.size > 0) {
+            const arrIds = Array.from(allStudentIds);
+            const { data: students, error: stuError } = await supabase
+                .from('students')
+                .select('id, school_generated_id, admission_number')
+                .in('id', arrIds);
+
+            if (!stuError && students) {
+                students.forEach((s: any) => {
+                    studentMap[s.id] = s.school_generated_id || s.admission_number || 'Unknown';
+                });
+            }
+        }
+
+        return parents.map((p: any) => ({
             id: p.id,
-            schoolId: p.school_generated_id,
+            schoolId: p.school_id,
+            schoolGeneratedId: p.school_generated_id,
             name: p.name,
             email: p.email,
             phone: p.phone || '',
             avatarUrl: p.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-            childIds: (p.parent_children || []).map((c: any) => c.student_id)
+            childIds: (p.parent_children || []).map((c: any) => studentMap[c.student_id] || c.student_id)
         }));
     } catch (err) {
         console.error('Error fetching parents:', err);
@@ -541,14 +569,31 @@ export async function fetchParentByEmail(email: string): Promise<Parent | null> 
         if (error) throw error;
         if (!data) return null;
 
+        // Fetch readable IDs for children
+        let childIds: string[] = [];
+        if (data.parent_children && data.parent_children.length > 0) {
+            const studentIds = data.parent_children.map((c: any) => c.student_id);
+            const { data: students, error: stuError } = await supabase
+                .from('students')
+                .select('school_generated_id, admission_number')
+                .in('id', studentIds);
+
+            if (!stuError && students) {
+                childIds = students.map((s: any) => s.school_generated_id || s.admission_number || 'Unknown');
+            } else {
+                childIds = studentIds; // Fallback
+            }
+        }
+
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             email: data.email,
             phone: data.phone || '',
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-            childIds: (data.parent_children || []).map((c: any) => c.student_id)
+            childIds: childIds
         };
     } catch (err) {
         console.error('Error fetching parent by email:', err);
@@ -570,14 +615,31 @@ export async function fetchParentByUserId(userId: string): Promise<Parent | null
         if (error) throw error;
         if (!data) return null;
 
+        // Fetch readable IDs for children
+        let childIds: string[] = [];
+        if (data.parent_children && data.parent_children.length > 0) {
+            const studentIds = data.parent_children.map((c: any) => c.student_id);
+            const { data: students, error: stuError } = await supabase
+                .from('students')
+                .select('school_generated_id, admission_number')
+                .in('id', studentIds);
+
+            if (!stuError && students) {
+                childIds = students.map((s: any) => s.school_generated_id || s.admission_number || 'Unknown');
+            } else {
+                childIds = studentIds; // Fallback
+            }
+        }
+
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             email: data.email,
             phone: data.phone || '',
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-            childIds: (data.parent_children || []).map((c: any) => c.student_id)
+            childIds: childIds
         };
     } catch (err) {
         console.error('Error fetching parent by user id:', err);
@@ -647,7 +709,8 @@ export async function fetchParentsForStudent(studentId: string | number): Promis
 
         return (parents || []).map((p: any) => ({
             id: p.id,
-            schoolId: p.school_generated_id,
+            schoolId: p.school_id, // Fixed
+            schoolGeneratedId: p.school_generated_id, // Fixed
             name: p.name,
             email: p.email,
             phone: p.phone || '',
@@ -694,7 +757,8 @@ export async function createParent(parentData: {
 
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id, // Fixed (though usually empty on client after create, but strict mapping helps)
+            schoolGeneratedId: data.school_generated_id, // Fixed
             name: data.name,
             email: data.email,
             phone: data.phone || '',

@@ -4,6 +4,7 @@ import { SearchIcon, MailIcon, PhoneIcon, PlusIcon, StudentsIcon } from '../../c
 import { Parent } from '../../types';
 import { fetchParents } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
+import { formatSchoolId } from '../../utils/idFormatter';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 
@@ -19,6 +20,7 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void 
       <img src={parent.avatarUrl} alt={parent.name} className="w-16 h-16 rounded-full object-cover" />
       <div className="flex-grow">
         <p className="font-bold text-lg text-gray-800">{parent.name}</p>
+        <p className="text-xs text-gray-500 mb-1 font-mono">{formatSchoolId(parent.schoolGeneratedId || parent.id, 'Parent')}</p>
         <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1">
           <StudentsIcon className="w-4 h-4" />
           <span>Children: {(parent.childIds || []).join(', ')}</span>
