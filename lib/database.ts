@@ -1841,7 +1841,7 @@ export async function fetchCBTQuestions(examId: string): Promise<any[]> {
             .from('quiz_questions')
             .select('*')
             .eq('quiz_id', examId)
-            .order('order_index', { ascending: true }); // Assuming order_index exists, or just id
+            .order('question_order', { ascending: true });
 
         if (error) throw error;
 
@@ -1851,8 +1851,8 @@ export async function fetchCBTQuestions(examId: string): Promise<any[]> {
             questionText: q.question_text,
             questionType: q.question_type,
             options: q.options,
-            correctOption: q.correct_option,
-            points: q.points
+            correctOption: q.correct_answer,
+            points: q.marks
         }));
     } catch (err) {
         console.error('Error fetching Quiz questions:', err);

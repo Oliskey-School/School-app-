@@ -1,27 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { ForumTopic } from '../../types';
 import { mockForumTopics } from '../../data';
-import { ChevronRightIcon, PlusIcon, UserGroupIcon } from '../../constants';
+import { ChevronRightIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { fetchForumTopics } from '../../lib/database';
 import CreateForumTopicModal from './CreateForumTopicModal';
 
-// ... (keep formatDistanceToNow)
+const formatDistanceToNow = (date: string | Date) => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const diff = Math.floor((new Date().getTime() - d.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+};
 
 interface CollaborationForumScreenProps {
-  navigateTo: (view: string, title: string, props: any) => void;
+  navigateTo: (view: string, title: string, props?: any) => void;
+  teacherProfile?: any;
 }
 
-const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ navigateTo }) => {
+const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ navigateTo, teacherProfile }) => {
   const { user, currentSchool } = useAuth();
   const { profile } = useProfile();
   const [topics, setTopics] = useState<ForumTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const forumEnabled = teacherProfile?.notification_preferences?.forumEnabled !== false;
+
   const loadTopics = async () => {
+    if (!forumEnabled) return;
     setLoading(true);
     try {
       const schoolId = currentSchool?.id;
@@ -41,11 +52,39 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
 
   useEffect(() => {
     loadTopics();
-  }, [currentSchool?.id]);
+  }, [currentSchool?.id, forumEnabled]);
 
   const handleTopicCreated = () => {
     loadTopics(); // Refresh list
   };
+
+  if (!forumEnabled) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6 text-center">
+        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md border border-gray-100">
+          <div className="w-20 h-20 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <ShieldCheckIcon className="h-10 w-10 text-amber-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-4">Forum Access Disabled</h2>
+          <p className="text-slate-600 mb-8">
+            The collaboration forum is currently disabled for your account. You can enable it in your
+            <button
+              onClick={() => navigateTo('settings', 'Settings', { activeSetting: 'teacherNotificationSettings' })}
+              className="text-blue-600 font-semibold hover:underline ml-1"
+            >
+              Settings
+            </button>.
+          </p>
+          <button
+            onClick={() => navigateTo('overview', 'Dashboard')}
+            className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl shadow-lg hover:bg-purple-700 transition"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-100 relative">

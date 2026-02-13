@@ -13,7 +13,8 @@ import {
     SettingsIcon,
     ChevronLeftIcon,
     ExamIcon,
-    UserIcon
+    UserIcon,
+    ShieldCheckIcon
 } from '../../constants';
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType } from '../../types';
@@ -34,6 +35,7 @@ interface TeacherSettingsScreenProps {
     refreshDashboardProfile?: (data?: { name: string; avatarUrl: string }) => void;
     teacherId?: string | null;
     currentUser?: any;
+    currentUserId?: string | null;
 }
 
 type SettingView = 'editTeacherProfile' | 'teacherNotificationSettings' | 'teacherSecurity' | 'professionalDevelopment' | 'cbtManagement' | null;
@@ -59,6 +61,7 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
     refreshDashboardProfile,
     teacherId,
     currentUser,
+    currentUserId,
     teacherProfile: commonTeacherProfile // Add this from commonProps if passed
 }: any) => { // Use any to bypass strict prop check for now or update interface
     const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
@@ -98,9 +101,9 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
             case 'professionalDevelopment':
                 return <ProfessionalDevelopmentScreen />;
             case 'teacherNotificationSettings':
-                return <TeacherNotificationSettingsScreen />;
+                return <TeacherNotificationSettingsScreen teacherId={teacherId} />;
             case 'teacherSecurity':
-                return <TeacherSecurityScreen navigateTo={navigateTo} />;
+                return <TeacherSecurityScreen navigateTo={navigateTo} teacherId={teacherId} userId={currentUser?.id || currentUserId} />;
             default:
                 return <SettingsPlaceholder />;
         }
@@ -124,7 +127,11 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
                             </div>
                         )}
                         <h3 className="text-2xl font-bold text-gray-800">{profile.name}</h3>
-                        <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full mb-2">Subject Teacher</span>
+                        <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full mb-2">
+                            {(profile as any).subjects && (profile as any).subjects.length > 0
+                                ? (profile as any).subjects[0] + ((profile as any).subjects.length > 1 ? ` +${(profile as any).subjects.length - 1}` : '')
+                                : 'Subject Teacher'}
+                        </span>
 
                         {/* ID Display */}
                         <div

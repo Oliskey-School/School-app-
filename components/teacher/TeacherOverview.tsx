@@ -233,14 +233,14 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           <div>
             <div className="flex justify-between items-end mb-2 px-1">
               <h3 className="text-lg font-bold text-gray-800">Recent Assignments</h3>
-              {ungradedAssignments.length > 2 && (
+              {ungradedAssignments.length > 1 && (
                 <button onClick={() => navigateTo('assignmentsList', 'Manage Assignments', {})} className="text-sm font-bold text-purple-600 hover:text-purple-800">
-                  More
+                  See more
                 </button>
               )}
             </div>
             <div className="space-y-3">
-              {ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 2).map(a => (
+              {ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 1).map(a => (
                 <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-gray-800">{a.title}</p>

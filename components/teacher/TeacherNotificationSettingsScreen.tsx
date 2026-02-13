@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MailIcon, BellIcon, NotificationIcon } from '../../constants';
+import { MailIcon, BellIcon, NotificationIcon, ShieldCheckIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 
 const SettingToggle = ({ icon, label, description, enabled, onToggle }: { icon: React.ReactNode, label: string, description: string, enabled: boolean, onToggle: () => void }) => (
@@ -23,42 +23,59 @@ const SettingToggle = ({ icon, label, description, enabled, onToggle }: { icon: 
     </div>
 );
 
-const TeacherNotificationSettingsScreen: React.FC = () => {
+interface TeacherNotificationSettingsScreenProps {
+    teacherId?: string | null;
+}
+
+const TeacherNotificationSettingsScreen: React.FC<TeacherNotificationSettingsScreenProps> = ({ teacherId }) => {
     const [settings, setSettings] = useState({
         newSubmission: true,
         parentMessage: true,
-        weeklySummary: false
+        weeklySummary: false,
+        forumEnabled: true
     });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchSettings = async () => {
-            const { data } = await supabase
+            if (!teacherId) {
+                setLoading(false);
+                return;
+            }
+
+            const { data, error } = await supabase
                 .from('teachers')
                 .select('notification_preferences')
-                .eq('email', 'f.akintola@school.com')
+                .eq('id', teacherId)
                 .single();
 
-            if (data?.notification_preferences) {
+            if (error) {
+                console.error('Error fetching settings:', error);
+            } else if (data?.notification_preferences) {
                 setSettings(data.notification_preferences);
             }
             setLoading(false);
         };
         fetchSettings();
-    }, []);
+    }, [teacherId]);
 
     const toggleSetting = async (key: keyof typeof settings) => {
+        if (!teacherId) return;
+
         const newSettings = { ...settings, [key]: !settings[key] };
         setSettings(newSettings);
 
         try {
-            await supabase
+            const { error } = await supabase
                 .from('teachers')
                 .update({ notification_preferences: newSettings })
-                .eq('email', 'f.akintola@school.com');
+                .eq('id', teacherId);
+
+            if (error) throw error;
         } catch (err) {
             console.error('Error updating settings:', err);
-            // Revert state if needed, but optimistically updating for now
+            // Revert on error
+            setSettings(settings);
         }
     };
 
@@ -86,6 +103,13 @@ const TeacherNotificationSettingsScreen: React.FC = () => {
                 description="Get a class summary every Friday."
                 enabled={settings.weeklySummary}
                 onToggle={() => toggleSetting('weeklySummary')}
+            />
+            <SettingToggle
+                icon={<ShieldCheckIcon className="text-amber-500" />}
+                label="Forum Access"
+                description="Enable or disable your access to the collaboration forum."
+                enabled={settings.forumEnabled}
+                onToggle={() => toggleSetting('forumEnabled')}
             />
         </div>
     );

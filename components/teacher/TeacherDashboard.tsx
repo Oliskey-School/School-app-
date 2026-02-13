@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { DashboardType } from '../../types';
-import { THEME_CONFIG } from '../../constants';
+import { THEME_CONFIG, ShieldCheckIcon } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
 import Header from '../ui/Header';
 import { TeacherBottomNav } from '../ui/DashboardBottomNav';
@@ -94,8 +94,6 @@ interface TeacherDashboardProps {
 
 import { supabase } from '../../lib/supabase';
 
-// ... (imports remain)
-
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
   const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
   const [activeBottomNav, setActiveBottomNav] = useState('home');
@@ -155,7 +153,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     name: string;
     avatarUrl: string;
     schoolGeneratedId?: string;
-    schoolId?: string; // Add this
+    schoolId?: string;
+    notification_preferences?: any;
   }>({
     name: 'Teacher',
     avatarUrl: ''
@@ -171,7 +170,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       if (!schoolId) return;
 
       let query = supabase.from('teachers')
-        .select('id, name, avatar_url, email, school_generated_id, school_id') // Add school_id
+        .select('id, name, avatar_url, email, school_generated_id, school_id, notification_preferences')
         .eq('school_id', schoolId);
 
       let emailToQuery = user?.email || currentUser?.email;
@@ -202,7 +201,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           setTeacherId('demo-teacher-id');
           setTeacherProfile({
             name: 'Demo Teacher',
-            avatarUrl: undefined
+            avatarUrl: '',
+            notification_preferences: {}
           });
           return; // Exit early
         }
@@ -214,9 +214,10 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         setTeacherId(data.id);
         setTeacherProfile({
           name: data.name || 'Teacher',
-          avatarUrl: data.avatar_url,
+          avatarUrl: data.avatar_url || '',
           schoolGeneratedId: data.school_generated_id,
-          schoolId: data.school_id // Set this
+          schoolId: data.school_id,
+          notification_preferences: data.notification_preferences
         } as any);
       } else if (emailToQuery) {
         // AUTO-HEALING: If no teacher profile found, create one automatically
@@ -243,9 +244,10 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
             setTeacherId(newTeacher.id);
             setTeacherProfile({
               name: newTeacher.name,
-              avatarUrl: newTeacher.avatar_url,
+              avatarUrl: newTeacher.avatar_url || '',
               schoolId: newTeacher.school_id,
-              schoolGeneratedId: newTeacher.school_generated_id
+              schoolGeneratedId: newTeacher.school_generated_id,
+              notification_preferences: newTeacher.notification_preferences
             });
             // Force refresh to ensure UI updates
             forceUpdate();
@@ -377,8 +379,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     reportCardPreview: TeacherReportCardPreviewScreen,
     settings: (props: any) => <TeacherSettingsScreen {...props} dashboardProfile={teacherProfile} refreshDashboardProfile={fetchProfile} />,
     editTeacherProfile: (props: any) => <EditTeacherProfileScreen {...props} onProfileUpdate={fetchProfile} />,
-    teacherNotificationSettings: TeacherNotificationSettingsScreen,
-    teacherSecurity: TeacherSecurityScreen,
+    teacherNotificationSettings: (props: any) => <TeacherNotificationSettingsScreen {...props} teacherId={teacherId} />,
+    teacherSecurity: (props: any) => <TeacherSecurityScreen {...props} teacherId={teacherId} userId={currentUserId} />,
     teacherChangePassword: TeacherChangePasswordScreen,
     lessonPlanner: LessonPlannerScreen,
     lessonPlanDetail: LessonPlanDetailScreen,
@@ -396,7 +398,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     virtualClass: VirtualClassScreen,
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
-    cbtManagement: CBTManagementScreen,
+    cbtManagement: (props: any) => <CBTManagementScreen {...props} schoolId={commonProps.schoolId} />,
     addStudent: AddStudentScreen,
     quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId || ''} onClose={handleBack} />,
     classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,

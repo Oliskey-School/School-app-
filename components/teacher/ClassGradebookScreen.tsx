@@ -150,7 +150,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                         total: total,
                         grade: getGrade(total),
                         remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
-                        status: (rc?.status as 'Draft' | 'Published') || 'Draft',
+                        status: (rc?.status as 'Draft' | 'Submitted' | 'Published') || 'Draft',
                         isDirty: false
                     });
                 }
@@ -243,27 +243,10 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                     academicRecords.push(newRecord);
                 }
 
-                // If Status is Published, we strictly set it. If Draft, we defer to existing or Draft.
-                // Actually, if we click Save (Draft), we shouldn't revert a Published card to Draft unless intentional?
-                // Usually "Save" on top of published might mean "Amend".
-                // Let's say: If existing is Published, and we click Save (Draft), do we unpublish?
-                // The user requirement says "save local... then if i want to publish".
-                // Implying Save = Draft/Private.
-                // So if I click Save, it should probably be Draft (Private).
-                // But we shouldn't accidentally hide results.
-                // Let's allow Save to just update records but KEEP existing status if it was already published?
-                // No, user said "nobody can see that save except me". This implies Save should MAKE it private if it wasn't?
-                // Or maybe just "Save" = "Update pending changes".
-                // Let's implement:
-                // - Save (Draft): Status = 'Draft'. (Hides from parents if code logic in db holds).
-                // - Publish: Status = 'Published'. (Shows to parents).
-
-                const finalStatus = status;
-
                 const reportCardToSave = {
                     term: currentTerm,
                     session: currentSession,
-                    status: finalStatus,
+                    status: status,
                     attendance: existingRC?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
                     skills: existingRC?.skills || {},
                     psychomotor: existingRC?.psychomotor || {},
