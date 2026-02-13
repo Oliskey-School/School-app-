@@ -91,29 +91,53 @@ const CommunicationHub: React.FC = () => {
 
         setIsSending(true);
         try {
-            const { error } = await supabase
+            const audienceList = selectedAudience === 'all' ? ['all'] : [selectedAudience];
+
+            // 1. Create the persistent Notice
+            const { error: noticeError } = await supabase
                 .from('notices')
                 .insert({
                     school_id: currentSchool.id,
                     title,
                     content: message,
-                    audience: selectedAudience === 'all' ? ['all'] : [selectedAudience],
+                    audience: audienceList,
                     created_by: user.id,
                     category: 'General',
                     is_pinned: false,
                     timestamp: new Date().toISOString()
                 });
 
-            if (error) throw error;
+            if (noticeError) throw noticeError;
 
-            toast.success(`Message sent to ${selectedAudience}`);
+            // 2. Create the Real-time Notification Alert
+            // This ensures users see the red badge and get a toast immediately via existing hooks
+            const { error: notificationError } = await supabase
+                .from('notifications')
+                .insert({
+                    school_id: currentSchool.id,
+                    user_id: null, // Broadcast notification (null targets audience)
+                    audience: audienceList,
+                    title: `New Announcement: ${title}`,
+                    message: message.substring(0, 150) + (message.length > 150 ? '...' : ''), // Preview
+                    category: 'Alert',
+                    is_read: false,
+                    created_at: new Date().toISOString()
+                });
+
+            if (notificationError) {
+                console.error('Failed to create notification alert:', notificationError);
+                // We don't block the UI success for this, as the main notice was saved.
+            }
+
+            toast.success(`Announcement sent to ${selectedAudience}`);
+
             // Reset form
             setSelectedAudience(null);
             setTitle('');
             setMessage('');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error sending message:', error);
-            toast.error('Failed to send message. Please try again.');
+            toast.error('Failed to send message: ' + (error.message || 'Unknown error'));
         } finally {
             setIsSending(false);
         }

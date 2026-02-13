@@ -1765,6 +1765,7 @@ export async function createLessonNote(noteData: {
     teacherId: string | number;
     subjectId: string | number;
     classId: string | number;
+    schoolId: string;
     week: number;
     term: string;
     title: string;
@@ -1778,10 +1779,11 @@ export async function createLessonNote(noteData: {
                 teacher_id: noteData.teacherId,
                 subject_id: noteData.subjectId,
                 class_id: noteData.classId,
+                school_id: noteData.schoolId,
                 week: noteData.week,
                 term: noteData.term,
                 title: noteData.title,
-                content: noteData.content,
+                description: noteData.content, // Map content to description
                 file_url: noteData.fileUrl,
                 status: 'Pending'
             });
@@ -2399,5 +2401,86 @@ export async function linkStudentToParent(studentCode: string, relationship: str
     } catch (err: any) {
         console.error('Error linking student:', err);
         return { success: false, message: err.message || 'Failed to link student' };
+    }
+}
+
+// ============================================
+// FEATURE EXPANSION: TEACHER FORUM
+// ============================================
+
+export async function fetchForumTopics(schoolId?: string): Promise<any[]> {
+    try {
+        let query = supabase
+            .from('forum_topics')
+            .select('*')
+            .order('last_activity', { ascending: false });
+
+        if (schoolId) query = query.eq('school_id', schoolId);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        return (data || []).map(t => ({
+            id: t.id,
+            title: t.title,
+            authorName: t.author_name,
+            createdAt: t.created_at,
+            lastActivity: t.last_activity,
+            postCount: t.post_count,
+            posts: [] // We fetch posts separately or on demand
+        }));
+    } catch (err) {
+        console.error('Error fetching forum topics:', err);
+        return [];
+    }
+}
+
+export async function createForumTopic(topicData: {
+    title: string;
+    content: string; // First post content
+    authorName: string;
+    authorId: string;
+    schoolId: string;
+    authorAvatarUrl?: string;
+}): Promise<boolean> {
+    try {
+        // 1. Create Topic
+        const { data: topic, error: topicError } = await supabase
+            .from('forum_topics')
+            .insert({
+                title: topicData.title,
+                school_id: topicData.schoolId,
+                author_name: topicData.authorName,
+                author_id: topicData.authorId,
+                post_count: 1,
+                last_activity: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (topicError) throw topicError;
+
+        // 2. Create First Post
+        const { error: postError } = await supabase
+            .from('forum_posts')
+            .insert({
+                topic_id: topic.id,
+                school_id: topicData.schoolId,
+                author_name: topicData.authorName,
+                author_id: topicData.authorId,
+                author_avatar_url: topicData.authorAvatarUrl,
+                content: topicData.content
+            });
+
+        if (postError) {
+            // Rollback topic creation if post fails (manual cleanup)
+            await supabase.from('forum_topics').delete().eq('id', topic.id);
+            throw postError;
+        }
+
+        return true;
+    } catch (err) {
+        console.error('Error creating forum topic:', err);
+        return false;
     }
 }

@@ -26,6 +26,50 @@ const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...prop
 const CalendarIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 
 
+
+const parseClassName = (name: string) => {
+    const clean = name.trim();
+    let grade = 0;
+    let section = '';
+
+    // Regex patterns
+    const preNurseryMatch = clean.match(/^Pre-Nursery/i);
+    const nurseryMatch = clean.match(/^Nursery\s*(\d+)\s*(.*)$/i);
+    const basicMatch = clean.match(/^Basic\s*(\d+)\s*(.*)$/i);
+    const standardMatch = clean.match(/^(?:Grade|Year|Primary)?\s*(\d+)\s*(.*)$/i);
+    const jsMatch = clean.match(/^JSS\s*(\d+)\s*(.*)$/i);
+    const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i); // Matches SS, SSS
+
+    if (preNurseryMatch) {
+        grade = 0;
+        // section might be tricky if not captured, but Pre-Nursery usually has no section or explicitly named
+    } else if (nurseryMatch) {
+        grade = parseInt(nurseryMatch[1]); // 1 -> 1 (Nursery 1)
+        section = nurseryMatch[2];
+    } else if (basicMatch) {
+        grade = 2 + parseInt(basicMatch[1]); // 1 -> 3 (Basic 1)
+        section = basicMatch[2];
+    } else if (standardMatch) {
+        const val = parseInt(standardMatch[1]);
+        // Assumption: "Grade 1" = Basic 1 = 3. 
+        // "Grade 5" = Basic 5 = 7.
+        // If val is 1-5, map to Basic (3-7).
+        grade = 2 + val;
+        section = standardMatch[2];
+    } else if (jsMatch) {
+        grade = 8 + parseInt(jsMatch[1]); // 1 -> 9 (JSS 1)
+        section = jsMatch[2];
+    } else if (ssMatch) {
+        grade = 11 + parseInt(ssMatch[1]); // 1 -> 12 (SSS 1)
+        section = ssMatch[2];
+    }
+
+    if (section) {
+        section = section.replace(/^[-–]\s*/, '').trim();
+    }
+    return { grade, section };
+};
+
 interface ParticipantProps {
     name: string;
     isMuted: boolean;
@@ -137,7 +181,11 @@ interface ClassSession {
     studentsCount: number;
 }
 
-const ClassSelectionScreen: React.FC<{ onStartClass: (session: ClassSession, subject: string, topic: string, duration: string, initialMuted: boolean, initialCameraOff: boolean) => void }> = ({ onStartClass }) => {
+const ClassSelectionScreen: React.FC<{
+    onStartClass: (session: ClassSession, subject: string, topic: string, duration: string, initialMuted: boolean, initialCameraOff: boolean) => void;
+    userId?: string;
+    schoolId?: string;
+}> = ({ onStartClass, userId, schoolId }) => {
     const [selectedClass, setSelectedClass] = useState<ClassSession | null>(null);
     const [subject, setSubject] = useState('');
     const [topic, setTopic] = useState('');
@@ -152,32 +200,107 @@ const ClassSelectionScreen: React.FC<{ onStartClass: (session: ClassSession, sub
 
     useEffect(() => {
         const fetchClasses = async () => {
+            if (!userId || !schoolId) return;
+
             try {
-                // Fetch classes (assuming 'classes' table exists)
-                const { data, error } = await supabase
-                    .from('classes')
-                    .select('*')
-                    .order('grade', { ascending: true });
+                // 1. Get Teacher Profile for this school
+                const { data: teacherProfiles } = await supabase
+                    .from('teachers')
+                    .select('id, school_id')
+                    .eq('user_id', userId)
+                    .eq('school_id', schoolId);
 
-                if (error) {
-                    console.error('Error fetching classes:', error);
-                    // Fallback to empty or mock if DB fails so UI doesn't break
+                const activeTeacherId = teacherProfiles?.[0]?.id;
+
+                if (!activeTeacherId) {
+                    setClasses([]);
+                    setLoading(false);
+                    return;
                 }
 
-                if (data) {
-                    // Import the helper function (dynamically or statically)
-                    const { getGradeDisplayName } = await import('../../lib/schoolSystem');
+                const finalClasses: ClassSession[] = [];
+                const addedClassKeys = new Set<string>();
+                const { getGradeDisplayName } = await import('../../lib/schoolSystem');
 
-                    const mappedClasses: ClassSession[] = data.map((c: any) => ({
-                        id: c.id,
-                        grade: `${getGradeDisplayName(c.grade)} - Section ${c.section}`,
-                        subject: c.subject || 'General',
-                        description: `Class Session for ${getGradeDisplayName(c.grade)} ${c.section}`,
-                        time: 'Now', // Dynamic in real app
-                        studentsCount: c.student_count || 0
-                    }));
-                    setClasses(mappedClasses);
+                // 2. Modern: class_teachers
+                const { data: teacherClassesData } = await supabase
+                    .from('class_teachers')
+                    .select(`
+                        classes:class_id (
+                            id, grade, section, subject, student_count
+                        )
+                    `)
+                    .eq('teacher_id', activeTeacherId);
+
+                if (teacherClassesData) {
+                    teacherClassesData.forEach((item: any) => {
+                        const c = item.classes;
+                        if (c) {
+                            const key = c.id;
+                            if (!addedClassKeys.has(key)) {
+                                finalClasses.push({
+                                    id: c.id,
+                                    grade: `${getGradeDisplayName(c.grade)} - Section ${c.section}`,
+                                    subject: c.subject || 'General',
+                                    description: `Class Session for ${getGradeDisplayName(c.grade)} ${c.section}`,
+                                    time: 'Now',
+                                    studentsCount: c.student_count || 0
+                                });
+                                addedClassKeys.add(key);
+                            }
+                        }
+                    });
                 }
+
+                // 3. Legacy: teacher_classes fallback
+                const { data: legacyAssignments } = await supabase
+                    .from('teacher_classes')
+                    .select('class_name')
+                    .eq('teacher_id', activeTeacherId);
+
+                if (legacyAssignments && legacyAssignments.length > 0) {
+                    const { data: allClasses } = await supabase
+                        .from('classes')
+                        .select('*')
+                        .eq('school_id', schoolId);
+
+                    if (allClasses) {
+                        const normalize = (s: string) => s.replace(/Grade|Year|JSS|SSS|SS|\s/gi, '').toUpperCase();
+
+                        legacyAssignments.forEach((legacy: any) => {
+                            const name = legacy.class_name;
+                            if (!name) return;
+                            const parsed = parseClassName(name);
+
+                            const matches = allClasses.filter(c => {
+                                if (c.grade === parsed.grade) {
+                                    if (parsed.section) {
+                                        return normalize(c.section || '') === normalize(parsed.section);
+                                    }
+                                    return true;
+                                }
+                                return false;
+                            });
+
+                            matches.forEach(match => {
+                                const key = match.id;
+                                if (!addedClassKeys.has(key)) {
+                                    finalClasses.push({
+                                        id: match.id,
+                                        grade: `${getGradeDisplayName(match.grade)} - Section ${match.section}`,
+                                        subject: match.subject || 'General',
+                                        description: `Class Session for ${getGradeDisplayName(match.grade)} ${match.section}`,
+                                        time: 'Now',
+                                        studentsCount: match.student_count || 0
+                                    });
+                                    addedClassKeys.add(key);
+                                }
+                            });
+                        });
+                    }
+                }
+
+                setClasses(finalClasses);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -185,7 +308,7 @@ const ClassSelectionScreen: React.FC<{ onStartClass: (session: ClassSession, sub
             }
         };
         fetchClasses();
-    }, []);
+    }, [userId, schoolId]);
 
     useEffect(() => {
         if (selectedClass) {
@@ -349,7 +472,7 @@ const ClassSelectionScreen: React.FC<{ onStartClass: (session: ClassSession, sub
 
 
 const VirtualClassScreen: React.FC = () => {
-    const { user } = useAuth();
+    const { user, currentSchool } = useAuth();
     // Session State
     const [activeSession, setActiveSession] = useState<{ classDetails: ClassSession, subject: string, topic: string, duration: string } | null>(null);
 
@@ -465,18 +588,46 @@ const VirtualClassScreen: React.FC = () => {
 
         if (user) {
             try {
-                const { error } = await supabase.from('virtual_class_sessions').insert({
+                // 1. Get School ID
+                const { data: profile } = await supabase.from('users').select('school_id').eq('id', user.id).single();
+                const schoolId = profile?.school_id;
+
+                if (!schoolId) {
+                    toast.error('School ID not found. Cannot start session.');
+                    return;
+                }
+
+                // 2. Start the Session
+                const { data: session, error } = await supabase.from('virtual_class_sessions').insert({
                     teacher_id: user.id,
-                    class_id: cls.id, // Ensure this is UUID
+                    class_id: cls.id,
+                    school_id: schoolId, // Added school_id
                     subject: subject,
                     topic: topic,
                     status: 'active',
                     start_time: new Date().toISOString(),
                     meeting_link: 'internal_jitsi'
+                }).select().single();
+
+                if (error) throw error;
+
+                // 3. Send Notification to all students in that class
+                // We use the 'audience' field to target the specific class
+                await supabase.from('notifications').insert({
+                    school_id: schoolId,
+                    title: `🎬 Live Class: ${subject}`,
+                    message: `Your ${subject} class is starting now. Click to join!`,
+                    category: 'System',
+                    audience: [`Grade ${cls.grade}`], // Target by grade (matches audience logic in NotificationsScreen)
+                    related_id: session.id,
+                    is_read: false
                 });
-                if (error) console.error('Error starting session:', error);
-                else toast.success('Class session started live!');
-            } catch (e) { console.error(e); }
+
+                toast.success('Class session started live!');
+            } catch (e: any) {
+                console.error('Error starting session:', e);
+                toast.error('Failed to start session: ' + e.message);
+            }
         }
     };
 
@@ -486,7 +637,7 @@ const VirtualClassScreen: React.FC = () => {
     const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024; // Simple check, resize listener better in real app
 
     if (!activeSession) {
-        return <ClassSelectionScreen onStartClass={handleStartClass} />;
+        return <ClassSelectionScreen onStartClass={handleStartClass} userId={user?.id} schoolId={currentSchool?.id} />;
     }
 
     return (

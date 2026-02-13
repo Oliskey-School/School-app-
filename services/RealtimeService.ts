@@ -79,22 +79,25 @@ class RealtimeService {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees', filter: filter }, (p) => this.handleDataUpdate('student_fees' as any, p))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable', filter: filter }, (p) => this.handleDataUpdate('timetable' as any, p))
 
-            // Notifications
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: filter }, (p) => {
+            // Notifications - FIXED: Now listening to all events (*) including UPDATE (marking as read)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: filter }, (p) => {
                 this.handleDataUpdate('notifications' as any, p);
-                const audience = Array.isArray(p.new.audience) ? p.new.audience : [p.new.audience];
-                const lowercaseAudience = audience.map((a: string) => (a || '').toLowerCase());
+                
+                if (p.eventType === 'INSERT') {
+                    const audience = Array.isArray(p.new.audience) ? p.new.audience : [p.new.audience];
+                    const lowercaseAudience = audience.map((a: string) => (a || '').toLowerCase());
 
-                if (p.new.user_id === userId ||
-                    lowercaseAudience.includes('all') ||
-                    lowercaseAudience.includes('admin') ||
-                    lowercaseAudience.includes('teacher') ||
-                    lowercaseAudience.includes('parent') ||
-                    lowercaseAudience.includes('student')) {
+                    if (p.new.user_id === userId ||
+                        lowercaseAudience.includes('all') ||
+                        lowercaseAudience.includes('admin') ||
+                        lowercaseAudience.includes('teacher') ||
+                        lowercaseAudience.includes('parent') ||
+                        lowercaseAudience.includes('student')) {
 
-                    showNotification(p.new.title || 'New Notification', {
-                        body: p.new.message || 'You have a new update'
-                    });
+                        showNotification(p.new.title || 'New Notification', {
+                            body: p.new.message || 'You have a new update'
+                        });
+                    }
                 }
             })
             .subscribe((status) => {
