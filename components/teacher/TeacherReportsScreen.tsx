@@ -17,7 +17,23 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo,
     const [students, setStudents] = useState<Student[]>([]);
 
     // New Hook for classes
-    const { classes, loading: loadingClasses } = useTeacherClasses(teacherId);
+    const { classes: rawClasses, loading: loadingClasses } = useTeacherClasses(teacherId);
+    
+    // Deduplicate classes by formatted name
+    const classes = useMemo(() => {
+        const groups = new Map<string, ClassInfo>();
+        rawClasses.forEach(cls => {
+            const name = getFormattedClassName(cls.grade, cls.section);
+            const existing = groups.get(name);
+            if (existing) {
+                existing.studentCount += (cls.studentCount || 0);
+            } else {
+                groups.set(name, { ...cls });
+            }
+        });
+        return Array.from(groups.values());
+    }, [rawClasses]);
+
     const [loadingStudents, setLoadingStudents] = useState(false);
 
     // Combine loading states
@@ -32,12 +48,11 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo,
         const fetchStudentsAndStats = async () => {
             setLoadingStudents(true);
             try {
-                // 1. Fetch Students
+                // 1. Fetch Students (Merged grade - no section filter)
                 const { data: studentsData } = await supabase
                     .from('students')
                     .select('*')
-                    .eq('grade', selectedClass.grade)
-                    .eq('section', selectedClass.section);
+                    .eq('grade', selectedClass.grade);
 
                 if (!studentsData) {
                     setStudents([]);
@@ -101,7 +116,7 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo,
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {classes.map(cls => (
                         <button key={cls.id} onClick={() => setSelectedClass(cls)} className="p-6 bg-white rounded-xl shadow-sm text-center hover:bg-purple-50 transition-colors flex flex-col items-center justify-center space-y-2">
-                            <p className="font-bold text-2xl text-purple-700">Grade {cls.grade}{cls.section}</p>
+                            <p className="font-bold text-2xl text-purple-700">{getFormattedClassName(cls.grade, cls.section)}</p>
                             <p className="text-sm font-medium text-gray-700">{cls.subject}</p>
                             <p className="text-xs text-gray-500">{cls.studentCount} Students</p>
                         </button>
@@ -119,7 +134,7 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo,
                     <span>All Classes</span>
                 </button>
                 <div className="mt-2">
-                    <h2 className="text-xl font-bold text-gray-800">Reports: Grade {selectedClass.grade}{selectedClass.section}</h2>
+                    <h2 className="text-xl font-bold text-gray-800">Reports: {getFormattedClassName(selectedClass.grade, selectedClass.section)}</h2>
                 </div>
                 <button
                     onClick={() => navigateTo('aiPerformanceSummary', 'AI Class Summary', { students: students })}

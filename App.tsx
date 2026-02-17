@@ -359,8 +359,8 @@ const App: React.FC = () => {
           {isInitializing ? (
             <PremiumLoader message={initMessage} />
           ) : (
-            <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col items-center justify-center overflow-x-hidden">
-              <div className="relative w-full max-w-[1600px] flex-1 flex flex-col sm:shadow-2xl overflow-x-hidden">
+            <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
+              <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
                 <AuthenticatedApp />
                 <PWAInstallPrompt />
               </div>

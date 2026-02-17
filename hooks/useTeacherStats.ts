@@ -17,6 +17,8 @@ export const useTeacherStats = (teacherId: string | undefined, schoolId: string 
         avgStudentScore: 0
     });
     const [loading, setLoading] = useState(true);
+    const [version, setVersion] = useState(0);
+    const forceUpdate = () => setVersion(v => v + 1);
 
     const { classes, loading: classesLoading } = useTeacherClasses(teacherId);
 
@@ -48,12 +50,6 @@ export const useTeacherStats = (teacherId: string | undefined, schoolId: string 
                 let calculatedTotalStudents = 0;
 
                 if (classes && classes.length > 0) {
-                    // We need to fetch the student count for each class
-                    // Note: class.studentCount might be 0 if not populated by hook, 
-                    // so we might want to do a quick count query here or rely on what useTeacherClasses provides?
-                    // useTeacherClasses currently sets studentCount: 0. 
-                    // Let's fetch the actual count for these classes.
-
                     const classIds = classes.map(c => c.id);
                     const { count } = await supabase
                         .from('students')
@@ -92,19 +88,23 @@ export const useTeacherStats = (teacherId: string | undefined, schoolId: string 
         // Subscribe to changes that affect teacher stats
         const channel = supabase.channel(`teacher-stats-${teacherId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
-                // We'd ideally re-run fetchStats, but we need to trigger it. 
-                // For now, let's just allow the effect to run on mount/prop change.
-                // A full re-fetch triggering mechanism would be better, but this fits the current pattern.
+                forceUpdate();
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'class_teachers' }, () => { })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_attendance' }, () => { })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'exam_results' }, () => { })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'class_teachers' }, () => {
+                forceUpdate();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_attendance' }, () => {
+                forceUpdate();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'exam_results' }, () => {
+                forceUpdate();
+            })
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [teacherId, schoolId, classes, classesLoading]);
+    }, [teacherId, schoolId, classes, classesLoading, version]);
 
     return { stats, loading };
 };

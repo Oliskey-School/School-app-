@@ -24,6 +24,7 @@ interface TeacherOverviewProps {
   navigateTo: (view: string, title: string, props?: any) => void;
   currentUser?: any;
   profile?: any;
+  teacherProfile?: any;
   teacherId?: string | null;
   schoolId: string;
   currentBranchId: string | null;
@@ -32,13 +33,13 @@ interface TeacherOverviewProps {
 const StatCard: React.FC<{ label: string; value: string | number; icon: React.ReactElement<{ className?: string }>; }> = ({ label, value, icon }) => {
   const theme = THEME_CONFIG[DashboardType.Teacher];
   return (
-    <div className={`${theme.cardBg} p-4 rounded-xl flex items-center space-x-3`}>
-      <div className={`${theme.cardIconBg} p-2 rounded-full`}>
-        {React.cloneElement(icon, { className: `h-6 w-6 ${theme.iconColor}` })}
+    <div className={`${theme.cardBg} p-3 sm:p-4 rounded-xl flex items-center space-x-3`}>
+      <div className={`${theme.cardIconBg} p-1.5 sm:p-2 rounded-full flex-shrink-0`}>
+        {React.cloneElement(icon, { className: `h-5 w-5 sm:h-6 sm:w-6 ${theme.iconColor}` })}
       </div>
-      <div>
-        <p className={`text-2xl font-bold ${theme.textColor}`}>{value}</p>
-        <p className="text-sm text-gray-600">{label}</p>
+      <div className="min-w-0">
+        <p className={`text-xl sm:text-2xl font-bold ${theme.textColor} truncate`}>{value}</p>
+        <p className="text-[10px] sm:text-sm text-gray-600 truncate">{label}</p>
       </div>
     </div>
   );
@@ -99,14 +100,12 @@ const parseClassName = (name: string) => {
 
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
-const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherId, schoolId, currentBranchId }) => {
+const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherProfile, teacherId, schoolId, currentBranchId }) => {
   const theme = THEME_CONFIG[DashboardType.Teacher];
 
   const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(teacherId || currentUser?.id);
   const { stats, loading: statsLoading } = useTeacherStats(teacherId || currentUser?.id, schoolId);
 
-  const [teacherName, setTeacherName] = useState('Teacher');
-  // const [stats, setStats] = useState({ totalStudents: 0, classesTaught: 0 }); // Replaced by hook
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
   const [ungradedAssignments, setUngradedAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,13 +131,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
         const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-        // 1. Fetch Basic Teacher Name if not available
-        if (!teacherName || teacherName === 'Teacher') {
-          const { data: t } = await supabase.from('teachers').select('name').eq('id', resolvedId).single();
-          if (t) setTeacherName(t.name);
-        }
-
-        // 2. Fetch schedule and assignments using the resolved record ID
+        // 1. Fetch schedule and assignments using the resolved record ID
         let scheduleQuery = supabase
           .from('timetable')
           .select('id, start_time, subject, class_name')
@@ -217,7 +210,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     <div className="p-4 lg:p-6 space-y-6 bg-gray-50">
       {/* Welcome Message */}
       <div className={`p-5 rounded-2xl text-white shadow-lg ${theme.mainBg}`}>
-        <h3 className="text-2xl font-bold">Welcome, {teacherName}!</h3>
+        <h3 className="text-2xl font-bold">Welcome, {teacherProfile?.name || 'Teacher'}!</h3>
         <p className="text-sm opacity-90 mt-1">Ready to inspire today?</p>
       </div>
 
@@ -258,11 +251,11 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           {/* Quick Actions */}
           <div>
             <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Quick Actions</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
               {quickActions.map(action => (
-                <button key={action.label} onClick={action.action} className={`${theme.cardBg} p-3 rounded-xl shadow-sm flex flex-col items-center justify-center space-y-2 hover:bg-purple-200`}>
-                  <div className={theme.iconColor}>{action.icon}</div>
-                  <span className={`font-semibold ${theme.textColor} text-center text-xs`}>{action.label}</span>
+                <button key={action.label} onClick={action.action} className={`${theme.cardBg} p-2 sm:p-3 rounded-xl shadow-sm flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover:bg-purple-200 transition-colors`}>
+                  <div className={`${theme.iconColor} flex-shrink-0`}>{React.cloneElement(action.icon as React.ReactElement, { className: "h-6 w-6 sm:h-7 sm:w-7" })}</div>
+                  <span className={`font-semibold ${theme.textColor} text-center text-[10px] sm:text-xs leading-tight`}>{action.label}</span>
                 </button>
               ))}
             </div>

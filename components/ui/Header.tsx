@@ -61,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
       <div className="flex justify-between items-center gap-2">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
           {onMenuClick && (
-            <button onClick={onMenuClick} className={`p-1.5 sm:p-2 -ml-2 mr-1 rounded-full hover:bg-current/10 flex-shrink-0 lg:hidden focus:outline-none`} aria-label="Open menu">
+            <button onClick={onMenuClick} className={`hidden p-1.5 sm:p-2 -ml-2 mr-1 rounded-full hover:bg-current/10 flex-shrink-0 lg:hidden focus:outline-none`} aria-label="Open menu">
               <Menu className={`h-6 w-6 sm:h-7 sm:w-7 ${bgColor.includes('bg-white') || bgColor.includes('bg-gray-50') ? 'text-gray-900' : 'text-white'}`} />
             </button>
           )}

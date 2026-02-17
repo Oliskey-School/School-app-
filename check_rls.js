@@ -9,12 +9,20 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function checkRLS() {
     console.log('--- Checking RLS Status ---');
     try {
-        // Query pg_tables to see if rowsecurity is enabled
-        // Note: This might fail if the user doesn't have permission to read pg_catalog via REST API
-        // But some Supabase setups allow it or we can try a different approach.
-        
+        console.log('Testing RLS Read with anonymous user...');
+        const { data, error: readError } = await supabase
+            .from('students')
+            .select('id')
+            .limit(1);
+
+        if (readError) {
+            console.log('✅ RLS active on SELECT (Read blocked/error): ' + readError.message);
+        } else {
+            console.log('⚠️ RLS inactive or permissive on SELECT (Read succeeded). Rows found: ' + data.length);
+        }
+
         // Try a more direct test: Insert with a completely invalid school_id
-        console.log('Testing RLS with invalid school_id...');
+        console.log('Testing RLS Write with invalid school_id...');
         const { error } = await supabase
             .from('students')
             .insert([{

@@ -140,6 +140,8 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                     }
                 });
 
+                console.log(`[useTeacherClasses] Resolved ${finalClasses.length} modern assignments for teacher ${resolvedTeacherId}`);
+
                 // 3. Fetch assignments via teacher_classes (Legacy String based)
                 const { data: legacyAssignments, error: legacyError } = await supabase
                     .from('teacher_classes')

@@ -58,20 +58,20 @@ const StatCard: React.FC<{
     trend: string;
     trendColor: string;
 }> = ({ label, value, icon, colorClasses, onClick, trend, trendColor }) => (
-    <button onClick={onClick} className={`w-full text-left p-6 rounded-3xl text-white relative overflow-hidden transition-transform transform hover:-translate-y-1 ${colorClasses}`}>
-        {React.cloneElement(icon, { className: "absolute -right-6 -bottom-6 h-32 w-32 text-white/10" })}
+    <button onClick={onClick} className={`w-full text-left p-4 sm:p-6 rounded-3xl text-white relative overflow-hidden transition-transform transform hover:-translate-y-1 ${colorClasses}`}>
+        {React.cloneElement(icon, { className: "absolute -right-6 -bottom-6 h-24 sm:h-32 w-24 sm:w-32 text-white/10" })}
         <div className="relative z-10">
             <div className="flex justify-between items-start">
-                <p className="text-white/90 font-bold text-lg">{label}</p>
-                <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                    {React.cloneElement(icon, { className: "h-10 w-10" })}
+                <p className="text-white/90 font-bold text-base sm:text-lg">{label}</p>
+                <div className="p-2 sm:p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                    {React.cloneElement(icon, { className: "h-6 w-6 sm:h-10 sm:w-10" })}
                 </div>
             </div>
-            <p className="text-5xl font-bold mt-3 tracking-tight">{value}</p>
-            <div className={`mt-2 text-sm font-bold flex items-center space-x-1 ${trendColor}`}>
-                {trend.startsWith('+') ? <ArrowUpIcon className="w-5 h-5" /> : <ArrowDownIcon className="w-5 h-5" />}
+            <p className="text-3xl sm:text-4xl lg:text-5xl font-bold mt-2 sm:mt-3 tracking-tight truncate">{value}</p>
+            <div className={`mt-1 sm:mt-2 text-xs sm:text-sm font-bold flex items-center space-x-1 ${trendColor}`}>
+                {trend.startsWith('+') ? <ArrowUpIcon className="w-4 h-4 sm:w-5 sm:h-5" /> : <ArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
                 <span>{trend}</span>
-                <span className="text-white/70 font-medium ml-1">last 30 days</span>
+                <span className="text-white/70 font-medium ml-1 hidden xs:inline">last 30 days</span>
             </div>
         </div>
     </button>
@@ -469,7 +469,11 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 timetableRes
             ] = await Promise.all([
                 fetchAuditLogs(4, activeSchoolId, currentBranchId || undefined),
-                applyBranch(supabase.from('health_logs').select('id, reason, time, date, students(name)').eq('school_id', activeSchoolId)).order('date', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle(),
+                applyBranch(supabase.from('health_logs').select('id, reason, time, date, students!health_logs_student_id_fkey(name)').eq('school_id', activeSchoolId))
+                    .order('date', { ascending: false })
+                    .order('id', { ascending: false })
+                    .limit(1)
+                    .maybeSingle(),
                 applyBranch(supabase.from('students').select('created_at').eq('school_id', activeSchoolId)),
                 applyBranch(supabase.from('report_cards').select('id', { count: 'exact', head: true }).eq('school_id', activeSchoolId).eq('status', 'Submitted')),
                 applyBranch(supabase.from('students').select('id', { count: 'exact', head: true }).eq('school_id', activeSchoolId).eq('status', 'Pending')),
@@ -553,7 +557,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     <div>
                         <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Quick Actions</h2>
                         {/* Mobile/Tablet view */}
-                        <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3">
                             <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-sky-500" />
                             <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                             <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />

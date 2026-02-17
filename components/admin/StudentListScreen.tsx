@@ -9,7 +9,8 @@ import {
   PlusIcon,
   gradeColors,
   ClockIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  getFormattedClassName
 } from '../../constants';
 import { Student, AttendanceStatus } from '../../types';
 import { fetchStudents } from '../../lib/database';
@@ -39,10 +40,15 @@ const StudentRow: React.FC<{ student: Student; onSelect: (student: Student) => v
     className="w-full text-left bg-white rounded-lg p-2 flex items-center space-x-3 transition-all hover:bg-gray-100 ring-1 ring-gray-100"
     aria-label={`View profile for ${student.name}`}
   >
-    <img src={student.avatarUrl} alt={student.name} className="w-10 h-10 rounded-full object-cover" />
+    <img 
+      src={student.avatarUrl} 
+      alt={student.name} 
+      className="w-10 h-10 rounded-full object-cover" 
+      loading="lazy"
+    />
     <div className="flex-grow min-w-0">
       <p className="font-bold text-sm text-gray-800 truncate">{student.name}</p>
-      <p className="text-xs text-gray-500">ID: {student.schoolId || `SCH-${student.id}`}</p>
+      <p className="text-xs text-gray-500">ID: {student.schoolGeneratedId || student.schoolId || `SCH-${student.grade}`}</p>
     </div>
     <div className="flex items-center space-x-3">
       <AttendanceStatusIndicator status={student.attendanceStatus} />
@@ -125,7 +131,7 @@ const ClassAccordion: React.FC<{ title: string; count: number; children: React.R
 };
 
 interface StudentListScreenProps {
-  filter?: { grade: number; section: string; };
+  filter?: { grade: number; section?: string; };
   navigateTo: (view: string, title: string, props?: any) => void;
   currentBranchId?: string | null;
   schoolId?: string; // Added prop
@@ -207,7 +213,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     const allStudents = students.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     allStudents.forEach(student => {
-      const className = student.grade ? `Grade ${student.grade}${student.section || ''}` : 'Unassigned';
+      const className = student.grade ? getFormattedClassName(student.grade, student.section) : 'Unassigned';
 
       if (!student.grade) {
         // Handle unassigned students
@@ -254,10 +260,12 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   }, [searchTerm, students]);
 
   if (filter) {
-    const filteredStudents = students.filter(student =>
-      (student.grade === filter.grade && student.section === filter.section) &&
-      student.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredStudents = students.filter(student => {
+      const gradeMatch = student.grade === filter.grade;
+      const sectionMatch = !filter.section || student.section === filter.section;
+      const nameMatch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
+      return gradeMatch && sectionMatch && nameMatch;
+    });
     return (
       <div className="flex flex-col h-full bg-gray-100 relative">
         <div className="p-4 bg-gray-100 z-10"><div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3"><SearchIcon className="text-gray-600" /></span><input type="text" placeholder="Search by name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" aria-label="Search for a student" /></div></div>

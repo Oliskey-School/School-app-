@@ -20,7 +20,18 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const { profile } = useProfile();
 
     // Use the comprehensive hook for classes
-    const { classes: teacherClasses, loading: loadingClasses } = useTeacherClasses(teacherId);
+    const { classes: rawTeacherClasses, loading: loadingClasses } = useTeacherClasses(teacherId);
+
+    const teacherClasses = useMemo(() => {
+        const groups = new Map<string, any>();
+        rawTeacherClasses.forEach(cls => {
+            const name = getFormattedClassName(cls.grade, cls.section);
+            if (!groups.has(name)) {
+                groups.set(name, cls);
+            }
+        });
+        return Array.from(groups.values());
+    }, [rawTeacherClasses]);
 
     // Configuration State
     const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -252,10 +263,11 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Class</label>
                                     <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)} className="w-full rounded-lg border-slate-300 py-2 text-sm">
                                         <option value="">Select Class</option>
-                                        {teacherClasses.map(c => {
-                                            const name = getFormattedClassName ? getFormattedClassName(c.grade, c.section) : `Grade ${c.grade}${c.section}`;
-                                            return <option key={c.id} value={c.id}>{name}</option>
-                                        })}
+                                        {teacherClasses.map(c => (
+                                            <option key={c.id} value={c.id}>
+                                                {getFormattedClassName(c.grade, c.section)}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div>

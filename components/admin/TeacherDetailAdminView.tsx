@@ -188,7 +188,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
                         {/* Assigned Classes */}
                         <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <h4 className="font-bold text-gray-800 mb-2">Assigned Classes ({stats.totalClasses})</h4>
+                            <h4 className="font-bold text-gray-800 mb-2">Assigned Classes ({statsLoading ? '...' : stats.totalClasses})</h4>
                             <div className="space-y-2">
                                 {displayClasses.length > 0 ? displayClasses.map((c, idx) => (
                                     <div key={idx} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">

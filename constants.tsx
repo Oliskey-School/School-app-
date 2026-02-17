@@ -203,7 +203,7 @@ export const gradeColors: { [key: number]: string } = {
   12: 'bg-indigo-100 text-indigo-800',
 };
 
-export const getFormattedClassName = (grade: number, section: string | null | undefined, includeGradeWord: boolean = true) => {
+export const getFormattedClassName = (grade: number, section?: string | null | undefined, includeGradeWord: boolean = true, subject?: string) => {
   let suffix = '';
   if (grade >= 1 && grade <= 6) suffix = 'Primary ';
   else if (grade >= 7 && grade <= 9) suffix = 'JSS ';
@@ -214,10 +214,10 @@ export const getFormattedClassName = (grade: number, section: string | null | un
   if (grade >= 7 && grade <= 9) displayGrade = grade - 6;
   if (grade >= 10 && grade <= 12) displayGrade = grade - 9;
 
-  // Fix for "null" string appearing in class names
-  const cleanSection = (!section || section === 'null' || section === 'undefined') ? '' : section;
-
-  return `${includeGradeWord ? suffix : ''}${displayGrade}${cleanSection}`;
+  let name = `${includeGradeWord ? suffix : ''}${displayGrade}`;
+  if (subject) name += ` ${subject}`;
+  
+  return name;
 };
 
 export const SUBJECTS_LIST = [

@@ -11,7 +11,7 @@ export const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             // Aggressive caching for offline-first
-            staleTime: 1000 * 60 * 5, // 5 minutes
+            staleTime: 1000 * 60 * 10, // 10 minutes
             gcTime: 1000 * 60 * 60 * 24, // 24 hours (formerly cacheTime)
 
             // Network-aware retry logic
@@ -35,7 +35,7 @@ export const queryClient = new QueryClient({
             },
 
             // Refetch settings for optimal offline-first behavior
-            refetchOnWindowFocus: true, // Refetch when user returns to tab
+            refetchOnWindowFocus: false, // Reduced background fetching
             refetchOnReconnect: true,   // Refetch when network reconnects
             refetchOnMount: true,       // Refetch on component mount
 

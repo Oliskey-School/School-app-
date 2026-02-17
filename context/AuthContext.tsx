@@ -190,18 +190,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Session expiry check is now handled automatically by Supabase client library
     // Auto-refresh on reconnect is also handled by the library
 
+    const value = React.useMemo(() => ({
+        session,
+        user,
+        role,
+        currentSchool,
+        currentBranchId,
+        loading,
+        signIn,
+        signOut
+    }), [session, user, role, currentSchool, currentBranchId, loading]);
 
     return (
-        <AuthContext.Provider value={{
-            session,
-            user,
-            role,
-            currentSchool,
-            currentBranchId,
-            loading,
-            signIn,
-            signOut
-        }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );

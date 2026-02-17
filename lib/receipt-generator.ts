@@ -1,4 +1,3 @@
-import html2pdf from 'html2pdf.js';
 import { Transaction, Fee } from '../types';
 
 /**
@@ -10,6 +9,7 @@ export async function generateReceipt(
     studentName: string,
     schoolName: string = 'School Management System'
 ): Promise<void> {
+    const html2pdf = (await import('html2pdf.js')).default;
     const receiptHTML = createReceiptHTML(transaction, fee, studentName, schoolName);
 
     const options = {
@@ -349,6 +349,7 @@ export async function generateReceiptForEmail(
     studentName: string,
     schoolName: string = 'School Management System'
 ): Promise<string> {
+    const html2pdf = (await import('html2pdf.js')).default;
     const receiptHTML = createReceiptHTML(transaction, fee, studentName, schoolName);
 
     const options = {

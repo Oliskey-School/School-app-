@@ -1,20 +1,9 @@
+require('dotenv').config();
 const https = require('https');
-const fs = require('fs');
 const path = require('path');
 
-const envPath = path.join(__dirname, '.env');
-const envContent = fs.readFileSync(envPath, 'utf8');
-
-const envVars = {};
-envContent.split('\n').forEach(line => {
-    const [key, ...valueParts] = line.split('=');
-    if (key && valueParts.length) {
-        envVars[key.trim()] = valueParts.join('=').trim();
-    }
-});
-
-const supabaseUrl = envVars['VITE_SUPABASE_URL'];
-const supabaseKey = envVars['VITE_SUPABASE_ANON_KEY'];
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('Missing Supabase URL or Key');

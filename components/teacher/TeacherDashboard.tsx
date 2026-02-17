@@ -1,17 +1,14 @@
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import DashboardLayout from '../layout/DashboardLayout';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
-import Header from '../ui/Header';
-import { TeacherBottomNav } from '../ui/DashboardBottomNav';
-import { TeacherSidebar } from '../ui/DashboardSidebar';
 import PremiumLoader from '../ui/PremiumLoader';
-import { mockNotifications } from '../../data';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useAuth } from '../../context/AuthContext';
 import { realtimeService } from '../../services/RealtimeService';
 import { syncEngine } from '../../lib/syncEngine';
+import { supabase } from '../../lib/supabase';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -91,11 +88,6 @@ interface TeacherDashboardProps {
   currentUser?: any;
 }
 
-
-import { supabase } from '../../lib/supabase';
-
-// ... (imports remain)
-
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
   const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
   const [activeBottomNav, setActiveBottomNav] = useState('home');
@@ -127,22 +119,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     const userId = user?.id;
     let activeSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
 
-    // Fix for demo users
     const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo;
     if (!activeSchoolId && isDemo) {
       activeSchoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
     }
 
     if (userId && activeSchoolId) {
-      console.log(`🔌 Initializing Teacher Realtime for school: ${activeSchoolId}`);
       realtimeService.initialize(userId, activeSchoolId);
-
-      const handleUpdate = () => {
-        forceUpdate();
-      };
-
+      const handleUpdate = () => forceUpdate();
       (syncEngine as any).on('realtime-update', handleUpdate);
-
       return () => {
         (syncEngine as any).off('realtime-update', handleUpdate);
         realtimeService.destroy();
@@ -155,7 +140,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     name: string;
     avatarUrl: string;
     schoolGeneratedId?: string;
-    schoolId?: string; // Add this
+    schoolId?: string;
   }>({
     name: 'Teacher',
     avatarUrl: ''
@@ -171,42 +156,28 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       if (!schoolId) return;
 
       let query = supabase.from('teachers')
-        .select('id, name, avatar_url, email, school_generated_id, school_id') // Add school_id
+        .select('id, name, avatar_url, email, school_generated_id, school_id')
         .eq('school_id', schoolId);
 
       let emailToQuery = user?.email || currentUser?.email;
 
       if (!emailToQuery) {
-        // Fallback: Check active session if prop is missing
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email) {
-          emailToQuery = user.email;
-        }
+        if (user?.email) emailToQuery = user.email;
       }
 
       if (emailToQuery) {
         query = query.eq('email', emailToQuery);
-      } else {
-        // Ultimate Fallback - No numeric ID 2
-        console.warn("No auth user found");
       }
 
       const { data, error } = await query.maybeSingle();
 
       if (error) {
-        console.error('Error fetching dashboard profile:', error);
-
-        // Handle permission denied errors (403) for demo users
         if (error.code === '42501' || error.message?.includes('permission denied')) {
-          console.warn('⚠️ Permission denied - using demo teacher profile');
           setTeacherId('demo-teacher-id');
-          setTeacherProfile({
-            name: 'Demo Teacher',
-            avatarUrl: undefined
-          });
-          return; // Exit early
+          setTeacherProfile({ name: 'Demo Teacher', avatarUrl: '' });
+          return;
         }
-
         return;
       }
 
@@ -216,43 +187,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           name: data.name || 'Teacher',
           avatarUrl: data.avatar_url,
           schoolGeneratedId: data.school_generated_id,
-          schoolId: data.school_id // Set this
+          schoolId: data.school_id
         } as any);
-      } else if (emailToQuery) {
-        // AUTO-HEALING: If no teacher profile found, create one automatically
-        // linked to the current school so they are "connected" immediately.
-        console.log("⚠️ No teacher profile found. Auto-creating for School:", schoolId);
-
-        try {
-          const { data: newTeacher, error: createError } = await supabase
-            .from('teachers')
-            .insert({
-              email: emailToQuery,
-              school_id: schoolId,
-              name: 'New Teacher', // Default name, can be updated later
-              status: 'Active',
-              user_id: currentUserId || undefined // Link to auth user if we have it
-            })
-            .select()
-            .single();
-
-          if (createError) {
-            console.error("Failed to auto-create teacher profile:", createError);
-          } else if (newTeacher) {
-            console.log("✅ Auto-created teacher profile!", newTeacher);
-            setTeacherId(newTeacher.id);
-            setTeacherProfile({
-              name: newTeacher.name,
-              avatarUrl: newTeacher.avatar_url,
-              schoolId: newTeacher.school_id,
-              schoolGeneratedId: newTeacher.school_generated_id
-            });
-            // Force refresh to ensure UI updates
-            forceUpdate();
-          }
-        } catch (healErr) {
-          console.error("Auto-heal failed:", healErr);
-        }
       }
     } catch (err) {
       console.error('Unexpected error fetching profile:', err);
@@ -261,32 +197,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
   useEffect(() => {
     fetchProfile();
-
-    // Real-time subscription for profile updates (e.g. Admin edits)
     let profileSubscription: any = null;
-
-    if (teacherId) {
+    if (teacherId && teacherId !== 'demo-teacher-id') {
       profileSubscription = supabase
         .channel(`public:teachers:id=eq.${teacherId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'teachers',
-            filter: `id=eq.${teacherId}`
-          },
-          (payload) => {
-            console.log('Teacher profile updated externally:', payload);
-            fetchProfile(); // Refresh profile data
-          }
-        )
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'teachers', filter: `id=eq.${teacherId}` }, () => fetchProfile())
         .subscribe();
     }
-
-    return () => {
-      if (profileSubscription) supabase.removeChannel(profileSubscription);
-    };
+    return () => { if (profileSubscription) supabase.removeChannel(profileSubscription); };
   }, [currentUser, teacherId]);
 
   const forceUpdate = () => setVersion(v => v + 1);
@@ -295,9 +213,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     const currentView = viewStack[viewStack.length - 1];
     setIsHomePage(currentView.view === 'overview' && !isSearchOpen);
   }, [viewStack, isSearchOpen, setIsHomePage]);
-
-  // Real-time notifications
-  const notificationCount = useRealtimeNotifications('teacher');
 
   const navigateTo = (view: string, title: string, props: any = {}) => {
     if (view === 'overview') {
@@ -315,36 +230,17 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
   const handleBottomNavClick = (screen: string) => {
     setActiveBottomNav(screen);
-    let props = {};
     switch (screen) {
-      case 'home':
-        setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
-        break;
-      case 'lessonNotes':
-        setViewStack([{ view: 'lessonNotesUpload', title: 'Lesson Notes', props: {} }]);
-        break;
-      case 'reports':
-        setViewStack([{ view: 'reports', title: 'Student Reports', props }]);
-        break;
-      case 'forum':
-        setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]);
-        break;
-      case 'messages':
-        setViewStack([{ view: 'messages', title: 'Messages', props: {} }]);
-        break;
-      case 'settings':
-        setViewStack([{ view: 'settings', props, title: 'Settings' }]);
-        break;
-      default:
-        setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
+      case 'home': setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]); break;
+      case 'lessonNotes': setViewStack([{ view: 'lessonNotesUpload', title: 'Lesson Notes', props: {} }]); break;
+      case 'reports': setViewStack([{ view: 'reports', title: 'Student Reports', props: {} }]); break;
+      case 'forum': setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]); break;
+      case 'messages': setViewStack([{ view: 'messages', title: 'Messages', props: {} }]); break;
+      case 'settings': setViewStack([{ view: 'settings', title: 'Settings', props: {} }]); break;
+      default: setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
     }
   };
 
-  const handleNotificationClick = () => {
-    navigateTo('notifications', 'Notifications', {});
-  };
-
-  // Removed useMemo to ensure fresh props (especially teacherProfile) are always passed down
   const viewComponents = {
     overview: TeacherOverview,
     classDetail: ClassDetailScreen,
@@ -406,76 +302,33 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const currentNavigation = viewStack[viewStack.length - 1];
   const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
-  // Pass teacherId to children via props or context. Usually props here.
-  // We need to inject teacherId into all components that need it.
-
   const commonProps = {
-    navigateTo,
-    handleBack,
-    onLogout,
-    forceUpdate,
-    teacherProfile, // Make profile available to all screens
-    refreshProfile: fetchProfile, // Allow any screen to trigger refresh
-    teacherId, // Pass the dynamic teacher ID
-    currentUser: user,
-    currentUserId,
-    schoolId,
-    currentBranchId
+    navigateTo, handleBack, onLogout, forceUpdate, teacherProfile, 
+    refreshProfile: fetchProfile, teacherId, currentUser: user, currentUserId, schoolId, currentBranchId
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gray-100">
-      {/* Desktop Sidebar - Hidden on mobile/tablet, fixed on desktop (lg+) */}
-      <div className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-50">
-        <TeacherSidebar
-          activeScreen={activeBottomNav}
-          setActiveScreen={handleBottomNavClick}
-          onLogout={onLogout}
-          schoolName={currentSchool?.name}
-          logoUrl={currentSchool?.logoUrl}
-        />
+    <DashboardLayout
+      title={currentNavigation.title}
+      onBack={viewStack.length > 1 ? handleBack : undefined}
+      activeScreen={activeBottomNav}
+      setActiveScreen={handleBottomNavClick}
+    >
+      <div key={`${viewStack.length}-${version}`} className="w-full h-full">
+        {ComponentToRender ? (
+          <Suspense fallback={<DashboardSuspenseFallback />}>
+            <ComponentToRender {...currentNavigation.props} {...commonProps} />
+          </Suspense>
+        ) : (
+          <div className="p-6 text-center text-gray-500">View not found: {currentNavigation.view}</div>
+        )}
       </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen w-full lg:ml-64 overflow-hidden min-w-0">
-        <Header
-          title={currentNavigation.title}
-          avatarUrl={teacherProfile.avatarUrl}
-          bgColor={THEME_CONFIG[DashboardType.Teacher].mainBg}
-          onLogout={onLogout}
-          onBack={viewStack.length > 1 ? handleBack : undefined}
-          onNotificationClick={handleNotificationClick}
-          notificationCount={notificationCount}
-          onSearchClick={() => setIsSearchOpen(true)}
-          customId={formatSchoolId(teacherProfile.schoolGeneratedId || user?.app_metadata?.school_generated_id || user?.user_metadata?.school_generated_id, 'Teacher')}
-          userName={teacherProfile.name !== 'Teacher' ? teacherProfile.name : (user?.user_metadata?.name || 'Teacher')}
-        />
-        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0" style={{ marginTop: '-5rem' }}>
-          <main className="min-h-full pt-20">
-            <div key={`${viewStack.length}-${version}`} className="animate-slide-in-up">
-              {ComponentToRender ? (
-                <ComponentToRender {...currentNavigation.props} {...commonProps} />
-              ) : (
-                <div className="p-6">View not found: {currentNavigation.view}</div>
-              )}
-            </div>
-          </main>
-        </div>
-        {/* Mobile/Tablet Bottom Nav - Hidden on desktop (lg+) */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
-          <TeacherBottomNav activeScreen={activeBottomNav} setActiveScreen={handleBottomNavClick} />
-        </div>
-        <Suspense fallback={<DashboardSuspenseFallback />}>
-          {isSearchOpen && (
-            <GlobalSearchScreen
-              dashboardType={DashboardType.Teacher}
-              navigateTo={navigateTo}
-              onClose={() => setIsSearchOpen(false)}
-            />
-          )}
-        </Suspense>
-      </div>
-    </div >
+      <Suspense fallback={<DashboardSuspenseFallback />}>
+        {isSearchOpen && (
+          <GlobalSearchScreen dashboardType={DashboardType.Teacher} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />
+        )}
+      </Suspense>
+    </DashboardLayout>
   );
 };
 

@@ -3,8 +3,6 @@
  * Generates professional PDF invoices for fees using html2pdf.js
  */
 
-import html2pdf from 'html2pdf.js';
-
 export interface InvoiceData {
     invoiceNumber: string;
     studentName: string;
@@ -28,6 +26,7 @@ export interface InvoiceData {
  * Generate and download invoice PDF
  */
 export const generateInvoice = async (data: InvoiceData): Promise<void> => {
+    const html2pdf = (await import('html2pdf.js')).default;
     const schoolName = data.schoolName || 'Oliskey School App';
     const classInfo = data.section ? `${data.grade}${data.section}` : data.grade;
 

@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 // Add html2pdf.js for PDF export
 // Install with: npm install html2pdf.js
-import html2pdf from 'html2pdf.js';
 import { toast } from 'react-hot-toast';
 import { DownloadIcon, CheckCircleIcon } from '../../constants';
 
@@ -170,6 +169,7 @@ Visit: https://your-school-app.com/login
     if (!modalRef.current) return;
 
     try {
+      const html2pdf = (await import('html2pdf.js')).default;
       // 1. Clone the element to avoid messing with the UI and to strip conflicting styles
       const element = modalRef.current.cloneNode(true) as HTMLElement;
 

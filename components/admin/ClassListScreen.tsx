@@ -51,15 +51,33 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [schoolId]);
 
-    // Group by Grade
+    // Group by Formatted Name (to merge sections)
     const groupedClasses = React.useMemo(() => {
-        return classes.reduce((acc, cls) => {
-            if (!acc[cls.grade]) acc[cls.grade] = [];
-            acc[cls.grade].push(cls);
-            return acc;
-        }, {} as Record<number, ClassInfo[]>);
+        const groups: Record<string, { grade: number; name: string; student_count: number; curricula?: any; academic_level?: string }> = {};
+        
+        classes.forEach(cls => {
+            const formattedName = getFormattedClassName(cls.grade, cls.section);
+            if (!groups[formattedName]) {
+                groups[formattedName] = {
+                    grade: cls.grade,
+                    name: formattedName,
+                    student_count: 0,
+                    curricula: cls.curricula,
+                    academic_level: cls.academic_level
+                };
+            }
+            groups[formattedName].student_count += (cls.student_count || 0);
+        });
+
+        // Convert back to record of grade arrays but unique by name
+        const finalGroups: Record<number, any[]> = {};
+        Object.values(groups).forEach(g => {
+            if (!finalGroups[g.grade]) finalGroups[g.grade] = [];
+            finalGroups[g.grade].push(g);
+        });
+        return finalGroups;
     }, [classes]);
 
     if (loading) return <div className="p-8 text-center text-gray-500">Loading classes...</div>;
@@ -82,8 +100,8 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
                             <div className="p-4 space-y-3">
                                 {gradeClasses.map(cls => (
                                     <button
-                                        key={cls.id}
-                                        onClick={() => navigateTo('studentList', `Class ${cls.grade}${cls.section}`, { filter: { grade: cls.grade, section: cls.section } })}
+                                        key={cls.name}
+                                        onClick={() => navigateTo('studentList', cls.name, { filter: { grade: cls.grade } })}
                                         className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                                     >
                                         <div className="flex items-center space-x-3">
@@ -92,7 +110,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
                                             </div>
                                             <div className="text-left">
                                                 <div className="flex items-center space-x-2">
-                                                    <p className="font-semibold text-gray-800">Class {cls.section}</p>
+                                                    <p className="font-semibold text-gray-800">{cls.name}</p>
                                                     {cls.curricula ? (
                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded border ${cls.curricula.code === 'NIGERIAN' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'
                                                             }`}>

@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import { Student, Teacher, Rating, ReportCard, ReportCardAcademicRecord } from '../../types';
-import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon } from '../../constants';
+import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon, getFormattedClassName } from '../../constants';
 import { mockTeachers, mockStudents } from '../../data';
 import { getSubjectsForStudent } from '../../data';
 import ConfirmationModal from '../ui/ConfirmationModal';
@@ -88,8 +88,8 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
         if (isAdmin) return true;
         if (!currentUserTeacher || !student) return false;
         // Check if teacher teaches this student's class
-        // Assuming teacher.classes is array of strings e.g. ["JSS 1A"]
-        const studentClass = `Grade ${student.grade}${student.section}`;
+        // Assuming teacher.classes is array of strings e.g. ["JSS 1"]
+        const studentClass = getFormattedClassName(student.grade, student.section);
         // Simple check, or better check against teacher_classes table
         return currentUserTeacher.classes?.some((c: string) => c.includes(studentClass) || c.includes(`${student.grade}`)) || true; // Fallback true for demo/testing if not matched perfectly
     }, [student, currentUserTeacher, isAdmin]);

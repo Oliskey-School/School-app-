@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Student } from '../../types';
 import { fetchStudentsByClass } from '../../lib/database';
-import { ChevronRightIcon, UserIcon } from '../../constants';
+import { ChevronRightIcon, UserIcon, getFormattedClassName } from '../../constants';
 
 interface AdminStudentListForReportProps {
   classInfo: { grade: number; section: string; department?: string; };
@@ -38,7 +38,7 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
       <div className="px-4 py-3 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <h3 className="font-bold text-gray-800 text-lg">
           {classInfo.department ? `${classInfo.department} ` : ''}
-          Grade {classInfo.grade} - {classInfo.section}
+          {getFormattedClassName(classInfo.grade, classInfo.section)}
         </h3>
         <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">
           {students.length} Students

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { SchoolLogoIcon, DocumentTextIcon, XCircleIcon, PublishIcon } from '../../constants';
+import { SchoolLogoIcon, DocumentTextIcon, XCircleIcon, PublishIcon, getFormattedClassName } from '../../constants';
 import { Student } from '../../types';
 
 interface TeacherReportCardPreviewScreenProps {
@@ -69,7 +69,7 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
                     <SectionHeader title="Student Information" />
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-gray-900">
                         <InfoField label="Full Name" value={student.name} />
-                        <InfoField label="Class/Grade" value={`${student.grade}${student.section}`} />
+                        <InfoField label="Class/Grade" value={getFormattedClassName(student.grade, student.section)} />
                         <InfoField label="Term/Semester" value={report.term} />
                         <InfoField label="Session" value={report.session} />
                     </div>

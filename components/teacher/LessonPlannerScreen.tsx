@@ -151,7 +151,18 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
     const [isGenerating, setIsGenerating] = useState(false);
     const [schemeHistory, setSchemeHistory] = useState<HistoryEntry[]>([]);
 
-    const { classes: teacherClasses } = useTeacherClasses(teacherId);
+    const { classes: rawTeacherClasses } = useTeacherClasses(teacherId);
+    
+    const teacherClasses = useMemo(() => {
+        const groups = new Map<string, any>();
+        rawTeacherClasses.forEach(cls => {
+            const name = getFormattedClassName(cls.grade, cls.section);
+            if (!groups.has(name)) {
+                groups.set(name, cls);
+            }
+        });
+        return Array.from(groups.values());
+    }, [rawTeacherClasses]);
 
     useEffect(() => {
         fetchSubjects().then(setSubjectsList);
@@ -513,7 +524,7 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
                                 <option value="">Select Class</option>
                                 {teacherClasses.map(c => (
                                     <option key={c.id} value={c.id}>
-                                        {getFormattedClassName ? getFormattedClassName(c.grade, c.section) : `Grade ${c.grade}${c.section}`}
+                                        {getFormattedClassName(c.grade, c.section)}
                                     </option>
                                 ))}
                             </select>

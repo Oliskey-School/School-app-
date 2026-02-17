@@ -8,7 +8,11 @@ export default {
         "./pages/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
-        extend: {},
+        extend: {
+            screens: {
+                'xs': '480px',
+            },
+        },
     },
     plugins: [],
     darkMode: 'class',

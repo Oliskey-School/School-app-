@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ChevronRightIcon } from '../../constants';
+import { ChevronRightIcon, getFormattedClassName } from '../../constants';
 // Removed CheckCircleIcon import if unused, or keep it.
 // Removed mock data imports
 
@@ -157,12 +157,12 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
                         {attendanceData.map((item, idx) => (
                             <button
                                 key={`${item.grade}-${item.section}`}
-                                onClick={() => navigateTo('classAttendanceDetail', `Grade ${item.grade}${item.section}`, { classInfo: item })}
+                                onClick={() => navigateTo('classAttendanceDetail', getFormattedClassName(item.grade, item.section), { classInfo: item })}
                                 className="w-full bg-white rounded-xl shadow-sm p-4 text-left hover:ring-2 hover:ring-indigo-300 transition-all"
                             >
                                 <div className="flex justify-between items-center">
                                     <div>
-                                        <h3 className="font-bold text-lg text-gray-800">Grade {item.grade}{item.section}</h3>
+                                        <h3 className="font-bold text-lg text-gray-800">{getFormattedClassName(item.grade, item.section)}</h3>
                                         <p className="text-sm text-gray-500">{item.present}/{item.total} Present</p>
                                     </div>
                                     <div className="flex items-center space-x-2">

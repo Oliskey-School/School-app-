@@ -127,17 +127,19 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen w-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
-            <div className="w-full max-w-md mx-auto bg-white/80 backdrop-blur-lg rounded-3xl p-8 shadow-2xl transition-all border border-white/50">
+        <div className="flex flex-col items-center justify-center min-h-screen w-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 sm:p-6 md:p-8">
+            <div className="w-full max-w-md mx-auto bg-white/80 backdrop-blur-lg rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl transition-all border border-white/50">
 
                 {/* Header */}
                 <div className="flex flex-col items-center mb-6">
-                    <SchoolLogoIcon className="text-indigo-500 h-14 w-14 mb-3" />
-                    <h1 className="text-2xl font-bold text-gray-800">Create Account</h1>
-                    <p className="text-gray-500 text-xs mt-1">Join your school community</p>
+                    <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-4">
+                        <SchoolLogoIcon className="text-white h-8 w-8" />
+                    </div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Create Account</h1>
+                    <p className="text-gray-500 text-[10px] sm:text-xs mt-1 uppercase tracking-widest font-semibold">Join your school community</p>
                 </div>
 
-                <form className="space-y-4" onSubmit={handleSignup}>
+                <form className="space-y-3 sm:space-y-4" onSubmit={handleSignup}>
 
                     {/* Full Name */}
                     <div className="relative group">
@@ -149,7 +151,7 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
                             type="text"
                             value={formData.fullName}
                             onChange={handleChange}
-                            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            className="w-full pl-11 pr-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
                             placeholder="Full Name"
                         />
                     </div>
@@ -164,7 +166,7 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
                             type="email"
                             value={formData.email}
                             onChange={handleChange}
-                            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            className="w-full pl-11 pr-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
                             placeholder="Email Address"
                         />
                     </div>
@@ -179,18 +181,18 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
                             type={showPassword ? 'text' : 'password'}
                             value={formData.password}
                             onChange={handleChange}
-                            className="w-full pl-11 pr-12 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            className="w-full pl-11 pr-12 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
                             placeholder="Create Password"
                         />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400">
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600 transition-colors">
                             {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                         </button>
                     </div>
 
                     {/* Role Select */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">I am a...</label>
-                        <select name="role" value={formData.role} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 tracking-wider">I am a...</label>
+                        <select name="role" value={formData.role} onChange={handleChange} className="w-full px-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none appearance-none cursor-pointer">
                             <option value="student">Student</option>
                             <option value="parent">Parent</option>
                             <option value="teacher">Teacher</option>
@@ -199,12 +201,12 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
 
                     {/* School Select */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">School</label>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 tracking-wider">School</label>
                         <div className="relative">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
                                 <SchoolLogoIcon className="text-gray-400 h-5 w-5" />
                             </span>
-                            <select name="schoolId" value={formData.schoolId} onChange={handleChange} className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none">
+                            <select name="schoolId" value={formData.schoolId} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 sm:py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none appearance-none cursor-pointer">
                                 <option value="">Select your School</option>
                                 {schools.map(school => (
                                     <option key={school.id} value={school.id}>{school.name}</option>
@@ -213,12 +215,12 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
                         </div>
                     </div>
 
-                    {error && <div className="text-red-500 text-xs text-center">{error}</div>}
+                    {error && <div className="text-red-500 text-xs text-center animate-shake">{error}</div>}
 
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full py-3 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition-all"
+                        className="w-full py-3 sm:py-3.5 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition-all active:scale-[0.98] disabled:opacity-70 mt-2"
                     >
                         {isLoading ? 'Creating Account...' : 'Sign Up'}
                     </button>
@@ -227,7 +229,7 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
                 <div className="mt-6 text-center">
                     <p className="text-gray-500 text-sm">
                         Already have an account?{' '}
-                        <button onClick={onNavigateToLogin} className="text-indigo-600 font-bold hover:underline">
+                        <button onClick={onNavigateToLogin} className="text-indigo-600 font-bold hover:underline transition-all">
                             Log in
                         </button>
                     </p>

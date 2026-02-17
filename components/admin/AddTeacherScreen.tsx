@@ -157,13 +157,17 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 const { data: sData } = await supabase.from('subjects').select('name');
                 if (sData) setValidSubjects(sData.map(d => d.name));
 
-                // Fetch Classes
-                const { data: cData } = await supabase.from('classes').select('id, class_name');
+                // Fetch Classes (Filter by current school)
+                const { data: cData } = await supabase
+                    .from('classes')
+                    .select('id, name')
+                    .eq('school_id', schoolId);
+
                 if (cData) {
-                    setValidClasses(cData.map(d => d.class_name));
+                    setValidClasses(cData.map(d => d.name));
                     const map: Record<string, string> = {};
                     cData.forEach(c => {
-                        map[c.class_name] = c.id;
+                        map[c.name] = c.id;
                     });
                     setClassIdMap(map);
                 }
@@ -183,17 +187,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             setEmail(teacherToEdit.email);
             setPhone(teacherToEdit.phone);
             setSubjects(teacherToEdit.subjects);
-            // Normalize incoming class strings so they match the app format (e.g. `10A`)
-            const normalize = (s: string) => {
-                if (!s) return s;
-                let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
-                const m = cleaned.match(/(\d+)([A-Z]+)/i);
-                if (m) return `${parseInt(m[1], 10)}${m[2]} `;
-                const m2 = cleaned.match(/(\d+)/);
-                if (m2) return `${parseInt(m2[1], 10)} `;
-                return cleaned;
-            };
-            setClasses((teacherToEdit.classes || []).map(normalize));
+            setClasses(teacherToEdit.classes || []);
             setStatus(teacherToEdit.status);
             setAvatar(teacherToEdit.avatarUrl);
         }
@@ -329,8 +323,10 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 // 3. Update Classes (Delete all, re-insert)
                 await supabase.from('teacher_classes').delete().eq('teacher_id', teacherToEdit.id);
                 if (classes.length > 0) {
-                    // Normalize classes to a canonical format (e.g. `10A`) before inserting
-                    const normalize = (s: string) => {
+                    // Legacy Table Sync (String-based)
+                    // We only normalize here if the user explicitly wants the legacy format to be "10A"
+                    // But usually, it's safer to keep what matches the UI.
+                    const normalizeLegacy = (s: string) => {
                         if (!s) return s;
                         let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
                         const m = cleaned.match(/(\d+)([A-Z]+)/i);
@@ -340,10 +336,11 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         return cleaned;
                     };
 
-                    const normalized = Array.from(new Set(classes.map(normalize).filter(Boolean)));
-                    const classInserts = normalized.map(className => ({
+                    const normalizedLegacy = Array.from(new Set(classes.map(normalizeLegacy).filter(Boolean)));
+                    const classInserts = normalizedLegacy.map(className => ({
                         teacher_id: teacherToEdit.id,
-                        class_name: className
+                        class_name: className,
+                        school_id: schoolId // Ensure legacy record has correct school context
                     }));
                     await supabase.from('teacher_classes').insert(classInserts);
 

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StudentsIcon, ChevronRightIcon, gradeColors } from '../../constants';
+import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName } from '../../constants';
 import { useRealtime } from '../../lib/useRealtime';
 import { ClassInfo } from '../../types';
 
@@ -22,14 +22,26 @@ const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ n
     }, [rawClasses]);
 
     const groupedClasses = useMemo(() => {
-        const groups: { [key: number]: ClassInfo[] } = {};
+        const groups: { [key: number]: Map<string, ClassInfo> } = {};
         classes.forEach(cls => {
             if (!groups[cls.grade]) {
-                groups[cls.grade] = [];
+                groups[cls.grade] = new Map();
             }
-            groups[cls.grade].push(cls);
+            const name = getFormattedClassName(cls.grade, cls.section);
+            const existing = groups[cls.grade].get(name);
+            if (existing) {
+                existing.studentCount += (cls.studentCount || 0);
+            } else {
+                groups[cls.grade].set(name, { ...cls });
+            }
         });
-        return groups;
+
+        // Convert Map to Array
+        const finalGroups: { [key: number]: ClassInfo[] } = {};
+        Object.entries(groups).forEach(([grade, map]) => {
+            finalGroups[Number(grade)] = Array.from(map.values());
+        });
+        return finalGroups;
     }, [classes]);
 
     if (isLoading && classes.length === 0) {
@@ -64,13 +76,13 @@ const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ n
                     return (
                         <div key={grade} className={`bg-white rounded-2xl shadow-sm overflow-hidden mb-4`}>
                             <div className={`${bgColor} p-4`}>
-                                <h3 className={`font-bold text-lg ${textColor}`}>Grade {grade}</h3>
+                                <h3 className={`font-bold text-lg ${textColor}`}>{getFormattedClassName(grade, "")}</h3>
                             </div>
                             <div className="p-4 space-y-3">
                                 {gradeClasses.map(cls => (
                                     <button
-                                        key={cls.id}
-                                        onClick={() => navigateTo('classGradebook', `Gradebook: Grade ${grade}${cls.section}`, { classInfo: cls, teacherId: 2 })} // Defaulting to a demo teacher ID for now
+                                        key={getFormattedClassName(grade, cls.section)}
+                                        onClick={() => navigateTo('classGradebook', `Gradebook: ${getFormattedClassName(grade, cls.section, true, cls.subject)}`, { classInfo: { ...cls, section: undefined }, teacherId: 2 })} // Defaulting to a demo teacher ID for now
                                         className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
                                     >
                                         <div className="flex items-center space-x-3">
@@ -79,7 +91,7 @@ const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ n
                                             </div>
                                             <div className="text-left">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="font-semibold text-gray-800">Section {cls.section}</p>
+                                                    <p className="font-semibold text-gray-800">{getFormattedClassName(grade, cls.section)}</p>
                                                     <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{cls.subject}</span>
                                                 </div>
                                                 <p className="text-sm text-gray-500">

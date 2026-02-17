@@ -25,6 +25,21 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY)
     },
+    build: {
+      minify: 'esbuild',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ['react', 'react-dom'],
+            router: ['react-router-dom'],
+            supabase: ['@supabase/supabase-js'],
+            ui: ['framer-motion', 'lucide-react', 'react-hot-toast'],
+            charts: ['recharts'],
+            utils: ['date-fns', 'uuid', 'clsx', 'tailwind-merge']
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

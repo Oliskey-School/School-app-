@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase'; import { Student, Teacher } from '../../types';
 import IDCardGenerator from '../shared/IDCardGenerator';
 import { CreditCard } from 'lucide-react';
+import { getFormattedClassName } from '../../constants';
 
 interface IDCardManagementProps {
     initialUser?: Student | Teacher;
@@ -141,7 +142,7 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
                                     <h3 className="font-bold text-gray-800">{user.name}</h3>
                                     <p className="text-sm text-gray-500">
                                         {view === 'students'
-                                            ? `Grade ${(user as Student).grade}${(user as Student).section}`
+                                            ? getFormattedClassName((user as Student).grade, (user as Student).section)
                                             : (user as Teacher).subjects?.[0] || 'Teacher'
                                         }
                                     </p>
