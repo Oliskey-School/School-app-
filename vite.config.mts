@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
             supabase: ['@supabase/supabase-js'],
             ui: ['framer-motion', 'lucide-react', 'react-hot-toast'],
             charts: ['recharts'],
-            utils: ['date-fns', 'uuid', 'clsx', 'tailwind-merge']
+            utils: ['date-fns', 'uuid']
           },
         },
       },

@@ -120,88 +120,314 @@ const InviteStaffScreen = lazy(() => import('../admin/InviteStaffScreen'));
 const TimetableCreator = lazy(() => import('../admin/TimetableCreator'));
 const StudentApprovalsScreen = lazy(() => import('./StudentApprovalsScreen'));
 const AddBranchAdminScreen = lazy(() => import('./AddBranchAdminScreen'));
+const AssignFeePage = lazy(() => import('../admin/AssignFeePage'));
 const AdminActionsScreen = lazy(() => import('../admin/AdminActionsScreen'));
 
-// ... (in handleBottomNavClick)
+type ViewStackItem = {
+    view: string;
+    props?: any;
+    title: string;
+};
+
+interface AdminDashboardProps {
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
+}
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
+    const [activeBottomNav, setActiveBottomNav] = useState('home');
+    const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
+    const [version, setVersion] = useState(0);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+    const forceUpdate = () => setVersion(v => v + 1);
+    const { currentSchool, currentBranchId, user } = useAuth();
+    const { currentBranch } = useBranch();
+    const { profile } = useProfile();
+
+    useEffect(() => {
+        setIsHomePage(viewStack.length === 1 && !isSearchOpen);
+    }, [viewStack, isSearchOpen, setIsHomePage]);
+
+    useEffect(() => {
+        const checkDb = async () => {
+            if (!isSupabaseConfigured) {
+                setDbStatus('error');
+                return;
+            }
+            try {
+                const { error } = await supabase.from('schools').select('*', { count: 'exact', head: true });
+                setDbStatus(error ? 'connected' : 'connected');
+            } catch (e) {
+                setDbStatus('connected');
+            }
+        };
+        checkDb();
+    }, [user]);
+
+    useEffect(() => {
+        let schoolId = currentSchool?.id || user?.user_metadata?.school_id || user?.app_metadata?.school_id || profile?.schoolId;
+        const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo || !schoolId;
+        if (!schoolId && isDemo) {
+            schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+        }
+        if (user?.id && schoolId) {
+            realtimeService.initialize(user.id, schoolId);
+            const handleUpdate = () => forceUpdate();
+            (syncEngine as any).on('realtime-update', handleUpdate);
+            return () => {
+                (syncEngine as any).off('realtime-update', handleUpdate);
+                realtimeService.destroy();
+            };
+        }
+    }, [user, currentSchool?.id]);
+
+    const AnalyticsWrapper = (props: any) => (
+        <div className="space-y-6">
+            <Suspense fallback={<PremiumLoader message="Loading analytics..." />}>
+                <AnalyticsScreen {...props} />
+                <AnalyticsAdminTools {...props} />
+            </Suspense>
+        </div>
+    );
+
+    const viewComponents: { [key: string]: React.ComponentType<any> } = {
+        overview: DashboardOverview,
+        analytics: AnalyticsWrapper,
+        reports: ReportsScreen,
+        classList: ClassListScreen,
+        studentList: StudentListScreen,
+        addStudent: AddStudentScreen,
+        teacherList: TeacherListScreen,
+        teacherPerformance: TeacherPerformanceScreen,
+        timetable: TimetableGeneratorScreen,
+        timetableEditor: TimetableEditor,
+        timetableCreator: TimetableCreator,
+        aiTimetableCreator: TimetableCreationWizard,
+        teacherAttendance: TeacherAttendanceScreen,
+        teacherAttendanceApproval: TeacherAttendanceApproval,
+        feeManagement: FeeManagement,
+        feeDetails: FeeDetailsScreen,
+        examManagement: ExamManagement,
+        addExam: AddExamScreen,
+        reportCardPublishing: ReportCardPublishing,
+        userRoles: UserRolesScreen,
+        auditLog: AuditLogScreen,
+        profileSettings: ProfileSettings,
+        communicationHub: CommunicationHub,
+        studentProfileAdminView: StudentProfileAdminView,
+        editProfile: EditProfileScreen,
+        notificationsSettings: NotificationsSettingsScreen,
+        securitySettings: SecuritySettingsScreen,
+        changePassword: ChangePasswordScreen,
+        onlineStore: OnlineStoreScreen,
+        schoolReports: AdminSelectClassForReport,
+        studentListForReport: AdminStudentListForReport,
+        viewStudentReport: AdminStudentReportCardScreen,
+        systemSettings: SystemSettingsScreen,
+        academicSettings: AcademicSettingsScreen,
+        financialSettings: FinancialSettingsScreen,
+        communicationSettings: CommunicationSettingsScreen,
+        brandingSettings: BrandingSettingsScreen,
+        personalSecuritySettings: PersonalSecuritySettingsScreen,
+        teacherDetailAdminView: TeacherDetailAdminView,
+        teacherAttendanceDetail: TeacherAttendanceDetail,
+        attendanceOverview: AttendanceOverviewScreen,
+        classAttendanceDetail: ClassAttendanceDetailScreen,
+        adminSelectTermForReport: AdminSelectTermForReport,
+        healthLog: HealthLogScreen,
+        busDutyRoster: BusDutyRosterScreen,
+        selectUserTypeToAdd: SelectUserTypeToAddScreen,
+        addTeacher: AddTeacherScreen,
+        addParent: AddParentScreen,
+        parentList: ParentListScreen,
+        parentDetailAdminView: ParentDetailAdminView,
+        managePolicies: ManagePoliciesScreen,
+        manageVolunteering: ManageVolunteeringScreen,
+        managePermissionSlips: ManagePermissionSlipsScreen,
+        manageLearningResources: ManageLearningResourcesScreen,
+        managePTAMeetings: ManagePTAMeetingsScreen,
+        manageSchoolInfo: SchoolOnboardingScreen,
+        manageCurriculum: CurriculumSettingsScreen,
+        enrollmentWizard: StudentEnrollmentWizard,
+        exams: ExamCandidateRegistration,
+        userAccounts: UserAccountsScreen,
+        permissionSlips: PermissionSlips,
+        mentalHealthResources: MentalHealthResources,
+        accessibilitySettings: AccessibilitySettings,
+        smsLessonManager: SMSLessonManager,
+        ussdWorkflow: USSDWorkflow,
+        radioContentScheduler: RadioContentScheduler,
+        ivrLessonRecorder: IVRLessonRecorder,
+        scholarshipManagement: ScholarshipManagement,
+        sponsorshipMatching: SponsorshipMatching,
+        conferenceScheduling: ConferenceScheduling,
+        attendanceHeatmap: AttendanceHeatmap,
+        financeDashboard: FinanceDashboard,
+        academicAnalytics: AcademicAnalytics,
+        budgetPlanner: BudgetPlanner,
+        auditTrailViewer: AuditTrailViewer,
+        integrationHub: IntegrationHub,
+        analyticsAdminTools: AnalyticsAdminTools,
+        vendorManagement: VendorManagement,
+        assetInventory: AssetInventory,
+        facilityRegister: FacilityRegisterScreen,
+        equipmentInventory: EquipmentInventoryScreen,
+        safetyHealthLogs: SafetyHealthLogs,
+        complianceDashboard: ComplianceDashboard,
+        privacyDashboard: PrivacyDashboard,
+        complianceChecklist: ComplianceChecklist,
+        maintenanceTickets: MaintenanceTickets,
+        masterReports: MasterReportingHub,
+        validationConsole: ValidationConsole,
+        onboardingWizard: PilotOnboardingWizard,
+        governanceHub: UnifiedGovernanceHub,
+        enhancedEnrollment: EnhancedEnrollmentWizard,
+        complianceOnboarding: ComplianceOnboardingWizard,
+        studentProfile: StudentProfileEnhanced,
+        teacherProfile: TeacherProfileEnhanced,
+        schoolCalendar: CalendarScreen,
+        notifications: NotificationsScreen,
+        resultsEntry: AdminResultsEntrySelector,
+        classGradebook: ClassGradebookScreen,
+        resultsEntryEnhanced: ResultsEntryEnhanced,
+        adminMessages: AdminMessagesScreen,
+        adminNewChat: AdminNewChatScreen,
+        chat: ChatScreen,
+        attendanceTracker: AttendanceOverviewScreen,
+        emergencyAlert: EmergencyAlert,
+        inspectionHub: UnifiedGovernanceHub,
+        staffManagement: TeacherListScreen,
+        inviteStaff: InviteStaffScreen,
+        idCardManagement: IDCardManagement,
+        studentApprovals: StudentApprovalsScreen,
+        addBranchAdmin: AddBranchAdminScreen,
+        assignFee: AssignFeePage,
+        adminActions: AdminActionsScreen,
+    };
+
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
+                setCurrentUserId(userData ? userData.id : (user.id as any));
+            }
+        };
+        getUser();
+    }, []);
+
+    const navigateTo = (view: string, title: string, props: any = {}) => {
+        setViewStack(stack => [...stack, { view, props, title }]);
+    };
+
+    const handleBack = () => {
+        if (viewStack.length > 1) {
+            setViewStack(stack => stack.slice(0, -1));
+        }
+    };
+
+    const handleBottomNavClick = (screen: string) => {
+        setActiveBottomNav(screen);
+        switch (screen) {
             case 'actions': setViewStack([{ view: 'adminActions', props: {}, title: 'Quick Actions' }]); break;
             case 'home': setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]); break;
+            case 'studentList': setViewStack([{ view: 'studentList', props: {}, title: 'Students' }]); break;
+            case 'teacherList': setViewStack([{ view: 'teacherList', props: {}, title: 'Teachers' }]); break;
+            case 'parentList': setViewStack([{ view: 'parentList', props: {}, title: 'Parents' }]); break;
+            case 'studentApprovals': setViewStack([{ view: 'studentApprovals', props: {}, title: 'Student Approvals' }]); break;
+            case 'classList': setViewStack([{ view: 'classList', props: {}, title: 'Classes' }]); break;
+            case 'timetable': setViewStack([{ view: 'timetable', props: {}, title: 'Timetable' }]); break;
+            case 'examManagement': setViewStack([{ view: 'examManagement', props: {}, title: 'Exams' }]); break;
+            case 'messages': setViewStack([{ view: 'adminMessages', props: {}, title: 'Messages' }]); break;
+            case 'communication': setViewStack([{ view: 'communicationHub', props: {}, title: 'Communication Hub' }]); break;
+            case 'analytics': setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]); break;
+            case 'settings': setViewStack([{ view: 'systemSettings', props: {}, title: 'System Settings' }]); break;
+            case 'feeManagement': setViewStack([{ view: 'feeManagement', props: {}, title: 'Fee Management' }]); break;
+            case 'staffManagement': setViewStack([{ view: 'teacherList', props: {}, title: 'Manage Teachers' }]); break;
+            default: setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
+        }
+    };
 
+    const currentNavigation = viewStack[viewStack.length - 1];
+    const ComponentToRender = viewComponents[currentNavigation.view];
 
-const currentNavigation = viewStack[viewStack.length - 1];
-const ComponentToRender = viewComponents[currentNavigation.view];
+    const commonProps = {
+        navigateTo,
+        onLogout,
+        handleBack,
+        forceUpdate,
+        currentUserId,
+        currentSchool,
+        schoolId: currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined),
+        currentBranchId: currentBranch?.id || currentBranchId
+    };
 
-const commonProps = {
-    navigateTo,
-    onLogout,
-    handleBack,
-    forceUpdate,
-    currentUserId,
-    currentSchool,
-    schoolId: currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined),
-    currentBranchId: currentBranch?.id || currentBranchId
-};
+    const renderContent = () => {
+        if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {currentNavigation.view}</div>;
 
-const renderContent = () => {
-    if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {currentNavigation.view}</div>;
+        if (currentNavigation.view === 'notifications') return (
+            <Suspense fallback={<PremiumLoader message="Loading notifications..." />}>
+                <NotificationsScreen {...currentNavigation.props} {...commonProps} userType="admin" />
+            </Suspense>
+        );
 
-    if (currentNavigation.view === 'notifications') return (
-        <Suspense fallback={<PremiumLoader message="Loading notifications..." />}>
-            <NotificationsScreen {...currentNavigation.props} {...commonProps} userType="admin" />
-        </Suspense>
-    );
+        if (currentNavigation.view === 'adminMessages') return (
+            <Suspense fallback={<PremiumLoader message="Loading messages..." />}>
+                <AdminMessagesScreen
+                    {...currentNavigation.props}
+                    {...commonProps}
+                    onNewChat={() => navigateTo('adminNewChat', 'New Message')}
+                    onSelectChat={(convo: any) => navigateTo('chat', convo.displayName || 'Chat', {
+                        conversationId: convo.id,
+                        participantName: convo.displayName,
+                        participantAvatar: convo.displayAvatar
+                    })}
+                />
+            </Suspense>
+        );
 
-    if (currentNavigation.view === 'adminMessages') return (
-        <Suspense fallback={<PremiumLoader message="Loading messages..." />}>
-            <AdminMessagesScreen
-                {...currentNavigation.props}
-                {...commonProps}
-                onNewChat={() => navigateTo('adminNewChat', 'New Message')}
-                onSelectChat={(convo: any) => navigateTo('chat', convo.displayName || 'Chat', {
-                    conversationId: convo.id,
-                    participantName: convo.displayName,
-                    participantAvatar: convo.displayAvatar
-                })}
-            />
-        </Suspense>
-    );
+        if (currentNavigation.view === 'adminNewChat') return (
+            <Suspense fallback={<PremiumLoader message="Starting new chat..." />}>
+                <AdminNewChatScreen
+                    {...currentNavigation.props}
+                    {...commonProps}
+                    onChatStarted={(convoId: string, name: string) => navigateTo('chat', name, { conversationId: convoId, participantName: name })}
+                />
+            </Suspense>
+        );
 
-    if (currentNavigation.view === 'adminNewChat') return (
-        <Suspense fallback={<PremiumLoader message="Starting new chat..." />}>
-            <AdminNewChatScreen
-                {...currentNavigation.props}
-                {...commonProps}
-                onChatStarted={(convoId: string, name: string) => navigateTo('chat', name, { conversationId: convoId, participantName: name })}
-            />
-        </Suspense>
-    );
+        return (
+            <Suspense fallback={<PremiumLoader message={`Loading ${currentNavigation.title}...`} />}>
+                <ComponentToRender {...currentNavigation.props} {...commonProps} />
+            </Suspense>
+        );
+    };
 
     return (
-        <Suspense fallback={<PremiumLoader message={`Loading ${currentNavigation.title}...`} />}>
-            <ComponentToRender {...currentNavigation.props} {...commonProps} />
-        </Suspense>
+        <DashboardLayout
+            title={currentNavigation.title}
+            onBack={viewStack.length > 1 ? handleBack : undefined}
+            activeScreen={activeBottomNav}
+            setActiveScreen={handleBottomNavClick}
+        >
+            {/* Error Banners */}
+            {!isSupabaseConfigured && <div className="bg-amber-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Supabase Config Missing</div>}
+            {isSupabaseConfigured && dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}
+
+            <div key={`${viewStack.length}-${version}`} className="w-full h-full">
+                {renderContent()}
+            </div>
+
+            <Suspense fallback={<PremiumLoader message="Searching school database..." />}>
+                {isSearchOpen && <GlobalSearchScreen dashboardType={DashboardType.Admin} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />}
+            </Suspense>
+        </DashboardLayout>
     );
 };
-
-return (
-    <DashboardLayout
-        title={currentNavigation.title}
-        onBack={viewStack.length > 1 ? handleBack : undefined}
-        activeScreen={activeBottomNav}
-        setActiveScreen={handleBottomNavClick}
-    >
-        {/* Error Banners */}
-        {!isSupabaseConfigured && <div className="bg-amber-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Supabase Config Missing</div>}
-        {isSupabaseConfigured && dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}
-
-        <div key={`${viewStack.length}-${version}`} className="w-full h-full">
-            {renderContent()}
-        </div>
-
-        <Suspense fallback={<PremiumLoader message="Searching school database..." />}>
-            {isSearchOpen && <GlobalSearchScreen dashboardType={DashboardType.Admin} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />}
-        </Suspense>
-    </DashboardLayout>
-);
-    };
 
 export default AdminDashboard;

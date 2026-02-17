@@ -10,6 +10,7 @@ import { StudentBottomNav } from '../ui/DashboardBottomNav';
 import { } from '../../data'; // Ensure no mocks imported
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { StudentSidebar } from '../ui/DashboardSidebar';
+import DashboardLayout from '../layout/DashboardLayout';
 import PremiumLoader from '../ui/PremiumLoader';
 import { GamificationProvider } from '../../context/GamificationContext';
 import { realtimeService } from '../../services/RealtimeService';
@@ -629,7 +630,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                             },
                             async (payload: any) => {
                                 console.log('🔔 [Student] Class session event:', payload.eventType, payload.new);
-                                
+
                                 if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                                     if (payload.new && payload.new.status === 'active') {
                                         // Fetch teacher name
@@ -644,7 +645,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                             ...payload.new,
                                             teacherName: teacher?.name || 'Teacher'
                                         });
-                                        
+
                                         // Also show a toast for immediate visibility if modal is somehow blocked
                                         toast.success(`Live Class Started: ${payload.new.subject}`, { icon: '🎥' });
                                     } else if (payload.new && payload.new.status === 'ended') {
