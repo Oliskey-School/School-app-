@@ -138,7 +138,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
             <div className="absolute top-0 -left-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
 
             {/* Header */}
-            <header className="p-4 pt-6 pb-20 relative z-10">
+            <header className="p-4 pt-6 pb-24 relative z-10">
                 <div className="flex justify-between items-center mb-6 px-2 text-white">
                     <div className="flex items-center">
                         <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors">
@@ -151,10 +151,10 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
 
             {/* Main Content Card */}
             <main className="flex-grow px-4 -mt-16 relative z-10 pb-6 overflow-y-auto hide-scrollbar">
-                <div className="bg-white rounded-[2rem] shadow-xl shadow-orange-900/5 border border-white/50 min-h-[600px] flex flex-col items-center pt-12 pb-8 px-6 relative backdrop-blur-sm">
+                <div className="bg-white rounded-[2rem] shadow-xl shadow-orange-900/5 border border-white/50 min-h-[600px] flex flex-col items-center pt-16 pb-8 px-6 relative backdrop-blur-sm">
 
                     {/* Avatar Section */}
-                    <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
+                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
                         <div className="relative">
                             <div className="w-32 h-32 rounded-full p-1 bg-white shadow-xl ring-4 ring-orange-50 ring-offset-2 overflow-hidden">
                                 {avatar ? (

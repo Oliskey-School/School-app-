@@ -72,15 +72,20 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                     };
                     setStudent(currentStudent);
                 }
-            } else if (!student) {
-                // Ensure we format the initialStudent if it came from dashboard props raw
-                setStudent({
+            } else {
+                // Always update local state if initialStudent is provided/updated
+                const formattedStudent = {
                     ...initialStudent,
-                    first_name: initialStudent.name.split(' ')[0],
-                    last_name: initialStudent.name.split(' ').slice(1).join(' '),
+                    first_name: initialStudent.name?.split(' ')[0] || '',
+                    last_name: initialStudent.name?.split(' ').slice(1).join(' ') || '',
                     class_name: `Grade ${initialStudent.grade}${initialStudent.section}`,
-                    admission_number: initialStudent.schoolId || `STU${initialStudent.id}`,
-                });
+                    admission_number: initialStudent.schoolGeneratedId || initialStudent.schoolId || `STU${initialStudent.id}`,
+                    // Preserve existing stats if we have them to avoid flickering
+                    average_grade: student?.average_grade || 0,
+                    attendance_rate: student?.attendance_rate || 0
+                };
+                setStudent(formattedStudent);
+                currentStudent = formattedStudent;
             }
 
             if (!currentStudent) return; // Should handle not found

@@ -801,6 +801,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             } : undefined}
             {...props}
             onBack={handleBack}
+            onProfileUpdate={(updatedData) => {
+                if (student) {
+                    const newStudent = { ...student, name: updatedData.name, avatarUrl: updatedData.avatarUrl };
+                    setStudent(newStudent);
+                    // Update cache for persistence
+                    offlineStorage.save(`student_dashboard_${currentUser?.id}`, newStudent);
+                }
+            }}
         />,
         videoLesson: VideoLessonScreen,
         assignmentSubmission: AssignmentSubmissionScreen,
