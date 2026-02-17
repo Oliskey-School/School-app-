@@ -2,7 +2,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Student, Parent, Teacher, Conversation, RoleName } from '../../types';
-import { mockStudents, mockTeachers, mockParents, mockAdminConversations } from '../../data';
 import { SearchIcon } from '../../constants';
 
 type UserListItem = {

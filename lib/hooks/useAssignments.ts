@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { Assignment } from '../../types';
-import { mockAssignments } from '../../data';
 
 export interface UseAssignmentsResult {
     assignments: Assignment[];
@@ -19,12 +18,6 @@ export function useAssignments(filters?: { className?: string; subject?: string 
     const [error, setError] = useState<Error | null>(null);
 
     const fetchAssignments = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            setAssignments(mockAssignments);
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             let query = supabase.from('assignments').select('*');
@@ -47,7 +40,7 @@ export function useAssignments(filters?: { className?: string; subject?: string 
         } catch (err) {
             console.error('Error fetching assignments:', err);
             setError(err as Error);
-            setAssignments(mockAssignments);
+            setAssignments([]);
         } finally {
             setLoading(false);
         }
@@ -55,8 +48,6 @@ export function useAssignments(filters?: { className?: string; subject?: string 
 
     useEffect(() => {
         fetchAssignments();
-
-        if (!isSupabaseConfigured) return;
 
         const channel = supabase
             .channel('assignments-changes')
@@ -76,11 +67,6 @@ export function useAssignments(filters?: { className?: string; subject?: string 
     }, [fetchAssignments]);
 
     const createAssignment = async (assignmentData: Partial<Assignment>): Promise<Assignment | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create assignment');
-            return null;
-        }
-
         try {
             const { data, error: insertError } = await supabase
                 .from('assignments')
@@ -107,11 +93,6 @@ export function useAssignments(filters?: { className?: string; subject?: string 
     };
 
     const updateAssignment = async (id: number, updates: Partial<Assignment>): Promise<Assignment | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update assignment');
-            return null;
-        }
-
         try {
             const { data, error: updateError } = await supabase
                 .from('assignments')
@@ -139,11 +120,6 @@ export function useAssignments(filters?: { className?: string; subject?: string 
     };
 
     const deleteAssignment = async (id: number): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete assignment');
-            return false;
-        }
-
         try {
             const { error: deleteError } = await supabase
                 .from('assignments')

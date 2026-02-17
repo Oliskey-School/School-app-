@@ -7,6 +7,7 @@ import { THEME_CONFIG } from '../../constants';
 import { AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar } from '../ui/DashboardSidebar';
 import { AdminBottomNav, TeacherBottomNav, ParentBottomNav, StudentBottomNav } from '../ui/DashboardBottomNav';
 import { X } from 'lucide-react';
+import { BranchSwitcher } from '../shared/BranchSwitcher';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -18,8 +19,11 @@ interface DashboardLayoutProps {
     hidePadding?: boolean;
 }
 
+import { useProfile } from '../../context/ProfileContext';
+
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hidePadding = false }) => {
     const { user, role, signOut } = useAuth();
+    const { profile } = useProfile(); // Use Profile Context
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const notificationCount = useRealtimeNotifications(role?.toLowerCase() as any || 'admin');
 
@@ -32,12 +36,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     };
 
     const getSidebar = (isMobile = false) => {
-        const props = { 
-            activeScreen, 
+        const props = {
+            activeScreen,
             setActiveScreen: (screen: string) => {
                 setActiveScreen(screen);
                 if (isMobile) setIsMobileMenuOpen(false);
-            }, 
+            },
             onLogout: handleLogout,
             schoolName: user?.user_metadata?.school_name || 'Oliskey School',
             logoUrl: user?.user_metadata?.logo_url
@@ -88,7 +92,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
             {/* Mobile Sidebar Overlay */}
             {isMobileMenuOpen && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-300"
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
@@ -101,6 +105,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                         <X className="h-5 w-5" />
                     </button>
                 </div>
+                <div className="p-4 border-b border-gray-50 bg-gray-50/30">
+                    <BranchSwitcher align="left" />
+                </div>
                 {getSidebar(true)}
             </aside>
 
@@ -109,16 +116,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                 {!hideHeader && (
                     <Header
                         title={title || 'Dashboard'}
-                        avatarUrl={user?.user_metadata?.avatar_url || ''}
+                        // Use profile.avatarUrl (live state) -> fallback to user metadata (stable auth) -> empty
+                        avatarUrl={profile?.avatarUrl || user?.user_metadata?.avatar_url || ''}
                         bgColor={theme?.mainBg || 'bg-indigo-800'}
                         onLogout={handleLogout}
                         onBack={onBack}
                         onMenuClick={() => setIsMobileMenuOpen(true)}
                         notificationCount={notificationCount}
                         className="w-full flex-shrink-0"
+                        userName={profile?.name || user?.user_metadata?.full_name} // Also sync name
                     />
                 )}
-                
+
                 <div className={`flex-1 overflow-y-auto overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding ? 'pb-24 lg:pb-12' : 'pb-0'}`}>
                     <main className={`min-h-full ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''} ${!hidePadding ? 'px-4 sm:px-6 lg:px-8 max-w-7xl' : 'px-0 max-w-none'} mx-auto w-full`}>
                         <div className="animate-slide-in-up w-full h-full">

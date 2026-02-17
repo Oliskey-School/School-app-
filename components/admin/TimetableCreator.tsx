@@ -20,6 +20,7 @@ import {
     ExclamationIcon,
     SUBJECT_COLORS
 } from '../../constants';
+import { deduplicateClasses } from '../../utils/classUtils';
 
 // --- TYPES ---
 
@@ -123,7 +124,9 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
         try {
             // Fetch Classes
             const { data: classesData } = await supabase.from('classes').select('id, name, grade').order('grade');
-            if (classesData) setAllClasses(classesData);
+            if (classesData) {
+                setAllClasses(deduplicateClasses(classesData));
+            }
 
             // Fetch Teachers
             const { data: teachersData } = await supabase.from('teachers').select('id, name, subjects, available_days');

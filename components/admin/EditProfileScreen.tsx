@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { UserIcon, MailIcon, PhoneIcon, CameraIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
+import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 
 const EditProfileScreen: React.FC = () => {
     const { profile, updateProfile, isLoading } = useProfile();
+    const { formatId, customId } = useUserIdentity();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -97,13 +99,11 @@ const EditProfileScreen: React.FC = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-1">Admin ID</label>
                             <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs font-bold bg-gray-100 rounded-l-lg h-full px-2 border-r border-gray-300">ID</span>
-                                <input 
-                                    type="text" 
-                                    value={(profile.schoolGeneratedId || "0001").replace(/-/g, '_').includes('OLISKEY') 
-                                        ? (profile.schoolGeneratedId || "0001").replace(/-/g, '_').toUpperCase() 
-                                        : `OLISKEY_MAIN_ADM_${(profile.schoolGeneratedId || "0001").replace(/-/g, '_').toUpperCase()}`} 
-                                    readOnly 
-                                    className="w-full pl-12 pr-3 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg font-mono font-bold" 
+                                <input
+                                    type="text"
+                                    value={formatId(customId || (profile as any).schoolGeneratedId || "0001")}
+                                    readOnly
+                                    className="w-full pl-12 pr-3 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg font-mono font-bold"
                                 />
                             </div>
                         </div>

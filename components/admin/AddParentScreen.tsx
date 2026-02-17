@@ -9,7 +9,6 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import { sendWelcomeEmail } from '../../lib/emailService';
 import CredentialsModal from '../ui/CredentialsModal';
-import { mockParents } from '../../data';
 import { useProfile } from '../../context/ProfileContext';
 
 interface AddParentScreenProps {
@@ -49,38 +48,34 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 setRelationship((parentToEdit.relationship as any) || 'Father'); // ✅ NEW
                 setEmergencyContact(parentToEdit.emergency_contact || ''); // ✅ NEW
 
-                if (isSupabaseConfigured) {
-                    try {
-                        const { data: links } = await supabase
-                            .from('student_parent_links')
-                            .select('student_user_id')
-                            .eq('parent_user_id', parentToEdit.user_id);
+                try {
+                    const { data: links } = await supabase
+                        .from('student_parent_links')
+                        .select('student_user_id')
+                        .eq('parent_user_id', parentToEdit.user_id);
 
-                        if (links && links.length > 0) {
-                            // Fetch the readable IDs for these students
-                            const studentUserIds = links.map(l => l.student_user_id);
-                            const { data: students } = await supabase
-                                .from('students')
-                                .select('school_generated_id, admission_number')
-                                .in('user_id', studentUserIds);
+                    if (links && links.length > 0) {
+                        // Fetch the readable IDs for these students
+                        const studentUserIds = links.map(l => l.student_user_id);
+                        const { data: students } = await supabase
+                            .from('students')
+                            .select('school_generated_id, admission_number')
+                            .in('user_id', studentUserIds);
 
-                            if (students && students.length > 0) {
-                                // Prefer school_generated_id, fallback to admission_number
-                                const readableIds = students.map(s => s.school_generated_id || s.admission_number).filter(Boolean);
-                                setChildIds(readableIds.join(', '));
-                            } else {
-                                // Fallback to UUIDs if lookup fails (shouldn't happen)
-                                setChildIds(studentUserIds.join(', '));
-                            }
+                        if (students && students.length > 0) {
+                            // Prefer school_generated_id, fallback to admission_number
+                            const readableIds = students.map(s => s.school_generated_id || s.admission_number).filter(Boolean);
+                            setChildIds(readableIds.join(', '));
                         } else {
-                            // Fallback to prop if DB fetch empty (or just empty)
-                            setChildIds((parentToEdit.childIds || []).join(', '));
+                            // Fallback to UUIDs if lookup fails (shouldn't happen)
+                            setChildIds(studentUserIds.join(', '));
                         }
-                    } catch (err) {
-                        console.error("Error loading child links:", err);
+                    } else {
+                        // Fallback to prop if DB fetch empty (or just empty)
                         setChildIds((parentToEdit.childIds || []).join(', '));
                     }
-                } else {
+                } catch (err) {
+                    console.error("Error loading child links:", err);
                     setChildIds((parentToEdit.childIds || []).join(', '));
                 }
             }
@@ -140,26 +135,6 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
 
             // Wrap the main logic in a function for retry
             const saveOperation = async () => {
-                // MOCK MODE HANDLING (Keep as is for demo/testing without backend)
-                if (!isSupabaseConfigured) {
-                    // ... existing mock logic ...
-                    if (parentToEdit) {
-                        const index = mockParents.findIndex(p => p.id === parentToEdit.id);
-                        if (index !== -1) {
-                            mockParents[index] = { ...mockParents[index], name, email, phone, avatarUrl, childIds: rawChildIds };
-                        }
-                    } else {
-                        const newId = mockParents.length > 0 ? Math.max(...mockParents.map(p => parseInt(p.id))) + 1 : 1;
-                        mockParents.push({ id: newId.toString(), name, email, phone, avatarUrl, childIds: rawChildIds });
-                        setCredentials({ username: email.split('@')[0], password: 'password123', email });
-                        setShowCredentialsModal(true);
-                        return; // Modal handles close
-                    }
-                    forceUpdate();
-                    handleBack();
-                    return;
-                }
-
                 if (parentToEdit) {
                     // UPDATE MODE
                     const { error: updateError } = await supabase

@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
-import { mockCBTTests, mockStudents } from '../../../data';
 import { Student, CBTTest } from '../../../types';
 import { ExamIcon, ClockIcon, CheckCircleIcon, ChevronRightIcon, ChevronLeftIcon, DocumentTextIcon } from '../../../constants';
 

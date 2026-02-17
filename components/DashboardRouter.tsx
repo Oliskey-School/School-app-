@@ -11,9 +11,15 @@ import PremiumErrorPage from './ui/PremiumErrorPage';
 // but in a real app these would be: import AdminDashboard from './admin/AdminDashboard'; etc.
 
 const AdminDashboard = React.lazy(() => import('./admin/AdminDashboard'));
+const SuperAdminDashboard = React.lazy(() => import('./admin/SuperAdminDashboard'));
 const TeacherDashboard = React.lazy(() => import('./teacher/TeacherDashboard'));
 const StudentDashboard = React.lazy(() => import('./student/StudentDashboard'));
 const ParentDashboard = React.lazy(() => import('./parent/ParentDashboard'));
+const ProprietorDashboard = React.lazy(() => import('./proprietor/ProprietorDashboard'));
+const InspectorDashboard = React.lazy(() => import('./inspector/InspectorDashboard'));
+const ComplianceOfficerDashboard = React.lazy(() => import('./admin/ComplianceOfficerDashboard'));
+const ExamOfficerDashboard = React.lazy(() => import('./admin/ExamOfficerDashboard'));
+const CounselorDashboard = React.lazy(() => import('./admin/CounselorDashboard'));
 const SubscriptionPage = React.lazy(() => import('./subscription/SubscriptionPage'));
 
 // Simple Loading Component
@@ -81,21 +87,27 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
     const renderDashboard = () => {
         switch (role) {
             case DashboardType.Admin:
-            case DashboardType.SuperAdmin:
-            case DashboardType.Proprietor: // Proprietors often share Admin view or have specialized one
                 return (
                     <VerifiedAdminRoute>
                         <AdminDashboard {...props} />
                     </VerifiedAdminRoute>
                 );
-
+            case DashboardType.SuperAdmin:
+                return <SuperAdminDashboard {...props} />;
+            case DashboardType.Proprietor:
+                return <ProprietorDashboard {...props} />;
+            case DashboardType.Inspector:
+                return <InspectorDashboard {...props} />;
+            case DashboardType.ComplianceOfficer:
+                return <ComplianceOfficerDashboard {...props} />;
+            case DashboardType.ExamOfficer:
+                return <ExamOfficerDashboard {...props} />;
+            case DashboardType.Counselor:
+                return <CounselorDashboard {...props} />;
             case DashboardType.Teacher:
-            case DashboardType.ExamOfficer: // Exam officers are often teachers
                 return <TeacherDashboard {...props} />;
-
             case DashboardType.Student:
                 return <StudentDashboard {...props} />;
-
             case DashboardType.Parent:
                 return <ParentDashboard {...props} />;
 

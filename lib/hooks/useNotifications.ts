@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { Notification } from '../../types';
-import { mockNotifications } from '../../data';
 
 export interface UseNotificationsResult {
     notifications: Notification[];
@@ -19,12 +18,6 @@ export function useNotifications(filters?: { userId?: number; isRead?: boolean }
     const [error, setError] = useState<Error | null>(null);
 
     const fetchNotifications = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            setNotifications(mockNotifications);
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             let query = supabase.from('notifications').select('*');
@@ -47,7 +40,7 @@ export function useNotifications(filters?: { userId?: number; isRead?: boolean }
         } catch (err) {
             console.error('Error fetching notifications:', err);
             setError(err as Error);
-            setNotifications(mockNotifications);
+            setNotifications([]);
         } finally {
             setLoading(false);
         }
@@ -55,8 +48,6 @@ export function useNotifications(filters?: { userId?: number; isRead?: boolean }
 
     useEffect(() => {
         fetchNotifications();
-
-        if (!isSupabaseConfigured) return;
 
         const channel = supabase
             .channel('notifications-changes')
@@ -76,11 +67,6 @@ export function useNotifications(filters?: { userId?: number; isRead?: boolean }
     }, [fetchNotifications]);
 
     const createNotification = async (notificationData: Partial<Notification>): Promise<Notification | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create notification');
-            return null;
-        }
-
         try {
             const { data, error: insertError } = await supabase
                 .from('notifications')
@@ -108,11 +94,6 @@ export function useNotifications(filters?: { userId?: number; isRead?: boolean }
     };
 
     const updateNotification = async (id: number, updates: Partial<Notification>): Promise<Notification | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update notification');
-            return null;
-        }
-
         try {
             const { data, error: updateError } = await supabase
                 .from('notifications')
@@ -134,11 +115,6 @@ export function useNotifications(filters?: { userId?: number; isRead?: boolean }
     };
 
     const deleteNotification = async (id: number): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete notification');
-            return false;
-        }
-
         try {
             const { error: deleteError } = await supabase
                 .from('notifications')

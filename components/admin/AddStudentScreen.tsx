@@ -7,7 +7,6 @@ import { Student, Department } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
-import { mockStudents, mockParents } from '../../data';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
@@ -76,41 +75,31 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
             // Fetch Guardian Info
             const fetchGuardian = async () => {
-                if (isSupabaseConfigured) {
-                    try {
-                        const { data, error } = await supabase
-                            .from('parent_children')
-                            .select(`
+                try {
+                    const { data, error } = await supabase
+                        .from('parent_children')
+                        .select(`
 parents(
     name,
     email,
     phone
 )
-                            `)
-                            .eq('student_id', studentToEdit.id)
-                            .maybeSingle();
+                        `)
+                        .eq('student_id', studentToEdit.id)
+                        .maybeSingle();
 
-                        if (!error && data && data.parents) {
-                            // Supabase returns the joined resource. Typescript might view it as array or object.
-                            // In a singular select like this from a join table, it's usually an object if the FK is correct.
-                            const p: any = Array.isArray(data.parents) ? data.parents[0] : data.parents;
-                            if (p) {
-                                setGuardianName(p.name || '');
-                                setGuardianEmail(p.email || '');
-                                setGuardianPhone(p.phone || '');
-                            }
+                    if (!error && data && data.parents) {
+                        // Supabase returns the joined resource. Typescript might view it as array or object.
+                        // In a singular select like this from a join table, it's usually an object if the FK is correct.
+                        const p: any = Array.isArray(data.parents) ? data.parents[0] : data.parents;
+                        if (p) {
+                            setGuardianName(p.name || '');
+                            setGuardianEmail(p.email || '');
+                            setGuardianPhone(p.phone || '');
                         }
-                    } catch (err) {
-                        console.error("Error fetching guardian info:", err);
                     }
-                } else {
-                    // Mock Mode Lookup
-                    const parent = mockParents.find(p => p.childIds?.includes(studentToEdit.id));
-                    if (parent) {
-                        setGuardianName(parent.name);
-                        setGuardianEmail(parent.email);
-                        setGuardianPhone(parent.phone);
-                    }
+                } catch (err) {
+                    console.error("Error fetching guardian info:", err);
                 }
             };
 
@@ -175,90 +164,6 @@ parents(
             // If creating, Teachers -> Pending, Admins -> Active
             const initialStatus = (isTeacher ? 'Pending' : 'Active') as 'Pending' | 'Active';
             const branchId = currentBranchId || profile.branchId || null;
-
-            // MOCK MODE HANDLING
-            if (!isSupabaseConfigured) {
-                if (studentToEdit) {
-                    // Update existing mock student
-                    const index = mockStudents.findIndex(s => s.id === studentToEdit.id);
-                    if (index !== -1) {
-                        mockStudents[index] = {
-                            ...mockStudents[index],
-                            name: fullName,
-                            grade,
-                            section,
-                            department: department || undefined,
-                            birthday: birthday || undefined,
-                            avatarUrl: avatarUrl
-                        };
-                    }
-                    toast.success('Student updated successfully (Mock Mode - Session Only)');
-                } else {
-                    // Create new mock student
-                    const newId = mockStudents.length > 0 ? Math.max(...mockStudents.map(s => parseInt(s.id))) + 1 : 1;
-                    const newStudent = {
-                        id: newId.toString(), // Convert to string
-                        name: fullName,
-                        email: generatedEmail,
-                        avatarUrl: avatarUrl,
-                        grade: grade,
-                        section: section,
-                        department: department || undefined,
-                        attendanceStatus: 'Present' as const,
-                        birthday: birthday || undefined,
-                        academicPerformance: [], // Empty for now
-                        behaviorNotes: [],
-                        status: initialStatus
-                    };
-                    mockStudents.push(newStudent);
-
-                    let successMessage = `Student account created for ${fullName}.\nCredentials: ${generatedEmail.split('@')[0]} / password123\n\n`;
-                    if (isTeacher) successMessage += " (Pending Approval)";
-
-                    // Handle Guardian in Mock Mode
-                    if (gEmail && gName) {
-                        const existingParent = mockParents.find(p => p.email === gEmail);
-                        if (existingParent) {
-                            // Link to existing parent
-                            if (!existingParent.childIds) existingParent.childIds = [];
-                            if (!existingParent.childIds.includes(newId.toString())) {
-                                existingParent.childIds.push(newId.toString());
-                            }
-                            successMessage += `Linked to existing guardian: ${existingParent.name}.\nNotification sent to ${gEmail}.`;
-                        } else {
-                            // Create new parent
-                            const newParentId = mockParents.length > 0 ? Math.max(...mockParents.map(p => parseInt(p.id))) + 1 : 1;
-                            mockParents.push({
-                                id: newParentId.toString(), // Convert to string
-                                name: gName,
-                                email: gEmail,
-                                phone: guardianPhone,
-                                avatarUrl: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                childIds: [newId.toString()] // Convert to string
-                            });
-                            successMessage += `New Guardian account created for ${gName}.\nCredentials sent to ${gEmail}.`;
-                        }
-                    } else {
-                        successMessage += "No guardian linked.";
-                    }
-
-                    toast.success(successMessage);
-
-                    // Simulate credentials generation for display
-                    setCredentials({
-                        username: generatedEmail.split('@')[0],
-                        password: 'password123',
-                        email: generatedEmail
-                    });
-                    // We show the modal for the Student's credentials
-                    setShowCredentialsModal(true);
-                    setIsLoading(false);
-                    return; // Don't close immediately, wait for modal
-                }
-                forceUpdate();
-                handleBack();
-                return;
-            }
 
             if (studentToEdit) {
                 // UPDATE MODE - Update existing student in Supabase

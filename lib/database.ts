@@ -66,7 +66,7 @@ export async function fetchStudentById(id: string | number): Promise<Student | n
     try {
         const { data, error } = await supabase
             .from('students')
-            .select('*')
+            .select('id, school_id, school_generated_id, name, avatar_url, grade, section, department, attendance_status, birthday, email')
             .eq('id', id)
             .single();
 
@@ -98,7 +98,7 @@ export async function fetchStudentByEmail(email: string): Promise<Student | null
         // but assuming they do based on Login auth.
         const { data, error } = await supabase
             .from('students')
-            .select('*')
+            .select('id, school_id, school_generated_id, name, avatar_url, grade, section, department, attendance_status, birthday, email')
             .eq('email', email)
             .single();
 
@@ -128,7 +128,7 @@ export async function fetchStudentsByClass(grade: number | string, section: stri
     try {
         const { data, error } = await supabase
             .from('students')
-            .select('*')
+            .select('id, school_id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday')
             .eq('grade', grade)
             .eq('section', section)
             .order('name', { ascending: true });
@@ -280,7 +280,7 @@ export async function fetchTeachers(schoolId?: string, branchId?: string): Promi
         let query = supabase
             .from('teachers')
             .select(`
-                *,
+                id, school_id, school_generated_id, name, avatar_url, email, phone, status,
                 teacher_subjects(subject),
                 teacher_classes(class_name)
             `);
@@ -318,7 +318,7 @@ export async function fetchTeacherById(id: string | number): Promise<Teacher | n
         const { data, error } = await supabase
             .from('teachers')
             .select(`
-        *,
+        id, school_id, school_generated_id, name, avatar_url, email, phone, status,
         teacher_subjects(subject),
         teacher_classes(class_name)
       `)
@@ -836,7 +836,7 @@ export async function fetchNotices(schoolId?: string): Promise<Notice[]> {
     try {
         let query = supabase
             .from('notices')
-            .select('*');
+            .select('id, title, content, timestamp, category, is_pinned, audience');
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
@@ -997,7 +997,7 @@ export async function fetchClasses(schoolId?: string): Promise<ClassInfo[]> {
     try {
         let query = supabase
             .from('classes')
-            .select('*');
+            .select('id, subject, grade, section, department, student_count');
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
@@ -1031,7 +1031,7 @@ export async function fetchAssignments(): Promise<Assignment[]> {
     try {
         const { data, error } = await supabase
             .from('assignments')
-            .select('*')
+            .select('id, title, description, class_name, subject, due_date, total_students, submissions_count')
             .order('due_date', { ascending: true });
 
         if (error) throw error;

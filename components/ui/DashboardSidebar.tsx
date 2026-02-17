@@ -1,5 +1,5 @@
 import React from 'react';
-import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon } from '../../constants';
+import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon } from '../../constants';
 
 interface SidebarItemProps {
     icon: React.ReactElement<{ className?: string }>;
@@ -91,6 +91,7 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
             <nav className="flex-1 py-6 overflow-y-auto">
                 <div className="space-y-1">
                     <SidebarItem id="home" icon={<HomeIcon />} label="Home" isActive={activeScreen === 'home'} onClick={() => setActiveScreen('home')} activeColor="text-indigo-600" />
+                    <SidebarItem id="branches" icon={<BuildingLibraryIcon />} label="Branches" isActive={activeScreen === 'branches'} onClick={() => setActiveScreen('branches')} activeColor="text-indigo-600" />
                     <SidebarItem id="studentApprovals" icon={<CheckCircleIcon />} label="Approvals" isActive={activeScreen === 'studentApprovals'} onClick={() => setActiveScreen('studentApprovals')} activeColor="text-indigo-600" />
                     <SidebarItem id="feeManagement" icon={<DocumentTextIcon />} label="Fee Management" isActive={activeScreen === 'feeManagement'} onClick={() => setActiveScreen('feeManagement')} activeColor="text-indigo-600" />
                     <SidebarItem id="messages" icon={<MessagesIcon />} label="Messages" isActive={activeScreen === 'messages'} onClick={() => setActiveScreen('messages')} activeColor="text-indigo-600" />

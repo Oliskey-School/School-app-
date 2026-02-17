@@ -2,8 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
-import { mockStudents, mockFees } from '../../data';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
+import { fetchStudentById, fetchStudentFeeSummary } from '../../lib/database';
 
 interface Notification {
   id: string;
@@ -146,12 +146,16 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
     if (userType === 'parent') {
       switch (notification.category) {
         case 'Fees':
-          const feeStudentInfo = mockFees.find(f => f.id === notification.student_id);
-          navigateTo('feeStatus', 'Fee Status', feeStudentInfo ? { student: feeStudentInfo } : {});
+          if (notification.student_id) {
+            const feeSummary = await fetchStudentFeeSummary(notification.student_id);
+            navigateTo('feeStatus', 'Fee Status', { student: { id: notification.student_id, ...feeSummary } });
+          }
           break;
         case 'Attendance':
-          const student = mockStudents.find(s => s.id === notification.student_id);
-          if (student) navigateTo('childDetail', student.name, { student, initialTab: 'attendance' });
+          if (notification.student_id) {
+            const studentData = await fetchStudentById(notification.student_id);
+            if (studentData) navigateTo('childDetail', studentData.name, { student: studentData, initialTab: 'attendance' });
+          }
           break;
         case 'Event':
           navigateTo('calendar', 'School Calendar', {});

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { Fee } from '../../types';
-import { mockFees } from '../../data';
 
 export interface UseFeesResult {
     fees: Fee[];
@@ -19,12 +18,6 @@ export function useFees(filters?: { studentId?: string | number; status?: string
     const [error, setError] = useState<Error | null>(null);
 
     const fetchFees = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            setFees(mockFees);
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             let query = supabase.from('student_fees').select('*');
@@ -47,7 +40,7 @@ export function useFees(filters?: { studentId?: string | number; status?: string
         } catch (err) {
             console.error('Error fetching fees:', err);
             setError(err as Error);
-            setFees(mockFees);
+            setFees([]);
         } finally {
             setLoading(false);
         }
@@ -55,8 +48,6 @@ export function useFees(filters?: { studentId?: string | number; status?: string
 
     useEffect(() => {
         fetchFees();
-
-        if (!isSupabaseConfigured) return;
 
         const channel = supabase
             .channel('student-fees-changes')
@@ -76,11 +67,6 @@ export function useFees(filters?: { studentId?: string | number; status?: string
     }, [fetchFees]);
 
     const createFee = async (feeData: Partial<Fee>): Promise<Fee | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create fee');
-            return null;
-        }
-
         try {
             const { data, error: insertError } = await supabase
                 .from('student_fees')
@@ -106,11 +92,6 @@ export function useFees(filters?: { studentId?: string | number; status?: string
     };
 
     const updateFee = async (id: string | number, updates: Partial<Fee>): Promise<Fee | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update fee');
-            return null;
-        }
-
         try {
             const { data, error: updateError } = await supabase
                 .from('student_fees')
@@ -137,11 +118,6 @@ export function useFees(filters?: { studentId?: string | number; status?: string
     };
 
     const deleteFee = async (id: string | number): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete fee');
-            return false;
-        }
-
         try {
             const { error: deleteError } = await supabase
                 .from('student_fees')
@@ -153,11 +129,10 @@ export function useFees(filters?: { studentId?: string | number; status?: string
             return true;
         } catch (err) {
             console.error('Error deleting fee:', err);
-setError(err as Error);
+            setError(err as Error);
             return false;
         }
     };
-
     return {
         fees,
         loading,

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { ChatMessage } from '../../types';
-import { mockConversations } from '../../data';
 
 export interface UseMessagesResult {
     messages: ChatMessage[];
@@ -17,10 +16,8 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
     const [error, setError] = useState<Error | null>(null);
 
     const fetchMessages = useCallback(async () => {
-        if (!isSupabaseConfigured || !conversationId) {
-            // Find mock messages for the room
-            const conversation = mockConversations.find(c => c.id.toString() === conversationId.toString());
-            setMessages(conversation?.lastMessage ? [conversation.lastMessage] : []);
+        if (!conversationId) {
+            setMessages([]);
             setLoading(false);
             return;
         }
@@ -42,6 +39,7 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
         } catch (err) {
             console.error('Error fetching messages:', err);
             setError(err as Error);
+            setMessages([]);
         } finally {
             setLoading(false);
         }
@@ -50,7 +48,7 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
     useEffect(() => {
         fetchMessages();
 
-        if (!isSupabaseConfigured || !conversationId) return;
+        if (!conversationId) return;
 
         const channel = supabase
             .channel(`messages-room-${conversationId}`)
@@ -70,11 +68,6 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
     }, [fetchMessages, conversationId]);
 
     const sendMessage = async (messageData: Partial<ChatMessage>): Promise<ChatMessage | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot send message');
-            return null;
-        }
-
         try {
             const { data, error: insertError } = await supabase
                 .from('messages')

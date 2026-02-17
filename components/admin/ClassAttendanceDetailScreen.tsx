@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+
+import React, { useMemo, useState, useEffect } from 'react';
 import { Student, ClassInfo, AttendanceStatus } from '../../types';
-import { mockStudents } from '../../data';
+import { fetchStudentsByClass } from '../../lib/database';
 import DonutChart from '../ui/DonutChart';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ExclamationCircleIcon } from '../../constants';
 
@@ -13,7 +14,7 @@ const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ sta
         Present: { icon: <CheckCircleIcon className="w-5 h-5 text-green-500" />, text: 'text-green-700' },
         Absent: { icon: <XCircleIcon className="w-5 h-5 text-red-500" />, text: 'text-red-700' },
         Late: { icon: <ClockIcon className="w-5 h-5 text-blue-500" />, text: 'text-blue-700' },
-        Leave: { icon: <ExclamationCircleIcon className="w-5 h-5 text-amber-500" />, text: 'text-amber-700' },
+        Leave: { icon: <ExclamationCircleIcon className="w-5 h-5 text-orange-500" />, text: 'text-orange-700' },
     };
     const { icon, text } = styles[status] || styles['Leave'];
     return (
@@ -25,9 +26,23 @@ const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ sta
 };
 
 const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = ({ classInfo }) => {
-    const studentsInClass = useMemo(() => {
-        return mockStudents.filter(s => s.grade === classInfo.grade && s.section === classInfo.section);
-    }, [classInfo]);
+    const [studentsInClass, setStudentsInClass] = useState<Student[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadStudents = async () => {
+            setLoading(true);
+            try {
+                const data = await fetchStudentsByClass(classInfo.grade, classInfo.section);
+                setStudentsInClass(data);
+            } catch (err) {
+                console.error("Error loading class students:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadStudents();
+    }, [classInfo.grade, classInfo.section]);
 
     const attendanceSummary = useMemo(() => {
         const total = studentsInClass.length;
@@ -41,6 +56,8 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
 
         return { total, present, absent, late, presentPercentage };
     }, [studentsInClass]);
+
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading attendance...</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-100">
@@ -71,7 +88,7 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
                                 <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
                                 <div>
                                     <p className="font-bold text-gray-800">{student.name}</p>
-                                    <p className="text-sm text-gray-500">Student ID: SCH-0{student.id}</p>
+                                    <p className="text-sm text-gray-500">ID: {student.schoolGeneratedId || student.id}</p>
                                 </div>
                             </div>
                             <AttendanceStatusIndicator status={student.attendanceStatus} />

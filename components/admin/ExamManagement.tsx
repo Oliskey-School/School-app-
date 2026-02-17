@@ -1,9 +1,12 @@
+
 import { toast } from 'react-hot-toast';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PlusIcon, EditIcon, TrashIcon, PublishIcon, EXAM_TYPE_COLORS } from '../../constants';
-import { Exam } from '../../types';
-import { mockExamsData, mockTeachers } from '../../data';
+import { Exam, Teacher } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { fetchExams, fetchTeachers } from '../../lib/database';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { useAuth } from '../../context/AuthContext';
 
 interface ExamManagementProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -12,40 +15,84 @@ interface ExamManagementProps {
 }
 
 const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate, handleBack }) => {
+    const { currentSchool } = useAuth();
+    const [exams, setExams] = useState<Exam[]>([]);
+    const [teachers, setTeachers] = useState<Teacher[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>('all');
     const [selectedCurriculum, setSelectedCurriculum] = useState<string>('all');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [examToDelete, setExamToDelete] = useState<string | null>(null);
 
+    useEffect(() => {
+        loadData();
+        
+        const examsChannel = supabase.channel('exams-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, () => {
+                loadData();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(examsChannel);
+        };
+    }, [currentSchool?.id]);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [examsData, teachersData] = await Promise.all([
+                fetchExams(),
+                currentSchool?.id ? fetchTeachers(currentSchool.id) : Promise.resolve([])
+            ]);
+            setExams(examsData);
+            setTeachers(teachersData);
+        } catch (err) {
+            console.error('Error loading exam management data:', err);
+            toast.error('Failed to load exams');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const filteredExams = useMemo(() => {
-        let exams = [...mockExamsData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        let filtered = [...exams].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         if (selectedTeacherId !== 'all') {
-            exams = exams.filter(exam => exam.teacherId === selectedTeacherId);
+            filtered = filtered.filter(exam => exam.teacherId === selectedTeacherId);
         }
 
         if (selectedCurriculum !== 'all') {
-            // Strict Track Separation: Mapping specific exam types to curricula
-            exams = exams.filter(exam => {
+            filtered = filtered.filter(exam => {
                 if (selectedCurriculum === 'Nigerian') return ['WAEC', 'NECO', 'MOCK-NGN'].includes(exam.type);
                 if (selectedCurriculum === 'British') return ['IGCSE', 'CHECKPOINT', 'MOCK-BRI'].includes(exam.type);
                 return true;
             });
         }
 
-        return exams;
-    }, [selectedTeacherId, selectedCurriculum, mockExamsData]);
+        return filtered;
+    }, [selectedTeacherId, selectedCurriculum, exams]);
 
     const handleEdit = (exam: Exam) => {
         navigateTo('addExam', 'Edit Exam', {
             examToEdit: exam,
-            onSave: (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
-                const index = mockExamsData.findIndex(e => e.id === exam.id);
-                if (index > -1) {
-                    mockExamsData[index] = { ...mockExamsData[index], ...examData };
-                    forceUpdate();
-                    handleBack();
+            onSave: async (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
+                const { error } = await supabase
+                    .from('exams')
+                    .update({
+                        type: examData.type,
+                        date: examData.date,
+                        class_name: examData.className,
+                        subject: examData.subject
+                    })
+                    .eq('id', exam.id);
+
+                if (error) {
+                    toast.error('Failed to update exam');
+                } else {
                     toast.success('Exam updated successfully');
+                    loadData();
+                    handleBack();
                 }
             }
         });
@@ -56,42 +103,64 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
         setShowDeleteModal(true);
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (examToDelete === null) return;
 
-        const index = mockExamsData.findIndex(e => e.id === examToDelete);
-        if (index > -1) {
-            mockExamsData.splice(index, 1);
-            forceUpdate();
-            toast.success('Exam deleted successfully');
-        } else {
+        const { error } = await supabase
+            .from('exams')
+            .delete()
+            .eq('id', examToDelete);
+
+        if (error) {
             toast.error('Failed to delete exam');
+        } else {
+            toast.success('Exam deleted successfully');
+            loadData();
         }
         setShowDeleteModal(false);
         setExamToDelete(null);
     };
 
-    const handlePublish = (examId: string) => {
-        const index = mockExamsData.findIndex(e => e.id === examId);
-        if (index > -1) {
-            mockExamsData[index].isPublished = true;
-            forceUpdate();
+    const handlePublish = async (examId: string) => {
+        const { error } = await supabase
+            .from('exams')
+            .update({ is_published: true })
+            .eq('id', examId);
+
+        if (error) {
+            toast.error('Failed to publish exam');
+        } else {
             toast.success('Exam published successfully');
+            loadData();
         }
     };
 
     const handleAddNew = () => {
         navigateTo('addExam', 'Add New Exam', {
-            onSave: (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
-                const newId = Math.random().toString(36).substring(2);
-                const teacherId = selectedTeacherId === 'all' ? undefined : selectedTeacherId;
-                mockExamsData.unshift({ id: newId, ...examData, isPublished: false, teacherId });
-                forceUpdate();
-                handleBack();
-                toast.success('Exam created successfully');
+            onSave: async (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
+                const { error } = await supabase
+                    .from('exams')
+                    .insert([{
+                        ...examData,
+                        class_name: examData.className, // database uses snake_case
+                        is_published: false,
+                        school_id: currentSchool?.id
+                    }]);
+
+                if (error) {
+                    toast.error('Failed to create exam');
+                } else {
+                    toast.success('Exam created successfully');
+                    loadData();
+                    handleBack();
+                }
             }
         });
     };
+
+    if (loading && exams.length === 0) {
+        return <div className="p-8 text-center text-gray-500">Loading exams...</div>;
+    }
 
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">
@@ -105,7 +174,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                         className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500"
                     >
                         <option value="all">All Teachers</option>
-                        {mockTeachers.map(teacher => (
+                        {teachers.map(teacher => (
                             <option key={teacher.id} value={teacher.id.toString()}>{teacher.name}</option>
                         ))}
                     </select>
@@ -126,7 +195,6 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
             </div>
 
             <main className="flex-grow p-4 space-y-3 overflow-y-auto pb-20">
-                {/* For smaller screens: Card view */}
                 <div className="space-y-3">
                     {filteredExams.map(exam => (
                         <div key={exam.id} className="bg-white rounded-xl shadow-sm p-4 space-y-3">
@@ -157,7 +225,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                     ))}
                 </div>
 
-                {filteredExams.length === 0 && <p className="text-center text-gray-500 py-8">No exams found for this filter.</p>}
+                {filteredExams.length === 0 && !loading && <p className="text-center text-gray-500 py-8">No exams found for this filter.</p>}
             </main>
 
             <div className="absolute bottom-6 right-6">

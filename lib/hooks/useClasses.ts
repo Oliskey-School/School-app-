@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { ClassInfo } from '../../types';
-import { mockClasses } from '../../data';
 
 export interface UseClassesResult {
     classes: ClassInfo[];
@@ -19,12 +18,6 @@ export function useClasses(schoolId?: string): UseClassesResult {
     const [error, setError] = useState<Error | null>(null);
 
     const fetchClasses = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            setClasses(mockClasses);
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             let query = supabase
@@ -49,16 +42,14 @@ export function useClasses(schoolId?: string): UseClassesResult {
         } catch (err) {
             console.error('Error fetching classes:', err);
             setError(err as Error);
-            setClasses(mockClasses);
+            setClasses([]);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [schoolId]);
 
     useEffect(() => {
         fetchClasses();
-
-        if (!isSupabaseConfigured) return;
 
         const channel = supabase
             .channel('classes-changes')

@@ -39,7 +39,7 @@ const SettingsPlaceholder: React.FC = () => (
 
 const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo }) => {
     const { profile } = useProfile();
-    const { customId, copyToClipboard, copied } = useUserIdentity();
+    const { customId, copyToClipboard, copied, formatId } = useUserIdentity();
     const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
     const settingsItems = [
@@ -83,28 +83,40 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                         <img
                             src={profile.avatarUrl || 'https://i.pravatar.cc/150?u=admin'}
                             alt={profile.name}
-                            className="w-24 h-24 rounded-full border-4 border-white shadow-md flex-shrink-0 object-cover bg-gray-200"
+                            className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square bg-gray-200"
                         />
                         <h3 className="text-2xl font-bold text-gray-800">{profile.name}</h3>
-                        <span className="bg-sky-100 text-sky-800 text-xs font-semibold px-3 py-1 rounded-full">{profile.role || 'Administrator'}</span>
+                        <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full mb-2 capitalize">
+                            {profile.role === 'admin' ? 'Administrator' : (profile.role || 'Administrator')}
+                        </span>
 
-                        {/* Custom ID Display */}
-                        {customId && (
-                            <div
-                                onClick={() => copyToClipboard(customId)}
-                                className="mt-2 flex items-center space-x-2 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors group"
-                                title="Click to copy ID"
-                            >
-                                <span className="font-mono text-sm font-semibold text-gray-600 tracking-wider">
-                                    {customId}
-                                </span>
-                                {copied ? (
-                                    <span className="text-green-500 text-xs font-bold animate-pulse">Copied!</span>
-                                ) : (
-                                    <CopyIcon className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600" />
-                                )}
+                        {/* ID Display */}
+                        <div
+                            className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition-colors"
+                            onClick={() => copyToClipboard(formatId(customId || (profile as any).schoolGeneratedId))}
+                        >
+                            <span className="text-xs text-gray-600 font-mono font-medium">
+                                {formatId(customId || (profile as any).schoolGeneratedId) || 'ID: Loading...'}
+                            </span>
+                            <CopyIcon className="w-3 h-3 text-gray-400" />
+                            {copied && <span className="text-xs text-green-600 font-medium ml-1">Copied!</span>}
+                        </div>
+
+                        {/* Stats Row */}
+                        <div className="flex w-full justify-around mt-4 pt-4 border-t border-gray-100">
+                            <div className="text-center">
+                                <p className="text-xs text-gray-500 font-medium">Staff</p>
+                                <p className="text-lg font-bold text-gray-800">-</p>
                             </div>
-                        )}
+                            <div className="text-center">
+                                <p className="text-xs text-gray-500 font-medium">Students</p>
+                                <p className="text-lg font-bold text-gray-800">-</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-xs text-gray-500 font-medium">Status</p>
+                                <p className="text-lg font-bold text-green-600">Active</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm p-2">

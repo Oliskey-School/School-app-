@@ -43,19 +43,23 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
         leave: 0,
     });
 
-    const averageScore = student.academicPerformance && student.academicPerformance.length > 0
-        ? Math.round(student.academicPerformance.reduce((sum, record) => sum + record.score, 0) / student.academicPerformance.length)
+    const [performance, setPerformance] = useState<any[]>([]);
+    const [behaviorNotes, setBehaviorNotes] = useState<any[]>([]);
+
+    const averageScore = performance && performance.length > 0
+        ? Math.round(performance.reduce((sum, record) => sum + record.score, 0) / performance.length)
         : 0;
 
     useEffect(() => {
-        const fetchAttendance = async () => {
+        const loadFullData = async () => {
+            setLoading(true);
             try {
-                const { data: attendanceRecords, error } = await supabase
+                const { data: attendanceRecords, error: attError } = await supabase
                     .from('student_attendance')
                     .select('status')
                     .eq('student_id', student.id);
 
-                if (error) throw error;
+                if (attError) throw attError;
 
                 if (attendanceRecords) {
                     const counts = { present: 0, absent: 0, late: 0, leave: 0 };
@@ -68,22 +72,32 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                     });
                     setAttendanceData(counts);
                 }
+
+                // Fetch Performance & Notes
+                const { fetchAcademicPerformance, fetchBehaviorNotes } = await import('../../lib/database');
+                const [perf, notes] = await Promise.all([
+                    fetchAcademicPerformance(student.id),
+                    fetchBehaviorNotes(student.id)
+                ]);
+                setPerformance(perf);
+                setBehaviorNotes(notes);
+
             } catch (err) {
-                console.error('Error fetching attendance:', err);
+                console.error('Error fetching student details:', err);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchAttendance();
+        loadFullData();
     }, [student.id]);
 
     const handleGenerateSummary = async () => {
         setIsGeneratingSummary(true);
         try {
             const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
-            const academicStr = student.academicPerformance?.map(p => `${p.subject}: ${p.score}%`).join(', ') || 'No data';
-            const behaviorStr = student.behaviorNotes?.map(n => n.note).join('; ') || 'No notes';
+            const academicStr = performance?.map(p => `${p.subject}: ${p.score}%`).join(', ') || 'No data';
+            const behaviorStr = behaviorNotes?.map(n => n.note).join('; ') || 'No notes';
 
             const prompt = `Analyze this student's data and provide a concise summary for school administrators:
             Name: ${student.name}
@@ -162,8 +176,8 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 
                             {/* Detailed Subject Breakdown */}
                             <div className="mt-8 space-y-4">
-                                {student.academicPerformance && student.academicPerformance.length > 0 ? (
-                                    student.academicPerformance.map((p, idx) => (
+                                {performance && performance.length > 0 ? (
+                                    performance.map((p, idx) => (
                                         <div key={idx} className="flex items-center gap-4">
                                             <div className="w-24 text-sm font-bold text-gray-500 truncate">{p.subject}</div>
                                             <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -269,8 +283,8 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                             </div>
 
                             <div className="space-y-4">
-                                {student.behaviorNotes && student.behaviorNotes.length > 0 ? (
-                                    student.behaviorNotes.map((note, idx) => (
+                                {behaviorNotes && behaviorNotes.length > 0 ? (
+                                    behaviorNotes.map((note, idx) => (
                                         <div key={idx} className="bg-[#F8F9FF] p-4 rounded-xl border border-[#FAFAFF]">
                                             <p className="text-sm text-gray-700 leading-relaxed font-medium">{note.note}</p>
                                             {(note.by || note.date) && (

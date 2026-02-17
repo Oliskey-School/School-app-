@@ -118,7 +118,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
                 onClick={() => copyToClipboard(customId)}
               >
                 <span className="text-xs font-mono font-medium">
-                  {formatId(customId) || profile.schoolId || 'ID: --'}
+                  {profile.schoolGeneratedId || profile.schoolId || formatId(customId) || 'ID: Pending'}
                 </span>
                 <Copy className="w-3 h-3 text-gray-400" />
                 {copied && <span className="text-xs text-green-600 font-bold ml-1">✓</span>}

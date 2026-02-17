@@ -131,7 +131,8 @@ class HybridApiClient {
                 teacherTrend: data.teacherTrend || 0,
                 totalParents: data.totalParents || 0,
                 parentTrend: data.parentTrend || 0,
-                overdueFees: data.overdueFees || 0
+                overdueFees: data.overdueFees || 0,
+                unpublishedReports: data.unpublishedReports || 0
             };
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);

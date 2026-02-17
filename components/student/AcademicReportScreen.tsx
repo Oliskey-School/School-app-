@@ -1,7 +1,6 @@
-
-import React, { useMemo } from 'react';
-import { Student } from '../../types';
-import { mockStudents } from '../../data';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Student, AcademicRecord, BehaviorNote } from '../../types';
+import { fetchStudentById, fetchAcademicPerformance, fetchBehaviorNotes } from '../../lib/database';
 import { BookOpenIcon, ClipboardListIcon, TrendingUpIcon, SUBJECT_COLORS } from '../../constants';
 
 // Line Chart for Performance Trend
@@ -62,41 +61,69 @@ interface AcademicReportScreenProps {
 }
 
 const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }) => {
-    const student = useMemo(() => mockStudents.find(s => s.id.toString() === studentId.toString()), [studentId]);
+    const [student, setStudent] = useState<Student | null>(null);
+    const [performance, setPerformance] = useState<AcademicRecord[]>([]);
+    const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const [s, p, b] = await Promise.all([
+                    fetchStudentById(studentId),
+                    fetchAcademicPerformance(studentId),
+                    fetchBehaviorNotes(studentId)
+                ]);
+                setStudent(s);
+                setPerformance(p);
+                setBehaviorNotes(b);
+            } catch (err) {
+                console.error("Error loading academic report:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, [studentId]);
 
     const performanceByTerm = useMemo(() => {
-        if (!student?.academicPerformance) return [];
+        if (!performance || performance.length === 0) return [];
         const terms: { [key: string]: number[] } = {};
-        student.academicPerformance.forEach(rec => {
+        performance.forEach(rec => {
             if (!terms[rec.term]) terms[rec.term] = [];
             terms[rec.term].push(rec.score);
         });
         return Object.entries(terms).map(([term, scores]) => ({
             term,
             average: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-        })).sort((a,b) => parseInt(a.term.split(' ')[1]) - parseInt(b.term.split(' ')[1]));
-    }, [student]);
+        })).sort((a, b) => {
+            const termA = a.term.match(/\d+/) ? parseInt(a.term.match(/\d+/)![0]) : 0;
+            const termB = b.term.match(/\d+/) ? parseInt(b.term.match(/\d+/)![0]) : 0;
+            return termA - termB;
+        });
+    }, [performance]);
 
     const latestTermRecords = useMemo(() => {
-        if (!student?.academicPerformance) return [];
+        if (!performance || performance.length === 0) return [];
         const latestTerm = performanceByTerm[performanceByTerm.length - 1]?.term;
-        return student.academicPerformance.filter(r => r.term === latestTerm);
-    }, [student, performanceByTerm]);
+        return performance.filter(r => r.term === latestTerm);
+    }, [performance, performanceByTerm]);
 
-
-    if (!student) return <div>Student not found.</div>;
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading report...</div>;
+    if (!student) return <div className="p-8 text-center text-gray-500">Student not found.</div>;
 
     return (
         <div className="p-4 space-y-4 bg-gray-50">
             {/* Student Header */}
             <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
-                <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-orange-100"/>
+                <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-orange-100" />
                 <div>
                     <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
                     <p className="text-gray-500 font-medium">Grade {student.grade}{student.section}</p>
                 </div>
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Performance Trend */}
                 <div className="bg-white p-4 rounded-xl shadow-sm">
@@ -104,16 +131,24 @@ const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }
                         <TrendingUpIcon className="h-5 w-5 text-orange-600" />
                         <h4 className="font-bold text-gray-800">Performance Trend</h4>
                     </div>
-                    <PerformanceTrendChart data={performanceByTerm} />
+                    {performanceByTerm.length > 0 ? (
+                        <PerformanceTrendChart data={performanceByTerm} />
+                    ) : (
+                        <p className="text-center py-10 text-gray-400 text-sm italic">No performance data available yet.</p>
+                    )}
                 </div>
 
                 {/* Subject Breakdown */}
                 <div className="bg-white p-4 rounded-xl shadow-sm">
                     <div className="flex items-center space-x-2 mb-2">
                         <BookOpenIcon className="h-5 w-5 text-orange-600" />
-                        <h4 className="font-bold text-gray-800">Breakdown ({performanceByTerm.slice(-1)[0]?.term})</h4>
+                        <h4 className="font-bold text-gray-800">Breakdown ({performanceByTerm.slice(-1)[0]?.term || 'N/A'})</h4>
                     </div>
-                    <SubjectScoresChart data={latestTermRecords} />
+                    {latestTermRecords.length > 0 ? (
+                        <SubjectScoresChart data={latestTermRecords} />
+                    ) : (
+                        <p className="text-center py-10 text-gray-400 text-sm italic">No records for the latest term.</p>
+                    )}
                 </div>
             </div>
 
@@ -124,19 +159,19 @@ const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }
                     <h4 className="font-bold text-gray-800">Teacher's Remarks</h4>
                 </div>
                 <div className="space-y-3">
-                    {(student.academicPerformance || []).filter(r => r.teacherRemark).map(record => (
-                         <div key={record.subject} className="bg-orange-50 p-3 rounded-lg">
+                    {performance.filter(r => r.teacherRemark).map((record, idx) => (
+                        <div key={idx} className="bg-orange-50 p-3 rounded-lg">
                             <p className="font-semibold text-orange-800">{record.subject}</p>
                             <p className="text-sm text-gray-700 italic">"{record.teacherRemark}"</p>
-                         </div>
+                        </div>
                     ))}
-                    {(student.behaviorNotes && student.behaviorNotes.length > 0) ? student.behaviorNotes.map(note => (
-                         <div key={note.id} className="bg-orange-50 p-3 rounded-lg">
+                    {(behaviorNotes && behaviorNotes.length > 0) ? behaviorNotes.map(note => (
+                        <div key={note.id} className="bg-orange-50 p-3 rounded-lg">
                             <p className="font-semibold text-orange-800">{note.title} ({note.type})</p>
                             <p className="text-sm text-gray-700">{note.note}</p>
                             <p className="text-xs text-gray-500 text-right mt-1">- {note.by} on {new Date(note.date).toLocaleDateString()}</p>
-                         </div>
-                    )) : <p className="text-sm text-gray-400 text-center py-4">No remarks recorded.</p>}
+                        </div>
+                    )) : performance.every(r => !r.teacherRemark) && <p className="text-sm text-gray-400 text-center py-4">No remarks recorded.</p>}
                 </div>
             </div>
         </div>

@@ -78,6 +78,8 @@ class RealtimeService {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'grades', filter: filter }, (p) => this.handleDataUpdate('grades', p))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees', filter: filter }, (p) => this.handleDataUpdate('student_fees' as any, p))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable', filter: filter }, (p) => this.handleDataUpdate('timetable' as any, p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'report_cards', filter: filter }, (p) => this.handleDataUpdate('report_cards' as any, p))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'report_card_records', filter: filter }, (p) => this.handleDataUpdate('report_card_records' as any, p))
 
             // Notifications - FIXED: Now listening to all events (*) including UPDATE (marking as read)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: filter }, (p) => {

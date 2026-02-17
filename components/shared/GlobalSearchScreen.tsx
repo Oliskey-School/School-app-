@@ -14,6 +14,7 @@ import {
     BookOpenIcon,
     BuildingLibraryIcon
 } from '../../constants';
+import { deduplicateClasses } from '../../utils/classUtils';
 
 interface SearchResult {
     id: number | string;
@@ -116,8 +117,11 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
                 });
             });
 
+            // Deduplicate Classes
+            const uniqueClasses = deduplicateClasses(classes || []);
+
             // Map Classes
-            classes?.forEach(c => {
+            uniqueClasses.forEach(c => {
                 newResults.push({
                     id: c.id,
                     title: c.name,

@@ -79,11 +79,11 @@ const StatCard: React.FC<{
 
 
 const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, icon, onClick, color }) => (
-    <button onClick={onClick} className="bg-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center hover:bg-gray-50 hover:shadow-md hover:ring-2 hover:ring-indigo-200 transition-all duration-200 group">
-        <div className={`p-4 rounded-full ${color} group-hover:scale-110 transition-transform duration-200`}>
-            {React.cloneElement(icon, { className: "h-8 w-8 text-white" })}
+    <button onClick={onClick} className="bg-white p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center hover:bg-gray-50 hover:shadow-md hover:ring-2 hover:ring-indigo-200 transition-all duration-200 group h-full">
+        <div className={`p-3 sm:p-4 rounded-full ${color} group-hover:scale-110 transition-transform duration-200 flex-shrink-0`}>
+            {React.cloneElement(icon, { className: "h-6 w-6 sm:h-8 sm:w-8 text-white" })}
         </div>
-        <p className="font-bold text-gray-700 mt-3 text-sm leading-tight">{label}</p>
+        <p className="font-bold text-gray-700 mt-2 sm:mt-3 text-xs sm:text-sm leading-tight line-clamp-2 md:line-clamp-none">{label}</p>
     </button>
 );
 
@@ -393,6 +393,16 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
     });
 
+    // 5. Report Cards (New)
+    useRealtimeSubscription({
+        table: 'report_cards',
+        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
+        callback: () => {
+            console.log('Real-time update: Report Cards');
+            fetchDashboardData();
+        }
+    });
+
     const fetchBusRoster = async () => {
         if (isSupabaseConfigured) {
             const { data, error } = await supabase
@@ -444,6 +454,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             setTotalParents(stats.totalParents);
             setParentTrend(stats.parentTrend || 0);
             setOverdueFees(stats.overdueFees);
+            setUnpublishedReports(stats.unpublishedReports || 0);
         }
 
         try {
@@ -557,7 +568,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     <div>
                         <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Quick Actions</h2>
                         {/* Mobile/Tablet view */}
-                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3">
+                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
                             <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-sky-500" />
                             <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                             <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />

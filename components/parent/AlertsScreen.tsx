@@ -1,8 +1,8 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { mockNotifications } from '../../data';
-import { mockStudents, mockFees } from '../../data';
+import { supabase } from '../../lib/supabase';
+import { useProfile } from '../../context/ProfileContext';
+import { fetchStudentById, fetchStudentFeeSummary } from '../../lib/database';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
 import { Notification } from '../../types';
 
@@ -26,26 +26,78 @@ interface AlertsScreenProps {
 }
 
 const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
+  const { profile } = useProfile();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleNotificationClick = (notification: Notification) => {
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!profile?.id) return;
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .or(`user_id.eq.${profile.id},audience.cs.{parent},audience.cs.{all}`)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        setNotifications((data || []).map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          summary: n.message,
+          category: n.category || 'System',
+          timestamp: n.created_at,
+          isRead: n.is_read || false,
+          audience: n.audience || [],
+          studentId: n.student_id,
+          relatedId: n.related_id
+        })));
+      } catch (err) {
+        console.error("Error fetching alerts:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+
+    const channel = supabase.channel('parent-alerts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+        fetchNotifications();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.id]);
+
+  const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read
+    if (!notification.isRead) {
+        await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
+        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+    }
+
     switch (notification.category) {
       case 'Fees':
-        const feeStudentInfo = mockFees.find(f => String(f.id) === String(notification.studentId));
-        if (feeStudentInfo) {
-          navigateTo('feeStatus', 'Fee Status', { student: feeStudentInfo });
+        if (notification.studentId) {
+          const feeSummary = await fetchStudentFeeSummary(notification.studentId);
+          navigateTo('feeStatus', 'Fee Status', { student: { id: notification.studentId, ...feeSummary } });
         }
         break;
       case 'Attendance':
-        const student = mockStudents.find(s => String(s.id) === String(notification.studentId));
-        if (student) {
-          navigateTo('childDetail', student.name, { student, initialTab: 'attendance' });
+        if (notification.studentId) {
+          const student = await fetchStudentById(notification.studentId);
+          if (student) {
+            navigateTo('childDetail', student.name, { student, initialTab: 'attendance' });
+          }
         }
         break;
       case 'Event':
         navigateTo('calendar', 'School Calendar', {});
         break;
       case 'Message':
-        // This functionality is not fully built out, so just an alert for now.
         toast("Navigating to messages...", { icon: '✉️' });
         break;
       default:
@@ -53,20 +105,20 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
     }
   };
 
-  const sortedNotifications = [...mockNotifications].filter(n => n.audience.includes('parent')).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading alerts...</div>;
 
   return (
     <div className="flex flex-col h-full bg-gray-100">
-      <main className="flex-grow p-4 space-y-3 overflow-y-auto">
-        {sortedNotifications.length > 0 ? (
-          sortedNotifications.map(notification => {
-            const config = NOTIFICATION_CATEGORY_CONFIG[notification.category];
+      <main className="flex-grow p-4 space-y-3 overflow-y-auto pb-24">
+        {notifications.length > 0 ? (
+          notifications.map(notification => {
+            const config = NOTIFICATION_CATEGORY_CONFIG[notification.category] || NOTIFICATION_CATEGORY_CONFIG['System'];
             const Icon = config.icon;
             return (
               <button
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className="w-full text-left bg-white rounded-xl shadow-sm p-4 flex items-start space-x-4 relative transition-all hover:shadow-md hover:ring-2 hover:ring-green-200"
+                className={`w-full text-left bg-white rounded-xl shadow-sm p-4 flex items-start space-x-4 relative transition-all hover:shadow-md hover:ring-2 hover:ring-green-200 ${notification.isRead ? 'opacity-70' : ''}`}
               >
                 {!notification.isRead && (
                   <div className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
@@ -87,7 +139,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
             )
           })
         ) : (
-          <div className="text-center py-10">
+          <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
             <p className="text-gray-500">No new notifications.</p>
           </div>
         )}

@@ -125,7 +125,7 @@ export default function StudentProfileStandard({ studentId, student: initialStud
 
                         {/* Action Buttons */}
                         <div className="flex gap-3">
-                            <button onClick={() => navigateTo('edit_profile', 'Edit Profile')} className="px-6 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/40 text-white rounded-xl font-semibold transition-all">
+                            <button onClick={() => navigateTo('editProfile', 'Edit Profile')} className="px-6 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/40 text-white rounded-xl font-semibold transition-all">
                                 Edit Profile
                             </button>
                             <button onClick={onLogout} className="px-4 py-2.5 bg-white text-orange-600 rounded-xl font-bold shadow-lg hover:bg-orange-50 transition-all flex items-center gap-2">

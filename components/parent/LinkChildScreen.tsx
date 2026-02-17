@@ -41,7 +41,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
-            <div className="p-4 bg-white shadow-sm flex items-center">
+            <div className="hidden md:flex p-4 bg-white shadow-sm items-center">
                 <button onClick={handleBack} className="p-2 rounded-full hover:bg-gray-100 mr-2">
                     <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
                 </button>

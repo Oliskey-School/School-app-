@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { TimetableEntry } from '../../types';
-import { mockTimetableData } from '../../data';
 
 export interface UseTimetableResult {
     timetable: TimetableEntry[];
@@ -19,12 +18,6 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
     const [error, setError] = useState<Error | null>(null);
 
     const fetchTimetable = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            setTimetable(mockTimetableData);
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             let query = supabase.from('timetable').select('*');
@@ -47,7 +40,7 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
         } catch (err) {
             console.error('Error fetching timetable:', err);
             setError(err as Error);
-            setTimetable(mockTimetableData);
+            setTimetable([]);
         } finally {
             setLoading(false);
         }
@@ -55,8 +48,6 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
 
     useEffect(() => {
         fetchTimetable();
-
-        if (!isSupabaseConfigured) return;
 
         const channel = supabase
             .channel('timetable-changes')
@@ -76,11 +67,6 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
     }, [fetchTimetable]);
 
     const createTimetableEntry = async (entryData: Partial<TimetableEntry>): Promise<TimetableEntry | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create timetable entry');
-            return null;
-        }
-
         try {
             const { data, error: insertError } = await supabase
                 .from('timetable')
@@ -106,11 +92,6 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
     };
 
     const updateTimetableEntry = async (id: number, updates: Partial<TimetableEntry>): Promise<TimetableEntry | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update timetable entry');
-            return null;
-        }
-
         try {
             const { data, error: updateError } = await supabase
                 .from('timetable')
@@ -137,11 +118,6 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
     };
 
     const deleteTimetableEntry = async (id: number): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete timetable entry');
-            return false;
-        }
-
         try {
             const { error: deleteError } = await supabase
                 .from('timetable')

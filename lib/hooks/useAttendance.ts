@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { StudentAttendance } from '../../types';
-import { mockStudentAttendance } from '../../data';
 
 export interface UseAttendanceResult {
     attendanceRecords: StudentAttendance[];
@@ -19,12 +18,6 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
     const [error, setError] = useState<Error | null>(null);
 
     const fetchAttendance = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            setAttendanceRecords(mockStudentAttendance);
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             let query = supabase.from('student_attendance').select('*');
@@ -47,7 +40,7 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
         } catch (err) {
             console.error('Error fetching attendance:', err);
             setError(err as Error);
-            setAttendanceRecords(mockStudentAttendance);
+            setAttendanceRecords([]);
         } finally {
             setLoading(false);
         }
@@ -55,8 +48,6 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
 
     useEffect(() => {
         fetchAttendance();
-
-        if (!isSupabaseConfigured) return;
 
         const channel = supabase
             .channel('student-attendance-changes')
@@ -76,11 +67,6 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
     }, [fetchAttendance]);
 
     const createAttendanceRecord = async (recordData: Partial<StudentAttendance>): Promise<StudentAttendance | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create attendance record');
-            return null;
-        }
-
         try {
             const { data, error: insertError } = await supabase
                 .from('student_attendance')
@@ -103,11 +89,6 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
     };
 
     const updateAttendanceRecord = async (id: number, updates: Partial<StudentAttendance>): Promise<StudentAttendance | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update attendance record');
-            return null;
-        }
-
         try {
             const { data, error: updateError } = await supabase
                 .from('student_attendance')
@@ -131,11 +112,6 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
     };
 
     const deleteAttendanceRecord = async (id: number): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete attendance record');
-            return false;
-        }
-
         try {
             const { error: deleteError } = await supabase
                 .from('student_attendance')

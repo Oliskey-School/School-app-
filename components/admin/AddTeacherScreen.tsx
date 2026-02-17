@@ -10,7 +10,6 @@ import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../.
 
 // import { checkUserLimit } from '../../lib/usage-limits'; // Replaced by useTenantLimit
 import CredentialsModal from '../ui/CredentialsModal';
-import { mockTeachers } from '../../data';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
@@ -144,14 +143,6 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     // Fetch Reference Data
     useEffect(() => {
         const fetchRefs = async () => {
-            if (!isSupabaseConfigured) {
-                // Mock reference data
-                setValidSubjects(['Math', 'English', 'Science', 'History', 'Geography', 'Art', 'Music', 'PE', 'Physics', 'Chemistry', 'Biology']);
-                setValidClasses(['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']);
-                setLoadingRefs(false);
-                return;
-            }
-
             try {
                 // Fetch Subjects
                 const { data: sData } = await supabase.from('subjects').select('name');
@@ -179,7 +170,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             }
         };
         fetchRefs();
-    }, []);
+    }, [schoolId]);
 
     useEffect(() => {
         if (teacherToEdit) {
@@ -223,51 +214,6 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
         try {
             const avatarUrl = avatar || `https://i.pravatar.cc/150?u=${name.replace(' ', '')}`;
-
-            // MOCK MODE HANDLING
-            if (!isSupabaseConfigured) {
-                const teacherEmail = email || `teacher${Date.now()}@school.com`;
-                if (teacherToEdit) {
-                    const index = mockTeachers.findIndex(t => t.id === teacherToEdit.id);
-                    if (index !== -1) {
-                        mockTeachers[index] = {
-                            ...mockTeachers[index],
-                            name,
-                            email: teacherEmail,
-                            phone,
-                            subjects,
-                            classes,
-                            status,
-                            avatarUrl
-                        };
-                    }
-                    toast.success('Teacher updated successfully (Mock Mode - Session Only)');
-                } else {
-                    const newId = `mock-${Date.now()}`;
-                    mockTeachers.push({
-                        id: newId,
-                        name,
-                        email: teacherEmail,
-                        phone,
-                        subjects,
-                        classes,
-                        status,
-                        avatarUrl,
-                    });
-                    // Simulate credentials generation
-                    setCredentials({
-                        username: teacherEmail.split('@')[0],
-                        password: 'password123',
-                        email: teacherEmail
-                    });
-                    setShowCredentialsModal(true);
-                    setIsLoading(false);
-                    return;
-                }
-                forceUpdate();
-                handleBack();
-                return;
-            }
 
             if (teacherToEdit) {
                 // UPDATE MODE

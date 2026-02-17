@@ -112,7 +112,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                         address: formData.address,
                         role: 'admin',
                         signup_type: 'new_school',
-                        branch_names: hasBranches ? branchNames : null
+                        branch_names: hasBranches ? branchNames : ['Main Campus']
                     }
                 }
             });

@@ -26,13 +26,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [currentSchool, setCurrentSchool] = useState<School | null>(null);
     const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isDemo, setIsDemo] = useState(() => sessionStorage.getItem('is_demo_mode') === 'true');
 
     useEffect(() => {
         setLoading(true);
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log(`🔐 Auth Event: ${event}`);
 
+            // If we are in demo mode, ignore null sessions from onAuthStateChange 
+            // unless it's an explicit SIGNED_OUT event that we want to honor
+            if (!session && isDemo && event !== 'SIGNED_OUT') {
+                console.log('🛡️ [Auth] Ignoring null session in Demo Mode');
+                setLoading(false);
+                return;
+            }
+
             if (session) {
+                setIsDemo(false); // Real session found, clear demo flag
+                sessionStorage.removeItem('is_demo_mode');
                 const metadata = session.user.app_metadata || {};
                 const userRole = metadata.role || session.user.user_metadata?.role;
                 const schoolId = metadata.school_id;
@@ -163,6 +174,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Set the user and role state
         setUser(mockUser);
         setRole(dashboard);
+        setLoading(false);
+        setIsDemo(!!userData.isDemo);
+        if (userData.isDemo) {
+            sessionStorage.setItem('is_demo_mode', 'true');
+        } else {
+            sessionStorage.removeItem('is_demo_mode');
+        }
 
         // Fetch (or Mock) School for this user if provided
         if (userData.school) {
@@ -178,6 +196,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
+        if (isDemo) {
+            setRole(null);
+            setSession(null);
+            setUser(null);
+            setCurrentSchool(null);
+            setCurrentBranchId(null);
+            setIsDemo(false);
+            sessionStorage.removeItem('is_demo_mode');
+            setLoading(false);
+            return;
+        }
+
         const { error } = await supabase.auth.signOut();
         if (error) {
             console.error('Error signing out:', error);
@@ -197,9 +227,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentSchool,
         currentBranchId,
         loading,
+        isDemo,
         signIn,
         signOut
-    }), [session, user, role, currentSchool, currentBranchId, loading]);
+    }), [session, user, role, currentSchool, currentBranchId, loading, isDemo]);
 
     return (
         <AuthContext.Provider value={value}>

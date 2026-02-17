@@ -8,6 +8,7 @@ import CreateSchoolSignup from './components/auth/CreateSchoolSignup';
 import AuthCallback from './components/auth/AuthCallback';
 import VerificationGuard from './components/auth/VerificationGuard';
 import AIChatScreen from './components/shared/AIChatScreen';
+import AIChatWidget from './components/shared/AIChatWidget';
 import { requestNotificationPermission, showNotification } from './components/shared/notifications';
 import { ProfileProvider } from './context/ProfileContext';
 
@@ -153,7 +154,7 @@ const AuthenticatedApp: React.FC = () => {
 
       // Initialize Realtime Service
       let schoolId = user.user_metadata?.school_id || (user as any).school_id || user.app_metadata?.school_id;
-      
+
       // Fix for demo users who might not have school_id in metadata
       const isDemo = user.email?.includes('demo') || user.user_metadata?.is_demo;
       if (!schoolId && isDemo) {
@@ -243,6 +244,7 @@ const AuthenticatedApp: React.FC = () => {
         <ContextualMarquee />
         <VerificationGuard>
           {renderDashboard}
+          <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />
         </VerificationGuard>
       </Suspense>
     </ErrorBoundary>

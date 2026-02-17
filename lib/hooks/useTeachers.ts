@@ -1,206 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../supabase';
+import { useOptimisticMutation } from '../../hooks/useOptimisticMutation';
 import { Teacher } from '../../types';
-import { mockTeachers } from '../../data';
-
-export interface UseTeachersResult {
-    teachers: Teacher[];
-    loading: boolean;
-    error: Error | null;
-    refetch: () => Promise<void>;
-    createTeacher: (teacher: Partial<Teacher>) => Promise<Teacher | null>;
-    updateTeacher: (id: number, updates: Partial<Teacher>) => Promise<Teacher | null>;
-    deleteTeacher: (id: number) => Promise<boolean>;
-}
-
-export function useTeachers(filters?: { status?: string; subject?: string }): UseTeachersResult {
-    const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    const fetchTeachers = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            // Fallback to mock data
-            let filtered = [...mockTeachers];
-            if (filters?.status) {
-                filtered = filtered.filter(t => t.status === filters.status);
-            }
-            setTeachers(filtered);
-            setLoading(false);
-            return;
-        }
-
-        try {
-            setLoading(true);
-            let query = supabase.from('teachers').select('*');
-
-            if (filters?.status) {
-                query = query.eq('status', filters.status);
-            }
-
-            const { data, error: fetchError } = await query.order('name', { ascending: true });
-
-            if (fetchError) throw fetchError;
-
-            // Transform Supabase data to match Teacher type
-            const transformedTeachers: Teacher[] = (data || []).map(transformSupabaseTeacher);
-
-            setTeachers(transformedTeachers);
-            setError(null);
-        } catch (err) {
-            console.error('Error fetching teachers:', err);
-            setError(err as Error);
-            // Fallback to mock data on error
-            setTeachers(mockTeachers);
-        } finally {
-            setLoading(false);
-        }
-    }, [filters]);
-
-    useEffect(() => {
-        fetchTeachers();
-
-        if (!isSupabaseConfigured) return;
-
-        // Set up real-time subscription
-        const channel = supabase
-            .channel('teachers-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'teachers' },
-                (payload) => {
-                    console.log('Teacher change detected:', payload);
-                    fetchTeachers();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [fetchTeachers]);
-
-    const createTeacher = async (teacherData: Partial<Teacher>): Promise<Teacher | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create teacher');
-            return null;
-        }
-
-        try {
-            const { data, error: insertError } = await supabase
-                .from('teachers')
-                .insert([{
-                    name: teacherData.name,
-                    email: teacherData.email,
-                    phone: teacherData.phone,
-                    subjects: teacherData.subjects,
-                    classes: teacherData.classes,
-                    date_of_joining: teacherData.dateOfJoining,
-                    qualification: teacherData.qualification,
-                    experience: teacherData.experience,
-                    address: teacherData.address,
-                    gender: teacherData.gender,
-                    date_of_birth: teacherData.dateOfBirth,
-                    blood_group: teacherData.bloodGroup,
-                    emergency_contact: teacherData.emergencyContact,
-                    salary: teacherData.salary,
-                    avatar_url: teacherData.avatarUrl,
-                    status: teacherData.status || 'Active',
-                }])
-                .select()
-                .single();
-
-            if (insertError) throw insertError;
-
-            return transformSupabaseTeacher(data);
-        } catch (err) {
-            console.error('Error creating teacher:', err);
-            setError(err as Error);
-            return null;
-        }
-    };
-
-    const updateTeacher = async (id: number, updates: Partial<Teacher>): Promise<Teacher | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update teacher');
-            return null;
-        }
-
-        try {
-            const { data, error: updateError } = await supabase
-                .from('teachers')
-                .update({
-                    name: updates.name,
-                    email: updates.email,
-                    phone: updates.phone,
-                    subjects: updates.subjects,
-                    classes: updates.classes,
-                    date_of_joining: updates.dateOfJoining,
-                    qualification: updates.qualification,
-                    experience: updates.experience,
-                    address: updates.address,
-                    gender: updates.gender,
-                    date_of_birth: updates.dateOfBirth,
-                    blood_group: updates.bloodGroup,
-                    emergency_contact: updates.emergencyContact,
-                    salary: updates.salary,
-                    avatar_url: updates.avatarUrl,
-                    status: updates.status,
-                })
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (updateError) throw updateError;
-
-            return transformSupabaseTeacher(data);
-        } catch (err) {
-            console.error('Error updating teacher:', err);
-            setError(err as Error);
-            return null;
-        }
-    };
-
-    const deleteTeacher = async (id: number): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete teacher');
-            return false;
-        }
-
-        try {
-            const { error: deleteError } = await supabase
-                .from('teachers')
-                .delete()
-                .eq('id', id);
-
-            if (deleteError) throw deleteError;
-
-            return true;
-        } catch (err) {
-            console.error('Error deleting teacher:', err);
-            setError(err as Error);
-            return false;
-        }
-    };
-
-    return {
-        teachers,
-        loading,
-        error,
-        refetch: fetchTeachers,
-        createTeacher,
-        updateTeacher,
-        deleteTeacher,
-    };
-}
 
 const transformSupabaseTeacher = (t: any): Teacher => ({
     id: t.id,
     name: t.name,
     email: t.email,
     phone: t.phone,
-    subjects: t.subjects || [],
-    classes: t.classes || [],
+    subjects: t.teacher_subjects?.map((ts: any) => ts.subject) || [],
+    classes: t.teacher_classes?.map((tc: any) => tc.class_name) || [],
     dateOfJoining: t.date_of_joining,
     qualification: t.qualification,
     experience: t.experience,
@@ -212,6 +21,85 @@ const transformSupabaseTeacher = (t: any): Teacher => ({
     salary: t.salary,
     avatarUrl: t.avatar_url,
     status: t.status || 'Active',
-    attendance: t.attendance || 98,
-    performance: t.performance || 90,
+    schoolId: t.school_id,
+    schoolGeneratedId: t.school_generated_id,
 });
+
+export function useTeachers(filters?: { schoolId?: string; status?: string; subject?: string }) {
+    const queryKey = ['teachers', filters];
+
+    const { data: teachers = [], isLoading, isError, error } = useQuery({
+        queryKey,
+        queryFn: async () => {
+            let query = supabase
+                .from('teachers')
+                .select('id, name, email, phone, avatar_url, status, school_id, school_generated_id, date_of_joining, qualification, experience, address, gender, date_of_birth, blood_group, emergency_contact, salary, teacher_subjects(subject), teacher_classes(class_name)');
+
+            if (filters?.schoolId) {
+                query = query.eq('school_id', filters.schoolId);
+            }
+            if (filters?.status && filters.status !== 'All') {
+                query = query.eq('status', filters.status);
+            }
+            // Note: Filtering by subject would require a database function or view for optimal performance
+            // if we are checking against the `teacher_subjects` join table.
+            // A simple client-side filter is applied below for now.
+
+            const { data, error: fetchError } = await query.order('name', { ascending: true });
+
+            if (fetchError) throw fetchError;
+            
+            let transformed = (data || []).map(transformSupabaseTeacher);
+
+            if (filters?.subject && filters.subject !== 'All') {
+                transformed = transformed.filter(t => t.subjects.includes(filters.subject!));
+            }
+
+            return transformed;
+        },
+        enabled: !!filters?.schoolId,
+    });
+
+    const createTeacherMutation = useOptimisticMutation({
+        queryKey,
+        mutationFn: async (newTeacher: Partial<Teacher>) => {
+            const { data, error } = await supabase.from('teachers').insert([newTeacher]).select().single();
+            if (error) throw error;
+            return transformSupabaseTeacher(data);
+        },
+        updateFn: (oldData, newTeacher) => [...(oldData || []), { ...newTeacher, id: 'temp-' + Date.now() }],
+        onSuccessMessage: 'Teacher created successfully!',
+    });
+
+    const updateTeacherMutation = useOptimisticMutation({
+        queryKey,
+        mutationFn: async (updatedTeacher: Partial<Teacher> & { id: number }) => {
+            const { id, ...updates } = updatedTeacher;
+            const { data, error } = await supabase.from('teachers').update(updates).eq('id', id).select().single();
+            if (error) throw error;
+            return transformSupabaseTeacher(data);
+        },
+        updateFn: (oldData, updatedTeacher) => (oldData || []).map((t: Teacher) => t.id === updatedTeacher.id ? { ...t, ...updatedTeacher } : t),
+        onSuccessMessage: 'Teacher updated successfully!',
+    });
+
+    const deleteTeacherMutation = useOptimisticMutation({
+        queryKey,
+        mutationFn: async (id: number) => {
+            const { error } = await supabase.from('teachers').delete().eq('id', id);
+            if (error) throw error;
+            return id;
+        },
+        updateFn: (oldData, id) => (oldData || []).filter((t: Teacher) => t.id !== id),
+        onSuccessMessage: 'Teacher deleted successfully.',
+    });
+
+    return {
+        teachers,
+        loading: isLoading,
+        error,
+        createTeacher: createTeacherMutation.mutateAsync,
+        updateTeacher: updateTeacherMutation.mutateAsync,
+        deleteTeacher: deleteTeacherMutation.mutateAsync,
+    };
+}

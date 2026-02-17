@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getFormattedClassName } from '../constants';
 
 import { ClassInfo } from '../types';
+import { deduplicateClasses } from '../utils/classUtils';
 
 const parseClassName = (name: string) => {
     const clean = name.trim();
@@ -221,7 +222,9 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                     }
                 }
 
-                setClasses(finalClasses);
+                // Deduplicate classes before setting state
+                const uniqueClasses = deduplicateClasses(finalClasses);
+                setClasses(uniqueClasses);
 
             } catch (err) {
                 console.error('❌ Error fetching teacher classes:', err);

@@ -4,7 +4,7 @@ import { LogoutIcon, ChevronLeftIcon, NotificationIcon, SearchIcon, UserIcon } f
 import { Menu } from 'lucide-react';
 
 import { BranchSwitcher } from '../shared/BranchSwitcher';
-import { useBranch } from '../../context/BranchContext'; // Added
+import { useBranch } from '../../context/BranchContext'; 
 
 interface HeaderProps {
   title: string;
@@ -25,7 +25,7 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
-  const { canSwitchBranches } = useBranch(); // Added
+  const { currentBranch, canSwitchBranches } = useBranch();
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -71,15 +71,27 @@ const Header: React.FC<HeaderProps> = ({ title, avatarUrl, bgColor, onLogout, on
             </button>
           )}
           <div className="flex flex-col min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold truncate tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold truncate tracking-tight leading-tight flex items-center gap-2">
               {title === 'Teacher Dashboard' && userName ? `Welcome, ${userName}!` : title}
+              {currentBranch && (
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded-lg bg-white/20 text-[10px] font-black uppercase tracking-widest self-center mt-1">
+                  {currentBranch.name}
+                </span>
+              )}
             </h1>
-            {customId && (
-              <div className="flex items-center space-x-1.5 opacity-90 mt-0.5 sm:mt-1">
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest bg-white/20 px-1.5 py-0.5 rounded">ID</span>
-                <span className="text-xs sm:text-sm font-mono font-bold tracking-wider truncate">{customId}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+              {customId && (
+                <div className="flex items-center space-x-1.5 opacity-90">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest bg-white/20 px-1.5 py-0.5 rounded">ID</span>
+                  <span className="text-xs sm:text-sm font-mono font-bold tracking-wider truncate">{customId}</span>
+                </div>
+              )}
+              {currentBranch && (
+                <div className="sm:hidden flex items-center space-x-1.5 opacity-90 border-l border-white/20 pl-2">
+                   <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[80px]">{currentBranch.name}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">

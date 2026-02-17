@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { BusVehicleIcon, PlusIcon, TrashIcon, EditIcon } from '../../constants';
 import { Bus } from '../../types';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -42,53 +43,62 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
     });
 
     useEffect(() => {
-        if (!schoolId && isSupabaseConfigured) {
+        if (!schoolId) {
             console.log("School ID missing in BusDutyRoster, refreshing profile...");
             refreshProfile();
         }
     }, [schoolId, refreshProfile]);
 
-    // Load buses from Supabase (or fallback/mock)
+    // Load buses from Supabase
     useEffect(() => {
         loadBuses();
-    }, []);
+    }, [schoolId]);
 
     const loadBuses = async () => {
+        if (!schoolId) return;
         setLoading(true);
-        if (isSupabaseConfigured && schoolId) {
+        try {
+            // Try fetching via backend API if possible
+            const data = await api.getBuses({ useBackend: true });
+            setBuses(data.map((b: any) => ({
+                id: b.id,
+                name: b.name,
+                routeName: b.route_name || b.routeName,
+                capacity: b.capacity,
+                plateNumber: b.plate_number || b.plateNumber,
+                driverName: b.driver_name || b.driverName,
+                status: b.status,
+                createdAt: b.created_at || b.createdAt
+            })));
+        } catch (err) {
+            console.error('API error fetching buses:', err);
+            // Fallback to direct supabase
             try {
-                const data = await api.getBuses({ useBackend: true });
-                setBuses(data.map((b: any) => ({
+                const { data, error } = await supabase
+                    .from('transport_buses')
+                    .select('*')
+                    .eq('school_id', schoolId)
+                    .order('name');
+                
+                if (error) throw error;
+                
+                setBuses((data || []).map((b: any) => ({
                     id: b.id,
                     name: b.name,
-                    routeName: b.route_name || b.routeName,
+                    routeName: b.route_name,
                     capacity: b.capacity,
-                    plateNumber: b.plate_number || b.plateNumber,
-                    driverName: b.driver_name || b.driverName,
+                    plateNumber: b.plate_number,
+                    driverName: b.driver_name,
                     status: b.status,
-                    createdAt: b.created_at || b.createdAt
+                    createdAt: b.created_at
                 })));
-            } catch (err) {
-                console.error('API error fetching buses:', err);
-                // Try fallback to direct supabase
-                try {
-                    const data = await api.getBuses();
-                    setBuses(data);
-                } catch (fallbackErr) {
-                    console.error('Fallback fetching buses failed:', fallbackErr);
-                    toast.error("Could not load buses.");
-                }
+            } catch (fallbackErr) {
+                console.error('Fallback fetching buses failed:', fallbackErr);
+                toast.error("Could not load buses.");
             }
-        } else if (!isSupabaseConfigured) {
-            // Fallback to LocalStorage for Mock Mode / No Connection
-            const saved = localStorage.getItem('schoolApp_buses');
-            if (saved) {
-                try {
-                    setBuses(JSON.parse(saved));
-                } catch (e) { console.error(e); }
-            }
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const resetForm = () => {
@@ -111,39 +121,25 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         }
 
         try {
-            if (isSupabaseConfigured && schoolId) {
-                const newBus = await api.createBus({ ...formData, school_id: schoolId }, { useBackend: true });
-                if (newBus) {
-                    const mappedBus: Bus = {
-                        id: newBus.id,
-                        name: newBus.name,
-                        routeName: newBus.route_name || newBus.routeName,
-                        capacity: newBus.capacity,
-                        plateNumber: newBus.plate_number || newBus.plateNumber,
-                        driverName: newBus.driver_name || newBus.driverName,
-                        status: newBus.status,
-                        createdAt: newBus.created_at || newBus.createdAt
-                    };
-                    setBuses([...buses, mappedBus]);
-                    toast.success(`Bus "${formData.name}" added successfully!`);
-                    resetForm();
-                }
-            } else if (!isSupabaseConfigured) {
-                // Mock Mode
-                const newBus: Bus = {
-                    id: Date.now().toString(),
-                    ...formData,
-                    driverName: formData.driverName // Map correct field
+            const newBus = await api.createBus({ ...formData, school_id: schoolId }, { useBackend: true });
+            if (newBus) {
+                const mappedBus: Bus = {
+                    id: newBus.id,
+                    name: newBus.name,
+                    routeName: newBus.route_name || newBus.routeName,
+                    capacity: newBus.capacity,
+                    plateNumber: newBus.plate_number || newBus.plateNumber,
+                    driverName: newBus.driver_name || newBus.driverName,
+                    status: newBus.status,
+                    createdAt: newBus.created_at || newBus.createdAt
                 };
-                const updatedBuses = [...buses, newBus];
-                setBuses(updatedBuses);
-                localStorage.setItem('schoolApp_buses', JSON.stringify(updatedBuses));
-                toast.success(`Bus "${formData.name}" added successfully! (Mock)`);
+                setBuses([...buses, mappedBus]);
+                toast.success(`Bus "${formData.name}" added successfully!`);
                 resetForm();
             }
         } catch (error) {
             console.error(error);
-            toast.error("An error occurred.");
+            toast.error("An error occurred adding the bus.");
         }
     };
 
@@ -156,38 +152,25 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         }
 
         try {
-            if (isSupabaseConfigured) {
-                const updatedBus = await api.updateBus(editingBusId, formData, { useBackend: true });
-                if (updatedBus) {
-                    const mappedBus: Bus = {
-                        id: updatedBus.id,
-                        name: updatedBus.name,
-                        routeName: updatedBus.route_name || updatedBus.routeName,
-                        capacity: updatedBus.capacity,
-                        plateNumber: updatedBus.plate_number || updatedBus.plateNumber,
-                        driverName: updatedBus.driver_name || updatedBus.driverName,
-                        status: updatedBus.status,
-                        createdAt: updatedBus.created_at || updatedBus.createdAt
-                    };
-                    setBuses(buses.map(bus => bus.id === editingBusId ? mappedBus : bus));
-                    toast.success('Bus updated successfully!');
-                    resetForm();
-                }
-            } else if (!isSupabaseConfigured) {
-                // Mock Mode
-                const updatedBuses = buses.map(bus =>
-                    bus.id === editingBusId
-                        ? { ...bus, ...formData }
-                        : bus
-                );
-                setBuses(updatedBuses);
-                localStorage.setItem('schoolApp_buses', JSON.stringify(updatedBuses));
-                toast.success('Bus updated successfully! (Mock)');
+            const updatedBus = await api.updateBus(editingBusId, formData, { useBackend: true });
+            if (updatedBus) {
+                const mappedBus: Bus = {
+                    id: updatedBus.id,
+                    name: updatedBus.name,
+                    routeName: updatedBus.route_name || updatedBus.routeName,
+                    capacity: updatedBus.capacity,
+                    plateNumber: updatedBus.plate_number || updatedBus.plateNumber,
+                    driverName: updatedBus.driver_name || updatedBus.driverName,
+                    status: updatedBus.status,
+                    createdAt: updatedBus.created_at || updatedBus.createdAt
+                };
+                setBuses(buses.map(bus => bus.id === editingBusId ? mappedBus : bus));
+                toast.success('Bus updated successfully!');
                 resetForm();
             }
         } catch (error) {
             console.error(error);
-            toast.error("An error occurred.");
+            toast.error("An error occurred updating the bus.");
         }
     };
 
@@ -205,27 +188,14 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
     };
 
     const handleDeleteBus = async (busId: string) => {
-        if (buses.length <= 3 && buses.length > 0 && !isSupabaseConfigured) {
-            // Keep mock mode rule if desired, or remove constraint
-            // toast.error('You must maintain at least 3 buses. Cannot delete.');
-            // return;
-        }
-
         if (confirm('Are you sure you want to delete this bus?')) {
             try {
-                if (isSupabaseConfigured) {
-                    await api.deleteBus(busId, { useBackend: true });
-                    setBuses(buses.filter(bus => bus.id !== busId));
-                    toast.success('Bus deleted successfully');
-                } else if (!isSupabaseConfigured) {
-                    const filtered = buses.filter(bus => bus.id !== busId);
-                    setBuses(filtered);
-                    localStorage.setItem('schoolApp_buses', JSON.stringify(filtered));
-                    toast.success('Bus deleted successfully (Mock)');
-                }
+                await api.deleteBus(busId, { useBackend: true });
+                setBuses(buses.filter(bus => bus.id !== busId));
+                toast.success('Bus deleted successfully');
             } catch (error) {
                 console.error(error);
-                toast.error("An error occurred.");
+                toast.error("An error occurred deleting the bus.");
             }
         }
     };
@@ -248,7 +218,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         );
     }
 
-    if (!schoolId && isSupabaseConfigured) {
+    if (!schoolId) {
         return (
             <div className="flex flex-col items-center justify-center p-8 bg-amber-50 rounded-2xl border border-amber-100 m-4 shadow-sm">
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
@@ -277,9 +247,8 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                 <p className="text-sm text-indigo-700">
                     Manage school buses and assign drivers to routes
                 </p>
-                <div className="text-xs text-indigo-600 mt-1 flex justify-center gap-2">
+                <div className="text-xs text-indigo-600 mt-1">
                     <span>{buses.length} bus{buses.length !== 1 ? 'es' : ''} registered</span>
-                    {!isSupabaseConfigured && <span className="bg-orange-200 px-1 rounded text-orange-800">Mock Mode</span>}
                 </div>
             </div>
 

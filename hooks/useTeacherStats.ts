@@ -51,13 +51,43 @@ export const useTeacherStats = (teacherId: string | undefined, schoolId: string 
 
                 if (classes && classes.length > 0) {
                     const classIds = classes.map(c => c.id);
-                    const { count } = await supabase
-                        .from('students')
-                        .select('id', { count: 'exact', head: true })
-                        .in('current_class_id', classIds)
-                        .eq('status', 'Active');
 
-                    calculatedTotalStudents = count || 0;
+                    // Build OR query for Grade/Section matching
+                    // Format: grade.eq.10,section.eq.A,grade.eq.11,section.eq.B...
+                    // We need to be careful with syntax. simpler might be to just fetch all students 
+                    // in these grades and filter in JS if the query gets too complex.
+                    // Let's fetch all students in the relevant grades, then filter.
+                    const grades = [...new Set(classes.map(c => c.grade))];
+
+                    if (grades.length > 0) {
+                        const { data: studentsInGrades } = await supabase
+                            .from('students')
+                            .select('id, current_class_id, grade, section')
+                            .in('grade', grades)
+                            .eq('status', 'Active');
+
+                        // Robust Client-Side Filtering
+                        const validStudents = (studentsInGrades || []).filter(s => {
+                            // 1. Exact Class ID Match
+                            if (s.current_class_id && classIds.includes(s.current_class_id)) return true;
+
+                            // 2. Grade & Section Match
+                            return classes.some(c => {
+                                // Must match Grade
+                                if (c.grade !== s.grade) return false;
+
+                                // Handle Section Matching
+                                const classSection = (c.section || '').trim();
+                                const studentSection = (s.section || '').trim();
+
+                                // If class has NO section (Generic), it matches ALL sections for that grade
+                                // If class HAS section, it must match student's section
+                                return classSection === '' || classSection === studentSection;
+                            });
+                        });
+
+                        calculatedTotalStudents = validStudents.length;
+                    }
                 }
 
                 if (error) {

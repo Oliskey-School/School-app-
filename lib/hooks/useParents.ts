@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { Parent } from '../../types';
-import { mockParents } from '../../data';
 
 export interface UseParentsResult {
     parents: Parent[];
@@ -19,12 +18,6 @@ export function useParents(): UseParentsResult {
     const [error, setError] = useState<Error | null>(null);
 
     const fetchParents = useCallback(async () => {
-        if (!isSupabaseConfigured) {
-            setParents(mockParents);
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             const { data, error: fetchError } = await supabase
@@ -42,7 +35,7 @@ export function useParents(): UseParentsResult {
         } catch (err) {
             console.error('Error fetching parents:', err);
             setError(err as Error);
-            setParents(mockParents);
+            setParents([]);
         } finally {
             setLoading(false);
         }
@@ -50,8 +43,6 @@ export function useParents(): UseParentsResult {
 
     useEffect(() => {
         fetchParents();
-
-        if (!isSupabaseConfigured) return;
 
         const channel = supabase
             .channel('parents-changes')
@@ -71,11 +62,6 @@ export function useParents(): UseParentsResult {
     }, [fetchParents]);
 
     const createParent = async (parentData: Partial<Parent>): Promise<Parent | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create parent');
-            return null;
-        }
-
         try {
             const { data, error: insertError } = await supabase
                 .from('parents')
@@ -103,11 +89,6 @@ export function useParents(): UseParentsResult {
     };
 
     const updateParent = async (id: string | number, updates: Partial<Parent>): Promise<Parent | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update parent');
-            return null;
-        }
-
         try {
             const { data, error: updateError } = await supabase
                 .from('parents')
@@ -136,11 +117,6 @@ export function useParents(): UseParentsResult {
     };
 
     const deleteParent = async (id: string | number): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete parent');
-            return false;
-        }
-
         try {
             const { error: deleteError } = await supabase
                 .from('parents')

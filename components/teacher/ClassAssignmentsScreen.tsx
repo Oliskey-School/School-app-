@@ -1,7 +1,8 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Assignment } from '../../types';
-import { mockAssignments } from '../../data';
 import { ChevronRightIcon } from '../../constants';
+import { supabase } from '../../lib/supabase';
 
 interface ClassAssignmentsScreenProps {
     className: string;
@@ -9,13 +10,51 @@ interface ClassAssignmentsScreenProps {
 }
 
 const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ className, navigateTo }) => {
-    const classAssignments = mockAssignments.filter(assignment => assignment.className === className)
-        .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+    const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAssignments = async () => {
+            setLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('assignments')
+                    .select('*')
+                    .eq('class_name', className)
+                    .order('due_date', { ascending: false });
+
+                if (error) throw error;
+
+                if (data) {
+                    setAssignments(data.map((a: any) => ({
+                        id: a.id,
+                        title: a.title,
+                        description: a.description,
+                        className: a.class_name,
+                        subject: a.subject,
+                        dueDate: a.due_date,
+                        totalStudents: a.total_students || 0,
+                        submissionsCount: a.submissions_count || 0
+                    })));
+                }
+            } catch (err) {
+                console.error('Error fetching class assignments:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAssignments();
+    }, [className]);
+
+    if (loading) {
+        return <div className="p-8 text-center text-gray-500">Loading assignments...</div>;
+    }
 
     return (
         <div className="p-4 bg-gray-100 h-full overflow-y-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {classAssignments.map(assignment => (
+                {assignments.map(assignment => (
                     <div key={assignment.id} className="bg-white p-4 rounded-lg shadow-sm space-y-3 transition-all hover:shadow-md border">
                         <div className="flex justify-between items-start">
                             <div>
@@ -43,7 +82,7 @@ const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ classNa
                     </div>
                 ))}
             </div>
-            {classAssignments.length === 0 && (
+            {assignments.length === 0 && (
                  <div className="text-center py-10 bg-white rounded-lg shadow-sm">
                     <p className="text-gray-500">No assignments found for this class.</p>
                 </div>

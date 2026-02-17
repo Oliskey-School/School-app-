@@ -794,7 +794,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             onLogout={onLogout}
             {...commonProps}
         />,
-        editProfile: (props: any) => <EditProfileScreen {...props} onBack={handleBack} />,
+        editProfile: (props: any) => <EditProfileScreen
+            user={student ? {
+                ...student,
+                code: student.schoolGeneratedId || student.schoolId
+            } : undefined}
+            {...props}
+            onBack={handleBack}
+        />,
         videoLesson: VideoLessonScreen,
         assignmentSubmission: AssignmentSubmissionScreen,
         assignmentFeedback: AssignmentFeedbackScreen,

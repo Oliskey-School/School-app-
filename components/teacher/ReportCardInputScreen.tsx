@@ -4,10 +4,11 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import { Student, Teacher, Rating, ReportCard, ReportCardAcademicRecord } from '../../types';
-import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon, getFormattedClassName } from '../../constants';
+import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon, getFormattedClassName, ChevronLeftIcon, XIcon } from '../../constants';
 import { mockTeachers, mockStudents } from '../../data';
 import { getSubjectsForStudent } from '../../data';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { useAuth } from '../../context/AuthContext';
 
 interface ReportCardInputScreenProps {
     student: Student;
@@ -15,11 +16,6 @@ interface ReportCardInputScreenProps {
     handleBack: () => void;
     isAdmin?: boolean;
 }
-
-// In a real app, this would be from auth context.
-const LOGGED_IN_TEACHER_ID = '2'; // Mrs. Funke Akintola
-const teacher: Teacher = mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!;
-
 
 type AcademicRecordState = {
     subject: string;
@@ -57,6 +53,7 @@ const getScoreInputStyle = (scoreStr: string, maxScore: number): string => {
 
 
 const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, term, handleBack, isAdmin = false }) => {
+    const { user: authUser } = useAuth();
     const [academicData, setAcademicData] = useState<AcademicRecordState[]>([]);
     const [skills, setSkills] = useState<Record<string, Rating>>({});
     const [psychomotor, setPsychomotor] = useState<Record<string, Rating>>({});
@@ -73,26 +70,38 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
     useEffect(() => {
         const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: teacher } = await supabase.from('teachers').select('*').eq('email', user.email).single();
-                if (teacher) setCurrentUserTeacher(teacher);
+            if (authUser) {
+                const { data: teacher } = await supabase.from('teachers').select('*').eq('email', authUser.email).single();
+                if (teacher) {
+                    // Ensure subjects and classes are mapped correctly if coming from separate tables
+                    const { data: subs } = await supabase.from('teacher_subjects').select('subject').eq('teacher_id', teacher.id);
+                    const { data: cls } = await supabase.from('teacher_classes').select('class_name').eq('teacher_id', teacher.id);
+                    
+                    setCurrentUserTeacher({
+                        ...teacher,
+                        subjects: subs?.map(s => s.subject) || [],
+                        classes: cls?.map(c => c.class_name) || []
+                    } as any);
+                }
             }
         };
         fetchUser();
-    }, []);
+    }, [authUser]);
 
     const isLocked = !isAdmin && (existingReport?.status === 'Submitted' || existingReport?.status === 'Published');
 
     const isClassTeacher = useMemo(() => {
         if (isAdmin) return true;
         if (!currentUserTeacher || !student) return false;
-        // Check if teacher teaches this student's class
-        // Assuming teacher.classes is array of strings e.g. ["JSS 1"]
         const studentClass = getFormattedClassName(student.grade, student.section);
-        // Simple check, or better check against teacher_classes table
-        return currentUserTeacher.classes?.some((c: string) => c.includes(studentClass) || c.includes(`${student.grade}`)) || true; // Fallback true for demo/testing if not matched perfectly
+        return currentUserTeacher.classes?.some((c: string) => c.includes(studentClass) || c.includes(`${student.grade}`));
     }, [student, currentUserTeacher, isAdmin]);
+
+    const isSubjectTeacher = useCallback((subjectName: string) => {
+        if (isAdmin) return true;
+        if (!currentUserTeacher) return false;
+        return currentUserTeacher.subjects?.includes(subjectName);
+    }, [currentUserTeacher, isAdmin]);
 
     const canEditGeneralSections = isAdmin || isClassTeacher;
 
@@ -312,21 +321,48 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     };
 
     return (
-        <div className="p-4 bg-gray-100 font-serif">
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <header className="text-center border-b-2 border-gray-300 pb-4 mb-4">
-                    <div className="flex justify-center items-center gap-2"><SchoolLogoIcon className="text-purple-600 h-10 w-10" /><h1 className="text-2xl font-bold text-gray-800">Smart School Academy</h1></div>
-                    <p className="text-gray-800 font-semibold mt-1">END OF TERM REPORT CARD - INPUT FORM</p>
+        <div className="p-4 bg-gray-100 font-serif min-h-screen">
+            <div className="max-w-5xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
+                <header className="relative border-b-2 border-gray-300 pb-6 mb-6">
+                    <button 
+                        onClick={handleBack}
+                        className="absolute left-0 top-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
+                        title="Close and return"
+                    >
+                        <XIcon className="w-6 h-6" />
+                    </button>
+
+                    <div className="text-center pt-2">
+                        <div className="flex justify-center items-center gap-3 mb-2">
+                            <SchoolLogoIcon className="text-indigo-600 h-12 w-12" />
+                            <h1 className="text-3xl font-black text-gray-900 tracking-tight">Smart School Academy</h1>
+                        </div>
+                        <p className="text-indigo-600 font-black uppercase tracking-[0.2em] text-xs">End of Term Report Card - Input System</p>
+                        
+                        <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm font-bold text-gray-500">
+                            <span className="bg-gray-100 px-3 py-1 rounded-full">STUDENT: <span className="text-gray-900">{student.name}</span></span>
+                            <span className="bg-gray-100 px-3 py-1 rounded-full">TERM: <span className="text-gray-900">{term}</span></span>
+                            <span className="bg-gray-100 px-3 py-1 rounded-full">CLASS: <span className="text-gray-900">{student.grade}{student.section}</span></span>
+                        </div>
+                    </div>
                 </header>
 
                 <SectionHeader title="Academic Performance" />
-                <div className="overflow-x-auto text-xs">
-                    <table className="min-w-full border">
-                        <thead className="bg-gray-50"><tr className="text-left text-gray-800"><th className="p-2 border">Subject</th><th className="p-2 border w-20 text-center">CA (40)</th><th className="p-2 border w-20 text-center">Exam (60)</th><th className="p-2 border w-20 text-center">Total (100)</th><th className="p-2 border w-16 text-center">Grade</th><th className="p-2 border">Remark</th></tr></thead>
-                        <tbody>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full border-collapse border border-gray-200 rounded-xl overflow-hidden">
+                        <thead className="bg-gray-50 text-gray-600 font-black uppercase tracking-wider text-[10px]">
+                            <tr>
+                                <th className="p-3 border border-gray-200 text-left">Subject</th>
+                                <th className="p-3 border border-gray-200 w-24 text-center text-indigo-600">CA (40)</th>
+                                <th className="p-3 border border-gray-200 w-24 text-center text-indigo-600">Exam (60)</th>
+                                <th className="p-3 border border-gray-200 w-24 text-center bg-indigo-50">Total (100)</th>
+                                <th className="p-3 border border-gray-200 w-20 text-center">Grade</th>
+                                <th className="p-3 border border-gray-200 text-left">Remark</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm">
                             {academicData.map((record, index) => {
-                                const isSubjectTeacher = teacher.subjects.includes(record.subject);
-                                const canEditScores = isAdmin || isSubjectTeacher;
+                                const canEditScores = isSubjectTeacher(record.subject);
 
                                 return (
                                     <tr key={index} className={canEditScores ? '' : 'bg-gray-50'}>

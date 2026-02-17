@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { ChevronLeftIcon, CameraIcon, ChartBarIcon, BookOpenIcon, ClockIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
+import { supabase } from '../../lib/supabase';
 
 interface EditProfileScreenProps {
     onBack: () => void;
@@ -65,29 +66,45 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
         }
     }, [user]);
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 500;
-                    const MAX_HEIGHT = 500;
-                    let width = img.width;
-                    let height = img.height;
-                    if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } }
-                    else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx?.drawImage(img, 0, 0, width, height);
-                    setAvatar(canvas.toDataURL('image/jpeg', 0.7));
-                };
-                img.src = event.target?.result as string;
-            };
-            reader.readAsDataURL(file);
+            // Preview locally immediately
+            const objectUrl = URL.createObjectURL(file);
+            setAvatar(objectUrl);
+
+            // Store file for upload on save
+            // We can't easily store the file in the state if we strictly follow the current pattern, 
+            // but we can modify the state or just upload immediately? 
+            // Better to upload on "Save" to avoid orphan files? 
+            // Or upload immediately and get URL?
+            // Let's upload immediately as it's a smoother UX for "preview" effectively becoming "remote"
+
+            const toastId = toast.loading('Uploading image...');
+            try {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+                const filePath = `${user?.id || 'temp'}/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(filePath, file);
+
+                if (uploadError) {
+                    throw uploadError;
+                }
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(filePath);
+
+                setAvatar(publicUrl);
+                toast.success('Image uploaded ready to save', { id: toastId });
+            } catch (error: any) {
+                toast.error('Error uploading image: ' + error.message, { id: toastId });
+                console.error('Upload error:', error);
+                // Revert to previous avatar if needed? For now just keep local preview or clear
+            }
         }
     };
 
@@ -104,6 +121,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
             if (onProfileUpdate) {
                 onProfileUpdate({ name, avatarUrl: avatar });
             }
+            onBack(); // Go back after successful save
         } catch (err: any) {
             console.error(err);
             toast.error('Error updating profile: ' + err.message);
@@ -176,12 +194,12 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                     <div className="w-full space-y-2">
                         <div className="flex gap-4">
                             <div className="w-full">
-                                <InputField 
-                                    label="Student ID" 
-                                    value={(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').includes('OLISKEY') 
-                                        ? (user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase() 
-                                        : `OLISKEY_MAIN_STD_${(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase()}`} 
-                                    readOnly 
+                                <InputField
+                                    label="Student ID"
+                                    value={(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').includes('OLISKEY')
+                                        ? (user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase()
+                                        : `OLISKEY_MAIN_STD_${(user?.code || user?.id?.toString() || "0001").replace(/-/g, '_').toUpperCase()}`}
+                                    readOnly
                                 />
                             </div>
                         </div>

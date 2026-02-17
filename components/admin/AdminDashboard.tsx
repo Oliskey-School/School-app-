@@ -122,6 +122,7 @@ const StudentApprovalsScreen = lazy(() => import('./StudentApprovalsScreen'));
 const AddBranchAdminScreen = lazy(() => import('./AddBranchAdminScreen'));
 const AssignFeePage = lazy(() => import('../admin/AssignFeePage'));
 const AdminActionsScreen = lazy(() => import('../admin/AdminActionsScreen'));
+const SchoolManagementScreen = lazy(() => import('../admin/SchoolManagementScreen'));
 
 type ViewStackItem = {
     view: string;
@@ -306,20 +307,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         addBranchAdmin: AddBranchAdminScreen,
         assignFee: AssignFeePage,
         adminActions: AdminActionsScreen,
+        schoolManagement: SchoolManagementScreen,
     };
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
         const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
-                setCurrentUserId(userData ? userData.id : (user.id as any));
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (authUser) {
+                const { data: userData } = await supabase.from('users').select('id').eq('email', authUser.email).single();
+                setCurrentUserId(userData ? userData.id : (authUser.id as any));
+            } else if (user) {
+                // Demo fallback
+                setCurrentUserId(user.id);
             }
         };
         getUser();
-    }, []);
+    }, [user]);
 
     const navigateTo = (view: string, title: string, props: any = {}) => {
         setViewStack(stack => [...stack, { view, props, title }]);
@@ -336,6 +341,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         switch (screen) {
             case 'actions': setViewStack([{ view: 'adminActions', props: {}, title: 'Quick Actions' }]); break;
             case 'home': setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]); break;
+            case 'branches': setViewStack([{ view: 'schoolManagement', props: {}, title: 'Manage Branches' }]); break;
             case 'studentList': setViewStack([{ view: 'studentList', props: {}, title: 'Students' }]); break;
             case 'teacherList': setViewStack([{ view: 'teacherList', props: {}, title: 'Teachers' }]); break;
             case 'parentList': setViewStack([{ view: 'parentList', props: {}, title: 'Parents' }]); break;

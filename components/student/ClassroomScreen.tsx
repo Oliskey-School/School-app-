@@ -1,12 +1,9 @@
-
-
-import React from 'react';
-import { Student, Teacher } from '../../types';
-import { mockStudents, mockTeachers, mockNotices } from '../../data';
+import React, { useState, useEffect } from 'react';
+import { Student, Teacher, Notice } from '../../types';
+import { fetchStudentsByClass, fetchTeachers, fetchNotices } from '../../lib/database';
 import { SUBJECT_COLORS, BookOpenIcon, ClipboardListIcon, MegaphoneIcon, UsersIcon } from '../../constants';
-
-// For this demo, we'll use the logged-in student (ID 4)
-const loggedInStudent: Student = mockStudents.find(s => s.id === '4')!;
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 
 interface ClassroomScreenProps {
   subjectName: string;
@@ -14,24 +11,66 @@ interface ClassroomScreenProps {
 }
 
 const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigateTo }) => {
-  const teacher = mockTeachers.find(t => t.subjects.includes(subjectName));
+  const { user } = useAuth();
+  const { profile } = useProfile();
+  
+  const [student, setStudent] = useState<Student | null>(null);
+  const [teacher, setTeacher] = useState<Teacher | null>(null);
+  const [classmates, setClassmates] = useState<Student[]>([]);
+  const [announcements, setAnnouncements] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // 1. Get student profile from current profile context (which should be populated)
+        // If not a student profile, we might be an admin viewing this.
+        const currentStudent = profile as unknown as Student;
+        setStudent(currentStudent);
+
+        if (currentStudent && currentStudent.grade) {
+          // 2. Fetch Classmates
+          const peers = await fetchStudentsByClass(currentStudent.grade, currentStudent.section);
+          setClassmates(peers.filter(p => p.id !== currentStudent.id));
+
+          // 3. Fetch Notices
+          const allNotices = await fetchNotices(currentStudent.schoolId);
+          const classAnnouncements = allNotices.filter(
+            n => (n.audience.includes('all') || n.audience.includes('students')) && 
+                 (!n.className || n.className === `Grade ${currentStudent.grade}${currentStudent.section}`)
+          ).slice(0, 2);
+          setAnnouncements(classAnnouncements);
+        }
+
+        // 4. Fetch Teacher for this subject
+        const allTeachers = await fetchTeachers(currentStudent?.schoolId);
+        const subjectTeacher = allTeachers.find(t => t.subjects.includes(subjectName));
+        setTeacher(subjectTeacher || null);
+
+      } catch (err) {
+        console.error("Error loading classroom data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (profile) {
+      loadData();
+    }
+  }, [profile, subjectName]);
+
   const colorClass = SUBJECT_COLORS[subjectName] || 'bg-gray-200 text-gray-800';
   const [bgColor, textColor] = colorClass.split(' ');
   const ringColor = bgColor.replace('bg-', 'ring-').replace('-100', '-300').replace('-200', '-300').replace('-300', '-400').replace('-400', '-500').replace('-500', '-600');
 
-  const classmates = mockStudents.filter(
-    s => s.grade === loggedInStudent.grade && s.section === loggedInStudent.section && s.id !== loggedInStudent.id
-  );
-
-  const announcements = mockNotices.filter(
-    n => (n.className === `Grade ${loggedInStudent.grade}${loggedInStudent.section}` || n.audience.includes('all')) && (n.audience.includes('students'))
-  ).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 2);
-
   const quickActions = [
-    { label: 'Assignments', icon: <ClipboardListIcon className="h-6 w-6"/>, action: () => navigateTo('assignments', `${subjectName} Assignments`, { studentId: loggedInStudent.id, subjectFilter: subjectName }) },
+    { label: 'Assignments', icon: <ClipboardListIcon className="h-6 w-6"/>, action: () => navigateTo('assignments', `${subjectName} Assignments`, { studentId: student?.id, subjectFilter: subjectName }) },
     { label: 'Resources', icon: <BookOpenIcon className="h-6 w-6"/>, action: () => navigateTo('library', 'E-Learning Library') },
   ];
   
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading classroom...</div>;
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <main className="flex-grow p-4 overflow-y-auto">
@@ -84,12 +123,14 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                         <h3 className="font-bold text-lg text-gray-800">Classmates</h3>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
-                        {classmates.map(c => (
+                        {classmates.length > 0 ? classmates.map(c => (
                             <div key={c.id} className="flex items-center space-x-3">
                                 <img src={c.avatarUrl} alt={c.name} className="w-10 h-10 rounded-full object-cover"/>
                                 <p className="text-sm font-medium text-gray-700">{c.name}</p>
                             </div>
-                        ))}
+                        )) : (
+                          <p className="text-sm text-gray-400 text-center py-4">No classmates found.</p>
+                        )}
                     </div>
                 </div>
             </div>
