@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase';
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
 
-// Import all other view components directly to fix rendering issues
+// Import all other view components directly
 import TeacherOverview from '../teacher/TeacherOverview';
 import ClassDetailScreen from '../teacher/ClassDetailScreen';
 import StudentProfileScreen from '../teacher/StudentProfileScreen';
@@ -141,6 +141,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     avatarUrl: string;
     schoolGeneratedId?: string;
     schoolId?: string;
+    notification_preferences?: any;
   }>({
     name: 'Teacher',
     avatarUrl: ''
@@ -156,7 +157,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       if (!schoolId) return;
 
       let query = supabase.from('teachers')
-        .select('id, name, avatar_url, email, school_generated_id, school_id')
+        .select('id, name, avatar_url, email, school_generated_id, school_id, notification_preferences')
         .eq('school_id', schoolId);
 
       let emailToQuery = user?.email || currentUser?.email;
@@ -175,8 +176,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       if (error) {
         if (error.code === '42501' || error.message?.includes('permission denied')) {
           setTeacherId('demo-teacher-id');
-          setTeacherProfile({ name: 'Demo Teacher', avatarUrl: '' });
-          return;
+          setTeacherProfile({
+            name: 'Demo Teacher',
+            avatarUrl: '',
+            notification_preferences: {}
+          });
+          return; // Exit early
         }
         return;
       }
@@ -185,10 +190,47 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         setTeacherId(data.id);
         setTeacherProfile({
           name: data.name || 'Teacher',
-          avatarUrl: data.avatar_url,
+          avatarUrl: data.avatar_url || '',
           schoolGeneratedId: data.school_generated_id,
-          schoolId: data.school_id
+          schoolId: data.school_id,
+          notification_preferences: data.notification_preferences
         } as any);
+      } else if (emailToQuery) {
+        // AUTO-HEALING: If no teacher profile found, create one automatically
+        // linked to the current school so they are "connected" immediately.
+        console.log("⚠️ No teacher profile found. Auto-creating for School:", schoolId);
+
+        try {
+          const { data: newTeacher, error: createError } = await supabase
+            .from('teachers')
+            .insert({
+              email: emailToQuery,
+              school_id: schoolId,
+              name: 'New Teacher', // Default name, can be updated later
+              status: 'Active',
+              user_id: currentUserId || undefined // Link to auth user if we have it
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error("Failed to auto-create teacher profile:", createError);
+          } else if (newTeacher) {
+            console.log("✅ Auto-created teacher profile!", newTeacher);
+            setTeacherId(newTeacher.id);
+            setTeacherProfile({
+              name: newTeacher.name,
+              avatarUrl: newTeacher.avatar_url || '',
+              schoolId: newTeacher.school_id,
+              schoolGeneratedId: newTeacher.school_generated_id,
+              notification_preferences: newTeacher.notification_preferences
+            });
+            // Force refresh to ensure UI updates
+            forceUpdate();
+          }
+        } catch (healErr) {
+          console.error("Auto-heal failed:", healErr);
+        }
       }
     } catch (err) {
       console.error('Unexpected error fetching profile:', err);
@@ -273,8 +315,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     reportCardPreview: TeacherReportCardPreviewScreen,
     settings: (props: any) => <TeacherSettingsScreen {...props} dashboardProfile={teacherProfile} refreshDashboardProfile={fetchProfile} />,
     editTeacherProfile: (props: any) => <EditTeacherProfileScreen {...props} onProfileUpdate={fetchProfile} />,
-    teacherNotificationSettings: TeacherNotificationSettingsScreen,
-    teacherSecurity: TeacherSecurityScreen,
+    teacherNotificationSettings: (props: any) => <TeacherNotificationSettingsScreen {...props} teacherId={teacherId} />,
+    teacherSecurity: (props: any) => <TeacherSecurityScreen {...props} teacherId={teacherId} userId={currentUserId} />,
     teacherChangePassword: TeacherChangePasswordScreen,
     lessonPlanner: LessonPlannerScreen,
     lessonPlanDetail: LessonPlanDetailScreen,
@@ -292,7 +334,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     virtualClass: VirtualClassScreen,
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
-    cbtManagement: CBTManagementScreen,
+    cbtManagement: (props: any) => <CBTManagementScreen {...props} schoolId={commonProps.schoolId} />,
     addStudent: AddStudentScreen,
     quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId || ''} onClose={handleBack} />,
     classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
@@ -303,8 +345,17 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
   const commonProps = {
-    navigateTo, handleBack, onLogout, forceUpdate, teacherProfile, 
-    refreshProfile: fetchProfile, teacherId, currentUser: user, currentUserId, schoolId, currentBranchId
+    navigateTo,
+    handleBack,
+    onLogout,
+    forceUpdate,
+    teacherProfile, // Make profile available to all screens
+    refreshProfile: fetchProfile, // Allow any screen to trigger refresh
+    teacherId, // Pass the dynamic teacher ID
+    currentUser: user,
+    currentUserId,
+    schoolId: schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined),
+    currentBranchId
   };
 
   return (

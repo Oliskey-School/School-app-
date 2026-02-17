@@ -100,11 +100,26 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
               }
             }
 
+            // Fetch role-specific data (e.g., phone from teachers or parents table)
+            let phone = '';
+            if (userData.role === 'Teacher' || userData.role === 'Parent') {
+              const tableName = userData.role === 'Teacher' ? 'teachers' : 'parents';
+              const { data: roleData } = await supabase
+                .from(tableName as any)
+                .select('phone')
+                .eq('user_id', userData.id)
+                .maybeSingle();
+
+              if (roleData?.phone) {
+                phone = roleData.phone;
+              }
+            }
+
             const dbProfile: UserProfile = {
               id: userData.id,
               name: userData.name || 'Demo User',
               email: userData.email,
-              phone: profile.phone, // Keep existing or fetch if added to DB
+              phone: phone || profile.phone,
               avatarUrl: userData.avatar_url || 'https://i.pravatar.cc/150?u=user',
               role: (userData.role as any) || profile.role,
               schoolId: schoolId,
@@ -166,11 +181,23 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       if (!error && userData) {
+        // Fetch role-specific data
+        let phone = '';
+        if (userData.role === 'Teacher' || userData.role === 'Parent') {
+          const tableName = userData.role === 'Teacher' ? 'teachers' : 'parents';
+          const { data: roleData } = await supabase
+            .from(tableName as any)
+            .select('phone')
+            .eq('user_id', userData.id)
+            .maybeSingle();
+          if (roleData?.phone) phone = roleData.phone;
+        }
+
         const dbProfile: UserProfile = {
           id: userData.id,
           name: userData.name || profile.name,
           email: userData.email,
-          phone: profile.phone,
+          phone: phone || profile.phone,
           avatarUrl: userData.avatar_url || profile.avatarUrl,
           role: (userData.role as any) || profile.role,
           schoolId: userData.school_id,
@@ -349,11 +376,23 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             await supabase.rpc('sync_user_metadata', { p_school_id: schoolId });
           }
 
+          // Fetch role-specific data
+          let phone = '';
+          if (data.role === 'Teacher' || data.role === 'Parent') {
+            const tableName = data.role === 'Teacher' ? 'teachers' : 'parents';
+            const { data: roleData } = await supabase
+              .from(tableName as any)
+              .select('phone')
+              .eq('user_id', data.id)
+              .maybeSingle();
+            if (roleData?.phone) phone = roleData.phone;
+          }
+
           const refreshed: UserProfile = {
             id: data.id,
             name: data.name || profile.name,
             email: data.email,
-            phone: profile.phone, // Phone not in users table
+            phone: phone || profile.phone,
             avatarUrl: data.avatar_url || profile.avatarUrl,
             role: (data.role as any) || profile.role,
             schoolId: schoolId,

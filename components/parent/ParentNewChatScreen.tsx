@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Student, Teacher, Conversation, RoleName, ChatRoom, ChatParticipant } from '../../types';
-import { mockTeachers, mockConversations } from '../../data';
+import { fetchTeachers } from '../../lib/database';
 import { SearchIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 type UserListItem = {
     id: string;
@@ -14,11 +15,12 @@ type UserListItem = {
 interface ParentNewChatScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
     children?: Student[];
+    schoolId?: string;
 }
 
 const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user, onSelect }) => (
-    <button onClick={onSelect} className="w-full flex items-center p-3 space-x-4 text-left bg-white rounded-lg hover:bg-gray-50 transition-colors">
-        <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
+    <button onClick={onSelect} className="w-full flex items-center p-3 space-x-4 text-left bg-white rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 shadow-sm">
+        <img src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`} alt={user.name} className="w-12 h-12 rounded-full object-cover bg-gray-100" />
         <div className="flex-grow">
             <p className="font-bold text-gray-800">{user.name}</p>
             <p className="text-sm text-gray-500">{user.subtitle}</p>
@@ -26,26 +28,52 @@ const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user,
     </button>
 );
 
-const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo, children = [] }) => {
+const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo, children = [], schoolId }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [dbTeachers, setDbTeachers] = useState<Teacher[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { user: authUser } = useAuth();
+
+    useEffect(() => {
+        const loadTeachers = async () => {
+            if (!schoolId) return;
+            setLoading(true);
+            try {
+                const data = await fetchTeachers(schoolId);
+                setDbTeachers(data);
+            } catch (err) {
+                console.error("Error loading teachers:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadTeachers();
+    }, [schoolId]);
 
     const teachers = useMemo((): UserListItem[] => {
         // Find classes of children
         const childrenClasses = children.map(c => `${c.grade}${c.section}`);
 
         // Find teachers who teach those classes
-        const relevantTeachers = mockTeachers.filter(t =>
-            t.status === 'Active' && t.classes.some(tc => childrenClasses.includes(tc))
+        const relevantTeachers = dbTeachers.filter(t =>
+            t.status === 'Active' && t.classes?.some(tc => {
+                // Normalize class strings for comparison
+                const tcClean = tc.replace(/\s+/g, '');
+                return childrenClasses.some(cc => tcClean.includes(cc) || cc.includes(tcClean));
+            })
         );
 
-        return relevantTeachers.map(t => ({
-            id: t.id,
+        // If no relevant teachers found via classes, show all active teachers in school
+        const displayList = relevantTeachers.length > 0 ? relevantTeachers : dbTeachers.filter(t => t.status === 'Active');
+
+        return displayList.map(t => ({
+            id: t.user_id || t.id, // Prefer user_id for chat
             name: t.name,
             avatarUrl: t.avatarUrl,
-            subtitle: `${t.subjects[0]} Teacher`,
+            subtitle: t.subjects?.[0] ? `${t.subjects[0]} Teacher` : 'Staff',
             userType: 'Teacher'
         }));
-    }, [children]);
+    }, [children, dbTeachers]);
 
     const filteredUsers = useMemo(() => {
         return teachers.filter(user =>
@@ -54,47 +82,22 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo, c
     }, [searchTerm, teachers]);
 
     const handleSelectUser = (user: UserListItem) => {
-        const role: RoleName = 'Teacher';
-
-        // Find existing conversation
-        let conversation = mockConversations.find(c =>
-            !c.isGroup && c.participants.some(p => p.userId === user.id)
-        );
-
-        if (!conversation) {
-            // Mock new conversation
-            // Note: In real app, we would make an API call to create conversation
-            const newConversation: Conversation = {
-                id: Date.now().toString(),
-                type: 'direct',
-                isGroup: false,
-                creatorId: 1002, // Mock curr parent
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                lastMessageAt: new Date().toISOString(),
-                participants: [
-                    { roomId: 0, userId: user.id, role: 'member', joinedAt: new Date().toISOString(), user: { id: user.id, name: user.name, avatarUrl: user.avatarUrl, role: role } },
-                    { roomId: 0, userId: 1002, role: 'admin', joinedAt: new Date().toISOString(), user: { id: 1002, name: 'You', avatarUrl: '', role: 'Parent' } }
-                ],
-                messages: [], // This is not in ChatRoom interface but might be expected by ChatScreen mock logic?
-                // ChatScreen expects `conversation` object to be passed.
-                // In types.ts, ChatRoom does NOT have messages. ChatScreen fetches them or expects them separately?
-                // Let's check ChatScreen usage.
-                // If ChatScreen expects specific props, I need to match.
-                // I will add 'messages' as any cast if needed or just omit if ChatScreen loads them.
-                // Assuming ChatScreen loads them or uses context, but "mockConversations" usually had messages.
-            } as any;
-
-            mockConversations.push(newConversation);
-            conversation = newConversation;
-        }
-
-        navigateTo('chat', user.name, { conversation });
+        // In real app, we navigate to chat with participant details
+        // The ChatScreen handles fetching/creating conversation based on participantId
+        navigateTo('chat', user.name, { 
+            participantId: user.id,
+            participantName: user.name,
+            participantAvatar: user.avatarUrl
+        });
     };
 
+    if (loading) {
+        return <div className="p-8 text-center text-gray-500">Finding teachers...</div>;
+    }
+
     return (
-        <div className="flex flex-col h-full bg-gray-100">
-            <div className="p-4 bg-gray-100/80 backdrop-blur-sm sticky top-0 z-10 border-b border-gray-200">
+        <div className="flex flex-col h-full bg-gray-50">
+            <div className="p-4 bg-white shadow-sm sticky top-0 z-10">
                 <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                         <SearchIcon className="text-gray-400" />
@@ -104,18 +107,23 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo, c
                         placeholder="Search for a teacher..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                        className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition-all outline-none"
                     />
                 </div>
             </div>
 
-            <main className="flex-grow p-4 space-y-2 overflow-y-auto">
+            <main className="flex-grow p-4 space-y-3 overflow-y-auto">
                 {filteredUsers.length > 0 ? (
                     filteredUsers.map(user => (
                         <UserRow key={user.id} user={user} onSelect={() => handleSelectUser(user)} />
                     ))
                 ) : (
-                    <p className="text-center text-gray-500 pt-8">No teachers found.</p>
+                    <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <SearchIcon className="w-8 h-8 text-gray-300" />
+                        </div>
+                        <p className="text-gray-500 font-medium">No teachers found.</p>
+                    </div>
                 )}
             </main>
         </div>

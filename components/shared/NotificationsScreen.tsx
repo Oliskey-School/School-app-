@@ -2,12 +2,9 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
-// import { mockNotifications } from '../../data'; // Mock removed
-import { mockStudents, mockFees } from '../../data'; // Keeping these for navigation mapping for now
+import { mockStudents, mockFees } from '../../data';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
-// import { Notification } from '../../types';
 
-// Defining local interface to match DB schema if needed, or use types
 interface Notification {
   id: string;
   title: string;
@@ -40,59 +37,73 @@ interface NotificationsScreenProps {
   userType: 'admin' | 'parent' | 'student' | 'teacher';
   navigateTo: (view: string, title: string, props?: any) => void;
   schoolId?: string;
+  student?: any; // Added student prop
 }
 
-const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, navigateTo, schoolId }) => {
+const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, navigateTo, schoolId, student }) => {
   const { profile } = useProfile();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = async () => {
     try {
-      if (!profile?.id) return; // Wait for profile
+      // Use the derived schoolId (priority: prop > profile > demo)
+      const activeSchoolId = schoolId || profile?.schoolId || (profile?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined);
 
-      // Fetch notifications where audience contains userType OR specific user_id match
-      // Note: Logic for 'audience' array check in Supabase might need specific filter or RLS
-      // For now, simpler query: fetch all for user_id match (if we have a user_notifications join) 
-      // OR fallback to simple "audience includes userType" checks if stored as JSON/Array.
+      if (!activeSchoolId) {
+        console.warn('🔔 [NotificationsScreen] No schoolId available for fetch');
+        return;
+      }
 
-      let query = supabase
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('school_id', schoolId)
+        .eq('school_id', activeSchoolId)
         .order('created_at', { ascending: false });
-
-      // Ideally, backend should handle "For Me" logic via RLS. 
-      // We will fetch widely and filter locally if complex, or ideally rely on 'recipient_id' if it exists.
-      // Assuming 'audience' is a text array or JSONB in DB.
-
-      // For this implementation, we'll assume valid RLS or simple fetching.
-      const { data, error } = await query;
 
       if (error) throw error;
 
-      // Filter locally for now to match strict permissions if DB RLS isn't perfect
+      const roleToCheck = (userType || 'student').toLowerCase();
+      const studentGrade = student?.grade || profile?.grade; // Fallback to profile if added there later
+
       const filtered = (data || []).filter((n: any) => {
-        const aud = n.audience || []; // Assuming audience is array string in DB
-        const isForRole = aud.includes('all') || aud.includes(userType);
-        const isForUser = n.user_id === profile.id || !n.user_id; // Check user_id matches profile.id
-        return isForRole && isForUser;
+        let audience: string[] = [];
+        const audField = n.audience;
+        if (Array.isArray(audField)) {
+          audience = audField;
+        } else if (typeof audField === 'string') {
+          if (audField.startsWith('{') && audField.endsWith('}')) {
+            audience = audField.slice(1, -1).split(',').map(s => s.trim());
+          } else {
+            audience = [audField];
+          }
+        }
+
+        const isForRole = audience.some((s: any) => {
+          const audStr = String(s || '').toLowerCase();
+          // Match by general role (student/teacher/etc) OR by specific class (e.g. Grade 10)
+          const isGeneralRole = audStr === roleToCheck || audStr === 'all';
+          const isSpecificClass = userType === 'student' && studentGrade && audStr === `grade ${studentGrade}`;
+          
+          return isGeneralRole || isSpecificClass;
+        });
+
+        const isForUser = !n.user_id || (profile?.id && String(n.user_id) === String(profile.id));
         return isForRole && isForUser;
       }).map((n: any) => ({
         id: n.id,
         title: n.title,
-        summary: n.message, // Mapping 'message' col to 'summary' prop
-        category: n.type,   // Mapping 'type' col to 'category' prop
+        summary: n.message,
+        category: n.category || 'System',
         audience: n.audience,
         is_read: n.is_read || false,
         timestamp: n.created_at,
-        student_id: n.student_id, // flexible mapping
+        student_id: n.student_id,
         related_id: n.related_id,
         link: n.link
       }));
 
       setNotifications(filtered);
-
     } catch (err) {
       console.error('Error fetching notifications:', err);
     } finally {
@@ -103,58 +114,44 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
   useEffect(() => {
     fetchNotifications();
 
-    const channel = supabase.channel(`public:notifications:school:${schoolId}`)
+    const activeSchoolId = schoolId || profile?.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
+    const channel = supabase.channel(`notifications-screen-${activeSchoolId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'notifications',
-        filter: schoolId ? `school_id=eq.${schoolId}` : undefined
+        filter: `school_id=eq.${activeSchoolId}`
       }, (payload) => {
+        console.log('🔔 [NotificationsScreen] Update received:', payload);
         fetchNotifications();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); }
-  }, [profile, userType]);
-
+  }, [profile?.id, userType, schoolId, profile?.schoolId]);
 
   const markAsRead = async (notificationId: string) => {
-    // Optimistic update
     setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
-
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
-
-      if (error) throw error;
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
     } catch (err) {
       console.error('Error marking as read:', err);
     }
   };
 
   const handleNotificationClick = async (notification: Notification) => {
-    if (!notification.is_read) {
-      await markAsRead(notification.id);
-    }
+    if (!notification.is_read) await markAsRead(notification.id);
 
-    // Parent-specific navigation logic
     if (userType === 'parent') {
       switch (notification.category) {
         case 'Fees':
           const feeStudentInfo = mockFees.find(f => f.id === notification.student_id);
-          if (feeStudentInfo) {
-            navigateTo('feeStatus', 'Fee Status', { student: feeStudentInfo });
-          }
-          // Fallback if no mock data match
-          else navigateTo('feeStatus', 'Fee Status', {});
+          navigateTo('feeStatus', 'Fee Status', feeStudentInfo ? { student: feeStudentInfo } : {});
           break;
         case 'Attendance':
           const student = mockStudents.find(s => s.id === notification.student_id);
-          if (student) {
-            navigateTo('childDetail', student.name, { student, initialTab: 'attendance' });
-          }
+          if (student) navigateTo('childDetail', student.name, { student, initialTab: 'attendance' });
           break;
         case 'Event':
           navigateTo('calendar', 'School Calendar', {});
@@ -166,7 +163,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
           break;
       }
     } else if (userType === 'admin') {
-      // Admin navigation logic
       switch (notification.category) {
         case 'Fees': navigateTo('feeManagement', 'Fee Management', {}); break;
         case 'System': navigateTo('systemSettings', 'System Settings', {}); break;
@@ -174,25 +170,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
         default: break;
       }
     } else if (userType === 'student') {
-      // Student navigation logic
       switch (notification.category) {
-        case 'Homework':
-          // Check if we have an assignment ID linked
-          if (notification.student_id) { // mapped from related_id/student_id
-            // We need to fetch the assignment details or pass ID
-            // Ideally navigate to assignment detail. 
-            // For now, go to Assignments list or specific assignment if possible
-            // Assuming 'link' might contain ID or related_id is assignment ID
-
-            // In AssignmentSubmissionScreen, we stored 'related_id: assignment.id'
-            // In NotificationsScreen, we mapped 'student_id: n.related_entity_id' (Wait, check map)
-            // Let's check the map in fetchNotifications:
-            // student_id: n.related_entity_id 
-            // BUT in insert we used 'related_id'. 
-            // We should fix the mapping first to be sure.
-          }
-          navigateTo('assignments', 'My Assignments', {});
-          break;
+        case 'Homework': navigateTo('assignments', 'My Assignments', {}); break;
         case 'Message': navigateTo('messages', 'My Messages', {}); break;
         case 'Grades': navigateTo('results', 'My Results', { studentId: profile.id }); break;
         default: break;
@@ -203,16 +182,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
   const markAllAsRead = async () => {
     const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
     if (unreadIds.length === 0) return;
-
-    // Optimistic update
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .in('id', unreadIds);
-
+      const { error } = await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds);
       if (error) throw error;
       toast.success('All marked as read');
     } catch (err) {
@@ -271,4 +243,5 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
     </div>
   );
 };
+
 export default NotificationsScreen;

@@ -28,7 +28,7 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
                     .from('quiz_questions')
                     .select('*')
                     .eq('quiz_id', test.id)
-                    .order('order_index', { ascending: true })
+                    .order('question_order', { ascending: true })
                 );
 
                 if (data) {

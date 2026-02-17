@@ -387,7 +387,7 @@ const ParentDashboardContent = ({ navigateTo, schoolId, currentUser, version, st
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                         <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-gray-800">School Utilities</h3><button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="text-sm text-blue-600 hover:text-blue-800 font-medium">View All</button></div>
-                        <div className="grid grid-cols-2 md:grid-cols-2 gap-3">{quickAccessItems.map(item => (<button key={item.label} onClick={item.action} className="bg-gray-50 p-4 rounded-xl flex flex-col items-center justify-center space-y-2 hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200"><div className="text-blue-600">{item.icon}</div><span className="font-semibold text-gray-700 text-center text-xs">{item.label}</span></button>))}</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{quickAccessItems.map(item => (<button key={item.label} onClick={item.action} className="bg-gray-50 p-4 rounded-xl flex flex-col items-center justify-center space-y-2 hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200"><div className="text-blue-600">{item.icon}</div><span className="font-semibold text-gray-700 text-center text-xs">{item.label}</span></button>))}</div>
                     </div>
                     {childrenStats.map((data, index) => (<ChildStatCard key={data.student.id} data={data} navigateTo={navigateTo} colorTheme={childColorThemes[index % childColorThemes.length]} />))}
                 </div>

@@ -15,12 +15,13 @@ import { toast } from 'react-hot-toast';
 
 interface FeeStatusScreenProps {
     parentId?: string | null;
+    currentUserId?: string | null;
     schoolId?: string;
     currentBranchId?: string | null;
     navigateTo: (view: string, title: string, props?: any) => void;
 }
 
-const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo, schoolId, currentBranchId }) => {
+const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUserId, navigateTo, schoolId, currentBranchId }) => {
     const [students, setStudents] = useState<any[]>([]);
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [fees, setFees] = useState<Fee[]>([]);
@@ -61,36 +62,41 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, navigateTo,
                 }
 
                 // 3. Fetch Children (Using Student-Parent Links)
-                const { data: relations } = await supabase
-                    .from('student_parent_links')
-                    .select('student_user_id')
-                    .eq('school_id', schoolId)
-                    .eq('parent_user_id', parentId);
+                // IMPORTANT: student_parent_links uses user_id (UUID from auth.users), not parents.id
+                const effectiveParentUserId = currentUserId || user?.id;
 
-                if (relations && relations.length > 0) {
-                    const studentUserIds = relations.map((r: any) => r.student_user_id);
-                    const { data: kidsData } = await supabase
-                        .from('students')
-                        .select('id, name, grade, section, avatar_url')
+                if (effectiveParentUserId) {
+                    const { data: relations } = await supabase
+                        .from('student_parent_links')
+                        .select('student_user_id')
                         .eq('school_id', schoolId)
-                        .in('user_id', studentUserIds);
+                        .eq('parent_user_id', effectiveParentUserId);
 
-                    if (kidsData && kidsData.length > 0) {
-                        setStudents(kidsData);
-                        setSelectedStudent(kidsData[0]);
+                    if (relations && relations.length > 0) {
+                        const studentUserIds = relations.map((r: any) => r.student_user_id);
+                        const { data: kidsData } = await supabase
+                            .from('students')
+                            .select('id, name, grade, section, avatar_url')
+                            .eq('school_id', schoolId)
+                            .in('user_id', studentUserIds);
+
+                        if (kidsData && kidsData.length > 0) {
+                            setStudents(kidsData);
+                            setSelectedStudent(kidsData[0]);
+                        } else {
+                            toast('No student records found linked to your account.');
+                        }
                     } else {
-                        toast('No student records found linked to your account.');
+                        toast('No children found linked to your account.');
                     }
-                } else {
-                    toast('No children found for this parent.');
                 }
             } else {
-                toast.error('Parent ID not found. Please log in again.');
+                toast.error('Parent profile context not found.');
             }
             setLoading(false);
         };
         init();
-    }, [parentId]);
+    }, [parentId, currentUserId]);
 
     useEffect(() => {
         if (selectedStudent) {

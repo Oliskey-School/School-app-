@@ -48,7 +48,7 @@ const StudentRow: React.FC<{ student: Student; onSelect: (student: Student) => v
     />
     <div className="flex-grow min-w-0">
       <p className="font-bold text-sm text-gray-800 truncate">{student.name}</p>
-      <p className="text-xs text-gray-500">ID: {student.schoolGeneratedId || student.schoolId || `SCH-${student.grade}`}</p>
+      <p className="text-xs text-gray-500">ID: {student.schoolGeneratedId || student.schoolId || student.id}</p>
     </div>
     <div className="flex items-center space-x-3">
       <AttendanceStatusIndicator status={student.attendanceStatus} />

@@ -204,7 +204,8 @@ export async function createStudent(studentData: {
 
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150',
             grade: data.grade,
@@ -512,14 +513,41 @@ export async function fetchParents(schoolId?: string, branchId?: string): Promis
 
         if (error) throw error;
 
-        return (data || []).map((p: any) => ({
+        const parents = data || [];
+
+        // Extract all involved student IDs
+        const allStudentIds = new Set<string>();
+        parents.forEach((p: any) => {
+            if (p.parent_children) {
+                p.parent_children.forEach((c: any) => allStudentIds.add(c.student_id));
+            }
+        });
+
+        // Fetch readable IDs for these students
+        let studentMap: Record<string, string> = {};
+        if (allStudentIds.size > 0) {
+            const arrIds = Array.from(allStudentIds);
+            const { data: students, error: stuError } = await supabase
+                .from('students')
+                .select('id, school_generated_id, admission_number')
+                .in('id', arrIds);
+
+            if (!stuError && students) {
+                students.forEach((s: any) => {
+                    studentMap[s.id] = s.school_generated_id || s.admission_number || 'Unknown';
+                });
+            }
+        }
+
+        return parents.map((p: any) => ({
             id: p.id,
-            schoolId: p.school_generated_id,
+            schoolId: p.school_id,
+            schoolGeneratedId: p.school_generated_id,
             name: p.name,
             email: p.email,
             phone: p.phone || '',
             avatarUrl: p.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-            childIds: (p.parent_children || []).map((c: any) => c.student_id)
+            childIds: (p.parent_children || []).map((c: any) => studentMap[c.student_id] || c.student_id)
         }));
     } catch (err) {
         console.error('Error fetching parents:', err);
@@ -541,14 +569,31 @@ export async function fetchParentByEmail(email: string): Promise<Parent | null> 
         if (error) throw error;
         if (!data) return null;
 
+        // Fetch readable IDs for children
+        let childIds: string[] = [];
+        if (data.parent_children && data.parent_children.length > 0) {
+            const studentIds = data.parent_children.map((c: any) => c.student_id);
+            const { data: students, error: stuError } = await supabase
+                .from('students')
+                .select('school_generated_id, admission_number')
+                .in('id', studentIds);
+
+            if (!stuError && students) {
+                childIds = students.map((s: any) => s.school_generated_id || s.admission_number || 'Unknown');
+            } else {
+                childIds = studentIds; // Fallback
+            }
+        }
+
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             email: data.email,
             phone: data.phone || '',
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-            childIds: (data.parent_children || []).map((c: any) => c.student_id)
+            childIds: childIds
         };
     } catch (err) {
         console.error('Error fetching parent by email:', err);
@@ -570,14 +615,31 @@ export async function fetchParentByUserId(userId: string): Promise<Parent | null
         if (error) throw error;
         if (!data) return null;
 
+        // Fetch readable IDs for children
+        let childIds: string[] = [];
+        if (data.parent_children && data.parent_children.length > 0) {
+            const studentIds = data.parent_children.map((c: any) => c.student_id);
+            const { data: students, error: stuError } = await supabase
+                .from('students')
+                .select('school_generated_id, admission_number')
+                .in('id', studentIds);
+
+            if (!stuError && students) {
+                childIds = students.map((s: any) => s.school_generated_id || s.admission_number || 'Unknown');
+            } else {
+                childIds = studentIds; // Fallback
+            }
+        }
+
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id,
+            schoolGeneratedId: data.school_generated_id,
             name: data.name,
             email: data.email,
             phone: data.phone || '',
             avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-            childIds: (data.parent_children || []).map((c: any) => c.student_id)
+            childIds: childIds
         };
     } catch (err) {
         console.error('Error fetching parent by user id:', err);
@@ -647,7 +709,8 @@ export async function fetchParentsForStudent(studentId: string | number): Promis
 
         return (parents || []).map((p: any) => ({
             id: p.id,
-            schoolId: p.school_generated_id,
+            schoolId: p.school_id, // Fixed
+            schoolGeneratedId: p.school_generated_id, // Fixed
             name: p.name,
             email: p.email,
             phone: p.phone || '',
@@ -694,7 +757,8 @@ export async function createParent(parentData: {
 
         return {
             id: data.id,
-            schoolId: data.school_generated_id,
+            schoolId: data.school_id, // Fixed (though usually empty on client after create, but strict mapping helps)
+            schoolGeneratedId: data.school_generated_id, // Fixed
             name: data.name,
             email: data.email,
             phone: data.phone || '',
@@ -1701,6 +1765,7 @@ export async function createLessonNote(noteData: {
     teacherId: string | number;
     subjectId: string | number;
     classId: string | number;
+    schoolId: string;
     week: number;
     term: string;
     title: string;
@@ -1714,10 +1779,11 @@ export async function createLessonNote(noteData: {
                 teacher_id: noteData.teacherId,
                 subject_id: noteData.subjectId,
                 class_id: noteData.classId,
+                school_id: noteData.schoolId,
                 week: noteData.week,
                 term: noteData.term,
                 title: noteData.title,
-                content: noteData.content,
+                description: noteData.content, // Map content to description
                 file_url: noteData.fileUrl,
                 status: 'Pending'
             });
@@ -1775,7 +1841,7 @@ export async function fetchCBTQuestions(examId: string): Promise<any[]> {
             .from('quiz_questions')
             .select('*')
             .eq('quiz_id', examId)
-            .order('order_index', { ascending: true }); // Assuming order_index exists, or just id
+            .order('question_order', { ascending: true });
 
         if (error) throw error;
 
@@ -1785,8 +1851,8 @@ export async function fetchCBTQuestions(examId: string): Promise<any[]> {
             questionText: q.question_text,
             questionType: q.question_type,
             options: q.options,
-            correctOption: q.correct_option,
-            points: q.points
+            correctOption: q.correct_answer,
+            points: q.marks
         }));
     } catch (err) {
         console.error('Error fetching Quiz questions:', err);
@@ -2335,5 +2401,86 @@ export async function linkStudentToParent(studentCode: string, relationship: str
     } catch (err: any) {
         console.error('Error linking student:', err);
         return { success: false, message: err.message || 'Failed to link student' };
+    }
+}
+
+// ============================================
+// FEATURE EXPANSION: TEACHER FORUM
+// ============================================
+
+export async function fetchForumTopics(schoolId?: string): Promise<any[]> {
+    try {
+        let query = supabase
+            .from('forum_topics')
+            .select('*')
+            .order('last_activity', { ascending: false });
+
+        if (schoolId) query = query.eq('school_id', schoolId);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        return (data || []).map(t => ({
+            id: t.id,
+            title: t.title,
+            authorName: t.author_name,
+            createdAt: t.created_at,
+            lastActivity: t.last_activity,
+            postCount: t.post_count,
+            posts: [] // We fetch posts separately or on demand
+        }));
+    } catch (err) {
+        console.error('Error fetching forum topics:', err);
+        return [];
+    }
+}
+
+export async function createForumTopic(topicData: {
+    title: string;
+    content: string; // First post content
+    authorName: string;
+    authorId: string;
+    schoolId: string;
+    authorAvatarUrl?: string;
+}): Promise<boolean> {
+    try {
+        // 1. Create Topic
+        const { data: topic, error: topicError } = await supabase
+            .from('forum_topics')
+            .insert({
+                title: topicData.title,
+                school_id: topicData.schoolId,
+                author_name: topicData.authorName,
+                author_id: topicData.authorId,
+                post_count: 1,
+                last_activity: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (topicError) throw topicError;
+
+        // 2. Create First Post
+        const { error: postError } = await supabase
+            .from('forum_posts')
+            .insert({
+                topic_id: topic.id,
+                school_id: topicData.schoolId,
+                author_name: topicData.authorName,
+                author_id: topicData.authorId,
+                author_avatar_url: topicData.authorAvatarUrl,
+                content: topicData.content
+            });
+
+        if (postError) {
+            // Rollback topic creation if post fails (manual cleanup)
+            await supabase.from('forum_topics').delete().eq('id', topic.id);
+            throw postError;
+        }
+
+        return true;
+    } catch (err) {
+        console.error('Error creating forum topic:', err);
+        return false;
     }
 }

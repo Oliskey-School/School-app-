@@ -41,6 +41,7 @@
     "express-rate-limit": "^8.2.1",
     "formik": "^2.4.9",
     "framer-motion": "^12.25.0",
+    "glob": "^13.0.3",
     "helmet": "^8.1.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.12.1",

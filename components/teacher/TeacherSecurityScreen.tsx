@@ -5,20 +5,27 @@ import { supabase } from '../../lib/supabase';
 
 interface TeacherSecurityScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    teacherId?: string | null;
+    userId?: string | null;
 }
 
-const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateTo }) => {
+const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateTo, teacherId, userId }) => {
     const [twoFactor, setTwoFactor] = useState(false);
     const [loginHistory, setLoginHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchSecurityData = async () => {
+            if (!teacherId || !userId) {
+                setLoading(false);
+                return;
+            }
+
             // Fetch 2FA status
             const { data: teacherData } = await supabase
                 .from('teachers')
                 .select('is_2fa_enabled')
-                .eq('email', 'f.akintola@school.com')
+                .eq('id', teacherId)
                 .single();
 
             if (teacherData) {
@@ -29,25 +36,38 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
             const { data: historyData } = await supabase
                 .from('login_history')
                 .select('*')
-                .eq('user_email', 'f.akintola@school.com')
+                .eq('user_id', userId)
                 .order('login_time', { ascending: false });
 
-            if (historyData) {
+            if (historyData && historyData.length > 0) {
                 setLoginHistory(historyData);
+            } else {
+                // Fallback: If no history exists, show current session info mockably
+                setLoginHistory([{
+                    device: navigator.userAgent.split(') ')[0].split(' (')[1] || 'Web Browser',
+                    location: 'Current Session',
+                    login_time: new Date().toISOString(),
+                    is_current: true
+                }]);
             }
             setLoading(false);
         };
         fetchSecurityData();
-    }, []);
+    }, [teacherId, userId]);
 
     const toggleTwoFactor = async () => {
+        if (!teacherId) return;
+
         const newValue = !twoFactor;
         setTwoFactor(newValue);
         try {
-            await supabase
+            const { error } = await supabase
                 .from('teachers')
                 .update({ is_2fa_enabled: newValue })
-                .eq('email', 'f.akintola@school.com');
+                .eq('id', teacherId);
+
+            if (error) throw error;
+            toast.success(`2FA ${newValue ? 'enabled' : 'disabled'} successfully.`);
         } catch (err) {
             console.error('Error updating 2FA:', err);
             setTwoFactor(!newValue); // Revert on error
@@ -73,6 +93,7 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
                     <ChevronRightIcon className="h-5 w-5 text-gray-400" />
                 </button>
             </div>
+
             <div className="bg-white p-4 rounded-xl shadow-sm">
                 <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-3">
@@ -82,8 +103,17 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
                             <p className="text-sm text-gray-500">Add an extra layer of security.</p>
                         </div>
                     </div>
-                    <button type="button" role="switch" aria-checked={twoFactor} onClick={toggleTwoFactor} className={`relative inline-flex items-center h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${twoFactor ? 'bg-purple-600' : 'bg-gray-300'}`}>
-                        <span aria-hidden="true" className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${twoFactor ? 'translate-x-5' : 'translate-x-0'}`} />
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={twoFactor}
+                        onClick={toggleTwoFactor}
+                        className={`relative inline-flex items-center h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${twoFactor ? 'bg-purple-600' : 'bg-gray-300'}`}
+                    >
+                        <span
+                            aria-hidden="true"
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${twoFactor ? 'translate-x-5' : 'translate-x-0'}`}
+                        />
                     </button>
                 </div>
             </div>
@@ -98,12 +128,19 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
                                 <p className="font-semibold text-gray-700">{item.device}</p>
                                 <p className="text-sm text-gray-500">{item.location} - {new Date(item.login_time).toLocaleString()}</p>
                             </div>
-                            {item.is_current && <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">Active now</span>}
+                            {item.is_current && (
+                                <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                                    Active now
+                                </span>
+                            )}
                         </li>
-                    )) : <p className="text-sm text-gray-500">No login history available.</p>}
+                    )) : (
+                        <p className="text-sm text-gray-500">No login history available.</p>
+                    )}
                 </ul>
             </div>
         </div>
     );
 };
+
 export default TeacherSecurityScreen;

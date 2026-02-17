@@ -79,10 +79,16 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
         return;
       }
 
+      console.log(`[Diagnostic] Fetched ${studentsData?.length || 0} students and ${reportCardsData?.length || 0} report cards for school ${activeSchoolId}`);
+
       // Map students with their latest report card status
       const studentsWithReportStatus = (studentsData || []).map(student => {
         const studentReports = reportCardsData?.filter(rc => rc.student_id === student.id) || [];
         const latestReport = studentReports[0];
+
+        if (studentReports.length > 0) {
+          console.log(`[Diagnostic] Student ${student.name} has ${studentReports.length} reports. Latest status: ${latestReport.status}`);
+        }
 
         return {
           ...student,
@@ -99,6 +105,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
         };
       });
 
+      console.log(`[Diagnostic] Total students mapped: ${studentsWithReportStatus.length}`);
       setStudentsWithReports(studentsWithReportStatus as StudentReportInfo[]);
     } catch (err) {
       console.error('Error fetching students with reports:', err);

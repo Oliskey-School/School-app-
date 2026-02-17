@@ -32,6 +32,7 @@ const TimetableScreen = lazy(() => import('../shared/TimetableScreen'));
 const AssignmentsScreen = lazy(() => import('../student/AssignmentsScreen'));
 const SubjectsScreen = lazy(() => import('../student/SubjectsScreen'));
 const ClassroomScreen = lazy(() => import('../student/ClassroomScreen'));
+const VirtualClassroom = lazy(() => import('../video/VirtualClassroom'));
 const AttendanceScreen = lazy(() => import('../student/AttendanceScreen'));
 const ResultsScreen = lazy(() => import('../student/ResultsScreen'));
 const StudentFinanceScreen = lazy(() => import('../student/StudentFinanceScreen'));
@@ -577,17 +578,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     const [incomingClass, setIncomingClass] = useState<any | null>(null);
 
     useEffect(() => {
-        if (!student) return;
+        if (!student || !schoolId) return;
 
         let myClassId: string | null = null;
         let channel: any = null;
 
         const setupListener = async () => {
-            // 1. Get Class ID
             try {
+                // 1. Get Class ID scoped to School
                 const { data: cls } = await supabase
                     .from('classes')
                     .select('id')
+                    .eq('school_id', schoolId)
                     .eq('grade', student.grade)
                     .eq('section', student.section)
                     .limit(1)
@@ -595,11 +597,28 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
                 if (cls) {
                     myClassId = cls.id;
-                    console.log('Listening for class sessions for:', myClassId);
+                    console.log('📡 [Student] Listening for class sessions for:', myClassId);
 
-                    // 2. Subscribe
+                    // 2. CHECK FOR EXISTING ACTIVE SESSIONS (Important for students joining late)
+                    const { data: existingActive } = await supabase
+                        .from('virtual_class_sessions')
+                        .select('*, teachers(name)')
+                        .eq('class_id', myClassId)
+                        .eq('status', 'active')
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (existingActive) {
+                        console.log('🔔 [Student] Found already active class:', existingActive);
+                        setIncomingClass({
+                            ...existingActive,
+                            teacherName: (existingActive as any).teachers?.name || 'Teacher'
+                        });
+                    }
+
+                    // 3. Subscribe to Future Changes
                     channel = supabase
-                        .channel('student-class-sessions')
+                        .channel(`student-class-${myClassId}`)
                         .on(
                             'postgres_changes',
                             {
@@ -609,16 +628,29 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 filter: `class_id=eq.${myClassId}`
                             },
                             async (payload: any) => {
-                                console.log('Class session event:', payload);
-                                if (payload.new && payload.new.status === 'active') {
-                                    // Fetch teacher name
-                                    const { data: teacher } = await supabase.from('teachers').select('name').eq('id', payload.new.teacher_id).limit(1).maybeSingle();
+                                console.log('🔔 [Student] Class session event:', payload.eventType, payload.new);
+                                
+                                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                                    if (payload.new && payload.new.status === 'active') {
+                                        // Fetch teacher name
+                                        const { data: teacher } = await supabase
+                                            .from('teachers')
+                                            .select('name')
+                                            .eq('id', payload.new.teacher_id)
+                                            .limit(1)
+                                            .maybeSingle();
 
-                                    setIncomingClass({
-                                        ...payload.new,
-                                        teacherName: teacher?.name || 'Teacher'
-                                    });
-                                } else if (payload.new && payload.new.status === 'ended') {
+                                        setIncomingClass({
+                                            ...payload.new,
+                                            teacherName: teacher?.name || 'Teacher'
+                                        });
+                                        
+                                        // Also show a toast for immediate visibility if modal is somehow blocked
+                                        toast.success(`Live Class Started: ${payload.new.subject}`, { icon: '🎥' });
+                                    } else if (payload.new && payload.new.status === 'ended') {
+                                        setIncomingClass(null);
+                                    }
+                                } else if (payload.eventType === 'DELETE') {
                                     setIncomingClass(null);
                                 }
                             }
@@ -626,7 +658,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         .subscribe();
                 }
             } catch (err) {
-                console.error("Error setting up class listener:", err);
+                console.error("❌ [Student] Error setting up class listener:", err);
             }
         };
 
@@ -635,7 +667,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         return () => {
             if (channel) supabase.removeChannel(channel);
         };
-    }, [student]);
+    }, [student, schoolId]);
 
     // Real-time Service Integration Removed
     /*
@@ -738,6 +770,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         assignments: AssignmentsScreen,
         subjects: SubjectsScreen,
         classroom: ClassroomScreen,
+        liveClass: (props: any) => <VirtualClassroom {...props} userRole="student" userId={student?.id} />,
         attendance: AttendanceScreen,
         results: ResultsScreen,
         finances: StudentFinanceScreen,
@@ -928,7 +961,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 classInfo={incomingClass}
                 onJoin={() => {
                     setIncomingClass(null);
-                    navigateTo('classroom', 'Live Class', { session: incomingClass });
+                    navigateTo('liveClass', 'Live Class Session', { session: incomingClass });
                 }}
                 onDecline={() => setIncomingClass(null)}
             />

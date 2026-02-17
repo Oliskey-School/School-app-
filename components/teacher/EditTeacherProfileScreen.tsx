@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserIcon, MailIcon, PhoneIcon, CameraIcon, BookOpenIcon } from '../../constants';
-// Removed direct supabase import as we use context now
-// import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
@@ -24,10 +24,27 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     const [email, setEmail] = useState(profile.email || '');
     const [phone, setPhone] = useState(profile.phone || '');
     const [avatar, setAvatar] = useState(profile.avatarUrl || 'https://i.pravatar.cc/150?u=teacher');
+    const [subjects, setSubjects] = useState<string[]>([]);
+    const { supabase: supabaseContext } = useAuth(); // We'll use the supabase client from auth OR use direct import if needed
+    const supabaseClient = supabase; // Standard import exists at the top usually, but let's be safe.
 
-    // 'Subject' is not in the base User profile, so we might keep it static or remove it.
-    // For now, we'll keep the UI but make it non-editable or just generic since it's not in Users table.
-    const [subject] = useState('General');
+
+    // Fetch Teacher specific data (subjects)
+    useEffect(() => {
+        const fetchTeacherData = async () => {
+            if (!profile.email) return;
+            const { data, error } = await supabase
+                .from('teachers')
+                .select('subjects')
+                .eq('email', profile.email)
+                .single();
+
+            if (data?.subjects) {
+                setSubjects(Array.isArray(data.subjects) ? data.subjects : [data.subjects]);
+            }
+        };
+        fetchTeacherData();
+    }, [profile.email]);
 
     // Update local state when context profile changes (e.g. initial load)
     useEffect(() => {
@@ -89,10 +106,20 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                 name,
                 email,
                 avatarUrl: avatar,
-                // Phone is kept in local state/context but might not persist to DB 
-                // if 'users' table lacks the column (as per Admin structure).
                 phone
             });
+
+            // 3. Update subjects in the 'teachers' table specifically
+            if (profile.email) {
+                const { error: teacherError } = await supabase
+                    .from('teachers')
+                    .update({
+                        subjects
+                    })
+                    .eq('email', profile.email);
+
+                if (teacherError) throw teacherError;
+            }
 
             toast.success('Profile updated successfully!');
 
@@ -154,14 +181,21 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                                 <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500" />
                             </div>
                         </div>
-                        {/* Subject field kept for UI consistency but read-only as it's not in standard profile */}
+                        {/* Subject field - Now editable and synced */}
                         <div>
-                            <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                            <label htmlFor="subjects" className="block text-sm font-medium text-gray-700 mb-1">Subject Specialization (comma separated)</label>
                             <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                                     <BookOpenIcon className="w-5 h-5" />
                                 </span>
-                                <input type="text" id="subject" value={subject} disabled className="w-full pl-10 pr-3 py-3 text-gray-500 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed" />
+                                <input
+                                    type="text"
+                                    id="subjects"
+                                    value={subjects.join(', ')}
+                                    onChange={(e) => setSubjects(e.target.value.split(',').map(s => s.trim()).filter(s => s !== ''))}
+                                    className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    placeholder="Mathematics, English, etc."
+                                />
                             </div>
                         </div>
                     </div>

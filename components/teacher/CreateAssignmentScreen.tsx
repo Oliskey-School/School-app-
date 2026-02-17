@@ -49,11 +49,54 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
   const { user, currentSchool } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
+
   // const teacher = useMemo(() => mockTeachers.find(t => t.id === LOGGED_IN_TEACHER_ID)!, []);
   // const teacherSubjects = useMemo(() => SUBJECTS_LIST.filter(s => teacher.subjects.includes(s.name)), [teacher]);
   const [dbSubjects, setDbSubjects] = useState<any[]>([]);
   // STRICT: Only show subjects from DB. If empty, show empty.
   const teacherSubjects = dbSubjects;
+
+  const parseClassName = (name: string) => {
+    const clean = name.trim();
+    let grade = 0;
+    let section = '';
+
+    // Regex patterns
+    const preNurseryMatch = clean.match(/^Pre-Nursery/i);
+    const nurseryMatch = clean.match(/^Nursery\s*(\d+)\s*(.*)$/i);
+    const basicMatch = clean.match(/^Basic\s*(\d+)\s*(.*)$/i);
+    const standardMatch = clean.match(/^(?:Grade|Year|Primary)?\s*(\d+)\s*(.*)$/i);
+    const jsMatch = clean.match(/^JSS\s*(\d+)\s*(.*)$/i);
+    const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i); // Matches SS, SSS
+
+    if (preNurseryMatch) {
+      grade = 0;
+    } else if (nurseryMatch) {
+      grade = parseInt(nurseryMatch[1]); // 1 -> 1 (Nursery 1)
+      section = nurseryMatch[2];
+    } else if (basicMatch) {
+      grade = 2 + parseInt(basicMatch[1]); // 1 -> 3 (Basic 1)
+      section = basicMatch[2];
+    } else if (standardMatch) {
+      const val = parseInt(standardMatch[1]);
+      // Assumption: "Grade 1" = Basic 1 = 3. 
+      // "Grade 5" = Basic 5 = 7.
+      grade = 2 + val;
+      section = standardMatch[2];
+    } else if (jsMatch) {
+      grade = 8 + parseInt(jsMatch[1]); // 1 -> 9 (JSS 1)
+      section = jsMatch[2];
+    } else if (ssMatch) {
+      grade = 11 + parseInt(ssMatch[1]); // 1 -> 12 (SSS 1)
+      section = ssMatch[2];
+    }
+
+    if (section) {
+      section = section.replace(/^[-–]\s*/, '').trim();
+    }
+    return { grade, section };
+  };
 
   useEffect(() => {
     const fetchClassesAndSubjects = async () => {
@@ -67,7 +110,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
         // STRICT: First get ALL teacher profile IDs linked to the auth user ID
         const { data: teacherProfiles, error: profileError } = await supabase
           .from('teachers')
-          .select('id')
+          .select('id, school_id')
           .eq('user_id', user.id);
 
         if (profileError || !teacherProfiles || teacherProfiles.length === 0) {
@@ -77,9 +120,24 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
           return;
         }
 
-        const teacherIds = teacherProfiles.map(t => t.id);
+        let activeTeacherId: string | undefined;
+        let activeSchoolId = currentSchool?.id;
 
-        // Use the strict teacher.id(s) to fetch assignments
+        // If no teacherId passed, resolve manually (Fallback)
+        if (!activeTeacherId && user?.id) {
+          let targetProfile = teacherProfiles.find(t => t.school_id === activeSchoolId);
+          if (!targetProfile) targetProfile = teacherProfiles[0];
+
+          activeTeacherId = targetProfile.id;
+          if (!activeSchoolId) activeSchoolId = targetProfile.school_id;
+        }
+
+        if (!activeTeacherId) return;
+
+        // Store for creation payload
+        setTeacherProfileId(activeTeacherId);
+
+        // 1. Use the strict teacher.id(s) to fetch assignments from modern table
         const { data: teacherClassesData, error: teacherClassesError } = await supabase
           .from('class_teachers')
           .select(`
@@ -98,42 +156,130 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
               name
             )
           `)
-          .in('teacher_id', teacherIds);
+          .eq('teacher_id', activeTeacherId);
+
+        const finalClasses: any[] = [];
+        const addedClassKeys = new Set<string>();
+        const finalSubjects: any[] = [];
+        const addedSubjectKeys = new Set<string>();
 
         if (teacherClassesData && teacherClassesData.length > 0) {
           setRawAssignments(teacherClassesData);
-          const uniqueClasses = teacherClassesData
-            .map((item: any) => item.classes)
-            .filter((c: any) => c) // Filter out nulls
-            .map((c: any) => ({
-              ...c,
-              displayName: `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`
-            }))
-            .filter((v: any, i: number, a: any[]) =>
-              a.findIndex((t: any) => (t.id === v.id)) === i
-            );
 
-          setAvailableClasses(uniqueClasses);
+          teacherClassesData.forEach((item: any) => {
+            const c = item.classes;
+            if (c) {
+              const key = c.id;
+              if (!addedClassKeys.has(key)) {
+                finalClasses.push({
+                  ...c,
+                  displayName: `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`
+                });
+                addedClassKeys.add(key);
+              }
+            }
 
-          const teacherSubjectsData = teacherClassesData
-            .map((item: any) => item.subjects)
-            .filter((s: any) => s);
+            const s = item.subjects;
+            if (s) {
+              const key = s.id;
+              if (!addedSubjectKeys.has(key)) {
+                finalSubjects.push(s);
+                addedSubjectKeys.add(key);
+              }
+            }
+          });
+        }
 
-          const uniqueSubjects = teacherSubjectsData.filter((v: any, i: number, a: any[]) =>
-            a.findIndex((t: any) => (t.id === v.id)) === i
-          );
+        // 2. Fetch assignments via legacy teacher_classes if schoolId is available
+        const { data: legacyAssignments } = await supabase
+          .from('teacher_classes')
+          .select('class_name')
+          .eq('teacher_id', activeTeacherId);
 
-          setDbSubjects(uniqueSubjects);
+        if (legacyAssignments && legacyAssignments.length > 0 && activeSchoolId) {
+          // Fetch all classes for this school to match against
+          const { data: allClasses } = await supabase
+            .from('classes')
+            .select('id, grade, section, branch_id')
+            .eq('school_id', activeSchoolId);
 
-          // Auto-select if subject IDs are available
-          if (classInfo?.subject) {
-            const matchedSub = uniqueSubjects.find(s => s.name === classInfo.subject);
-            if (matchedSub) setSelectedSubjectId(matchedSub.id);
+          if (allClasses) {
+            const normalize = (s: string) => s.replace(/Grade|Year|JSS|SSS|SS|\s/gi, '').toUpperCase();
+
+            legacyAssignments.forEach((legacy: any) => {
+              const name = legacy.class_name;
+              if (!name) return;
+
+              const parsed = parseClassName(name);
+              const matches = allClasses.filter(c => {
+                if (c.grade === parsed.grade) {
+                  if (parsed.section) {
+                    return normalize(c.section || '') === normalize(parsed.section);
+                  }
+                  return true;
+                }
+                return false;
+              });
+
+              matches.forEach(match => {
+                const key = match.id;
+                if (!addedClassKeys.has(key)) {
+                  finalClasses.push({
+                    ...match,
+                    displayName: `${getGradeDisplayName(match.grade)}${match.section ? ' ' + match.section : ''}`
+                  });
+                  addedClassKeys.add(key);
+                }
+              });
+            });
           }
-        } else {
-          setAvailableClasses([]);
-          setDbSubjects([]);
+        }
+
+        // 3. Fetch subjects via legacy teacher_subjects if schoolId is available
+        if (activeSchoolId) {
+          const { data: legacyTeacherSubjects } = await supabase
+            .from('teacher_subjects')
+            .select('subject')
+            .eq('teacher_id', activeTeacherId);
+
+          if (legacyTeacherSubjects && legacyTeacherSubjects.length > 0) {
+            const { data: schoolSubjects } = await supabase
+              .from('subjects')
+              .select('id, name')
+              .eq('school_id', activeSchoolId)
+              .eq('is_active', true);
+
+            if (schoolSubjects) {
+              const normalize = (s: string) => s.toLowerCase().replace(/\s/g, '');
+              legacyTeacherSubjects.forEach((legacy: any) => {
+                const name = legacy.subject;
+                if (!name) return;
+
+                const match = schoolSubjects.find(s => normalize(s.name) === normalize(name));
+                if (match && !addedSubjectKeys.has(match.id)) {
+                  finalSubjects.push(match);
+                  addedSubjectKeys.add(match.id);
+                }
+              });
+            }
+          }
+        }
+
+        setDbSubjects(finalSubjects);
+        setAvailableClasses(finalClasses);
+
+        if (finalClasses.length === 0) {
           toast('No classes assigned to this account.', { icon: 'ℹ️' });
+        }
+
+        if (finalSubjects.length === 0) {
+          toast('No subjects assigned to this account.', { icon: 'ℹ️' });
+        }
+
+        // Auto-select subject if possible
+        if (classInfo?.subject) {
+          const matchedSub = finalSubjects.find(s => s.name === classInfo.subject);
+          if (matchedSub) setSelectedSubjectId(matchedSub.id);
         }
 
       } catch (err) {
@@ -141,7 +287,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
       }
     };
     fetchClassesAndSubjects();
-  }, []);
+  }, [user?.id, currentSchool?.id]);
 
 
 
@@ -175,6 +321,13 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
 
     const totalStudentsCount = 25; // Default fallback
 
+    // Ensure we have a valid teacher ID (Row ID)
+    const activeTeacherId = targetNode?.teacher_id || teacherProfileId;
+    if (!activeTeacherId) {
+      toast.error("Could not resolve Teacher ID. Please check your profile.");
+      return;
+    }
+
     // Prepare payload for Database (Snake Case for columns)
     const dbPayload: any = {
       title,
@@ -185,7 +338,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
       due_date: new Date(dueDate).toISOString(),
       total_students: totalStudentsCount,
       submissions_count: 0,
-      teacher_id: targetNode?.teacher_id || user.id,
+      teacher_id: activeTeacherId,
       school_id: targetNode?.school_id || classInfo?.schoolId || currentSchool?.id,
       class_id: selectedClassId,
       subject_id: selectedSubjectId,

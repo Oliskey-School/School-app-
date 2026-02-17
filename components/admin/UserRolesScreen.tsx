@@ -1,20 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import {
-    ExamIcon,
-    AttendanceIcon,
-    ReportIcon,
-    MegaphoneIcon,
-    BookOpenIcon,
-    ViewGridIcon,
-    BusIcon,
-    ReceiptIcon,
-    UsersIcon,
-    AnalyticsIcon,
-    AIIcon
+    ExamIcon, AttendanceIcon, ReportIcon, MegaphoneIcon, BookOpenIcon,
+    ViewGridIcon, BusIcon, ReceiptIcon, UsersIcon, AnalyticsIcon, AIIcon
 } from '../../constants';
-// import { mockRolesAndPermissions } from '../../data'; // Removed
 import { RoleName } from '../../types';
 
 // Default roles structure replacing mock data
@@ -105,7 +97,9 @@ const permissionIcons: { [key: string]: React.ReactNode } = {
 };
 
 const UserRolesScreen: React.FC = () => {
-    const [permissionsState, setPermissionsState] = useState(() => {
+    const { currentSchool } = useAuth();
+    const [isLoading, setIsLoading] = useState(false);
+    const [permissionsState, setPermissionsState] = useState<{ [key in RoleName]?: { [key: string]: boolean } }>(() => {
         const initialState: { [key in RoleName]?: { [key: string]: boolean } } = {};
         DEFAULT_ROLES_PERMISSIONS.forEach(role => {
             initialState[role.id] = {};
@@ -116,8 +110,40 @@ const UserRolesScreen: React.FC = () => {
         return initialState;
     });
 
+    // 1. Fetch Overrides from DB on Load
+    useEffect(() => {
+        if (!currentSchool?.id) return;
+
+        const fetchPermissions = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('role_permissions')
+                    .select('role, permission_id, enabled')
+                    .eq('school_id', currentSchool.id);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    setPermissionsState(prev => {
+                        const newState = { ...prev };
+                        data.forEach((p: any) => {
+                            if (newState[p.role as RoleName]) {
+                                newState[p.role as RoleName]![p.permission_id] = p.enabled;
+                            }
+                        });
+                        return newState;
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load permissions:", err);
+            }
+        };
+
+        fetchPermissions();
+    }, [currentSchool?.id]);
+
     const handleToggle = (roleId: RoleName, permId: string) => {
-        if (roleId === 'Admin') return; // Admins cannot have their permissions changed.
+        if (roleId === 'Admin') return; 
         setPermissionsState(prev => ({
             ...prev,
             [roleId]: {
@@ -125,6 +151,46 @@ const UserRolesScreen: React.FC = () => {
                 [permId]: !prev[roleId]![permId],
             },
         }));
+    };
+
+    const handleSave = async () => {
+        if (!currentSchool?.id) {
+            toast.error("School context missing.");
+            return;
+        }
+        setIsLoading(true);
+
+        try {
+            const updates = [];
+            // Prepare Upsert Data
+            for (const role of DEFAULT_ROLES_PERMISSIONS) {
+                if (role.id === 'Admin') continue;
+                
+                const rolePerms = permissionsState[role.id];
+                if (!rolePerms) continue;
+
+                for (const permId of Object.keys(rolePerms)) {
+                    updates.push({
+                        school_id: currentSchool.id,
+                        role: role.id,
+                        permission_id: permId,
+                        enabled: rolePerms[permId]
+                    });
+                }
+            }
+
+            const { error } = await supabase
+                .from('role_permissions')
+                .upsert(updates, { onConflict: 'school_id,role,permission_id' });
+
+            if (error) throw error;
+            toast.success('Permissions saved successfully!');
+        } catch (error: any) {
+            console.error('Save failed:', error);
+            toast.error('Failed to save: ' + error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -165,10 +231,11 @@ const UserRolesScreen: React.FC = () => {
 
             <div className="p-4 bg-white border-t border-gray-200 sticky bottom-0">
                 <button
-                    onClick={() => toast.success('Permissions saved!')}
-                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                    onClick={handleSave}
+                    disabled={isLoading}
+                    className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${isLoading ? 'bg-sky-400' : 'bg-sky-500 hover:bg-sky-600'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500`}
                 >
-                    Save Changes
+                    {isLoading ? 'Saving...' : 'Save Changes'}
                 </button>
             </div>
         </div>

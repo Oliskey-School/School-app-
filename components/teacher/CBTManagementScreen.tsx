@@ -12,9 +12,10 @@ import { useProfile } from '../../context/ProfileContext';
 interface CBTManagementScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     teacherId?: string | null;
+    schoolId?: string | null;
 }
 
-const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, teacherId }) => {
+const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, teacherId, schoolId: propSchoolId }) => {
     const [exams, setExams] = useState<CBTExam[]>([]);
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const { profile } = useProfile();
@@ -135,15 +136,15 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
             // 1. Create Quiz Record (quizzes table)
             // Ensure teacherId and other IDs are strings if needed.
             // Validate School ID
-            let schoolId = profile.schoolId;
-            if (!schoolId) {
+            let activeSchoolId = propSchoolId || profile.schoolId;
+            if (!activeSchoolId) {
                 // Fallback: Try fetching from Auth
                 const { data: { user } } = await supabase.auth.getUser();
-                schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+                activeSchoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
 
-                if (!schoolId) {
+                if (!activeSchoolId) {
                     console.warn("School ID missing from profile and auth. Using Demo School ID.");
-                    schoolId = "fa9bc997-21cb-4d8a-988a-a1e698e04e87"; // Demo School ID
+                    activeSchoolId = "d0ff3e95-9b4c-4c12-989c-e5640d3cacd1"; // Correct Demo School ID
                 }
             }
 
@@ -158,7 +159,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                     duration_minutes: duration,
                     total_marks: totalMarks,
                     teacher_id: teacherId,
-                    school_id: schoolId,
+                    school_id: activeSchoolId,
                     is_published: false
                 }])
                 .select()
@@ -173,8 +174,8 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 question_type: 'multiple_choice',
                 options: [q.option_a, q.option_b, q.option_c, q.option_d], // Store as array
                 correct_answer: q.correct_option, // The schema expects 'correct_answer', parsed data has 'correct_option'
-                points: q.marks,
-                order_index: index + 1
+                marks: q.marks,
+                question_order: index + 1
             }));
 
             const { error: qError } = await supabase
