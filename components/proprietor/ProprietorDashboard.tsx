@@ -28,9 +28,9 @@ import { PeopleOverview } from './PeopleOverview';
 import { ProprietorBottomNav } from '../ui/DashboardBottomNav';
 
 interface ProprietorDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
-    currentUser: any;
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
 }
 
 const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {

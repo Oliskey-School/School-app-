@@ -3,7 +3,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon, ChevronRightIcon } from '../../constants';
 import ReportCardPreview from './ReportCardPreview';
 import { StudentReportInfo, ReportCard, Student } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
 import { toast } from 'react-hot-toast';
@@ -41,7 +41,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
     }
   });
 
-  // Fetch students with their latest report cards from Supabase
+  // Fetch students with their latest report cards
   useEffect(() => {
     if (activeSchoolId) {
       fetchStudentsWithReports();
@@ -52,32 +52,11 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
     if (!activeSchoolId) return;
     setIsLoading(true);
     try {
-      // Fetch all students for this school
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
-        .eq('school_id', activeSchoolId);
+      // Fetch all students for this school using Hybrid API
+      const studentsData = await api.getStudents(activeSchoolId);
 
-      if (studentsError) throw studentsError;
-
-      // Fetch all report cards for this school
-      const { data: reportCardsData, error: reportCardsError } = await supabase
-        .from('report_cards')
-        .select('*')
-        .eq('school_id', activeSchoolId)
-        .order('session', { ascending: false })
-        .order('term', { ascending: false });
-
-      if (reportCardsError) {
-        console.error('Report cards fetch error:', reportCardsError);
-        const studentsWithoutReports = (studentsData || []).map(student => ({
-          ...student,
-          status: 'Draft' as ReportCard['status'],
-          reportCards: []
-        }));
-        setStudentsWithReports(studentsWithoutReports as StudentReportInfo[]);
-        return;
-      }
+      // Fetch all report cards for this school using Hybrid API
+      const reportCardsData = await api.getReportCards(activeSchoolId);
 
       console.log(`[Diagnostic] Fetched ${studentsData?.length || 0} students and ${reportCardsData?.length || 0} report cards for school ${activeSchoolId}`);
 
@@ -85,10 +64,6 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
       const studentsWithReportStatus = (studentsData || []).map(student => {
         const studentReports = reportCardsData?.filter(rc => rc.student_id === student.id) || [];
         const latestReport = studentReports[0];
-
-        if (studentReports.length > 0) {
-          console.log(`[Diagnostic] Student ${student.name} has ${studentReports.length} reports. Latest status: ${latestReport.status}`);
-        }
 
         return {
           ...student,
@@ -105,7 +80,6 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
         };
       });
 
-      console.log(`[Diagnostic] Total students mapped: ${studentsWithReportStatus.length}`);
       setStudentsWithReports(studentsWithReportStatus as StudentReportInfo[]);
     } catch (err) {
       console.error('Error fetching students with reports:', err);
@@ -116,32 +90,14 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
 
   const updateStudentStatus = async (studentId: string | number, newStatus: ReportCard['status']) => {
     try {
-      // Find the latest report card for this student
-      const { data: latestReport } = await supabase
-        .from('report_cards')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('school_id', activeSchoolId)
-        .order('session', { ascending: false })
-        .order('term', { ascending: false })
-        .limit(1)
-        .single();
+      // Get all report cards for this student to find latest
+      const reportCardsData = await api.getReportCards(activeSchoolId as string);
+      const studentReports = reportCardsData?.filter(rc => rc.student_id === studentId) || [];
+      const latestReport = studentReports[0];
 
       if (latestReport) {
-        const updateData: any = { status: newStatus };
-        if (newStatus === 'Published') {
-          updateData.published_at = new Date().toISOString();
-        }
-
-        const { error } = await supabase
-          .from('report_cards')
-          .update(updateData)
-          .eq('id', latestReport.id);
-
-        if (error) throw error;
-
+        await api.updateReportCardStatus(latestReport.id, newStatus);
         toast.success(`Report ${newStatus.toLowerCase()} successfully`);
-        // Local update handled by Realtime Subscription
       } else {
         toast.error("No report card found to update");
       }

@@ -21,23 +21,18 @@ vi.mock('../../../lib/supabase', () => ({
       }))
     })),
     removeChannel: vi.fn(),
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          order: vi.fn(() => ({
-            limit: vi.fn(() => ({
-              maybeSingle: vi.fn(() => Promise.resolve({ data: null })),
-              data: []
-            }))
-          })),
-          filter: vi.fn(() => ({
-             limit: vi.fn(() => ({
-              data: []
-            }))
-          }))
-        }))
-      }))
-    })),
+    from: vi.fn(() => {
+      const mockQuery: any = {
+        select: vi.fn(() => mockQuery),
+        eq: vi.fn(() => mockQuery),
+        order: vi.fn(() => mockQuery),
+        limit: vi.fn(() => mockQuery),
+        maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        filter: vi.fn(() => mockQuery),
+        data: []
+      };
+      return mockQuery;
+    }),
     rpc: vi.fn(() => Promise.resolve({ data: { context: {} } })),
     auth: {
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),

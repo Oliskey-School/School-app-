@@ -1,5 +1,6 @@
-import React from 'react';
-import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon } from '../../constants';
+import React, { cloneElement } from 'react';
+import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon, LogoutIcon, ReportIcon, CheckCircleIcon, BuildingLibraryIcon, SUBJECT_COLORS, getFormattedClassName } from '../../constants';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface SidebarItemProps {
     icon: React.ReactElement<{ className?: string }>;
@@ -9,13 +10,13 @@ interface SidebarItemProps {
     activeColor: string;
 }
 
-const SidebarItem: React.FC<SidebarItemProps & { id?: string }> = ({ icon, label, isActive, onClick, activeColor }) => (
+const SidebarItem = ({ icon, label, isActive, onClick, activeColor }: SidebarItemProps & { id?: string }) => (
     <button
         onClick={onClick}
         className={`w-full flex items-center space-x-3 px-6 py-4 transition-colors duration-200 ${isActive ? `bg-gray-50 border-r-4 ${activeColor} border-current` : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
             }`}
     >
-        {React.cloneElement(icon, { className: `h-6 w-6 ${isActive ? activeColor : ''}` })}
+        {cloneElement(icon, { className: `h-6 w-6 ${isActive ? activeColor : ''}` })}
         <span className={`font-medium ${isActive ? 'text-gray-900' : ''}`}>{label}</span>
     </button>
 );
@@ -116,6 +117,7 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
 };
 
 export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolName, logoUrl }: { activeScreen: string, setActiveScreen: (screen: string) => void, onLogout?: () => void, schoolName?: string, logoUrl?: string }) => {
+    const { classes: teacherClasses } = useTeacherClasses();
     const navItems = [
         { id: 'home', icon: <HomeIcon />, label: 'Home' },
         { id: 'lessonNotes', icon: <DocumentTextIcon />, label: 'Lesson Notes' },
@@ -150,6 +152,29 @@ export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout, school
                             activeColor="text-purple-600"
                         />
                     ))}
+                </div>
+
+                {/* Teaching Assignments Section */}
+                <div className="mt-8 px-6">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">My Classes</h4>
+                    <div className="space-y-3">
+                        {teacherClasses.map((c, i) => (
+                            <div key={i} className="group cursor-pointer" onClick={() => setActiveScreen('classDetail')}>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">
+                                        {getFormattedClassName(c.grade, c.section)}
+                                    </span>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${SUBJECT_COLORS[c.subject] || 'bg-purple-400'}`}></div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 group-hover:text-purple-400 transition-colors truncate">
+                                    {c.subject}
+                                </p>
+                            </div>
+                        ))}
+                        {teacherClasses.length === 0 && (
+                            <p className="text-xs text-gray-400 italic">No classes assigned</p>
+                        )}
+                    </div>
                 </div>
             </nav>
 

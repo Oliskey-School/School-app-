@@ -28,7 +28,7 @@ export async function fetchStudents(schoolId?: string, branchId?: string): Promi
     try {
         let query = supabase
             .from('students')
-            .select('id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday, school_id, branch_id')
+            .select('id, school_generated_id, name, email, avatar_url, grade, section, class_id, department, attendance_status, birthday, school_id, branch_id')
             .order('grade', { ascending: false });
 
         if (schoolId) {
@@ -36,7 +36,7 @@ export async function fetchStudents(schoolId?: string, branchId?: string): Promi
         }
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
         }
 
         const { data, error } = await query;
@@ -54,7 +54,8 @@ export async function fetchStudents(schoolId?: string, branchId?: string): Promi
             section: s.section,
             department: s.department,
             attendanceStatus: s.attendance_status || 'Absent',
-            birthday: s.birthday
+            birthday: s.birthday,
+            classId: s.class_id
         }));
     } catch (err) {
         console.error('Error fetching students:', err);
@@ -150,6 +151,36 @@ export async function fetchStudentsByClass(grade: number | string, section: stri
         }));
     } catch (err) {
         console.error(`Error fetching students for Grade ${grade} - ${section}:`, err);
+        return [];
+    }
+}
+
+export async function fetchStudentsByClassId(classId: string): Promise<Student[]> {
+    try {
+        const { data, error } = await supabase
+            .from('students')
+            .select('id, school_id, school_generated_id, name, email, avatar_url, grade, section, class_id, department, attendance_status, birthday')
+            .eq('class_id', classId)
+            .order('name', { ascending: true });
+
+        if (error) throw error;
+
+        return (data || []).map((s: any) => ({
+            id: s.id,
+            schoolId: s.school_id,
+            schoolGeneratedId: s.school_generated_id,
+            name: s.name,
+            email: s.email || '',
+            avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
+            grade: s.grade,
+            section: s.section,
+            classId: s.class_id,
+            department: s.department,
+            attendanceStatus: s.attendance_status || 'Absent',
+            birthday: s.birthday
+        }));
+    } catch (err) {
+        console.error(`Error fetching students for Class ID ${classId}:`, err);
         return [];
     }
 }
@@ -290,7 +321,7 @@ export async function fetchTeachers(schoolId?: string, branchId?: string): Promi
         }
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
         }
 
         const { data, error } = await query;
@@ -506,7 +537,7 @@ export async function fetchParents(schoolId?: string, branchId?: string): Promis
         }
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
         }
 
         const { data, error } = await query;
@@ -993,14 +1024,18 @@ export async function fetchQuizById(id: string): Promise<any | null> {
 // CLASSES
 // ============================================
 
-export async function fetchClasses(schoolId?: string): Promise<ClassInfo[]> {
+export async function fetchClasses(schoolId?: string, branchId?: string): Promise<ClassInfo[]> {
     try {
         let query = supabase
             .from('classes')
-            .select('id, subject, grade, section, department, student_count');
+            .select('id, name, grade, section, department, branch_id');
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
+        }
+
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
         }
 
         const { data, error } = await query
@@ -1009,13 +1044,31 @@ export async function fetchClasses(schoolId?: string): Promise<ClassInfo[]> {
 
         if (error) throw error;
 
+        // Fetch student counts for these classes
+        const { data: studentCounts } = await supabase
+            .from('students')
+            .select('class_id')
+            .eq('school_id', schoolId);
+
+        const countMap: Record<string, number> = {};
+        if (studentCounts) {
+            studentCounts.forEach((s: any) => {
+                if (s.class_id) {
+                    countMap[s.class_id] = (countMap[s.class_id] || 0) + 1;
+                }
+            });
+        }
+
         return (data || []).map((c: any) => ({
             id: c.id,
-            subject: c.subject,
+            name: c.name || '',
+            level: c.level || '',
+            level_category: c.level_category || '',
+            subject: c.name || 'General', // Keep for backwards compatibility
             grade: c.grade,
-            section: c.section,
+            section: c.section || '',
             department: c.department,
-            studentCount: c.student_count || 0
+            studentCount: countMap[c.id] || 0
         }));
     } catch (err) {
         console.error('Error fetching classes:', err);
@@ -1896,18 +1949,41 @@ export async function fetchSchools(): Promise<{ id: number; name: string }[]> {
 
 export async function fetchStudentSubjects(studentId: string | number): Promise<any[]> {
     try {
-        const { data: student, error: sErr } = await supabase.from('students').select('grade, section').eq('id', studentId).single();
+        const { data: student, error: sErr } = await supabase
+            .from('students')
+            .select('current_class_id, grade, section')
+            .eq('id', studentId)
+            .single();
         if (sErr || !student) return [];
 
-        const { data: classes, error: cErr } = await supabase
-            .from('classes')
-            .select('subject')
-            .eq('grade', student.grade)
-            .eq('section', student.section);
+        // If we have current_class_id, use it. Otherwise, find the class by grade/section
+        let classId = student.current_class_id;
 
-        if (cErr) return [];
-        return classes.map((c: any) => ({ name: c.subject }));
-    } catch (e) { return []; }
+        if (!classId) {
+            const { data: classData, error: cErr } = await supabase
+                .from('classes')
+                .select('id')
+                .eq('grade', student.grade)
+                .eq('section', student.section)
+                .maybeSingle();
+
+            if (cErr || !classData) return [];
+            classId = classData.id;
+        }
+
+        // Fetch subjects linked to this class via teacher_assignments
+        const { data: assignments, error: aErr } = await supabase
+            .from('teacher_assignments')
+            .select('subjects(name)')
+            .eq('class_section_id', classId)
+            .eq('is_active', true);
+
+        if (aErr) return [];
+        return (assignments || []).map((a: any) => ({ name: a.subjects?.name })).filter(s => s.name);
+    } catch (e) {
+        console.error('Error in fetchStudentSubjects:', e);
+        return [];
+    }
 }
 
 export async function fetchReportCard(studentId: string | number, term: string, session: string): Promise<ReportCard | null> {
@@ -2043,7 +2119,7 @@ export async function fetchAuditLogs(limit: number = 50, schoolId?: string, bran
             `);
 
         if (schoolId) query = query.eq('school_id', schoolId);
-        if (branchId) query = query.eq('branch_id', branchId);
+        if (branchId && branchId !== 'all') query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
 
         const { data, error } = await query
             .order('created_at', { ascending: false })

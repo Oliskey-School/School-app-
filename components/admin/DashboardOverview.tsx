@@ -20,6 +20,7 @@ import {
     ArrowDownIcon,
     TrendingUpIcon,
     AttendanceSummaryIcon,
+    ViewGridIcon,
     UserIcon,
     CheckCircleIcon,
     ClockIcon,
@@ -301,6 +302,10 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     const [totalParents, setTotalParents] = useState(0);
     const [parentTrend, setParentTrend] = useState(0);
+
+    const [totalClasses, setTotalClasses] = useState(0);
+    const [classTrend, setClassTrend] = useState(0);
+
     const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
     // --- DIAGNOSTIC LOGGING ---
@@ -383,7 +388,17 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
     });
 
-    // 4. Fees
+    // 4. Classes
+    useRealtimeSubscription({
+        table: 'classes',
+        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
+        callback: () => {
+            console.log('Real-time update: Classes');
+            fetchDashboardData();
+        }
+    });
+
+    // 5. Fees
     useRealtimeSubscription({
         table: 'student_fees',
         filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
@@ -405,11 +420,17 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     const fetchBusRoster = async () => {
         if (isSupabaseConfigured) {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('transport_buses')
                 .select('id, driver_name, status')
-                .eq('school_id', schoolId)
-                .filter('branch_id', 'in', `(${currentBranchId || ''},null)`); // Show global or branch-specific
+                .eq('school_id', schoolId);
+
+            if (currentBranchId && currentBranchId !== 'all') {
+                // Show buses assigned to this branch OR global buses
+                query = query.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+            }
+
+            const { data, error } = await query;
 
             if (!error && data) {
                 setBusRosterTotal(data.length);
@@ -453,6 +474,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             setTeacherTrend(stats.teacherTrend || 0);
             setTotalParents(stats.totalParents);
             setParentTrend(stats.parentTrend || 0);
+            setTotalClasses(stats.totalClasses || 0);
+            setClassTrend(stats.classTrend || 0);
             setOverdueFees(stats.overdueFees);
             setUnpublishedReports(stats.unpublishedReports || 0);
         }
@@ -558,10 +581,11 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
                         <h2 className="text-2xl font-bold text-white mb-1">Welcome, Admin!</h2>
                         <p className="text-white/80">Here's your school's command center.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                             <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-sky-400 to-sky-600" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={`+${studentTrend}`} trendColor="text-sky-200" />
                             <StatCard label="Total Teachers" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={`+${teacherTrend}`} trendColor="text-purple-200" />
                             <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={`+${parentTrend}`} trendColor="text-orange-200" />
+                            <StatCard label="Total Classes" value={totalClasses} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={`+${classTrend}`} trendColor="text-indigo-200" />
                         </div>
                     </div>
 

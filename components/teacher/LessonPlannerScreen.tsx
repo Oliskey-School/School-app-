@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { api } from '../../lib/api';
 // import { GoogleGenAI, Type } from "@google/genai"; // Removed in favor of lib/ai
 import { getAIClient, AI_MODEL_NAME, AI_GENERATION_CONFIG, SchemaType as Type } from '../../lib/ai';
 import { toast } from 'react-hot-toast';
@@ -175,18 +176,9 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
     const effectiveTeacherId = teacherId || '2'; // Fallback to '2' only if no auth provided (dev mode)
 
     const fetchHistory = useCallback(async () => {
-        const { data, error } = await supabase
-            .from('generated_resources')
-            .select('*')
-            .eq('teacher_id', effectiveTeacherId)
-            .order('updated_at', { ascending: false });
+        try {
+            const data = await api.getGeneratedResources(effectiveTeacherId);
 
-        if (error) {
-            console.error("Error fetching history:", error);
-            return;
-        }
-
-        if (data) {
             const schemes: HistoryEntry[] = data
                 .filter(row => row.scheme_content)
                 .map(row => ({
@@ -208,6 +200,8 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
                     resources: row.lesson_plans_content // Assuming this matches GeneratedResources structure
                 }));
             setGeneratedHistory(generated);
+        } catch (error) {
+            console.error("Error fetching history:", error);
         }
     }, [effectiveTeacherId]);
 
@@ -232,46 +226,19 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
             term3: term3Scheme
         };
 
-        // Check availability first to decide update vs insert (or use upsert if constraint exists)
-        // We don't have a unique constraint on subject+class+teacher in the provided SQL schema,
-        // so upsert might duplicate if we rely on ID. We'll try to find an existing record first.
-        const { data: existing } = await supabase
-            .from('generated_resources')
-            .select('id')
-            .eq('teacher_id', effectiveTeacherId)
-            .eq('subject', subject)
-            .eq('class_name', className)
-            .maybeSingle();
-
-        let error;
-        if (existing) {
-            const { error: updateError } = await supabase
-                .from('generated_resources')
-                .update({
-                    scheme_content: schemeData,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', existing.id);
-            error = updateError;
-        } else {
-            const { error: insertError } = await supabase
-                .from('generated_resources')
-                .insert([{
-                    teacher_id: effectiveTeacherId,
-                    subject,
-                    class_name: className,
-                    term: 'All', // Defaulting as we store all 3
-                    scheme_content: schemeData
-                }]);
-            error = insertError;
-        }
-
-        if (error) {
-            console.error("Error saving scheme:", error);
-            toast.error('Failed to save scheme.');
-        } else {
+        try {
+            await api.saveGeneratedResource({
+                teacher_id: effectiveTeacherId,
+                subject,
+                class_name: className,
+                term: 'All', // Defaulting as we store all 3
+                scheme_content: schemeData
+            });
             toast.success('Scheme of work saved to database!');
             fetchHistory(); // Refresh
+        } catch (error) {
+            console.error("Error saving scheme:", error);
+            toast.error('Failed to save scheme.');
         }
     }, [subject, className, term1Scheme, term2Scheme, term3Scheme, effectiveTeacherId, fetchHistory]);
 
@@ -437,26 +404,14 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
                 };
             });
 
-            // Save to Database logic (Keep existing)
-            const { data: existing } = await supabase
-                .from('generated_resources')
-                .select('id')
-                .eq('teacher_id', effectiveTeacherId)
-                .eq('subject', resources.subject || subject)
-                .eq('class_name', resources.className || className)
-                .maybeSingle();
-
-            if (existing) {
-                await supabase.from('generated_resources').update({ lesson_plans_content: resources, updated_at: new Date().toISOString() }).eq('id', existing.id);
-            } else {
-                await supabase.from('generated_resources').insert([{
-                    teacher_id: effectiveTeacherId,
-                    subject: resources.subject || subject,
-                    class_name: resources.className || className,
-                    term: 'All',
-                    lesson_plans_content: resources
-                }]);
-            }
+            // Save to Database logic (Hybrid API)
+            await api.saveGeneratedResource({
+                teacher_id: effectiveTeacherId,
+                subject: resources.subject || subject,
+                class_name: resources.className || className,
+                term: 'All',
+                lesson_plans_content: resources
+            });
 
             fetchHistory(); // Refresh history list
 

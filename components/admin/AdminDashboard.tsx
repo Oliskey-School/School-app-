@@ -123,6 +123,7 @@ const AddBranchAdminScreen = lazy(() => import('./AddBranchAdminScreen'));
 const AssignFeePage = lazy(() => import('../admin/AssignFeePage'));
 const AdminActionsScreen = lazy(() => import('../admin/AdminActionsScreen'));
 const SchoolManagementScreen = lazy(() => import('../admin/SchoolManagementScreen'));
+const ClassFormScreen = lazy(() => import('../admin/ClassFormScreen'));
 
 type ViewStackItem = {
     view: string;
@@ -308,6 +309,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         assignFee: AssignFeePage,
         adminActions: AdminActionsScreen,
         schoolManagement: SchoolManagementScreen,
+        classForm: ClassFormScreen,
     };
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);

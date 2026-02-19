@@ -43,9 +43,10 @@ const AttendanceStatusButtons = ({ status, onStatusChange }: { status: Attendanc
 
 interface TeacherMarkAttendanceScreenProps {
     classInfo: ClassInfo;
+    currentBranchId?: string | null;
 }
 
-const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = ({ classInfo }) => {
+const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = ({ classInfo, currentBranchId }) => {
     const theme = THEME_CONFIG[DashboardType.Teacher];
     const { profile } = useProfile();
     const [students, setStudents] = useState<Student[]>([]);
@@ -164,7 +165,8 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 class_id: classInfo.id,
                 date: selectedDate,
                 status: status,
-                school_id: schoolId
+                school_id: schoolId,
+                branch_id: currentBranchId || profile?.branchId || null
             };
         });
 
@@ -192,7 +194,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         return { total, present, absent, onLeave, late, presentPercentage };
     }, [students]);
 
-    const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section);
+    const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section, true, classInfo.subject);
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const dateVal = e.target.value;

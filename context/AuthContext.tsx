@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (schoolId) {
                     fetchUserSchool(session.user.id, schoolId);
                 }
-                
+
                 if (branchId) {
                     setCurrentBranchId(branchId);
                 } else if (metadata.active_branch_id === null) {
@@ -190,6 +190,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // [NEW] Persist Backend Token for API calls
         if (userData.token) {
             localStorage.setItem('auth_token', userData.token);
+
+            // CRITICAL FIX: Sync the token to Supabase Client so RLS works
+            // We attempt to use the token as both access and refresh if refresh is missing
+            try {
+                const { error: sessionError } = await supabase.auth.setSession({
+                    access_token: userData.token,
+                    refresh_token: userData.refreshToken || userData.token
+                });
+
+                if (sessionError) {
+                    console.warn("⚠️ Failed to sync Supabase session from backend token:", sessionError.message);
+                } else {
+                    console.log("✅ Supabase Client Session Synced with Backend Token");
+                }
+            } catch (err) {
+                console.error("Session Sync Error:", err);
+            }
         }
 
         console.log('✅ Auth state updated:', { dashboard, user: mockUser.email, tokenSaved: !!userData.token });

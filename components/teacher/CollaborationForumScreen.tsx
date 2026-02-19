@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ForumTopic } from '../../types';
-import { mockForumTopics } from '../../data';
 import { ChevronRightIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
-import { fetchForumTopics } from '../../lib/database';
+import { api } from '../../lib/api';
 import CreateForumTopicModal from './CreateForumTopicModal';
 
 const formatDistanceToNow = (date: string | Date) => {
@@ -32,16 +31,11 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
   const forumEnabled = teacherProfile?.notification_preferences?.forumEnabled !== false;
 
   const loadTopics = async () => {
-    if (!forumEnabled) return;
+    if (!forumEnabled || !currentSchool?.id) return;
     setLoading(true);
     try {
-      const schoolId = currentSchool?.id;
-      const realTopics = await fetchForumTopics(schoolId);
-      if (realTopics.length > 0) {
-        setTopics(realTopics);
-      } else {
-        setTopics(mockForumTopics); // Fallback to mock so UI isn't empty during demo
-      }
+      const realTopics = await api.getForumTopics(currentSchool.id);
+      setTopics(realTopics);
     } catch (error) {
       console.error('Error loading topics:', error);
       toast.error('Failed to load forum topics.');

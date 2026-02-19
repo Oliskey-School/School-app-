@@ -308,7 +308,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     communication: TeacherCommunicationScreen,
     reportCardInput: ReportCardInputScreen,
     collaborationForum: CollaborationForumScreen,
-    forumTopic: ForumTopicScreen,
+    forumTopic: (props: any) => <ForumTopicScreen {...props} currentUserId={currentUserId || ''} teacherProfile={teacherProfile} />,
     timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'teacher', userId: teacherId || '' }} />,
     chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId || ''} />,
     reports: TeacherReportsScreen,

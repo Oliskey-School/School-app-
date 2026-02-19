@@ -2,113 +2,33 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import { fetchClasses } from '../../lib/database';
+import { fetchClasses, fetchStudentsByClassId } from '../../lib/database';
+import { api } from '../../lib/api';
 import { useOptimisticMutation } from '../../hooks/useOptimisticMutation';
 import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName, BookOpenIcon, PlusIcon, EditIcon, TrashIcon, XIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
-import { ClassInfo } from '../../types';
+import { ClassInfo, Student } from '../../types';
 
 interface ClassListScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     schoolId?: string;
+    currentBranchId?: string | null;
 }
 
-const ClassModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    onSubmit: (data: any) => void;
-    initialData?: any;
-    title: string;
-}> = ({ isOpen, onClose, onSubmit, initialData, title }) => {
-    const [grade, setGrade] = useState(initialData?.grade || '');
-    const [section, setSection] = useState(initialData?.section || '');
-    const [subject, setSubject] = useState(initialData?.subject || 'General');
-    const [department, setDepartment] = useState(initialData?.department || '');
 
-    if (!isOpen) return null;
+const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId, currentBranchId }) => {
+    const queryKey = ['classes', schoolId, currentBranchId];
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Grade / Level (Number)</label>
-                        <input 
-                            type="number" 
-                            value={grade} 
-                            onChange={e => setGrade(e.target.value)}
-                            placeholder="e.g., 10"
-                            className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Section (Optional)</label>
-                        <input 
-                            type="text" 
-                            value={section} 
-                            onChange={e => setSection(e.target.value)}
-                            placeholder="e.g., A"
-                            className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Department (Optional)</label>
-                        <input 
-                            type="text" 
-                            value={department} 
-                            onChange={e => setDepartment(e.target.value)}
-                            placeholder="e.g., Science"
-                            className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                        <input 
-                            type="text" 
-                            value={subject} 
-                            onChange={e => setSubject(e.target.value)}
-                            placeholder="e.g., Mathematics"
-                            className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-                </div>
-                <div className="p-6 bg-gray-50 flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-3 px-4 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-colors">
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={() => onSubmit({ grade: parseInt(grade), section, subject, department })} 
-                        className="flex-1 py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors"
-                    >
-                        {initialData ? 'Update' : 'Create'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId }) => {
-    const queryKey = ['classes', schoolId];
-    
     const { data: classes = [], isLoading } = useQuery({
         queryKey,
-        queryFn: () => fetchClasses(schoolId),
+        queryFn: () => fetchClasses(schoolId, currentBranchId || undefined),
         enabled: !!schoolId,
     });
 
     const createMutation = useOptimisticMutation({
         queryKey,
         mutationFn: async (newClass: Partial<ClassInfo>) => {
-            const { data, error } = await supabase.from('classes').insert([{ ...newClass, school_id: schoolId }]).select().single();
-            if (error) throw error;
-            return data;
+            return api.createClass({ ...newClass, school_id: schoolId, branch_id: currentBranchId });
         },
         updateFn: (old, newClass) => [...old, { ...newClass, id: 'temp-' + Date.now(), studentCount: 0 }],
         onSuccessMessage: 'Class created successfully',
@@ -117,9 +37,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
     const updateMutation = useOptimisticMutation({
         queryKey,
         mutationFn: async (updates: any) => {
-            const { data, error } = await supabase.from('classes').update(updates).eq('id', updates.id).select().single();
-            if (error) throw error;
-            return data;
+            return api.updateClass(updates.id, updates);
         },
         updateFn: (old, updates) => old.map((c: any) => c.id === updates.id ? { ...c, ...updates } : c),
         onSuccessMessage: 'Class updated successfully',
@@ -128,27 +46,13 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
     const deleteMutation = useOptimisticMutation({
         queryKey,
         mutationFn: async (id: string) => {
-            const { error } = await supabase.from('classes').delete().eq('id', id);
-            if (error) throw error;
+            await api.deleteClass(id);
             return id;
         },
         updateFn: (old, id) => old.filter((c: any) => c.id !== id),
         onSuccessMessage: 'Class deleted',
     });
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingClass, setEditingClass] = useState<any>(null);
-
-    const handleAddClass = (data: any) => {
-        createMutation.mutate(data);
-        setIsModalOpen(false);
-    };
-
-    const handleUpdateClass = (data: any) => {
-        updateMutation.mutate({ ...data, id: editingClass.id });
-        setIsModalOpen(false);
-        setEditingClass(null);
-    };
 
     const handleDeleteClass = (id: string) => {
         if (window.confirm('Are you sure you want to delete this class?')) {
@@ -156,9 +60,35 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
         }
     };
 
+    const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+    const [classStudents, setClassStudents] = useState<Record<string, Student[]>>({});
+    const [loadingStudents, setLoadingStudents] = useState<Record<string, boolean>>({});
+
+    const toggleExpandClass = async (classId: string) => {
+        if (expandedClassId === classId) {
+            setExpandedClassId(null);
+            return;
+        }
+
+        setExpandedClassId(classId);
+
+        if (!classStudents[classId] && !loadingStudents[classId]) {
+            setLoadingStudents(prev => ({ ...prev, [classId]: true }));
+            try {
+                const students = await fetchStudentsByClassId(classId);
+                setClassStudents(prev => ({ ...prev, [classId]: students }));
+            } catch (error) {
+                console.error("Failed to load students for class", classId);
+                toast.error("Failed to load students");
+            } finally {
+                setLoadingStudents(prev => ({ ...prev, [classId]: false }));
+            }
+        }
+    };
+
     const groupedClasses = useMemo(() => {
         const groups: Record<string, { grade: number; name: string; student_count: number; sections: any[] }> = {};
-        
+
         classes.forEach(cls => {
             const formattedName = getFormattedClassName(cls.grade, cls.section);
             if (!groups[formattedName]) {
@@ -188,8 +118,8 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
             <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-32 lg:pb-4">
                 <div className="flex justify-between items-center px-2">
                     <p className="text-sm font-medium text-gray-500">{classes.length} Total Classes</p>
-                    <button 
-                        onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
+                    <button
+                        onClick={() => navigateTo('classForm', 'Add New Class')}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
                     >
                         <PlusIcon className="w-4 h-4" />
@@ -202,7 +132,8 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
                     const gradeClasses = groupedClasses[grade];
                     const gradeColorClass = gradeColors[grade] || 'bg-gray-200 text-gray-800';
                     const [bgColor, textColor] = gradeColorClass.split(' ');
-                    const formattedClassNameWithoutSection = getFormattedClassName(grade, '', false);
+                    // Use true for includeGradeWord to distinguish SSS 3 from Primary 3 etc.
+                    const formattedClassNameWithoutSection = getFormattedClassName(grade, '', true);
 
                     return (
                         <div key={grade} className={`bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100`}>
@@ -215,46 +146,90 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
                                         {group.sections.map(cls => (
                                             <div
                                                 key={cls.id}
-                                                className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200/50 hover:bg-gray-100 transition-colors group"
+                                                className={`w-full bg-gray-50 rounded-xl border transition-colors group ${expandedClassId === cls.id ? 'border-indigo-200 ring-2 ring-indigo-100 bg-white' : 'border-gray-200/50 hover:bg-gray-100'}`}
                                             >
-                                                <button
-                                                    onClick={() => navigateTo('studentList', group.name, { filter: { grade: cls.grade } })}
-                                                    className="flex items-center space-x-3 flex-grow text-left"
-                                                >
-                                                    <div className="bg-white p-2 rounded-lg border border-gray-200">
-                                                        <StudentsIcon className={`h-5 w-5 ${textColor}`} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <p className="font-semibold text-gray-800">{getFormattedClassName(cls.grade, cls.section)}</p>
-                                                            {cls.department && (
-                                                                <span className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 uppercase font-bold">
-                                                                    {cls.department}
-                                                                </span>
-                                                            )}
+                                                <div className="flex items-center justify-between p-3">
+                                                    <button
+                                                        onClick={() => toggleExpandClass(cls.id)}
+                                                        className="flex items-center space-x-3 flex-grow text-left"
+                                                    >
+                                                        <div className={`p-2 rounded-lg border border-gray-200 transition-colors ${expandedClassId === cls.id ? 'bg-indigo-50 text-indigo-600' : 'bg-white text-gray-500'}`}>
+                                                            {expandedClassId === cls.id ? <ChevronRightIcon className="h-5 w-5 rotate-90 transition-transform" /> : <StudentsIcon className={`h-5 w-5 ${textColor}`} />}
                                                         </div>
-                                                        <p className="text-xs text-gray-500">
-                                                            {cls.subject} • {cls.studentCount || 0} Students
-                                                        </p>
-                                                    </div>
-                                                </button>
-                                                <div className="flex items-center gap-1">
-                                                    <button 
-                                                        onClick={() => { setEditingClass(cls); setIsModalOpen(true); }}
-                                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                    >
-                                                        <EditIcon className="w-4 h-4" />
+                                                        <div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <p className="font-semibold text-gray-800">{cls.name || getFormattedClassName(cls.grade, cls.section)}</p>
+                                                                {cls.department && (
+                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 uppercase font-bold">
+                                                                        {cls.department}
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-[10px] px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200 uppercase font-bold">
+                                                                    {cls.level}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500">
+                                                                {cls.studentCount || 0} Students
+                                                            </p>
+                                                        </div>
                                                     </button>
-                                                    <button 
-                                                        onClick={() => handleDeleteClass(cls.id)}
-                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    >
-                                                        <TrashIcon className="w-4 h-4" />
-                                                    </button>
-                                                    <div className="text-gray-300 ml-1">
-                                                        <ChevronRightIcon />
+
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => navigateTo('studentList', group.name, { filter: { grade: cls.grade } })}
+                                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                            title="View in Student List"
+                                                        >
+                                                            <BookOpenIcon className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => navigateTo('classForm', 'Edit Class', { classToEdit: cls })}
+                                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                        >
+                                                            <EditIcon className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteClass(cls.id)}
+                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
                                                     </div>
                                                 </div>
+
+                                                {expandedClassId === cls.id && (
+                                                    <div className="px-4 pb-4 pt-0 animate-fadeIn">
+                                                        <div className="h-px w-full bg-gray-100 mb-3"></div>
+                                                        {loadingStudents[cls.id] ? (
+                                                            <div className="flex justify-center py-4">
+                                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+                                                            </div>
+                                                        ) : (classStudents[cls.id]?.length || 0) > 0 ? (
+                                                            <div className="space-y-2">
+                                                                {classStudents[cls.id].map(student => (
+                                                                    <button
+                                                                        key={student.id}
+                                                                        onClick={() => navigateTo('studentProfileAdminView', student.name, { student })}
+                                                                        className="w-full flex items-center p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                                                                    >
+                                                                        <img src={student.avatarUrl} alt={student.name} className="w-8 h-8 rounded-full object-cover mr-3" />
+                                                                        <div>
+                                                                            <p className="text-sm font-semibold text-gray-700">{student.name}</p>
+                                                                            <p className="text-xs text-gray-400">{student.schoolGeneratedId}</p>
+                                                                        </div>
+                                                                        <div className="ml-auto">
+                                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${student.attendanceStatus === 'Present' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                                {student.attendanceStatus}
+                                                                            </span>
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-center text-sm text-gray-400 py-2">No students enrolled</p>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -263,14 +238,14 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
                         </div>
                     );
                 })}
-                
+
                 {classes.length === 0 && !isLoading && (
                     <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
                         <BookOpenIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                         <h3 className="text-lg font-bold text-gray-800">No Classes Found</h3>
                         <p className="text-gray-500 max-w-xs mx-auto mt-2">Start by adding your first class or use curriculum settings to auto-generate them.</p>
-                        <button 
-                            onClick={() => setIsModalOpen(true)}
+                        <button
+                            onClick={() => navigateTo('classForm', 'Add New Class')}
                             className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
                         >
                             Create Class Now
@@ -279,13 +254,6 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId 
                 )}
             </main>
 
-            <ClassModal 
-                isOpen={isModalOpen}
-                onClose={() => { setIsModalOpen(false); setEditingClass(null); }}
-                onSubmit={editingClass ? handleUpdateClass : handleAddClass}
-                initialData={editingClass}
-                title={editingClass ? 'Edit Class' : 'Add New Class'}
-            />
         </div>
     );
 };

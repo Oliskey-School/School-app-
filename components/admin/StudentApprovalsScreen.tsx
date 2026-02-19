@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { 
     CheckCircleIcon, 
@@ -23,15 +23,10 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
     const fetchPendingStudents = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('students')
-                .select('*')
-                .eq('school_id', schoolId)
-                .eq('status', 'Pending')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setPendingStudents(data || []);
+            // Using Hybrid API which respects tenancy
+            const data = await api.getStudents(schoolId);
+            // Filter locally for Pending status if API returns all
+            setPendingStudents((data || []).filter(s => s.status === 'Pending'));
         } catch (error: any) {
             toast.error(error.message || "Failed to load pending students");
         } finally {
@@ -61,12 +56,7 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
         if (ids.length === 0) return;
         
         try {
-            const { error } = await supabase
-                .from('students')
-                .update({ status: 'Active' })
-                .in('id', ids);
-
-            if (error) throw error;
+            await api.bulkUpdateStudentStatus(ids, 'Active');
             
             toast.success(`Approved ${ids.length} student(s)`);
             setPendingStudents(prev => prev.filter(s => !ids.includes(s.id)));
@@ -81,16 +71,7 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
         if (!confirm("Are you sure you want to reject these student accounts?")) return;
 
         try {
-            // Option 1: Update status to 'Rejected'
-            const { error } = await supabase
-                .from('students')
-                .update({ status: 'Rejected' })
-                .in('id', ids);
-
-            // Option 2: Delete? (Might be cleaner if they were mistakenly added)
-            // const { error } = await supabase.from('students').delete().in('id', ids);
-
-            if (error) throw error;
+            await api.bulkUpdateStudentStatus(ids, 'Rejected');
             
             toast.success(`Rejected ${ids.length} student(s)`);
             setPendingStudents(prev => prev.filter(s => !ids.includes(s.id)));

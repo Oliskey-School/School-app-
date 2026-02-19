@@ -136,12 +136,37 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
     // Use credentials from MOCK_USERS
     // @ts-ignore
-    const mockUser = MOCK_USERS[roleKey];
+    let mockUser = MOCK_USERS[roleKey];
 
     if (!mockUser) {
       setError(`Demo account not configured for ${roleKey}`);
       setIsLoading(false);
       return;
+    }
+
+    // Fix for Admin Demo: Use the known working admin account
+    // This allows the Demo Button to actually work with RLS data
+    if (roleKey === 'admin') {
+      mockUser = {
+        ...mockUser,
+        email: 'user@school.com',
+        // Maintain other props if needed, but email is key for auth
+      };
+    } else if (roleKey === 'teacher') {
+      mockUser = {
+        ...mockUser,
+        email: 'john.smith@demo.com', // Real DB Teacher
+      };
+    } else if (roleKey === 'parent') {
+      mockUser = {
+        ...mockUser,
+        email: 'parent1@demo.com', // Real DB Parent
+      };
+    } else if (roleKey === 'student') {
+      mockUser = {
+        ...mockUser,
+        email: 'student1@demo.com', // Real DB Student
+      };
     }
 
     try {
@@ -226,7 +251,9 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           userType: dashboardType,
           isDemo: true,
           schoolGeneratedId: schoolGeneratedId,
-          school: DEMO_SCHOOL
+          school: DEMO_SCHOOL,
+          token: data.session.access_token, // Critical for RLS
+          refreshToken: data.session.refresh_token
         });
       }
     } catch (err: any) {

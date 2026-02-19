@@ -41,7 +41,7 @@ async function testJunctionJoins() {
         },
         {
             name: 'Students with Parents',
-            query: supabase.from('students').select('*, student_parent_links(*, parents(*))').limit(1)
+            query: supabase.from('students').select('*, parent_children(*, parents(*))').limit(1)
         },
         {
             name: 'Parents with Children',

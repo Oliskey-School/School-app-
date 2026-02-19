@@ -10,7 +10,9 @@ import {
   gradeColors,
   ClockIcon,
   ChevronRightIcon,
-  getFormattedClassName
+  getFormattedClassName,
+  FilterIcon,
+  ViewGridIcon
 } from '../../constants';
 import { Student, AttendanceStatus } from '../../types';
 import { fetchStudents } from '../../lib/database';
@@ -40,10 +42,10 @@ const StudentRow: React.FC<{ student: Student; onSelect: (student: Student) => v
     className="w-full text-left bg-white rounded-lg p-2 flex items-center space-x-3 transition-all hover:bg-gray-100 ring-1 ring-gray-100"
     aria-label={`View profile for ${student.name}`}
   >
-    <img 
-      src={student.avatarUrl} 
-      alt={student.name} 
-      className="w-10 h-10 rounded-full object-cover" 
+    <img
+      src={student.avatarUrl}
+      alt={student.name}
+      className="w-10 h-10 rounded-full object-cover"
       loading="lazy"
     />
     <div className="flex-grow min-w-0">
@@ -142,6 +144,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'stage' | 'class'>('stage');
 
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -208,17 +211,21 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       };
       junior: { [className: string]: Student[] };
       senior: { [className: string]: Student[] };
-    } = { primary: { lower: {}, upper: {} }, junior: {}, senior: {} };
+      preschool: { [className: string]: Student[] };
+    } = { primary: { lower: {}, upper: {} }, junior: {}, senior: {}, preschool: {} };
 
     const allStudents = students.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     allStudents.forEach(student => {
       const className = student.grade ? getFormattedClassName(student.grade, student.section) : 'Unassigned';
 
-      if (!student.grade) {
+      if (student.grade === null || student.grade === undefined) {
         // Handle unassigned students
-        if (!stages.primary.lower['Unassigned']) stages.primary.lower['Unassigned'] = [];
-        stages.primary.lower['Unassigned'].push(student);
+        if (!stages.preschool['Unassigned']) stages.preschool['Unassigned'] = [];
+        stages.preschool['Unassigned'].push(student);
+      } else if (student.grade <= 0) { // Preschool / Nursery
+        if (!stages.preschool[className]) stages.preschool[className] = [];
+        stages.preschool[className].push(student);
       } else if (student.grade >= 1 && student.grade <= 3) { // Lower Primary
         if (!stages.primary.lower[className]) stages.primary.lower[className] = [];
         stages.primary.lower[className].push(student);
@@ -255,8 +262,25 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     stages.primary.upper = sortClasses(stages.primary.upper);
     stages.junior = sortClasses(stages.junior);
     stages.senior = sortClasses(stages.senior);
+    stages.preschool = sortClasses(stages.preschool);
 
     return stages;
+  }, [searchTerm, students]);
+
+  const studentsByClass = useMemo(() => {
+    const classes: Record<string, Student[]> = {};
+    const allStudents = students.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    allStudents.forEach(student => {
+      const className = getFormattedClassName(student.grade, student.section);
+      if (!classes[className]) classes[className] = [];
+      classes[className].push(student);
+    });
+
+    // Sort classes alphanumeric (simple)
+    return Object.fromEntries(
+      Object.entries(classes).sort((a, b) => a[0].localeCompare(b[0]))
+    );
   }, [searchTerm, students]);
 
   if (filter) {
@@ -293,17 +317,33 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
   const juniorCount = Object.values(studentsByStageAndClass.junior).flat().length;
   const lowerPrimaryCount = Object.values(studentsByStageAndClass.primary.lower).flat().length;
   const upperPrimaryCount = Object.values(studentsByStageAndClass.primary.upper).flat().length;
+  const preschoolCount = Object.values(studentsByStageAndClass.preschool).flat().length;
   const primaryCount = lowerPrimaryCount + upperPrimaryCount;
 
 
   return (
     <div className="flex flex-col h-full bg-gray-100 relative">
-      <div className="p-4 bg-gray-100 z-10">
+      <div className="p-4 bg-gray-100 z-10 space-y-3">
         <div className="relative">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3">
             <SearchIcon className="text-gray-600" />
           </span>
           <input type="text" placeholder="Search by name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" aria-label="Search for a student" />
+        </div>
+
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setViewMode('stage')}
+            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'stage' ? 'bg-white text-sky-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
+          >
+            By Stage
+          </button>
+          <button
+            onClick={() => setViewMode('class')}
+            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'class' ? 'bg-white text-sky-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
+          >
+            By Class
+          </button>
         </div>
       </div>
 
@@ -312,9 +352,17 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
           </div>
-        ) : (seniorCount === 0 && juniorCount === 0 && primaryCount === 0) ? (
+        ) : (seniorCount === 0 && juniorCount === 0 && primaryCount === 0 && preschoolCount === 0) ? (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-200 m-2">
             <p className="text-gray-500 font-medium">No students found matching your search.</p>
+          </div>
+        ) : viewMode === 'class' ? (
+          <div className="space-y-3">
+            {Object.entries(studentsByClass).map(([className, students]) => (
+              <ClassAccordion key={className} title={className} count={students.length} defaultOpen={true}>
+                {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+              </ClassAccordion>
+            ))}
           </div>
         ) : (
           <>
@@ -358,6 +406,16 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
                     ))}
                   </SubStageAccordion>
                 )}
+              </StageAccordion>
+            )}
+
+            {preschoolCount > 0 && (
+              <StageAccordion title="Preschool / Nursery" count={preschoolCount}>
+                {Object.entries(studentsByStageAndClass.preschool).map(([className, students]: [string, Student[]]) => (
+                  <ClassAccordion key={className} title={className} count={students.length}>
+                    {students.map(s => <StudentRow key={s.id} student={s} onSelect={handleStudentSelect} />)}
+                  </ClassAccordion>
+                ))}
               </StageAccordion>
             )}
           </>

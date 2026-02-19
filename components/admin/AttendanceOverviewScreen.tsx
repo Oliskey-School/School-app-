@@ -1,23 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { ChevronRightIcon, getFormattedClassName } from '../../constants';
-// Removed CheckCircleIcon import if unused, or keep it.
-// Removed mock data imports
 
 interface ClassAttendanceSummary {
     grade: number;
     section: string;
     present: number;
     total: number;
-    status: 'Submitted' | 'Pending'; // In real app, check if date exists in DB
-}
-
-interface AttendanceRecord {
-    id: number;
-    student_id: number;
-    date: string;
-    status: 'Present' | 'Absent' | 'Late' | 'Excused';
-    class_id?: string; // We used text type for this in recent fix
+    status: 'Submitted' | 'Pending';
 }
 
 interface AttendanceOverviewScreenProps {
@@ -32,62 +22,21 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
     const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, percentage: 0 });
 
     useEffect(() => {
-        fetchAttendanceData();
-    }, [selectedDate]);
+        if (schoolId) fetchAttendanceData();
+    }, [selectedDate, schoolId]);
 
     const fetchAttendanceData = async () => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            // 1. Fetch all classes to ensure we list everyone
-            const { data: classesData } = await supabase
-                .from('classes')
-                .select('grade, section')
-                .eq('school_id', schoolId)
-                .order('grade')
-                .order('section');
+            // 1. Fetch all classes using Hybrid API
+            const classesData = await api.getClasses();
 
-            // 2. Fetch attendance for the selected date
-            const { data: attendanceRecords } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('school_id', schoolId)
-                .eq('date', selectedDate);
+            // 2. Fetch attendance for the selected date using Hybrid API
+            const attendanceRecords = await api.getAttendanceByDate(schoolId, selectedDate);
 
-            // 3. Process data
-            const summary: ClassAttendanceSummary[] = (classesData || []).map((cls: any) => {
-                // Filter records for this class. 
-                // Note: Our attendance table uses class_id (text) storing "Grade XSection Y" or similar, 
-                // OR we join with students. Let's assume we filter by student-class link if needed, 
-                // but simpler if attendance has class_id as expected.
-                // Based on recent fixes, attendance has class_id as TEXT.
-                // Let's assume class_id format matches "Grade {grade}{section}" or similar?
-                // Actually, let's look for records where status is present/absent.
-
-                // Better approach: Join with students to get grade/section if class_id is ambiguous, 
-                // but for now, let's filter the fetched records.
-                // Wait, the recent fix made class_id TEXT. Let's assume it stores the primary key of classes table?
-                // But classes.id is BIGINT. The fix made attendance.class_id TEXT to avoid mismatch.
-                // So it likely stores the string ID if it was a UUID, OR it stores the string representation?
-                // Let's rely on matching student data if needed, but let's try matching class_id first.
-
-                // Fallback: If attendance records have student_id, and students have grade/section.
-                // Since we don't have a huge DB, let's fetch students too.
-                return {
-                    grade: cls.grade,
-                    section: cls.section,
-                    present: 0, // Placeholder until complex join logic is perfect
-                    total: 0,
-                    status: 'Pending'
-                };
-            });
-
-            // refined implementation:
-            // Fetch students to count total per class
-            const { data: allStudents } = await supabase
-                .from('students')
-                .select('id, grade, section')
-                .eq('school_id', schoolId);
+            // 3. Fetch all students to match with classes
+            const allStudents = await api.getStudents(schoolId);
 
             const processedData: ClassAttendanceSummary[] = [];
 
@@ -125,7 +74,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
             });
 
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching attendance overview:', error);
         } finally {
             setLoading(false);
         }

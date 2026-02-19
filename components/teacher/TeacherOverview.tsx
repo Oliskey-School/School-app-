@@ -12,7 +12,9 @@ import {
   CheckCircleIcon,
   EditIcon,
   CalculatorIcon,
-  SUBJECT_COLORS
+  SUBJECT_COLORS,
+  UserGroupIcon,
+  getFormattedClassName
 } from '../../constants';
 // import { ClassInfo, Teacher, Assignment } from '../../types'; // Not utilizing full types yet for raw DB data
 import { DashboardType } from '../../types';
@@ -204,6 +206,9 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', {}) },
     { label: "Quiz Builder", icon: <EditIcon className="h-7 w-7" />, action: () => navigateTo('quizBuilder', 'Create Assessment', {}) },
     { label: "Gradebook", icon: <CalculatorIcon className="h-7 w-7" />, action: () => navigateTo('classGradebook', 'Class Gradebook', {}) },
+    { label: "Exams", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('examManagement', 'Manage Exams', { schoolId, teacherId }) },
+    { label: "Forum", icon: <UserGroupIcon className="h-7 w-7" />, action: () => navigateTo('collaborationForum', 'Teacher Forum', {}) },
+    { label: "Reports", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('reports', 'Student Reports', {}) },
   ];
 
   return (
@@ -217,6 +222,42 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       <div className="grid grid-cols-2 gap-4">
         <StatCard label="Total Students" value={statsLoading ? '...' : stats.totalStudents} icon={<BriefcaseIcon />} />
         <StatCard label="Total Assigned Classes" value={statsLoading ? '...' : stats.totalClasses} icon={<ViewGridIcon />} />
+      </div>
+
+      {/* Your Assigned Classes & Subjects */}
+      <div>
+        <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Your Assigned Classes</h3>
+        <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar">
+          {classesLoading ? (
+            Array(2).fill(0).map((_, i) => (
+              <div key={i} className="min-w-[160px] bg-white p-4 rounded-2xl shadow-sm animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+              </div>
+            ))
+          ) : teacherClasses.length > 0 ? (
+            teacherClasses.map((c, i) => (
+              <button
+                key={i}
+                onClick={() => navigateTo('classDetail', getFormattedClassName(c.grade, c.section, true, c.subject), { classId: c.id, className: getFormattedClassName(c.grade, c.section, true, c.subject) })}
+                className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all text-left border-b-4 border-purple-500 group"
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <p className="font-bold text-gray-800 text-base">{getFormattedClassName(c.grade, c.section)}</p>
+                  <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-purple-500 transition-colors" />
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <div className={`w-2 h-2 rounded-full ${SUBJECT_COLORS[c.subject] || 'bg-purple-400'}`}></div>
+                  <p className="text-xs font-semibold text-purple-600 truncate">{c.subject}</p>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-dashed border-gray-300 w-full text-center text-gray-500 text-sm">
+              No classes assigned yet.
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -234,7 +275,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             </div>
             <div className="space-y-3">
               {ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 1).map(a => (
-                <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
+                <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a, schoolId })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-gray-800">{a.title}</p>
                     <p className="text-sm text-gray-500">{a.class_name}</p>

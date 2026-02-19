@@ -1,6 +1,7 @@
 
 
 import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import { api } from '../../lib/api';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon } from '../../constants';
@@ -173,43 +174,15 @@ const Overview: React.FC<{
             try {
                 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-                const timetablePromise = supabase
-                    .from('timetable')
-                    .select('*')
-                    .eq('school_id', schoolId)
-                    .eq('day', today)
-                    .ilike('class_name', `%${student.grade}%`)
-                    .order('start_time', { ascending: true })
-                    .limit(3);
+                const [timetableData, assignmentsData] = await Promise.all([
+                    api.getTimetable(schoolId, student.grade.toString()),
+                    api.getAssignments(schoolId)
+                ]);
 
-                if (currentBranchId) {
-                    timetablePromise.eq('branch_id', currentBranchId);
-                }
-
-                const assignmentsPromise = supabase
-                    .from('assignments')
-                    .select('*')
-                    .eq('school_id', schoolId)
-                    .gt('due_date', new Date().toISOString())
-                    .order('due_date', { ascending: true })
-                    .limit(2);
-
-                if (currentBranchId) {
-                    assignmentsPromise.eq('branch_id', currentBranchId);
-                }
-
-                // Add timeout to prevent hanging
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
-
-                const [timetableResult, assignmentsResult] = await Promise.race([
-                    Promise.all([timetablePromise, assignmentsPromise]),
-                    timeoutPromise
-                ]) as any[];
-
-                if (timetableResult?.data && timetableResult.data.length > 0) {
-                    setTodaySchedule(timetableResult.data);
+                if (timetableData && timetableData.length > 0) {
+                    // Filter for today locally if API returns all
+                    setTodaySchedule(timetableData.filter((t: any) => t.day === today).slice(0, 3));
                 } else {
-                    // DEMO FALLBACK
                     setTodaySchedule([
                         { start_time: '08:00', subject: 'Mathematics', class_name: 'Grade 10' },
                         { start_time: '09:00', subject: 'English', class_name: 'Grade 10' },
@@ -217,10 +190,10 @@ const Overview: React.FC<{
                     ]);
                 }
 
-                if (assignmentsResult?.data && assignmentsResult.data.length > 0) {
-                    setUpcomingAssignments(assignmentsResult.data);
+                if (assignmentsData && assignmentsData.length > 0) {
+                    const todayIso = new Date().toISOString();
+                    setUpcomingAssignments(assignmentsData.filter((a: any) => a.due_date > todayIso).slice(0, 2));
                 } else {
-                    // DEMO FALLBACK
                     setUpcomingAssignments([
                         { id: 1, title: 'Algebra Worksheet', subject: 'Mathematics', due_date: new Date(Date.now() + 86400000).toISOString() },
                         { id: 2, title: 'Essay on Romeo & Juliet', subject: 'English', due_date: new Date(Date.now() + 172800000).toISOString() }
@@ -228,8 +201,7 @@ const Overview: React.FC<{
                 }
 
             } catch (err) {
-                console.warn('Error or timeout fetching overview data, using fallback:', err);
-                // Fallback data on error
+                console.warn('Error fetching overview data via Hybrid API, using fallback:', err);
                 setTodaySchedule([
                     { start_time: '08:00', subject: 'Mathematics', class_name: 'Grade 10' },
                     { start_time: '09:00', subject: 'English', class_name: 'Grade 10' }
@@ -390,7 +362,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 }
 
                 const isDemoEmail = currentUser.email === 'student@school.edu' ||
-                    currentUser.email?.endsWith('@demo.com'); // Updated domain to match Login.tsx mock logic
+                    currentUser.email?.endsWith('@demo.com');
 
                 const createDemoStudent = (): Student => ({
                     id: '00000000-0000-0000-0000-000000000001',
@@ -404,91 +376,30 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     user_id: currentUser.id,
                 } as Student);
 
+                // 1. Try to fetch Student Data via Hybrid API
+                console.log("Fetching student profile via Hybrid API for user:", currentUser?.id);
 
+                try {
+                    const studentData = await api.getMyStudentProfile();
 
-                // 1. Try to fetch Student Data
-                console.log("Fetching student profile for user:", currentUser?.id, "School:", schoolId);
+                    if (studentData) {
+                        const mappedStudent: Student = {
+                            ...studentData,
+                            id: studentData.id,
+                            name: studentData.name,
+                            grade: studentData.grade,
+                            section: studentData.section,
+                            avatarUrl: studentData.avatar_url,
+                            schoolId: studentData.school_generated_id,
+                        } as any;
 
-                if (!currentUser?.id) {
-                    console.warn("No user ID found, stopping load");
-                    setLoadingStudent(false);
-                    return;
-                }
-
-
-                let studentData = null;
-
-
-                // First try: user_id only (most reliable)
-                const { data: byUserId, error: idError } = await supabase
-                    .from('students')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .limit(1)
-                    .maybeSingle();
-
-                if (idError) {
-                    console.error("Error fetching by user_id:", idError);
-                    // If it's a permission error (403), immediately use demo student
-                    if (idError.code === '42501' || idError.message?.includes('permission denied')) {
-                        console.warn('⚠️ Permission denied - using demo student profile');
-                        const demo = createDemoStudent();
-                        setStudent(demo);
-                        await offlineStorage.save(cacheKey, demo);
-                        return; // Exit early
-                    }
-                }
-
-
-                // If found, verify school matches (or accept if no school context yet)
-                if (byUserId) {
-                    if (!schoolId || byUserId.school_id === schoolId) {
-                        studentData = byUserId;
-                    }
-                }
-
-                // Fallback: lookup by email if user_id didn't work (skip if we had permission error)
-                if (!studentData && currentUser.email && !idError) {
-                    const { data: byEmail, error: emailError } = await supabase
-                        .from('students')
-                        .select('*')
-                        .eq('email', currentUser.email)
-                        .limit(1)
-                        .maybeSingle();
-
-                    // Check for permission error on email query too
-                    if (emailError?.code === '42501' || emailError?.message?.includes('permission denied')) {
-                        console.warn('⚠️ Permission denied on email lookup - using demo student profile');
-                        const demo = createDemoStudent();
-                        setStudent(demo);
-                        await offlineStorage.save(cacheKey, demo);
-                        return; // Exit early
-                    }
-
-                    if (byEmail) studentData = byEmail;
-                }
-
-                if (studentData) {
-                    const mappedStudent: Student = {
-                        ...studentData,
-                        id: studentData.id,
-                        name: studentData.name,
-                        grade: studentData.grade,
-                        section: studentData.section,
-                        avatarUrl: studentData.avatar_url,
-                        schoolId: studentData.school_generated_id,
-                    } as any;
-
-                    setStudent(mappedStudent);
-                    await offlineStorage.save(cacheKey, mappedStudent);
-                } else if (isDemoEmail) {
-                    // AUTO-HEALING: If no student profile found for demo user, create one automatically
-                    // linked to the Demo School (School App) so they are "connected" immediately.
-                    console.log("⚠️ No student profile found. Auto-creating for School App...");
-
-                    const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
-
-                    try {
+                        setStudent(mappedStudent);
+                        await offlineStorage.save(cacheKey, mappedStudent);
+                    } else if (isDemoEmail) {
+                        // AUTO-HEALING for demo users
+                        console.log("⚠️ No student profile found for demo user. Auto-healing...");
+                        const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
+                        
                         const { data: newStudent, error: createError } = await supabase
                             .from('students')
                             .insert({
@@ -498,46 +409,40 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 name: currentUser.user_metadata?.full_name || 'Demo Student',
                                 grade: 10,
                                 section: 'A',
-                                attendance_status: 'Present',
-                                // school_generated_id will be handled by DB trigger
-                                // created_at defaults to NOW()
+                                attendance_status: 'Present'
                             })
                             .select()
                             .single();
 
-                        if (createError) {
-                            console.error("Failed to auto-create student profile:", createError);
-                            // Only fall back to local mock if DB creation completely fails
-                            const demo = createDemoStudent();
-                            setStudent(demo);
-                        } else if (newStudent) {
-                            console.log("✅ Auto-created student profile!", newStudent);
-                            const mappedNewStudent: Student = {
+                        if (newStudent) {
+                            const mappedNewStudent = {
                                 ...newStudent,
                                 id: newStudent.id,
                                 name: newStudent.name,
                                 grade: newStudent.grade,
                                 section: newStudent.section,
                                 avatarUrl: newStudent.avatar_url,
-                            } as any;
-                            setStudent(mappedNewStudent);
+                            };
+                            setStudent(mappedNewStudent as any);
                             await offlineStorage.save(cacheKey, mappedNewStudent);
+                        } else {
+                            setStudent(createDemoStudent());
                         }
-                    } catch (healErr) {
-                        console.error("Auto-heal failed:", healErr);
+                    }
+                } catch (apiError: any) {
+                    console.error("API Error fetching student profile:", apiError);
+                    if (apiError.message?.includes('permission denied') || apiError.status === 403) {
+                        setStudent(createDemoStudent());
                     }
                 }
 
             } catch (e) {
                 console.error('Error loading dashboard:', e);
-                // If we have NO student data at all, set loading to false to prevent infinite spinner
-                if (!student) {
-                    setLoadingStudent(false);
-                }
+                if (!student) setLoadingStudent(false);
             } finally {
                 setLoadingStudent(false);
                 setIsRevalidating(false);
-                isFetchingRef.current = false; // Mark as done fetching
+                isFetchingRef.current = false;
             }
         };
         fetchStudentAndNotifications();

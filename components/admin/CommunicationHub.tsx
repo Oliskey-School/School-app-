@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { UsersIcon, ParentNavIcon, TeacherNavIcon, StudentNavIcon, AIIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
 type Audience = 'all' | 'parents' | 'teachers' | 'students';
@@ -94,26 +94,21 @@ const CommunicationHub: React.FC = () => {
             const audienceList = selectedAudience === 'all' ? ['all'] : [selectedAudience];
 
             // 1. Create the persistent Notice
-            const { error: noticeError } = await supabase
-                .from('notices')
-                .insert({
-                    school_id: currentSchool.id,
-                    title,
-                    content: message,
-                    audience: audienceList,
-                    created_by: user.id,
-                    category: 'General',
-                    is_pinned: false,
-                    timestamp: new Date().toISOString()
-                });
-
-            if (noticeError) throw noticeError;
+            await api.createNotice({
+                school_id: currentSchool.id,
+                title,
+                content: message,
+                audience: audienceList,
+                created_by: user.id,
+                category: 'General',
+                is_pinned: false,
+                timestamp: new Date().toISOString()
+            });
 
             // 2. Create the Real-time Notification Alert
             // This ensures users see the red badge and get a toast immediately via existing hooks
-            const { error: notificationError } = await supabase
-                .from('notifications')
-                .insert({
+            try {
+                await api.createNotification({
                     school_id: currentSchool.id,
                     user_id: null, // Broadcast notification (null targets audience)
                     audience: audienceList,
@@ -123,8 +118,7 @@ const CommunicationHub: React.FC = () => {
                     is_read: false,
                     created_at: new Date().toISOString()
                 });
-
-            if (notificationError) {
+            } catch (notificationError) {
                 console.error('Failed to create notification alert:', notificationError);
                 // We don't block the UI success for this, as the main notice was saved.
             }

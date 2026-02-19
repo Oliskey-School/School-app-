@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
-import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon, CheckCircleIcon } from '../../constants';
+import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon, CheckCircleIcon, ChevronDownIcon } from '../../constants';
 import { Teacher } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
@@ -21,86 +21,99 @@ interface AddTeacherScreenProps {
     handleBack: () => void;
 }
 
-const TagInput: React.FC<{
+const MultiSelect: React.FC<{
     label: string;
-    tags: string[];
-    setTags: React.Dispatch<React.SetStateAction<string[]>>;
+    selected: string[];
+    setSelected: React.Dispatch<React.SetStateAction<string[]>>;
     placeholder: string;
-    validOptions?: string[];
-    validationMessage?: string;
-}> = ({ label, tags, setTags, placeholder, validOptions, validationMessage }) => {
-    const [input, setInput] = useState('');
-    const [error, setError] = useState<string | null>(null);
+    options: string[];
+}> = ({ label, selected, setSelected, placeholder, options }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [filterText, setFilterText] = useState('');
+    const containerRef = React.useRef<HTMLDivElement>(null);
 
-    const handleAddTag = () => {
-        const newTag = input.trim();
-        if (!newTag) return;
-
-        if (tags.includes(newTag)) {
-            setInput('');
-            setError(null);
-            return;
-        }
-
-        // VALIDATION LOGIC
-        if (validOptions && validOptions.length > 0) {
-            // Case-insensitive check
-            const match = validOptions.find(opt => opt.toLowerCase() === newTag.toLowerCase());
-            if (!match) {
-                setError(validationMessage || `Invalid value.Please select from the list.`);
-                // Optional: Show valid options in console or UI suggestion
-                return;
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
             }
-            // Use the canonical casing from validOptions
-            setTags([...tags, match]);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleSelection = (option: string) => {
+        if (selected.includes(option)) {
+            setSelected(selected.filter(item => item !== option));
         } else {
-            setTags([...tags, newTag]);
+            setSelected([...selected, option]);
         }
-
-        setInput('');
-        setError(null);
+        setFilterText(''); // Reset filter after selection
     };
 
-    const handleRemoveTag = (tagToRemove: string) => {
-        setTags(tags.filter(tag => tag !== tagToRemove));
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            handleAddTag();
-        }
-    };
+    const filteredOptions = options.filter(opt =>
+        opt.toLowerCase().includes(filterText.toLowerCase()) &&
+        !selected.includes(opt)
+    );
 
     return (
-        <div>
+        <div className="relative" ref={containerRef}>
             <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-            <div className={`flex flex - wrap items - center gap - 2 p - 2 border rounded - lg bg - gray - 50 ${error ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-300'} `}>
-                {tags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1.5 bg-sky-100 text-sky-800 text-sm font-semibold px-2 py-1 rounded-md">
-                        {tag}
-                        <button type="button" onClick={() => handleRemoveTag(tag)} className="text-sky-600 hover:text-sky-800">
+
+            {/* Main Input Container */}
+            <div
+                className="min-h-[42px] p-2 border border-gray-300 rounded-lg bg-gray-50 flex flex-wrap gap-2 items-center cursor-text focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all"
+                onClick={() => setIsOpen(true)}
+            >
+                {/* Selected Tags */}
+                {selected.map(item => (
+                    <span key={item} className="flex items-center gap-1 bg-sky-100 text-sky-800 text-sm font-medium px-2 py-1 rounded-md">
+                        {item}
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleSelection(item); }}
+                            className="text-sky-600 hover:text-sky-800 focus:outline-none"
+                        >
                             <XCircleIcon className="w-4 h-4" />
                         </button>
                     </span>
                 ))}
-                <input
-                    type="text"
-                    value={input}
-                    onChange={e => { setInput(e.target.value); setError(null); }}
-                    onKeyDown={handleKeyDown}
-                    placeholder={placeholder}
-                    className="flex-grow bg-transparent p-1 text-gray-700 focus:outline-none"
-                    list={`list - ${label.replace(/\s/g, '')} `}
-                />
-            </div>
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
 
-            {/* Datalist for suggestions */}
-            {validOptions && (
-                <datalist id={`list - ${label.replace(/\s/g, '')} `}>
-                    {validOptions.map(opt => <option key={opt} value={opt} />)}
-                </datalist>
+                {/* Input Field */}
+                <div className="flex-grow flex items-center min-w-[120px]">
+                    <input
+                        type="text"
+                        value={filterText}
+                        onChange={(e) => { setFilterText(e.target.value); setIsOpen(true); }}
+                        onFocus={() => setIsOpen(true)}
+                        placeholder={selected.length === 0 ? placeholder : ""}
+                        className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-400 text-sm"
+                    />
+                </div>
+
+                <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Menu */}
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredOptions.length > 0 ? (
+                        filteredOptions.map(option => (
+                            <div
+                                key={option}
+                                onClick={() => toggleSelection(option)}
+                                className="px-4 py-2 hover:bg-sky-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between"
+                            >
+                                <span>{option}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                            {options.length === 0 ? "No options available" : "No matching options"}
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );
@@ -109,10 +122,11 @@ const TagInput: React.FC<{
 
 const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forceUpdate, handleBack }) => {
     const { profile } = useProfile();
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
 
     // Triple-layer schoolId detection
     const schoolId = profile.schoolId || currentSchool?.id;
+    const branchId = currentBranchId || profile.branchId || null;
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -145,7 +159,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
         const fetchRefs = async () => {
             try {
                 // Fetch Subjects
-                const { data: sData } = await supabase.from('subjects').select('name');
+                const { data: sData } = await supabase.from('subjects').select('name').eq('school_id', schoolId);
                 if (sData) setValidSubjects(sData.map(d => d.name));
 
                 // Fetch Classes (Filter by current school)
@@ -225,7 +239,8 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         email,
                         phone,
                         status,
-                        avatar_url: avatarUrl
+                        avatar_url: avatarUrl,
+                        branch_id: branchId
                     })
                     .eq('id', teacherToEdit.id);
 
@@ -294,7 +309,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     await supabase.from('class_teachers').delete().eq('teacher_id', teacherToEdit.id);
 
                     // Map selected class names (which matches validClasses) to IDs using classIdMap
-                    // Note: 'classes' state contains the raw selected names from TagInput (which matches validOptions)
+                    // Note: 'classes' state contains the raw selected names from MultiSelect (which matches validOptions)
                     const classIdsToLink = classes
                         .map(clsName => classIdMap[clsName])
                         .filter(id => !!id); // Filter out any that don't match (shouldn't happen with validOptions)
@@ -384,7 +399,8 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     .from('teachers')
                     .insert([{
                         user_id: userData.id,
-                        school_id: profile.schoolId,
+                        school_id: schoolId,
+                        branch_id: branchId,
                         name,
                         email: teacherEmail,
                         phone,
@@ -500,21 +516,19 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         <InputField id="email" label="Email" value={email} onChange={setEmail} icon={<MailIcon className="w-5 h-5" />} type="email" />
                         <InputField id="phone" label="Phone" value={phone} onChange={setPhone} icon={<PhoneIcon className="w-5 h-5" />} type="tel" />
 
-                        <TagInput
+                        <MultiSelect
                             label="Subjects"
-                            tags={subjects}
-                            setTags={setSubjects}
-                            placeholder={loadingRefs ? "Loading subjects..." : "Add subject & press Enter"}
-                            validOptions={validSubjects}
-                            validationMessage="Subject not found in database. Please ask admin to add it."
+                            selected={subjects}
+                            setSelected={setSubjects}
+                            placeholder={loadingRefs ? "Loading subjects..." : "Select subjects..."}
+                            options={validSubjects}
                         />
-                        <TagInput
+                        <MultiSelect
                             label="Classes"
-                            tags={classes}
-                            setTags={setClasses}
-                            placeholder={loadingRefs ? "Loading classes..." : "Add class (e.g., 7A) & press Enter"}
-                            validOptions={validClasses}
-                            validationMessage="Class not found in database. Please ask admin to add it."
+                            selected={classes}
+                            setSelected={setClasses}
+                            placeholder={loadingRefs ? "Loading classes..." : "Select classes..."}
+                            options={validClasses}
                         />
 
 

@@ -354,17 +354,17 @@ const ParentDashboardContent = ({ navigateTo, schoolId, currentUser, version, st
             try {
                 const today = new Date().toISOString();
                 const [allFees, allAttendance, allAssignments] = await Promise.all([
-                    supabase.from('fees').select('*').eq('school_id', schoolId).in('student_id', ids).in('status', ['pending', 'partial']).order('due_date', { ascending: true }),
-                    supabase.from('student_attendance').select('student_id, status').eq('school_id', schoolId).in('student_id', ids),
-                    supabase.from('assignments').select('*').eq('school_id', schoolId).gt('due_date', today).order('due_date', { ascending: true })
+                    api.bulkFetchFees(ids, ['pending', 'partial']),
+                    api.bulkFetchAttendance(ids),
+                    api.getAssignments(schoolId as string)
                 ]);
                 const stats = students.map(student => {
-                    const studentFees = (allFees.data || []).filter((f: any) => f.student_id === student.id);
-                    const feeInfo = studentFees.length > 0 ? { totalDue: studentFees.reduce((sum: number, fee: any) => sum + (fee.amount - (fee.paid_amount || 0)), 0), nextDueDate: studentFees[0]?.due_date, status: studentFees[0]?.status || 'pending' } : null;
-                    const studentAtt = (allAttendance.data || []).filter((a: any) => a.student_id === student.id);
+                    const studentFees = (allFees || []).filter((f: any) => f.studentId === student.id);
+                    const feeInfo = studentFees.length > 0 ? { totalDue: studentFees.reduce((sum: number, fee: any) => sum + (fee.amount - (fee.paidAmount || 0)), 0), nextDueDate: studentFees[0]?.dueDate, status: studentFees[0]?.status || 'pending' } : null;
+                    const studentAtt = (allAttendance || []).filter((a: any) => a.student_id === student.id);
                     const presentCount = studentAtt.filter((a: any) => a.status === 'Present').length;
                     const attendancePercentage = studentAtt.length > 0 ? Math.round((presentCount / studentAtt.length) * 100) : 0;
-                    const nextHomework = (allAssignments.data || []).find((a: any) => a.class_name?.toLowerCase().includes(String(student.grade).toLowerCase()) && a.class_name?.toLowerCase().includes(String(student.section).toLowerCase()));
+                    const nextHomework = (allAssignments || []).find((a: any) => a.class_name?.toLowerCase().includes(String(student.grade).toLowerCase()) && a.class_name?.toLowerCase().includes(String(student.section).toLowerCase()));
                     return { student, feeInfo, nextHomework: nextHomework ? { subject: nextHomework.subject, title: nextHomework.title } : null, attendancePercentage };
                 });
                 setChildrenStats(stats);
@@ -404,6 +404,7 @@ interface ParentDashboardProps {
 
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
 
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'dashboard', title: 'Parent Dashboard' }]);
@@ -434,7 +435,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     const fetchProfile = async () => {
         if (!schoolId) return;
         let query = supabase.from('parents').select('id, name, email, phone, avatar_url, school_generated_id').eq('school_id', schoolId);
-        if (user?.email || currentUser?.email) query = query.eq('email', user?.email || currentUser?.email);
+        const email = user?.email || currentUser?.email;
+        if (email) query = query.ilike('email', email);
         const { data, error } = await query.maybeSingle();
         if (data) { setParentId(data.id); setParentProfile({ name: data.name || 'Parent', avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent', schoolGeneratedId: data.school_generated_id }); }
     };
@@ -444,32 +446,30 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     useEffect(() => {
         const fetchChildren = async () => {
             if (!schoolId) return;
-            const effectiveParentId = (user as any)?.id || parentId;
-            if (!effectiveParentId) { setLoadingStudents(false); return; }
+            setLoadingStudents(true);
             try {
-                const { data: relations } = await supabase.from('student_parent_links').select('student_user_id').eq('school_id', schoolId).eq('parent_user_id', effectiveParentId);
-                const { data: directStudents } = await supabase.from('students').select('id').eq('school_id', schoolId).eq('parent_id', effectiveParentId);
-                const linkedUserIds = relations?.map((r: any) => r.student_user_id) || [];
-                let linkedStudents: any[] = [];
-                if (linkedUserIds.length > 0) { const { data: ls } = await supabase.from('students').select('id').eq('school_id', schoolId).in('user_id', linkedUserIds); if (ls) linkedStudents = ls; }
-                const uniqueStudentIds = Array.from(new Set([...(directStudents?.map(s => s.id) || []), ...(linkedStudents?.map(s => s.id) || [])]));
-                if (uniqueStudentIds.length > 0) {
-                    const { data: studentsData } = await supabase.from('students').select('*, user:user_id(email)').eq('school_id', schoolId).in('id', uniqueStudentIds);
-                    if (studentsData) {
-                        const [allAcademic, allBehavior, allReportCards] = await Promise.all([
-                            supabase.from('academic_performance').select('*').eq('school_id', schoolId).in('student_id', uniqueStudentIds),
-                            supabase.from('behavior_records').select('*').eq('school_id', schoolId).in('student_id', uniqueStudentIds).order('date', { ascending: false }),
-                            supabase.from('report_cards').select('*').eq('school_id', schoolId).in('student_id', uniqueStudentIds).eq('status', 'Published').order('created_at', { ascending: false })
-                        ]);
-                        setStudents(studentsData.map((s: any) => ({
-                            id: s.id, name: s.name, email: s.user?.email || '', avatarUrl: s.avatar_url || 'https://via.placeholder.com/150', grade: s.grade, section: s.section, attendanceStatus: s.attendance_status || 'Present', birthday: s.birthday, schoolGeneratedId: s.school_generated_id,
-                            academicPerformance: (allAcademic.data || []).filter((a: any) => a.student_id === s.id).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
-                            behaviorNotes: (allBehavior.data || []).filter((b: any) => b.student_id === s.id).map((b: any) => ({ id: b.id, date: b.date, type: b.type, title: b.title, note: b.description || '', by: b.reporter_name || 'Teacher' })),
-                            reportCards: (allReportCards.data || []).filter((r: any) => r.student_id === s.id).map((r: any) => ({ term: r.term, session: r.session, status: r.status }))
-                        } as any)));
-                    }
+                const studentsData = await api.getMyChildren();
+                if (studentsData) {
+                    setStudents(studentsData.map((s: any) => ({
+                        id: s.id,
+                        name: s.name,
+                        email: s.email || '',
+                        avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
+                        grade: s.grade,
+                        section: s.section,
+                        attendanceStatus: s.attendance_status || 'Present',
+                        birthday: s.birthday,
+                        schoolGeneratedId: s.school_generated_id,
+                        academicPerformance: (s.academic_performance || []).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
+                        behaviorNotes: (s.behavior_records || []).map((b: any) => ({ id: b.id, date: b.date, type: b.type, title: b.title, note: b.description || '', by: b.reporter_name || 'Teacher' })),
+                        reportCards: (s.report_cards || []).filter((r: any) => r.status === 'Published').map((r: any) => ({ term: r.term, session: r.session, status: r.status }))
+                    } as any)));
                 }
-            } catch (err) { console.warn("Error fetching children:", err); } finally { setLoadingStudents(false); }
+            } catch (err) {
+                console.warn("Error fetching children via Hybrid API:", err);
+            } finally {
+                setLoadingStudents(false);
+            }
         };
         fetchChildren();
     }, [parentId, schoolId, version, user]);

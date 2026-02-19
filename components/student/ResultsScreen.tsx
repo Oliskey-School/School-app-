@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { BookOpenIcon, CheckCircleIcon, ClipboardListIcon, SUBJECT_COLORS } from '../../constants';
 import DonutChart from '../ui/DonutChart';
@@ -32,67 +32,36 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
             if (!studentId) return;
 
             try {
-                // Fetch Academic Performance (Isolated by School)
-                let performanceQuery = supabase
-                    .from('academic_performance')
-                    .select('*')
-                    .eq('student_id', studentId);
-
-                if (schoolId) performanceQuery = performanceQuery.eq('school_id', schoolId);
-
-                const { data: grades } = await performanceQuery;
+                // Using Hybrid API for student records
+                const grades = await api.getStudentPerformance(studentId);
 
                 if (grades) {
                     setPerformanceData(grades);
                     const terms = Array.from(new Set(grades.map((d: any) => d.term)));
                     if (terms.length > 0 && !activeTerm) {
-                        setActiveTerm(terms[terms.length - 1]);
+                        setActiveTerm(terms[terms.length - 1] as string);
                     } else if (terms.length === 0) {
                         setActiveTerm('First Term');
                     }
                 }
             } catch (err) {
-                console.error('Error fetching results:', err);
+                console.error('Error fetching results via Hybrid API:', err);
             } finally {
                 setLoading(false);
             }
         };
 
         const fetchQuizResults = async () => {
-            let quizzesQuery = supabase.from('quiz_submissions')
-                .select('*, quizzes(title, subject)')
-                .eq('student_id', studentId);
-
-            if (schoolId) quizzesQuery = quizzesQuery.eq('school_id', schoolId);
-
-            const { data } = await quizzesQuery.order('submitted_at', { ascending: false });
-            if (data) setQuizResults(data);
+            try {
+                const data = await api.getQuizResults(studentId);
+                setQuizResults(data);
+            } catch (err) {
+                console.error("Error fetching quiz results:", err);
+            }
         };
 
         fetchData();
         fetchQuizResults();
-
-        // Realtime Subscription
-        const channel = supabase.channel(`student_results_${studentId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'academic_performance', filter: `student_id=eq.${studentId}` }, () => {
-                fetchData();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_submissions', filter: `student_id=eq.${studentId}` }, () => {
-                fetchQuizResults();
-            })
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'report_cards',
-                filter: `student_id=eq.${studentId}`
-            }, () => {
-                fetchData();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [studentId]);
 
     // Derived data for active term

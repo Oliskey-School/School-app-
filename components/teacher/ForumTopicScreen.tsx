@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ForumTopic, ForumPost } from '../../types';
-import { mockForumTopics } from '../../data';
+import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 const formatTimestamp = (isoDate: string): string => {
   return new Date(isoDate).toLocaleString('en-US', {
@@ -12,60 +13,80 @@ const formatTimestamp = (isoDate: string): string => {
 };
 
 interface ForumTopicScreenProps {
-  topicId: number;
+  topicId: string | number;
+  currentUserId: string;
+  teacherProfile?: any;
 }
 
-const ForumTopicScreen: React.FC<ForumTopicScreenProps> = ({ topicId }) => {
-  const [topic, setTopic] = useState<ForumTopic | undefined>(() => mockForumTopics.find(t => t.id === topicId));
+const ForumTopicScreen: React.FC<ForumTopicScreenProps> = ({ topicId, currentUserId, teacherProfile }) => {
+  const [topic, setTopic] = useState<ForumTopic | null>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newReply, setNewReply] = useState('');
 
-  const handlePostReply = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newReply.trim() || !topic) return;
-
-    const newPost: ForumPost = {
-      id: Date.now(),
-      author: { name: 'You (Mrs. Akintola)', avatarUrl: 'https://i.pravatar.cc/150?u=funke' },
-      content: newReply,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedTopic = {
-      ...topic,
-      posts: [...topic.posts, newPost],
-      postCount: topic.postCount + 1,
-      lastActivity: newPost.timestamp,
-    };
-    
-    setTopic(updatedTopic);
-    
-    // In a real app, this would also update the central data store
-    const topicIndex = mockForumTopics.findIndex(t => t.id === topicId);
-    if(topicIndex > -1) {
-        mockForumTopics[topicIndex] = updatedTopic;
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch all topics to find this one (Backend ideally has getTopicById)
+      // Since we already have schoolId in context usually, but here we just have topicId.
+      // For now, let's fetch posts.
+      const data = await api.getForumPosts(String(topicId));
+      setPosts(data);
+    } catch (error) {
+      console.error('Error loading forum posts:', error);
+      toast.error('Failed to load conversation.');
+    } finally {
+      setLoading(false);
     }
-    setNewReply('');
   };
 
-  if (!topic) {
-    return <div className="p-4 text-center">Topic not found.</div>;
+  useEffect(() => {
+    loadData();
+  }, [topicId]);
+
+  const handlePostReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReply.trim()) return;
+
+    try {
+      await api.createForumPost({
+        topic_id: topicId,
+        content: newReply,
+        author_id: currentUserId,
+        author_name: teacherProfile?.name || 'Teacher',
+        author_avatar_url: teacherProfile?.avatarUrl,
+        created_at: new Date().toISOString()
+      });
+      
+      setNewReply('');
+      loadData(); // Refresh posts
+      toast.success('Reply posted');
+    } catch (err) {
+      console.error('Error posting reply:', err);
+      toast.error('Failed to send reply');
+    }
+  };
+
+  if (loading && posts.length === 0) {
+    return <div className="p-10 text-center flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div></div>;
   }
 
   return (
     <div className="flex flex-col h-full bg-gray-100">
       <main className="flex-grow p-4 space-y-4 overflow-y-auto">
-        {topic.posts.map(post => (
+        {posts.map(post => (
           <div key={post.id} className="flex items-start space-x-3">
-            <img src={post.author.avatarUrl} alt={post.author.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-            <div className="flex-grow bg-white p-3 rounded-lg shadow-sm">
+            <img src={post.author_avatar_url || `https://ui-avatars.com/api/?name=${post.author_name}&background=random`} alt={post.author_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+            <div className="flex-grow bg-white p-3 rounded-lg shadow-sm border border-gray-100">
               <div className="flex justify-between items-center">
-                <p className="font-bold text-gray-800">{post.author.name}</p>
-                <p className="text-xs text-gray-400">{formatTimestamp(post.timestamp)}</p>
+                <p className="font-bold text-gray-800">{post.author_name}</p>
+                <p className="text-xs text-gray-400">{formatTimestamp(post.created_at || post.timestamp)}</p>
               </div>
-              <p className="text-gray-700 mt-2">{post.content}</p>
+              <p className="text-gray-700 mt-2 whitespace-pre-wrap">{post.content}</p>
             </div>
           </div>
         ))}
+        {posts.length === 0 && <p className="text-center text-gray-500 py-10">No replies yet. Be the first to respond!</p>}
       </main>
       <div className="p-4 bg-white border-t border-gray-200">
         <form onSubmit={handlePostReply} className="flex items-center space-x-2">

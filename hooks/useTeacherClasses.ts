@@ -114,6 +114,10 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                             grade,
                             section,
                             school_id
+                        ),
+                        subject_id,
+                        subjects (
+                            name
                         )
                     `)
                     .eq('teacher_id', resolvedTeacherId);
@@ -125,15 +129,17 @@ export const useTeacherClasses = (teacherId?: string | null) => {
 
                 (assignments || []).forEach((assignment: any) => {
                     const c = assignment.classes;
+                    const s = assignment.subjects;
                     if (!c) return;
 
-                    const key = `${c.id} `; // Use ID as key for uniqueness
+                    // Unique key includes subject to handle different subjects in same class
+                    const key = `${c.id}-${assignment.subject_id || 'general'}`;
                     if (!addedKeys.has(key)) {
                         finalClasses.push({
                             id: c.id,
                             grade: c.grade,
                             section: c.section || '',
-                            subject: 'General',
+                            subject: s?.name || 'General',
                             studentCount: 0,
                             schoolId: c.school_id
                         });

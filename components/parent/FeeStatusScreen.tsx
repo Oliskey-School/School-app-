@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Fee } from '../../types';
 import { fetchStudentFees } from '../../lib/payments';
 import { FeeCard } from '../payments/FeeCard';
@@ -37,121 +37,67 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
 
     useEffect(() => {
         const init = async () => {
-            // 1. Get Parent Email for receipts
-            const { data: { user } } = await supabase.auth.getUser();
-            const authEmail = user?.email || '';
-            setUserEmail(authEmail);
-
-            // 2. Fetch parent profile details from parents table (Isolated)
+            // 1. Get Parent Profile
             if (parentId && schoolId) {
-                const { data: parentProfile } = await supabase
-                    .from('parents')
-                    .select('name, email, phone')
-                    .eq('id', parentId)
-                    .eq('school_id', schoolId)
-                    .single();
-
-                if (parentProfile) {
-                    // Use parent profile data with fallbacks
-                    setParentName(parentProfile.name || 'Parent');
-                    setParentPhone(parentProfile.phone || '0000000000');
-                    // Use parent email if available, otherwise use auth email
-                    if (parentProfile.email && !authEmail) {
-                        setUserEmail(parentProfile.email);
+                try {
+                    const parentProfile = await api.getParentById(parentId);
+                    if (parentProfile) {
+                        setParentName(parentProfile.name || 'Parent');
+                        setParentPhone(parentProfile.phone || '0000000000');
+                        setUserEmail(parentProfile.email || '');
                     }
-                }
 
-                // 3. Fetch Children (Using Student-Parent Links)
-                // IMPORTANT: student_parent_links uses user_id (UUID from auth.users), not parents.id
-                const effectiveParentUserId = currentUserId || user?.id;
-
-                if (effectiveParentUserId) {
-                    const { data: relations } = await supabase
-                        .from('student_parent_links')
-                        .select('student_user_id')
-                        .eq('school_id', schoolId)
-                        .eq('parent_user_id', effectiveParentUserId);
-
-                    if (relations && relations.length > 0) {
-                        const studentUserIds = relations.map((r: any) => r.student_user_id);
-                        const { data: kidsData } = await supabase
-                            .from('students')
-                            .select('id, name, grade, section, avatar_url')
-                            .eq('school_id', schoolId)
-                            .in('user_id', studentUserIds);
-
-                        if (kidsData && kidsData.length > 0) {
-                            setStudents(kidsData);
-                            setSelectedStudent(kidsData[0]);
-                        } else {
-                            toast('No student records found linked to your account.');
-                        }
+                    // 2. Fetch Children using Hybrid API
+                    const kidsData = await api.getMyChildren();
+                    if (kidsData && kidsData.length > 0) {
+                        setStudents(kidsData);
+                        setSelectedStudent(kidsData[0]);
                     } else {
                         toast('No children found linked to your account.');
                     }
+                } catch (error) {
+                    console.error("Error initializing FeeStatusScreen:", error);
+                    toast.error("Failed to load profile data.");
                 }
-            } else {
-                toast.error('Parent profile context not found.');
             }
             setLoading(false);
         };
         init();
-    }, [parentId, currentUserId]);
+    }, [parentId, currentUserId, schoolId]);
 
     useEffect(() => {
         if (selectedStudent) {
             loadFees(selectedStudent.id);
-
-            // Realtime subscription for fees
-            const channel = supabase.channel(`fees_${selectedStudent.id}`)
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'student_fees',
-                    filter: `student_id=eq.${selectedStudent.id}`
-                }, () => {
-                    loadFees(selectedStudent.id);
-                    // Optional: toast.success('Fees updated'); 
-                })
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
         }
     }, [selectedStudent]);
 
     const loadFees = async (studentId: string) => {
         setLoading(true);
-        const data = await fetchStudentFees(studentId, schoolId);
-        setFees(data);
+        try {
+            const data = await fetchStudentFees(studentId, schoolId);
+            setFees(data);
 
-        // Check which fees have payment plans
-        const plansSet = new Set<string>();
-        await Promise.all(
-            data.map(async (fee) => {
-                const hasPlan = await hasPaymentPlan(fee.id);
-                if (hasPlan) plansSet.add(fee.id);
-            })
-        );
-        setFeesWithPlans(plansSet);
-
-        setLoading(false);
+            const plansSet = new Set<string>();
+            await Promise.all(
+                data.map(async (fee) => {
+                    const hasPlan = await hasPaymentPlan(fee.id);
+                    if (hasPlan) plansSet.add(fee.id);
+                })
+            );
+            setFeesWithPlans(plansSet);
+        } catch (error) {
+            console.error("Error loading fees:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleDownloadReceipt = async (fee: Fee) => {
         try {
-            // Fetch the transaction for this fee
-            const { data: transactions, error } = await supabase
-                .from('transactions')
-                .select('*')
-                .eq('school_id', schoolId)
-                .eq('fee_id', fee.id)
-                .eq('status', 'Success')
-                .order('created_at', { ascending: false })
-                .limit(1);
+            // Fetch the transaction using Hybrid API
+            const transactions = await api.getTransactions(schoolId as string, fee.id);
 
-            if (error || !transactions || transactions.length === 0) {
+            if (!transactions || transactions.length === 0) {
                 toast.error('No completed transaction found for this fee.');
                 return;
             }
@@ -168,7 +114,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                 reference: transaction.reference,
                 provider: transaction.provider,
                 status: transaction.status,
-                date: transaction.created_at
+                date: transaction.created_at || transaction.timestamp
             };
 
             // Generate and download the receipt
@@ -176,7 +122,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                 formattedTransaction,
                 fee,
                 selectedStudent?.name || 'Student',
-                'School Management System' // You can make this dynamic from settings
+                'School Management System'
             );
         } catch (err) {
             console.error('Error downloading receipt:', err);

@@ -28,8 +28,16 @@ const transformSupabaseStudent = (s: any): Student => ({
     branchId: s.branch_id,
 });
 
+export interface UseStudentsResult {
+    students: Student[];
+    loading: boolean;
+    error: unknown;
+    createStudent: (newStudent: Partial<Student>) => Promise<any>;
+    updateStudent: (updatedStudent: Partial<Student> & { id: string }) => Promise<any>;
+    deleteStudent: (id: string) => Promise<any>;
+}
 
-export function useStudents(filters?: { schoolId?: string, grade?: number; section?: string; classId?: number }) {
+export function useStudents(filters?: { schoolId?: string, grade?: number; section?: string; classId?: number }): UseStudentsResult {
     const queryKey = ['students', filters];
 
     const { data: students = [], isLoading, isError, error } = useQuery({
@@ -74,7 +82,7 @@ export function useStudents(filters?: { schoolId?: string, grade?: number; secti
 
     const updateStudentMutation = useOptimisticMutation({
         queryKey,
-        mutationFn: async (updatedStudent: Partial<Student> & { id: number }) => {
+        mutationFn: async (updatedStudent: Partial<Student> & { id: string }) => {
             const { data, error } = await supabase.from('students').update(updatedStudent).eq('id', updatedStudent.id).select().single();
             if (error) throw error;
             return transformSupabaseStudent(data);
@@ -85,7 +93,7 @@ export function useStudents(filters?: { schoolId?: string, grade?: number; secti
 
     const deleteStudentMutation = useOptimisticMutation({
         queryKey,
-        mutationFn: async (id: number) => {
+        mutationFn: async (id: string) => {
             const { error } = await supabase.from('students').delete().eq('id', id);
             if (error) throw error;
             return id;

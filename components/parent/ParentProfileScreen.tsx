@@ -115,7 +115,11 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
               <p className="text-sm text-gray-500 mb-1">{profile.email}</p>
               <div
                 className="inline-flex items-center gap-2 px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
-                onClick={() => copyToClipboard(customId)}
+                onClick={() => {
+                  const idToCopy = profile.schoolGeneratedId || profile.schoolId || formatId(customId) || 'ID: Pending';
+                  if (idToCopy !== 'ID: Pending') copyToClipboard(idToCopy);
+                  else toast.error("ID is still pending generation.");
+                }}
               >
                 <span className="text-xs font-mono font-medium">
                   {profile.schoolGeneratedId || profile.schoolId || formatId(customId) || 'ID: Pending'}

@@ -23,9 +23,9 @@ const ProfileSettings = lazy(() => import('../admin/ProfileSettings')); // Reuse
 const PaymentGatewaySettings = lazy(() => import('./saas/PaymentGatewaySettings'));
 
 interface SuperAdminDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
-    currentUser: any;
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
 }
 
 const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {

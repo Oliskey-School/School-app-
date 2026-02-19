@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X as XMarkIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { createForumTopic } from '../../lib/database';
+import { api } from '../../lib/api';
 
 interface CreateForumTopicModalProps {
     isOpen: boolean;
@@ -28,24 +28,22 @@ const CreateForumTopicModal: React.FC<CreateForumTopicModalProps> = ({ isOpen, o
 
         setIsSubmitting(true);
         try {
-            const success = await createForumTopic({
+            await api.createForumTopic({
                 title,
                 content,
-                authorName: currentUser.name,
-                authorId: currentUser.id,
-                schoolId: currentUser.schoolId,
-                authorAvatarUrl: currentUser.avatarUrl
+                author_name: currentUser.name,
+                author_id: currentUser.id,
+                school_id: currentUser.schoolId,
+                author_avatar_url: currentUser.avatarUrl,
+                last_activity: new Date().toISOString(),
+                post_count: 0
             });
 
-            if (success) {
-                toast.success('Topic created successfully!');
-                setTitle('');
-                setContent('');
-                onTopicCreated();
-                onClose();
-            } else {
-                toast.error('Failed to create topic.');
-            }
+            toast.success('Topic created successfully!');
+            setTitle('');
+            setContent('');
+            onTopicCreated();
+            onClose();
         } catch (error) {
             console.error('Error submitting topic:', error);
             toast.error('An error occurred.');

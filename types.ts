@@ -112,6 +112,7 @@ export interface Student {
   id: string; // UUID PRIMARY KEY
   user_id?: string; // UUID FK to auth.users(id)
   schoolId?: string; // school_id UUID FK
+  branchId?: string; // branch_id UUID FK
   schoolGeneratedId?: string; // e.g. OLISKEY_MAIN_STD_0001
   name: string; // TEXT NOT NULL
   email: string; // TEXT
@@ -145,6 +146,7 @@ export interface Student {
   bloodGroup?: string; // NOT IN DB
   attendance?: number; // Computed percentage
   performance?: number; // Computed score
+  classId?: string; // Mapped from class_id
   subjects?: string[]; // From student_subjects table
   fees?: {
     total: number;
@@ -229,12 +231,15 @@ export interface Parent {
 
 export interface ClassInfo {
   id: string;
-  subject: string;
+  name?: string;
+  level?: string;
+  subject?: string;
   grade: number;
   section: string;
   department?: Department;
   studentCount: number;
   schoolId?: string;
+  level_category?: string;
 }
 
 
@@ -640,7 +645,7 @@ export interface Notification {
 }
 
 export interface PTAMeeting {
-  id: number;
+  id: number | string;
   title: string;
   date: string; // ISO string
   time: string;

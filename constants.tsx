@@ -167,6 +167,66 @@ export const THEME_CONFIG = {
     chartColor: '#ea580c',
     cardIconBg: 'bg-orange-100',
   },
+  [DashboardType.SuperAdmin]: {
+    mainBg: 'bg-slate-900',
+    activeNav: 'bg-slate-100 text-slate-900',
+    inactiveNav: 'text-gray-500 hover:text-gray-700',
+    cardBg: 'bg-white',
+    textColor: 'text-gray-800',
+    iconColor: 'text-slate-700',
+    chartColor: '#0f172a',
+    cardIconBg: 'bg-slate-100',
+  },
+  [DashboardType.Inspector]: {
+    mainBg: 'bg-slate-700',
+    activeNav: 'bg-slate-100 text-slate-700',
+    inactiveNav: 'text-gray-500 hover:text-gray-700',
+    cardBg: 'bg-white',
+    textColor: 'text-gray-800',
+    iconColor: 'text-slate-600',
+    chartColor: '#475569',
+    cardIconBg: 'bg-slate-100',
+  },
+  [DashboardType.Proprietor]: {
+    mainBg: 'bg-indigo-900',
+    activeNav: 'bg-indigo-100 text-indigo-800',
+    inactiveNav: 'text-gray-500 hover:text-gray-700',
+    cardBg: 'bg-white',
+    textColor: 'text-gray-800',
+    iconColor: 'text-indigo-700',
+    chartColor: '#312e81',
+    cardIconBg: 'bg-indigo-100',
+  },
+  [DashboardType.ExamOfficer]: {
+    mainBg: 'bg-emerald-800',
+    activeNav: 'bg-emerald-100 text-emerald-800',
+    inactiveNav: 'text-gray-500 hover:text-gray-700',
+    cardBg: 'bg-white',
+    textColor: 'text-gray-800',
+    iconColor: 'text-emerald-700',
+    chartColor: '#065f46',
+    cardIconBg: 'bg-emerald-100',
+  },
+  [DashboardType.ComplianceOfficer]: {
+    mainBg: 'bg-teal-800',
+    activeNav: 'bg-teal-100 text-teal-800',
+    inactiveNav: 'text-gray-500 hover:text-gray-700',
+    cardBg: 'bg-white',
+    textColor: 'text-gray-800',
+    iconColor: 'text-teal-700',
+    chartColor: '#115e59',
+    cardIconBg: 'bg-teal-100',
+  },
+  [DashboardType.Counselor]: {
+    mainBg: 'bg-pink-700',
+    activeNav: 'bg-pink-100 text-pink-700',
+    inactiveNav: 'text-gray-500 hover:text-gray-700',
+    cardBg: 'bg-white',
+    textColor: 'text-gray-800',
+    iconColor: 'text-pink-600',
+    chartColor: '#be185d',
+    cardIconBg: 'bg-pink-100',
+  },
 };
 
 export const SUBJECT_COLORS: { [key: string]: string } = {
@@ -216,7 +276,7 @@ export const getFormattedClassName = (grade: number, section?: string | null | u
 
   let name = `${includeGradeWord ? suffix : ''}${displayGrade}`;
   if (subject) name += ` ${subject}`;
-  
+
   return name;
 };
 

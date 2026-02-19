@@ -347,12 +347,28 @@ class SyncEngine extends EventEmitter {
 
         console.log(`📥 Starting staggered pull for ${tablesToSync.length} tables...`);
 
+        // Get session to check for school_id validty
+        const { data: { session } } = await supabase.auth.getSession();
+        let schoolId = session?.user?.user_metadata?.school_id || session?.user?.app_metadata?.school_id;
+
+        // Fallback for Demo Users
+        if (!schoolId && session?.user?.email?.includes('demo')) {
+            schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+        }
+
+
         for (const table of tablesToSync) {
             try {
                 // ADDED: Small delay between table fetches to prevent AbortError / network congestion
                 await new Promise(resolve => setTimeout(resolve, 500));
 
                 if (!this.isSyncing) break; // Check if sync was cancelled mid-sequence
+
+                // Skip sensitive tables if no school_id (prevents 401s)
+                if (['grades', 'attendance_records', 'timetable', 'assignments'].includes(table) && !schoolId) {
+                    console.log(`⏭️ Skipping ${table} - no school_id (preventing 401)`);
+                    continue;
+                }
 
                 // Get last sync timestamp for delta sync
                 const lastSync = this.state.lastSync;

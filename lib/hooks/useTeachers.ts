@@ -25,7 +25,16 @@ const transformSupabaseTeacher = (t: any): Teacher => ({
     schoolGeneratedId: t.school_generated_id,
 });
 
-export function useTeachers(filters?: { schoolId?: string; status?: string; subject?: string }) {
+export interface UseTeachersResult {
+    teachers: Teacher[];
+    loading: boolean;
+    error: unknown;
+    createTeacher: (newTeacher: Partial<Teacher>) => Promise<any>;
+    updateTeacher: (updatedTeacher: Partial<Teacher> & { id: string }) => Promise<any>;
+    deleteTeacher: (id: string) => Promise<any>;
+}
+
+export function useTeachers(filters?: { schoolId?: string; status?: string; subject?: string }): UseTeachersResult {
     const queryKey = ['teachers', filters];
 
     const { data: teachers = [], isLoading, isError, error } = useQuery({
@@ -73,7 +82,7 @@ export function useTeachers(filters?: { schoolId?: string; status?: string; subj
 
     const updateTeacherMutation = useOptimisticMutation({
         queryKey,
-        mutationFn: async (updatedTeacher: Partial<Teacher> & { id: number }) => {
+        mutationFn: async (updatedTeacher: Partial<Teacher> & { id: string }) => {
             const { id, ...updates } = updatedTeacher;
             const { data, error } = await supabase.from('teachers').update(updates).eq('id', id).select().single();
             if (error) throw error;
@@ -85,7 +94,7 @@ export function useTeachers(filters?: { schoolId?: string; status?: string; subj
 
     const deleteTeacherMutation = useOptimisticMutation({
         queryKey,
-        mutationFn: async (id: number) => {
+        mutationFn: async (id: string) => {
             const { error } = await supabase.from('teachers').delete().eq('id', id);
             if (error) throw error;
             return id;

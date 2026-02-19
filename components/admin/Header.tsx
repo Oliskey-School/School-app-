@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bell, Search, LogOut, ChevronLeft, Menu } from 'lucide-react';
+import { BranchSwitcher } from '../../context/BranchContext';
 
 interface HeaderProps {
     title: string;
@@ -51,8 +52,13 @@ export const Header: React.FC<HeaderProps> = ({
                     </h1>
                 </div>
 
-                {/* Right Section: Search, Notifs, Profile */}
+                {/* Right Section: Branch, Search, Notifs, Profile */}
                 <div className="flex items-center space-x-2 sm:space-x-4">
+                    {/* Branch Switcher (Security Context) */}
+                    <div className="hidden md:block">
+                        <BranchSwitcher align="right" />
+                    </div>
+
                     <button
                         onClick={onSearchClick}
                         className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/90 hover:text-white"

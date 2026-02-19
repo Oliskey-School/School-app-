@@ -25,7 +25,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     const [phone, setPhone] = useState(profile.phone || '');
     const [avatar, setAvatar] = useState(profile.avatarUrl || 'https://i.pravatar.cc/150?u=teacher');
     const [subjects, setSubjects] = useState<string[]>([]);
-    const { supabase: supabaseContext } = useAuth(); // We'll use the supabase client from auth OR use direct import if needed
+    // Removed incorrect useAuth destructuring
     const supabaseClient = supabase; // Standard import exists at the top usually, but let's be safe.
 
 

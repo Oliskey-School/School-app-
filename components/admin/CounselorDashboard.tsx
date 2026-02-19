@@ -12,9 +12,9 @@ import {
 } from '../../constants';
 
 interface CounselorDashboardProps {
-    onLogout: () => void;
-    setIsHomePage: (isHome: boolean) => void;
-    currentUser: any;
+    onLogout?: () => void;
+    setIsHomePage?: (isHome: boolean) => void;
+    currentUser?: any;
 }
 
 const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {

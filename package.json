@@ -13,11 +13,10 @@
     "setup": "npm install && echo '\n✅ Dependencies installed!\n\nNext steps:\n1. Add SUPABASE_SERVICE_ROLE_KEY to .env\n2. Run: npm run db:migrate\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
   },
   "dependencies": {
-    "@capacitor/android": "^8.0.0",
+    "@capacitor/android": "^8.1.0",
     "@capacitor/app": "^8.0.0",
-    "@capacitor/cli": "^7.4.4",
-    "@capacitor/core": "^8.0.0",
-    "@capacitor/ios": "^8.0.0",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "@capacitor/network": "^8.0.0",
     "@capacitor/push-notifications": "^8.0.0",
     "@expo/metro-runtime": "^6.1.2",
@@ -72,6 +71,7 @@
     "yup": "^1.7.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.5.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/bcryptjs": "^2.4.6",

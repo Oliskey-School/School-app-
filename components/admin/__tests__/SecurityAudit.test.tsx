@@ -5,6 +5,8 @@ import UserRolesScreen from '../UserRolesScreen';
 import AddStudentScreen from '../AddStudentScreen';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
+import { supabase } from '../../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 // --- Mocks ---
 
@@ -21,6 +23,7 @@ vi.mock('../../../lib/supabase', () => ({
       })),
       insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => ({ data: { id: '123' }, error: null })) })) })),
       update: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
+      upsert: vi.fn(() => ({ error: null })),
     })),
     auth: {
       getUser: vi.fn(() => ({ data: { user: { id: '123' } } })),
@@ -30,9 +33,21 @@ vi.mock('../../../lib/supabase', () => ({
 }));
 
 // Mock Contexts
-const mockUseAuth = vi.fn();
-const mockUseProfile = vi.fn();
-const mockUseTenantLimit = vi.fn();
+const mockUseAuth = vi.fn(() => ({
+  currentSchool: { id: 'school-123' },
+  user: { id: 'user-123' },
+  currentBranchId: 'branch-123'
+}));
+const mockUseProfile = vi.fn(() => ({
+  profile: { schoolId: 'school-123' },
+  refreshProfile: vi.fn()
+}));
+const mockUseTenantLimit = vi.fn(() => ({
+  isLimitReached: false,
+  currentCount: 0,
+  maxLimit: 100,
+  isPremium: false
+}));
 
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
@@ -75,7 +90,7 @@ describe('Admin Security Audit', () => {
   });
 
   describe('UserRolesScreen', () => {
-    it('FAIL-CHECK: Should actually save permissions to the backend (Logic Verification)', async () => {
+    it('Should save permissions to the backend', async () => {
       // Setup
       render(<UserRolesScreen />);
 
@@ -85,24 +100,13 @@ describe('Admin Security Audit', () => {
       // Click it
       fireEvent.click(saveBtn);
 
-      // Verify: In the current code, this ONLY triggers a toast. 
-      // A secure system MUST call an API (supabase.from('roles').update...).
-      // We expect this to call Supabase, but we know the code is a stub.
-      // So we Assert that Supabase WAS called, expecting this test to Fail if the code is just a stub.
+      // Verify: The component now HAS logic to call Supabase.
+      await waitFor(() => {
+        expect(supabase.from).toHaveBeenCalledWith('role_permissions');
+      });
       
-      // Checking if supabase was accessed for an update. 
-      // Since the mock is global, we can check imports. 
-      // However, UserRolesScreen doesn't even import supabase! 
-      // So this test proves the logic gap simply by the fact that the component is isolated.
-      
-      // Let's verify the "Success" toast appeared (confirming the UI *thinks* it worked)
-      const { toast } = await import('react-hot-toast');
-      expect(toast.success).toHaveBeenCalledWith('Permissions saved!');
-      
-      // CRITICAL: Check if any backend call was made.
-      // Since the component doesn't import Supabase (I checked the file content), 
-      // this part of the test acts as the static analysis confirmation.
-      // There is NO backend logic.
+      // Let's verify the "Success" toast appeared
+      expect(toast.success).toHaveBeenCalledWith('Permissions saved successfully!');
     });
 
     it('Should prevent modifying Admin permissions', () => {
@@ -136,6 +140,7 @@ describe('Admin Security Audit', () => {
       });
       mockUseProfile.mockReturnValue({
         profile: { schoolId: 'school-123' },
+        refreshProfile: vi.fn(),
       });
       // CRITICAL: Simulate Limit Reached
       mockUseTenantLimit.mockReturnValue({
@@ -162,7 +167,6 @@ describe('Admin Security Audit', () => {
       // The component sets `setShowUpgradeModal(true)`. 
       // We can check if the mock tenant limit hook's state was used to block the submission logic.
       // The best way to check is that Supabase `insert` was NOT called.
-      const { supabase } = require('../../../lib/supabase');
       expect(supabase.from).not.toHaveBeenCalledWith('students');
     });
 
@@ -177,7 +181,7 @@ describe('Admin Security Audit', () => {
         profile: { schoolId: null }, // Missing ID
         refreshProfile: vi.fn(),
       });
-      mockUseTenantLimit.mockReturnValue({ isLimitReached: false });
+      mockUseTenantLimit.mockReturnValue({ isLimitReached: false, currentCount: 0, maxLimit: 100, isPremium: false });
 
       render(
         <BrowserRouter>

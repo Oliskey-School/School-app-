@@ -10,6 +10,7 @@ import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../.
 import { sendWelcomeEmail } from '../../lib/emailService';
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface AddParentScreenProps {
     parentToEdit?: Parent;
@@ -19,6 +20,7 @@ interface AddParentScreenProps {
 
 const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUpdate, handleBack }) => {
     const { profile } = useProfile();
+    const { currentSchool, currentBranchId } = useAuth(); // Added useAuth
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -35,6 +37,10 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
         password: string;
         email: string;
     } | null>(null);
+
+    // School and Branch IDs
+    const schoolId = profile.schoolId || currentSchool?.id;
+    const branchId = currentBranchId || profile.branchId || null;
 
     useEffect(() => {
         const loadParentData = async () => {
@@ -147,18 +153,25 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             occupation: occupation || null,
                             relationship: relationship,
                             emergency_contact: emergencyContact || null,
-                            avatar_url: avatarUrl
+                            avatar_url: avatarUrl,
+                            branch_id: branchId
                         })
                         .eq('id', parentToEdit.id);
 
                     if (updateError) throw updateError;
 
                     if (parentToEdit.user_id) {
-                        await supabase.from('users').update({ name, avatar_url: avatarUrl }).eq('id', parentToEdit.user_id);
+                        await supabase.from('users').update({ name, avatar_url: avatarUrl, branch_id: branchId }).eq('id', parentToEdit.user_id);
                     }
 
                     // Transactional-like update for children
-                    await supabase.from('student_parent_links').delete().eq('parent_user_id', parentToEdit.user_id || parentToEdit.id);
+                    if (parentToEdit.user_id) {
+                        await supabase
+                            .from('student_parent_links')
+                            .delete()
+                            .eq('parent_user_id', parentToEdit.user_id)
+                            .eq('school_id', schoolId);
+                    }
                     if (rawChildIds.length > 0) {
                         // Resolve IDs: Check school_generated_id, admission_number, OR user_id (UUID)
                         const { data: students } = await supabase
@@ -170,8 +183,10 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             // Deduplicate user_ids just in case
                             const uniqueStudentUserIds = [...new Set(students.map(s => s.user_id))];
                             const relations = uniqueStudentUserIds.map(sid => ({
-                                parent_user_id: parentToEdit.user_id || parentToEdit.id,
-                                student_user_id: sid
+                                parent_user_id: parentToEdit.user_id,
+                                student_user_id: sid,
+                                school_id: schoolId,
+                                branch_id: branchId
                             }));
                             await supabase.from('student_parent_links').insert(relations);
                         }
@@ -183,7 +198,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 } else {
                     // CREATE MODE
                     // 1. Create Login Credentials
-                    const authResult = await createUserAccount(name, 'Parent', email, profile.schoolId);
+                    const authResult = await createUserAccount(name, 'Parent', email, schoolId);
                     if (authResult.error) throw new Error(authResult.error);
 
                     // 2. Create User Record
@@ -194,7 +209,8 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             name,
                             role: 'Parent',
                             avatar_url: avatarUrl,
-                            school_id: profile.schoolId // Required for RLS
+                            school_id: schoolId,
+                            branch_id: branchId
                         }])
                         .select()
                         .single();
@@ -206,7 +222,8 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                         .from('parents')
                         .insert([{
                             user_id: newUserData.id,
-                            school_id: profile.schoolId,
+                            school_id: schoolId,
+                            branch_id: branchId,
                             name,
                             email,
                             phone,
@@ -233,7 +250,9 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             const uniqueStudentUserIds = [...new Set(students.map(s => s.user_id))];
                             const relations = uniqueStudentUserIds.map(sid => ({
                                 parent_user_id: newUserData.id,
-                                student_user_id: sid
+                                student_user_id: sid,
+                                school_id: schoolId,
+                                branch_id: branchId
                             }));
                             await supabase.from('student_parent_links').insert(relations);
                         }

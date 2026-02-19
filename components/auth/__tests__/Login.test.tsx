@@ -127,7 +127,7 @@ describe('Login Component Integration Tests', () => {
             // Mock successful Supabase response for seeded user
             (supabase.auth.signInWithPassword as any).mockResolvedValue({
                 data: {
-                    user: { id: 'test-id', email: 'demo_admin@school.com' },
+                    user: { id: 'test-id', email: 'user@school.com' },
                     session: { access_token: 'valid-token' }
                 },
                 error: null
@@ -148,7 +148,7 @@ describe('Login Component Integration Tests', () => {
             // Verification: Ensure Supabase was called with CORRECT seeded credentials
             await waitFor(() => {
                 expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
-                    email: 'demo_admin@school.com', // Must match seeding in lib/mockAuth.ts
+                    email: 'user@school.com', // Must match seeding in lib/mockAuth.ts
                     password: 'password123'
                 });
             }, { timeout: 3000 });
@@ -158,7 +158,7 @@ describe('Login Component Integration Tests', () => {
                 expect(mockSignIn).toHaveBeenCalledWith(
                     expect.stringMatching(/admin/i), // DashboardType
                     expect.objectContaining({
-                        email: 'demo_admin@school.com',
+                        email: 'user@school.com',
                         isDemo: true
                     })
                 );

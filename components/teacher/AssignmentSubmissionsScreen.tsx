@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Submission, Assignment, Student } from '../../types';
 import { CheckCircleIcon, ClockIcon, MailIcon } from '../../constants';
 
@@ -9,6 +9,7 @@ interface AssignmentSubmissionsScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
     handleBack: () => void;
     forceUpdate: () => void;
+    schoolId: string;
 }
 
 const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGrade: (submission: Submission) => void }> = ({ student, submission, onGrade }) => (
@@ -67,93 +68,59 @@ const NotSubmittedCard: React.FC<{ student: Student; onRemind: (student: Student
     </div>
 );
 
-const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = ({ assignment, navigateTo, handleBack, forceUpdate }) => {
+const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = ({ assignment, navigateTo, handleBack, forceUpdate, schoolId }) => {
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [allClassStudents, setAllClassStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                // 1. Fetch Students in the class
-                const gradeMatch = assignment.className.match(/\d+/);
-                const sectionMatch = assignment.className.match(/[A-Z]/);
-
-                let classStudents: Student[] = [];
-                if (gradeMatch && sectionMatch) {
-                    const grade = parseInt(gradeMatch[0], 10);
-                    const section = sectionMatch[0];
-
-                    const { data: studentsData } = await supabase
-                        .from('students')
-                        .select('*')
-                        .eq('grade', grade)
-                        .eq('section', section);
-
-                    if (studentsData) {
-                        classStudents = studentsData.map((s: any) => ({
-                            ...s,
-                            avatarUrl: s.avatar_url
-                        }));
-                    }
-                }
-                setAllClassStudents(classStudents);
-
-                // 2. Fetch Submissions for this assignment
-                const { data: submissionsData } = await supabase
-                    .from('submissions')
-                    .select('*')
-                    .eq('assignment_id', assignment.id);
-
-                if (submissionsData) {
-                    const mappedSubmissions: Submission[] = submissionsData.map((sub: any) => {
-                        const student = classStudents.find(s => s.id === sub.student_id) || { id: sub.student_id, name: 'Unknown', avatarUrl: '', grade: 0, section: '' };
-                        return {
-                            id: sub.id,
-                            assignmentId: sub.assignment_id,
-                            student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
-                            submittedAt: sub.submitted_at,
-                            status: sub.status,
-                            grade: sub.grade,
-                            feedback: sub.feedback,
-                            isLate: sub.is_late || false,
-                            textSubmission: sub.text_submission,
-                            fileUrl: sub.file_url
-                        } as Submission;
-                    });
-                    setSubmissions(mappedSubmissions);
-                }
-
-            } catch (error) {
-                console.error("Error loading submissions:", error);
-            } finally {
-                setLoading(false);
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            // 1. Fetch Students in the class
+            const data = await api.getStudents(schoolId);
+            // Rough match for grade/section from className
+            const gradeMatch = assignment.className.match(/\d+/);
+            const sectionMatch = assignment.className.match(/[A-Z]/);
+            
+            let classStudents = data || [];
+            if (gradeMatch && sectionMatch) {
+                const grade = parseInt(gradeMatch[0]);
+                const section = sectionMatch[0];
+                classStudents = classStudents.filter(s => s.grade === grade && s.section === section);
             }
-        };
+            setAllClassStudents(classStudents);
+
+            // 2. Fetch Submissions using Hybrid API
+            const submissionsData = await api.getSubmissions(assignment.id);
+
+            if (submissionsData) {
+                const mappedSubmissions: Submission[] = submissionsData.map((sub: any) => {
+                    const student = classStudents.find(s => s.id === sub.student_id) || { id: sub.student_id, name: 'Unknown', avatarUrl: '', grade: 0, section: '' };
+                    return {
+                        id: sub.id,
+                        assignmentId: sub.assignment_id,
+                        student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
+                        submittedAt: sub.submitted_at,
+                        status: sub.status,
+                        grade: sub.grade,
+                        feedback: sub.feedback,
+                        isLate: sub.is_late || false,
+                        textSubmission: sub.text_submission,
+                        fileUrl: sub.file_url
+                    } as Submission;
+                });
+                setSubmissions(mappedSubmissions);
+            }
+
+        } catch (error) {
+            console.error("Error loading submissions:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchData();
-
-        // Real-time Subscription for new submissions
-        const channel = supabase
-            .channel(`submissions_${assignment.id}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'submissions',
-                    filter: `assignment_id=eq.${assignment.id}`
-                },
-                (payload) => {
-                    console.log('Submission update received:', payload);
-                    fetchData();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [assignment.id, assignment.className, forceUpdate]);
 
     const { submittedStudents, notSubmittedStudents } = useMemo(() => {
@@ -176,51 +143,41 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
 
     const handleGradeSubmission = async (submissionId: string, grade: number, feedback: string) => {
         try {
-            const { error } = await supabase
-                .from('submissions')
-                .update({
-                    grade,
-                    feedback,
-                    status: 'Graded'
-                })
-                .eq('id', submissionId);
+            await api.gradeSubmission(submissionId, {
+                grade,
+                feedback,
+                status: 'Graded'
+            });
 
-            if (error) throw error;
-
-            if (error) throw error;
-
-            // Send Notification to Student
-            const submission = submissions.find(s => s.id === submissionId);
-            if (submission) {
-                const studentProfile = allClassStudents.find(s => s.id === submission.student.id);
-                // @ts-ignore - user_id might not be in Student type definition but is fetched
+            // Send Notification to Student (Optional but good)
+            try {
+                const submission = submissions.find(s => s.id === submissionId);
+                const studentProfile = allClassStudents.find(s => s.id === submission?.student.id);
+                // @ts-ignore
                 const studentUserId = studentProfile?.user_id;
 
                 if (studentUserId) {
-                    const { error: notifError } = await supabase
-                        .from('notifications')
-                        .insert({
-                            user_id: studentUserId, // The auth user ID of the student
-                            category: 'Homework',
-                            title: 'Assignment Graded',
-                            summary: `Your assignment for ${assignment.title} has been graded. Score: ${grade}/100`,
-                            timestamp: new Date().toISOString(),
-                            is_read: false,
-                            audience: ['student'],
-                            student_id: submission.student.id,
-                            related_id: assignment.id // Link to assignment
-                        });
-
-                    if (notifError) console.error("Failed to send notification:", notifError);
+                    await api.createNotification({
+                        school_id: schoolId,
+                        user_id: studentUserId,
+                        category: 'Homework',
+                        title: 'Assignment Graded',
+                        summary: `Your assignment for ${assignment.title} has been graded. Score: ${grade}/100`,
+                        timestamp: new Date().toISOString(),
+                        is_read: false,
+                        audience: ['student'],
+                        student_id: submission?.student.id,
+                        related_id: assignment.id
+                    });
                 }
-            }
+            } catch (notifErr) { console.error(notifErr); }
 
-            // Optimistic update
-            setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, grade, feedback, status: 'Graded' } : s));
-            handleBack(); // Go back to summary
+            toast.success("Grade saved successfully");
+            fetchData();
+            handleBack(); 
         } catch (err) {
             console.error("Error saving grade:", err);
-            toast.error("Failed to save grade. Please try again.");
+            toast.error("Failed to save grade");
         }
     };
 
