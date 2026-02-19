@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { SendIcon, PaperclipIcon, HappyIcon, DotsVerticalIcon, SearchIcon, ChevronLeftIcon, CheckCircleIcon } from '../../constants';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface ChatScreenProps {
     conversationId?: string;
@@ -305,40 +306,44 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                         </div>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {filteredConversations.map(conv => (
-                            <div
-                                key={conv.id}
-                                onClick={() => setActiveConversationId(conv.id)}
-                                className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${activeConversationId === conv.id ? 'bg-indigo-50/50 hover:bg-indigo-50' : ''}`}
-                            >
-                                <div className="flex items-start space-x-3">
-                                    <div className="relative">
-                                        <img
-                                            src={conv.avatar || `https://ui-avatars.com/api/?name=${conv.name}`}
-                                            alt={conv.name}
-                                            className="w-12 h-12 rounded-full object-cover border border-gray-100 shadow-sm"
-                                        />
-                                        {conv.unreadCount > 0 && (
-                                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full ring-2 ring-white animate-bounce-subtle">
-                                                {conv.unreadCount}
-                                            </span>
-                                        )}
-                                        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-white ${conv.online ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-baseline mb-1">
-                                            <h4 className={`text-sm font-semibold truncate ${activeConversationId === conv.id ? 'text-indigo-900' : 'text-gray-800'}`}>
-                                                {conv.name}
-                                            </h4>
-                                            <span className="text-[10px] text-gray-400 font-medium">{conv.time}</span>
+                        {loadingConversations ? (
+                            <CenteredLoader size="md" className="h-40" />
+                        ) : (
+                            filteredConversations.map(conv => (
+                                <div
+                                    key={conv.id}
+                                    onClick={() => setActiveConversationId(conv.id)}
+                                    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${activeConversationId === conv.id ? 'bg-indigo-50/50 hover:bg-indigo-50' : ''}`}
+                                >
+                                    <div className="flex items-start space-x-3">
+                                        <div className="relative">
+                                            <img
+                                                src={conv.avatar || `https://ui-avatars.com/api/?name=${conv.name}`}
+                                                alt={conv.name}
+                                                className="w-12 h-12 rounded-full object-cover border border-gray-100 shadow-sm"
+                                            />
+                                            {conv.unreadCount > 0 && (
+                                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full ring-2 ring-white animate-bounce-subtle">
+                                                    {conv.unreadCount}
+                                                </span>
+                                            )}
+                                            <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-white ${conv.online ? 'bg-green-500' : 'bg-gray-300'}`}></span>
                                         </div>
-                                        <p className={`text-xs truncate ${conv.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                                            {conv.lastMessage}
-                                        </p>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-baseline mb-1">
+                                                <h4 className={`text-sm font-semibold truncate ${activeConversationId === conv.id ? 'text-indigo-900' : 'text-gray-800'}`}>
+                                                    {conv.name}
+                                                </h4>
+                                                <span className="text-[10px] text-gray-400 font-medium">{conv.time}</span>
+                                            </div>
+                                            <p className={`text-xs truncate ${conv.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                                                {conv.lastMessage}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             )}
@@ -376,38 +381,44 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
 
                             {/* Messages List */}
                             <div className={`flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 custom-scrollbar ${isMobileView ? 'pb-32' : ''}`}>
-                                {messages.map((msg, idx) => {
-                                    const isMe = msg.senderId === currentUserId;
-                                    return (
-                                        <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
-                                            {!isMe && (
-                                                <img src={msg.sender?.avatarUrl || `https://ui-avatars.com/api/?name=${msg.sender?.name || '?'}`} className="w-8 h-8 rounded-full mb-2 mr-2 self-end shadow-sm" alt="User" />
-                                            )}
-                                            <div className={`max-w-[75%] lg:max-w-[60%] ${isMe ? 'order-1' : 'order-2'}`}>
-                                                <div className={`px-5 py-3 shadow-sm text-[15px] leading-relaxed relative ${isMe
-                                                    ? `${theme.primary} text-white rounded-2xl rounded-tr-none shadow-indigo-100`
-                                                    : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-none'
-                                                    }`}>
-
-                                                    {/* Media Rendering */}
-                                                    {msg.type === 'image' && msg.mediaUrl && (
-                                                        <img src={msg.mediaUrl} alt="attachment" className="rounded-lg mb-2 max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(msg.mediaUrl, '_blank')} />
+                                {loadingMessages ? (
+                                    <CenteredLoader message="Loading messages..." />
+                                ) : (
+                                    <>
+                                        {messages.map((msg, idx) => {
+                                            const isMe = msg.senderId === currentUserId;
+                                            return (
+                                                <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                                                    {!isMe && (
+                                                        <img src={msg.sender?.avatarUrl || `https://ui-avatars.com/api/?name=${msg.sender?.name || '?'}`} className="w-8 h-8 rounded-full mb-2 mr-2 self-end shadow-sm" alt="User" />
                                                     )}
-                                                    {msg.type === 'video' && msg.mediaUrl && (
-                                                        <video src={msg.mediaUrl} controls className="rounded-lg mb-2 max-w-full h-auto" />
-                                                    )}
+                                                    <div className={`max-w-[75%] lg:max-w-[60%] ${isMe ? 'order-1' : 'order-2'}`}>
+                                                        <div className={`px-5 py-3 shadow-sm text-[15px] leading-relaxed relative ${isMe
+                                                            ? `${theme.primary} text-white rounded-2xl rounded-tr-none shadow-indigo-100`
+                                                            : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-none'
+                                                            }`}>
 
-                                                    {msg.content}
-                                                    <div className={`text-[10px] mt-1 flex justify-end items-center ${isMe ? 'text-white/80' : 'text-gray-400'}`}>
-                                                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        {isMe && <CheckCircleIcon className="w-3 h-3 ml-1" />}
+                                                            {/* Media Rendering */}
+                                                            {msg.type === 'image' && msg.mediaUrl && (
+                                                                <img src={msg.mediaUrl} alt="attachment" className="rounded-lg mb-2 max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(msg.mediaUrl, '_blank')} />
+                                                            )}
+                                                            {msg.type === 'video' && msg.mediaUrl && (
+                                                                <video src={msg.mediaUrl} controls className="rounded-lg mb-2 max-w-full h-auto" />
+                                                            )}
+
+                                                            {msg.content}
+                                                            <div className={`text-[10px] mt-1 flex justify-end items-center ${isMe ? 'text-white/80' : 'text-gray-400'}`}>
+                                                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                {isMe && <CheckCircleIcon className="w-3 h-3 ml-1" />}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                <div ref={endOfMessagesRef} />
+                                            );
+                                        })}
+                                        <div ref={endOfMessagesRef} />
+                                    </>
+                                )}
                             </div>
 
                             {/* Input Area */}

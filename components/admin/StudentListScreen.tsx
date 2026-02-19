@@ -14,6 +14,7 @@ import {
   FilterIcon,
   ViewGridIcon
 } from '../../constants';
+import CenteredLoader from '../ui/CenteredLoader';
 import { Student, AttendanceStatus } from '../../types';
 import { fetchStudents } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
@@ -349,9 +350,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
 
       <main className="flex-grow px-4 pb-24 space-y-4 overflow-y-auto">
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
-          </div>
+          <CenteredLoader className="h-[60vh]" message="Loading students..." />
         ) : (seniorCount === 0 && juniorCount === 0 && primaryCount === 0 && preschoolCount === 0) ? (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-200 m-2">
             <p className="text-gray-500 font-medium">No students found matching your search.</p>

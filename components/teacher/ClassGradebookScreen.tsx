@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
 import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../../constants';
+import CenteredLoader from '../ui/CenteredLoader';
 
 
 interface GradebookEntry {
@@ -331,9 +332,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
             {/* Content - Table for desktop, Cards for mobile */}
             <div className="flex-grow overflow-auto p-3 sm:p-6">
                 {loading ? (
-                    <div className="bg-white rounded-xl p-10 text-center text-gray-500">
-                        Loading students...
-                    </div>
+                    <CenteredLoader className="min-h-[300px]" message="Loading students..." />
                 ) : students.length === 0 ? (
                     <div className="bg-white rounded-xl p-10 text-center text-gray-500">
                         No students found in this class.

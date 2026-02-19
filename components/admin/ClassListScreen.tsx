@@ -8,6 +8,7 @@ import { useOptimisticMutation } from '../../hooks/useOptimisticMutation';
 import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName, BookOpenIcon, PlusIcon, EditIcon, TrashIcon, XIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { ClassInfo, Student } from '../../types';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface ClassListScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -111,7 +112,8 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
         return finalGroups;
     }, [classes]);
 
-    if (isLoading && classes.length === 0) return <div className="p-8 text-center text-gray-500">Loading classes...</div>;
+
+    if (isLoading && classes.length === 0) return <CenteredLoader fullScreen={false} message="Loading classes..." className="h-screen" />;
 
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">
@@ -201,8 +203,8 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                                     <div className="px-4 pb-4 pt-0 animate-fadeIn">
                                                         <div className="h-px w-full bg-gray-100 mb-3"></div>
                                                         {loadingStudents[cls.id] ? (
-                                                            <div className="flex justify-center py-4">
-                                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+                                                            <div className="py-4">
+                                                                <CenteredLoader size="sm" className="min-h-[50px]" />
                                                             </div>
                                                         ) : (classStudents[cls.id]?.length || 0) > 0 ? (
                                                             <div className="space-y-2">
