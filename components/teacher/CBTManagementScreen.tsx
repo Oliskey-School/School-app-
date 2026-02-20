@@ -21,7 +21,18 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const { profile } = useProfile();
 
     // Use the comprehensive hook for classes and subjects
-    const { classes: rawTeacherClasses, subjects: teacherSubjects, assignments: rawAssignments, loading: loadingClasses } = useTeacherClasses(teacherId);
+    const {
+        classes: rawTeacherClasses,
+        subjects: teacherSubjects,
+        assignments: rawAssignments,
+        loading: loadingClasses,
+        teacherId: resolvedTeacherId,
+        schoolId: resolvedSchoolId
+    } = useTeacherClasses(teacherId);
+
+    // Dynamic IDs for data operations
+    const activeTeacherId = resolvedTeacherId || teacherId;
+    const activeSchoolId = resolvedSchoolId || propSchoolId;
 
     // Configuration State
     const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -80,7 +91,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
         setLoading(true);
         try {
             // 1. Fetch Exams
-            const backendExams = await fetchCBTExams(teacherId || undefined);
+            const backendExams = await fetchCBTExams(activeTeacherId || undefined);
             setExams(backendExams);
 
         } catch (err: any) {
@@ -164,7 +175,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 subject_id: selectedSubjectId,
                 duration_minutes: duration,
                 total_marks: totalMarks,
-                teacher_id: teacherId,
+                teacher_id: activeTeacherId,
                 school_id: activeSchoolId,
                 is_published: false
             };

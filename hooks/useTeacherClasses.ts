@@ -18,6 +18,9 @@ export const useTeacherClasses = (teacherId?: string | null) => {
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
 
+    const [resolvedTeacherId, setResolvedTeacherId] = useState<string | null>(null);
+    const [resolvedSchoolId, setResolvedSchoolId] = useState<string | null>(null);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<any>(null);
     const [version, setVersion] = useState(0);
@@ -27,14 +30,14 @@ export const useTeacherClasses = (teacherId?: string | null) => {
         let channel: any = null;
 
         const fetchClassesAndSubjects = async () => {
-            let resolvedTeacherId = null;
-            let resolvedSchoolId = null;
+            let currentTeacherId = null;
+            let currentSchoolId = null;
 
             setLoading(true);
 
             try {
                 // 1. Resolve Teacher ID
-                if (teacherId && teacherId.length > 30) {
+                if (teacherId && (teacherId.length > 30 || teacherId.startsWith('d330'))) {
                     console.log('🔍 [useTeacherClasses] Resolving provided teacherId:', teacherId);
                     const { data: teacherRow } = await supabase
                         .from('teachers')
@@ -43,12 +46,12 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                         .maybeSingle();
 
                     if (teacherRow) {
-                        resolvedTeacherId = teacherRow.id;
-                        resolvedSchoolId = teacherRow.school_id;
+                        currentTeacherId = teacherRow.id;
+                        currentSchoolId = teacherRow.school_id;
                     }
                 }
 
-                if (!resolvedTeacherId) {
+                if (!currentTeacherId) {
                     const targetEmail = (profile?.email || authUser?.email || '').toLowerCase();
                     const targetUserId = profile?.id || authUser?.id;
                     const metadataSchoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
@@ -67,41 +70,67 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                             .or(`user_id.eq.${targetUserId},email.ilike.${targetEmail}`);
 
                         if (teacherRows && teacherRows.length > 0) {
+                            // Priority to the teacher record matching current school context
                             const schoolMatch = teacherRows.find(t => t.school_id === contextSchoolId);
                             const matched = schoolMatch || teacherRows[0];
-                            resolvedTeacherId = matched.id;
-                            resolvedSchoolId = matched.school_id;
+                            currentTeacherId = matched.id;
+                            currentSchoolId = matched.school_id;
                             console.log('✅ [useTeacherClasses] Resolved teacher identity:', {
-                                resolvedTeacherId,
-                                resolvedSchoolId,
+                                resolvedTeacherId: currentTeacherId,
+                                resolvedSchoolId: currentSchoolId,
                                 isContextMatch: !!schoolMatch
                             });
+                        } else if (contextSchoolId && (targetUserId || targetEmail)) {
+                            // AUTO-HEALING: No teacher record found, but we have enough context to create one
+                            console.log('🛡️ [useTeacherClasses] Auto-healing: Creating missing teacher record for school:', contextSchoolId);
+                            const { data: newTeacher, error: createError } = await supabase
+                                .from('teachers')
+                                .insert({
+                                    user_id: targetUserId || null,
+                                    email: targetEmail || null,
+                                    school_id: contextSchoolId,
+                                    name: profile?.name || authUser?.user_metadata?.full_name || 'New Teacher',
+                                    status: 'Active'
+                                })
+                                .select()
+                                .single();
+
+                            if (newTeacher) {
+                                currentTeacherId = newTeacher.id;
+                                currentSchoolId = newTeacher.school_id;
+                                console.log('✅ [useTeacherClasses] Auto-created teacher identity:', currentTeacherId);
+                            } else if (createError) {
+                                console.error('❌ [useTeacherClasses] Auto-healing failed:', createError);
+                            }
                         }
                     }
                 }
 
-                if (!resolvedTeacherId) {
+                if (!currentTeacherId) {
                     console.warn('⚠️ [useTeacherClasses] Could not resolve teacher identity.');
                     setLoading(false);
                     return;
                 }
 
-                console.log('✅ [useTeacherClasses] Resolved Teacher:', resolvedTeacherId, 'School:', resolvedSchoolId);
+                setResolvedTeacherId(currentTeacherId);
+                setResolvedSchoolId(currentSchoolId);
+
+                console.log('✅ [useTeacherClasses] Resolved Teacher:', currentTeacherId, 'School:', currentSchoolId);
 
                 if (!channel) {
                     channel = supabase
-                        .channel(`teacher-classes-${resolvedTeacherId}`)
+                        .channel(`teacher-classes-${currentTeacherId}`)
                         .on('postgres_changes', {
                             event: '*',
                             schema: 'public',
                             table: 'class_teachers',
-                            filter: `teacher_id=eq.${resolvedTeacherId}`
+                            filter: `teacher_id=eq.${currentTeacherId}`
                         }, () => forceUpdate())
                         .on('postgres_changes', {
                             event: '*',
                             schema: 'public',
                             table: 'teacher_classes',
-                            filter: `teacher_id=eq.${resolvedTeacherId}`
+                            filter: `teacher_id=eq.${currentTeacherId}`
                         }, () => forceUpdate())
                         .subscribe();
                 }
@@ -124,7 +153,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                         classes (id, name, grade, section, school_id),
                         subjects (id, name)
                     `)
-                    .eq('teacher_id', resolvedTeacherId);
+                    .eq('teacher_id', currentTeacherId);
 
                 if (assignmentError) throw assignmentError;
 
@@ -165,7 +194,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                 // 2. Fallback for Legacy Data (if missing classes or subjects)
                 // Determine school context for data fetching
                 const metadataSchoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
-                const targetSchoolId = resolvedSchoolId || profile?.schoolId || metadataSchoolId;
+                const targetSchoolId = currentSchoolId || profile?.schoolId || metadataSchoolId;
 
                 console.log('📊 [useTeacherClasses] Fetching data for school:', targetSchoolId);
 
@@ -177,7 +206,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                         const { data: legacyClasses } = await supabase
                             .from('teacher_classes')
                             .select('class_name')
-                            .eq('teacher_id', resolvedTeacherId);
+                            .eq('teacher_id', currentTeacherId);
 
                         if (legacyClasses && legacyClasses.length > 0) {
                             const { data: allClasses } = await supabase
@@ -224,7 +253,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                         const { data: legacySubjects } = await supabase
                             .from('teacher_subjects')
                             .select('subject')
-                            .eq('teacher_id', resolvedTeacherId);
+                            .eq('teacher_id', currentTeacherId);
 
                         if (legacySubjects && legacySubjects.length > 0) {
                             const { data: schoolSubjects } = await supabase
@@ -268,5 +297,5 @@ export const useTeacherClasses = (teacherId?: string | null) => {
         };
     }, [profile?.email, profile?.id, profile?.schoolId, authUser?.email, authUser?.id, teacherId, version]);
 
-    return { classes, subjects, assignments, loading, error };
+    return { classes, subjects, assignments, loading, error, teacherId: resolvedTeacherId, schoolId: resolvedSchoolId };
 };

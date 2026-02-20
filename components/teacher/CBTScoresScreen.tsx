@@ -15,10 +15,11 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
         const fetchScores = async () => {
             setLoading(true);
             try {
-                // Unified: Fetch from quiz_submissions
+                // Corrected join: quiz_submissions.student_id references profiles.id
+                // Use an optional join for students because demo students might not be linked via user_id
                 const { data, error } = await supabase
                     .from('quiz_submissions')
-                    .select('*, students(name)')
+                    .select('*, profiles:student_id(full_name, students(name))')
                     .eq('quiz_id', test.id)
                     .order('submitted_at', { ascending: false });
 
@@ -28,14 +29,14 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                     const formattedResults: CBTResult[] = data.map((sub: any) => {
                         const score = parseFloat(sub.score);
                         // In unified schema, score is percentage
-                        const total = 100; 
+                        const total = 100;
                         const percentage = score;
 
                         return {
                             id: sub.id,
                             examId: test.id,
                             studentId: sub.student_id,
-                            studentName: sub.students?.name || 'Unknown',
+                            studentName: sub.profiles?.students?.[0]?.name || sub.profiles?.full_name || 'Unknown',
                             score: score,
                             totalQuestions: total,
                             percentage: percentage,

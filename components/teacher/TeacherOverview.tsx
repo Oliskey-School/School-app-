@@ -106,8 +106,8 @@ import { useAutoSync } from '../../hooks/useAutoSync';
 const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherProfile, teacherId, schoolId, currentBranchId }) => {
   const theme = THEME_CONFIG[DashboardType.Teacher];
 
-  const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses();
-  const { stats, loading: statsLoading } = useTeacherStats(teacherId || currentUser?.id, schoolId);
+  const { classes: teacherClasses, loading: classesLoading, teacherId: resolvedTeacherId, schoolId: resolvedSchoolId } = useTeacherClasses(teacherId);
+  const { stats, loading: statsLoading } = useTeacherStats(resolvedTeacherId || teacherId || currentUser?.id, resolvedSchoolId || schoolId);
 
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
   const [ungradedAssignments, setUngradedAssignments] = useState<any[]>([]);
@@ -125,9 +125,11 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
   useEffect(() => {
     const fetchData = async () => {
-      // Use teacherId from props if available, else we wait for TeacherDashboard to resolve it
-      const resolvedId = teacherId;
-      if (!schoolId || !resolvedId) return;
+      // Use resolved ID from hook if available, fallback to prop
+      const actualTeacherId = resolvedTeacherId || teacherId;
+      const actualSchoolId = resolvedSchoolId || schoolId;
+
+      if (!actualSchoolId || !actualTeacherId) return;
 
       try {
         setLoading(true);
@@ -138,8 +140,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         let scheduleQuery = supabase
           .from('timetable')
           .select('id, start_time, subject, class_name')
-          .eq('teacher_id', resolvedId)
-          .eq('school_id', schoolId)
+          .eq('teacher_id', actualTeacherId)
+          .eq('school_id', actualSchoolId)
           .eq('day', todayName)
           .eq('status', 'Published');
 
@@ -153,7 +155,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             .from('assignments')
             .select('id, title, class_name, created_at')
             .eq('school_id', schoolId)
-            .eq('teacher_id', resolvedId)
+            .eq('teacher_id', actualTeacherId)
             .order('created_at', { ascending: false })
             .limit(3)
         ]);

@@ -347,13 +347,29 @@ class SyncEngine extends EventEmitter {
 
         console.log(`📥 Starting staggered pull for ${tablesToSync.length} tables...`);
 
-        // Get session to check for school_id validty
+        // Get session to check for school_id validity
         const { data: { session } } = await supabase.auth.getSession();
         let schoolId = session?.user?.user_metadata?.school_id || session?.user?.app_metadata?.school_id;
 
-        // Fallback for Demo Users
-        if (!schoolId && session?.user?.email?.includes('demo')) {
+        // Fallback: Query public.users if metadata is missing (robust resolution)
+        if (!schoolId && session?.user?.id) {
+            const { data: userProfile } = await supabase
+                .from('users')
+                .select('school_id')
+                .eq('id', session.user.id)
+                .maybeSingle();
+
+            if (userProfile?.school_id) {
+                schoolId = userProfile.school_id;
+                console.log('✅ Resolved school_id from public.users:', schoolId);
+            }
+        }
+
+        // Fallback for Demo Users (even if session is null)
+        const isDemoMode = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('is_demo_mode') === 'true';
+        if (!schoolId && (session?.user?.email?.includes('demo') || isDemoMode)) {
             schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+            console.log('🛡️ [SyncEngine] resolved school_id via Demo Mode fallback');
         }
 
 

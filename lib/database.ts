@@ -2059,6 +2059,7 @@ export async function upsertReportCard(studentId: string | number, reportCard: R
         await supabase.from('report_card_records').delete().eq('report_card_id', reportCardId);
 
         const records = reportCard.academicRecords.map(rec => ({
+            id: (rec as any).id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36)),
             report_card_id: reportCardId,
             subject: rec.subject,
             ca: rec.ca,
@@ -2098,6 +2099,128 @@ export async function upsertReportCard(studentId: string | number, reportCard: R
         return true;
     } catch (err) {
         console.error('Error upserting report card:', err);
+        return false;
+    }
+}
+
+/**
+ * Synchronizes a CBT score to the student's gradebook (report card).
+ * Maps the CBT percentage score to the 'exam' field for the corresponding subject.
+ */
+export async function syncCBTToGradebook(
+    studentProfileId: string,
+    quizId: string,
+    scorePercentage: number,
+    schoolId: string
+): Promise<boolean> {
+    try {
+        console.log(`🔄 [syncCBTToGradebook] Starting sync for student: ${studentProfileId}, quiz: ${quizId}`);
+
+        // 1. Resolve real Student Record
+        // studentProfileId might be a Profile ID (UUID) or a Student ID
+        let { data: student, error: studentError } = await supabase
+            .from('students')
+            .select('id, name, school_id, user_id')
+            .eq('user_id', studentProfileId)
+            .maybeSingle();
+
+        // Fallback: If not found by user_id, check if it's already a student.id
+        if (!student) {
+            const { data: byId } = await supabase
+                .from('students')
+                .select('id, name, school_id, user_id')
+                .eq('id', studentProfileId)
+                .maybeSingle();
+            student = byId;
+        }
+
+        let targetStudentId = student?.id;
+
+        // Handle Demo Student Fallback (if still not found)
+        if (!targetStudentId && studentProfileId === '00000000-0000-0000-0000-000000000001') {
+            targetStudentId = '00000000-0000-0000-0000-000000000001';
+        }
+
+        if (!targetStudentId) {
+            console.error('❌ [syncCBTToGradebook] Could not resolve student record for identifier:', studentProfileId);
+            return false;
+        }
+
+        // 2. Get Quiz Details (Subject)
+        const { data: quiz, error: quizError } = await supabase
+            .from('quizzes')
+            .select('subject, title')
+            .eq('id', quizId)
+            .single();
+
+        if (quizError || !quiz) {
+            console.error('❌ [syncCBTToGradebook] Could not find quiz details:', quizError);
+            return false;
+        }
+
+        const subjectName = quiz.subject;
+        if (!subjectName) {
+            console.error('❌ [syncCBTToGradebook] Quiz has no subject defined.');
+            return false;
+        }
+
+        // 3. Determine Term and Session (Defaults for now, or fetch from quiz if available)
+        // In a real system, these should be dynamic.
+        const term = "First Term";
+        const session = "2025/2026";
+
+        // 4. Fetch Existing Report Card
+        let reportCard = await fetchReportCard(targetStudentId, term, session);
+
+        if (!reportCard) {
+            console.log('📝 [syncCBTToGradebook] No report card found. Creating new draft.');
+            reportCard = {
+                term,
+                session,
+                status: 'Draft',
+                academicRecords: []
+            };
+        }
+
+        // 5. Update or Add Subject Record
+        const records = [...(reportCard.academicRecords || [])];
+        const recordIndex = records.findIndex(r => r.subject?.toLowerCase() === subjectName?.toLowerCase());
+
+        const newScore = Math.round(scorePercentage);
+
+        if (recordIndex >= 0) {
+            console.log(`📈 [syncCBTToGradebook] Updating existing subject ${subjectName}. New Exam Score: ${newScore}`);
+            records[recordIndex] = {
+                ...records[recordIndex],
+                exam: newScore,
+                total: (parseFloat(records[recordIndex].ca as any) || 0) + newScore,
+                remark: "CBT Sync"
+            };
+            // Re-calculate grade if needed (or let getGrade do it on render)
+        } else {
+            console.log(`➕ [syncCBTToGradebook] Adding new subject ${subjectName} to report card.`);
+            records.push({
+                subject: subjectName,
+                ca: 0,
+                exam: newScore,
+                total: newScore,
+                grade: '',
+                remark: "CBT Sync"
+            });
+        }
+
+        reportCard.academicRecords = records as any;
+
+        // 6. Save back
+        const success = await upsertReportCard(targetStudentId, reportCard, student?.school_id || schoolId);
+
+        if (success) {
+            console.log('✅ [syncCBTToGradebook] Successfully synced CBT score to gradebook.');
+        }
+
+        return success;
+    } catch (err) {
+        console.error('❌ [syncCBTToGradebook] Terminal error:', err);
         return false;
     }
 }

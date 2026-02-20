@@ -178,39 +178,31 @@ const Overview: React.FC<{
 
                 const [timetableData, assignmentsData] = await Promise.all([
                     api.getTimetable(schoolId, student.grade.toString()),
-                    api.getAssignments(schoolId)
+                    api.getAssignments(schoolId, student.classId || student.current_class_id)
                 ]);
 
                 if (timetableData && timetableData.length > 0) {
                     // Filter for today locally if API returns all
                     setTodaySchedule(timetableData.filter((t: any) => t.day === today).slice(0, 3));
                 } else {
-                    setTodaySchedule([
-                        { start_time: '08:00', subject: 'Mathematics', class_name: 'Grade 10' },
-                        { start_time: '09:00', subject: 'English', class_name: 'Grade 10' },
-                        { start_time: '10:30', subject: 'Physics', class_name: 'Grade 10' }
-                    ]);
+                    setTodaySchedule([]);
                 }
 
                 if (assignmentsData && assignmentsData.length > 0) {
-                    const todayIso = new Date().toISOString();
-                    setUpcomingAssignments(assignmentsData.filter((a: any) => a.due_date > todayIso).slice(0, 2));
+                    const now = new Date();
+                    // Upcoming = due today or in the future
+                    const upcoming = assignmentsData
+                        .filter((a: any) => new Date(a.due_date) >= now)
+                        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+                    setUpcomingAssignments(upcoming.slice(0, 2));
                 } else {
-                    setUpcomingAssignments([
-                        { id: 1, title: 'Algebra Worksheet', subject: 'Mathematics', due_date: new Date(Date.now() + 86400000).toISOString() },
-                        { id: 2, title: 'Essay on Romeo & Juliet', subject: 'English', due_date: new Date(Date.now() + 172800000).toISOString() }
-                    ]);
+                    setUpcomingAssignments([]);
                 }
 
             } catch (err) {
-                console.warn('Error fetching overview data via Hybrid API, using fallback:', err);
-                setTodaySchedule([
-                    { start_time: '08:00', subject: 'Mathematics', class_name: 'Grade 10' },
-                    { start_time: '09:00', subject: 'English', class_name: 'Grade 10' }
-                ]);
-                setUpcomingAssignments([
-                    { id: 1, title: 'Algebra Worksheet', subject: 'Mathematics', due_date: new Date(Date.now() + 86400000).toISOString() }
-                ]);
+                console.warn('Error fetching overview data via Hybrid API:', err);
+                setTodaySchedule([]);
+                setUpcomingAssignments([]);
             } finally {
                 setLoading(false);
             }
@@ -794,7 +786,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                     setLoadingStudent(true);
                                     // Manually trigger the auto-creation logic by forcing a re-check with special flag or just re-running 
                                     // Actually, simpler to just insert directly here as a manual action
-                                    const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
+                                    // Match Shared Reality Demo School ID
+                                    const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
                                     const effectiveSchoolId = schoolId || DEMO_SCHOOL_ID;
 
                                     const { data: newStudent, error } = await supabase

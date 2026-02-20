@@ -5,6 +5,7 @@ import { CBTTest } from '../../../types';
 import { ClockIcon, CheckCircleIcon } from '../../../constants';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { syncCBTToGradebook } from '../../../lib/database';
 
 interface StudentCBTPlayerScreenProps {
     test: CBTTest;
@@ -147,6 +148,24 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
             if (error) throw error;
 
             toast.success('Exam submitted successfully! (v1.2)');
+
+            // Sync to Gradebook
+            try {
+                console.log('📡 [StudentCBTPlayerScreen] Syncing CBT score to gradebook...');
+                const syncSuccess = await syncCBTToGradebook(
+                    studentId.toString(),
+                    test.id,
+                    percentage,
+                    effectiveSchoolId
+                );
+                if (syncSuccess) {
+                    console.log('✅ [StudentCBTPlayerScreen] Gradebook sync complete.');
+                } else {
+                    console.warn('⚠️ [StudentCBTPlayerScreen] Gradebook sync returned false.');
+                }
+            } catch (syncErr) {
+                console.error('❌ [StudentCBTPlayerScreen] Sync error:', syncErr);
+            }
 
             // If it was an auto-submit from violations, exit soon
             if (focusViolations >= 3) {

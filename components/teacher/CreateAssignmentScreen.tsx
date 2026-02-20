@@ -47,7 +47,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const { classes: availableClasses, subjects: dbSubjects, assignments: rawAssignments, loading: dataLoading } = useTeacherClasses();
+  const { classes: availableClasses, subjects: dbSubjects, assignments: rawAssignments, loading: dataLoading, teacherId: resolvedTeacherId } = useTeacherClasses();
   const { user, currentSchool } = useAuth();
   const { profile } = useProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,13 +95,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
     const targetClass = availableClasses.find(c => c.id === selectedClassId);
     const targetSubject = dbSubjects.find(s => s.id === selectedSubjectId);
 
-    // In robust setups, profile.id maps to teacher_id for the logged in teacher. 
-    // Fallback to searching 'teachers' explicitly if needed.
-    let activeTeacherId = profile?.id;
-    if (!activeTeacherId) {
-      const { data: teacherRows } = await supabase.from('teachers').select('id').eq('user_id', user?.id).single();
-      if (teacherRows?.id) activeTeacherId = teacherRows.id;
-    }
+    const activeTeacherId = resolvedTeacherId;
 
     if (!activeTeacherId) {
       toast.error("Could not resolve Teacher ID.");
@@ -125,7 +119,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
           console.error('Error uploading file:', uploadError);
           // If bucket doesn't exist, we might get an error. Continuing without files or showing error.
           // For now, let's just log and continue, or we could throw.
-          continue; 
+          continue;
         }
 
         if (uploadData) {
@@ -191,9 +185,26 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
               <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                  <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} required className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                  <select
+                    value={selectedClassId}
+                    onChange={e => {
+                      const classId = e.target.value;
+                      setSelectedClassId(classId);
+                      // Auto-select subject if mapping exists
+                      const mapping = rawAssignments.find(a => a.classId === classId);
+                      if (mapping) {
+                        setSelectedSubjectId(mapping.subjectId);
+                      }
+                    }}
+                    required
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg"
+                  >
                     <option value="">Select class</option>
-                    {availableClasses.map(c => <option key={c.id} value={c.id}>{getFormattedClassName(c.grade, c.section)}</option>)}
+                    {availableClasses.map(c => (
+                      <option key={`${c.id}-${c.subject}`} value={c.id}>
+                        {getFormattedClassName(c.grade, c.section)} - {c.subject}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>

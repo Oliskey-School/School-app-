@@ -5,6 +5,7 @@ import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon 
 import { Question } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+import { useBranch } from '../../context/BranchContext';
 import api from '../../lib/api';
 
 interface QuizBuilderScreenProps {
@@ -23,6 +24,7 @@ interface WarningQuestionState {
 
 const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherId: passedTeacherId }) => {
     const { user, currentSchool } = useAuth();
+    const { currentBranch } = useBranch();
     // Pass user.id to the hook. The hook handles null/undefined gracefully.
     const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(user?.id);
 
@@ -129,6 +131,8 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 subject,
                 class_id: selectedClassId || null,
                 teacher_id: finalTeacherId,
+                school_id: schoolId,
+                branch_id: currentBranch?.id || null,
                 duration_minutes: duration,
                 description,
                 is_published: true,

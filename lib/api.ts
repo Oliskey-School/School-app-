@@ -1170,6 +1170,8 @@ class HybridApiClient {
                 status: quiz.status || 'draft',
                 class_id: quiz.class_id,
                 subject_id: quiz.subject_id,
+                subject: quiz.subject, // Include subject text
+                branch_id: quiz.branch_id, // Include branch_id
                 duration_minutes: quiz.duration_minutes,
                 total_marks: quiz.total_marks,
                 teacher_id: quiz.teacher_id,
