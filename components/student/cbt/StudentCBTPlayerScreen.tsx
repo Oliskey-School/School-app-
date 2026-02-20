@@ -21,7 +21,32 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
     const [totalMarks, setTotalMarks] = useState(0);
     const [questions, setQuestions] = useState<any[]>(test.questions || []);
     const [loading, setLoading] = useState(true);
+    const [showInstructions, setShowInstructions] = useState(true);
+    const [focusViolations, setFocusViolations] = useState(0);
     const { currentSchool } = useAuth();
+
+    // Focus violation listener
+    useEffect(() => {
+        if (isSubmitted || loading || showInstructions) return;
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                setFocusViolations(prev => {
+                    const newVal = prev + 1;
+                    if (newVal >= 3) {
+                        toast.error(`❌ Anti-cheat triggered: Limit (3/3) exceeded. Auto-submitting...`, { duration: 5000 });
+                        setTimeout(() => handleSubmit(), 1500);
+                    } else {
+                        toast.error(`⚠️ Warning: View changed! Violation ${newVal}/3 recorded.`);
+                    }
+                    return newVal;
+                });
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    }, [isSubmitted, loading]);
 
     useEffect(() => {
         const loadQuestions = async () => {
@@ -98,24 +123,38 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
         setTotalMarks(earnedPoints);
         setIsSubmitted(true);
 
-        // Save to cbt_submissions
-        try {
-            const { error } = await supabase.from('cbt_submissions').insert({
-                exam_id: test.id,
-                student_id: studentId,
-                score: percentage,
-                status: 'completed',
-                submitted_at: new Date().toISOString()
-            });
+        // Use Hybrid API for submission
+        const effectiveSchoolId = currentSchool?.id || (studentId as any)?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 
-            if (error) {
-                console.error('Failed to save result:', error);
-                toast.error('Result save failed, but your score is recorded locally.');
-            } else {
-                toast.success('Exam submitted successfully!');
+        const submissionPayload = {
+            quiz_id: test.id,
+            student_id: studentId,
+            school_id: effectiveSchoolId,
+            score: percentage,
+            total_questions: questions.length,
+            answers: answers,
+            status: 'graded',
+            focus_violations: focusViolations,
+            submitted_at: new Date().toISOString()
+        };
+
+        try {
+            // Direct Upsert (Bypassing API helper to ensure reliability and handle conflicts)
+            const { error } = await supabase
+                .from('quiz_submissions')
+                .upsert(submissionPayload, { onConflict: 'student_id, quiz_id' });
+
+            if (error) throw error;
+
+            toast.success('Exam submitted successfully! (v1.2)');
+
+            // If it was an auto-submit from violations, exit soon
+            if (focusViolations >= 3) {
+                setTimeout(() => handleBack(), 3000);
             }
         } catch (err) {
-            console.error('Error saving result:', err);
+            console.error('CBT Submission error:', err);
+            toast.error('Submission failed. Result might not be saved.');
         }
     };
 
@@ -130,6 +169,61 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
             <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6">
                 <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 <p className="mt-4 text-gray-500 font-medium">Loading questions...</p>
+            </div>
+        );
+    }
+
+    if (showInstructions) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6 overflow-y-auto">
+                <div className="bg-white rounded-3xl shadow-xl p-8 max-w-lg w-full border border-indigo-100 animate-fade-in my-auto">
+                    <div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 transform -rotate-3 shadow-inner">
+                        <span className="text-4xl">📝</span>
+                    </div>
+                    <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-4">Exam Instructions</h2>
+
+                    <div className="space-y-4 mb-8 text-left">
+                        <div className="flex items-start gap-4 p-4 bg-red-50 rounded-2xl border border-red-100">
+                            <span className="text-2xl mt-1">🚫</span>
+                            <div>
+                                <h4 className="font-bold text-red-800">No Tab Switching</h4>
+                                <p className="text-sm text-red-700 leading-relaxed">Leaving this page 3 times will trigger an <strong>automatic submission</strong> of your exam.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-4 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                            <span className="text-2xl mt-1">⏱️</span>
+                            <div>
+                                <h4 className="font-bold text-indigo-800">Time Limit: {test.duration} Min</h4>
+                                <p className="text-sm text-indigo-700 leading-relaxed">The clock starts when you click the button below. Submit before time runs out!</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-4 p-4 bg-green-50 rounded-2xl border border-green-100">
+                            <span className="text-2xl mt-1">💾</span>
+                            <div>
+                                <h4 className="font-bold text-green-800">Auto-Saving</h4>
+                                <p className="text-sm text-green-700 leading-relaxed">Your answers are recorded locally until you submit or the timer expires.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => setShowInstructions(false)}
+                            className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95 text-lg"
+                        >
+                            I Am Ready, Start Exam
+                        </button>
+
+                        <button
+                            onClick={handleBack}
+                            className="w-full py-3 text-gray-500 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+                        >
+                            Go Back
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     }

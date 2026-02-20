@@ -1,11 +1,13 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { TrashIcon, PlusIcon, ElearningIcon, LinkIcon, SearchIcon, VideoIcon, FilePdfIcon, CloudUploadIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import ResourceUploadModal from './ResourceUploadModal';
 
 const ManageLearningResourcesScreen: React.FC = () => {
+    const { user } = useAuth();
     const [resources, setResources] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -223,7 +225,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onUploadComplete={fetchResources}
-                teacherId={'1'} // TODO: Get actual logged in teacher ID
+                teacherId={user?.id || ''}
             />
 
             <ConfirmationModal

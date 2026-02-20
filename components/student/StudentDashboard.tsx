@@ -405,7 +405,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
                         const { data: newStudent, error: createError } = await supabase
                             .from('students')
-                            .insert({
+                            .upsert({
                                 user_id: currentUser.id,
                                 email: currentUser.email,
                                 school_id: schoolId || DEMO_SCHOOL_ID,
@@ -413,6 +413,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 grade: 10,
                                 section: 'A',
                                 attendance_status: 'Present'
+                            }, {
+                                onConflict: 'user_id'
                             })
                             .select()
                             .single();
@@ -453,7 +455,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     useEffect(() => {
         const currentView = viewStack[viewStack.length - 1];
-        setIsHomePage(currentView.view === 'overview' && !isSearchOpen);
+        setIsHomePage(currentView?.view === 'overview' && !isSearchOpen);
 
         // Sync bottom nav state
         const viewToNavMap: Record<string, string> = {
@@ -797,7 +799,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
                                     const { data: newStudent, error } = await supabase
                                         .from('students')
-                                        .insert({
+                                        .upsert({
                                             user_id: user?.id,
                                             email: user?.email,
                                             school_id: effectiveSchoolId,
@@ -806,6 +808,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                             section: 'A',
                                             attendance_status: 'Present',
                                             school_generated_id: 'ST-' + Math.floor(Math.random() * 100000),
+                                        }, {
+                                            onConflict: 'user_id'
                                         })
                                         .select()
                                         .single();
@@ -837,7 +841,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         );
     }
 
-    const currentNavigation = viewStack[viewStack.length - 1];
+    const currentNavigation = viewStack[viewStack.length - 1] || { view: 'home', title: 'Home' };
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
     const commonProps = {
         navigateTo,

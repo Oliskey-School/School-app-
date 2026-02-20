@@ -6,6 +6,7 @@ export class AcademicService {
         const { data: existing } = await supabaseAdmin
             .from('academic_performance')
             .select('id')
+            .eq('school_id', schoolId)
             .eq('student_id', studentId)
             .eq('subject', subject)
             .eq('term', term)
@@ -14,7 +15,7 @@ export class AcademicService {
         if (existing) {
             const { data, error } = await supabaseAdmin
                 .from('academic_performance')
-                .update({ score })
+                .update({ score, last_updated: new Date().toISOString() })
                 .eq('id', existing.id)
                 .select()
                 .single();
@@ -24,11 +25,13 @@ export class AcademicService {
             const { data, error } = await supabaseAdmin
                 .from('academic_performance')
                 .insert([{
+                    school_id: schoolId,
                     student_id: studentId,
                     subject,
                     term,
                     score,
-                    session
+                    session,
+                    last_updated: new Date().toISOString()
                 }])
                 .select()
                 .single();
@@ -43,6 +46,7 @@ export class AcademicService {
         const { data, error } = await supabaseAdmin
             .from('academic_performance')
             .select('student_id, score')
+            .eq('school_id', schoolId)
             .eq('subject', subject)
             .eq('term', term)
             .in('student_id', studentIds);

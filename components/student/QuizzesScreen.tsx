@@ -38,6 +38,8 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
         let loadedItems: any[] = [];
 
         // Unified fetch from 'quizzes' table
+        const effectiveSchoolId = student.schoolId || (student as any).school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
         let query = supabase
           .from('quizzes')
           .select(`
@@ -45,7 +47,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
               classes ( id, grade, section ),
               subjects ( name )
           `)
-          .eq('school_id', student.schoolId || (student as any).school_id)
+          .eq('school_id', effectiveSchoolId)
           .eq('is_published', true)
           .order('created_at', { ascending: false });
 
@@ -229,12 +231,16 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
                 return (
                   <button
                     key={`${item.type}-${item.id}`}
-                    onClick={() => handleStart(item)}
-                    className="group w-full bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between text-left hover:shadow-lg hover:ring-2 hover:ring-orange-200 transition-all border border-gray-100"
+                    onClick={() => !item.submission && handleStart(item)}
+                    disabled={!!item.submission}
+                    className={`group w-full bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between text-left transition-all border ${item.submission
+                        ? 'opacity-75 cursor-default bg-gray-50 border-gray-200'
+                        : 'hover:shadow-lg hover:ring-2 hover:ring-orange-200 border-gray-100'
+                      }`}
                   >
                     <div className="flex items-center space-x-4 min-w-0">
-                      <div className={`w-14 h-14 rounded-2xl ${bgColor} flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform`}>
-                        <HelpIcon className="w-7 h-7 text-white" />
+                      <div className={`w-14 h-14 rounded-2xl ${item.submission ? 'bg-green-500' : bgColor} flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform`}>
+                        {item.submission ? <CheckCircleIcon className="w-7 h-7 text-white" /> : <HelpIcon className="w-7 h-7 text-white" />}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -243,8 +249,13 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
                               {item.className}
                             </span>
                           )}
+                          {item.submission && (
+                            <span className="text-[10px] uppercase font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg border border-green-100">
+                              Completed: {item.submission.score}%
+                            </span>
+                          )}
                         </div>
-                        <h4 className="font-bold text-gray-900 truncate pr-2 group-hover:text-orange-600 transition-colors">{item.title}</h4>
+                        <h4 className={`font-bold truncate pr-2 transition-colors ${item.submission ? 'text-gray-500' : 'text-gray-900 group-hover:text-orange-600'}`}>{item.title}</h4>
                         <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 mt-1">
                           <span className="bg-gray-100 font-medium px-2 py-0.5 rounded-md">{item.subject}</span>
                           {item.durationMinutes > 0 && (

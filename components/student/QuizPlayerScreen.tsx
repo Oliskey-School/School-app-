@@ -23,6 +23,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
   const [isFinished, setIsFinished] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(true);
 
   // Integrity State
   const [timeLeft, setTimeLeft] = useState<number | null>(null); // in seconds
@@ -61,8 +62,8 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
         {
           event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
           schema: 'public',
-          table: 'quiz_questions',
-          filter: `quiz_id=eq.${quizInfo.id}`
+          table: 'cbt_questions',
+          filter: `exam_id=eq.${quizInfo.id}`
         },
         (payload) => {
           console.log('⚡ Real-time update received:', payload);
@@ -108,7 +109,13 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       if (document.hidden) {
         setFocusViolations(prev => {
           const newVal = prev + 1;
-          if (newVal <= 3) {
+          if (newVal >= 3) {
+            toast.error(`❌ Anti-cheat triggered: Limit (3/3) exceeded. Auto-submitting assessment...`, { duration: 5000 });
+            // Small delay to allow the toast to be seen before submission/redirect
+            setTimeout(() => {
+              finishQuiz(true);
+            }, 1500);
+          } else {
             toast.error(`⚠️ Warning: View changed! Violation ${newVal}/3 recorded.`);
           }
           return newVal;
@@ -152,12 +159,11 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
         setTimeLeft(quizData.duration_minutes * 60);
       }
 
-      // 2. Fetch Questions (from quiz_questions)
+      // 2. Fetch Questions (from cbt_questions)
       const { data: qData, error: qError } = await supabase
-        .from('quiz_questions')
+        .from('cbt_questions')
         .select('*')
-        .eq('quiz_id', targetId)
-        .order('order_index', { ascending: true }); // Ensure ordered
+        .eq('exam_id', targetId);
 
       if (qError) throw qError;
 
@@ -265,13 +271,13 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
   };
 
   const finishQuiz = async (autoSubmit = false) => {
-    if (isSubmitting) return;
+    if (isSubmitting || isFinished) return;
     setIsSubmitting(true);
 
     if (autoSubmit) {
-      toast('Time is up! Submitting your answers...', { icon: '⏰' });
+      toast('Violation limit reached! Auto-submitting... (v1.2)', { icon: '🚫' });
     } else {
-      toast.loading('Submitting assessment...');
+      toast.loading('Submitting assessment... (v1.2)');
     }
 
     try {
@@ -298,22 +304,35 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       const studentId = student?.id;
       if (!studentId) throw new Error("Student ID missing");
 
-      // Unified submission to quiz_submissions
-      await import('../../lib/api').then(m => m.api.submitQuizResult({
-        quiz_id: quizInfo?.id,
-        student_id: studentId,
-        school_id: student?.schoolId || (student as any).school_id,
-        score: percentage,
-        total_questions: questions.length,
-        answers: answersLog,
-        focus_violations: focusViolations,
-        status: 'graded',
-        submitted_at: new Date().toISOString()
-      }, { useBackend: true }));
+      // DIRECT UPSERT (Prevents 409 and ensures teacher sees a result)
+      const effectiveSchoolId = student?.schoolId || (student as any)?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
+      const { error: submitError } = await supabase
+        .from('quiz_submissions')
+        .upsert({
+          quiz_id: quizInfo?.id,
+          student_id: studentId,
+          school_id: effectiveSchoolId,
+          score: percentage,
+          total_questions: questions.length,
+          answers: answersLog,
+          focus_violations: focusViolations,
+          status: 'graded',
+          submitted_at: new Date().toISOString()
+        }, {
+          onConflict: 'student_id, quiz_id'
+        });
+
+      if (submitError) throw submitError;
 
       toast.dismiss();
-      toast.success('Submitted successfully!');
+      toast.success(autoSubmit ? 'Assessment ended & saved.' : 'Submitted successfully!');
       setIsFinished(true);
+
+      if (autoSubmit) {
+        // Force exit after violation
+        setTimeout(() => handleBack(), 3000);
+      }
 
     } catch (err: any) {
       console.error("Submission error:", err);
@@ -334,6 +353,61 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       <div className="flex flex-col justify-center items-center h-full bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
         <p className="text-gray-500 font-medium">Preparing your assessment...</p>
+      </div>
+    );
+  }
+
+  if (showInstructions) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6 overflow-y-auto">
+        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-lg w-full border border-orange-100 animate-fade-in my-auto">
+          <div className="w-20 h-20 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-6 transform rotate-3 shadow-inner">
+            <span className="text-4xl">📜</span>
+          </div>
+          <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-4">Assessment Rules</h2>
+
+          <div className="space-y-4 mb-8">
+            <div className="flex items-start gap-4 p-4 bg-red-50 rounded-2xl border border-red-100">
+              <span className="text-2xl mt-1">🚫</span>
+              <div>
+                <h4 className="font-bold text-red-800">No Window Switching</h4>
+                <p className="text-sm text-red-700 leading-relaxed">Changing tabs or minimizing the browser 3 times will trigger an <strong>automatic submission</strong> and you will be returned to the dashboard.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+              <span className="text-2xl mt-1">⏱️</span>
+              <div>
+                <h4 className="font-bold text-blue-800">Timed Assessment</h4>
+                <p className="text-sm text-blue-700 leading-relaxed">The timer starts as soon as you begin. Ensure you have a stable connection and enough time to finish.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-4 bg-green-50 rounded-2xl border border-green-100">
+              <span className="text-2xl mt-1">☝️</span>
+              <div>
+                <h4 className="font-bold text-green-800">Single Attempt</h4>
+                <p className="text-sm text-green-700 leading-relaxed">You cannot retake this assessment once submitted. Ensure your answers are finalized before time runs out.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowInstructions(false)}
+              className="w-full py-4 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 transition-all shadow-lg shadow-orange-200 active:scale-95 text-lg"
+            >
+              I Understand, Start Now
+            </button>
+
+            <button
+              onClick={handleBack}
+              className="w-full py-3 text-gray-500 font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+            >
+              Maybe Later
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

@@ -1235,21 +1235,28 @@ class HybridApiClient {
     }
 
     async submitQuizResult(submissionData: any, options: ApiOptions = {}): Promise<any> {
+        console.log("Submit Quiz Result called with:", submissionData);
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any>('/quizzes/submit', {
                 method: 'POST',
                 body: JSON.stringify(submissionData),
             });
         }
-        // Map to cbt_submissions schema: exam_id, student_id, score, status, submitted_at
+
+        console.log("Direct Supabase insert into quiz_submissions...");
+        // Direct Supabase insert
         const submission = {
-            exam_id: submissionData.quiz_id || submissionData.exam_id,
+            quiz_id: submissionData.quiz_id || submissionData.exam_id,
             student_id: submissionData.student_id,
+            school_id: submissionData.school_id,
             score: submissionData.score,
-            status: submissionData.status || 'completed',
+            total_questions: submissionData.total_questions,
+            answers: submissionData.answers,
+            focus_violations: submissionData.focus_violations,
+            status: submissionData.status || 'graded',
             submitted_at: submissionData.submitted_at || new Date().toISOString(),
         };
-        const { data, error } = await supabase.from('cbt_submissions').insert([submission]).select().single();
+        const { data, error } = await supabase.from('quiz_submissions').insert([submission]).select().single();
         if (error) throw error;
         return data;
     }
