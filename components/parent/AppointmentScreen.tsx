@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { Teacher, AppointmentSlot, Student } from '../../types';
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CalendarIcon, UserIcon, StudentNavIcon } from '../../constants';
@@ -128,6 +129,7 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                             // Was not in list (maybe was inactive before), add it
                             return [...prev, {
                                 id: updatedTeacher.id,
+                                user_id: updatedTeacher.user_id,
                                 name: updatedTeacher.name,
                                 avatarUrl: updatedTeacher.avatar_url,
                                 subjects: [],
@@ -197,21 +199,16 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
             const endsAt = new Date(startsAt);
             endsAt.setMinutes(startsAt.getMinutes() + 30);
 
-            const { data: appointmentData, error } = await supabase
-                .from('appointments')
-                .insert([{
-                    school_id: currentSchool.id,
-                    requested_by_parent_id: parentId,
-                    staff_user_id: selectedTeacher.user_id,
-                    teacher_id: selectedTeacher.id, // Ensure this is saved for Teacher Dashboard filtering
-                    student_user_id: selectedStudent.user_id,
-                    staff_type: 'teacher',
-                    starts_at: startsAt.toISOString(),
-                    ends_at: endsAt.toISOString(),
-                    reason: reason,
-                }])
-                .select()
-                .single();
+            const appointmentData = await api.createAppointment({
+                requested_by_parent_id: parentId,
+                staff_user_id: selectedTeacher.user_id,
+                teacher_id: selectedTeacher.id,
+                student_user_id: selectedStudent.user_id,
+                staff_type: 'teacher',
+                starts_at: startsAt.toISOString(),
+                ends_at: endsAt.toISOString(),
+                reason: reason,
+            });
 
             console.log("Booking Payload:", {
                 school_id: currentSchool.id,
@@ -226,15 +223,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                 status: 'Pending'
             });
 
-            if (error) {
-                console.error("Supabase Booking Error:", error);
-                throw error;
-            }
+            // api.createAppointment throws on error, so if we got here it succeeded
 
             // Trigger Notification for Teacher
             if (selectedTeacher.user_id) {
                 try {
-                    await supabase.from('notifications').insert({
+                    await api.createNotification({
                         recipient_type: 'teacher',
                         recipient_id: selectedTeacher.user_id,
                         title: 'New Appointment Request',

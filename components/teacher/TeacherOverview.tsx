@@ -239,11 +239,11 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             teacherClasses.map((c, i) => (
               <button
                 key={i}
-                onClick={() => navigateTo('classDetail', getFormattedClassName(c.grade, c.section, true, c.subject), { classId: c.id, className: getFormattedClassName(c.grade, c.section, true, c.subject) })}
+                onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), { classInfo: c })}
                 className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all text-left border-b-4 border-purple-500 group"
               >
                 <div className="flex justify-between items-start mb-1">
-                  <p className="font-bold text-gray-800 text-base">{getFormattedClassName(c.grade, c.section)}</p>
+                  <p className="font-bold text-gray-800 text-base">{c.name || getFormattedClassName(c.grade, c.section)}</p>
                   <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-purple-500 transition-colors" />
                 </div>
                 <div className="flex items-center space-x-1.5">

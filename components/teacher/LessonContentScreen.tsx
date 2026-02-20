@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { GeneratedLessonPlan, DetailedNote } from '../../types';
 import { BookOpenIcon, ClipboardListIcon, ShareIcon, CheckCircleIcon } from '../../constants';
@@ -47,7 +48,10 @@ const LessonContentScreen: React.FC<{ lessonPlan: GeneratedLessonPlan; detailedN
         status: 'Draft' // Default to draft for review
       };
 
-      const { error } = await supabase.from('lesson_plans').insert([payload]);
+      const { error } = await api.createLessonPlan(payload, { useBackend: true })
+        .then(() => ({ error: null }))
+        .catch(err => ({ error: err }));
+
       if (error) throw error;
 
       toast.success("Lesson Plan published to official records!");

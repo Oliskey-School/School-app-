@@ -4,6 +4,7 @@ import { StudentAssignment, Submission } from '../../types';
 import { SUBJECT_COLORS, ClockIcon, PaperclipIcon, XCircleIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/api';
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -103,51 +104,13 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       };
 
       if (!submissionPayload.school_id && !existingSubmission) {
-        // Fallback if context missing, try to get from student record or just fail gracefully?
-        // For now, if no school_id, we might fail RLS or constraint.
-        // Let's assume studentId implies school context not needed for update, but needed for insert.
-        // We can fetch school_id from assignment if needed.
+        // Fallback if context missing
         const { data: assignData } = await supabase.from('assignments').select('school_id').eq('id', assignment.id).single();
         if (assignData) submissionPayload.school_id = assignData.school_id;
       }
 
-      if (existingSubmission) {
-        // Update
-        const { error } = await supabase
-          .from('assignment_submissions')
-          .update({
-            submission_text: textAnswer,
-            attachment_url: submissionPayload.attachment_url,
-            submitted_at: new Date().toISOString()
-          })
-          .eq('id', existingSubmission.id);
-
-        if (error) throw error;
-      } else {
-        // Insert
-        const { error } = await supabase
-          .from('assignment_submissions')
-          .insert(submissionPayload);
-
-        if (error) throw error;
-
-        // Increment assignment count (best effort - isolated to avoid aborting main flow)
-        try {
-          const { data: assignData } = await supabase
-            .from('assignments')
-            .select('submissions_count')
-            .eq('id', assignment.id)
-            .single();
-          if (assignData) {
-            await supabase
-              .from('assignments')
-              .update({ submissions_count: (assignData.submissions_count || 0) + 1 })
-              .eq('id', assignment.id);
-          }
-        } catch (countErr) {
-          console.warn("Failed to update submission count (non-critical):", countErr);
-        }
-      }
+      // Upsert via Backend API (Bypass RLS)
+      await api.submitAssignment(assignment.id, submissionPayload);
 
       toast.success("Assignment submitted successfully!");
       forceUpdate(); // To refresh parent list

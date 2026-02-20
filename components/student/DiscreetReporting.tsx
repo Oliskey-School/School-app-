@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 interface Request {
@@ -26,11 +26,13 @@ const DiscreetReporting: React.FC = () => {
             const locations = ['Nurse Office', 'Female Restroom', 'Counselor Office'];
             const randomLocation = locations[Math.floor(Math.random() * locations.length)];
 
-            const { error } = await supabase.from('menstrual_support_requests').insert({
+            const { error } = await api.createDiscreetRequest({
                 ...formData,
                 is_anonymous: true,
                 pickup_location: randomLocation
-            });
+            }, { useBackend: true })
+                .then(() => ({ error: null }))
+                .catch(err => ({ error: err }));
 
             if (error) throw error;
 

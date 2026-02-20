@@ -123,6 +123,10 @@ export const MapPinIcon = ({ className }: { className?: string }) => <svg xmlns=
 export const BuildingLibraryIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M3 21l18 0" /><path d="M5 21v-14l8 -4l8 4v14" /><path d="M10 10v4" /><path d="M14 10v4" /><path d="M10 14h4" /></svg>;
 export const XIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>;
 export const CheckIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M5 12l5 5l10 -10" /></svg>;
+export const GiftIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M3 8v4a1 1 0 0 0 1 1h16a1 1 0 0 0 1 -1v-4a1 1 0 0 0 -1 -1h-16a1 1 0 0 0 -1 1z" /><path d="M12 8v13" /><path d="M19 13v7a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1v-7" /><path d="M7.5 8a2.5 2.5 0 0 1 0 -5a4.8 8 0 0 1 4.5 5a4.8 8 0 0 1 4.5 -5a2.5 2.5 0 0 1 0 5" /></svg>;
+export const FilmIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 4l0 16" /><path d="M16 4l0 16" /><path d="M4 8l4 0" /><path d="M4 16l4 0" /><path d="M4 12l16 0" /><path d="M16 8l4 0" /><path d="M16 16l4 0" /></svg>;
+export const PhotographIcon = PhotoIcon;
+export const MusicNoteIcon = MusicIcon;
 
 
 // Theme Configuration
@@ -265,16 +269,35 @@ export const gradeColors: { [key: number]: string } = {
 
 export const getFormattedClassName = (grade: number, section?: string | null | undefined, includeGradeWord: boolean = true, subject?: string) => {
   let suffix = '';
-  if (grade >= 1 && grade <= 6) suffix = 'Primary ';
-  else if (grade >= 7 && grade <= 9) suffix = 'JSS ';
-  else if (grade >= 10 && grade <= 12) suffix = 'SSS ';
-
-  // Adjust grade number for JSS and SSS
   let displayGrade = grade;
-  if (grade >= 7 && grade <= 9) displayGrade = grade - 6;
-  if (grade >= 10 && grade <= 12) displayGrade = grade - 9;
+
+  if (grade >= 1 && grade <= 6) {
+    suffix = 'Primary ';
+  } else if (grade >= 7 && grade <= 9) {
+    suffix = 'JSS ';
+    displayGrade = grade - 6;
+  } else if (grade >= 10 && grade <= 12) {
+    suffix = 'SSS ';
+    displayGrade = grade - 9;
+  } else if (grade <= 0) {
+    // Nursery / Creche Logic
+    if (grade === 0) {
+      if (includeGradeWord) return `Nursery 2${section ? ` ${section}` : ''}${subject ? ` ${subject}` : ''}`;
+      return `2${section ? ` ${section}` : ''}${subject ? ` ${subject}` : ''}`;
+    }
+    if (grade === -1) {
+      if (includeGradeWord) return `Nursery 1${section ? ` ${section}` : ''}${subject ? ` ${subject}` : ''}`;
+      return `1${section ? ` ${section}` : ''}${subject ? ` ${subject}` : ''}`;
+    }
+    if (grade === -2) return `Pre-Nursery${section ? ` ${section}` : ''}${subject ? ` ${subject}` : ''}`;
+    if (grade === -3) return `Creche${section ? ` ${section}` : ''}${subject ? ` ${subject}` : ''}`;
+
+    // Fallback for other negative numbers
+    suffix = 'Nursery ';
+  }
 
   let name = `${includeGradeWord ? suffix : ''}${displayGrade}`;
+  if (section) name += ` ${section}`; // Ensure section is added if provided
   if (subject) name += ` ${subject}`;
 
   return name;

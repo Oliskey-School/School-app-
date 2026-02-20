@@ -5,6 +5,7 @@ import { AnnouncementCategory, Notice } from '../../types';
 import { CameraIcon, StopIcon, XCircleIcon, VideoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -21,6 +22,7 @@ const TeacherCommunicationScreen: React.FC = () => {
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [teacherName, setTeacherName] = useState('');
+    const [schoolId, setSchoolId] = useState('');
 
     // Video state
     const [isRecording, setIsRecording] = useState(false);
@@ -36,9 +38,10 @@ const TeacherCommunicationScreen: React.FC = () => {
         const fetchMeta = async () => {
             if (!user) return;
             // Get Teacher
-            const { data: teacher } = await supabase.from('teachers').select('id, name').eq('user_id', user.id).single();
+            const { data: teacher } = await supabase.from('teachers').select('id, name, school_id').eq('user_id', user.id).single();
             if (teacher) {
                 setTeacherName(teacher.name);
+                setSchoolId(teacher.school_id);
                 // Get Classes
                 const { data: cls } = await supabase.from('teacher_classes').select('class_name').eq('teacher_id', teacher.id);
                 if (cls) {
@@ -91,13 +94,14 @@ const TeacherCommunicationScreen: React.FC = () => {
                 category: selectedCategory,
                 is_pinned: false,
                 audience: audienceArray, // JSONB
-                created_by: teacherName,
+                created_by: user?.id, // Use UUID from Auth
+                school_id: schoolId, // Required for RLS
                 timestamp: new Date().toISOString()
             };
 
-            const { error } = await supabase.from('notices').insert([payload]);
-
-            if (error) throw error;
+            const { error } = await api.createNotice(payload, { useBackend: true })
+                .then(() => ({ error: null }))
+                .catch(err => ({ error: err }));
 
             toast.success(`Announcement sent to: ${audienceArray.join(', ')}`);
             // Reset form

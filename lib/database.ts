@@ -311,7 +311,7 @@ export async function fetchTeachers(schoolId?: string, branchId?: string): Promi
         let query = supabase
             .from('teachers')
             .select(`
-                id, school_id, school_generated_id, name, avatar_url, email, phone, status,
+                id, user_id, school_id, school_generated_id, name, avatar_url, email, phone, status,
                 teacher_subjects(subject),
                 teacher_classes(class_name)
             `);
@@ -349,7 +349,7 @@ export async function fetchTeacherById(id: string | number): Promise<Teacher | n
         const { data, error } = await supabase
             .from('teachers')
             .select(`
-        id, school_id, school_generated_id, name, avatar_url, email, phone, status,
+        id, user_id, school_id, school_generated_id, name, avatar_url, email, phone, status,
         teacher_subjects(subject),
         teacher_classes(class_name)
       `)
@@ -361,6 +361,7 @@ export async function fetchTeacherById(id: string | number): Promise<Teacher | n
 
         return {
             id: data.id,
+            user_id: data.user_id,
             schoolId: data.school_id,
             schoolGeneratedId: data.school_generated_id,
             name: data.name,

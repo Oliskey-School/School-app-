@@ -209,7 +209,7 @@ const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigate
                 .getPublicUrl(`plans/${fileName}`));
 
             // 3. Insert into Resources
-            const { error: dbError } = await import('../../lib/supabase').then(m => m.supabase.from('resources').insert([{
+            const { error: dbError } = await import('../../lib/api').then(m => m.api.createResource({
                 title: `Lesson Plan: ${currentResources.subject} (${currentResources.className})`,
                 type: 'Document',
                 subject: currentResources.subject,
@@ -218,7 +218,9 @@ const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigate
                 description: 'AI Generated Lesson Plan',
                 is_public: true,
                 language: 'English'
-            }]));
+            }, { useBackend: true }))
+                .then(() => ({ error: null }))
+                .catch(err => ({ error: err }));
 
             if (dbError) throw dbError;
 

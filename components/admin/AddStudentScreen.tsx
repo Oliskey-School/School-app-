@@ -462,121 +462,22 @@ parents(
                 // --- GUARDIAN ACCOUNT AUTOMATION ---
                 let parentAuthDetails = null;
 
-                if (gEmail && gName) {
+                if (gEmail && gName && studentData?.id) {
                     try {
-                        const { data: existingUser } = await supabase
-                            .from('users')
-                            .select('id, name, email')
-                            .eq('email', gEmail)
-                            .maybeSingle();
+                        const GuardianResponse = await api.linkGuardian({
+                            studentId: studentData.id,
+                            guardianName: gName,
+                            guardianEmail: gEmail,
+                            guardianPhone: guardianPhone,
+                            branchId: branchId
+                        });
 
-                        let parentIdToLink: string | null = null; // UUID type
-
-                        if (existingUser) {
-                            // User exists, find/create Parent
-                            const { data: existingParent } = await supabase
-                                .from('parents')
-                                .select('id')
-                                .eq('user_id', existingUser.id)
-                                .maybeSingle();
-
-                            if (existingParent) {
-                                parentIdToLink = existingParent.id;
-                            } else {
-                                // Create Parent Profile for existing User
-                                const { data: newProfile, error: profileErr } = await supabase
-                                    .from('parents')
-                                    .insert([{
-                                        user_id: existingUser.id,
-                                        name: gName,
-                                        email: gEmail,
-                                        phone: guardianPhone || null,
-                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                        school_id: schoolId,
-                                        branch_id: branchId
-                                    }])
-                                    .select()
-                                    .single();
-
-                                if (!profileErr) parentIdToLink = newProfile.id;
-                            }
+                        if (GuardianResponse.credentials) {
+                            parentAuthDetails = GuardianResponse.credentials;
+                            await sendVerificationEmail(gName, gEmail, 'School App Account Created');
                         } else {
-                            // Create New User & Parent
-                            const { data: newUser, error: uErr } = await supabase
-                                .from('users')
-                                .insert([{
-                                    email: gEmail,
-                                    name: gName,
-                                    role: 'parent',
-                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                    school_id: schoolId,
-                                    branch_id: branchId
-                                }])
-                                .select()
-                                .single();
-
-                            if (!uErr) {
-                                const { data: newParent, error: pErr } = await supabase
-                                    .from('parents')
-                                    .insert([{
-                                        user_id: newUser.id,
-                                        name: gName,
-                                        email: gEmail,
-                                        phone: guardianPhone || null,
-                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                        school_id: schoolId,
-                                        branch_id: branchId
-                                    }])
-                                    .select()
-                                    .single();
-
-                                if (!pErr) {
-                                    parentIdToLink = newParent.id;
-                                    // Create Auth & Send Email
-                                    const pAuth = await createUserAccount(gName, 'Parent', gEmail, schoolId);
-                                    await sendVerificationEmail(gName, gEmail, 'School App Account Created');
-
-                                    // Capture for Modal
-                                    parentAuthDetails = {
-                                        userName: gName,
-                                        username: pAuth.username,
-                                        password: pAuth.password,
-                                        email: gEmail,
-                                        userType: 'Parent'
-                                    };
-                                }
-                            }
-                        }
-
-                        if (parentIdToLink && studentData?.id) {
-                            // ✅ FIX 1: Update student.parent_id FK
-                            const { error: linkError } = await supabase
-                                .from('students')
-                                .update({ parent_id: parentIdToLink })
-                                .eq('id', studentData.id);
-
-                            if (linkError) {
-                                console.error('Failed to link parent_id to student:', linkError);
-                            }
-
-                            // ✅ FIX 2: Also create junction table record (if table exists)
-                            const { error: junctionError } = await supabase
-                                .from('parent_children')
-                                .insert({
-                                    parent_id: parentIdToLink,
-                                    student_id: studentData.id,
-                                    school_id: schoolId,
-                                    branch_id: branchId
-                                });
-
-                            if (junctionError && junctionError.code !== '23505') { // Ignore duplicate key errors
-                                console.warn('Junction table insert failed (table may not exist):', junctionError);
-                            }
-
-                            if (existingUser) {
-                                toast.success(`Linked to existing guardian: ${gName}.`, { duration: 4000 });
-                                await sendVerificationEmail(gName, gEmail, 'Student Added');
-                            }
+                            toast.success(`Linked to existing guardian: ${gName}.`, { duration: 4000 });
+                            await sendVerificationEmail(gName, gEmail, 'Student Added');
                         }
 
                     } catch (gErr) {

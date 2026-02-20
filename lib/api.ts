@@ -150,7 +150,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>(`/students${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
         }
-        
+
         let query = supabase.from('students')
             .select('id, name, avatar_url, grade, section, status, school_generated_id')
             .eq('school_id', schoolId);
@@ -206,6 +206,14 @@ class HybridApiClient {
         const { data, error } = await supabase.from('students').insert([enrollmentData]).select().single();
         if (error) throw error;
         return data;
+    }
+
+    async linkGuardian(guardianData: { studentId: string, guardianName: string, guardianEmail: string, guardianPhone?: string, branchId?: string }, options: ApiOptions = {}): Promise<any> {
+        // We always route this to the backend to bypass RLS policies during creation
+        return this.fetch<any>('/students/link-guardian', {
+            method: 'POST',
+            body: JSON.stringify(guardianData),
+        });
     }
 
     async updateStudent(id: string | number, studentData: any, options: ApiOptions = {}): Promise<any> {
@@ -478,7 +486,7 @@ class HybridApiClient {
             .eq('parent_user_id', user.id);
 
         const studentUserIds = relations?.map(r => r.student_user_id) || [];
-        
+
         const { data: students, error } = await supabase
             .from('students')
             .select(`
@@ -491,6 +499,29 @@ class HybridApiClient {
 
         if (error) throw error;
         return students || [];
+    }
+
+    async createAppointment(appointmentData: any, options: ApiOptions = {}): Promise<any> {
+        // Always route through backend for RLS compliance
+        return this.fetch<any>('/parents/appointments', {
+            method: 'POST',
+            body: JSON.stringify(appointmentData),
+        });
+    }
+
+    async volunteerSignup(signupData: any, options: ApiOptions = {}): Promise<any> {
+        // Always route through backend for RLS compliance
+        return this.fetch<any>('/parents/volunteer-signup', {
+            method: 'POST',
+            body: JSON.stringify(signupData),
+        });
+    }
+
+    async markNotificationRead(notificationId: string | number, options: ApiOptions = {}): Promise<any> {
+        // Always route through backend for RLS compliance
+        return this.fetch<any>(`/parents/notifications/${notificationId}/read`, {
+            method: 'PUT',
+        });
     }
 
     // ============================================
@@ -570,6 +601,30 @@ class HybridApiClient {
             return this.fetch<any[]>(`/attendance/student/${studentId}`);
         }
         const { data, error } = await supabase.from('student_attendance').select('*').eq('student_id', studentId);
+        if (error) throw error;
+        return data || [];
+    }
+
+    // ============================================
+    // ACADEMIC PERFORMANCE
+    // ============================================
+
+    async saveGrade(gradeData: any, options: ApiOptions = {}): Promise<any> {
+        // Always route through backend - RLS blocks direct inserts
+        return this.fetch<any>('/academic-performance/grade', {
+            method: 'PUT',
+            body: JSON.stringify(gradeData),
+        });
+    }
+
+    async getGrades(studentIds: (string | number)[], subject: string, term: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any[]>('/academic-performance/grades', {
+                method: 'POST',
+                body: JSON.stringify({ studentIds, subject, term }),
+            });
+        }
+        const { data, error } = await supabase.from('academic_performance').select('student_id, score').eq('subject', subject).eq('term', term).in('student_id', studentIds);
         if (error) throw error;
         return data || [];
     }
@@ -656,6 +711,18 @@ class HybridApiClient {
         return data;
     }
 
+    async submitAssignment(assignmentId: string | number, submissionData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>(`/assignments/${assignmentId}/submissions`, {
+                method: 'POST',
+                body: JSON.stringify(submissionData),
+            });
+        }
+        const { data, error } = await supabase.from('assignment_submissions').insert([{ ...submissionData, assignment_id: assignmentId }]).select().single();
+        if (error) throw error;
+        return data;
+    }
+
     // ============================================
     // EXAMS & CBT
     // ============================================
@@ -712,6 +779,22 @@ class HybridApiClient {
     }
 
     // ============================================
+    // RESOURCES
+    // ============================================
+
+    async createResource(resourceData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/resources', {
+                method: 'POST',
+                body: JSON.stringify(resourceData),
+            });
+        }
+        const { data, error } = await supabase.from('resources').insert([resourceData]).select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    // ============================================
     // LESSON PLANS
     // ============================================
 
@@ -762,7 +845,7 @@ class HybridApiClient {
                 body: JSON.stringify(resourceData),
             });
         }
-        
+
         // Find existing to decide update or insert
         const { data: existing } = await supabase
             .from('generated_resources')
@@ -999,6 +1082,31 @@ class HybridApiClient {
         return data;
     }
 
+    async updateSchoolStatusBulk(ids: string[], status: string, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/schools/bulk/status', {
+                method: 'PUT',
+                body: JSON.stringify({ ids, status }),
+            });
+        }
+        // Direct DB fallback (will likely hit RLS, but included for Hybrid symmetry)
+        const { data, error } = await supabase.from('schools').update({ status }).in('id', ids).select();
+        if (error) throw error;
+        return data;
+    }
+
+    async deleteSchoolsBulk(ids: string[], options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/schools/bulk', {
+                method: 'DELETE',
+                body: JSON.stringify({ ids }),
+            });
+        }
+        const { data, error } = await supabase.from('schools').delete().in('id', ids).select();
+        if (error) throw error;
+        return data;
+    }
+
     async inviteUser(inviteData: any, options: ApiOptions = {}): Promise<any> {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any>('/invite-user', {
@@ -1021,6 +1129,85 @@ class HybridApiClient {
             });
         }
         const { data, error } = await supabase.from('notifications').insert([notificationData]).select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    // ============================================
+    // QUIZZES & ASSIGNMENTS
+    // ============================================
+
+    async createQuizWithQuestions(payload: { quiz: any; questions: any[] }, options: ApiOptions = {}): Promise<any> {
+        // Always route through backend - RLS blocks direct inserts on quizzes
+        return this.fetch<any>('/quizzes/upload', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    }
+
+    async updateQuizStatus(id: string, isPublished: boolean, options: ApiOptions = {}): Promise<any> {
+        // Always route through backend - RLS blocks direct updates on quizzes
+        return this.fetch<any>(`/quizzes/${id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ is_published: isPublished }),
+        });
+    }
+
+    async deleteQuiz(id: string, options: ApiOptions = {}): Promise<any> {
+        // Always route through backend - RLS blocks direct deletes on quizzes
+        return this.fetch<any>(`/quizzes/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async submitQuizResult(submissionData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/quizzes/submit', {
+                method: 'POST',
+                body: JSON.stringify(submissionData),
+            });
+        }
+        const { data, error } = await supabase.from('quiz_submissions').insert([submissionData]).select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async createAnonymousReport(reportData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/student-reports/anonymous', {
+                method: 'POST',
+                body: JSON.stringify(reportData),
+            });
+        }
+        const { data, error } = await supabase.from('anonymous_reports').insert([reportData]).select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    async createDiscreetRequest(requestData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/student-reports/discreet', {
+                method: 'POST',
+                body: JSON.stringify(requestData),
+            });
+        }
+        const { data, error } = await supabase.from('menstrual_support_requests').insert([requestData]).select().single();
+        if (error) throw error;
+        return data;
+    }
+
+    // ============================================
+    // VIRTUAL CLASSES
+    // ============================================
+
+    async createVirtualClassSession(sessionData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/virtual-classes', {
+                method: 'POST',
+                body: JSON.stringify(sessionData),
+            });
+        }
+        const { data, error } = await supabase.from('virtual_class_sessions').insert([sessionData]).select().single();
         if (error) throw error;
         return data;
     }

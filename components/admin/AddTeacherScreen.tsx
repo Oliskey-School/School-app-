@@ -285,16 +285,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 await supabase.from('teacher_classes').delete().eq('teacher_id', teacherToEdit.id);
                 if (classes.length > 0) {
                     // Legacy Table Sync (String-based)
-                    // We only normalize here if the user explicitly wants the legacy format to be "10A"
-                    // But usually, it's safer to keep what matches the UI.
+                    // Fixed: Do not strip SSS/JSS/Nursery prefixes.
                     const normalizeLegacy = (s: string) => {
-                        if (!s) return s;
-                        let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
-                        const m = cleaned.match(/(\d+)([A-Z]+)/i);
-                        if (m) return `${parseInt(m[1], 10)}${m[2]}`;
-                        const m2 = cleaned.match(/(\d+)/);
-                        if (m2) return `${parseInt(m2[1], 10)}`;
-                        return cleaned;
+                        return s.trim();
                     };
 
                     const normalizedLegacy = Array.from(new Set(classes.map(normalizeLegacy).filter(Boolean)));
@@ -336,8 +329,8 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         await supabase.from('notifications').insert({
                             user_id: teacherToEdit.user_id,
                             school_id: schoolId,
-                            title: 'Profile Updated',
-                            message: 'Your profile details have been updated by the administrator.',
+                            title: 'Class Assignments Updated',
+                            message: `Your class assignments have been updated by the administrator. You now have access to: ${classes.join(', ')}.`,
                             type: 'system',
                             audience: 'teacher',
                             is_read: false
@@ -426,13 +419,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 if (classes.length > 0) {
                     // Normalize classes to a canonical format (e.g. `10A`) before inserting
                     const normalize = (s: string) => {
-                        if (!s) return s;
-                        let cleaned = s.replace(/Grade\s*/i, '').replace(/\s+/g, '').toUpperCase();
-                        const m = cleaned.match(/(\d+)([A-Z]+)/i);
-                        if (m) return `${parseInt(m[1], 10)}${m[2]}`;
-                        const m2 = cleaned.match(/(\d+)/);
-                        if (m2) return `${parseInt(m2[1], 10)}`;
-                        return cleaned;
+                        return s.trim();
                     };
 
                     const normalized = Array.from(new Set(classes.map(normalize).filter(Boolean)));

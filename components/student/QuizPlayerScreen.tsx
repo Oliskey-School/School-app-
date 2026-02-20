@@ -299,7 +299,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       if (!studentId) throw new Error("Student ID missing");
 
       // Unified submission to quiz_submissions
-      await supabase.from('quiz_submissions').insert({
+      await import('../../lib/api').then(m => m.api.submitQuizResult({
         quiz_id: quizInfo?.id,
         student_id: studentId,
         school_id: student?.schoolId || (student as any).school_id,
@@ -309,7 +309,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
         focus_violations: focusViolations,
         status: 'graded',
         submitted_at: new Date().toISOString()
-      });
+      }, { useBackend: true }));
 
       toast.dismiss();
       toast.success('Submitted successfully!');

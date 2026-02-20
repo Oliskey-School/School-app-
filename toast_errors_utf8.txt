@@ -1,0 +1,974 @@
+﻿
+components\admin\saas\PlanManagementScreen.ts
+x:47:            toast.error(error.message);
+components\admin\saas\PlanManagementScreen.ts
+x:60:            toast.error(error.message);
+components\admin\saas\SchoolManagementScreen.
+tsx:62:            toast.error(`Failed to 
+update status: ${error.message}`);
+components\admin\saas\SchoolManagementScreen.
+tsx:72:            toast.error('Please 
+select schools first');
+components\admin\saas\SchoolManagementScreen.
+tsx:89:                toast.error(`Failed 
+to delete schools: ${error.message}`);
+components\admin\saas\SchoolManagementScreen.
+tsx:103:                toast.error(`Failed 
+to update schools: ${error.message}`);
+components\admin\saas\SchoolManagementScreen.
+tsx:120:            toast.error(`Failed to 
+change plan: ${error.message}`);
+components\admin\saas\SubscriptionManagement.
+tsx:120:            
+toast.error(error.message);
+components\admin\AcademicAnalytics.tsx:59:   
+         toast.error('Failed to load 
+analytics');
+components\admin\AddExamScreen.tsx:31:      
+toast.error('Please fill all fields.');
+components\admin\AddParentScreen.tsx:240:    
+        toast.error(userMsg, { id: toastId, 
+duration: 5000 });
+components\admin\AddStudentScreen.tsx:155:   
+             toast.error("Guardian Email is 
+required to create or link guardian 
+details.");
+components\admin\AddStudentScreen.tsx:374:   
+                 toast.error('Fatal: Current 
+admin/user has no School ID. Cannot register 
+student.');
+components\admin\AddStudentScreen.tsx:386:   
+                         toast.error(`Fatal: 
+Could not create login account 
+(${authResult.error}). Operations aborted.`);
+components\admin\AddStudentScreen.tsx:391:   
+                     toast.error(`Student 
+with email ${generatedEmail} is already 
+registered. Please check the name or email 
+format.`);
+components\admin\AddStudentScreen.tsx:396:   
+                     toast.error('Login 
+account failed: ' + authResult.error + '. 
+Aborting.');
+components\admin\AddStudentScreen.tsx:403:   
+                 toast.error('Auth created 
+but no ID returned. Aborting.');
+components\admin\AddStudentScreen.tsx:560:   
+                     toast.error("Student 
+created, but failed to link Guardian: " + 
+(gErr as any).message);
+components\admin\AddStudentScreen.tsx:582:   
+         toast.error('Failed to save 
+student: ' + (error.message || 'Unknown 
+error'));
+components\admin\AddTeacherScreen.tsx:325:   
+                 toast.error('Fatal: School 
+ID missing.');
+components\admin\AddTeacherScreen.tsx:339:   
+                     toast.error(`Teacher 
+with email ${teacherEmail} is already 
+registered.`);
+components\admin\AddTeacherScreen.tsx:341:   
+                     toast.error('Failed to 
+create account: ' + authResult.error);
+components\admin\AddTeacherScreen.tsx:437:   
+         toast.error('Failed to save 
+teacher: ' + (error.message || 'Unknown 
+error'));
+components\admin\ArrearsTracker.tsx:64:      
+      toast.error('Failed to load arrears');
+components\admin\ArrearsTracker.tsx:86:      
+      toast.error('Failed to update arrear');
+components\admin\AssetInventory.tsx:25:      
+      toast.error('Failed to load assets');
+components\admin\AttendanceHeatmap.tsx:99:   
+         toast.error('Failed to load 
+attendance data');
+components\admin\AuditTrailViewer.tsx:63:    
+        toast.error('Failed to load audit 
+logs');
+components\admin\AwardPoints.tsx:28:         
+   toast.error('Please select at least one 
+student');
+components\admin\AwardPoints.tsx:33:         
+   toast.error('Please provide a reason');
+components\admin\AwardPoints.tsx:94:         
+   toast.error('Failed to award points');
+components\admin\BudgetPlanner.tsx:66:       
+     toast.error('Failed to load budgets');
+components\admin\BudgetPlanner.tsx:88:       
+     toast.error('Please fill all required 
+fields');
+components\admin\BudgetPlanner.tsx:115:      
+      toast.error('Failed to create budget');
+components\admin\BusDutyRosterScreen.tsx:79: 
+                   toast.error("Could not 
+load buses.");
+components\admin\BusDutyRosterScreen.tsx:109:
+            toast.error('Please fill in all 
+required fields');
+components\admin\BusDutyRosterScreen.tsx:146:
+            toast.error("An error 
+occurred.");
+components\admin\BusDutyRosterScreen.tsx:154:
+            toast.error('Please fill in all 
+required fields');
+components\admin\BusDutyRosterScreen.tsx:190:
+            toast.error("An error 
+occurred.");
+components\admin\BusDutyRosterScreen.tsx:210:
+            // toast.error('You must 
+maintain at least 3 buses. Cannot delete.');
+components\admin\BusDutyRosterScreen.tsx:228:
+                toast.error("An error 
+occurred.");
+components\admin\CommunicationHub.tsx:42:    
+        toast.error("Please select an 
+audience first to generate a tailored 
+announcement.");
+components\admin\CommunicationHub.tsx:71:    
+        toast.error("Failed to generate 
+announcement. Please try again.");
+components\admin\CommunicationHub.tsx:79:    
+        toast.error('Please select an 
+audience, and fill in the title and 
+message.');
+components\admin\EmergencyAlert.tsx:39:      
+          toast.error('🚨 NEW EMERGENCY 
+ALERT!', { duration: 10000 });
+components\admin\EmergencyAlert.tsx:71:      
+      toast.error('Failed to load alerts');
+components\admin\EmergencyAlert.tsx:105:     
+       toast.error('Failed to update 
+status');
+components\admin\EmergencyAlert.tsx:131:     
+       toast.error('Failed to resolve 
+alert');
+components\admin\EmergencyBroadcast.tsx:67:  
+          toast.error('Please enter both 
+title and message');
+components\admin\EmergencyBroadcast.tsx:72:  
+          toast.error('Please select at 
+least one audience');
+components\admin\EmergencyBroadcast.tsx:110: 
+           toast.error('Failed to send 
+emergency broadcast');
+components\admin\ExamCandidateRegistration.ts
+x:224:                toast.error('No 
+candidates selected.');
+components\admin\ExamCandidateRegistration.ts
+x:226:                
+toast.error(`Registration failed: 
+${lastError}`);
+components\admin\ExamCandidateRegistration.ts
+x:228:                toast.error('No new 
+candidates were registered (candidates might 
+already be registered).');
+components\admin\ExamManagement.tsx:68:      
+      toast.error('Failed to delete exam');
+components\admin\FeeManagement.tsx:112:      
+toast.error(`Failed to assign fee: 
+${err.message || 'Unknown error'}`);
+components\admin\FeeManagement.tsx:241:      
+                      toast.error('Error 
+generating invoice');
+components\admin\HealthLogScreen.tsx:161:    
+        toast.error("Please select a student 
+and fill in the reason and notes.");
+components\admin\HealthLogScreen.tsx:191:    
+        toast.error("Failed to save health 
+log.");
+components\admin\IDVerificationPanel.tsx:107:
+            toast.error('Failed to approve 
+verification');
+components\admin\IDVerificationPanel.tsx:115:
+            toast.error('Please provide a 
+reason for rejection');
+components\admin\IDVerificationPanel.tsx:160:
+            toast.error('Failed to reject 
+verification');
+components\admin\IntegrationHub.tsx:90:      
+      toast.error('Failed to toggle 
+integration');
+components\admin\IntegrationHub.tsx:125:     
+       toast.error('Sync failed');
+components\admin\IntegrationHub.tsx:144:     
+       toast.error('Failed to install app');
+components\admin\IntegrationHub.tsx:162:     
+       toast.error('Failed to uninstall 
+app');
+components\admin\InviteStaffScreen.tsx:49:   
+         toast.error('School information not 
+available');
+components\admin\InviteStaffScreen.tsx:94:   
+         toast.error(error.message || 
+'Failed to send invitation');
+components\admin\IVRLessonRecorder.tsx:129:  
+          toast.error('Please fill in all 
+required fields');
+components\admin\IVRLessonRecorder.tsx:153:  
+          toast.error('Failed to create 
+lesson');
+components\admin\LeaveApproval.tsx:91:       
+     toast.error('Failed to load leave 
+requests');
+components\admin\LeaveApproval.tsx:167:      
+      toast.error('Failed to approve 
+request');
+components\admin\LeaveApproval.tsx:177:      
+      toast.error('Please provide a reason 
+for rejection');
+components\admin\LeaveApproval.tsx:201:      
+      toast.error('Failed to reject 
+request');
+components\admin\LeaveBalance.tsx:117:       
+     toast.error('Failed to update balance');
+components\admin\MaintenanceTickets.tsx:25:  
+          // toast.error('Failed to load 
+tickets'); // Suppress for empty tables
+components\admin\ManageLearningResourcesScree
+n.tsx:76:            toast.error('Failed to 
+delete.');
+components\admin\ManagePermissionSlipsScreen.
+tsx:56:            toast.error('Please 
+select a class.');
+components\admin\ManagePermissionSlipsScreen.
+tsx:74:                toast.error('No 
+students found in this class.');
+components\admin\ManagePermissionSlipsScreen.
+tsx:101:            toast.error('Failed to 
+issue slips. Please try again.');
+components\admin\ManagePermissionSlipsScreen.
+tsx:123:            toast.error('Failed to 
+delete slip.');
+components\admin\ManagePTAMeetingsScreen.tsx:
+68:            toast.error('Failed to 
+schedule meeting.');
+components\admin\ManagePTAMeetingsScreen.tsx:
+92:            toast.error('Failed to cancel 
+meeting.');
+components\admin\ManageVolunteeringScreen.tsx
+:66:            toast.error('Failed to list 
+opportunity.');
+components\admin\ManageVolunteeringScreen.tsx
+:90:            toast.error('Failed to 
+delete.');
+components\admin\ParentDetailAdminView.tsx:96
+:            toast.error('Failed to delete 
+parent: ' + (error.message || 'Unknown 
+error'));
+components\admin\PaymentHistory.tsx:80:      
+      toast.error('Failed to load payment 
+history');
+components\admin\PaymentPlanModal.tsx:49:    
+            toast.error('Failed to create 
+payment plan');
+components\admin\PaymentPlanModal.tsx:53:    
+        toast.error('Error creating payment 
+plan');
+components\admin\PaymentRecording.tsx:85:    
+        toast.error('Failed to load 
+teachers');
+components\admin\PaymentRecording.tsx:114:   
+         toast.error('Failed to load 
+payslips');
+components\admin\PaymentRecording.tsx:133:   
+         toast.error('Please select teacher 
+and payslip');
+components\admin\PaymentRecording.tsx:138:   
+         toast.error('Please enter 
+transaction reference');
+components\admin\PaymentRecording.tsx:205:   
+         toast.error('Failed to record 
+payment');
+components\admin\PayrollDashboard.tsx:140:   
+         toast.error('Failed to load payroll 
+data');
+components\admin\PayslipGenerator.tsx:65:    
+        toast.error('Failed to load 
+teachers');
+components\admin\PayslipGenerator.tsx:73:    
+        toast.error('Please select a 
+teacher');
+components\admin\PayslipGenerator.tsx:78:    
+        toast.error('Please select period 
+dates');
+components\admin\PayslipGenerator.tsx:96:    
+            toast.error('Failed to generate 
+payslip');
+components\admin\PayslipGenerator.tsx:100:   
+         toast.error('Error generating 
+payslip');
+components\admin\PayslipGenerator.tsx:118:   
+             toast.error('Failed to save 
+payslip');
+components\admin\PayslipGenerator.tsx:122:   
+         toast.error('Error saving payslip');
+components\admin\PayslipGenerator.tsx:128:   
+         toast.error('Please select period 
+dates');
+components\admin\PayslipGenerator.tsx:142:   
+         toast.error('Error generating 
+payslips');
+components\admin\RadioContentScheduler.tsx:14
+5:            toast.error('Please provide 
+title and audio URL');
+components\admin\RadioContentScheduler.tsx:16
+9:            toast.error('Failed to create 
+content');
+components\admin\RadioContentScheduler.tsx:17
+6:            toast.error('Please fill in 
+all broadcast details');
+components\admin\RadioContentScheduler.tsx:20
+1:            toast.error('Failed to 
+schedule broadcast');
+components\admin\ResourceUploadModal.tsx:45: 
+           toast.error('Please fill in all 
+required fields and select a file.');
+components\admin\ResourceUploadModal.tsx:98: 
+           toast.error(`Upload failed: 
+${error.message}`);
+components\admin\SalaryConfiguration.tsx:66: 
+           toast.error('Failed to load 
+teachers');
+components\admin\SalaryConfiguration.tsx:76: 
+           toast.error('Base salary must be 
+greater than zero');
+components\admin\SalaryConfiguration.tsx:120:
+            toast.error('Failed to save 
+salary configuration');
+components\admin\ScholarshipManagement.tsx:14
+6:            toast.error('Please fill in 
+all required fields');
+components\admin\ScholarshipManagement.tsx:17
+4:            toast.error('Failed to create 
+scholarship');
+components\admin\ScholarshipManagement.tsx:21
+2:            toast.error('Failed to approve 
+application');
+components\admin\ScholarshipManagement.tsx:22
+8:            toast.error('Failed to reject 
+application');
+components\admin\SchoolOnboardingScreen.tsx:1
+00:            toast.error(error.message);
+components\admin\SMSLessonManager.tsx:98:    
+        toast.error('Please fill in all 
+required fields');
+components\admin\SMSLessonManager.tsx:103:   
+         toast.error(`Content exceeds 
+${MAX_SMS_LENGTH} characters`);
+components\admin\SMSLessonManager.tsx:126:   
+         toast.error('Failed to create 
+lesson');
+components\admin\SMSLessonManager.tsx:133:   
+         toast.error('Please select a lesson 
+and set date/time');
+components\admin\SMSLessonManager.tsx:166:   
+         toast.error('Failed to schedule 
+SMS');
+components\admin\SponsorshipMatching.tsx:146:
+            toast.error('Please fill in all 
+fields');
+components\admin\SponsorshipMatching.tsx:169:
+            toast.error('Failed to create 
+request');
+components\admin\StudentEnrollmentWizard.tsx:
+52:                toast.error(`Free Limit 
+Reached: You have ${count}/${limit} users. 
+Please pay the ₦50,000 setup fee to add more 
+students.`);
+components\admin\StudentEnrollmentWizard.tsx:
+73:            toast.error('Enrollment 
+failed.');
+components\admin\StudentProfileAdminView.tsx:
+157:            toast.error('Failed to 
+delete student: ' + (error.message || 
+'Unknown error'));
+components\admin\StudentProfileDashboard.tsx:
+116:            toast.error('Failed to 
+delete: ' + error.message);
+components\admin\TeacherDetailAdminView.tsx:1
+17:            toast.error('Failed to delete 
+teacher: ' + (error.message || 'Unknown 
+error'));
+components\admin\TeacherDetailAdminView.tsx:1
+50:                                          
+  toast.error('Failed to update status: ' + 
+err.message);
+components\admin\TimetableGeneratorScreen.tsx
+:159:                toast.error('Failed to 
+load classes.');
+components\admin\TimetableGeneratorScreen.tsx
+:258:            toast.error("Failed to load 
+existing timetable.");
+components\admin\TimetableGeneratorScreen.tsx
+:385:                
+toast.error("Configuration Error: API Key is 
+missing.");
+components\admin\TimetableGeneratorScreen.tsx
+:387:                
+toast.error(errorMessage.length < 100 ? 
+errorMessage : "AI generation failed. Please 
+simplify constraints and try again.");
+components\admin\TimetableGeneratorScreen.tsx
+:404:            toast.error("Please select 
+a class first.");
+components\admin\TimetableGeneratorScreen.tsx
+:411:            toast.error("Please add at 
+least one subject.");
+components\admin\TimetableScreen.tsx:90:     
+       toast.error('Failed to load 
+timetables');
+components\admin\TimetableScreen.tsx:254:    
+                                            
+toast.error("Could not load timetable");
+components\admin\UserAccountsScreen.tsx:57:  
+          toast.error("Failed to load 
+accounts");
+components\admin\UserAccountsScreen.tsx:107: 
+               toast.error('Failed to update 
+user status. Please try again.');
+components\admin\UserAccountsScreen.tsx:118: 
+           toast.error('An error occurred 
+while updating user status.');
+components\admin\UserAccountsScreen.tsx:139: 
+               toast.error('Failed to delete 
+user: ' + error.message);
+components\admin\UserAccountsScreen.tsx:149: 
+           toast.error("Error deleting user: 
+" + err.message);
+components\admin\VendorManagement.tsx:25:    
+        toast.error('Failed to load 
+vendors');
+components\admin\VisitorLog.tsx:51:          
+  toast.error('Failed to load visitors');
+components\admin\VisitorLog.tsx:88:          
+  toast.error('Failed to check in visitor');
+components\admin\VisitorLog.tsx:103:         
+   toast.error('Failed to check out 
+visitor');
+components\alumni\AlumniNetwork.tsx:42:      
+      toast.error('Failed to load data');
+components\alumni\AlumniNetwork.tsx:73:      
+      toast.error('Failed to process 
+donation');
+components\attendance\AttendanceAnalytics.tsx
+:24:            toast.error('Please add 
+resolution notes');
+components\auth\SchoolSignup.tsx:43:         
+       toast.error("File size must be less 
+than 2MB");
+components\auth\SchoolSignup.tsx:58:         
+       toast.error("Please fill in all 
+required school details.");
+components\auth\SchoolSignup.tsx:65:         
+       toast.error("Please fill in all 
+required admin details.");
+components\auth\SchoolSignup.tsx:69:         
+       toast.error("Passwords do not 
+match.");
+components\auth\SchoolSignup.tsx:73:         
+       toast.error("Password must be at 
+least 6 characters.");
+components\auth\SchoolSignup.tsx:147:        
+    toast.error(error.message || "Failed to 
+create account.");
+components\inspector\InspectorDashboard.tsx:2
+20:                toast.error('Could not 
+connect to server. Showing offline data.');
+components\learning\LearningPathsDashboard.ts
+x:54:            toast.error('Failed to load 
+learning paths');
+components\learning\LearningPathsDashboard.ts
+x:77:                toast.error('Path 
+already assigned to this student');
+components\learning\LearningPathsDashboard.ts
+x:79:                toast.error('Failed to 
+assign path');
+components\learning\LearningPathsDashboard.ts
+x:113:            toast.error('Failed to 
+start module');
+components\learning\LearningPathsDashboard.ts
+x:149:            toast.error('Failed to 
+complete module');
+components\parent\AIParentingTips.tsx:90:    
+            // toast.error("Could not 
+generate tips. Please try again.");
+components\parent\AppointmentScreen.tsx:158: 
+           toast.error("Please select a 
+teacher, time slot, and provide a reason.");
+components\parent\AppointmentScreen.tsx:163: 
+           toast.error("You must be logged 
+in as a parent to book appointments.");
+components\parent\AppointmentScreen.tsx:184: 
+           toast.error("Failed to book 
+appointment. Please try again.");
+components\parent\EditParentProfileScreen.tsx
+:62:            toast.error(`Failed to 
+update profile: ${error.message || 'Unknown 
+error'}`);
+components\parent\FeedbackScreen.tsx:44:     
+       toast.error('Please select a category 
+and provide a comment.');
+components\parent\FeeStatusScreen.tsx:75:    
+            toast.error('Parent ID not 
+found. Please log in again.');
+components\parent\FeeStatusScreen.tsx:135:   
+             toast.error('No completed 
+transaction found for this fee.');
+components\parent\FeeStatusScreen.tsx:163:   
+         toast.error('Error generating 
+receipt. Please try again.');
+components\parent\LinkChildScreen.tsx:20:    
+        toast.error("Please enter the 
+student's ID code.");
+components\parent\LinkChildScreen.tsx:32:    
+            toast.error(result.message);
+components\parent\LinkChildScreen.tsx:36:    
+        toast.error("An unexpected error 
+occurred.");
+components\parent\PermissionSlipScreen.tsx:49
+:            toast.error('Failed to update 
+status');
+components\parent\VolunteerSignup.tsx:108:   
+                 toast.error('You have 
+already signed up for this opportunity');
+components\parent\VolunteerSignup.tsx:128:   
+         toast.error('Failed to sign up');
+components\payments\FlutterwaveWrapper.tsx:63
+:            toast.error('Email is required 
+for payment. Please update your profile.');
+components\payments\FlutterwaveWrapper.tsx:75
+:            toast.error('Payment gateway 
+not configured. Please contact 
+administrator.');
+components\payments\FlutterwaveWrapper.tsx:13
+3:                            
+toast.error('Payment completed but 
+verification failed. Please contact 
+support.');
+components\payments\FlutterwaveWrapper.tsx:13
+6:                        
+toast.error('Payment was not completed. 
+Please try again.');
+components\payments\FlutterwaveWrapper.tsx:15
+0:            toast.error('Failed to 
+initialize payment. Please try again or 
+contact support.');
+components\payments\MobileMoneyWrapper.tsx:51
+:            toast.error('Please enter your 
+mobile money number');
+components\payments\MobileMoneyWrapper.tsx:11
+4:            toast.error('Failed to 
+initialize mobile money payment. Please try 
+again.');
+components\payments\MobileMoneyWrapper.tsx:15
+8:                toast.error('Payment 
+verification timed out. Please check your 
+transaction history.');
+components\payments\PaystackWrapper.tsx:89:  
+          toast.error('Paystack payment 
+gateway not configured. Please contact 
+administrator.');
+components\payments\PaystackWrapper.tsx:96:  
+          toast.error('Email is required for 
+payment. Please update your profile.');
+components\rewards\RewardsSystem.tsx:63:     
+       toast.error('Failed to load rewards 
+data');
+components\settings\NotificationSettings.tsx:
+67:            toast.error('Failed to save 
+preferences');
+components\shared\AccessibilitySettings.tsx:6
+3:            toast.error('Failed to save 
+settings');
+components\shared\AIChatScreen.tsx:86:       
+     toast.error("Could not access 
+microphone.");
+components\shared\ChatScreen.tsx:158:        
+            toast.error(`"${file.name}" is 
+too large (max 5MB)`);
+components\shared\ChatScreen.tsx:201:        
+    toast.error("Error: Missing User ID. 
+Please re-login.");
+components\shared\ChatScreen.tsx:205:        
+    toast.error("Error: No active 
+conversation selected.");
+components\shared\ChatScreen.tsx:246:        
+                toast.error("Error: bucket 
+missing. Run migration.");
+components\shared\ChatScreen.tsx:248:        
+                toast.error(`Failed to 
+upload ${file.name}: 
+${uploadError.message}`);
+components\shared\ChatScreen.tsx:270:        
+    toast.error(`Unexpected error: 
+${err.message}`);
+components\shared\ConferenceScheduling.tsx:12
+2:            toast.error('Please select a 
+student');
+components\shared\ConferenceScheduling.tsx:15
+9:            toast.error('Failed to book 
+conference');
+components\shared\CounselingAppointments.tsx:
+78:            toast.error('Failed to book 
+appointment');
+components\shared\DonationPortal.tsx:79:     
+       toast.error('Minimum donation is 
+₦100');
+components\shared\DonationPortal.tsx:84:     
+       toast.error('Please provide your name 
+and email');
+components\shared\DonationPortal.tsx:150:    
+        toast.error('Failed to process 
+donation');
+components\shared\EditProfileScreen.tsx:109: 
+           toast.error('Error updating 
+profile: ' + err.message);
+components\shared\IDCardGenerator.tsx:39:    
+        toast.error('Failed to generate ID 
+card');
+components\shared\MediaGenerator.tsx:116:    
+        toast.error("Failed to generate 
+media. Please try again.");
+components\shared\NewChatScreen.tsx:192:     
+       toast.error("Failed to start chat. 
+Please try again.");
+components\shared\PanicButton.tsx:75:        
+    toast.error('Failed to send alert. 
+Please call emergency services directly.');
+components\shared\PermissionSlips.tsx:107:   
+         toast.error('Failed to create 
+permission slip');
+components\shared\PermissionSlips.tsx:126:   
+         toast.error('Failed to sign slip');
+components\shared\ReferralSystem.tsx:101:    
+        toast.error('Please select a student 
+and describe the need');
+components\shared\ReferralSystem.tsx:126:    
+        toast.error('Failed to submit 
+referral');
+components\shared\SurveysAndPolls.tsx:112:   
+         toast.error(`Please answer all 
+required questions (${unanswered.length} 
+remaining)`);
+components\shared\SurveysAndPolls.tsx:145:   
+         toast.error('Failed to submit 
+survey');
+components\shop\EnhancedShop.tsx:49:         
+   toast.error('Please login to add items to 
+cart');
+components\shop\EnhancedShop.tsx:69:         
+   toast.error('Failed to add to cart');
+components\shop\EnhancedShop.tsx:85:         
+   toast.error('Failed to remove item');
+components\shop\EnhancedShop.tsx:142:        
+    toast.error('Failed to place order');
+components\student\cbt\StudentCBTListScreen.t
+sx:116:            toast.error("You have 
+already taken this test.");
+components\student\games\CBTExamGame.tsx:134:
+            toast.error("Using offline 
+questions.");
+components\student\games\CodeChallengeGameScr
+een.tsx:110:            toast.error('Memory 
+Full! Remove blocks.');
+components\student\games\CodeChallengeGameScr
+een.tsx:190:                    
+toast.error('Target not reached.');
+components\student\games\GeoGuesserGameScreen
+.tsx:120:            toast.error(`Wrong! It 
+was ${currentLocation.country}`, { icon: '❌' 
+});
+components\student\games\GeoGuesserGameScreen
+.tsx:136:        toast.error(`Time's up! It 
+was ${currentLocation.country}`);
+components\student\games\MathSprintGameScreen
+.tsx:116:            toast.error('Oops! Try 
+again.');
+components\student\games\MathSprintResultsScr
+een.tsx:22:            toast.error('Sharing 
+is not supported on this browser.');
+components\student\AnonymousReporting.tsx:57:
+            toast.error('Failed to submit 
+report');
+components\student\AssignmentSubmissionScreen
+.tsx:84:      toast.error("Please provide an 
+answer or attach a file.");
+components\student\AssignmentSubmissionScreen
+.tsx:146:      toast.error("Failed to submit 
+assignment: " + err.message);
+components\student\DiscreetReporting.tsx:41: 
+           toast.error('Failed to submit 
+request');
+components\student\QuizPlayerScreen.tsx:60:  
+          toast.error(`⚠️ Warning: View 
+changed! Violation ${newVal}/3 recorded.`);
+components\student\QuizPlayerScreen.tsx:143: 
+     toast.error('Failed to load quiz 
+content');
+components\student\QuizPlayerScreen.tsx:261: 
+     toast.error('Submission failed. Please 
+check your connection.');
+components\subscription\SubscriptionPage.tsx:
+44:            toast.error("Payment 
+successful but failed to update 
+subscription. Contact support.");
+components\teacher\AIGameCreatorScreen.tsx:39
+:            toast.error("Please fill in all 
+fields.");
+components\teacher\AIGameCreatorScreen.tsx:10
+5:            toast.error("Failed to 
+generate the game. The AI might be busy. 
+Please try again.");
+components\teacher\AssignmentSubmissionsScree
+n.tsx:195:            toast.error("Failed to 
+save grade. Please try again.");
+components\teacher\AssignmentViewScreen.tsx:2
+6:            toast.error('To share, please 
+print/save as PDF or take a screenshot.', { 
+duration: 4000 });
+components\teacher\CBTManagementScreen.tsx:77
+:            toast.error("Please select a 
+valid Class and Subject first.");
+components\teacher\CBTManagementScreen.tsx:16
+5:            toast.error(err.message || 
+"Upload failed.");
+components\teacher\CBTManagementScreen.tsx:18
+3:            toast.error("Failed to update 
+status.");
+components\teacher\CBTManagementScreen.tsx:19
+4:            toast.error("Failed to delete 
+exam");
+components\teacher\ClassGradebookScreen.tsx:1
+60:                toast.error("Failed to 
+load gradebook.");
+components\teacher\ClassGradebookScreen.tsx:2
+87:            toast.error("Failed to save 
+grades.");
+components\teacher\CourseCatalog.tsx:70:     
+       toast.error('Failed to load courses');
+components\teacher\CourseCatalog.tsx:104:    
+            toast.error('Please log in');
+components\teacher\CourseCatalog.tsx:115:    
+            toast.error('Teacher profile not 
+found');
+components\teacher\CourseCatalog.tsx:133:    
+        toast.error('Failed to enroll in 
+course');
+components\teacher\CoursePlayer.tsx:63:      
+      toast.error('Failed to load course 
+modules');
+components\teacher\CoursePlayer.tsx:97:      
+      toast.error('Failed to mark module as 
+complete');
+components\teacher\CreateAssignmentScreen.tsx
+:101:      toast.error("Please fill out all 
+required fields.");
+components\teacher\CreateAssignmentScreen.tsx
+:150:        toast.error("Database table 
+'assignments' not found. Creating locally 
+only.");
+components\teacher\CreateAssignmentScreen.tsx
+:162:        toast.error("Failed to publish 
+assignment: " + (err.message || "Unknown 
+error"));
+components\teacher\EditTeacherProfileScreen.t
+sx:104:            toast.error(`Failed to 
+update profile: ${error.message || error}`);
+components\teacher\GradeSubmissionScreen.tsx:
+51:      toast.error("Voice recognition is 
+not supported in your browser.");
+components\teacher\GradeSubmissionScreen.tsx:
+112:      toast.error("Sorry, there was an 
+error generating feedback. Please try 
+again.");
+components\teacher\GradeSubmissionScreen.tsx:
+122:      toast.error('Please enter a valid 
+grade between 0 and 100.');
+components\teacher\LeaveRequest.tsx:128:     
+       toast.error('Teacher ID not found');
+components\teacher\LeaveRequest.tsx:133:     
+       toast.error('Please select start and 
+end dates');
+components\teacher\LeaveRequest.tsx:138:     
+       toast.error('End date must be after 
+start date');
+components\teacher\LeaveRequest.tsx:176:     
+       toast.error('Failed to submit leave 
+request');
+components\teacher\LessonContentScreen.tsx:30
+:      toast.error("Missing Class or Subject 
+information. Please regenerate the plan 
+using the dropdown selectors.");
+components\teacher\LessonContentScreen.tsx:56
+:      toast.error(`Failed to publish: 
+${err.message}`);
+components\teacher\LessonNotesUploadScreen.ts
+x:52:            toast.error("Please fill 
+all required fields.");
+components\teacher\LessonNotesUploadScreen.ts
+x:75:                toast.error("Failed to 
+upload note.");
+components\teacher\LessonNotesUploadScreen.ts
+x:79:            toast.error("An error 
+occurred.");
+components\teacher\LessonPlannerScreen.tsx:26
+0:            toast.error('Failed to save 
+scheme.');
+components\teacher\LessonPlannerScreen.tsx:28
+1:        toast.error("Deleting all history 
+is disabled in connected mode. You can 
+overwrite entries by saving.");
+components\teacher\LessonPlannerScreen.tsx:29
+0:        toast.error("Deleting all history 
+is disabled in connected mode.");
+components\teacher\LessonPlannerScreen.tsx:29
+9:            toast.error("Please provide a 
+subject, class name, and at least one topic 
+in a term's scheme of work.");
+components\teacher\LessonPlannerScreen.tsx:46
+4:            toast.error(`AI Connection 
+Failed. Details:\n${msg}`);
+components\teacher\MentoringMatching.tsx:93: 
+           toast.error('Please select a 
+teacher and enter subject area');
+components\teacher\MentoringMatching.tsx:123:
+            toast.error('Failed to create 
+mentoring match');
+components\teacher\NewChatScreen.tsx:185:    
+        toast.error("Error starting chat. 
+Please try again.");
+components\teacher\QuizBuilderScreen.tsx:62: 
+                   toast.error('Could not 
+load user profile');
+components\teacher\QuizBuilderScreen.tsx:120:
+            toast.error('Please provide a 
+title, subject, and at least one question.');
+components\teacher\QuizBuilderScreen.tsx:125:
+            toast.error('Missing user 
+context. Please try reloading.');
+components\teacher\QuizBuilderScreen.tsx:171:
+            toast.error(`Failed to create 
+quiz: ${error.message}`);
+components\teacher\ReportCardInputScreen.tsx:
+187:            toast.error("Failed to load 
+report card data.");
+components\teacher\ReportCardInputScreen.tsx:
+234:            toast.error("Please enter CA 
+and Exam scores first.");
+components\teacher\ReportCardInputScreen.tsx:
+258:            toast.error("Failed to 
+generate remark.");
+components\teacher\ReportCardInputScreen.tsx:
+266:            toast.error("Student not 
+found.");
+components\teacher\ReportCardInputScreen.tsx:
+302:            toast.error("Failed to save 
+report card. Please try again.");
+components\teacher\StudentProfileScreen.tsx:3
+7:            toast.error('Failed to load 
+student data');
+components\teacher\StudentProfileScreen.tsx:4
+5:            toast.error('Please fill in 
+both a title and a note.');
+components\teacher\StudentProfileScreen.tsx:6
+7:                toast.error('Failed to 
+save note');
+components\teacher\StudentProfileScreen.tsx:7
+1:            toast.error('Error saving 
+note');
+components\teacher\SubstituteAssignment.tsx:8
+0:            toast.error('Failed to 
+accept');
+components\teacher\SubstituteAssignment.tsx:9
+5:            toast.error('Failed to 
+decline');
+components\teacher\TeacherAppointmentsScreen.
+tsx:70:            // toast.error("Failed to 
+load appointments."); // suppress on mount
+components\teacher\TeacherAppointmentsScreen.
+tsx:108:            toast.error("Failed to 
+update status.");
+components\teacher\TeacherAttendanceScreen.ts
+x:135:            toast.error('Failed to 
+save attendance.');
+components\teacher\TeacherAttendanceScreen.ts
+x:162:            toast.error("Weekends are 
+disabled! Please select a working day 
+(Mon-Fri).");
+components\teacher\TeacherChangePasswordScree
+n.tsx:42:            toast.error("New 
+passwords do not match.");
+components\teacher\TeacherCommunicationScreen
+.tsx:70:            toast.error("Please 
+select at least one class and provide a 
+title.");
+components\teacher\TeacherCommunicationScreen
+.tsx:74:            toast.error("Please 
+provide a message for the text 
+announcement.");
+components\teacher\TeacherCommunicationScreen
+.tsx:78:            toast.error("Please 
+record or provide a video for the video 
+announcement.");
+components\teacher\TeacherCommunicationScreen
+.tsx:111:            toast.error("Failed to 
+send notice: " + err.message);
+components\teacher\TeacherCommunicationScreen
+.tsx:148:            
+toast.error("Camera/microphone permission 
+denied. Please enable it in your browser 
+settings.");
+components\teacher\TeacherExamManagement.tsx:
+24:            toast.error("Cannot delete a 
+published exam.");
+components\teacher\TeacherExamManagement.tsx:
+40:            toast.error("Could not find 
+exam to delete.");
+components\teacher\TeacherExamManagement.tsx:
+51:                    toast.error("Cannot 
+edit a published exam.");
+components\teacher\TeacherSecurityScreen.tsx:
+54:            toast.error('Failed to update 
+2FA setting.');
+components\teacher\TeacherSelfAttendance.tsx:
+86:            toast.error("Teacher profile 
+not found. Please contact admin.");
+components\teacher\TeacherSelfAttendance.tsx:
+97:                toast.error(`Failed to 
+submit attendance: ${result.error}`);
+components\teacher\TeacherSelfAttendance.tsx:
+101:            toast.error('An error 
+occurred while submitting attendance.');
+components\ui\CredentialsModal.tsx:216:      
+toast.error('Could not generate PDF. Please 
+try the "Download TXT" option.');
+components\video\VirtualClassroom.tsx:39:    
+        toast.error('Failed to load 
+classes');
+components\video\VirtualClassroom.tsx:64:    
+        toast.error('Failed to create 
+class');
+components\video\VirtualClassroom.tsx:97:    
+        toast.error('Failed to start class');
+lib\hooks\useUserIdentity.ts:27:            
+toast.error('Failed to copy ID');
+lib\database.ts:2189:                
+toast.error('Permission denied: You cannot 
+add buses to this school.');
+lib\database.ts:2191:                
+toast.error('Required data missing. Please 
+check your inputs.');
+lib\database.ts:2237:                
+toast.error('Permission denied: You cannot 
+modify this bus.');
+lib\database.ts:2258:                
+toast.error('Permission denied: You cannot 
+delete this bus.');
+node_modules\react-hot-toast\src\core\toast.t
+s:58:toast.error = createHandler('error');
+node_modules\react-hot-toast\src\core\toast.t
+s:146:        toast.error(errorMessage, {
+
+

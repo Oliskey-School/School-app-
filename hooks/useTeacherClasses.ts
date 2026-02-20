@@ -45,6 +45,8 @@ export const useTeacherClasses = (teacherId?: string | null) => {
     const forceUpdate = () => setVersion(v => v + 1);
 
     useEffect(() => {
+        let channel: any = null;
+
         const fetchClasses = async () => {
             // 1. Resolve Teacher ID (Row ID, not Auth UID) & School ID
             let resolvedTeacherId = null;
@@ -78,29 +80,45 @@ export const useTeacherClasses = (teacherId?: string | null) => {
             }
 
             if (!resolvedTeacherId) {
-                console.warn('⚠️ Could not resolve teacher ID for classes hook');
+                // console.warn('⚠️ Could not resolve teacher ID for classes hook');
                 setLoading(false);
                 return;
             }
 
-            setLoading(true);
+            // Determine if we need to set up a subscription (only if one doesn't exist for this teacher)
+            // Ideally, we subscribe once per resolvedTeacherId
 
             // REAL-TIME SUBSCRIPTION
-            const channel = supabase
-                .channel(`teacher - classes - ${resolvedTeacherId} `)
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'class_teachers',
-                    filter: `teacher_id=eq.${resolvedTeacherId}`
-                }, () => forceUpdate())
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'teacher_classes',
-                    filter: `teacher_id=eq.${resolvedTeacherId}`
-                }, () => forceUpdate())
-                .subscribe();
+            // We use a unique channel name to avoid collisions
+            if (!channel) {
+                channel = supabase
+                    .channel(`teacher-classes-${resolvedTeacherId}-${Date.now()}`)
+                    .on('postgres_changes', {
+                        event: '*',
+                        schema: 'public',
+                        table: 'class_teachers',
+                        filter: `teacher_id=eq.${resolvedTeacherId}`
+                    }, (payload) => {
+                        console.log('Real-time update received (class_teachers):', payload);
+                        forceUpdate();
+                    })
+                    .on('postgres_changes', {
+                        event: '*',
+                        schema: 'public',
+                        table: 'teacher_classes',
+                        filter: `teacher_id=eq.${resolvedTeacherId}`
+                    }, (payload) => {
+                        console.log('Real-time update received (teacher_classes):', payload);
+                        forceUpdate();
+                    })
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            // console.log('Subscribed to teacher class updates');
+                        }
+                    });
+            }
+
+            setLoading(true);
 
             try {
                 // 2. Fetch Assignments via class_teachers (modern table)
@@ -137,6 +155,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                     if (!addedKeys.has(key)) {
                         finalClasses.push({
                             id: c.id,
+                            name: c.name, // Added name
                             grade: c.grade,
                             section: c.section || '',
                             subject: s?.name || 'General',
@@ -210,17 +229,30 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                                 });
 
                                 matches.forEach(match => {
-                                    const key = `${match.id} `;
-                                    if (!addedKeys.has(key)) {
-                                        finalClasses.push({
-                                            id: match.id,
-                                            grade: match.grade,
-                                            section: match.section || '',
-                                            subject: 'General',
-                                            studentCount: 0,
-                                            schoolId: match.school_id
-                                        });
-                                        addedKeys.add(key);
+                                    const key = `${match.id}`; // Simple key for legacy (no subject known)
+                                    // Use a simpler key check for legacy to avoid duplicates with modern if class ID is same
+                                    // But wait, key above was classId-subjectId.
+                                    // If we have a modern assignment for Class X Subject Y, and legacy says "Class X",
+                                    // Should we add it? Probably yes, as "General" or similar.
+                                    // Let's stick to the existing logic but be careful.
+
+                                    // Check if this class ID is already in finalClasses with 'General' subject
+                                    const alreadyExists = finalClasses.some(fc => fc.id === match.id && fc.subject === 'General');
+
+                                    if (!alreadyExists) {
+                                        const legacyKey = `${match.id}-legacy`;
+                                        if (!addedKeys.has(legacyKey)) {
+                                            finalClasses.push({
+                                                id: match.id,
+                                                name: match.name,
+                                                grade: match.grade,
+                                                section: match.section || '',
+                                                subject: 'General',
+                                                studentCount: 0,
+                                                schoolId: match.school_id
+                                            });
+                                            addedKeys.add(legacyKey);
+                                        }
                                     }
                                 });
                             });
@@ -238,13 +270,16 @@ export const useTeacherClasses = (teacherId?: string | null) => {
             } finally {
                 setLoading(false);
             }
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
         };
 
         fetchClasses();
+
+        // Cleanup: Remove subscription when component unmounts or dependencies change
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
     }, [profile?.email, profile?.id, user?.email, teacherId, version]);
 
     return { classes, loading, error };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Calendar, Clock, Users, MapPin, Award } from 'lucide-react';
@@ -97,36 +98,22 @@ const VolunteerSignup: React.FC = () => {
 
     const handleSignup = async (opportunityId: number) => {
         try {
-            const { error } = await supabase.from('volunteer_signups').insert({
+            await api.volunteerSignup({
                 opportunity_id: opportunityId,
                 parent_id: profile.id,
                 status: 'Pending'
             });
 
-            if (error) {
-                if (error.code === '23505') {
-                    toast.error('You have already signed up for this opportunity');
-                } else {
-                    throw error;
-                }
-                return;
-            }
-
-            // Update slots
-            const opportunity = opportunities.find(o => o.id === opportunityId);
-            if (opportunity) {
-                await supabase
-                    .from('volunteer_opportunities')
-                    .update({ slots_filled: opportunity.slots_filled + 1 })
-                    .eq('id', opportunityId);
-            }
-
             toast.success('Signup successful! Coordinator will confirm soon.');
             fetchOpportunities();
             fetchMySignups();
         } catch (error: any) {
-            toast.error('Failed to sign up');
-            console.error(error);
+            if (error.message?.includes('already signed up') || error.message?.includes('23505')) {
+                toast.error('You have already signed up for this opportunity');
+            } else {
+                toast.error('Failed to sign up');
+                console.error(error);
+            }
         }
     };
 
@@ -214,8 +201,8 @@ const VolunteerSignup: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('available')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'available'
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Available Opportunities ({opportunities.length})
@@ -223,8 +210,8 @@ const VolunteerSignup: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('my-signups')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'my-signups'
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     My Signups ({mySignups.length})

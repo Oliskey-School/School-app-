@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { ShieldIcon, AlertTriangleIcon, CheckCircleIcon } from '../../constants';
 
@@ -30,7 +30,7 @@ const AnonymousReporting: React.FC = () => {
             const code = generateTrackingCode();
             const hash = generateReportHash(formData);
 
-            const { error } = await supabase.from('anonymous_reports').insert({
+            const { error } = await api.createAnonymousReport({
                 report_hash: hash,
                 track_code: code,
                 category: formData.category,
@@ -38,7 +38,9 @@ const AnonymousReporting: React.FC = () => {
                 description_encrypted: formData.description, // Would encrypt in production
                 location: formData.location,
                 status: 'New'
-            });
+            }, { useBackend: true })
+                .then(() => ({ error: null }))
+                .catch(err => ({ error: err }));
 
             if (error) throw error;
 
@@ -146,11 +148,11 @@ const AnonymousReporting: React.FC = () => {
                                     type="button"
                                     onClick={() => setFormData({ ...formData, severity: level })}
                                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${formData.severity === level
-                                            ? level === 'Critical' ? 'bg-red-600 text-white' :
-                                                level === 'High' ? 'bg-orange-600 text-white' :
-                                                    level === 'Medium' ? 'bg-yellow-600 text-white' :
-                                                        'bg-green-600 text-white'
-                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        ? level === 'Critical' ? 'bg-red-600 text-white' :
+                                            level === 'High' ? 'bg-orange-600 text-white' :
+                                                level === 'Medium' ? 'bg-yellow-600 text-white' :
+                                                    'bg-green-600 text-white'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                         }`}
                                 >
                                     {level}

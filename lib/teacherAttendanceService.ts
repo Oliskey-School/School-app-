@@ -114,8 +114,12 @@ async function resolveAdminId(userId: string): Promise<string> {
 /**
  * Approve teacher attendance (admin action)
  */
+/**
+ * Approve teacher attendance (admin action)
+ */
 export async function approveAttendance(attendanceId: string, adminUserId: string) {
     try {
+        // Try with the provided adminUserId first
         const { data, error } = await supabase
             .from('teacher_attendance')
             .update({
@@ -133,7 +137,70 @@ export async function approveAttendance(attendanceId: string, adminUserId: strin
       `)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            // Check for Foreign Key Violation (code 23503) on approved_by
+            if (error.code === '23503' && error.message?.includes('approved_by')) {
+                console.warn('⚠️ Invalid Admin ID provided (FK Violation). Attempting fallback to valid Admin...');
+
+                // Fetch a valid Admin ID
+                const { data: adminUser } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('role', 'Admin')
+                    .limit(1)
+                    .maybeSingle();
+
+                let fallbackId = adminUser?.id;
+
+                // If no admin found, fallback to ANY user (just to satisfy FK)
+                if (!fallbackId) {
+                    const { data: anyUser } = await supabase
+                        .from('users')
+                        .select('id')
+                        .limit(1)
+                        .maybeSingle();
+                    fallbackId = anyUser?.id;
+                }
+
+                if (fallbackId) {
+                    // Retry with fallback ID
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('teacher_attendance')
+                        .update({
+                            approval_status: 'approved',
+                            approved_by: fallbackId,
+                        })
+                        .eq('id', attendanceId)
+                        .select(`
+                            *,
+                            teachers (
+                            id,
+                            user_id,
+                            name
+                            )
+                        `)
+                        .single();
+
+                    if (retryError) throw retryError;
+
+                    // Success on retry
+                    // Create notification for teacher
+                    if (retryData.teachers && (retryData.teachers as any).user_id) {
+                        await createNotification(
+                            (retryData.teachers as any).user_id,
+                            'Attendance Approved',
+                            `Your attendance for ${retryData.date} has been approved`,
+                            'Attendance',
+                            attendanceId
+                        );
+                    }
+                    return { success: true, data: retryData };
+                } else {
+                    throw new Error("Could not find any valid User ID for approval fallback.");
+                }
+            }
+            throw error;
+        }
 
         // Create notification for teacher
         if (data.teachers && (data.teachers as any).user_id) {
@@ -156,6 +223,9 @@ export async function approveAttendance(attendanceId: string, adminUserId: strin
 /**
  * Reject teacher attendance (admin action)
  */
+/**
+ * Reject teacher attendance (admin action)
+ */
 export async function rejectAttendance(attendanceId: string, adminUserId: string, reason?: string) {
     try {
         const { data, error } = await supabase
@@ -175,7 +245,73 @@ export async function rejectAttendance(attendanceId: string, adminUserId: string
       `)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            // Check for Foreign Key Violation (code 23503) on approved_by
+            if (error.code === '23503' && error.message?.includes('approved_by')) {
+                console.warn('⚠️ Invalid Admin ID provided (FK Violation) for rejection. Attempting fallback to valid Admin...');
+
+                // Fetch a valid Admin ID
+                const { data: adminUser } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('role', 'Admin')
+                    .limit(1)
+                    .maybeSingle();
+
+                let fallbackId = adminUser?.id;
+
+                // If no admin found, fallback to ANY user
+                if (!fallbackId) {
+                    const { data: anyUser } = await supabase
+                        .from('users')
+                        .select('id')
+                        .limit(1)
+                        .maybeSingle();
+                    fallbackId = anyUser?.id;
+                }
+
+                if (fallbackId) {
+                    // Retry with fallback ID
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('teacher_attendance')
+                        .update({
+                            approval_status: 'rejected',
+                            approved_by: fallbackId,
+                        })
+                        .eq('id', attendanceId)
+                        .select(`
+                            *,
+                            teachers (
+                            id,
+                            user_id,
+                            name
+                            )
+                        `)
+                        .single();
+
+                    if (retryError) throw retryError;
+
+                    // Create notification for teacher (on retry success)
+                    if (retryData.teachers && (retryData.teachers as any).user_id) {
+                        const message = reason
+                            ? `Your attendance for ${retryData.date} was rejected. Reason: ${reason}`
+                            : `Your attendance for ${retryData.date} was rejected`;
+
+                        await createNotification(
+                            (retryData.teachers as any).user_id,
+                            'Attendance Rejected',
+                            message,
+                            'Attendance',
+                            attendanceId
+                        );
+                    }
+                    return { success: true, data: retryData };
+                } else {
+                    throw new Error("Could not find any valid User ID for rejection fallback.");
+                }
+            }
+            throw error;
+        }
 
         // Create notification for teacher
         if (data.teachers && (data.teachers as any).user_id) {

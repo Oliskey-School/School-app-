@@ -75,7 +75,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
     }
   };
 
-  const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section);
+  const formattedClassName = classInfo.name || getFormattedClassName(classInfo.grade, classInfo.section);
 
   return (
     <div className="flex flex-col h-full bg-gray-50">

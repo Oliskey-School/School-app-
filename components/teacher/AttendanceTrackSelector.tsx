@@ -5,6 +5,8 @@ import { Badge } from '../ui/badge';
 import { useToast } from '../../hooks/use-toast';
 import { supabase } from '../../lib/supabase';
 import { BookOpen, AlertCircle, Save, CheckCircle } from 'lucide-react';
+import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
 
 interface AttendanceTrackSelectorProps {
     teacherId: string;
@@ -19,10 +21,11 @@ export default function AttendanceTrackSelector({
 }: AttendanceTrackSelectorProps) {
     const [selectedCurriculum, setSelectedCurriculum] = useState<'Nigerian' | 'British'>('Nigerian');
     const [students, setStudents] = useState<any[]>([]);
-    const [attendance, setAttendance] = useState<{ [key: number]: 'Present' | 'Absent' | 'Late' }>({});
+    const [attendance, setAttendance] = useState<{ [key: string]: 'Present' | 'Absent' | 'Late' }>({});
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const { toast } = useToast();
+    const { profile } = useProfile();
 
     useEffect(() => {
         fetchStudents();
@@ -69,7 +72,7 @@ export default function AttendanceTrackSelector({
             const studentIds = tracks.map(t => t.student_id);
 
             // Fetch student details
-            let { data: students, error: studentsError } = await supabase
+            let { data: studentList, error: studentsError } = await supabase
                 .from('students')
                 .select('*')
                 .in('id', studentIds);
@@ -87,9 +90,9 @@ export default function AttendanceTrackSelector({
             }
 
             // Filter by class if classId is provided
-            if (classId && students) {
+            if (classId && studentList) {
                 // First try filtering by class_id if it exists
-                const classFiltered = students.filter(s => s.class_id === classId);
+                const classFiltered = studentList.filter(s => s.class_id === classId || s.current_class_id === classId);
 
                 // If no results with class_id, try getting class info and filtering by grade/section
                 if (classFiltered.length === 0) {
@@ -100,21 +103,21 @@ export default function AttendanceTrackSelector({
                         .single();
 
                     if (classInfo) {
-                        students = students.filter(s =>
+                        studentList = studentList.filter(s =>
                             s.grade === classInfo.grade && s.section === classInfo.section
                         );
                     }
                 } else {
-                    students = classFiltered;
+                    studentList = classFiltered;
                 }
             }
 
-            setStudents(students || []);
-            console.log(`Loaded ${students?.length || 0} students for ${selectedCurriculum} curriculum`);
+            setStudents(studentList || []);
+            console.log(`Loaded ${studentList?.length || 0} students for ${selectedCurriculum} curriculum`);
 
             // Initialize attendance state
-            const initialAttendance: { [key: number]: 'Present' | 'Absent' | 'Late' } = {};
-            students?.forEach(student => {
+            const initialAttendance: { [key: string]: 'Present' | 'Absent' | 'Late' } = {};
+            studentList?.forEach(student => {
                 initialAttendance[student.id] = 'Present';
             });
             setAttendance(initialAttendance);
@@ -132,7 +135,7 @@ export default function AttendanceTrackSelector({
     };
 
     const handleCurriculumSwitch = (curriculum: 'Nigerian' | 'British') => {
-        if (Object.keys(attendance).some(key => attendance[parseInt(key)] !== 'Present')) {
+        if (Object.keys(attendance).some(key => attendance[key] !== 'Present')) {
             if (!confirm('You have unsaved changes. Switching curriculum will discard them. Continue?')) {
                 return;
             }
@@ -142,7 +145,7 @@ export default function AttendanceTrackSelector({
         onCurriculumChange?.(curriculum);
     };
 
-    const handleAttendanceChange = (studentId: number, status: 'Present' | 'Absent' | 'Late') => {
+    const handleAttendanceChange = (studentId: string, status: 'Present' | 'Absent' | 'Late') => {
         setAttendance(prev => ({
             ...prev,
             [studentId]: status
@@ -150,37 +153,31 @@ export default function AttendanceTrackSelector({
     };
 
     const handleSave = async () => {
+        if (!profile?.schoolId) {
+            toast({
+                title: 'Error',
+                description: 'School context missing. Please refresh.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
         setSaving(true);
         try {
-            // Get class name for the attendance record
-            const { data: classInfo } = await supabase
-                .from('classes')
-                .select('grade, section, subject')
-                .eq('id', classId)
-                .single();
-
-            const className = classInfo
-                ? `${classInfo.grade}${classInfo.section ? ` ${classInfo.section}` : ''}${classInfo.subject ? ` - ${classInfo.subject}` : ''}`
-                : `Class ${classId}`;
-
             const attendanceRecords = Object.entries(attendance).map(([studentId, status]) => ({
-                student_id: parseInt(studentId),
+                student_id: studentId,
+                class_id: classId,
+                school_id: profile.schoolId,
+                branch_id: profile.branchId || null,
                 date: new Date().toISOString().split('T')[0],
-                status,
-                class_name: className,
+                status: status.toLowerCase(),
             }));
 
-            const { error } = await supabase
-                .from('student_attendance')
-                .upsert(attendanceRecords, {
-                    onConflict: 'student_id,date'
-                });
-
-            if (error) throw error;
+            await api.saveAttendance(attendanceRecords);
 
             toast({
                 title: 'Attendance Saved',
-                description: `${selectedCurriculum} curriculum attendance has been recorded for ${className}.`,
+                description: `${selectedCurriculum} curriculum attendance has been recorded.`,
             });
         } catch (error: any) {
             console.error('Attendance save error:', error);

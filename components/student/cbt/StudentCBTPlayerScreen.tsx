@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { CBTTest, Student } from '../../../types';
 import { ClockIcon, CheckCircleIcon } from '../../../constants';
 import { mockCBTTests } from '../../../data';
+import { useAuth } from '../../../context/AuthContext';
 
 interface StudentCBTPlayerScreenProps {
     test: CBTTest;
@@ -19,6 +20,7 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
     const [score, setScore] = useState(0);
 
     const [questions, setQuestions] = useState<any[]>(test.questions || []);
+    const { currentSchool } = useAuth();
 
     useEffect(() => {
         // If questions were not passed (lazy loaded), fetch them now
@@ -90,15 +92,18 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
 
         // Save to Database (quiz_submissions)
         try {
-            const { error } = await import('../../../lib/supabase').then(m => m.supabase.from('quiz_submissions').insert([{
+            const { error } = await import('../../../lib/api').then(m => m.api.submitQuizResult({
                 quiz_id: test.id,
                 student_id: studentId,
                 score: percentage,
                 total_questions: questions.length,
-                answers: answers, // JSON
+                answers: answers,
                 status: 'Graded',
-                submitted_at: new Date().toISOString()
-            }]));
+                submitted_at: new Date().toISOString(),
+                school_id: (test as any).school_id || currentSchool?.id
+            }, { useBackend: true }))
+                .then(() => ({ error: null }))
+                .catch(err => ({ error: err }));
 
             if (error) {
                 console.error("Failed to save result:", error);

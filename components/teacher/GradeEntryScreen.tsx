@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
+import { api } from '../../lib/api';
 
 import { toast } from 'react-hot-toast';
 
@@ -77,12 +78,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
                 // 2. Fetch Existing Grades for this subject
                 const studentIds = loadedStudents.map(s => s.id);
                 if (studentIds.length > 0) {
-                    const { data: gradesData } = await supabase
-                        .from('academic_performance')
-                        .select('student_id, score')
-                        .eq('subject', exam.subject)
-                        .eq('term', 'First Term') // Hardcoded for simplified context
-                        .in('student_id', studentIds);
+                    const gradesData = await api.getGrades(studentIds, exam.subject, 'First Term', { useBackend: true });
 
                     if (gradesData) {
                         const scoreMap: { [key: number]: string } = {};
@@ -107,27 +103,13 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
     const saveGrade = async (studentId: string | number, value: string) => {
         const numericScore = parseInt(value, 10);
 
-        // Upsert logic (requires unique constraint usually, but we handle via check first or assume insert/update)
-        // Check if exists
-        const { data: existing } = await supabase
-            .from('academic_performance')
-            .select('id')
-            .eq('student_id', studentId)
-            .eq('subject', exam.subject)
-            .eq('term', 'First Term')
-            .maybeSingle();
-
-        if (existing) {
-            await supabase.from('academic_performance').update({ score: numericScore }).eq('id', existing.id);
-        } else {
-            await supabase.from('academic_performance').insert([{
-                student_id: studentId,
-                subject: exam.subject,
-                score: numericScore,
-                term: 'First Term',
-                session: '2024/2025'
-            }]);
-        }
+        await api.saveGrade({
+            studentId,
+            subject: exam.subject,
+            score: numericScore,
+            term: 'First Term',
+            session: '2024/2025'
+        }, { useBackend: true });
 
         // console.log(`Saved score for student ${studentId}: ${value}`);
         setSaveStatus('saved');

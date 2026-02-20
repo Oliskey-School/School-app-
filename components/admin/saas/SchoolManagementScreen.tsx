@@ -4,6 +4,7 @@ import { SaaSSchool } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { exportToCSV, exportToPDF, paginate, formatDate } from '../../../lib/exportUtils';
 import { logAuditAction } from '../../../lib/auditLogger';
+import api from '../../../lib/api';
 import {
     Building,
     MoreVertical,
@@ -79,48 +80,30 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
 
         const schoolIds = Array.from(selectedSchools);
 
-        if (action === 'delete') {
-            const { error } = await supabase
-                .from('schools')
-                .delete()
-                .in('id', schoolIds);
-
-            if (error) {
-                toast.error(`Failed to delete schools: ${error.message}`);
-            } else {
+        try {
+            if (action === 'delete') {
+                await api.deleteSchoolsBulk(schoolIds);
                 toast.success(`${schoolIds.length} school(s) deleted successfully`);
-                setSelectedSchools(new Set());
-                refreshSchools();
-            }
-        } else {
-            const newStatus = action === 'activate' ? 'active' : 'suspended';
-            const { error } = await supabase
-                .from('schools')
-                .update({ status: newStatus })
-                .in('id', schoolIds);
-
-            if (error) {
-                toast.error(`Failed to update schools: ${error.message}`);
             } else {
+                const newStatus = action === 'activate' ? 'active' : 'suspended';
+                await api.updateSchoolStatusBulk(schoolIds, newStatus);
                 toast.success(`${schoolIds.length} school(s) ${action}d successfully`);
                 logAuditAction(action.toUpperCase() as any, 'SCHOOL', schoolIds.join(','), { count: schoolIds.length });
-                setSelectedSchools(new Set());
-                refreshSchools();
             }
+            setSelectedSchools(new Set());
+            refreshSchools();
+        } catch (error: any) {
+            toast.error(`Failed to ${action} schools: ${error.message}`);
         }
     };
 
     const handlePlanChange = async (schoolId: string, planId: number) => {
-        const { error } = await supabase
-            .from('schools')
-            .update({ plan_id: planId })
-            .eq('id', schoolId);
-
-        if (error) {
-            toast.error(`Failed to change plan: ${error.message}`);
-        } else {
+        try {
+            await api.updateSchool(schoolId, { plan_id: planId });
             toast.success("Plan updated successfully.");
             refreshSchools();
+        } catch (error: any) {
+            toast.error(`Failed to change plan: ${error.message}`);
         }
     };
 

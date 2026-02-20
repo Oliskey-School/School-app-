@@ -13,6 +13,8 @@ import {
 } from '../../constants';
 import { fetchStudentsByClass, fetchTeachers } from '../../lib/database';
 
+import { api } from '../../lib/api';
+
 // --- Customized Icons for Premium Feel ---
 const XIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
 const HandIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
@@ -476,7 +478,7 @@ const VirtualClassScreen: React.FC = () => {
                 const { data: profile } = await supabase.from('users').select('school_id').eq('id', user.id).single();
                 const schoolId = profile?.school_id;
                 if (!schoolId) return;
-                const { data: session, error } = await supabase.from('virtual_class_sessions').insert({
+                const session = await api.createVirtualClassSession({
                     teacher_id: user.id,
                     class_id: cls.id,
                     school_id: schoolId,
@@ -485,9 +487,9 @@ const VirtualClassScreen: React.FC = () => {
                     status: 'active',
                     start_time: new Date().toISOString(),
                     meeting_link: 'internal_jitsi'
-                }).select().single();
-                if (error) throw error;
-                await supabase.from('notifications').insert({
+                }, { useBackend: true });
+
+                await api.createNotification({
                     school_id: schoolId,
                     title: `🎬 Live Class: ${subject}`,
                     message: `Your ${subject} class is starting now. Click to join!`,
@@ -495,7 +497,7 @@ const VirtualClassScreen: React.FC = () => {
                     audience: [`Grade ${cls.rawGrade}`],
                     related_id: session.id,
                     is_read: false
-                });
+                }, { useBackend: true });
                 toast.success('Class session started live!');
             } catch (e: any) { toast.error('Failed to start session: ' + e.message); }
         }

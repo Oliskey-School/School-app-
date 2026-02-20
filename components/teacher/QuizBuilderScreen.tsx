@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
-// Note: Using new 'Quiz', 'Question' types from types.ts automatically if imported
 import { Question } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+import api from '../../lib/api';
 
 interface QuizBuilderScreenProps {
     teacherId?: number; // Kept for compatibility but ignored for logic
@@ -123,27 +123,19 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
 
         setIsSubmitting(true);
         try {
-            // 1. Create Quiz Record
-            const { data: quizData, error: quizError } = await supabase
-                .from('quizzes')
-                .insert([{
-                    title,
-                    subject,
-                    class_id: selectedClassId || null,
-                    teacher_id: finalTeacherId,
-                    school_id: schoolId,
-                    duration_minutes: duration,
-                    description,
-                    is_published: true,
-                    is_active: true
-                }])
-                .select()
-                .single();
+            // 1. Organize Quiz Record
+            const quizPayload = {
+                title,
+                subject,
+                class_id: selectedClassId || null,
+                teacher_id: finalTeacherId,
+                duration_minutes: duration,
+                description,
+                is_published: true,
+                is_active: true
+            };
 
-            if (quizError) throw quizError;
-
-            // 2. Create Questions
-            // 2. Create Questions
+            // 2. Format Questions
             const formattedQuestions = questions.map((q, index) => {
                 // Determine correct answer for local state
                 let correctAnswer = '';
@@ -153,7 +145,6 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 }
 
                 return {
-                    quiz_id: quizData.id, // UUID
                     question_text: q.text,
                     question_type: q.type === 'MultipleChoice' ? 'multiple_choice' : 'theory',
                     marks: q.points,
@@ -163,11 +154,10 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 };
             });
 
-            const { error: qError } = await supabase
-                .from('quiz_questions')
-                .insert(formattedQuestions);
-
-            if (qError) throw qError;
+            await api.createQuizWithQuestions({
+                quiz: quizPayload,
+                questions: formattedQuestions
+            });
 
             toast.success('Quiz created successfully!');
             onClose();

@@ -5,9 +5,10 @@ import { supabase } from '../../lib/supabase';
 import { CloudUploadIcon, EyeIcon, ExamIcon, TrashIcon, XCircleIcon, WifiIcon, getFormattedClassName } from '../../constants';
 import { CBTExam, Subject } from '../../types';
 import ConfirmationModal from '../ui/ConfirmationModal';
-import { fetchSubjects, fetchCBTExams, deleteCBTExam } from '../../lib/database';
+import { fetchSubjects, fetchCBTExams } from '../../lib/database';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useProfile } from '../../context/ProfileContext';
+import api from '../../lib/api';
 
 interface CBTManagementScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -148,41 +149,31 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 }
             }
 
-            const { data: quizData, error: quizError } = await supabase
-                .from('quizzes')
-                .insert([{
-                    title: file.name.replace('.xlsx', '').replace('.xls', ''),
-                    description: uploadType, // Mapping 'type' to description or status if needed
-                    status: 'draft', // Default status (must be lowercase per DB constraint)
-                    class_id: selectedClassId, // UUID string
-                    subject_id: selectedSubjectId, // UUID string
-                    duration_minutes: duration,
-                    total_marks: totalMarks,
-                    teacher_id: teacherId,
-                    school_id: activeSchoolId,
-                    is_published: false
-                }])
-                .select()
-                .single();
+            const quizPayload = {
+                title: file.name.replace('.xlsx', '').replace('.xls', ''),
+                description: uploadType,
+                status: 'draft',
+                class_id: selectedClassId,
+                subject_id: selectedSubjectId,
+                duration_minutes: duration,
+                total_marks: totalMarks,
+                teacher_id: teacherId,
+                is_published: false
+            };
 
-            if (quizError) throw quizError;
-
-            // 2. Insert Questions (quiz_questions table)
             const questionsPayload = parsedQuestions.map((q, index) => ({
-                quiz_id: quizData.id,
                 question_text: q.question_text,
                 question_type: 'multiple_choice',
-                options: [q.option_a, q.option_b, q.option_c, q.option_d], // Store as array
-                correct_answer: q.correct_option, // The schema expects 'correct_answer', parsed data has 'correct_option'
+                options: [q.option_a, q.option_b, q.option_c, q.option_d],
+                correct_answer: q.correct_option,
                 marks: q.marks,
                 question_order: index + 1
             }));
 
-            const { error: qError } = await supabase
-                .from('quiz_questions')
-                .insert(questionsPayload);
-
-            if (qError) throw qError;
+            await api.createQuizWithQuestions({
+                quiz: quizPayload,
+                questions: questionsPayload
+            });
 
             toast.success("Quiz uploaded successfully!");
             loadInitialData();
@@ -202,23 +193,20 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
         // Optimistic update
         setExams(prev => prev.map(e => e.id === exam.id ? { ...e, isPublished: newStatus } : e));
 
-        const { error } = await supabase
-            .from('quizzes')
-            .update({ is_published: newStatus })
-            .eq('id', exam.id);
-
-        if (error) {
+        try {
+            await api.updateQuizStatus(exam.id, newStatus);
+        } catch (error) {
             toast.error("Failed to update status.");
             loadInitialData(); // Revert
         }
     };
 
     const handleDelete = async (id: string) => {
-        const success = await deleteCBTExam(id);
-        if (success) {
+        try {
+            await api.deleteQuiz(id);
             toast.success("Exam deleted successfully");
             setExams(prev => prev.filter(e => e.id !== id));
-        } else {
+        } catch (error) {
             toast.error("Failed to delete exam");
         }
     };

@@ -14,6 +14,7 @@ import {
 import { ClassInfo, Assignment } from '../../types';
 import { SUBJECTS_LIST } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import api from '../../lib/api';
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -353,15 +354,8 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
     }
 
     try {
-      // 1. Save to Supabase
-      const { data, error } = await supabase
-        .from('assignments')
-        .insert([dbPayload])
-        .select();
-
-      if (error) {
-        throw error;
-      }
+      // 1. Save via Backend API (Bypasses RLS)
+      await api.createAssignment(dbPayload);
 
       // 2. Update Local State (Camel Case for frontend)
       const newAssignmentData = {

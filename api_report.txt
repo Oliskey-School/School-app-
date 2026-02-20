@@ -1,0 +1,65 @@
+
+================================
+--- Backend Registered Endpoints ---
+//invite-user
+/assignments
+/assignments/:id/submissions
+/assignments/submissions/:id/grade
+/attendance
+/attendance/bulk-fetch
+/attendance/student/:studentId
+/auth/create-user
+/auth/login
+/auth/signup
+/auth/verify
+/buses
+/buses/:id
+/classes
+/classes/:id
+/dashboard/stats
+/exams
+/exams/:id
+/exams/:id/results
+/fees
+/fees/:id
+/fees/:id/status
+/fees/bulk-fetch
+/forum/posts
+/forum/topics
+/forum/topics/:id/posts
+/lesson-plans
+/lesson-plans/:id
+/notices
+/notices/:id
+/notifications
+/notifications/:id/read
+/notifications/me
+/parents
+/parents/:id
+/parents/me/children
+/report-cards
+/report-cards/:id/status
+/schools
+/schools/:id
+/students
+/students/:id
+/students/bulk-status
+/students/enroll
+/students/link-guardian
+/students/me
+/students/me/performance
+/students/me/quiz-results
+/teachers
+/teachers/:id
+/timetable
+/transactions
+/users
+/users/:id
+================================
+--- Missing Endpoints in Backend ---
+Expected but missing => /ai/generated-resources
+Expected but missing => /attendance/student/:id
+Expected but missing => /dashboard/stats${branchId && branchId !== 
+Expected but missing => /invite-user
+Expected but missing => /students${branchId && branchId !== 
+Expected but missing => /teachers${branchId && branchId !== 

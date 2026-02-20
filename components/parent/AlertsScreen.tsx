@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { fetchStudentById, fetchStudentFeeSummary } from '../../lib/database';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
@@ -75,8 +76,8 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read
     if (!notification.isRead) {
-        await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
-        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+      await api.markNotificationRead(notification.id);
+      setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
     }
 
     switch (notification.category) {
