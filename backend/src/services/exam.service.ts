@@ -12,9 +12,19 @@ export class ExamService {
     }
 
     static async createExam(schoolId: string, examData: any) {
+        const payload = {
+            ...examData,
+            school_id: schoolId,
+        };
+        // Transform frontend camelCase to snake_case if present
+        if (payload.className) {
+            payload.class_name = payload.className;
+            delete payload.className;
+        }
+
         const { data, error } = await supabase
             .from('exams')
-            .insert([{ ...examData, school_id: schoolId }])
+            .insert([payload])
             .select()
             .single();
         if (error) throw new Error(error.message);
@@ -22,9 +32,16 @@ export class ExamService {
     }
 
     static async updateExam(schoolId: string, id: string, updates: any) {
+        const payload = { ...updates };
+        // Transform frontend camelCase to snake_case if present
+        if (payload.className) {
+            payload.class_name = payload.className;
+            delete payload.className;
+        }
+
         const { data, error } = await supabase
             .from('exams')
-            .update(updates)
+            .update(payload)
             .eq('id', id)
             .eq('school_id', schoolId)
             .select()

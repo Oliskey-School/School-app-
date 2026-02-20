@@ -67,7 +67,8 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
 
         return {
           ...student,
-          status: (latestReport?.status as ReportCard['status']) || 'Draft',
+          status: latestReport ? (latestReport.status as ReportCard['status']) : 'Draft',
+          hasReport: !!latestReport,
           reportCards: studentReports.map(rc => ({
             id: rc.id,
             session: rc.session,

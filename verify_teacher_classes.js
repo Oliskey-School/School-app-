@@ -35,7 +35,7 @@ const supabase = createClient(supabaseUrl, serviceKey);
 async function verifyTeacherClasses() {
     console.log('--- Verifying Teacher Class Fetching ---');
 
-    const TARGET_ID = 'OLISKEY_MAIN_TCH_0001';
+    const TARGET_ID = 'OLISKEY_MAIN_TCH_0021';
     console.log(`Looking up teacher: ${TARGET_ID}`);
 
     // 1. Get Teacher Record

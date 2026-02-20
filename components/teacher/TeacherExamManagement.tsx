@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { PlusIcon, EditIcon, TrashIcon, EXAM_TYPE_COLORS, EnterResultsIcon } from '../../constants';
 import { Exam } from '../../types';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface TeacherExamManagementProps {
@@ -24,10 +25,10 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
         setLoading(true);
         try {
             const data = await api.getExams(schoolId);
-            const teacherExams = teacherId 
+            const teacherExams = teacherId
                 ? data.filter((e: any) => e.teacher_id === teacherId)
                 : data;
-            
+
             setExams(teacherExams.map((e: any) => ({
                 id: e.id,
                 subject: e.subject,
@@ -47,6 +48,11 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
     useEffect(() => {
         fetchExams();
     }, [schoolId, teacherId]);
+
+    // Auto-sync when exams change
+    useAutoSync(['exams'], () => {
+        fetchExams();
+    });
 
     const handleDeleteClick = (exam: Exam) => {
         if (exam.isPublished) {
@@ -80,12 +86,19 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                     toast.error("Cannot edit a published exam.");
                     return;
                 }
+
+                // Construct clean payload for Supabase
+                const payload = {
+                    type: examData.type,
+                    date: examData.date,
+                    time: examData.time,
+                    class_name: examData.className,
+                    subject: examData.subject,
+                    updated_at: new Date().toISOString()
+                };
+
                 try {
-                    await api.updateExam(exam.id, {
-                        ...examData,
-                        class_name: examData.className,
-                        updated_at: new Date().toISOString()
-                    });
+                    await api.updateExam(exam.id, payload);
                     toast.success("Exam updated successfully");
                     fetchExams();
                     handleBack();
@@ -99,16 +112,19 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
     const handleAddNew = () => {
         navigateTo('addExam', 'Add New Exam', {
             onSave: async (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
+                const payload = {
+                    type: examData.type,
+                    date: examData.date,
+                    time: examData.time,
+                    class_name: examData.className,
+                    subject: examData.subject,
+                    is_published: false,
+                    teacher_id: teacherId,
+                    school_id: schoolId
+                };
+
                 try {
-                    await api.createExam({
-                        ...examData,
-                        class_name: examData.className,
-                        is_published: false,
-                        teacher_id: teacherId,
-                        school_id: schoolId,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    });
+                    await api.createExam(payload);
                     toast.success("Exam created successfully");
                     fetchExams();
                     handleBack();

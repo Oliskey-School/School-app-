@@ -20,6 +20,7 @@ import { fetchStudents } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ status }) => {
   switch (status) {
@@ -155,20 +156,13 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
     if (user || profile || propSchoolId) {
       loadStudents();
     }
-
-    // Realtime Subscription
-    const subscription = supabase
-      .channel('public:students')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, (payload) => {
-        console.log('Student change received:', payload);
-        loadStudents();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
   }, [currentBranchId, propSchoolId, profile?.schoolId, user?.id]); // Re-load when branch or context changes
+
+  // Auto-sync
+  useAutoSync(['students'], () => {
+    console.log('🔄 [StudentList] Auto-sync triggered');
+    loadStudents();
+  });
 
   const loadStudents = async () => {
     setIsLoading(true);

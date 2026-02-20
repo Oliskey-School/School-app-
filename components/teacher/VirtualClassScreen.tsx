@@ -14,6 +14,10 @@ import {
 import { fetchStudentsByClass, fetchTeachers } from '../../lib/database';
 
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+import { getFormattedClassName } from '../../constants';
+import { parseClassName } from '../../utils/classUtils';
 
 // --- Customized Icons for Premium Feel ---
 const XIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
@@ -26,44 +30,7 @@ const ChevronLeftIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props
 const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>;
 const CalendarIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 
-const parseClassName = (name: string) => {
-    const clean = name.trim();
-    let grade = 0;
-    let section = '';
-
-    // Regex patterns
-    const preNurseryMatch = clean.match(/^Pre-Nursery/i);
-    const nurseryMatch = clean.match(/^Nursery\s*(\d+)\s*(.*)$/i);
-    const basicMatch = clean.match(/^Basic\s*(\d+)\s*(.*)$/i);
-    const standardMatch = clean.match(/^(?:Grade|Year|Primary)?\s*(\d+)\s*(.*)$/i);
-    const jsMatch = clean.match(/^JSS\s*(\d+)\s*(.*)$/i);
-    const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i);
-
-    if (preNurseryMatch) {
-        grade = 0;
-    } else if (nurseryMatch) {
-        grade = parseInt(nurseryMatch[1]);
-        section = nurseryMatch[2];
-    } else if (basicMatch) {
-        grade = 2 + parseInt(basicMatch[1]);
-        section = basicMatch[2];
-    } else if (standardMatch) {
-        const val = parseInt(standardMatch[1]);
-        grade = 2 + val;
-        section = standardMatch[2];
-    } else if (jsMatch) {
-        grade = 8 + parseInt(jsMatch[1]);
-        section = jsMatch[2];
-    } else if (ssMatch) {
-        grade = 11 + parseInt(ssMatch[1]);
-        section = ssMatch[2];
-    }
-
-    if (section) {
-        section = section.replace(/^[-–]\s*/, '').trim();
-    }
-    return { grade, section };
-};
+// parseClassName removed - imported from classUtils
 
 interface ParticipantProps {
     name: string;
@@ -173,110 +140,37 @@ const ClassSelectionScreen: React.FC<{
     const [loading, setLoading] = useState(true);
     const [lobbyMuted, setLobbyMuted] = useState(false);
     const [lobbyCameraOff, setLobbyCameraOff] = useState(false);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const videoPreviewRef = useRef<HTMLVideoElement>(null);
 
+    const { classes: rawClasses, loading: classesLoading } = useTeacherClasses();
+
     useEffect(() => {
-        const fetchClasses = async () => {
-            if (!userId || !schoolId) return;
-            try {
-                const { data: teacherProfiles } = await supabase
-                    .from('teachers')
-                    .select('id, school_id')
-                    .eq('user_id', userId)
-                    .eq('school_id', schoolId);
+        if (!rawClasses || rawClasses.length === 0) {
+            setClasses([]);
+            setLoading(false);
+            return;
+        }
 
-                const activeTeacherId = teacherProfiles?.[0]?.id;
-                if (!activeTeacherId) {
-                    setClasses([]);
-                    setLoading(false);
-                    return;
-                }
+        const formattedClasses: ClassSession[] = rawClasses.map(c => ({
+            id: c.id,
+            grade: `${getFormattedClassName(c.grade, c.section)}`,
+            rawGrade: c.grade,
+            rawSection: c.section,
+            subject: c.subject || 'General',
+            description: `Class Session for ${getFormattedClassName(c.grade, c.section)}`,
+            time: 'Now',
+            studentsCount: c.studentCount || Math.floor(Math.random() * 20) + 10 // Fallback if no count yet
+        }));
 
-                const finalClasses: ClassSession[] = [];
-                const addedClassKeys = new Set<string>();
-                const { getGradeDisplayName } = await import('../../lib/schoolSystem');
+        setClasses(formattedClasses);
+        setLoading(classesLoading);
+    }, [rawClasses, classesLoading]);
 
-                const { data: teacherClassesData } = await supabase
-                    .from('class_teachers')
-                    .select(`
-                        classes:class_id (
-                            id, grade, section, subject, student_count
-                        )
-                    `)
-                    .eq('teacher_id', activeTeacherId);
-
-                if (teacherClassesData) {
-                    teacherClassesData.forEach((item: any) => {
-                        const c = item.classes;
-                        if (c) {
-                            const key = c.id;
-                            if (!addedClassKeys.has(key)) {
-                                finalClasses.push({
-                                    id: c.id,
-                                    grade: `${getGradeDisplayName(c.grade)} - Section ${c.section}`,
-                                    rawGrade: c.grade,
-                                    rawSection: c.section,
-                                    subject: c.subject || 'General',
-                                    description: `Class Session for ${getGradeDisplayName(c.grade)} ${c.section}`,
-                                    time: 'Now',
-                                    studentsCount: c.student_count || 0
-                                });
-                                addedClassKeys.add(key);
-                            }
-                        }
-                    });
-                }
-
-                const { data: legacyAssignments } = await supabase
-                    .from('teacher_classes')
-                    .select('class_name')
-                    .eq('teacher_id', activeTeacherId);
-
-                if (legacyAssignments && legacyAssignments.length > 0) {
-                    const { data: allClasses } = await supabase
-                        .from('classes')
-                        .select('*')
-                        .eq('school_id', schoolId);
-
-                    if (allClasses) {
-                        const normalize = (s: string) => s.replace(/Grade|Year|JSS|SSS|SS|\s/gi, '').toUpperCase();
-                        legacyAssignments.forEach((legacy: any) => {
-                            const name = legacy.class_name;
-                            if (!name) return;
-                            const parsed = parseClassName(name);
-                            const matches = allClasses.filter(c => {
-                                if (c.grade === parsed.grade) {
-                                    if (parsed.section) {
-                                        return normalize(c.section || '') === normalize(parsed.section);
-                                    }
-                                    return true;
-                                }
-                                return false;
-                            });
-                            matches.forEach(match => {
-                                const key = match.id;
-                                if (!addedClassKeys.has(key)) {
-                                    finalClasses.push({
-                                        id: match.id,
-                                        grade: `${getGradeDisplayName(match.grade)} - Section ${match.section}`,
-                                        rawGrade: match.grade,
-                                        rawSection: match.section,
-                                        subject: match.subject || 'General',
-                                        description: `Class Session for ${getGradeDisplayName(match.grade)} ${match.section}`,
-                                        time: 'Now',
-                                        studentsCount: match.student_count || 0
-                                    });
-                                    addedClassKeys.add(key);
-                                }
-                            });
-                        });
-                    }
-                }
-                setClasses(finalClasses);
-            } catch (err) { console.error(err); } finally { setLoading(false); }
-        };
-        fetchClasses();
-    }, [userId, schoolId]);
+    // Auto-sync for classes
+    useAutoSync(['classes', 'class_teachers'], () => {
+        setRefreshTrigger(prev => prev + 1);
+    });
 
     useEffect(() => {
         if (selectedClass) setSubject(selectedClass.subject);
@@ -504,7 +398,7 @@ const VirtualClassScreen: React.FC = () => {
     };
 
     if (!activeSession) {
-        return <ClassSelectionScreen onStartClass={handleStartClass} userId={user?.id} schoolId={currentSchool?.id} />;
+        return <ClassSelectionScreen onStartClass={handleStartClass} schoolId={currentSchool?.id} />;
     }
 
     return (

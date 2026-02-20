@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabase';
 import { fetchSubjects, createLessonNote } from '../../lib/database';
 import { Subject } from '../../types';
 import { toast } from 'react-hot-toast';
-import { BookOpenIcon, PlusIcon, UploadIcon, CheckCircleIcon, ClockIcon } from '../../constants';
+import { BookOpenIcon, PlusIcon, UploadIcon, CheckCircleIcon, ClockIcon, getFormattedClassName } from '../../constants';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+import { useAuth } from '../../context/AuthContext';
 
 interface LessonNotesUploadScreenProps {
     handleBack: () => void;
@@ -12,9 +14,6 @@ interface LessonNotesUploadScreenProps {
 }
 
 const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handleBack, teacherId, schoolId }) => {
-    // State for form
-    const [subjects, setSubjects] = useState<Subject[]>([]);
-    const [classes, setClasses] = useState<{ id: number, name: string }[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
     const [term, setTerm] = useState<string>('First Term');
@@ -24,184 +23,29 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
     const [fileUrl, setFileUrl] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    const { user, currentSchool } = useAuth(); // Standard hook call
+    const { classes: rawClasses, subjects: allSubjects, assignments: rawAssignments, loading: classesLoading } = useTeacherClasses(teacherId);
 
-    const parseClassName = (name: string) => {
-        const clean = name.trim();
-        let grade = 0;
-        let section = '';
+    const classes = React.useMemo(() => {
+        return rawClasses.map(c => ({
+            id: c.id as any,
+            name: getFormattedClassName(c.grade, c.section)
+        }));
+    }, [rawClasses]);
 
-        // Regex patterns
-        const preNurseryMatch = clean.match(/^Pre-Nursery/i);
-        const nurseryMatch = clean.match(/^Nursery\s*(\d+)\s*(.*)$/i);
-        const basicMatch = clean.match(/^Basic\s*(\d+)\s*(.*)$/i);
-        const standardMatch = clean.match(/^(?:Grade|Year|Primary)?\s*(\d+)\s*(.*)$/i);
-        const jsMatch = clean.match(/^JSS\s*(\d+)\s*(.*)$/i);
-        const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i); // Matches SS, SSS
+    // EXCLUSIVE: Filter subjects based on selected class to ensure strict assignment
+    const filteredSubjects = React.useMemo(() => {
+        if (!selectedClassId) return allSubjects;
 
-        if (preNurseryMatch) {
-            grade = 0;
-        } else if (nurseryMatch) {
-            grade = parseInt(nurseryMatch[1]); // 1 -> 1 (Nursery 1)
-            section = nurseryMatch[2];
-        } else if (basicMatch) {
-            grade = 2 + parseInt(basicMatch[1]); // 1 -> 3 (Basic 1)
-            section = basicMatch[2];
-        } else if (standardMatch) {
-            const val = parseInt(standardMatch[1]);
-            // Assumption: "Grade 1" = Basic 1 = 3. 
-            // "Grade 5" = Basic 5 = 7.
-            grade = 2 + val;
-            section = standardMatch[2];
-        } else if (jsMatch) {
-            grade = 8 + parseInt(jsMatch[1]); // 1 -> 9 (JSS 1)
-            section = jsMatch[2];
-        } else if (ssMatch) {
-            grade = 11 + parseInt(ssMatch[1]); // 1 -> 12 (SSS 1)
-            section = ssMatch[2];
+        const specificAssignments = rawAssignments.filter(a => a.classId === selectedClassId);
+
+        if (specificAssignments.length > 0 && specificAssignments.some(a => a.subjectId)) {
+            const allowedSubjectIds = new Set(specificAssignments.map(a => a.subjectId));
+            return allSubjects.filter(sub => allowedSubjectIds.has(sub.id));
         }
 
-        if (section) {
-            section = section.replace(/^[-–]\s*/, '').trim();
-        }
-        return { grade, section };
-    };
-
-    const loadData = async () => {
-        const { getGradeDisplayName } = await import('../../lib/schoolSystem');
-
-        try {
-            // 1. Fetch Assigned Classes (Modern: class_teachers)
-            const { data: teacherClassesData } = await supabase
-                .from('class_teachers')
-                .select(`
-                    class_id,
-                    subject_id,
-                    classes (id, grade, section),
-                    subjects (id, name)
-                `)
-                .eq('teacher_id', teacherId);
-
-            const finalClasses: any[] = [];
-            const addedClassKeys = new Set<string>();
-            const finalSubjects: any[] = [];
-            const addedSubjectKeys = new Set<string>();
-
-            if (teacherClassesData && teacherClassesData.length > 0) {
-                teacherClassesData.forEach((item: any) => {
-                    const c = item.classes;
-                    if (c) {
-                        const key = c.id;
-                        if (!addedClassKeys.has(key)) {
-                            finalClasses.push({
-                                id: c.id,
-                                name: `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`
-                            });
-                            addedClassKeys.add(key);
-                        }
-                    }
-
-                    const s = item.subjects;
-                    if (s) {
-                        const key = s.id;
-                        if (!addedSubjectKeys.has(key)) {
-                            finalSubjects.push({
-                                id: s.id,
-                                name: s.name
-                            });
-                            addedSubjectKeys.add(key);
-                        }
-                    }
-                });
-            }
-
-            // 2. Fetch Assigned Classes (Legacy: teacher_classes/teacher_subjects)
-            const { data: legacyClasses } = await supabase
-                .from('teacher_classes')
-                .select('class_name')
-                .eq('teacher_id', teacherId);
-
-            if (legacyClasses && legacyClasses.length > 0 && schoolId) {
-                const { data: allClasses } = await supabase
-                    .from('classes')
-                    .select('id, grade, section')
-                    .eq('school_id', schoolId);
-
-                if (allClasses) {
-                    const normalize = (s: string) => s.replace(/Grade|Year|JSS|SSS|SS|\s/gi, '').toUpperCase();
-                    legacyClasses.forEach((legacy: any) => {
-                        const name = legacy.class_name;
-                        if (!name) return;
-                        const parsed = parseClassName(name);
-                        const matches = allClasses.filter(c => {
-                            if (c.grade === parsed.grade) {
-                                if (parsed.section) {
-                                    return normalize(c.section || '') === normalize(parsed.section);
-                                }
-                                return true;
-                            }
-                            return false;
-                        });
-
-                        matches.forEach(match => {
-                            const key = match.id;
-                            if (!addedClassKeys.has(key)) {
-                                finalClasses.push({
-                                    id: match.id,
-                                    name: `${getGradeDisplayName(match.grade)}${match.section ? ' ' + match.section : ''}`
-                                });
-                                addedClassKeys.add(key);
-                            }
-                        });
-                    });
-                }
-            }
-
-            // Fetch Legacy Subjects
-            const { data: legacySubjects } = await supabase
-                .from('teacher_subjects')
-                .select('subject')
-                .eq('teacher_id', teacherId);
-
-            if (legacySubjects && legacySubjects.length > 0 && schoolId) {
-                const { data: schoolSubjects } = await supabase
-                    .from('subjects')
-                    .select('id, name')
-                    .eq('school_id', schoolId)
-                    .eq('is_active', true);
-
-                if (schoolSubjects) {
-                    const normalize = (s: string) => s.toLowerCase().replace(/\s/g, '');
-                    legacySubjects.forEach((legacy: any) => {
-                        const name = legacy.subject;
-                        if (!name) return;
-
-                        const match = schoolSubjects.find(s => normalize(s.name) === normalize(name));
-                        if (match && !addedSubjectKeys.has(match.id)) {
-                            finalSubjects.push({
-                                id: match.id,
-                                name: match.name
-                            });
-                            addedSubjectKeys.add(match.id);
-                        }
-                    });
-                }
-            }
-
-            setSubjects(finalSubjects);
-            setClasses(finalClasses);
-
-            if (finalSubjects.length === 0) {
-                toast('No subjects assigned to this account.', { icon: 'ℹ️' });
-            }
-
-        } catch (err) {
-            console.error("Error loading lesson notes data:", err);
-            toast.error("Failed to load classes or subjects.");
-        }
-    };
+        return allSubjects;
+    }, [selectedClassId, allSubjects, rawAssignments]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -286,7 +130,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                                 <select value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} className="w-full p-2 border rounded-lg">
                                     <option value="">Select Subject</option>
-                                    {subjects.map(s => (
+                                    {filteredSubjects.map(s => (
                                         <option key={s.id} value={s.id}>{s.name} ({s.gradeLevel || 'Gen'})</option>
                                     ))}
                                 </select>

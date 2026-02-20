@@ -239,6 +239,7 @@ export interface ClassInfo {
   department?: Department;
   studentCount: number;
   schoolId?: string;
+  branch_id?: string;
   level_category?: string;
 }
 
@@ -892,11 +893,16 @@ export interface SchemeWeek {
 }
 
 export interface SavedScheme {
+  id?: string;
+  teacher_id?: string;
   subject: string;
   className: string;
+  term?: string;
   term1Scheme: SchemeWeek[];
   term2Scheme: SchemeWeek[];
   term3Scheme: SchemeWeek[];
+  scheme_content?: any;
+  updated_at?: string;
 }
 
 export interface Plan {
@@ -973,6 +979,9 @@ export interface GeneratedResources {
   className: string;
   terms: TermResources[];
   detailedNotes?: DetailedNote[];
+  subjectId?: string;
+  classId?: string;
+  teacherId?: string;
 }
 
 export interface GeneratedHistoryEntry {
@@ -1034,9 +1043,9 @@ export interface Subject {
   id: string; // UUID
   name: string;
   code?: string;
-  category: string;
-  curriculumId: string; // UUID
-  gradeLevel: string;
+  category?: string;
+  curriculumId?: string; // UUID
+  gradeLevel?: string;
   schoolId?: string; // UUID
 }
 
@@ -1151,4 +1160,5 @@ export interface EmergencyBroadcast {
   sentBy: string;
   targetAudience: string[];
 }
+
 

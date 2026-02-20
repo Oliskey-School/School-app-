@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { fetchClasses, fetchStudentsByClassId } from '../../lib/database';
 import { api } from '../../lib/api';
@@ -9,6 +9,7 @@ import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName, Boo
 import { toast } from 'react-hot-toast';
 import { ClassInfo, Student } from '../../types';
 import CenteredLoader from '../ui/CenteredLoader';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface ClassListScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -24,6 +25,12 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
         queryKey,
         queryFn: () => fetchClasses(schoolId, currentBranchId || undefined),
         enabled: !!schoolId,
+    });
+
+    const queryClient = useQueryClient();
+    useAutoSync(['classes'], () => {
+        console.log('🔄 [ClassList] Auto-sync triggered');
+        queryClient.invalidateQueries({ queryKey });
     });
 
     const createMutation = useOptimisticMutation({

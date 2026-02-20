@@ -129,7 +129,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                 // 2. Fetch Existing Report Cards (Grades)
                 // We iterate students. For optimization we loops.
                 const merged: GradebookEntry[] = [];
-                const currentSession = "2023/2024";
+                const currentSession = "2025/2026";
                 const currentTerm = "First Term";
 
                 for (const s of studentData) {
@@ -216,7 +216,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
         setSaving(true);
         try {
             const { upsertReportCard } = await import('../../lib/database');
-            const currentSession = "2023/2024";
+            const currentSession = "2025/2026";
             const currentTerm = "First Term";
 
             let successCount = 0;

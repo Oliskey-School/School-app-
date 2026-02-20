@@ -9,7 +9,8 @@ import { mockTeachers, mockStudents } from '../../data';
 import { getSubjectsForStudent } from '../../data';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
-
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 interface ReportCardInputScreenProps {
     student: Student;
     term: string;
@@ -64,29 +65,29 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [existingReport, setExistingReport] = useState<ReportCard | null>(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // Fetch Teacher Profile for permissions check
     const [currentUserTeacher, setCurrentUserTeacher] = useState<Teacher | null>(null);
 
+    const { classes: teacherClasses, subjects: teacherSubjects, loading: loadingPermissions } = useTeacherClasses();
+
     useEffect(() => {
         const fetchUser = async () => {
-            if (authUser) {
-                const { data: teacher } = await supabase.from('teachers').select('*').eq('email', authUser.email).single();
-                if (teacher) {
-                    // Ensure subjects and classes are mapped correctly if coming from separate tables
-                    const { data: subs } = await supabase.from('teacher_subjects').select('subject').eq('teacher_id', teacher.id);
-                    const { data: cls } = await supabase.from('teacher_classes').select('class_name').eq('teacher_id', teacher.id);
-                    
-                    setCurrentUserTeacher({
-                        ...teacher,
-                        subjects: subs?.map(s => s.subject) || [],
-                        classes: cls?.map(c => c.class_name) || []
-                    } as any);
-                }
+            if (!authUser) return;
+            const { data: teacher } = await supabase.from('teachers').select('*').eq('email', authUser.email).single();
+            if (!teacher) return;
+
+            if (!loadingPermissions) {
+                setCurrentUserTeacher({
+                    ...teacher,
+                    subjects: teacherSubjects.map(s => s.name),
+                    classes: teacherClasses.map(c => getFormattedClassName(c.grade, c.section))
+                } as any);
             }
         };
         fetchUser();
-    }, [authUser]);
+    }, [authUser, teacherClasses, teacherSubjects, loadingPermissions]);
 
     const isLocked = !isAdmin && (existingReport?.status === 'Submitted' || existingReport?.status === 'Published');
 
@@ -130,7 +131,13 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
     useEffect(() => {
         loadData();
-    }, [student.id, term]);
+    }, [student.id, term, refreshTrigger]);
+
+    // Auto-sync
+    useAutoSync(['report_cards'], () => {
+        console.log('🔄 [ReportCardInput] Auto-sync triggered');
+        setRefreshTrigger(prev => prev + 1);
+    });
 
     const loadData = async () => {
         setLoading(true);
@@ -324,7 +331,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
         <div className="p-4 bg-gray-100 font-serif min-h-screen">
             <div className="max-w-5xl mx-auto bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-200">
                 <header className="relative border-b-2 border-gray-300 pb-6 mb-6">
-                    <button 
+                    <button
                         onClick={handleBack}
                         className="absolute left-0 top-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
                         title="Close and return"
@@ -338,7 +345,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                             <h1 className="text-3xl font-black text-gray-900 tracking-tight">Smart School Academy</h1>
                         </div>
                         <p className="text-indigo-600 font-black uppercase tracking-[0.2em] text-xs">End of Term Report Card - Input System</p>
-                        
+
                         <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm font-bold text-gray-500">
                             <span className="bg-gray-100 px-3 py-1 rounded-full">STUDENT: <span className="text-gray-900">{student.name}</span></span>
                             <span className="bg-gray-100 px-3 py-1 rounded-full">TERM: <span className="text-gray-900">{term}</span></span>

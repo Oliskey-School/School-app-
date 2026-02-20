@@ -15,6 +15,8 @@ const tables = [
 
 async function runDiagnostics() {
     console.log('🚀 Starting System-Wide CRUD Diagnostics (Anon Key)\n');
+    const errors = [];
+
     console.log('--------------------------------------------------');
     console.log('| Table                     | Read | Update | Insert |');
     console.log('--------------------------------------------------');
@@ -29,46 +31,45 @@ async function runDiagnostics() {
             const { data: readData, error: readError } = await supabase.from(table).select('*').limit(1);
             if (readError) {
                 readStatus = readError.message.includes('permission denied') ? '❌' : '⚠️';
+                errors.push(`[${table} READ] ${readError.message} (${readError.code})`);
             } else {
                 readStatus = '✅';
             }
 
             // 2. Test Update (on first record if exists)
             if (readData && readData.length > 0) {
-                const id = readData[0].id;
-                // Try updating a dummy field or existing field
+                const record = readData[0];
+                const id = record.id;
                 const updatePayload = {};
-                if ('status' in readData[0]) updatePayload.status = readData[0].status;
-                else if ('name' in readData[0]) updatePayload.name = readData[0].name;
-                else if ('title' in readData[0]) updatePayload.title = readData[0].title;
+                if ('status' in record) updatePayload.status = record.status;
+                else if ('name' in record) updatePayload.name = record.name;
+                else if ('title' in record) updatePayload.title = record.title;
+                else if ('full_name' in record) updatePayload.full_name = record.full_name;
 
-                if (Object.keys(updatePayload).length > 0) {
+                if (Object.keys(updatePayload).length > 0 && id) {
                     const { error: updateError } = await supabase.from(table).update(updatePayload).eq('id', id);
                     if (updateError) {
                         updateStatus = updateError.message.includes('permission denied') ? '❌' : '⚠️';
+                        errors.push(`[${table} UPDATE] ${updateError.message} (${updateError.code})`);
                     } else {
                         updateStatus = '✅';
                     }
                 } else {
-                    updateStatus = '➖'; // No field to test update
+                    updateStatus = '➖';
                 }
             } else {
-                updateStatus = '🚫'; // No data to test update
+                updateStatus = '🚫';
             }
 
-            // 3. Test Insert (Manual attempt with minimal fields)
-            // We only do this for specific tables that are common to avoid too many failures
-            const insertTables = ['messages', 'notifications', 'teacher_attendance', 'notices'];
+            // 3. Test Insert
+            const insertTables = ['notifications', 'teacher_attendance', 'notices'];
             if (insertTables.includes(table)) {
                 let payload = { school_id: schoolId };
-                if (table === 'messages') {
-                    // Requires conversation_id, sender_id etc, skip for now or mock
-                    insertStatus = '⏳';
-                } else if (table === 'notifications') {
+                if (table === 'notifications') {
                     payload.title = 'Test';
                     payload.message = 'Test';
                 } else if (table === 'teacher_attendance') {
-                    const { data: teacher } = await supabase.from('teachers').select('id').limit(1).single();
+                    const { data: teacher } = await supabase.from('teachers').select('id').limit(1).maybeSingle();
                     if (teacher) {
                         payload.teacher_id = teacher.id;
                         payload.status = 'present';
@@ -77,12 +78,14 @@ async function runDiagnostics() {
                 } else if (table === 'notices') {
                     payload.title = 'Test Notice';
                     payload.content = 'Test Content';
+                    payload.audience = ['All'];
                 }
 
                 if (Object.keys(payload).length > 1) {
                     const { error: insertError } = await supabase.from(table).insert([payload]);
                     if (insertError) {
                         insertStatus = insertError.message.includes('permission denied') ? '❌' : '⚠️';
+                        errors.push(`[${table} INSERT] ${insertError.message} (${insertError.code})`);
                     } else {
                         insertStatus = '✅';
                     }
@@ -101,6 +104,11 @@ async function runDiagnostics() {
     }
     console.log('--------------------------------------------------');
     console.log('\nLegend: ✅ Success | ❌ Permission Denied | ⚠️ Other Error | ⏳ Skipped | 🚫 No Data/Criteria | ➖ Not Tested');
+
+    if (errors.length > 0) {
+        console.log('\nDetailed Error Logs:');
+        errors.forEach(err => console.log(err));
+    }
 }
 
 runDiagnostics();

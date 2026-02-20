@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { CloudUploadIcon, EyeIcon, ExamIcon, TrashIcon, XCircleIcon, WifiIcon, getFormattedClassName } from '../../constants';
 import { CBTExam, Subject } from '../../types';
 import ConfirmationModal from '../ui/ConfirmationModal';
-import { fetchSubjects, fetchCBTExams } from '../../lib/database';
+import { fetchCBTExams } from '../../lib/database';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useProfile } from '../../context/ProfileContext';
 import api from '../../lib/api';
@@ -18,11 +18,17 @@ interface CBTManagementScreenProps {
 
 const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, teacherId, schoolId: propSchoolId }) => {
     const [exams, setExams] = useState<CBTExam[]>([]);
-    const [subjects, setSubjects] = useState<Subject[]>([]);
     const { profile } = useProfile();
 
-    // Use the comprehensive hook for classes
-    const { classes: rawTeacherClasses, loading: loadingClasses } = useTeacherClasses(teacherId);
+    // Use the comprehensive hook for classes and subjects
+    const { classes: rawTeacherClasses, subjects: teacherSubjects, assignments: rawAssignments, loading: loadingClasses } = useTeacherClasses(teacherId);
+
+    // Configuration State
+    const [selectedClassId, setSelectedClassId] = useState<string>('');
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+    const [duration, setDuration] = useState(60);
+    const [totalMarks, setTotalMarks] = useState(60);
+    const [uploadType, setUploadType] = useState<'Test' | 'Exam'>('Test');
 
     const teacherClasses = useMemo(() => {
         const groups = new Map<string, any>();
@@ -35,12 +41,18 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
         return Array.from(groups.values());
     }, [rawTeacherClasses]);
 
-    // Configuration State
-    const [selectedClassId, setSelectedClassId] = useState<string>('');
-    const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
-    const [duration, setDuration] = useState(60);
-    const [totalMarks, setTotalMarks] = useState(60);
-    const [uploadType, setUploadType] = useState<'Test' | 'Exam'>('Test');
+    const filteredSubjects = useMemo(() => {
+        if (!selectedClassId) return teacherSubjects;
+
+        const specificAssignments = rawAssignments.filter(a => a.classId === selectedClassId);
+
+        if (specificAssignments.length > 0 && specificAssignments.some(a => a.subjectId)) {
+            const allowedSubjectIds = new Set(specificAssignments.map(a => a.subjectId));
+            return teacherSubjects.filter(sub => allowedSubjectIds.has(sub.id));
+        }
+
+        return teacherSubjects;
+    }, [selectedClassId, teacherSubjects, rawAssignments]);
 
     const [isUploading, setIsUploading] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -67,13 +79,8 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Subjects and Exams
-            const [fetchedSubjects, backendExams] = await Promise.all([
-                fetchSubjects(),
-                fetchCBTExams(teacherId || undefined)
-            ]);
-
-            setSubjects(fetchedSubjects);
+            // 1. Fetch Exams
+            const backendExams = await fetchCBTExams(teacherId || undefined);
             setExams(backendExams);
 
         } catch (err: any) {
@@ -158,6 +165,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 duration_minutes: duration,
                 total_marks: totalMarks,
                 teacher_id: teacherId,
+                school_id: activeSchoolId,
                 is_published: false
             };
 
@@ -263,7 +271,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Subject</label>
                                     <select value={selectedSubjectId} onChange={(e) => setSelectedSubjectId(e.target.value)} className="w-full rounded-lg border-slate-300 py-2 text-sm">
                                         <option value="">Select Subject</option>
-                                        {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code || s.category})</option>)}
+                                        {filteredSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
                                 </div>
                             </div>

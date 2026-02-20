@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { DollarSign, TrendingUp, TrendingDown, PieChart, Calendar, Download, CreditCard } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface FinancialSummary {
     period_type: string;
@@ -35,13 +36,20 @@ const FinanceDashboard: React.FC = () => {
     const [feeCollectionRate, setFeeCollectionRate] = useState({ collected: 0, outstanding: 0, rate: 0 });
     const [loading, setLoading] = useState(true);
     const [forecastData, setForecastData] = useState<{ month: string; projected: number }[]>([]);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     useEffect(() => {
         fetchFinancialData();
         fetchPaymentMethods();
         fetchFeeCollection();
         generateForecast();
-    }, [viewMode, selectedPeriod]);
+    }, [viewMode, selectedPeriod, refreshTrigger]);
+
+    // Auto-sync
+    useAutoSync(['payments', 'student_fees', 'donations', 'salary_payments'], () => {
+        console.log('🔄 [FinanceDashboard] Auto-sync triggered');
+        setRefreshTrigger(prev => prev + 1);
+    });
 
     const fetchFinancialData = async () => {
         try {
@@ -295,8 +303,8 @@ const FinanceDashboard: React.FC = () => {
                                         key={mode}
                                         onClick={() => setViewMode(mode)}
                                         className={`px-4 py-2 rounded-lg font-semibold ${viewMode === mode
-                                                ? 'bg-green-600 text-white'
-                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                            ? 'bg-green-600 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                             }`}
                                     >
                                         {mode.charAt(0).toUpperCase() + mode.slice(1)}

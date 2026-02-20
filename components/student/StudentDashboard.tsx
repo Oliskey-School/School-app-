@@ -81,6 +81,8 @@ const SimpleMachineScavengerHuntGame = lazy(() => import('./games/SimpleMachineS
 const HistoricalHotSeatGame = lazy(() => import('./games/HistoricalHotSeatGame'));
 const SchoolUtilitiesScreen = lazy(() => import('../parent/SchoolUtilitiesScreen'));
 const GamePlayerScreen = lazy(() => import('../shared/GamePlayerScreen'));
+const StudentCBTListScreen = lazy(() => import('./cbt/StudentCBTListScreen'));
+const StudentCBTPlayerScreen = lazy(() => import('./cbt/StudentCBTPlayerScreen'));
 
 const DashboardSuspenseFallback = () => (
     <PremiumLoader message="Loading dashboard module..." />
@@ -239,6 +241,7 @@ const Overview: React.FC<{
         { label: 'Subjects', icon: <BookOpenIcon />, action: () => navigateTo('subjects', 'My Subjects') },
         { label: 'Timetable', icon: <CalendarIcon />, action: () => navigateTo('timetable', 'Timetable') },
         { label: 'Results', icon: <ChartBarIcon />, action: () => navigateTo('results', 'Academic Performance', { studentId: student.id }) },
+        { label: 'CBT Exams', icon: <ClipboardListIcon />, action: () => navigateTo('cbtList', 'CBT Portal') },
         { label: 'Games', icon: <GameControllerIcon />, action: () => navigateTo('gamesHub', 'Games Hub') },
     ];
 
@@ -399,7 +402,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         // AUTO-HEALING for demo users
                         console.log("⚠️ No student profile found for demo user. Auto-healing...");
                         const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
-                        
+
                         const { data: newStudent, error: createError } = await supabase
                             .from('students')
                             .insert({
@@ -460,6 +463,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
             results: 'results',
             quizzes: 'quizzes',
             quizPlayer: 'quizzes',
+            cbtList: 'quizzes',
+            cbtPlayer: 'quizzes',
             gamesHub: 'games',
             mathSprintLobby: 'games',
             mathSprintGame: 'games',
@@ -753,6 +758,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         simpleMachineHunt: (props: any) => <SimpleMachineScavengerHuntGame onBack={handleBack} />,
         historicalHotSeat: HistoricalHotSeatGame,
         schoolUtilities: SchoolUtilitiesScreen,
+        cbtList: StudentCBTListScreen,
+        cbtPlayer: (props: any) => <StudentCBTPlayerScreen {...props} handleBack={handleBack} />,
     }), [student]);
 
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
@@ -841,7 +848,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         currentBranchId
     };
 
-    const isFullScreen = ['chat', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
+    const isFullScreen = ['chat', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
 
     return (
         <GamificationProvider studentId={student?.id}>

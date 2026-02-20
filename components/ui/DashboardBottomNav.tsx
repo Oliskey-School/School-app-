@@ -16,7 +16,7 @@ export const AdminBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen
   const navItems = [
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
     { id: 'feeManagement', icon: <DocumentTextIcon />, label: 'Fees' },
-    { id: 'actions', icon: <div className="p-1 bg-indigo-600 rounded-full"><LayoutDashboard className="w-4 h-4 text-white" /></div>, label: 'Actions' },
+    { id: 'analytics', icon: <AnalyticsIcon />, label: 'Analytics' },
     { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
     { id: 'settings', icon: <SettingsIcon />, label: 'Settings' },
   ];

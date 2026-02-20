@@ -8,6 +8,7 @@ import { useToast } from '../../hooks/use-toast';
 import { supabase } from '../../lib/supabase';
 import { BookOpen, AlertCircle, Save, TrendingUp } from 'lucide-react';
 import { CurriculumMismatchWarning } from '../shared/TeacherCurriculumBadges';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface ResultsEntryProps {
     teacherId: string;
@@ -28,12 +29,19 @@ export default function ResultsEntryEnhanced({
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [exam, setExam] = useState<any>(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const { toast } = useToast();
 
     useEffect(() => {
         fetchExamDetails();
         fetchStudents();
-    }, [examId, selectedCurriculum]);
+    }, [examId, selectedCurriculum, refreshTrigger]);
+
+    // Auto-sync
+    useAutoSync(['exam_results'], () => {
+        console.log('🔄 [ResultsEntryEnhanced] Auto-sync triggered');
+        setRefreshTrigger(prev => prev + 1);
+    });
 
     const fetchExamDetails = async () => {
         const { data } = await supabase

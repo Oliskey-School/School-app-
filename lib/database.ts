@@ -1892,24 +1892,15 @@ export async function fetchCBTExams(teacherId?: string | number, isPublished?: b
 export async function fetchCBTQuestions(examId: string): Promise<any[]> {
     try {
         const { data, error } = await supabase
-            .from('quiz_questions')
+            .from('cbt_questions')
             .select('*')
-            .eq('quiz_id', examId)
-            .order('question_order', { ascending: true });
+            .eq('exam_id', examId)
+            .order('id', { ascending: true });
 
         if (error) throw error;
-
-        return (data || []).map(q => ({
-            id: q.id,
-            examId: q.quiz_id,
-            questionText: q.question_text,
-            questionType: q.question_type,
-            options: q.options,
-            correctOption: q.correct_answer,
-            points: q.marks
-        }));
+        return data || [];
     } catch (err) {
-        console.error('Error fetching Quiz questions:', err);
+        console.error('Error fetching CBT questions:', err);
         return [];
     }
 }
@@ -2031,6 +2022,10 @@ export async function fetchReportCard(studentId: string | number, term: string, 
     }
 }
 
+// ============================================
+// CBT EXAMS / QUIZZES
+// ============================================
+
 export async function upsertReportCard(studentId: string | number, reportCard: ReportCard, schoolId: string): Promise<boolean> {
     try {
         // 1. Save Report Card (Master Record)
@@ -2042,13 +2037,16 @@ export async function upsertReportCard(studentId: string | number, reportCard: R
                 term: reportCard.term,
                 session: reportCard.session,
                 status: reportCard.status,
+                // Sync is_published for backward compat with older queries
+                is_published: reportCard.status === 'Published',
+                published_at: reportCard.status === 'Published' ? new Date().toISOString() : null,
                 attendance: reportCard.attendance,
                 skills: reportCard.skills,
                 psychomotor: reportCard.psychomotor,
                 teacher_comment: reportCard.teacherComment,
                 principal_comment: reportCard.principalComment,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'student_id, term, session' })
+            }, { onConflict: 'student_id,term,session' })
             .select()
             .single();
 
@@ -2084,6 +2082,7 @@ export async function upsertReportCard(studentId: string | number, reportCard: R
             const score = typeof rec.total === 'number' ? rec.total : parseFloat(rec.total) || 0;
             await supabase.from('academic_performance').upsert({
                 student_id: studentId,
+                school_id: schoolId,
                 subject: rec.subject,
                 term: reportCard.term,
                 session: reportCard.session || '2023/2024',

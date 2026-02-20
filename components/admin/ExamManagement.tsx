@@ -26,7 +26,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
 
     useEffect(() => {
         loadData();
-        
+
         const examsChannel = supabase.channel('exams-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, () => {
                 loadData();
@@ -141,8 +141,11 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                 const { error } = await supabase
                     .from('exams')
                     .insert([{
-                        ...examData,
-                        class_name: examData.className, // database uses snake_case
+                        type: examData.type,
+                        date: examData.date,
+                        time: examData.time,
+                        class_name: examData.className,
+                        subject: examData.subject,
                         is_published: false,
                         school_id: currentSchool?.id
                     }]);

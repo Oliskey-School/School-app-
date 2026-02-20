@@ -654,9 +654,15 @@ class HybridApiClient {
                 body: JSON.stringify({ status }),
             });
         }
-        const updateData: any = { status };
+        const updateData: any = {
+            status,
+            // Keep is_published boolean in sync for backward compatibility
+            is_published: status === 'Published',
+        };
         if (status === 'Published') {
             updateData.published_at = new Date().toISOString();
+        } else {
+            updateData.published_at = null;
         }
         const { data, error } = await supabase.from('report_cards').update(updateData).eq('id', id).select().single();
         if (error) throw error;
@@ -1138,26 +1144,94 @@ class HybridApiClient {
     // ============================================
 
     async createQuizWithQuestions(payload: { quiz: any; questions: any[] }, options: ApiOptions = {}): Promise<any> {
-        // Always route through backend - RLS blocks direct inserts on quizzes
-        return this.fetch<any>('/quizzes/upload', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/quizzes/upload', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+        }
+
+        // Direct Supabase fallback
+        const { quiz, questions } = payload;
+
+        // Get school_id from auth if not provided
+        let schoolId = quiz.school_id;
+        if (!schoolId) {
+            const { data: { user } } = await supabase.auth.getUser();
+            schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+        }
+
+        // 1. Insert the quiz
+        const { data: quizData, error: quizError } = await supabase
+            .from('quizzes')
+            .insert({
+                title: quiz.title,
+                description: quiz.description,
+                status: quiz.status || 'draft',
+                class_id: quiz.class_id,
+                subject_id: quiz.subject_id,
+                duration_minutes: quiz.duration_minutes,
+                total_marks: quiz.total_marks,
+                teacher_id: quiz.teacher_id,
+                school_id: schoolId,
+                is_published: quiz.is_published || false,
+                is_active: true,
+            })
+            .select()
+            .single();
+
+        if (quizError) throw quizError;
+
+        // 2. Insert questions linked to the quiz via exam_id
+        if (questions.length > 0) {
+            const questionsToInsert = questions.map((q, index) => ({
+                exam_id: quizData.id,
+                question_text: q.question_text,
+                question_type: q.question_type || 'multiple_choice',
+                options: Array.isArray(q.options) ? q.options : [q.option_a, q.option_b, q.option_c, q.option_d].filter(Boolean),
+                correct_answer: q.correct_answer || q.correct_option,
+                points: q.marks ? Math.round(q.marks) : 1,
+            }));
+
+            const { error: questionsError } = await supabase
+                .from('cbt_questions')
+                .insert(questionsToInsert);
+
+            if (questionsError) throw questionsError;
+        }
+
+        return quizData;
     }
 
     async updateQuizStatus(id: string, isPublished: boolean, options: ApiOptions = {}): Promise<any> {
-        // Always route through backend - RLS blocks direct updates on quizzes
-        return this.fetch<any>(`/quizzes/${id}/status`, {
-            method: 'PUT',
-            body: JSON.stringify({ is_published: isPublished }),
-        });
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>(`/quizzes/${id}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ is_published: isPublished }),
+            });
+        }
+        // Direct Supabase fallback
+        const { data, error } = await supabase
+            .from('quizzes')
+            .update({ is_published: isPublished, status: isPublished ? 'published' : 'draft' })
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
     }
 
     async deleteQuiz(id: string, options: ApiOptions = {}): Promise<any> {
-        // Always route through backend - RLS blocks direct deletes on quizzes
-        return this.fetch<any>(`/quizzes/${id}`, {
-            method: 'DELETE',
-        });
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>(`/quizzes/${id}`, {
+                method: 'DELETE',
+            });
+        }
+        // Direct Supabase fallback: delete questions first, then the quiz
+        await supabase.from('cbt_questions').delete().eq('exam_id', id);
+        const { error } = await supabase.from('quizzes').delete().eq('id', id);
+        if (error) throw error;
+        return { success: true };
     }
 
     async submitQuizResult(submissionData: any, options: ApiOptions = {}): Promise<any> {
@@ -1167,7 +1241,15 @@ class HybridApiClient {
                 body: JSON.stringify(submissionData),
             });
         }
-        const { data, error } = await supabase.from('quiz_submissions').insert([submissionData]).select().single();
+        // Map to cbt_submissions schema: exam_id, student_id, score, status, submitted_at
+        const submission = {
+            exam_id: submissionData.quiz_id || submissionData.exam_id,
+            student_id: submissionData.student_id,
+            score: submissionData.score,
+            status: submissionData.status || 'completed',
+            submitted_at: submissionData.submitted_at || new Date().toISOString(),
+        };
+        const { data, error } = await supabase.from('cbt_submissions').insert([submission]).select().single();
         if (error) throw error;
         return data;
     }

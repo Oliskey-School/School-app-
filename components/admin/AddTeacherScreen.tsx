@@ -146,6 +146,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [validSubjects, setValidSubjects] = useState<string[]>([]);
     const [validClasses, setValidClasses] = useState<string[]>([]);
     const [classIdMap, setClassIdMap] = useState<Record<string, string>>({});
+    const [subjectIdMap, setSubjectIdMap] = useState<Record<string, string>>({});
     const [loadingRefs, setLoadingRefs] = useState(true);
 
     const [credentials, setCredentials] = useState<{
@@ -159,8 +160,13 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
         const fetchRefs = async () => {
             try {
                 // Fetch Subjects
-                const { data: sData } = await supabase.from('subjects').select('name').eq('school_id', schoolId);
-                if (sData) setValidSubjects(sData.map(d => d.name));
+                const { data: sData } = await supabase.from('subjects').select('id, name').eq('school_id', schoolId);
+                if (sData) {
+                    setValidSubjects(sData.map(d => d.name));
+                    const sMap: Record<string, string> = {};
+                    sData.forEach(s => { sMap[s.name] = s.id; });
+                    setSubjectIdMap(sMap);
+                }
 
                 // Fetch Classes (Filter by current school)
                 const { data: cData } = await supabase
@@ -301,26 +307,42 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     // 4. Update ID-based Class Assignments (class_teachers) - Critical for Teacher Dashboard
                     await supabase.from('class_teachers').delete().eq('teacher_id', teacherToEdit.id);
 
-                    // Map selected class names (which matches validClasses) to IDs using classIdMap
-                    // Note: 'classes' state contains the raw selected names from MultiSelect (which matches validOptions)
-                    const classIdsToLink = classes
-                        .map(clsName => classIdMap[clsName])
-                        .filter(id => !!id); // Filter out any that don't match (shouldn't happen with validOptions)
+                    const classIdsToLink = classes.map(clsName => classIdMap[clsName]).filter(Boolean);
+                    const subjectIdsToLink = subjects.map(subName => subjectIdMap[subName]).filter(Boolean);
 
                     if (classIdsToLink.length > 0) {
-                        const classTeacherInserts = classIdsToLink.map(classId => ({
-                            teacher_id: teacherToEdit.id,
-                            class_id: classId,
-                            school_id: schoolId,
-                            academic_year: '2025-2026', // Hardcoded or fetch from context
-                            is_class_teacher: false // Default
-                        }));
+                        const classTeacherInserts: any[] = [];
+
+                        // Create a mapping for every class-subject combination
+                        classIdsToLink.forEach(classId => {
+                            if (subjectIdsToLink.length > 0) {
+                                subjectIdsToLink.forEach(subjectId => {
+                                    classTeacherInserts.push({
+                                        teacher_id: teacherToEdit.id,
+                                        class_id: classId,
+                                        subject_id: subjectId,
+                                        school_id: schoolId,
+                                        academic_year: '2025-2026',
+                                        is_class_teacher: false
+                                    });
+                                });
+                            } else {
+                                // Fallback: just link class if no subjects selected
+                                classTeacherInserts.push({
+                                    teacher_id: teacherToEdit.id,
+                                    class_id: classId,
+                                    subject_id: null,
+                                    school_id: schoolId,
+                                    academic_year: '2025-2026',
+                                    is_class_teacher: false
+                                });
+                            }
+                        });
 
                         const { error: ctError } = await supabase.from('class_teachers').insert(classTeacherInserts);
                         if (ctError) console.error("Failed to sync class_teachers:", ctError);
                     }
                 }
-
                 toast.success('Teacher updated successfully!');
 
                 // NOTIFICATION: Inform the teacher about the profile update
@@ -430,18 +452,34 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     await supabase.from('teacher_classes').insert(classInserts);
 
                     // 5b. Update ID-based Class Assignments (class_teachers)
-                    const classIdsToLink = classes
-                        .map(clsName => classIdMap[clsName])
-                        .filter(id => !!id);
+                    const classIdsToLink = classes.map(clsName => classIdMap[clsName]).filter(Boolean);
+                    const subjectIdsToLink = subjects.map(subName => subjectIdMap[subName]).filter(Boolean);
 
                     if (classIdsToLink.length > 0) {
-                        const classTeacherInserts = classIdsToLink.map(classId => ({
-                            teacher_id: teacherData.id,
-                            class_id: classId,
-                            school_id: schoolId,
-                            academic_year: '2025-2026',
-                            is_class_teacher: false
-                        }));
+                        const classTeacherInserts: any[] = [];
+                        classIdsToLink.forEach(classId => {
+                            if (subjectIdsToLink.length > 0) {
+                                subjectIdsToLink.forEach(subjectId => {
+                                    classTeacherInserts.push({
+                                        teacher_id: teacherData.id,
+                                        class_id: classId,
+                                        subject_id: subjectId,
+                                        school_id: schoolId,
+                                        academic_year: '2025-2026',
+                                        is_class_teacher: false
+                                    });
+                                });
+                            } else {
+                                classTeacherInserts.push({
+                                    teacher_id: teacherData.id,
+                                    class_id: classId,
+                                    subject_id: null,
+                                    school_id: schoolId,
+                                    academic_year: '2025-2026',
+                                    is_class_teacher: false
+                                });
+                            }
+                        });
 
                         const { error: ctError } = await supabase.from('class_teachers').insert(classTeacherInserts);
                         if (ctError) console.error("Failed to sync class_teachers (Create):", ctError);

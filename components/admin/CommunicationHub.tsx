@@ -98,7 +98,7 @@ const CommunicationHub: React.FC = () => {
                 school_id: currentSchool.id,
                 title,
                 content: message,
-                audience: audienceList,
+                audience: audienceList as string[],
                 created_by: user.id,
                 category: 'General',
                 is_pinned: false,

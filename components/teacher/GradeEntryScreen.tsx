@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 import { toast } from 'react-hot-toast';
 
@@ -36,6 +37,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
     const [students, setStudents] = useState<Student[]>([]);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [loading, setLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const debounceTimeoutRef = useRef<number | null>(null);
 
     // Parse Class Name
@@ -97,7 +99,15 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
         };
 
         fetchData();
-    }, [gradeSection, exam.subject]);
+    }, [gradeSection, exam.subject, refreshTrigger]);
+
+    // Auto-sync
+    useAutoSync(['students', 'academic_records'], () => {
+        if (gradeSection) {
+            console.log('🔄 [GradeEntry] Auto-sync triggered');
+            setRefreshTrigger(prev => prev + 1);
+        }
+    });
 
 
     const saveGrade = async (studentId: string | number, value: string) => {

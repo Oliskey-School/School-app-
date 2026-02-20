@@ -143,17 +143,8 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
     const [className, setClassName] = useState('');
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
-    const [subjectsList, setSubjectsList] = useState<Subject[]>([]);
+    const { classes: rawTeacherClasses, subjects: teacherSubjects, assignments: rawAssignments, loading } = useTeacherClasses(teacherId);
 
-    const [term1Scheme, setTerm1Scheme] = useState<SchemeWeek[]>([]);
-    const [term2Scheme, setTerm2Scheme] = useState<SchemeWeek[]>([]);
-    const [term3Scheme, setTerm3Scheme] = useState<SchemeWeek[]>([]);
-    const [activeTerm, setActiveTerm] = useState<'term1' | 'term2' | 'term3'>('term1');
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [schemeHistory, setSchemeHistory] = useState<HistoryEntry[]>([]);
-
-    const { classes: rawTeacherClasses } = useTeacherClasses(teacherId);
-    
     const teacherClasses = useMemo(() => {
         const groups = new Map<string, any>();
         rawTeacherClasses.forEach(cls => {
@@ -165,13 +156,28 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
         return Array.from(groups.values());
     }, [rawTeacherClasses]);
 
-    useEffect(() => {
-        fetchSubjects().then(setSubjectsList);
-    }, []);
+    const filteredSubjects = useMemo(() => {
+        if (!selectedClassId) return teacherSubjects;
+
+        const specificAssignments = rawAssignments.filter(a => a.classId === selectedClassId);
+
+        if (specificAssignments.length > 0 && specificAssignments.some(a => a.subjectId)) {
+            const allowedSubjectIds = new Set(specificAssignments.map(a => a.subjectId));
+            return teacherSubjects.filter(sub => allowedSubjectIds.has(sub.id));
+        }
+
+        return teacherSubjects;
+    }, [selectedClassId, teacherSubjects, rawAssignments]);
     const [generatedHistory, setGeneratedHistory] = useState<GeneratedHistoryEntry[]>([]);
     const [isSchemeHistoryOpen, setIsSchemeHistoryOpen] = useState(false);
     const [isGeneratedHistoryOpen, setIsGeneratedHistoryOpen] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+    const [schemeHistory, setSchemeHistory] = useState<HistoryEntry[]>([]);
+    const [activeTerm, setActiveTerm] = useState<'term1' | 'term2' | 'term3'>('term1');
+    const [term1Scheme, setTerm1Scheme] = useState<SchemeWeek[]>([{ week: 1, topic: '', subTopics: [] }]);
+    const [term2Scheme, setTerm2Scheme] = useState<SchemeWeek[]>([{ week: 1, topic: '', subTopics: [] }]);
+    const [term3Scheme, setTerm3Scheme] = useState<SchemeWeek[]>([{ week: 1, topic: '', subTopics: [] }]);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const effectiveTeacherId = teacherId || '2'; // Fallback to '2' only if no auth provided (dev mode)
 
@@ -453,14 +459,14 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
                                 value={selectedSubjectId}
                                 onChange={e => {
                                     setSelectedSubjectId(e.target.value);
-                                    const sub = subjectsList.find(s => s.id === e.target.value);
+                                    const sub = filteredSubjects.find(s => s.id === e.target.value);
                                     setSubject(sub ? sub.name : '');
                                 }}
                                 required
                                 className="w-full p-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg"
                             >
                                 <option value="">Select Subject</option>
-                                {subjectsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code || s.category})</option>)}
+                                {filteredSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
                         </div>
                         <div className="flex-grow">

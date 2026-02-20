@@ -1,64 +1,78 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import { CBTTest, Student } from '../../../types';
+import { CBTTest } from '../../../types';
 import { ClockIcon, CheckCircleIcon } from '../../../constants';
-import { mockCBTTests } from '../../../data';
+import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 
 interface StudentCBTPlayerScreenProps {
     test: CBTTest;
-    studentId: number;
+    studentId: number | string;
     handleBack: () => void;
 }
 
 const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, studentId, handleBack }) => {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-    const [answers, setAnswers] = useState<{ [key: number]: string }>({});
+    const [answers, setAnswers] = useState<{ [key: string]: string }>({});
     const [timeLeft, setTimeLeft] = useState(test.duration * 60); // in seconds
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
-
+    const [totalMarks, setTotalMarks] = useState(0);
     const [questions, setQuestions] = useState<any[]>(test.questions || []);
+    const [loading, setLoading] = useState(true);
     const { currentSchool } = useAuth();
 
     useEffect(() => {
-        // If questions were not passed (lazy loaded), fetch them now
         const loadQuestions = async () => {
-            if (questions.length === 0 && test.id) {
-                const { data, error } = await import('../../../lib/supabase').then(m => m.supabase
-                    .from('quiz_questions')
-                    .select('*')
-                    .eq('quiz_id', test.id)
-                    .order('question_order', { ascending: true })
-                );
+            setLoading(true);
+            try {
+                if (questions.length === 0 && test.id) {
+                    // Fetch from the correct table: cbt_questions linked by exam_id
+                    const { data, error } = await supabase
+                        .from('cbt_questions')
+                        .select('*')
+                        .eq('exam_id', test.id);
 
-                if (data) {
-                    const mapped = data.map((q: any) => ({
-                        id: q.id,
-                        text: q.question_text,
-                        options: q.options, // Assuming JSON array ["A", "B", ...]
-                        correctAnswer: q.correct_option // 'A', 'B'...
-                    }));
-                    setQuestions(mapped);
+                    if (error) {
+                        console.error('Error fetching questions:', error);
+                        toast.error('Failed to load questions');
+                        return;
+                    }
+
+                    if (data && data.length > 0) {
+                        const mapped = data.map((q: any) => ({
+                            id: q.id,
+                            text: q.question_text,
+                            options: Array.isArray(q.options) ? q.options : [],
+                            correctAnswer: q.correct_answer,
+                            points: q.points || 1
+                        }));
+                        setQuestions(mapped);
+                    }
                 }
+            } catch (err) {
+                console.error('Error loading questions:', err);
+            } finally {
+                setLoading(false);
             }
         };
         loadQuestions();
     }, [test.id]);
 
+    // Timer
     useEffect(() => {
-        if (timeLeft > 0 && !isSubmitted) {
+        if (timeLeft > 0 && !isSubmitted && !loading) {
             const timer = setInterval(() => {
                 setTimeLeft(prev => prev - 1);
             }, 1000);
             return () => clearInterval(timer);
-        } else if (timeLeft === 0 && !isSubmitted) {
+        } else if (timeLeft === 0 && !isSubmitted && !loading) {
             handleSubmit();
         }
-    }, [timeLeft, isSubmitted]);
+    }, [timeLeft, isSubmitted, loading]);
 
-    const handleAnswerSelect = (questionId: number, option: string) => {
+    const handleAnswerSelect = (questionId: string, option: string) => {
         if (isSubmitted) return;
         setAnswers(prev => ({ ...prev, [questionId]: option }));
     };
@@ -66,53 +80,42 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
     const handleSubmit = async () => {
         if (isSubmitted) return;
 
-        // Calculate score
         let correctCount = 0;
-        // Logic depends on how questions are passed. 
-        // If coming from StudentCBTList, questions might be empty because we optimized the list fetch.
-        // We really should fetch questions HERE if they are missing.
-        // But for now, assuming they are passed or mock fallback in the component top level.
+        let earnedPoints = 0;
+        let maxPoints = 0;
 
         questions.forEach(q => {
-            // Check if q.correctAnswer matches answers[q.id]
-            // Note: In refined logic, q object structure might vary. 
-            // The fallback mock uses 'correctAnswer', but our DB object uses 'correct_option' usually.
-            // Let's normalize in the fetch or here.
-
-            const correct = q.correctAnswer || (q as any).correct_option;
-            if (answers[q.id] === correct) {
+            maxPoints += (q.points || 1);
+            const userAnswer = answers[q.id];
+            if (userAnswer && userAnswer === q.correctAnswer) {
                 correctCount++;
+                earnedPoints += (q.points || 1);
             }
         });
 
-        const finalScore = correctCount;
-        const percentage = questions.length > 0 ? Math.round((finalScore / questions.length) * 100) : 0;
-        setScore(finalScore);
+        const percentage = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
+        setScore(correctCount);
+        setTotalMarks(earnedPoints);
         setIsSubmitted(true);
 
-        // Save to Database (quiz_submissions)
+        // Save to cbt_submissions
         try {
-            const { error } = await import('../../../lib/api').then(m => m.api.submitQuizResult({
-                quiz_id: test.id,
+            const { error } = await supabase.from('cbt_submissions').insert({
+                exam_id: test.id,
                 student_id: studentId,
                 score: percentage,
-                total_questions: questions.length,
-                answers: answers,
-                status: 'Graded',
-                submitted_at: new Date().toISOString(),
-                school_id: (test as any).school_id || currentSchool?.id
-            }, { useBackend: true }))
-                .then(() => ({ error: null }))
-                .catch(err => ({ error: err }));
+                status: 'completed',
+                submitted_at: new Date().toISOString()
+            });
 
             if (error) {
-                console.error("Failed to save result:", error);
-                toast.error("Result save failed, but score is recorded locally.");
+                console.error('Failed to save result:', error);
+                toast.error('Result save failed, but your score is recorded locally.');
             } else {
-                toast.success("Exam submitted successfully!");
+                toast.success('Exam submitted successfully!');
             }
         } catch (err) {
-            console.error("Error saving result:", err);
+            console.error('Error saving result:', err);
         }
     };
 
@@ -121,6 +124,29 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
         const secs = seconds % 60;
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6">
+                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-gray-500 font-medium">Loading questions...</p>
+            </div>
+        );
+    }
+
+    if (questions.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6 text-center">
+                <p className="text-gray-500 text-lg">No questions found for this exam.</p>
+                <button
+                    onClick={handleBack}
+                    className="mt-6 px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700"
+                >
+                    Go Back
+                </button>
+            </div>
+        );
+    }
 
     if (isSubmitted) {
         return (
@@ -132,7 +158,7 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
                 <div className="mt-6 bg-white p-6 rounded-xl shadow-sm border w-full max-w-sm">
                     <p className="text-sm text-gray-500 uppercase tracking-wide font-bold">Your Score</p>
                     <p className="text-5xl font-bold text-indigo-600 mt-2">{score} / {questions.length}</p>
-                    <p className="text-lg font-medium text-gray-700 mt-1">{Math.round((score / questions.length) * 100)}%</p>
+                    <p className="text-lg font-medium text-gray-700 mt-1">{questions.length > 0 ? Math.round((score / questions.length) * 100) : 0}%</p>
                 </div>
 
                 <button
@@ -164,10 +190,10 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
             {/* Question Area */}
             <main className="flex-grow p-4 overflow-y-auto">
                 <div className="bg-white p-6 rounded-xl shadow-sm min-h-[300px]">
-                    <p className="text-lg font-medium text-gray-800 mb-6">{currentQuestion.text}</p>
+                    <p className="text-lg font-medium text-gray-800 mb-6">{currentQuestion?.text}</p>
 
                     <div className="space-y-3">
-                        {currentQuestion.options.map((option, idx) => (
+                        {(currentQuestion?.options || []).map((option: string, idx: number) => (
                             <button
                                 key={idx}
                                 onClick={() => handleAnswerSelect(currentQuestion.id, option)}

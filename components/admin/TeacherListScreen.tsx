@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface TeacherListScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -75,17 +76,13 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
         if (user || profile || propSchoolId) {
             loadTeachers();
         }
-        const subscription = supabase
-            .channel('public:teachers')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
-                loadTeachers();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(subscription);
-        };
     }, [currentBranchId, propSchoolId, profile?.schoolId, user?.id]);
+
+    // Auto-sync
+    useAutoSync(['teachers'], () => {
+        console.log('🔄 [TeacherList] Auto-sync triggered');
+        loadTeachers();
+    });
 
     const loadTeachers = async () => {
         setIsLoading(true);

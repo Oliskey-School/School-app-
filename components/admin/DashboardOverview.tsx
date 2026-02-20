@@ -45,7 +45,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useApi } from '../../lib/hooks/useApi';
 import api from '../../lib/api';
-import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 
 // --- NEW, REFINED UI/UX COMPONENTS ---
@@ -357,66 +357,25 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         }
     }, [activeSchoolId, currentBranchId]); // Added currentBranchId
 
-    // Real-time Subscriptions using our new hook
-    // 1. Students
-    useRealtimeSubscription({
-        table: 'students',
-        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
-        callback: () => {
-            console.log('Real-time update: Students');
+    // --- GLOBAL AUTO-SYNC ---
+    // Single robust listener for all essential dashboard data
+    useAutoSync(
+        [
+            'students',
+            'teachers',
+            'parents',
+            'classes',
+            'student_fees',
+            'report_cards',
+            'health_logs',
+            'student_attendance',
+            'timetable'
+        ],
+        () => {
+            console.log('🔄 [Dashboard] Auto-Sync triggered!');
             fetchDashboardData();
         }
-    });
-
-    // 2. Teachers
-    useRealtimeSubscription({
-        table: 'teachers',
-        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
-        callback: () => {
-            console.log('Real-time update: Teachers');
-            fetchDashboardData();
-        }
-    });
-
-    // 3. Parents
-    useRealtimeSubscription({
-        table: 'parents',
-        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
-        callback: () => {
-            console.log('Real-time update: Parents');
-            fetchDashboardData();
-        }
-    });
-
-    // 4. Classes
-    useRealtimeSubscription({
-        table: 'classes',
-        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
-        callback: () => {
-            console.log('Real-time update: Classes');
-            fetchDashboardData();
-        }
-    });
-
-    // 5. Fees
-    useRealtimeSubscription({
-        table: 'student_fees',
-        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
-        callback: () => {
-            console.log('Real-time update: Fees');
-            fetchDashboardData();
-        }
-    });
-
-    // 5. Report Cards (New)
-    useRealtimeSubscription({
-        table: 'report_cards',
-        filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
-        callback: () => {
-            console.log('Real-time update: Report Cards');
-            fetchDashboardData();
-        }
-    });
+    );
 
     const fetchBusRoster = async () => {
         if (isSupabaseConfigured) {

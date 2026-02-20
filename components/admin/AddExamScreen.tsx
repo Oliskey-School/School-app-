@@ -16,7 +16,7 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
   const [date, setDate] = useState('');
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
-  
+
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
   const [availableSubjects, setAvailableSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +26,65 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
       if (!currentSchool?.id) return;
       setLoading(true);
       try {
+        // Get Auth User and Role
+        const { data: { user } } = await supabase.auth.getUser();
+        const isTeacher = user?.app_metadata?.role === 'teacher' || user?.user_metadata?.role === 'teacher';
+
+        if (isTeacher && user) {
+          // 1. Fetch Teacher ID
+          const { data: teacher } = await supabase.from('teachers').select('id').eq('user_id', user.id).single();
+          if (teacher) {
+            const { getGradeDisplayName } = await import('../../lib/schoolSystem');
+
+            // 2. MODERN: Fetch Assigned Classes (class_teachers)
+            const { data: modernAssignments } = await supabase
+              .from('class_teachers')
+              .select(`
+                                class_id,
+                                subject_id,
+                                classes (grade, section),
+                                subjects (name)
+                            `)
+              .eq('teacher_id', teacher.id);
+
+            const finalClasses: any[] = [];
+            const finalSubjects: any[] = [];
+            const addedClassKeys = new Set<string>();
+            const addedSubjectKeys = new Set<string>();
+
+            if (modernAssignments && modernAssignments.length > 0) {
+              modernAssignments.forEach((item: any) => {
+                const c = item.classes;
+                if (c) {
+                  const name = `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`;
+                  if (!addedClassKeys.has(name)) {
+                    finalClasses.push({ name });
+                    addedClassKeys.add(name);
+                  }
+                }
+                const s = item.subjects;
+                if (s && !addedSubjectKeys.has(s.name)) {
+                  finalSubjects.push({ name: s.name });
+                  addedSubjectKeys.add(s.name);
+                }
+              });
+            } else {
+              // 3. LEGACY: Fetch Assigned Classes (teacher_classes/teacher_subjects)
+              console.log('ℹ️ [AddExam] No modern assignments found, checking legacy...');
+              const { data: legacyClasses } = await supabase.from('teacher_classes').select('class_name').eq('teacher_id', teacher.id);
+              const { data: legacySubjects } = await supabase.from('teacher_subjects').select('subject').eq('teacher_id', teacher.id);
+
+              legacyClasses?.forEach(c => finalClasses.push({ name: c.class_name }));
+              legacySubjects?.forEach(s => finalSubjects.push({ name: s.subject }));
+            }
+            setAvailableClasses(finalClasses);
+            setAvailableSubjects(finalSubjects);
+            setLoading(false);
+            return; // Done for teacher
+          }
+        }
+
+        // ADMIN OR FALLBACK: Fetch all classes and subjects
         const [classesRes, subjectsRes] = await Promise.all([
           supabase.from('classes').select('name').eq('school_id', currentSchool.id).order('name'),
           supabase.from('subjects').select('name').eq('is_active', true).order('name')

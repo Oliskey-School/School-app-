@@ -12,6 +12,7 @@ import { hasPaymentPlan } from '../../lib/payment-plans';
 import { useProfile } from '../../context/ProfileContext';
 import { generateReceipt } from '../../lib/receipt-generator';
 import { toast } from 'react-hot-toast';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface FeeStatusScreenProps {
     parentId?: string | null;
@@ -34,6 +35,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
     const [parentName, setParentName] = useState<string>('');
     const [parentPhone, setParentPhone] = useState<string>('');
     const [feesWithPlans, setFeesWithPlans] = useState<Set<string>>(new Set());
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     useEffect(() => {
         const init = async () => {
@@ -69,7 +71,13 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
         if (selectedStudent) {
             loadFees(selectedStudent.id);
         }
-    }, [selectedStudent]);
+    }, [selectedStudent, refreshTrigger]);
+
+    // Auto-sync
+    useAutoSync(['student_fees', 'payments', 'student_fee_installments'], () => {
+        console.log('🔄 [FeeStatusScreen] Auto-sync triggered');
+        setRefreshTrigger(prev => prev + 1);
+    });
 
     const loadFees = async (studentId: string) => {
         setLoading(true);

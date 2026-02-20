@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
 import { Student, Department } from '../../types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';

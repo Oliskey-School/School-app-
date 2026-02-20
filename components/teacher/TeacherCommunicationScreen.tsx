@@ -6,6 +6,7 @@ import { CameraIcon, StopIcon, XCircleIcon, VideoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -33,6 +34,8 @@ const TeacherCommunicationScreen: React.FC = () => {
     const streamRef = useRef<MediaStream | null>(null);
     const recordingIntervalRef = useRef<number | null>(null);
 
+    const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(user?.id);
+
     // Fetch Classes and Teacher Name
     useEffect(() => {
         const fetchMeta = async () => {
@@ -42,20 +45,18 @@ const TeacherCommunicationScreen: React.FC = () => {
             if (teacher) {
                 setTeacherName(teacher.name);
                 setSchoolId(teacher.school_id);
-                // Get Classes
-                const { data: cls } = await supabase.from('teacher_classes').select('class_name').eq('teacher_id', teacher.id);
-                if (cls) {
-                    // Structure to match expected UI usage or just string list
-                    // The UI expected mockClasses object with grade/section. 
-                    // Let's adapt.
-                    // teacher_classes returns { class_name: "10A" } usually or similar.
-                    // Let's assume class_name is the full string needed.
-                    setClasses(cls.map((c, i) => ({ id: i, name: c.class_name })));
-                }
+            }
+
+            // Group Classes from Hook
+            if (teacherClasses) {
+                setClasses(teacherClasses.map(c => ({
+                    id: c.id,
+                    name: c.name
+                })));
             }
         };
-        fetchMeta();
-    }, [user]);
+        if (!classesLoading) fetchMeta();
+    }, [user, teacherClasses, classesLoading]);
 
     const handleClassToggle = (className: string) => {
         const newSelection = new Set(selectedClasses);

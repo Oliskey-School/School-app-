@@ -65,7 +65,7 @@ const AcademicAnalytics: React.FC = () => {
     const fetchGradeDistribution = async () => {
         try {
             const { data: grades } = await supabase
-                .from('student_grades')
+                .from('academic_performance')
                 .select('grade');
 
             if (grades) {
@@ -98,7 +98,7 @@ const AcademicAnalytics: React.FC = () => {
     const fetchSubjectPerformance = async () => {
         try {
             const { data: grades } = await supabase
-                .from('student_grades')
+                .from('academic_performance')
                 .select('subject, score');
 
             if (grades) {
@@ -149,7 +149,7 @@ const AcademicAnalytics: React.FC = () => {
     const fetchKeyMetrics = async () => {
         try {
             const { data: grades } = await supabase
-                .from('student_grades')
+                .from('academic_performance')
                 .select('score, student_id');
 
             if (grades && grades.length > 0) {

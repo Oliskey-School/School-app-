@@ -30,6 +30,7 @@ import { supabase } from '../../lib/supabase';
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
 import { realtimeService } from '../../services/RealtimeService';
 import { syncEngine } from '../../lib/syncEngine';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 // Import all view components
 import ExamSchedule from '../shared/ExamSchedule';
@@ -141,6 +142,7 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
 const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { student: Student; navigateTo: (view: string, title: string, props?: any) => void; schoolId?: string; currentBranchId?: string | null }) => {
     const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     useEffect(() => {
         const fetchAcademics = async () => {
@@ -177,7 +179,12 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
             finally { setLoading(false); }
         };
         fetchAcademics();
-    }, [student, schoolId, currentBranchId]);
+    }, [student, schoolId, currentBranchId, refreshTrigger]);
+
+    useAutoSync(['assignments', 'assignment_submissions'], () => {
+        console.log('🔄 [AcademicsTab] Auto-sync triggered');
+        setRefreshTrigger(prev => prev + 1);
+    });
 
     const averageScore = useMemo(() => {
         if (!student.academicPerformance?.length) return 0;
@@ -264,6 +271,7 @@ const BehaviorTab = ({ student }: { student: Student }) => {
 const AttendanceTab = ({ student }: { student: Student }) => {
     const [attendance, setAttendance] = useState<StudentAttendance[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     useEffect(() => {
         const fetchAttendance = async () => {
@@ -272,7 +280,12 @@ const AttendanceTab = ({ student }: { student: Student }) => {
             setLoading(false);
         };
         fetchAttendance();
-    }, [student.id]);
+    }, [student.id, refreshTrigger]);
+
+    useAutoSync(['student_attendance'], () => {
+        console.log('🔄 [AttendanceTab] Auto-sync triggered');
+        setRefreshTrigger(prev => prev + 1);
+    });
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const attendanceMap = useMemo(() => {
@@ -371,13 +384,14 @@ const ParentDashboardContent = ({ navigateTo, schoolId, currentUser, version, st
             } catch (err) { console.error("Error batch fetching dashboard stats:", err); }
         };
         fetchStats();
-        if (currentUser?.id && schoolId) {
-            realtimeService.initialize(currentUser.id, schoolId);
-            const handleUpdate = () => { fetchStats(); forceUpdate(); };
-            window.addEventListener('realtime-update' as any, handleUpdate);
-            return () => window.removeEventListener('realtime-update' as any, handleUpdate);
-        }
     }, [students, schoolId, currentUser?.id]);
+
+    // Auto-sync
+    useAutoSync(['student_fees', 'student_attendance', 'assignments'], () => {
+        console.log('🔄 [ParentDashboard] Auto-sync triggered');
+        // Re-fetch stats in the effect by using forceUpdate or the trigger. For now, we can just force update.
+        forceUpdate();
+    });
 
     const childColorThemes = [{ bg: '#3b82f6', text: '#1e40af' }, { bg: '#ec4899', text: '#831843' }];
 
