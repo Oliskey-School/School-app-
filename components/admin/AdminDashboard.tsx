@@ -143,11 +143,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+    const [isInitializing, setIsInitializing] = useState(true);
 
     const forceUpdate = () => setVersion(v => v + 1);
-    const { currentSchool, currentBranchId, user } = useAuth();
+    const { currentSchool, currentBranchId, user, loading: authLoading } = useAuth();
     const { currentBranch } = useBranch();
     const { profile } = useProfile();
+
+    // Derived schoolId with stabilization
+    const schoolId = currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined);
+
+    useEffect(() => {
+        if (!authLoading && (schoolId || user?.email?.includes('demo'))) {
+            setIsInitializing(false);
+        }
+    }, [authLoading, schoolId, user]);
 
     useEffect(() => {
         setIsHomePage(viewStack.length === 1 && !isSearchOpen);
@@ -371,11 +381,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         forceUpdate,
         currentUserId,
         currentSchool,
-        schoolId: currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined),
+        schoolId,
         currentBranchId: currentBranch?.id || currentBranchId
     };
 
     const renderContent = () => {
+        if (isInitializing) return <PremiumLoader message="Initializing secure session..." />;
         if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {currentNavigation.view}</div>;
 
         if (currentNavigation.view === 'notifications') return (

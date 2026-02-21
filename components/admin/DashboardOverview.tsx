@@ -358,7 +358,10 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     }, [activeSchoolId, currentBranchId]); // Added currentBranchId
 
     // --- GLOBAL AUTO-SYNC ---
-    // Single robust listener for all essential dashboard data
+    // Single robust listener for all essential dashboard data with throttling
+    const [lastSyncTime, setLastSyncTime] = useState(0);
+    const SYNC_THROTTLE_MS = 5000; // 5 seconds
+
     useAutoSync(
         [
             'students',
@@ -372,8 +375,14 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             'timetable'
         ],
         () => {
-            console.log('🔄 [Dashboard] Auto-Sync triggered!');
-            fetchDashboardData();
+            const now = Date.now();
+            if (now - lastSyncTime > SYNC_THROTTLE_MS) {
+                console.log(`🔄 [Dashboard] Auto-Sync triggered! (School: ${activeSchoolId}, Branch: ${currentBranchId || 'All'})`);
+                setLastSyncTime(now);
+                fetchDashboardData();
+            } else {
+                console.log('⏳ [Dashboard] Auto-Sync suppressed (throttled)');
+            }
         }
     );
 
