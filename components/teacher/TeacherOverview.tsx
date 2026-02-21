@@ -297,7 +297,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           {/* Quick Actions */}
           <div>
             <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Quick Actions</h3>
-            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
               {quickActions.map(action => (
                 <button key={action.label} onClick={action.action} className={`${theme.cardBg} p-2 sm:p-3 rounded-xl shadow-sm flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover:bg-purple-200 transition-colors`}>
                   <div className={`${theme.iconColor} flex-shrink-0`}>{React.cloneElement(action.icon as React.ReactElement, { className: "h-6 w-6 sm:h-7 sm:w-7" })}</div>

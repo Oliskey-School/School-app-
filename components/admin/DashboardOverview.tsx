@@ -540,7 +540,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
                         <h2 className="text-2xl font-bold text-white mb-1">Welcome, Admin!</h2>
                         <p className="text-white/80">Here's your school's command center.</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                        <div className="grid grid-cols-2 xs:grid-cols-3 md:grid-cols-4 gap-4 mt-6">
                             <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-sky-400 to-sky-600" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={`+${studentTrend}`} trendColor="text-sky-200" />
                             <StatCard label="Total Teachers" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={`+${teacherTrend}`} trendColor="text-purple-200" />
                             <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={`+${parentTrend}`} trendColor="text-orange-200" />
@@ -551,7 +551,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     <div>
                         <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Quick Actions</h2>
                         {/* Mobile/Tablet view */}
-                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
                             <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-sky-500" />
                             <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                             <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
@@ -575,7 +575,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         {/* Content Management Section */}
                         <div className="mt-8">
                             <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Content Management</h2>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="School Policies"
                                     icon={<DocumentTextIcon />}
@@ -619,7 +619,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         {/* Infrastructure & Facilities Section - STEP 11 */}
                         <div className="mt-8">
                             <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Infrastructure & Facilities</h2>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Facility Register"
                                     icon={<SchoolLogoIcon />}
@@ -638,7 +638,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         {/* Phase 8: Step 12 Safety & Wellbeing Section */}
                         <div className="mt-8">
                             <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🛡️ Safety & Wellbeing</h2>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Emergency Alerts"
                                     icon={<AlertTriangle className="animate-pulse" />}
@@ -669,7 +669,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         {/* Phase 9: Step 13 Governance & Ministry Section */}
                         <div className="mt-8">
                             <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🏛️ Governance & Ministry</h2>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 <QuickActionCard
                                     label="Quality Assurance"
                                     icon={<Shield className="animate-pulse" />}

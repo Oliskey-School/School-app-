@@ -125,14 +125,23 @@ export async function fetchStudentByEmail(email: string): Promise<Student | null
     }
 }
 
-export async function fetchStudentsByClass(grade: number | string, section: string): Promise<Student[]> {
+export async function fetchStudentsByClass(grade: number | string, section: string, schoolId?: string, branchId?: string): Promise<Student[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('students')
             .select('id, school_id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday')
             .eq('grade', grade)
-            .eq('section', section)
-            .order('name', { ascending: true });
+            .eq('section', section);
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
+        const { data, error } = await query.order('name', { ascending: true });
 
         if (error) throw error;
 
@@ -2178,7 +2187,12 @@ export async function syncCBTToGradebook(
                 term,
                 session,
                 status: 'Draft',
-                academicRecords: []
+                academicRecords: [],
+                skills: {},
+                psychomotor: {},
+                attendance: { total: 0, present: 0, absent: 0, late: 0 },
+                teacherComment: '',
+                principalComment: ''
             };
         }
 

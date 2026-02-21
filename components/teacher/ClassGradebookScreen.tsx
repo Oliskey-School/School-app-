@@ -36,17 +36,25 @@ const getRemark = (score: number, grade: string): string => {
     return 'Needs Improvement';
 };
 
-const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void }> = ({ teacherId, handleBack }) => {
-    const [classes, setClasses] = useState<ClassInfo[]>([]);
-    const [selectedClass, setSelectedClass] = useState<string>('');
-    const [selectedSubject, setSelectedSubject] = useState<string>('');
+const ClassGradebookScreen: React.FC<{
+    teacherId?: string;
+    schoolId?: string;
+    currentBranchId?: string;
+    classInfo?: { id: string, grade: number, section: string, subject: string, studentCount?: number };
+    handleBack: () => void;
+}> = ({ teacherId, schoolId, currentBranchId, classInfo, handleBack }) => {
+    const [classes, setClasses] = useState<ClassInfo[]>(classInfo ? [classInfo as any] : []);
+    const [selectedClass, setSelectedClass] = useState<string>(classInfo?.id || '');
+    const [selectedSubject, setSelectedSubject] = useState<string>(classInfo?.subject || '');
     const [students, setStudents] = useState<GradebookEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
     // Fetch Teacher's Classes (Mock or Real)
-    // Fetch Teacher's Classes (Mock or Real)
     useEffect(() => {
+        if (classInfo) return; // Skip if we already have class info (Admin mode)
+        if (!teacherId) return;
+
         const fetchClasses = async () => {
             try {
                 const { fetchTeacherById } = await import('../../lib/database');
@@ -118,7 +126,7 @@ const ClassGradebookScreen: React.FC<{ teacherId: string; handleBack: () => void
                 const section = clsObj.section;
 
                 // 1. Fetch Students
-                const studentData = await fetchStudentsByClass(grade, section);
+                const studentData = await fetchStudentsByClass(grade, section, schoolId, currentBranchId);
 
                 if (studentData.length === 0) {
                     setStudents([]);

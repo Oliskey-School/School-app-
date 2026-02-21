@@ -254,7 +254,7 @@ const Overview: React.FC<{
                     <TodayFocus schedule={todaySchedule} assignments={upcomingAssignments} theme={theme} navigateTo={navigateTo} />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {aiTools.map(tool => (
                                 <button key={tool.label} onClick={tool.action} className={`p-4 rounded-2xl shadow-lg text-white bg-gradient-to-r ${tool.color} transition-transform active:scale-[0.98]`}>
                                     <SparklesIcon className="h-6 w-6 mb-2" />
@@ -269,7 +269,7 @@ const Overview: React.FC<{
                 <div className="lg:col-span-1 space-y-6">
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Quick Actions</h3>
-                        <div className="grid grid-cols-2 gap-3 text-center">
+                        <div className="grid grid-cols-3 gap-3 text-center">
                             {quickAccessItems.map(item => (
                                 <button key={item.label} onClick={item.action} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2 hover:bg-orange-100 transition-colors">
                                     <div className={theme.iconColor}>{React.cloneElement(item.icon, { className: 'h-7 w-7' })}</div>

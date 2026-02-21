@@ -5,21 +5,29 @@ import { ClassInfo } from '../../types';
 
 interface AdminResultsEntrySelectorProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    schoolId?: string;
+    currentBranchId?: string;
 }
 
-const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ navigateTo }) => {
+const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ navigateTo, schoolId, currentBranchId }) => {
     const { data: rawClasses, loading: isLoading } = useRealtime<any>('classes', '*', 'grade');
 
     const classes: ClassInfo[] = useMemo(() => {
-        return rawClasses.map(c => ({
-            id: c.id,
-            subject: c.subject,
-            grade: c.grade,
-            section: c.section,
-            department: c.department,
-            studentCount: c.student_count || 0
-        }));
-    }, [rawClasses]);
+        return rawClasses
+            .filter(c => {
+                const sMatch = !schoolId || c.school_id === schoolId;
+                const bMatch = !currentBranchId || currentBranchId === 'all' || c.branch_id === currentBranchId || !c.branch_id;
+                return sMatch && bMatch;
+            })
+            .map(c => ({
+                id: c.id,
+                subject: c.subject,
+                grade: c.grade,
+                section: c.section,
+                department: c.department,
+                studentCount: c.student_count || 0
+            }));
+    }, [rawClasses, schoolId, currentBranchId]);
 
     const groupedClasses = useMemo(() => {
         const groups: { [key: number]: Map<string, ClassInfo> } = {};
@@ -82,7 +90,7 @@ const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ n
                                 {gradeClasses.map(cls => (
                                     <button
                                         key={getFormattedClassName(grade, cls.section)}
-                                        onClick={() => navigateTo('classGradebook', `Gradebook: ${getFormattedClassName(grade, cls.section, true, cls.subject)}`, { classInfo: { ...cls, section: undefined }, teacherId: 2 })} // Defaulting to a demo teacher ID for now
+                                        onClick={() => navigateTo('classGradebook', `Gradebook: ${getFormattedClassName(grade, cls.section, true, cls.subject)}`, { classInfo: cls })}
                                         className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
                                     >
                                         <div className="flex items-center space-x-3">

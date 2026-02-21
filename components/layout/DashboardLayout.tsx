@@ -22,7 +22,7 @@ interface DashboardLayoutProps {
 import { useProfile } from '../../context/ProfileContext';
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hidePadding = false }) => {
-    const { user, role, signOut } = useAuth();
+    const { user, role, signOut, currentSchool } = useAuth();
     const { profile } = useProfile(); // Use Profile Context
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const notificationCount = useRealtimeNotifications(role?.toLowerCase() as any || 'admin');
@@ -43,8 +43,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                 if (isMobile) setIsMobileMenuOpen(false);
             },
             onLogout: handleLogout,
-            schoolName: user?.user_metadata?.school_name || 'Oliskey School',
-            logoUrl: user?.user_metadata?.logo_url
+            schoolName: currentSchool?.name || user?.user_metadata?.school_name || 'Oliskey School',
+            logoUrl: currentSchool?.logoUrl || user?.user_metadata?.logo_url
         };
 
         switch (role) {

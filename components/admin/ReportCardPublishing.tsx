@@ -23,6 +23,10 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   const { currentSchool, user } = useAuth();
   const activeSchoolId = propSchoolId || currentSchool?.id || user?.user_metadata?.school_id;
 
+  useEffect(() => {
+    console.log('[Publishing] Active School ID:', activeSchoolId);
+  }, [activeSchoolId]);
+
   const [studentsWithReports, setStudentsWithReports] = useState<StudentReportInfo[]>([]);
   const [reportCards, setReportCards] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,7 +147,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   );
 
   if (showPreview && selectedStudent) {
-    return <ReportCardPreview student={selectedStudent as any} onClose={() => setShowPreview(false)} />;
+    return <ReportCardPreview student={selectedStudent as any} schoolId={activeSchoolId as string} onClose={() => setShowPreview(false)} />;
   }
   const getCount = (status: ReportCard['status'] | 'All') => {
     if (status === 'All') return studentsWithReports.length;

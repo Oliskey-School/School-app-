@@ -152,7 +152,7 @@ class HybridApiClient {
         }
 
         let query = supabase.from('students')
-            .select('id, name, avatar_url, grade, section, status, school_generated_id')
+            .select('id, name, avatar_url, grade, section, status, school_generated_id, school_id')
             .eq('school_id', schoolId);
 
         if (branchId && branchId !== 'all') {
