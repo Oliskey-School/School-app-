@@ -153,29 +153,6 @@ export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout, school
                         />
                     ))}
                 </div>
-
-                {/* Teaching Assignments Section */}
-                <div className="mt-8 px-6">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">My Classes</h4>
-                    <div className="space-y-3">
-                        {teacherClasses.map((c, i) => (
-                            <div key={i} className="group cursor-pointer" onClick={() => setActiveScreen('classDetail')}>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">
-                                        {getFormattedClassName(c.grade, c.section)}
-                                    </span>
-                                    <div className={`w-1.5 h-1.5 rounded-full ${SUBJECT_COLORS[c.subject] || 'bg-purple-400'}`}></div>
-                                </div>
-                                <p className="text-[10px] text-gray-400 group-hover:text-purple-400 transition-colors truncate">
-                                    {c.subject}
-                                </p>
-                            </div>
-                        ))}
-                        {teacherClasses.length === 0 && (
-                            <p className="text-xs text-gray-400 italic">No classes assigned</p>
-                        )}
-                    </div>
-                </div>
             </nav>
 
             {onLogout && (

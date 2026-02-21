@@ -34,6 +34,7 @@ import TeacherCommunicationScreen from '../teacher/TeacherCommunicationScreen';
 import CalendarScreen from '../shared/CalendarScreen';
 import ReportCardInputScreen from '../teacher/ReportCardInputScreen';
 import CollaborationForumScreen from '../teacher/CollaborationForumScreen';
+import CreateForumTopicScreen from '../teacher/CreateForumTopicScreen';
 import ForumTopicScreen from '../teacher/ForumTopicScreen';
 import TimetableScreen from '../shared/TimetableScreen';
 import ChatScreen from '../shared/ChatScreen';
@@ -308,6 +309,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     communication: TeacherCommunicationScreen,
     reportCardInput: ReportCardInputScreen,
     collaborationForum: CollaborationForumScreen,
+    createForumTopic: (props: any) => <CreateForumTopicScreen {...props} currentUser={props.currentUser} onTopicCreated={props.onTopicCreated} />,
     forumTopic: (props: any) => <ForumTopicScreen {...props} currentUserId={currentUserId || ''} teacherProfile={teacherProfile} />,
     timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'teacher', userId: teacherId || '' }} />,
     chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId || ''} />,

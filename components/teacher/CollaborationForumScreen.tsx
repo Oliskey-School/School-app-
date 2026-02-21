@@ -5,7 +5,6 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
-import CreateForumTopicModal from './CreateForumTopicModal';
 
 const formatDistanceToNow = (date: string | Date) => {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -26,7 +25,6 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
   const { profile } = useProfile();
   const [topics, setTopics] = useState<ForumTopic[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const forumEnabled = teacherProfile?.notification_preferences?.forumEnabled !== false;
 
@@ -47,10 +45,6 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
   useEffect(() => {
     loadTopics();
   }, [currentSchool?.id, forumEnabled]);
-
-  const handleTopicCreated = () => {
-    loadTopics(); // Refresh list
-  };
 
   if (!forumEnabled) {
     return (
@@ -121,25 +115,21 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
 
       <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => navigateTo('createForumTopic', 'Create New Topic', {
+            onTopicCreated: loadTopics,
+            currentUser: {
+              id: user?.id || '',
+              name: profile?.name || user?.email || 'Teacher',
+              schoolId: currentSchool?.id || '',
+              avatarUrl: profile?.avatarUrl
+            }
+          })}
           className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-transform hover:scale-110 active:scale-95"
           aria-label="Create new topic"
         >
           <PlusIcon className="h-6 w-6" />
         </button>
       </div>
-
-      <CreateForumTopicModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onTopicCreated={handleTopicCreated}
-        currentUser={{
-          id: user?.id || '',
-          name: profile?.name || user?.email || 'Teacher',
-          schoolId: currentSchool?.id || '',
-          avatarUrl: profile?.avatarUrl
-        }}
-      />
     </div>
   );
 };
