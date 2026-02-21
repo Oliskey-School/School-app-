@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Rocket, School, BookOpen, Users, DollarSign, CheckCircle2, ChevronRight, ChevronLeft, Layout } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-const PilotOnboardingWizard: React.FC = () => {
+const PilotOnboardingPage: React.FC = () => {
     const [step, setStep] = useState(1);
     const totalSteps = 4;
 
@@ -193,4 +193,4 @@ const PilotOnboardingWizard: React.FC = () => {
     );
 };
 
-export default PilotOnboardingWizard;
+export default PilotOnboardingPage;

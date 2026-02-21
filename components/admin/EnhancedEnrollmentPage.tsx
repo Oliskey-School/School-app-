@@ -34,7 +34,7 @@ interface EnrollmentData {
     passportPhoto?: File;
 }
 
-export default function EnhancedEnrollmentWizard({
+export default function EnhancedEnrollmentPage({
     onComplete,
     schoolId
 }: {
@@ -162,7 +162,7 @@ export default function EnhancedEnrollmentWizard({
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <User className="h-6 w-6 text-primary" />
-                        Student Enrollment Wizard
+                        Student Enrollment
                     </CardTitle>
 
                     {/* Progress Indicator */}

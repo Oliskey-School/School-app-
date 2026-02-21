@@ -124,11 +124,10 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
                     <span>{successMessage}</span>
                 </div>
             )}
-            <div className="absolute bottom-6 right-6">
+            <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
                 <button
-                    onClick={() => navigateTo('createAssignment', 'Create Assignment', { onAssignmentAdded: handleAssignmentAdded, handleBack: handleBack, teacherId })}
-                    className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                    aria-label="Create new assignment"
+                    onClick={() => navigateTo('assignmentCreator', 'Create Assignment', {})}
+                    className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95"
                 >
                     <PlusIcon className="h-6 w-6" />
                 </button>

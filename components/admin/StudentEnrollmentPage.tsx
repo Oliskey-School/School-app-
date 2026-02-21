@@ -4,12 +4,12 @@ import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon
 import { useProfile } from '../../context/ProfileContext';
 import { checkUserLimit } from '../../lib/usage-limits';
 
-interface EnrollmentWizardProps {
+interface EnrollmentPageProps {
     onComplete: () => void;
     handleBack: () => void;
 }
 
-const StudentEnrollmentWizard: React.FC<EnrollmentWizardProps> = ({ onComplete, handleBack }) => {
+const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, handleBack }) => {
     const { profile } = useProfile();
     const [loading, setLoading] = useState(false);
 
@@ -309,4 +309,4 @@ const StudentEnrollmentWizard: React.FC<EnrollmentWizardProps> = ({ onComplete, 
     );
 };
 
-export default StudentEnrollmentWizard;
+export default StudentEnrollmentPage;

@@ -25,7 +25,7 @@ interface InspectionItem {
     comments?: string;
 }
 
-const InspectionFlowWizard = () => {
+const InspectionFlowPage = () => {
     const [step, setStep] = useState(1);
     const [inspectionId, setInspectionId] = useState<number | null>(null);
     const [status, setStatus] = useState<InspectionStatus>('Scheduled');
@@ -70,7 +70,7 @@ const InspectionFlowWizard = () => {
             {[1, 2, 3, 4].map((s) => (
                 <div key={s} className="flex items-center">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold transition-all ${step === s ? 'bg-indigo-600 text-white scale-110 shadow-lg' :
-                            step > s ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'
+                        step > s ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'
                         }`}>
                         {step > s ? <CheckCircle2 className="w-5 h-5" /> : s}
                     </div>
@@ -227,4 +227,4 @@ const InspectionFlowWizard = () => {
     );
 };
 
-export default InspectionFlowWizard;
+export default InspectionFlowPage;

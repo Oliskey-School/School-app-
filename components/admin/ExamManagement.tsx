@@ -231,8 +231,11 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                 {filteredExams.length === 0 && !loading && <p className="text-center text-gray-500 py-8">No exams found for this filter.</p>}
             </main>
 
-            <div className="absolute bottom-6 right-6">
-                <button onClick={handleAddNew} className="bg-sky-500 text-white p-4 rounded-full shadow-lg hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500" aria-label="Add new exam">
+            <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
+                <button
+                    onClick={() => navigateTo('examRegistration', 'Setup New Exam')}
+                    className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95"
+                >
                     <PlusIcon className="h-6 w-6" />
                 </button>
             </div>

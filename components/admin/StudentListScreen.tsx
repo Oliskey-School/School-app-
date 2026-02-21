@@ -303,7 +303,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
             </div>
           )}
         </main>
-        <div className="absolute bottom-6 right-6"><button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-sky-500 text-white p-4 rounded-full shadow-lg hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button></div>
+        <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40"><button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-sky-500 text-white p-4 rounded-full shadow-lg hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button></div>
       </div>
     );
   }
@@ -415,7 +415,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         )}
       </main>
 
-      <div className="absolute bottom-6 right-6">
+      <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
         <button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-sky-500 text-white p-4 rounded-full shadow-lg hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button>
       </div>
     </div>

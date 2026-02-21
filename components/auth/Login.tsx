@@ -296,14 +296,14 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
                 <button
                   key={key}
                   onClick={() => handleQuickLogin(key)}
-                  disabled={isLoading}
+                  disabled={isLoading || ['proprietor', 'inspector', 'examofficer', 'compliance'].includes(key)}
                   className={`flex items-center justify-center py-2 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-[10px] sm:text-xs transition-all active:scale-95 shadow-sm hover:shadow-md
                     ${key === 'admin' ? 'bg-[#EBF5FF] text-[#1E40AF] hover:bg-blue-100' : ''}
                     ${key === 'teacher' ? 'bg-[#F5F3FF] text-[#5B21B6] hover:bg-purple-100' : ''}
                     ${key === 'parent' ? 'bg-[#F0FDF4] text-[#166534] hover:bg-green-100' : ''}
                     ${key === 'student' ? 'bg-[#FFF7ED] text-[#9A3412] hover:bg-orange-100' : ''}
                     ${key === 'oliskey' ? 'bg-indigo-700 text-white hover:bg-indigo-800' : ''}
-                    ${['proprietor', 'inspector', 'examofficer', 'compliance'].includes(key) ? 'bg-[#F1F5F9] text-[#475569] hover:bg-slate-200' : ''}
+                    ${['proprietor', 'inspector', 'examofficer', 'compliance'].includes(key) ? 'bg-[#F1F5F9] text-[#475569]/50 opacity-60 grayscale cursor-not-allowed shadow-none' : ''}
                 `}
                 >
                   {displayRole}

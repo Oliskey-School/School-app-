@@ -65,7 +65,7 @@ const EducationalGamesScreen: React.FC<EducationalGamesScreenProps> = ({ navigat
         <div className="flex flex-col h-full bg-gray-100 relative">
             <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-24">
                 <div className="bg-purple-50 p-4 rounded-xl text-center border border-purple-200">
-                    <GameControllerIcon className="h-10 w-10 mx-auto text-purple-400 mb-2"/>
+                    <GameControllerIcon className="h-10 w-10 mx-auto text-purple-400 mb-2" />
                     <h3 className="font-bold text-lg text-purple-800">Educational Games Library</h3>
                     <p className="text-sm text-purple-700">A comprehensive list of games to make learning fun.</p>
                 </div>
@@ -73,11 +73,11 @@ const EducationalGamesScreen: React.FC<EducationalGamesScreenProps> = ({ navigat
                     gamesByLevel[level] && <LevelAccordion key={level} level={level} games={gamesByLevel[level]} defaultOpen={index === 0} />
                 ))}
             </main>
-             <div className="absolute bottom-6 right-6">
+            <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
                 <button
-                  onClick={() => navigateTo('aiGameCreator', 'AI Game Creator', {})}
-                  className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                  aria-label="Create new game with AI"
+                    onClick={() => navigateTo('aiGameCreator', 'AI Game Creator', {})}
+                    className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all hover:scale-110 active:scale-95"
+                    aria-label="Create new game with AI"
                 >
                     <PlusIcon className="h-6 w-6" />
                 </button>

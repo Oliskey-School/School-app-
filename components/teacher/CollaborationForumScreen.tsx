@@ -119,10 +119,10 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
         )}
       </main>
 
-      <div className="absolute bottom-6 right-6">
+      <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-transform hover:scale-105 active:scale-95"
+          className="bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-transform hover:scale-110 active:scale-95"
           aria-label="Create new topic"
         >
           <PlusIcon className="h-6 w-6" />

@@ -6,7 +6,7 @@ import { fetchTeachers } from '../../lib/database';
 import MultiClassSelector from '../shared/MultiClassSelector';
 
 // --- TYPES ---
-interface TimetableCreationWizardProps {
+interface TimetableCreationPageProps {
     isOpen?: boolean;
     onClose: () => void;
     availableClasses: { id: string; name: string; grade: number; section: string; }[];
@@ -85,7 +85,7 @@ const TagInput: React.FC<{ tags: string[]; setTags: (newTags: string[]) => void;
 };
 
 // --- MAIN COMPONENT ---
-const TimetableCreationWizard: React.FC<TimetableCreationWizardProps> = ({ isOpen, onClose, availableClasses, initialSelectedClasses, navigateTo, schoolId }) => {
+const TimetableCreationPage: React.FC<TimetableCreationPageProps> = ({ isOpen, onClose, availableClasses, initialSelectedClasses, navigateTo, schoolId }) => {
     // --- STATE ---
     const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
     const [sessionTerm, setSessionTerm] = useState('2025/2026 - 1st Term');
@@ -440,4 +440,4 @@ const TimetableCreationWizard: React.FC<TimetableCreationWizardProps> = ({ isOpe
     return content;
 };
 
-export default TimetableCreationWizard;
+export default TimetableCreationPage;

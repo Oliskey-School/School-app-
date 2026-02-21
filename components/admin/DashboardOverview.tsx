@@ -555,7 +555,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-sky-500" />
                             <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                             <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
-                            <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enhancedEnrollment', 'New Student Enrollment')} color="bg-emerald-600" />
+                            <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enrollmentPage', 'New Student Enrollment')} color="bg-emerald-600" />
                             <QuickActionCard label="Register Exams" icon={<DocumentTextIcon />} onClick={() => navigateTo('exams', 'External Exams')} color="bg-indigo-600" />
                             <QuickActionCard label="Publish Reports" icon={<ReportIcon />} onClick={() => navigateTo('reportCardPublishing', 'Publish Reports', {})} color="bg-purple-500" />
                             <QuickActionCard label="Timetable" icon={<ClipboardListIcon />} onClick={() => navigateTo('timetable', 'AI Timetable')} color="bg-indigo-500" />
@@ -567,7 +567,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <QuickActionCard label="Compliance" icon={<Shield />} onClick={() => navigateTo('complianceOnboarding', 'School Compliance')} color="bg-violet-600" />
                             <QuickActionCard label="Track Attendance" icon={<Calendar />} onClick={() => navigateTo('attendanceTracker', 'Curriculum Attendance')} color="bg-green-600" />
                             <QuickActionCard label="Enter Results" icon={<TrendingUp />} onClick={() => navigateTo('resultsEntry', 'Results Entry')} color="bg-cyan-600" />
-                            <QuickActionCard label="Launch Hub" icon={<Rocket className="animate-bounce" />} onClick={() => navigateTo('onboardingWizard', 'Pilot Onboarding')} color="bg-gray-900" />
+                            <QuickActionCard label="Launch Hub" icon={<Rocket className="animate-bounce" />} onClick={() => navigateTo('onboardingPage', 'Pilot Onboarding')} color="bg-gray-900" />
                             <QuickActionCard label="Emergency" icon={<AlertTriangle />} onClick={() => setIsBroadcastOpen(true)} color="bg-red-600 animate-pulse" />
                         </div>
 

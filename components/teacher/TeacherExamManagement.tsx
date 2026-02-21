@@ -191,8 +191,11 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                 {!loading && exams.length === 0 && <p className="text-center text-gray-500 py-8">You have not created any exams.</p>}
             </main>
 
-            <div className="absolute bottom-6 right-6">
-                <button onClick={handleAddNew} className="bg-amber-500 text-white p-4 rounded-full shadow-lg hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500" aria-label="Add new exam">
+            <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
+                <button
+                    onClick={() => navigateTo('examCreator', 'Setup New Exam')}
+                    className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95"
+                >
                     <PlusIcon className="h-6 w-6" />
                 </button>
             </div>

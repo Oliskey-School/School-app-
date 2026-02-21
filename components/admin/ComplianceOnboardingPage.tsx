@@ -34,7 +34,7 @@ interface DocumentData {
     curriculumType: 'Nigerian' | 'British' | 'Both' | '';
 }
 
-export default function ComplianceOnboardingWizard({
+export default function ComplianceOnboardingPage({
     onComplete,
     schoolId
 }: {

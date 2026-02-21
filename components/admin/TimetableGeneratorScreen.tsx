@@ -243,8 +243,8 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
         }
     };
 
-    const handleOpenWizard = (targetClass?: string) => {
-        navigateTo('aiTimetableCreator', 'AI Timetable Creator', {
+    const handleOpenPage = (targetClass?: string) => {
+        navigateTo('aiTimetableCreator', 'AI Timetable Generator', {
             availableClasses: classes,
             initialSelectedClasses: targetClass ? [targetClass] : [],
         });
@@ -266,7 +266,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                     </div>
 
                     <button
-                        onClick={() => handleOpenWizard()}
+                        onClick={() => handleOpenPage()}
                         className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-2"
                     >
                         <PlusIcon className="w-5 h-5" />

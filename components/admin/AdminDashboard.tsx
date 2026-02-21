@@ -22,7 +22,7 @@ const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
 const TeacherListScreen = lazy(() => import('../admin/TeacherListScreen'));
 const TeacherPerformanceScreen = lazy(() => import('../admin/TeacherPerformanceScreen'));
 const TimetableGeneratorScreen = lazy(() => import('../admin/TimetableGeneratorScreen'));
-const TimetableCreationWizard = lazy(() => import('../admin/TimetableCreationWizard'));
+const TimetableCreationPage = lazy(() => import('../admin/TimetableCreationPage'));
 const TimetableEditor = lazy(() => import('../admin/TimetableEditor'));
 const TeacherAttendanceScreen = lazy(() => import('../admin/TeacherAttendanceScreen'));
 const TeacherAttendanceApproval = lazy(() => import('./TeacherAttendanceApproval'));
@@ -70,7 +70,7 @@ const ManageLearningResourcesScreen = lazy(() => import('../admin/ManageLearning
 const ManagePTAMeetingsScreen = lazy(() => import('../admin/ManagePTAMeetingsScreen'));
 const SchoolOnboardingScreen = lazy(() => import('../admin/SchoolOnboardingScreen'));
 const CurriculumSettingsScreen = lazy(() => import('../admin/CurriculumSettingsScreen'));
-const StudentEnrollmentWizard = lazy(() => import('../admin/StudentEnrollmentWizard'));
+const StudentEnrollmentPage = lazy(() => import('../admin/StudentEnrollmentPage'));
 const ExamCandidateRegistration = lazy(() => import('../admin/ExamCandidateRegistration'));
 const UserAccountsScreen = lazy(() => import('../admin/UserAccountsScreen'));
 const PermissionSlips = lazy(() => import('../shared/PermissionSlips'));
@@ -100,10 +100,10 @@ const ComplianceChecklist = lazy(() => import('../admin/ComplianceChecklist'));
 const MaintenanceTickets = lazy(() => import('../admin/MaintenanceTickets'));
 const MasterReportingHub = lazy(() => import('../admin/MasterReportingHub'));
 const ValidationConsole = lazy(() => import('../admin/ValidationConsole'));
-const PilotOnboardingWizard = lazy(() => import('../admin/PilotOnboardingWizard'));
+const PilotOnboardingPage = lazy(() => import('../admin/PilotOnboardingPage'));
 const UnifiedGovernanceHub = lazy(() => import('../admin/UnifiedGovernanceHub'));
-const EnhancedEnrollmentWizard = lazy(() => import('../admin/EnhancedEnrollmentWizard'));
-const ComplianceOnboardingWizard = lazy(() => import('../admin/ComplianceOnboardingWizard'));
+const EnhancedEnrollmentPage = lazy(() => import('../admin/EnhancedEnrollmentPage'));
+const ComplianceOnboardingPage = lazy(() => import('../admin/ComplianceOnboardingPage'));
 const StudentProfileEnhanced = lazy(() => import('../student/StudentProfileEnhanced'));
 const TeacherProfileEnhanced = lazy(() => import('../teacher/TeacherProfileEnhanced'));
 const CalendarScreen = lazy(() => import('../shared/CalendarScreen'));
@@ -173,7 +173,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         let schoolId = currentSchool?.id || user?.user_metadata?.school_id || user?.app_metadata?.school_id || profile?.schoolId;
         const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo || !schoolId;
         if (!schoolId && isDemo) {
-            schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+            schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1'; // Fixed Demo School ID
         }
         if (user?.id && schoolId) {
             realtimeService.initialize(user.id, schoolId);
@@ -207,7 +207,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         timetable: TimetableGeneratorScreen,
         timetableEditor: TimetableEditor,
         timetableCreator: TimetableCreator,
-        aiTimetableCreator: TimetableCreationWizard,
+        aiTimetableCreator: TimetableCreationPage,
         teacherAttendance: TeacherAttendanceScreen,
         teacherAttendanceApproval: TeacherAttendanceApproval,
         feeManagement: FeeManagement,
@@ -253,7 +253,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         managePTAMeetings: ManagePTAMeetingsScreen,
         manageSchoolInfo: SchoolOnboardingScreen,
         manageCurriculum: CurriculumSettingsScreen,
-        enrollmentWizard: StudentEnrollmentWizard,
+        enrollmentPage: StudentEnrollmentPage,
         exams: ExamCandidateRegistration,
         userAccounts: UserAccountsScreen,
         permissionSlips: PermissionSlips,
@@ -284,10 +284,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         maintenanceTickets: MaintenanceTickets,
         masterReports: MasterReportingHub,
         validationConsole: ValidationConsole,
-        onboardingWizard: PilotOnboardingWizard,
+        onboardingPage: PilotOnboardingPage,
         governanceHub: UnifiedGovernanceHub,
-        enhancedEnrollment: EnhancedEnrollmentWizard,
-        complianceOnboarding: ComplianceOnboardingWizard,
+        enhancedEnrollment: EnhancedEnrollmentPage,
+        complianceOnboarding: ComplianceOnboardingPage,
         studentProfile: StudentProfileEnhanced,
         teacherProfile: TeacherProfileEnhanced,
         schoolCalendar: CalendarScreen,

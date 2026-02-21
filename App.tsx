@@ -62,38 +62,38 @@ const SuccessScreen: React.FC = () => (
 );
 
 const ConfigErrorScreen: React.FC = () => (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-red-100">
-            <div className="bg-red-50 p-6 flex flex-col items-center text-center border-b border-red-100">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                    <AlertTriangleIcon className="w-8 h-8 text-red-600" />
-                </div>
-                <h2 className="text-xl font-bold text-red-700">Configuration Error</h2>
-                <p className="text-sm text-red-600 mt-2">The application is missing critical configuration.</p>
-            </div>
-            <div className="p-6 space-y-4">
-                <p className="text-gray-600 text-sm text-center">
-                    Please ensure the following environment variables are set in your <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">.env</code> file:
-                </p>
-                <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-300 overflow-x-auto">
-                    <div className="flex justify-between">
-                        <span className="text-blue-400">VITE_SUPABASE_URL</span>
-                        <span className="text-red-400">Missing</span>
-                    </div>
-                    <div className="flex justify-between mt-2">
-                        <span className="text-blue-400">VITE_SUPABASE_ANON_KEY</span>
-                        <span className="text-red-400">Missing</span>
-                    </div>
-                </div>
-                <button 
-                    onClick={() => window.location.reload()}
-                    className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition shadow-lg active:scale-95"
-                >
-                    Reload Application
-                </button>
-            </div>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-red-100">
+      <div className="bg-red-50 p-6 flex flex-col items-center text-center border-b border-red-100">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+          <AlertTriangleIcon className="w-8 h-8 text-red-600" />
         </div>
+        <h2 className="text-xl font-bold text-red-700">Configuration Error</h2>
+        <p className="text-sm text-red-600 mt-2">The application is missing critical configuration.</p>
+      </div>
+      <div className="p-6 space-y-4">
+        <p className="text-gray-600 text-sm text-center">
+          Please ensure the following environment variables are set in your <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">.env</code> file:
+        </p>
+        <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-300 overflow-x-auto">
+          <div className="flex justify-between">
+            <span className="text-blue-400">VITE_SUPABASE_URL</span>
+            <span className="text-red-400">Missing</span>
+          </div>
+          <div className="flex justify-between mt-2">
+            <span className="text-blue-400">VITE_SUPABASE_ANON_KEY</span>
+            <span className="text-red-400">Missing</span>
+          </div>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition shadow-lg active:scale-95"
+        >
+          Reload Application
+        </button>
+      </div>
     </div>
+  </div>
 );
 
 const LoadingScreen: React.FC = () => (
@@ -280,7 +280,7 @@ const AuthenticatedApp: React.FC = () => {
         <ContextualMarquee />
         <VerificationGuard>
           {renderDashboard}
-          <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />
+          {isHomePage && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}
         </VerificationGuard>
       </Suspense>
     </ErrorBoundary>
