@@ -54,7 +54,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                 // Get IDs of conversations I'm in
                 const { data: participation, error: pError } = await supabase
                     .from('conversation_participants')
-                    .select('conversation_id, last_read_message_id')
+                    .select('conversation_id')
                     .eq('user_id', currentUserId);
 
                 if (pError) throw pError;

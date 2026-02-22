@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon, ChevronRightIcon } from '../../constants';
+import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon, ChevronRightIcon, BuildingLibraryIcon, BookOpenIcon } from '../../constants';
 import ReportCardPreview from './ReportCardPreview';
 import { StudentReportInfo, ReportCard, Student } from '../../types';
 import { api } from '../../lib/api';
@@ -17,9 +17,11 @@ const statusStyles: { [key in ReportCard['status']]: { bg: string, text: string,
 interface ReportCardPublishingProps {
   schoolId?: string;
   currentBranchId?: string | null;
+  currentBranchName?: string;
+  isMainBranch?: boolean;
 }
 
-const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: propSchoolId, currentBranchId }) => {
+const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: propSchoolId, currentBranchId, currentBranchName, isMainBranch }) => {
   const { currentSchool, user } = useAuth();
   const activeSchoolId = propSchoolId || currentSchool?.id || user?.user_metadata?.school_id;
 
@@ -57,10 +59,11 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
     setIsLoading(true);
     try {
       // Fetch all students for this school using Hybrid API
-      const studentsData = await api.getStudents(activeSchoolId);
+      // Strict filtering: specific branches only see their own students. Untagged records will appear in 'All Branches'.
+      const studentsData = await api.getStudents(activeSchoolId, currentBranchId as string);
 
       // Fetch all report cards for this school using Hybrid API
-      const reportCardsData = await api.getReportCards(activeSchoolId);
+      const reportCardsData = await api.getReportCards(activeSchoolId, currentBranchId);
 
       console.log(`[Diagnostic] Fetched ${studentsData?.length || 0} students and ${reportCardsData?.length || 0} report cards for school ${activeSchoolId}`);
 
@@ -103,6 +106,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
       if (latestReport) {
         await api.updateReportCardStatus(latestReport.id, newStatus);
         toast.success(`Report ${newStatus.toLowerCase()} successfully`);
+        fetchStudentsWithReports(); // Refresh data
       } else {
         toast.error("No report card found to update");
       }
@@ -146,19 +150,61 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
     [studentsWithReports, activeTab, searchTerm]
   );
 
-  if (showPreview && selectedStudent) {
-    return <ReportCardPreview student={selectedStudent as any} schoolId={activeSchoolId as string} onClose={() => setShowPreview(false)} />;
-  }
   const getCount = (status: ReportCard['status'] | 'All') => {
     if (status === 'All') return studentsWithReports.length;
     return studentsWithReports.filter(s => s.status === status).length;
   };
+
+  if (showPreview && selectedStudent) {
+    return <ReportCardPreview student={selectedStudent as any} schoolId={activeSchoolId as string} onClose={() => setShowPreview(false)} />;
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Precision Controls Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="px-4 py-4 md:px-6 max-w-7xl mx-auto w-full">
+          {/* Branch Context Indicator */}
+          <div className="mb-6 animate-fade-in">
+            <div className="bg-white/40 backdrop-blur-xl border border-white/40 rounded-3xl p-4 flex items-center justify-between shadow-sm overflow-hidden relative group">
+              <div className="relative z-10 flex items-center space-x-4">
+                <div className={`p-3 rounded-2xl ${currentBranchName ? 'bg-indigo-100' : 'bg-purple-100'} group-hover:scale-110 transition-transform duration-500`}>
+                  <BuildingLibraryIcon className={`w-6 h-6 ${currentBranchName ? 'text-indigo-600' : 'text-purple-600'}`} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 leading-none mb-1">Active Registry Context</p>
+                  <h2 className="text-xl font-black text-gray-900 tracking-tight">
+                    {currentBranchName ? currentBranchName : 'Global Academic Registry'}
+                    <span className="ml-3 px-2 py-0.5 rounded-lg bg-gray-100 text-[10px] text-gray-500 font-bold uppercase tracking-widest align-middle">
+                      {currentBranchId ? 'Branch Restricted' : 'Universal Access'}
+                    </span>
+                  </h2>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 relative z-10">
+                <button
+                  onClick={fetchStudentsWithReports}
+                  className="p-2 sm:px-4 sm:py-2 bg-white border border-gray-100 rounded-xl shadow-sm text-gray-600 hover:text-indigo-600 hover:border-indigo-100 hover:shadow-md transition-all flex items-center space-x-2 group-active:scale-95"
+                >
+                  <RefreshIcon className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-500' : ''}`} />
+                  <span className="text-sm font-bold hidden sm:inline">Refresh Data</span>
+                </button>
+                <button
+                  onClick={handlePublishAll}
+                  disabled={getCount('Submitted') === 0}
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100 font-bold hover:bg-indigo-700 hover:shadow-indigo-200 transition-all disabled:opacity-50 disabled:shadow-none flex items-center space-x-2 active:scale-95"
+                >
+                  <PublishIcon className="w-4 h-4" />
+                  <span className="text-sm">Publish All</span>
+                </button>
+              </div>
+
+              {/* Decorative Background Element */}
+              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-50/50 rounded-full blur-3xl group-hover:bg-indigo-100/50 transition-colors duration-700" />
+            </div>
+          </div>
+
           <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
             {/* Tabs */}
             <div className="flex p-1 bg-gray-100 rounded-xl border border-gray-200 w-full lg:w-auto overflow-x-auto no-scrollbar">
@@ -197,14 +243,6 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                   className="w-full pl-9 pr-4 py-2 text-xs font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                 />
               </div>
-
-              <button
-                onClick={fetchStudentsWithReports}
-                className="p-2 text-gray-500 bg-white hover:bg-gray-50 rounded-xl transition-all border border-gray-200 shadow-sm group"
-                title="Refresh Database"
-              >
-                <RefreshIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
-              </button>
 
               {activeTab === 'Submitted' && filteredStudents.length > 0 && (
                 <button
@@ -330,38 +368,41 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-40 text-center animate-fade-in">
-            <div className="w-24 h-24 bg-white border border-gray-200 rounded-[2rem] flex items-center justify-center mb-8 shadow-sm">
-              <FilterIcon className="w-10 h-10 text-gray-400" />
+          <div className="flex flex-col items-center justify-center py-40 text-center animate-fade-in group">
+            <div className="w-24 h-24 bg-white border border-gray-200 rounded-[2rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform duration-500">
+              <FilterIcon className="w-10 h-10 text-gray-400 group-hover:text-indigo-500 transition-colors" />
             </div>
             <h3 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-wide">
-              {activeTab === 'All' ? 'No Students Found' : `No ${activeTab} Reports`}
+              {activeTab === 'All' ? 'Neural Registry Empty' : `No ${activeTab} Reports`}
             </h3>
             <p className="text-gray-500 max-w-sm font-medium leading-relaxed px-4">
               {activeTab === 'Submitted'
-                ? 'Teachers have not submitted any report cards for verification yet. Once submitted, they will appear here for publishing.'
+                ? 'No reports are currently awaiting your verification in this branch. Once teachers submit them, they will appear here.'
                 : activeTab === 'Published'
-                  ? 'No report cards have been published to parents yet. Reports must be "Submitted" before they can be published.'
+                  ? 'Zero live reports found in this frequency. Reports must be "Submitted" before they can be authorized for release.'
                   : activeTab === 'Draft'
-                    ? 'All students currently have submitted or published reports. Check other tabs to manage them.'
-                    : `No records matching the current frequency parameters were found in the neural registry.`}
+                    ? 'All active records have already been processed to "Submitted" or "Published" status.'
+                    : `No records matching the current branch and filters were found.`}
             </p>
-            {activeTab !== 'All' ? (
-              <button
-                onClick={() => setActiveTab('All')}
-                className="mt-8 px-8 py-3 bg-white border border-gray-200 text-indigo-600 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-50 transition-all shadow-sm flex items-center gap-2 group"
-              >
-                <span>View All Students</span>
-                <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            ) : searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="mt-8 px-8 py-3 bg-white border border-gray-200 text-indigo-600 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-50 transition-all shadow-sm"
-              >
-                Reset Search Filters
-              </button>
-            )}
+            <div className="flex flex-col sm:flex-row items-center gap-4 mt-8">
+              {activeTab !== 'All' && (
+                <button
+                  onClick={() => setActiveTab('All')}
+                  className="px-8 py-3 bg-white border border-gray-200 text-indigo-600 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-indigo-50 transition-all shadow-sm flex items-center gap-2 group"
+                >
+                  <span>Global Registry</span>
+                  <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="px-8 py-3 bg-white border border-gray-200 text-gray-500 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-gray-50 transition-all shadow-sm"
+                >
+                  Clear Search
+                </button>
+              )}
+            </div>
           </div>
         )}
       </main>

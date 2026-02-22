@@ -276,9 +276,10 @@ interface DashboardOverviewProps {
     forceUpdate: () => void;
     schoolId: string;
     currentBranchId: string | null;
+    isMainBranch: boolean;
 }
 
-const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handleBack, forceUpdate, schoolId, currentBranchId }) => {
+const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handleBack, forceUpdate, schoolId, currentBranchId, isMainBranch }) => {
     const { currentSchool, user } = useAuth();
     const { profile } = useProfile();
 
@@ -461,6 +462,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 return query;
             };
 
+            // Note: isMainBranch prop is no longer used for data filtering here 
+            // but kept for UI labeling if needed.
+
             const [
                 auditData,
                 healthRes,
@@ -471,8 +475,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 timetableRes
             ] = await Promise.all([
                 fetchAuditLogs(4, activeSchoolId, currentBranchId || undefined),
-                applyBranch(supabase.from('health_logs').select('id, reason, time, date, students!health_logs_student_id_fkey(name)').eq('school_id', activeSchoolId))
-                    .order('date', { ascending: false })
+                applyBranch(supabase.from('health_logs').select('id, description, logged_date, students!health_logs_student_id_fkey(name)').eq('school_id', activeSchoolId))
+                    .order('logged_date', { ascending: false })
                     .order('id', { ascending: false })
                     .limit(1)
                     .maybeSingle(),
@@ -502,9 +506,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
             if (healthRes.data) {
                 setLatestHealthLog({
                     studentName: (Array.isArray(healthRes.data.students) ? healthRes.data.students[0]?.name : (healthRes.data.students as any)?.name) || 'Unknown',
-                    reason: healthRes.data.reason,
-                    time: healthRes.data.time,
-                    date: healthRes.data.date
+                    reason: healthRes.data.description,
+                    time: null,
+                    date: healthRes.data.logged_date
                 });
             }
 

@@ -146,7 +146,7 @@ class HybridApiClient {
     // STUDENTS
     // ============================================
 
-    async getStudents(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
+    async getStudents(schoolId: string, branchId?: string, options: ApiOptions & { includeUntagged?: boolean } = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>(`/students${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
         }
@@ -156,7 +156,11 @@ class HybridApiClient {
             .eq('school_id', schoolId);
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            if (options.includeUntagged) {
+                query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            } else {
+                query = query.eq('branch_id', branchId);
+            }
         }
 
         const { data, error } = await query.order('name');
@@ -633,14 +637,24 @@ class HybridApiClient {
     // REPORT CARDS
     // ============================================
 
-    async getReportCards(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+    async getReportCards(schoolId: string, branchId?: string | null, options: ApiOptions & { includeUntagged?: boolean } = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/report-cards?schoolId=${schoolId}`);
+            return this.fetch<any[]>(`/report-cards?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
-        const { data, error } = await supabase
+        let query = supabase
             .from('report_cards')
             .select('*')
-            .eq('school_id', schoolId)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            if (options.includeUntagged) {
+                query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            } else {
+                query = query.eq('branch_id', branchId);
+            }
+        }
+
+        const { data, error } = await query
             .order('session', { ascending: false })
             .order('term', { ascending: false });
         if (error) throw error;

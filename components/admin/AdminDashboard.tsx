@@ -382,7 +382,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         currentUserId,
         currentSchool,
         schoolId,
-        currentBranchId: currentBranch?.id || currentBranchId
+        currentBranchId: currentBranch?.id || currentBranchId,
+        currentBranchName: currentBranch?.name,
+        isMainBranch: currentBranch?.is_main || !currentBranch?.id // True if it's the main branch or 'All Branches'
     };
 
     const renderContent = () => {
