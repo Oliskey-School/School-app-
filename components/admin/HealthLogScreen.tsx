@@ -3,6 +3,7 @@ import { HealthLogEntry, Student } from '../../types';
 import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon } from '../../constants';
 // import { getFormattedClassName } from '../../constants'; // unused or keep if needed
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 
 // --- TYPES & HELPERS ---
@@ -34,10 +35,11 @@ interface HealthLogProps {
 }
 
 const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) => {
+    const { currentBranchId, user } = useAuth();
     const [logs, setLogs] = useState<HealthLogEntry[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
+    const [view, setView] = useState<'list' | 'add'>('list');
     const [searchTerm, setSearchTerm] = useState('');
-    const [showAddForm, setShowAddForm] = useState(false);
     const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week'>('all');
 
     // Form state
@@ -48,13 +50,33 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
     const [dosage, setDosage] = useState('');
     const [parentNotified, setParentNotified] = useState(false);
 
+    // New Searchable Student Selector state
+    const [studentSearchQuery, setStudentSearchQuery] = useState('');
+    const [isStudentListOpen, setIsStudentListOpen] = useState(false);
+
     useEffect(() => {
         const fetchStudents = async () => {
-            const { data } = await supabase.from('students').select('id, name, avatarUrl, grade, section');
+            if (!schoolId) return;
+            const query = supabase
+                .from('students')
+                .select('id, name, avatarUrl:avatar_url, grade, section')
+                .eq('school_id', schoolId);
+
+            if (currentBranchId) {
+                query.eq('branch_id', currentBranchId);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error fetching students:', error);
+                return;
+            }
             if (data) setStudents(data as any);
         };
 
         const fetchLogs = async () => {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('health_logs')
                 .select(`
@@ -71,6 +93,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                         avatarUrl:avatar_url
                     )
                 `)
+                .eq('school_id', schoolId)
                 .order('logged_date', { ascending: false });
 
             if (error) {
@@ -108,7 +131,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [schoolId, currentBranchId]);
 
     // Compute filtered logs based on time filter and search
     const filteredLogs = useMemo(() => {
@@ -166,20 +189,22 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
             const { error } = await supabase.from('health_logs').insert({
                 student_id: selectedStudent, // UUID string
                 school_id: schoolId,
+                branch_id: currentBranchId,
                 logged_date: new Date().toISOString().split('T')[0],
                 log_type: reason,
                 description: notes,
                 medication_administered: medication ? { name: medication, dosage } : null,
                 parent_notified: parentNotified,
-                logged_by: currentUserId || null // Use actual user ID
+                logged_by: currentUserId || user?.id || null
             });
 
             if (error) throw error;
             toast.success("Health log recorded successfully.");
-            setShowAddForm(false);
+            setView('list');
 
             // Reset form
             setSelectedStudent('');
+            setStudentSearchQuery('');
             setReason('');
             setNotes('');
             setMedication('');
@@ -191,6 +216,182 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
             toast.error("Failed to save health log.");
         }
     };
+
+    // --- RENDER FORM VIEW ---
+    if (view === 'add') {
+        return (
+            <div className="flex flex-col h-full bg-gray-50/50 relative animate-fade-in">
+                <div className="bg-white border-b border-gray-100 flex-shrink-0 z-10 sticky top-0">
+                    <div className="p-4 md:px-8 md:py-5 max-w-3xl mx-auto w-full flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setView('list')}
+                                className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+                            >
+                                <XCircleIcon className="w-6 h-6" />
+                            </button>
+                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
+                                    <HeartIcon className="w-5 h-5" />
+                                </div>
+                                New Health Entry
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+
+                <main className="flex-grow p-4 md:px-8 md:py-8 w-full max-w-3xl mx-auto">
+                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                        <form onSubmit={handleAddEntry} className="p-6 md:p-8 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="relative">
+                                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Target Student</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-rose-500 transition-colors">
+                                            <SearchIcon className="w-5 h-5" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Search name or grade..."
+                                            value={studentSearchQuery}
+                                            onChange={(e) => {
+                                                setStudentSearchQuery(e.target.value);
+                                                setIsStudentListOpen(true);
+                                            }}
+                                            onFocus={() => setIsStudentListOpen(true)}
+                                            className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800"
+                                        />
+
+                                        {isStudentListOpen && (
+                                            <div className="absolute z-[60] mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl max-h-64 overflow-y-auto overflow-x-hidden animate-slide-in-up">
+                                                {students
+                                                    .filter(s =>
+                                                        s.name.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+                                                        `Grade ${s.grade}${s.section}`.toLowerCase().includes(studentSearchQuery.toLowerCase())
+                                                    )
+                                                    .map(s => (
+                                                        <button
+                                                            key={s.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedStudent(s.id);
+                                                                setStudentSearchQuery(`${s.name} (Grade ${s.grade}${s.section})`);
+                                                                setIsStudentListOpen(false);
+                                                            }}
+                                                            className={`w-full p-3 flex items-center gap-3 hover:bg-rose-50 transition-colors border-b border-gray-50 last:border-0 text-left ${selectedStudent === s.id ? 'bg-rose-50/50' : ''}`}
+                                                        >
+                                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0">
+                                                                {s.avatarUrl ? (
+                                                                    <img src={s.avatarUrl} alt={s.name} className="w-full h-full rounded-full object-cover" />
+                                                                ) : (
+                                                                    <div className="w-full h-full rounded-full flex items-center justify-center text-[10px] font-bold text-gray-400">
+                                                                        {s.name.charAt(0)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-gray-900 leading-none mb-1">{s.name}</p>
+                                                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Grade {s.grade}{s.section}</p>
+                                                            </div>
+                                                            {selectedStudent === s.id && (
+                                                                <CheckCircleIcon className="w-4 h-4 text-rose-500 ml-auto" />
+                                                            )}
+                                                        </button>
+                                                    ))}
+                                                {students.length === 0 && (
+                                                    <div className="p-8 text-center">
+                                                        <p className="text-sm text-gray-500">No students found in this branch.</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {isStudentListOpen && (
+                                        <div
+                                            className="fixed inset-0 z-[55] bg-transparent"
+                                            onClick={() => setIsStudentListOpen(false)}
+                                        />
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Log Category</label>
+                                    <select
+                                        value={reason}
+                                        onChange={e => setReason(e.target.value)}
+                                        required
+                                        className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800"
+                                    >
+                                        <option value="">-- Select Category --</option>
+                                        <option value="medical_visit">Medical Visit</option>
+                                        <option value="medication">Medication Administered</option>
+                                        <option value="allergy">Allergy Alert</option>
+                                        <option value="emergency_contact">Emergency Contact</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Symptoms & Clinical Notes</label>
+                                <textarea
+                                    value={notes}
+                                    onChange={e => setNotes(e.target.value)}
+                                    placeholder="Describe symptoms, actions taken, and observations..."
+                                    required
+                                    rows={5}
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none font-medium text-gray-800 leading-relaxed"
+                                ></textarea>
+                            </div>
+
+                            <div className="bg-rose-50/50 rounded-2xl p-6 border border-rose-100/50 space-y-6">
+                                <h4 className="text-sm font-bold text-rose-900 flex items-center gap-2">
+                                    <HeartIcon className="w-4 h-4" />
+                                    Medication Details (Optional)
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-rose-600/70 mb-1.5 uppercase tracking-wide">Medication Name</label>
+                                        <input type="text" value={medication} onChange={e => setMedication(e.target.value)} placeholder="e.g. Paracetamol" className="w-full p-3 bg-white border border-rose-100 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-rose-600/70 mb-1.5 uppercase tracking-wide">Dosage / Quantity</label>
+                                        <input type="text" value={dosage} onChange={e => setDosage(e.target.value)} placeholder="e.g. 500mg, 1 tablet" className="w-full p-3 bg-white border border-rose-100 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                                <div className={`w-12 h-6 rounded-full p-1 transition-colors cursor-pointer ${parentNotified ? 'bg-emerald-500' : 'bg-gray-300'}`} onClick={() => setParentNotified(!parentNotified)}>
+                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform transform ${parentNotified ? 'translate-x-6' : ''}`} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-emerald-900">Parent Notification Status</p>
+                                    <p className="text-xs text-emerald-600/80">Toggle if you have contacted the guardian via phone/SMS.</p>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex flex-col md:flex-row gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setView('list')}
+                                    className="flex-1 py-4 px-6 border border-gray-200 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all active:scale-[0.98]"
+                                >
+                                    Cancel & Return
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-[2] py-4 px-6 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                >
+                                    <PlusIcon className="w-5 h-5" />
+                                    Save Health Record
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-gray-50/50 relative">
@@ -229,7 +430,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                             </div>
 
                             <button
-                                onClick={() => setShowAddForm(true)}
+                                onClick={() => setView('add')}
                                 className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-lg shadow-rose-200 transition-all flex items-center gap-2 whitespace-nowrap transform active:scale-95"
                             >
                                 <PlusIcon className="w-5 h-5" />
@@ -349,93 +550,6 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                 )}
             </main>
 
-            {/* --- ADD MODAL --- */}
-            {showAddForm && (
-                <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-slide-in-up">
-                        <div className="flex justify-between items-center p-6 border-b border-gray-100">
-                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
-                                    <HeartIcon className="w-5 h-5" />
-                                </div>
-                                New Health Entry
-                            </h3>
-                            <button onClick={() => setShowAddForm(false)} className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-full transition-colors">
-                                <XCircleIcon className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleAddEntry} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Student</label>
-                                <select
-                                    value={selectedStudent}
-                                    onChange={e => setSelectedStudent(e.target.value)}
-                                    required
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800"
-                                >
-                                    <option value="">-- Select Student --</option>
-                                    {students.map(s => <option key={s.id} value={s.id}>{s.name} (Grade {s.grade}{s.section})</option>)}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Condition / Reason</label>
-                                <input
-                                    type="text"
-                                    value={reason}
-                                    onChange={e => setReason(e.target.value)}
-                                    placeholder="e.g. Headache, Fever, Injury..."
-                                    required
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Details & Notes</label>
-                                <textarea
-                                    value={notes}
-                                    onChange={e => setNotes(e.target.value)}
-                                    placeholder="Describe symptoms, actions taken, and observations..."
-                                    required
-                                    rows={3}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none font-medium text-gray-800"
-                                ></textarea>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Medication</label>
-                                    <input type="text" value={medication} onChange={e => setMedication(e.target.value)} placeholder="Name (Optional)" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Dosage</label>
-                                    <input type="text" value={dosage} onChange={e => setDosage(e.target.value)} placeholder="e.g. 500mg" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-medium text-gray-800" />
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 mt-2">
-                                <input
-                                    type="checkbox"
-                                    id="parentNotified"
-                                    checked={parentNotified}
-                                    onChange={e => setParentNotified(e.target.checked)}
-                                    className="w-5 h-5 text-rose-600 rounded focus:ring-rose-500 border-gray-300"
-                                />
-                                <label htmlFor="parentNotified" className="text-sm font-bold text-gray-700 cursor-pointer select-none">Mark Parent as Notified</label>
-                            </div>
-
-                            <button
-                                type="submit"
-                                className="w-full py-4 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 shadow-lg shadow-rose-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4"
-                            >
-                                <PlusIcon className="w-5 h-5" />
-                                Record Entry
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

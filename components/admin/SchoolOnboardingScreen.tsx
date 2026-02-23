@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, FileTextIcon, UploadIcon, GlobeIcon, BuildingLibraryIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
+import { uploadFile } from '../../lib/storage';
 
 // --- Types ---
 interface SchoolProfile {
@@ -9,12 +10,9 @@ interface SchoolProfile {
     name: string;
     address: string;
     state: string;
-    lga: string;
-    contact_email: string;
-    contact_phone: string;
+    email: string;
+    phone: string;
     logo_url: string;
-    website_url: string;
-    established_date: string;
     curricula: string[]; // ['NIGERIAN', 'BRITISH']
 }
 
@@ -22,7 +20,7 @@ interface SchoolDocument {
     id: string;
     document_type: 'CAC' | 'FireSafety' | 'MinistryApproval' | 'BuildingPlan';
     file_url: string;
-    verification_status: 'Pending' | 'Verified' | 'Rejected';
+    verification_status: 'pending' | 'verified' | 'rejected' | 'missing';
     expiry_date?: string;
 }
 
@@ -39,13 +37,14 @@ const REQUIRED_DOCS = [
 
 const SchoolOnboardingScreen: React.FC = () => {
     const [profile, setProfile] = useState<SchoolProfile>({
-        name: '', address: '', state: 'Lagos', lga: '',
-        contact_email: '', contact_phone: '', logo_url: '', website_url: '',
-        established_date: '', curricula: ['NIGERIAN']
+        name: '', address: '', state: 'Lagos',
+        email: '', phone: '', logo_url: '',
+        curricula: ['NIGERIAN']
     });
     const [documents, setDocuments] = useState<SchoolDocument[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'profile' | 'compliance' | 'curriculum'>('profile');
 
     useEffect(() => {
@@ -55,21 +54,30 @@ const SchoolOnboardingScreen: React.FC = () => {
     const fetchSchoolData = async () => {
         try {
             // Fetch School Profile
-            // In a real multi-tenant app, we'd get the school ID from the auth context.
-            // Here we assume single tenant or ID retrieval logic.
             const { data: schoolData, error: schoolError } = await supabase.from('schools').select('*').maybeSingle();
 
             if (schoolData) {
-                // Determine curricula based on active tracks or specific config
-                // For MVP phase 7, we might verify this via a relation or jsonb field. 
-                // We'll assume a local field for now or derived state.
-                setProfile({ ...schoolData, curricula: schoolData.curricula_config || ['NIGERIAN'] });
+                setProfile({
+                    id: schoolData.id,
+                    email: schoolData.email || schoolData.contact_email || '',
+                    phone: schoolData.phone || schoolData.contact_phone || '',
+                    name: schoolData.name || '',
+                    address: schoolData.address || '',
+                    state: schoolData.state || 'Lagos',
+                    logo_url: schoolData.logo_url || '',
+                    curricula: schoolData.curricula_config || ['NIGERIAN']
+                });
             }
 
             // Fetch Documents
             if (schoolData?.id) {
                 const { data: docs } = await supabase.from('school_documents').select('*').eq('school_id', schoolData.id);
-                if (docs) setDocuments(docs);
+                if (docs) {
+                    setDocuments(docs.map(d => ({
+                        ...d,
+                        verification_status: (d.verification_status?.toLowerCase() || 'pending') as any
+                    })));
+                }
             }
         } catch (error) {
             console.error("Fetch error:", error);
@@ -83,19 +91,68 @@ const SchoolOnboardingScreen: React.FC = () => {
         setSaving(true);
         try {
             const { data, error } = await supabase.from('schools').upsert({
-                // id: existingId, // If exists
+                id: profile.id,
                 name: profile.name,
                 address: profile.address,
                 state: profile.state,
-                lga: profile.lga,
-                contact_email: profile.contact_email,
-                contact_phone: profile.contact_phone,
+                email: profile.email,
+                phone: profile.phone,
                 logo_url: profile.logo_url,
-                // store curricula choice in a config column or separate table
+                curricula_config: profile.curricula
             }).select().single();
 
             if (error) throw error;
+            if (data) setProfile(prev => ({ ...prev, id: data.id }));
             toast.success("School Profile Saved!");
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+        const file = e.target.files?.[0];
+        if (!file || !profile.id) return;
+
+        setUploading(type);
+        try {
+            const result = await uploadFile({
+                file,
+                bucket: 'school-compliance',
+                path: `${profile.id}/${type}_${Date.now()}`
+            });
+
+            if (!result.success || !result.url) throw new Error(result.error);
+
+            // Save document record
+            const { error: dbError } = await supabase.from('school_documents').upsert({
+                school_id: profile.id as string,
+                document_type: type as any,
+                file_url: result.url,
+                verification_status: 'pending'
+            }, { onConflict: 'school_id,document_type' });
+
+            if (dbError) throw dbError;
+
+            toast.success(`${type} uploaded successfully!`);
+            fetchSchoolData(); // Refresh docs
+        } catch (error: any) {
+            toast.error(`Upload failed: ${error.message}`);
+        } finally {
+            setUploading(null);
+        }
+    };
+
+    const handleSaveCurriculum = async () => {
+        setSaving(true);
+        try {
+            const { error } = await supabase.from('schools').update({
+                curricula_config: profile.curricula
+            }).eq('id', profile.id);
+
+            if (error) throw error;
+            toast.success("Curriculum Settings Updated!");
         } catch (error: any) {
             toast.error(error.message);
         } finally {
@@ -150,32 +207,28 @@ const SchoolOnboardingScreen: React.FC = () => {
                                 <BuildingLibraryIcon className="w-5 h-5 mr-2 text-indigo-600" />
                                 Basic Information
                             </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="col-span-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                                <div className="sm:col-span-2">
                                     <label className="label">School Name</label>
-                                    <input required type="text" className="input-field" value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} />
+                                    <input required type="text" className="input-field" placeholder="e.g. Royal International Academy" value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="label">Official Email</label>
-                                    <input required type="email" className="input-field" value={profile.contact_email} onChange={e => setProfile({ ...profile, contact_email: e.target.value })} />
+                                    <input required type="email" className="input-field" placeholder="contact@school.com" value={profile.email} onChange={e => setProfile({ ...profile, email: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="label">Phone Number</label>
-                                    <input required type="tel" className="input-field" value={profile.contact_phone} onChange={e => setProfile({ ...profile, contact_phone: e.target.value })} />
+                                    <input required type="tel" className="input-field" placeholder="+234..." value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} />
                                 </div>
-                                <div className="col-span-2">
+                                <div className="sm:col-span-2">
                                     <label className="label">Physical Address</label>
-                                    <textarea required className="input-field h-20" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} />
+                                    <textarea required className="input-field h-24" placeholder="Full street address..." value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="label">State</label>
                                     <select className="input-field" value={profile.state} onChange={e => setProfile({ ...profile, state: e.target.value })}>
                                         {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="label">L.G.A.</label>
-                                    <input type="text" className="input-field" value={profile.lga} onChange={e => setProfile({ ...profile, lga: e.target.value })} />
                                 </div>
                             </div>
                         </div>
@@ -202,6 +255,7 @@ const SchoolOnboardingScreen: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {REQUIRED_DOCS.map((docType) => {
                                 const existing = documents.find(d => d.document_type === docType.type);
+                                const isVerified = existing?.verification_status === 'verified';
                                 return (
                                     <div key={docType.type} className="bg-white p-4 md:p-5 rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 transition-colors flex flex-col justify-between">
                                         <div className="flex justify-between items-start mb-3">
@@ -209,24 +263,43 @@ const SchoolOnboardingScreen: React.FC = () => {
                                                 <h4 className="font-bold text-sm md:text-base text-gray-800">{docType.label}</h4>
                                                 <p className="text-[10px] md:text-xs text-gray-500">{docType.description}</p>
                                             </div>
-                                            {existing?.verification_status === 'Verified'
-                                                ? <CheckCircleIcon className="text-green-500 w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
-                                                : <div className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full flex-shrink-0">{existing?.verification_status || 'Missing'}</div>
-                                            }
+                                            {isVerified ? (
+                                                <CheckCircleIcon className="text-green-500 w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
+                                            ) : (
+                                                <div className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${existing?.verification_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                    {existing?.verification_status || 'missing'}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {existing ? (
                                             <div className="flex items-center justify-between mt-4 bg-gray-50 p-2 rounded text-xs md:text-sm">
-                                                <span className="truncate max-w-[120px] md:max-w-[150px] text-gray-600">Document Uploaded</span>
-                                                <button className="text-indigo-600 font-medium hover:underline">View</button>
+                                                <span className="truncate max-w-[120px] md:max-w-[150px] text-gray-600">Uploaded</span>
+                                                <div className="flex items-center space-x-2">
+                                                    <a href={existing.file_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-medium hover:underline">View</a>
+                                                    {!isVerified && (
+                                                        <label className="cursor-pointer text-indigo-600 font-medium hover:underline">
+                                                            Replace
+                                                            <input type="file" className="hidden" onChange={e => handleFileUpload(e, docType.type)} />
+                                                        </label>
+                                                    )}
+                                                </div>
                                             </div>
                                         ) : (
-                                            <label className="mt-4 flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                    <UploadIcon className="w-5 h-5 text-gray-400 mb-1" />
-                                                    <p className="text-[10px] md:text-xs text-gray-500 text-center px-2">Click to upload PDF/JPG</p>
-                                                </div>
-                                                <input type="file" className="hidden" />
+                                            <label className="mt-4 flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors relative">
+                                                {uploading === docType.type ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mb-2"></div>
+                                                        <p className="text-[10px] text-indigo-600">Uploading...</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                        <UploadIcon className="w-5 h-5 text-gray-400 mb-1" />
+                                                        <p className="text-[10px] md:text-xs text-gray-500 text-center px-2">Click to upload PDF/JPG</p>
+                                                    </div>
+                                                )}
+                                                <input type="file" className="hidden" disabled={uploading === docType.type} onChange={e => handleFileUpload(e, docType.type)} />
                                             </label>
                                         )}
                                     </div>
@@ -272,6 +345,16 @@ const SchoolOnboardingScreen: React.FC = () => {
                                     <h3 className="text-lg md:text-xl font-bold text-gray-900">British National</h3>
                                     <p className="text-xs md:text-sm text-gray-600 mt-2">Cambridge/Pearson Edexcel. Uses A*-G grading scale. Supports IGCSE, O-Level, and A-Level tracks.</p>
                                 </div>
+                            </div>
+
+                            <div className="flex justify-end pt-8">
+                                <button
+                                    onClick={handleSaveCurriculum}
+                                    disabled={saving}
+                                    className="btn-primary w-full md:w-auto"
+                                >
+                                    {saving ? 'Saving...' : 'Save Curriculum Selection'}
+                                </button>
                             </div>
                         </div>
                     </div>

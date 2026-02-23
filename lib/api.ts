@@ -207,8 +207,72 @@ class HybridApiClient {
                 body: JSON.stringify(enrollmentData),
             });
         }
-        const { data, error } = await supabase.from('students').insert([enrollmentData]).select().single();
-        if (error) throw error;
+
+        // Security check: Must have schoolId
+        if (!enrollmentData.school_id) {
+            throw new Error("SecurityException: Mandatory School ID is missing.");
+        }
+
+        // 1. Parent Linking Logic (Mocking backend logic in client for direct Supabase mode)
+        let parentId = enrollmentData.parent_id; // Use existing if provided
+
+        if (!parentId && enrollmentData.parentEmail) {
+            // Check if parent exists by email in the same school
+            const { data: existingParent } = await supabase
+                .from('parents')
+                .select('id')
+                .eq('email', enrollmentData.parentEmail)
+                .eq('school_id', enrollmentData.school_id)
+                .maybeSingle();
+
+            if (existingParent) {
+                console.log('🔗 [API] Linked student to existing parent:', enrollmentData.parentEmail);
+                parentId = existingParent.id;
+            } else {
+                // Create new parent record
+                console.log('🆕 [API] Creating new parent record for:', enrollmentData.parentEmail);
+                const { data: newParent, error: parentError } = await supabase
+                    .from('parents')
+                    .insert([{
+                        name: enrollmentData.parentName,
+                        email: enrollmentData.parentEmail,
+                        phone: enrollmentData.parentPhone,
+                        address: enrollmentData.parentAddress,
+                        school_id: enrollmentData.school_id,
+                        branch_id: enrollmentData.branch_id
+                    }])
+                    .select('id')
+                    .single();
+
+                if (parentError) {
+                    console.error('❌ [API] Parent creation failed:', parentError);
+                    throw parentError;
+                }
+                parentId = newParent.id;
+            }
+        }
+
+        // 2. Map payload to student table schema
+        const studentPayload = {
+            school_id: enrollmentData.school_id,
+            branch_id: enrollmentData.branch_id,
+            first_name: enrollmentData.firstName,
+            last_name: enrollmentData.lastName,
+            name: `${enrollmentData.firstName} ${enrollmentData.lastName}`,
+            date_of_birth: enrollmentData.dateOfBirth,
+            gender: enrollmentData.gender,
+            parent_id: parentId,
+            address: enrollmentData.parentAddress,
+            curriculum: enrollmentData.curriculumType,
+            status: 'Active', // Default to active for new enrollments
+            // Any other metadata
+        };
+
+        const { data, error } = await supabase.from('students').insert([studentPayload]).select().single();
+        if (error) {
+            console.error('❌ [API] Student enrollment failed:', error);
+            throw error;
+        }
         return data;
     }
 
@@ -395,7 +459,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>('/classes');
         }
-        const { data, error } = await supabase.from('classes').select('id, subject, grade, section, department').order('grade');
+        const { data, error } = await supabase.from('classes').select('id, name, grade').order('grade');
         if (error) throw error;
         return data || [];
     }
@@ -532,11 +596,15 @@ class HybridApiClient {
     // NOTICES
     // ============================================
 
-    async getNotices(options: ApiOptions = {}): Promise<any[]> {
+    async getNotices(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/notices');
+            return this.fetch<any[]>(`/notices?schoolId=${schoolId}`);
         }
-        const { data, error } = await supabase.from('notices').select('id, title, content, timestamp, category, is_pinned, audience').order('timestamp', { ascending: false });
+        const { data, error } = await supabase
+            .from('notices')
+            .select('id, title, content, timestamp, category, is_pinned, audience, branch_id')
+            .eq('school_id', schoolId)
+            .order('timestamp', { ascending: false });
         if (error) throw error;
         return data || [];
     }

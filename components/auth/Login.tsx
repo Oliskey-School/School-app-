@@ -146,13 +146,13 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
     // Fix for Admin Demo: Use the known working admin account
     // This allows the Demo Button to actually work with RLS data
-    if (roleKey === 'admin') {
+    /* if (roleKey === 'admin') {
       mockUser = {
         ...mockUser,
         email: 'user@school.com',
         // Maintain other props if needed, but email is key for auth
       };
-    } else if (roleKey === 'teacher') {
+    } else */ if (roleKey === 'teacher') {
       mockUser = {
         ...mockUser,
         email: 'john.smith@demo.com', // Real DB Teacher

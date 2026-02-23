@@ -58,8 +58,8 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         if (!schoolId) return;
         setLoading(true);
         try {
-            // Try fetching via backend API if possible
-            const data = await api.getBuses({ useBackend: true });
+            // Fetch via hybrid client (will fallback to Supabase in Demo mode)
+            const data = await api.getBuses();
             setBuses(data.map((b: any) => ({
                 id: b.id,
                 name: b.name,
@@ -79,9 +79,9 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                     .select('*')
                     .eq('school_id', schoolId)
                     .order('name');
-                
+
                 if (error) throw error;
-                
+
                 setBuses((data || []).map((b: any) => ({
                     id: b.id,
                     name: b.name,
@@ -121,7 +121,17 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         }
 
         try {
-            const newBus = await api.createBus({ ...formData, school_id: schoolId }, { useBackend: true });
+            // Map camelCase to snake_case for the database
+            const payload = {
+                school_id: schoolId,
+                name: formData.name,
+                route_name: formData.routeName,
+                capacity: formData.capacity,
+                plate_number: formData.plateNumber,
+                driver_name: formData.driverName,
+                status: formData.status
+            };
+            const newBus = await api.createBus(payload);
             if (newBus) {
                 const mappedBus: Bus = {
                     id: newBus.id,
@@ -152,7 +162,16 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         }
 
         try {
-            const updatedBus = await api.updateBus(editingBusId, formData, { useBackend: true });
+            // Map camelCase to snake_case for the database
+            const payload = {
+                name: formData.name,
+                route_name: formData.routeName,
+                capacity: formData.capacity,
+                plate_number: formData.plateNumber,
+                driver_name: formData.driverName,
+                status: formData.status
+            };
+            const updatedBus = await api.updateBus(editingBusId, payload);
             if (updatedBus) {
                 const mappedBus: Bus = {
                     id: updatedBus.id,
@@ -190,7 +209,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
     const handleDeleteBus = async (busId: string) => {
         if (confirm('Are you sure you want to delete this bus?')) {
             try {
-                await api.deleteBus(busId, { useBackend: true });
+                await api.deleteBus(busId);
                 setBuses(buses.filter(bus => bus.id !== busId));
                 toast.success('Bus deleted successfully');
             } catch (error) {

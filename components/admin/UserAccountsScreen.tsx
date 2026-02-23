@@ -25,9 +25,10 @@ const UserAccountsScreen: React.FC = () => {
     const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [userToDelete, setUserToDelete] = useState<string | null>(null);
-    const { currentSchool, user } = useAuth();
+    const { currentSchool, user, currentBranchId } = useAuth();
     // Triple-layer detection for robustness
     const schoolId = currentSchool?.id || user?.user_metadata?.school_id;
+    const branchId = currentBranchId || user?.user_metadata?.branch_id;
 
 
     const fetchAccounts = React.useCallback(async () => {
@@ -46,10 +47,16 @@ const UserAccountsScreen: React.FC = () => {
                 return;
             }
 
-            const { data, error } = await supabase
-                .from('auth_accounts')
+            let query = supabase
+                .from('profiles')
                 .select('*')
                 .eq('school_id', schoolId);
+
+            if (branchId) {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error("❌ [UserAccounts] Supabase query error:", error);
@@ -57,10 +64,16 @@ const UserAccountsScreen: React.FC = () => {
             }
 
             if (data) {
-                console.log(`✅ [UserAccounts] Loaded ${data.length} accounts`);
+                console.log(`✅ [UserAccounts] Loaded ${data.length} accounts for branch: ${branchId}`);
                 const mapped = data.map((acc: any) => ({
-                    ...acc,
-                    name: acc.full_name || acc.name || 'Unknown User'
+                    id: acc.id,
+                    username: acc.username || acc.email?.split('@')[0] || 'user',
+                    user_type: acc.role || 'Unknown',
+                    email: acc.email || '',
+                    user_id: acc.school_generated_id ? parseInt(acc.school_generated_id.replace(/\D/g, '')) || null : null,
+                    created_at: acc.created_at,
+                    is_active: acc.is_active !== false,
+                    name: acc.full_name || 'Unknown User'
                 }));
                 setAccounts(mapped);
             }
@@ -70,15 +83,15 @@ const UserAccountsScreen: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [schoolId]);
+    }, [schoolId, branchId]);
 
     useEffect(() => {
         fetchAccounts();
 
-        const channel = supabase.channel('public:auth_accounts')
+        const channel = supabase.channel('public:profiles')
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'auth_accounts' },
+                { event: '*', schema: 'public', table: 'profiles' },
                 (payload) => {
                     console.log('Change received!', payload);
                     fetchAccounts();

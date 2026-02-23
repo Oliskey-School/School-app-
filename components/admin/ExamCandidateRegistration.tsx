@@ -11,23 +11,30 @@ interface ExamBody {
 }
 
 interface Student {
-    id: number;
+    id: string;
     name: string;
     grade: number;
     attendance_status: string;
+    enrollment_number?: string;
+    school_generated_id?: string;
     track_status?: string; // from academic_tracks
 }
 
-export const ExamCandidateRegistration = () => {
+interface ExamCandidateRegistrationProps {
+    schoolId?: string;
+    currentBranchId?: string;
+}
+
+export const ExamCandidateRegistration: React.FC<ExamCandidateRegistrationProps> = ({ schoolId, currentBranchId }) => {
     const [examBodies, setExamBodies] = useState<ExamBody[]>([]);
     const [selectedExam, setSelectedExam] = useState<string>('');
     const [students, setStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
     const [registering, setRegistering] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedStudents, setSelectedStudents] = useState<Set<number | string>>(new Set());
+    const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
     const [selectedGrade, setSelectedGrade] = useState<string>('');
-    const [registeredIds, setRegisteredIds] = useState<Set<number | string>>(new Set());
+    const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         fetchExamBodies();
@@ -66,12 +73,17 @@ export const ExamCandidateRegistration = () => {
         // Parallel fetch for speed
         await fetchRegistrations(bodyId);
 
-        // Strict Fetch: Only fetch students whose curriculum matches the exam body
-        const { data, error } = await supabase
+        // Strict Fetch: Only fetch students whose curriculum matches the exam body and same school
+        let query = supabase
             .from('students')
             .select('*')
-            .eq('attendance_status', 'Present')
-            .order('name');
+            .eq('attendance_status', 'Present');
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query.order('name');
 
         if (data) {
             // Filter locally if curriculum data isn't joined in the main table yet
@@ -89,7 +101,7 @@ export const ExamCandidateRegistration = () => {
         const headers = ["Candidate Name", "Student ID", "Grade", "Board", "Curriculum"];
         const rows = filteredStudents.map(s => [
             s.name,
-            `STD-${s.id}`,
+            s.school_generated_id || s.enrollment_number || s.id.slice(0, 8),
             s.grade,
             body?.code || 'Board',
             body?.curriculum_type || 'General'
@@ -113,7 +125,7 @@ export const ExamCandidateRegistration = () => {
         (selectedGrade === '' || s.grade.toString() === selectedGrade)
     );
 
-    const toggleSelection = (id: number | string) => {
+    const toggleSelection = (id: string) => {
         const newSet = new Set(selectedStudents);
         if (newSet.has(id)) newSet.delete(id);
         else newSet.add(id);
@@ -128,7 +140,7 @@ export const ExamCandidateRegistration = () => {
         }
     };
 
-    const registerCandidates = async (candidateIds: (number | string)[]) => {
+    const registerCandidates = async (candidateIds: string[]) => {
         setRegistering(true);
         const body = examBodies.find(b => b.id === selectedExam);
         let successCount = 0;
@@ -149,12 +161,11 @@ export const ExamCandidateRegistration = () => {
                 }
 
                 // 2. Register
-                // Note: 'registered_at' column does not exist in schema, 'created_at' is automatic.
                 const { error: regError } = await supabase.from('exam_candidates').insert({
+                    school_id: schoolId,
                     exam_body_id: selectedExam,
                     student_id: studentId,
                     status: 'Registered'
-                    // removed registered_at
                 });
 
                 if (regError) throw regError;
@@ -358,7 +369,7 @@ export const ExamCandidateRegistration = () => {
                                                 <div className="font-medium text-gray-900">{student.name}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                STD-{student.id.toString().padStart(4, '0')}
+                                                {student.school_generated_id || student.id.slice(0, 8)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 Grade {student.grade}

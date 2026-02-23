@@ -94,19 +94,19 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
 
         setIsLoading(true);
         try {
-            // 1. Fetch Class Subjects
+            // 1. Fetch Class Subjects - Fixed for schema
             const { data: classData } = await api.getScopedQuery('classes', targetId)
                 .eq('grade', student.grade)
-                .eq('section', student.section)
-                .select('subject');
-
-            const subjects = Array.from(new Set((classData || []).map((c: any) => c.subject))).filter(Boolean);
+                .select('name');
 
             // 2. Fetch latest scores
             const performance = await api.getGrades([student.id], '', term);
             setAcademicPerformance(performance);
 
-            // 3. Fetch Master Report Card
+            // 3. Extract subjects from performance data (backup)
+            const subjects = Array.from(new Set((performance || []).map((p: any) => p.subject))).filter(Boolean);
+
+            // 4. Fetch Master Report Card
             const { data: reportData } = await api.getScopedQuery('report_cards', targetId)
                 .eq('student_id', student.id)
                 .eq('term', term)

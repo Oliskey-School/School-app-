@@ -1,12 +1,13 @@
 // Mock user data for Quick Login buttons (Synced with Shared Reality Demo School)
 export const MOCK_USERS: Record<string, any> = {
     admin: {
-        id: 'd3300000-0000-0000-0000-000000000001',
-        email: 'demo_admin@school.com',
+        id: '014811ea-281f-484e-b039-e37beb8d92b2',
+        email: 'user@school.com',
         password: 'password123',
         role: 'admin',
-        name: 'Demo Admin',
-        metadata: { role: 'admin', full_name: 'Demo Admin', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        name: 'System Admin',
+        school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+        metadata: { role: 'admin', full_name: 'System Admin', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     teacher: {
         id: 'd3300000-0000-0000-0000-000000000002',
