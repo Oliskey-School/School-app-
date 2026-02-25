@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Assignment, Submission, StudentAssignment } from '../../types';
 import { supabase } from '../../lib/supabase';
+import api from '../../lib/api';
 import { CheckCircleIcon, ClockIcon, ExclamationCircleIcon, DocumentTextIcon, SUBJECT_COLORS } from '../../constants';
 
 interface StudentAssignmentsScreenProps {
@@ -19,18 +20,10 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
     useEffect(() => {
         const fetchAssignments = async () => {
             try {
-                // Fetch assignments scoped by school and branch
-                let assignmentsQuery = supabase
-                    .from('assignments')
-                    .select('*')
-                    .order('due_date', { ascending: true });
-
-                if (schoolId) assignmentsQuery = assignmentsQuery.eq('school_id', schoolId);
-                if (currentBranchId) assignmentsQuery = assignmentsQuery.eq('branch_id', currentBranchId);
-
-                const { data: assignmentsData, error: assignError } = await assignmentsQuery;
-
-                if (assignError) throw assignError;
+                // Use the API service for consistent filtering and backend integration
+                const assignmentsData = await api.getAssignments(schoolId || '', {
+                    classId: undefined, // Standard fetch for student (scoped by school/branch)
+                });
 
                 let submissionsQuery = supabase
                     .from('assignment_submissions')

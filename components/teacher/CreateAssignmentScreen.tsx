@@ -133,11 +133,12 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
       const dbPayload = {
         title,
         description,
-        content_summary: description,
+        content_summary: description.substring(0, 200),
         class_name: targetClass?.name || 'Unknown',
         subject: targetSubject?.name || 'Unknown',
         due_date: new Date(dueDate).toISOString(),
-        total_students: targetClass?.studentCount || 25,
+        due_at: new Date(dueDate).toISOString(), // Added for compatibility
+        total_students: targetClass?.studentCount || 0,
         submissions_count: 0,
         teacher_id: activeTeacherId,
         school_id: currentSchool?.id || profile?.schoolId,
@@ -151,6 +152,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
           file_type: file.type,
           file_size: file.size
         })),
+        status: 'published',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

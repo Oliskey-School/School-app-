@@ -10,6 +10,7 @@ import {
     UserGroupIcon,
     CalendarIcon
 } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface Teacher {
     id: string;
@@ -17,6 +18,7 @@ interface Teacher {
 }
 
 const PayslipGenerator: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [selectedTeacher, setSelectedTeacher] = useState<string>('');
     const [periodStart, setPeriodStart] = useState('');
@@ -29,6 +31,7 @@ const PayslipGenerator: React.FC = () => {
     const [generating, setGenerating] = useState(false);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchTeachers();
         // Set default period to current month
         const now = new Date();
@@ -36,21 +39,24 @@ const PayslipGenerator: React.FC = () => {
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         setPeriodStart(start.toISOString().split('T')[0]);
         setPeriodEnd(end.toISOString().split('T')[0]);
-    }, []);
+    }, [currentSchool]);
 
     const fetchTeachers = async () => {
+        if (!currentSchool) return;
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from('teacher_salaries')
                 .select(`
           teacher_id,
-          teachers (
+          teachers!inner (
             id,
-            full_name
+            full_name,
+            school_id
           )
         `)
-                .eq('is_active', true);
+                .eq('is_active', true)
+                .eq('teachers.school_id', currentSchool.id);
 
             if (error) throw error;
 

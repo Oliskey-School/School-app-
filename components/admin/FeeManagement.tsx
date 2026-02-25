@@ -29,11 +29,18 @@ const FeeManagement: React.FC<any> = (props) => {
   const schoolId = profile.schoolId || currentSchool?.id;
 
   useEffect(() => {
+    if (!schoolId) return;
+
     loadData();
 
     // Real-time subscription for fee updates
     const channel = supabase.channel('admin_fees_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees' }, (payload) => {
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'student_fees',
+        filter: `school_id=eq.${schoolId}`
+      }, (payload) => {
         console.log('Fee update received:', payload);
         loadData();
       })
@@ -42,7 +49,7 @@ const FeeManagement: React.FC<any> = (props) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [schoolId]);
 
   const loadData = async () => {
     setLoading(true);

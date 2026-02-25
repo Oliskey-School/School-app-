@@ -201,13 +201,15 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     const authResult = await createUserAccount(name, 'Parent', email, schoolId);
                     if (authResult.error) throw new Error(authResult.error);
 
-                    // 2. Create User Record
-                    const { data: newUserData, error: userError } = await supabase
+                    // 2. Create/Update User Record (Handle trigger/backend conflicts gracefully)
+                    let newUserData;
+                    const { data: insertedData, error: userError } = await supabase
                         .from('users')
                         .insert([{
+                            id: authResult.userId, // Required to tie to Auth
                             email,
                             name,
-                            role: 'Parent',
+                            role: 'parent', // Lowercase role as per schema
                             avatar_url: avatarUrl,
                             school_id: schoolId,
                             branch_id: branchId
@@ -215,7 +217,32 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                         .select()
                         .single();
 
-                    if (userError) throw userError;
+                    if (userError) {
+                        if (userError.code !== '23505') { // 23505 is duplicate key violation
+                            console.error('Error creating user profile:', userError);
+                            throw new Error(`Failed to create user profile: ${userError.message}`);
+                        } else {
+                            console.log('User profile already exists (created by backend), continuing...');
+                            // Manually construct newUserData since insert failed
+                            newUserData = { id: authResult.userId };
+                        }
+                    } else {
+                        newUserData = insertedData;
+                    }
+
+                    if (!newUserData?.id) throw new Error("Failed to resolve user ID");
+
+                    // 2b. Sync Profiles Table for RLS Context
+                    const { error: profileError } = await supabase
+                        .from('profiles')
+                        .update({
+                            full_name: name,
+                            role: 'parent',
+                            branch_id: branchId,
+                            avatar_url: avatarUrl
+                        })
+                        .eq('id', authResult.userId);
+                    if (profileError) console.warn("Notice: Syncing profile failed", profileError);
 
                     // 3. Create Parent Profile
                     const { data: newParentData, error: parentError } = await supabase

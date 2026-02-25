@@ -26,7 +26,7 @@ export default function StudentProfileStandard({ studentId, student: initialStud
                 attendance_rate: initialStudent.attendance || 95,
                 average_grade: initialStudent.performance || 88,
                 class_name: `Grade ${initialStudent.grade}${initialStudent.section}`,
-                admission_number: initialStudent.schoolGeneratedId || initialStudent.school_generated_id || 'Pending Generation'
+                admission_number: initialStudent.schoolGeneratedId || 'Pending Generation'
             });
         }
     }, [studentId, initialStudent]);
@@ -111,6 +111,7 @@ export default function StudentProfileStandard({ studentId, student: initialStud
                             <h1 className="text-3xl md:text-4xl font-bold mb-2 shadow-sm text-shadow">
                                 {displayName}
                             </h1>
+                            <p className="text-gray-500 font-mono text-sm mt-1">{student.schoolGeneratedId || "ID NOT SET"}</p>
                             <p className="text-white/90 text-lg mb-4 font-medium opacity-90">{student.class_name || 'Grade 10'}</p>
                             <div className="flex flex-wrap justify-center md:justify-start gap-3">
                                 <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-semibold border border-white/20">

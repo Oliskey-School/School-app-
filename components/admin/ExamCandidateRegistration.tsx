@@ -53,10 +53,16 @@ export const ExamCandidateRegistration: React.FC<ExamCandidateRegistrationProps>
 
     // Helper to fetch registrations
     const fetchRegistrations = async (bodyId: string) => {
-        const { data } = await supabase
+        let query = supabase
             .from('exam_candidates')
             .select('student_id')
             .eq('exam_body_id', bodyId);
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data } = await query;
 
         if (data) {
             // Create a set for O(1) lookups. Note: DB might return different types, ensure consistency.

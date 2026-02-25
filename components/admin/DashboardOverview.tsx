@@ -286,6 +286,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     // Fallback: If prop is missing (race condition), try to use profile or auth context
     const activeSchoolId = schoolId || profile?.schoolId || user?.user_metadata?.school_id;
 
+    const [dashboardError, setDashboardError] = useState<string | null>(null);
+
     useEffect(() => {
         console.log('[Dashboard] Detected Context:', {
             currentSchoolId: currentSchool?.id,
@@ -538,8 +540,9 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
             setTimetablePreview(timetableRes.data || []);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error fetching dashboard data:', err);
+            setDashboardError(err.message || 'Failed to load some dashboard widgets.');
         }
     };
 
@@ -547,6 +550,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     return (
         <div className="p-4 lg:p-6 bg-gray-50 min-h-full">
+            {statsError && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">{statsError.message || String(statsError)}</div>}
+            {dashboardError && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">{dashboardError}</div>}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-6">
@@ -777,6 +782,14 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     </div>
                 </div>
             </div >
+
+            {isBroadcastOpen && (
+                <EmergencyBroadcastModal
+                    isOpen={isBroadcastOpen}
+                    onClose={() => setIsBroadcastOpen(false)}
+                    schoolId={activeSchoolId}
+                />
+            )}
         </div >
     );
 };

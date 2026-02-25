@@ -1,9 +1,10 @@
 import { supabase } from '../config/supabase';
 
 export class AssignmentService {
-    static async getAssignments(schoolId: string, classId?: string, teacherId?: string) {
+    static async getAssignments(schoolId: string, classId?: string, teacherId?: string, className?: string) {
         let query = supabase.from('assignments').select('*').eq('school_id', schoolId);
         if (classId) query = query.eq('class_id', classId);
+        if (className) query = query.eq('class_name', className);
         if (teacherId) query = query.eq('teacher_id', teacherId);
         const { data, error } = await query.order('due_date', { ascending: false });
         if (error) throw new Error(error.message);

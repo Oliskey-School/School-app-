@@ -62,9 +62,13 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
     });
 
 
-    const handleDeleteClass = (id: string) => {
-        if (window.confirm('Are you sure you want to delete this class?')) {
-            deleteMutation.mutate(id);
+    const handleDeleteClass = async (id: string) => {
+        if (window.confirm('Are you sure you want to delete this class? This may fail if there are enrolled students.')) {
+            try {
+                await deleteMutation.mutateAsync(id);
+            } catch (err) {
+                toast.error('Could not delete class. Please ensure it is empty first.');
+            }
         }
     };
 

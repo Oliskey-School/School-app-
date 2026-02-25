@@ -7,7 +7,7 @@ interface TeacherAssignmentsListScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
     handleBack: () => void;
     forceUpdate: () => void;
-    teacherId?: number | null;
+    teacherId?: string | number | null;
 }
 
 const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> = ({ navigateTo, handleBack, forceUpdate, teacherId }) => {

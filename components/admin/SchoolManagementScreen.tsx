@@ -92,7 +92,8 @@ const SchoolManagementScreen: React.FC = () => {
                 const { error } = await supabase
                     .from('branches')
                     .update(payload)
-                    .eq('id', editingBranch.id);
+                    .eq('id', editingBranch.id)
+                    .eq('school_id', currentSchool.id);
                 if (error) throw error;
                 toast.success('Branch updated successfully');
             } else {
@@ -100,7 +101,7 @@ const SchoolManagementScreen: React.FC = () => {
                 if (formData.is_main) {
                     await supabase.from('branches').update({ is_main: false }).eq('school_id', currentSchool.id);
                 }
-                
+
                 const { error } = await supabase.from('branches').insert([payload]);
                 if (error) throw error;
                 toast.success('New branch added');
@@ -129,7 +130,10 @@ const SchoolManagementScreen: React.FC = () => {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this branch?')) return;
         try {
-            const { error } = await supabase.from('branches').delete().eq('id', id);
+            if (!currentSchool?.id) return;
+            const { error } = await supabase.from('branches').delete()
+                .eq('id', id)
+                .eq('school_id', currentSchool.id);
             if (error) throw error;
             toast.success('Branch deleted');
             fetchBranches();
@@ -279,14 +283,14 @@ const SchoolManagementScreen: React.FC = () => {
                                     Main Campus
                                 </div>
                             )}
-                            
+
                             <div className="p-8">
                                 <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 transition-colors duration-300">
                                     <Building2 className="w-6 h-6 text-indigo-600 group-hover:text-white transition-colors duration-300" />
                                 </div>
-                                
+
                                 <h3 className="text-xl font-bold text-slate-900 mb-2 truncate" title={branch.name}>{branch.name}</h3>
-                                
+
                                 <div className="space-y-3 mt-6">
                                     <div className="flex items-start gap-3 text-slate-500 text-sm">
                                         <MapPin className="w-4 h-4 mt-0.5 text-slate-400" />

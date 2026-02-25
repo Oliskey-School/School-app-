@@ -425,7 +425,11 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     .select()
                     .single();
 
-                if (teacherError) throw teacherError;
+                if (teacherError) {
+                    console.error("Teacher Creation Failed. Rolling back user...", teacherError);
+                    await supabase.from('users').delete().eq('id', userData.id);
+                    throw teacherError;
+                }
                 const teacherData = newTeacherData;
 
                 // 4. Add subjects (linked to Legacy ID)

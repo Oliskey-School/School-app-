@@ -116,7 +116,8 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             const { error: deleteStudentError } = await supabase
                 .from('students')
                 .delete()
-                .eq('id', student.id);
+                .eq('id', student.id)
+                .eq('school_id', student.schoolId);
 
             if (deleteStudentError) throw deleteStudentError;
 

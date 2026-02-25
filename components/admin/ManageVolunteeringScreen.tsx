@@ -3,8 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TrashIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CalendarIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { useAuth } from '../../context/AuthContext';
 
 const ManageVolunteeringScreen: React.FC = () => {
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
     const [opportunities, setOpportunities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [newItem, setNewItem] = useState({
@@ -27,9 +30,11 @@ const ManageVolunteeringScreen: React.FC = () => {
 
     const fetchOpportunities = async () => {
         try {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('volunteering_opportunities')
                 .select('*')
+                .eq('school_id', schoolId)
                 .order('date', { ascending: true });
 
             if (error) throw error;
@@ -45,9 +50,13 @@ const ManageVolunteeringScreen: React.FC = () => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
+            if (!schoolId) {
+                toast.error("School context missing.");
+                return;
+            }
             const { error } = await supabase
                 .from('volunteering_opportunities')
-                .insert([newItem]);
+                .insert([{ ...newItem, school_id: schoolId }]);
 
             if (error) throw error;
 
@@ -81,7 +90,8 @@ const ManageVolunteeringScreen: React.FC = () => {
         setOpportunityToDelete(null);
 
         try {
-            const { error } = await supabase.from('volunteering_opportunities').delete().eq('id', id);
+            if (!schoolId) return;
+            const { error } = await supabase.from('volunteering_opportunities').delete().eq('id', id).eq('school_id', schoolId);
             if (error) throw error;
             fetchOpportunities();
             toast.success('Opportunity deleted.');

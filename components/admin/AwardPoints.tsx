@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Student } from '../../types';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import { AwardIcon, SchoolLogoIcon, CheckCircleIcon, ClockIcon } from '../../constants';
 
 interface AwardPointsProps {
@@ -9,6 +10,8 @@ interface AwardPointsProps {
 }
 
 const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
     const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
     const [points, setPoints] = useState<number>(10);
     const [reason, setReason] = useState('');
@@ -34,6 +37,11 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
             return;
         }
 
+        if (!schoolId) {
+            toast.error('School context missing.');
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -42,6 +50,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
             // Create transactions for each student
             const transactions = selectedStudents.map(studentId => ({
                 student_id: studentId,
+                school_id: schoolId,
                 points: points,
                 reason: reason,
                 category: category,
@@ -76,6 +85,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
                         .from('student_points')
                         .insert({
                             student_id: studentId,
+                            school_id: schoolId,
                             points: points,
                             total_earned: points,
                             level: 1
@@ -208,8 +218,8 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
                                 key={student.id}
                                 onClick={() => toggleStudent(student.id)}
                                 className={`w-full p-3 rounded-lg border-2 transition-all text-left ${selectedStudents.includes(student.id)
-                                        ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-gray-300'
+                                    ? 'border-indigo-500 bg-indigo-50'
+                                    : 'border-gray-200 hover:border-gray-300'
                                     }`}
                             >
                                 <div className="flex items-center justify-between">

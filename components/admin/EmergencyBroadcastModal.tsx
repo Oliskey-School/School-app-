@@ -8,6 +8,7 @@ import { sendEmergencyBroadcast } from '../../lib/broadcasts';
 interface EmergencyBroadcastModalProps {
     isOpen: boolean;
     onClose: () => void;
+    schoolId?: string;
 }
 
 const BroadcastSchema = Yup.object().shape({

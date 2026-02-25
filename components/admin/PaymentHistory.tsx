@@ -9,6 +9,7 @@ import {
     DocumentTextIcon,
     SearchIcon
 } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface PaymentTransaction {
     id: number;
@@ -24,6 +25,7 @@ interface PaymentTransaction {
 }
 
 const PaymentHistory: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
     const [filteredTransactions, setFilteredTransactions] = useState<PaymentTransaction[]>([]);
     const [filter, setFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
@@ -32,8 +34,9 @@ const PaymentHistory: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchTransactions();
-    }, []);
+    }, [currentSchool]);
 
     useEffect(() => {
         applyFilters();
@@ -41,20 +44,23 @@ const PaymentHistory: React.FC = () => {
 
     const fetchTransactions = async () => {
         try {
+            if (!currentSchool) return;
             setLoading(true);
 
             const { data, error } = await supabase
                 .from('payment_transactions')
                 .select(`
           *,
-          payslips (
+          payslips!inner (
             period_start,
             period_end,
+            school_id,
             teachers (
               full_name
             )
           )
         `)
+                .eq('payslips.school_id', currentSchool.id)
                 .order('payment_date', { ascending: false });
 
             if (error) throw error;
@@ -157,8 +163,8 @@ const PaymentHistory: React.FC = () => {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
-                                    ? 'bg-indigo-600 text-white'
-                                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                                 }`}
                         >
                             {f.charAt(0).toUpperCase() + f.slice(1)}

@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { FileBarChart, Users, GraduationCap, Award, Download, Building, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const MasterReportingHub: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [generating, setGenerating] = useState<string | null>(null);
 
     const handleGenerateCensus = async () => {
+        if (!currentSchool) return;
         setGenerating('census');
         // Aggregation logic for Ministry of Education ASC
-        const { data: students } = await supabase.from('students').select('count');
-        const { data: staff } = await supabase.from('profiles').select('count').neq('role', 'parent').neq('role', 'student');
+        const { data: students } = await supabase.from('students').select('count').eq('school_id', currentSchool.id);
+        const { data: staff } = await supabase.from('profiles').select('count').eq('school_id', currentSchool.id).neq('role', 'parent').neq('role', 'student');
 
         // Mocking the complex aggregation for a second
         setTimeout(() => {

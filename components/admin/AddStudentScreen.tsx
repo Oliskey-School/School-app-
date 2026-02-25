@@ -438,8 +438,14 @@ parents(
                         gender: gender || null,
                         status: initialStatus,
                         attendance_status: 'Present'
-                    }]);
-                if (studentError) throw studentError;
+                    }])
+                    .select();
+
+                if (studentError) {
+                    console.error("Student Creation Failed. Rolling back user...", studentError);
+                    await supabase.from('users').delete().eq('id', userData.id);
+                    throw studentError;
+                }
 
                 // Fetch the student ID for linking
                 const { data: studentData, error: fetchStudentError } = await supabase

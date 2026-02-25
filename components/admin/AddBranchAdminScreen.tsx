@@ -37,7 +37,7 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
                 .select('*')
                 .eq('school_id', schoolId)
                 .order('name', { ascending: true });
-            
+
             if (!error && data) {
                 setBranches(data);
                 if (data.length > 0) setSelectedBranchId(data[0].id);
@@ -71,21 +71,32 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
             const authResult = await createUserAccount(name, 'Admin', email, schoolId || '');
             if (authResult.error) throw new Error(authResult.error);
 
-            // 2. Create User Record in 'users' table
-            // We set branch_id here to restrict this admin to a branch.
+            // 2. Update User Record in 'users' table (Backend API already upserted it by ID)
             const { error: userError } = await supabase
                 .from('users')
-                .insert([{
-                    id: authResult.userId,
-                    email: email,
+                .update({
                     name: name,
                     role: 'admin',
-                    school_id: schoolId,
                     branch_id: selectedBranchId,
                     avatar_url: avatarUrl
-                }]);
+                })
+                .eq('id', authResult.userId);
 
             if (userError) throw userError;
+
+            // 3. Update Profiles table (Crucial for RLS and context resolution)
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({
+                    full_name: name,
+                    role: 'admin',
+                    branch_id: selectedBranchId,
+                    avatar_url: avatarUrl
+                })
+                .eq('id', authResult.userId);
+
+            // Do not throw on profile error as a trigger might have delayed it, but log it
+            if (profileError) console.warn("Notice: Syncing profile failed:", profileError);
 
             // 3. Send Verification Email
             await sendVerificationEmail(name, email, 'School Admin Account');
@@ -151,8 +162,8 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Branch</label>
-                        <select 
-                            value={selectedBranchId} 
+                        <select
+                            value={selectedBranchId}
                             onChange={e => setSelectedBranchId(e.target.value)}
                             className="w-full p-3 bg-gray-50 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             required

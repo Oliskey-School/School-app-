@@ -5,6 +5,7 @@ import { CurriculumSubject, CurriculumSubjectCategory, Department } from '../../
 import { BookOpenIcon } from '../../constants';
 import { fetchSubjects } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const categoryStyles: { [key in CurriculumSubjectCategory]: string } = {
   Core: 'bg-sky-100 text-sky-800',
@@ -31,8 +32,11 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
   const [dbSubjects, setDbSubjects] = useState<CurriculumSubject[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { currentSchool } = useAuth();
+
   useEffect(() => {
     const loadSubjects = async () => {
+      if (!currentSchool) return;
       setLoading(true);
       try {
         // Try to find subjects in the DB matching this level
@@ -40,6 +44,7 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
         const { data, error } = await supabase
           .from('subjects')
           .select('*')
+          .eq('school_id', currentSchool.id)
           .eq('grade_level_category', level)
           .eq('is_active', true);
 
@@ -59,7 +64,7 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
     };
 
     loadSubjects();
-  }, [level]);
+  }, [level, currentSchool]);
 
   const subjects = useMemo(() => {
     if (dbSubjects.length > 0) return dbSubjects;
@@ -77,7 +82,7 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
       return acc;
     }, {} as { [key in CurriculumSubjectCategory]?: CurriculumSubject[] });
   }, [subjects]);
-  
+
   const categoryOrder: CurriculumSubjectCategory[] = [
     'Foundational Play-Based Learning', 'Core Foundational', 'Pre-Primary Core',
     'Compulsory', 'Core', 'Pre-Vocational Electives', 'Elective', 'Other Electives'
@@ -91,9 +96,9 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
     <div className="p-4 space-y-5 bg-gray-50">
       {Object.keys(groupedSubjects).length === 0 ? (
         <div className="text-center py-10 bg-white rounded-lg shadow-sm">
-            <BookOpenIcon className="mx-auto h-12 w-12 text-gray-300" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No Curriculum Found</h3>
-            <p className="mt-1 text-sm text-gray-500">Could not find subjects for the selected level ({level}).</p>
+          <BookOpenIcon className="mx-auto h-12 w-12 text-gray-300" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No Curriculum Found</h3>
+          <p className="mt-1 text-sm text-gray-500">Could not find subjects for the selected level ({level}).</p>
         </div>
       ) : (
         categoryOrder.map(category => {
@@ -101,16 +106,16 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
 
           return (
             <div key={category} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-                <div className="p-4 border-b border-gray-200 bg-gray-50/50">
-                    <CategoryBadge category={category} />
-                </div>
-                <div className="divide-y divide-gray-100">
-                    {groupedSubjects[category]!.map(subject => (
-                        <div key={subject.name} className="px-4 py-3 flex items-center hover:bg-gray-50 transition-colors">
-                            <p className="font-medium text-gray-800">{subject.name}</p>
-                        </div>
-                    ))}
-                </div>
+              <div className="p-4 border-b border-gray-200 bg-gray-50/50">
+                <CategoryBadge category={category} />
+              </div>
+              <div className="divide-y divide-gray-100">
+                {groupedSubjects[category]!.map(subject => (
+                  <div key={subject.name} className="px-4 py-3 flex items-center hover:bg-gray-50 transition-colors">
+                    <p className="font-medium text-gray-800">{subject.name}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })

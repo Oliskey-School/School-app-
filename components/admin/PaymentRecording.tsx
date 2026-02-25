@@ -13,6 +13,7 @@ import {
     PhotoIcon,
     MicrophoneIcon
 } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface Teacher {
     id: string;
@@ -49,6 +50,7 @@ interface PaymentFormData {
 }
 
 const PaymentRecording: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [payslips, setPayslips] = useState<Payslip[]>([]);
     const [selectedTeacher, setSelectedTeacher] = useState<string>('');
@@ -66,8 +68,9 @@ const PaymentRecording: React.FC = () => {
     });
 
     useEffect(() => {
+        if (!currentSchool?.id) return;
         fetchTeachers();
-    }, []);
+    }, [currentSchool?.id]);
 
     useEffect(() => {
         if (selectedTeacher) {
@@ -77,10 +80,12 @@ const PaymentRecording: React.FC = () => {
 
     const fetchTeachers = async () => {
         try {
+            if (!currentSchool?.id) return;
             setLoading(true);
             const { data, error } = await supabase
                 .from('teachers')
                 .select('id, full_name, email')
+                .eq('school_id', currentSchool.id)
                 .order('full_name');
 
             if (error) throw error;

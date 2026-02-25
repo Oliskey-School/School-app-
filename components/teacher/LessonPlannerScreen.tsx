@@ -138,11 +138,14 @@ const GeneratedHistoryModal: React.FC<{ isOpen: boolean; onClose: () => void; hi
 
 
 
+import { generateLocalCurriculum } from '../../utils/lessonNoteGenerator';
+
 // --- MAIN COMPONENT ---
 
 const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; teacherId?: string | null; }> = ({ navigateTo, teacherId }) => {
     const [subject, setSubject] = useState('');
     const [className, setClassName] = useState('');
+    // ... (keep existing state)
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
     const { classes: rawTeacherClasses, subjects: teacherSubjects, assignments: rawAssignments, loading } = useTeacherClasses(teacherId);
@@ -283,6 +286,51 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
     const schemes = { term1: term1Scheme, term2: term2Scheme, term3: term3Scheme };
     const currentScheme = schemes[activeTerm];
     const setCurrentScheme = { term1: setTerm1Scheme, term2: setTerm2Scheme, term3: setTerm3Scheme }[activeTerm];
+
+    const handleLocalGenerate = async () => {
+        if (!subject.trim() || !className.trim() || !hasSchemeContent) {
+            toast.error("Please provide a subject, class name, and at least one topic.");
+            return;
+        }
+
+        setIsGenerating(true);
+        // Simulate a small delay for "generation" feel
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        try {
+            const resources = generateLocalCurriculum(subject, className, {
+                term1: term1Scheme,
+                term2: term2Scheme,
+                term3: term3Scheme
+            });
+
+            // Save to Database (same as AI path)
+            await api.saveGeneratedResource({
+                teacher_id: effectiveTeacherId,
+                subject: resources.subject,
+                class_name: resources.className,
+                term: 'All',
+                lesson_plans_content: resources
+            });
+
+            fetchHistory();
+
+            const resourcesWithIds = {
+                ...resources,
+                subjectId: selectedSubjectId,
+                classId: selectedClassId,
+                teacherId: effectiveTeacherId
+            };
+            
+            toast.success("Resources generated locally using curriculum map!");
+            navigateTo('lessonPlanDetail', `Local Plan: ${subject}`, { resources: resourcesWithIds });
+        } catch (error) {
+            console.error("Local Generation Error:", error);
+            toast.error("Failed to generate resources locally.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const handleGenerate = async () => {
         if (!subject.trim() || !className.trim() || !hasSchemeContent) {
@@ -439,7 +487,11 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
         } catch (error: any) {
             console.error("AI Generation Error:", error);
             const msg = error.message || '';
-            toast.error(`AI Connection Failed. Details:\n${msg}`);
+            if (msg.includes('429') || msg.includes('Too many requests')) {
+                toast.error("AI is currently busy. Please try 'Generate Locally' instead!", { duration: 5000 });
+            } else {
+                toast.error(`AI Connection Failed. Details:\n${msg}`);
+            }
         } finally {
             setIsGenerating(false);
         }
@@ -519,14 +571,25 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
                 </div>
             </main>
 
-            <footer className="p-4 bg-white/80 backdrop-blur-sm border-t border-gray-200 grid grid-cols-2 gap-3 sticky bottom-0">
-                <button type="button" onClick={handleSaveScheme} className="w-full py-3 px-4 font-medium text-gray-800 bg-gray-200 rounded-lg shadow-sm hover:bg-gray-300">Save Scheme</button>
+            <footer className="p-4 bg-white/80 backdrop-blur-sm border-t border-gray-200 space-y-3 sticky bottom-0">
+                <div className="grid grid-cols-2 gap-3">
+                    <button type="button" onClick={handleSaveScheme} className="w-full py-2.5 px-4 text-sm font-medium text-gray-800 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200">Save Scheme</button>
+                    <button 
+                        type="button" 
+                        onClick={handleLocalGenerate}
+                        disabled={isGenerating || !subject.trim() || !className.trim() || !hasSchemeContent}
+                        className="w-full py-2.5 px-4 text-sm font-medium text-blue-800 bg-blue-50 border border-blue-200 rounded-lg shadow-sm hover:bg-blue-100 disabled:opacity-50"
+                    >
+                        Generate Locally (No AI)
+                    </button>
+                </div>
                 <button
                     type="button"
                     onClick={handleGenerate}
                     disabled={isGenerating || !subject.trim() || !className.trim() || !hasSchemeContent}
-                    className="w-full flex justify-center items-center space-x-2 py-3 px-4 font-medium text-white bg-gray-800 hover:bg-gray-900 disabled:bg-gray-400">
-                    <SparklesIcon className="h-5 h-5" /><span>Generate Resources</span>
+                    className="w-full flex justify-center items-center space-x-2 py-3 px-4 font-bold text-white bg-gray-900 hover:bg-black rounded-xl shadow-lg disabled:bg-gray-400 transition-all transform active:scale-[0.98]">
+                    <SparklesIcon className="h-5 w-5" />
+                    <span>Generate AI Resources</span>
                 </button>
             </footer>
 

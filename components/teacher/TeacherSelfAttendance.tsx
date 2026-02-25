@@ -197,9 +197,13 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                         </p>
                     </div>
-                    <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center">
+                    <button
+                        onClick={() => navigateTo('attendanceHistory', 'Attendance History', { teacherId })}
+                        className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center hover:bg-purple-200 transition-colors active:scale-95"
+                        title="View Attendance History"
+                    >
                         <CalendarIcon className="h-6 w-6 text-purple-600" />
-                    </div>
+                    </button>
                 </div>
 
                 {todayStatus ? (

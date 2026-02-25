@@ -100,7 +100,14 @@ import { supabase } from '../../lib/supabase';
 
 // Remove global loggedInStudent
 
-const TodayFocus: React.FC<{ schedule: any[], assignments: any[], theme: any, navigateTo: (view: string, title: string, props?: any) => void }> = ({ schedule, assignments, theme, navigateTo }) => {
+const TodayFocus: React.FC<{
+    schedule: any[],
+    assignments: any[],
+    quizzes: any[],
+    theme: any,
+    navigateTo: (view: string, title: string, props?: any) => void,
+    student: Student
+}> = ({ schedule, assignments, quizzes, theme, navigateTo, student }) => {
     const formatTime = (timeStr: string) => {
         if (!timeStr) return '';
         // If it's full date string or just time
@@ -153,6 +160,32 @@ const TodayFocus: React.FC<{ schedule: any[], assignments: any[], theme: any, na
                 ) : (
                     <p className="text-sm text-center text-gray-500 py-2">No assignments due soon. Great work!</p>
                 )}
+
+                <div className="border-t border-gray-100 my-2"></div>
+
+                {quizzes.length > 0 ? (
+                    <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-500">Upcoming Quizzes & Exams</h4>
+                        {quizzes.map(quiz => (
+                            <button
+                                key={quiz.id}
+                                onClick={() => navigateTo('quizPlayer', quiz.title, { quizId: quiz.id, student })}
+                                className="w-full flex justify-between items-center p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                            >
+                                <div>
+                                    <p className="font-bold text-gray-800 text-sm">{quiz.title}</p>
+                                    <p className="text-xs text-gray-500">
+                                        {quiz.subject || quiz.subjects?.name || 'General'} &bull;
+                                        {quiz.start_time ? ` Starts ${new Date(quiz.start_time).toLocaleDateString('en-GB')}` : ' Available Now'}
+                                    </p>
+                                </div>
+                                <ChevronRightIcon className="text-gray-400 h-5 w-5" />
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-center text-gray-500 py-2">No upcoming quizzes. Stay sharp!</p>
+                )}
             </div>
         </div>
     );
@@ -169,6 +202,7 @@ const Overview: React.FC<{
     const theme = THEME_CONFIG[DashboardType.Student];
     const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
     const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
+    const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -176,9 +210,10 @@ const Overview: React.FC<{
             try {
                 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-                const [timetableData, assignmentsData] = await Promise.all([
+                const [timetableData, assignmentsData, quizzesData] = await Promise.all([
                     api.getTimetable(schoolId, student.grade.toString()),
-                    api.getAssignments(schoolId, student.classId || student.current_class_id)
+                    api.getAssignments(schoolId, { classId: student.classId || student.current_class_id }),
+                    api.getQuizzesByClass(schoolId, student.grade.toString(), student.section)
                 ]);
 
                 if (timetableData && timetableData.length > 0) {
@@ -199,10 +234,26 @@ const Overview: React.FC<{
                     setUpcomingAssignments([]);
                 }
 
+                if (quizzesData && quizzesData.length > 0) {
+                    const now = new Date();
+                    // Upcoming = not ended yet
+                    const upcoming = quizzesData
+                        .filter((q: any) => !q.end_time || new Date(q.end_time) >= now)
+                        .sort((a, b) => {
+                            if (!a.start_time) return 1;
+                            if (!b.start_time) return -1;
+                            return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+                        });
+                    setUpcomingQuizzes(upcoming.slice(0, 2));
+                } else {
+                    setUpcomingQuizzes([]);
+                }
+
             } catch (err) {
                 console.warn('Error fetching overview data via Hybrid API:', err);
                 setTodaySchedule([]);
                 setUpcomingAssignments([]);
+                setUpcomingQuizzes([]);
             } finally {
                 setLoading(false);
             }
@@ -233,7 +284,6 @@ const Overview: React.FC<{
         { label: 'Subjects', icon: <BookOpenIcon />, action: () => navigateTo('subjects', 'My Subjects') },
         { label: 'Timetable', icon: <CalendarIcon />, action: () => navigateTo('timetable', 'Timetable') },
         { label: 'Results', icon: <ChartBarIcon />, action: () => navigateTo('results', 'Academic Performance', { studentId: student.id }) },
-        { label: 'CBT Exams', icon: <ClipboardListIcon />, action: () => navigateTo('cbtList', 'CBT Portal') },
         { label: 'Games', icon: <GameControllerIcon />, action: () => navigateTo('gamesHub', 'Games Hub') },
     ];
 
@@ -251,7 +301,14 @@ const Overview: React.FC<{
                 <div className="lg:col-span-2 space-y-6">
 
 
-                    <TodayFocus schedule={todaySchedule} assignments={upcomingAssignments} theme={theme} navigateTo={navigateTo} />
+                    <TodayFocus
+                        schedule={todaySchedule}
+                        assignments={upcomingAssignments}
+                        quizzes={upcomingQuizzes}
+                        theme={theme}
+                        navigateTo={navigateTo}
+                        student={student}
+                    />
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">AI Tools</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -797,10 +854,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                             email: user?.email,
                                             school_id: effectiveSchoolId,
                                             name: currentUser.user_metadata?.full_name || 'New Student',
-                                                                                        grade: 10,
-                                                                                        section: 'A',
-                                                                                        attendance_status: 'Present'
-                                                                                    }, {                                            onConflict: 'user_id'
+                                            grade: 10,
+                                            section: 'A',
+                                            attendance_status: 'Present'
+                                        }, {
+                                            onConflict: 'user_id'
                                         })
                                         .select()
                                         .single();

@@ -74,9 +74,10 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
     fetchParentsData();
 
     // Realtime Subscription
+    const schoolIdForFilter = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
     const subscription = supabase
       .channel('public:parents')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parents' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parents', filter: `school_id=eq.${schoolIdForFilter}` }, () => {
         fetchParentsData();
       })
       .subscribe();

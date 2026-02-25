@@ -8,6 +8,7 @@ import {
     UserGroupIcon,
     CalendarIcon
 } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface LeaveRequestData {
     id: number;
@@ -29,6 +30,7 @@ interface LeaveApprovalProps {
 }
 
 const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
+    const { currentSchool } = useAuth();
     const [requests, setRequests] = useState<LeaveRequestData[]>([]);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequestData | null>(null);
@@ -37,10 +39,12 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchRequests();
-    }, [filter]);
+    }, [filter, currentSchool]);
 
     const fetchRequests = async () => {
+        if (!currentSchool) return;
         try {
             setLoading(true);
 
@@ -48,13 +52,15 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                 .from('leave_requests')
                 .select(`
           *,
-          teachers (
-            full_name
+          teachers!inner (
+            full_name,
+            school_id
           ),
           leave_types (
             name
           )
         `)
+                .eq('teachers.school_id', currentSchool.id)
                 .order('created_at', { ascending: false });
 
             if (filter !== 'all') {

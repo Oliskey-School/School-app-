@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Phone, Mic, Play, Upload, PhoneCall, BarChart3 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface IVRLesson {
     id: number;
@@ -27,6 +28,7 @@ interface IVRCall {
 }
 
 const IVRLessonRecorder: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [lessons, setLessons] = useState<IVRLesson[]>([]);
     const [calls, setCalls] = useState<IVRCall[]>([]);
     const [activeTab, setActiveTab] = useState<'create' | 'calls' | 'analytics'>('create');
@@ -47,16 +49,19 @@ const IVRLessonRecorder: React.FC = () => {
     const [avgDuration, setAvgDuration] = useState(0);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchLessons();
         fetchCalls();
         fetchStats();
-    }, []);
+    }, [currentSchool]);
 
     const fetchLessons = async () => {
+        if (!currentSchool) return;
         try {
             const { data, error } = await supabase
                 .from('ivr_lessons')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -69,13 +74,15 @@ const IVRLessonRecorder: React.FC = () => {
     };
 
     const fetchCalls = async () => {
+        if (!currentSchool) return;
         try {
             const { data, error } = await supabase
                 .from('ivr_calls')
                 .select(`
           *,
-          ivr_lessons (lesson_title)
+          ivr_lessons!inner (lesson_title, school_id)
         `)
+                .eq('ivr_lessons.school_id', currentSchool.id)
                 .order('initiated_at', { ascending: false })
                 .limit(50);
 
@@ -87,14 +94,31 @@ const IVRLessonRecorder: React.FC = () => {
     };
 
     const fetchStats = async () => {
+        if (!currentSchool) return;
         try {
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            // Fetch lesson IDs for the current school first
+            const { data: schoolLessons } = await supabase
+                .from('ivr_lessons')
+                .select('id')
+                .eq('school_id', currentSchool.id);
+
+            const lessonIds = schoolLessons?.map(l => l.id) || [];
+
+            if (lessonIds.length === 0) {
+                setTotalCalls(0);
+                setCompletedCalls(0);
+                setAvgDuration(0);
+                return;
+            }
 
             // Total calls
             const { count: total } = await supabase
                 .from('ivr_calls')
                 .select('*', { count: 'exact', head: true })
+                .in('lesson_id', lessonIds)
                 .gte('initiated_at', thirtyDaysAgo.toISOString());
 
             setTotalCalls(total || 0);
@@ -104,6 +128,7 @@ const IVRLessonRecorder: React.FC = () => {
                 .from('ivr_calls')
                 .select('*', { count: 'exact', head: true })
                 .eq('call_status', 'Completed')
+                .in('lesson_id', lessonIds)
                 .gte('initiated_at', thirtyDaysAgo.toISOString());
 
             setCompletedCalls(completed || 0);
@@ -113,6 +138,7 @@ const IVRLessonRecorder: React.FC = () => {
                 .from('ivr_calls')
                 .select('call_duration_seconds')
                 .eq('call_status', 'Completed')
+                .in('lesson_id', lessonIds)
                 .gte('initiated_at', thirtyDaysAgo.toISOString());
 
             if (durData && durData.length > 0) {
@@ -125,6 +151,7 @@ const IVRLessonRecorder: React.FC = () => {
     };
 
     const handleCreateLesson = async () => {
+        if (!currentSchool) return;
         if (!lessonTitle || !audioUrl || !script) {
             toast.error('Please fill in all required fields');
             return;
@@ -134,6 +161,7 @@ const IVRLessonRecorder: React.FC = () => {
             const { error } = await supabase
                 .from('ivr_lessons')
                 .insert({
+                    school_id: currentSchool.id,
                     lesson_title: lessonTitle,
                     subject,
                     grade,
@@ -235,8 +263,8 @@ const IVRLessonRecorder: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('create')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'create'
-                            ? 'bg-orange-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Create Lesson
@@ -244,8 +272,8 @@ const IVRLessonRecorder: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('calls')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'calls'
-                            ? 'bg-orange-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Call History ({calls.length})
@@ -253,8 +281,8 @@ const IVRLessonRecorder: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('analytics')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'analytics'
-                            ? 'bg-orange-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Lesson Library ({lessons.length})

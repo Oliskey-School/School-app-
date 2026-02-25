@@ -1,5 +1,5 @@
 
-export const GEMINI_MODEL_NAME = "gemini-2.5-flash";
+export const GEMINI_MODEL_NAME = "gemini-2.0-flash";
 export const AI_MODEL_NAME = GEMINI_MODEL_NAME;
 
 export const AI_GENERATION_CONFIG = {

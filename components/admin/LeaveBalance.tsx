@@ -7,6 +7,7 @@ import {
     EditIcon,
     CheckCircleIcon
 } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface TeacherBalance {
     id: number;
@@ -24,6 +25,7 @@ interface LeaveBalanceProps {
 }
 
 const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
+    const { currentSchool } = useAuth();
     const [balances, setBalances] = useState<TeacherBalance[]>([]);
     const [teachers, setTeachers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -31,8 +33,9 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
     const [newTotal, setNewTotal] = useState(0);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchData();
-    }, []);
+    }, [currentSchool]);
 
     const fetchData = async () => {
         try {
@@ -46,17 +49,20 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
     };
 
     const fetchBalances = async () => {
+        if (!currentSchool) return;
         const { data, error } = await supabase
             .from('leave_balances')
             .select(`
         *,
-        teachers (
-          full_name
+        teachers!inner (
+          full_name,
+          school_id
         ),
         leave_types (
           name
         )
       `)
+            .eq('teachers.school_id', currentSchool.id)
             .order('teacher_id');
 
         if (error) {
@@ -79,9 +85,11 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
     };
 
     const fetchTeachers = async () => {
+        if (!currentSchool) return;
         const { data, error } = await supabase
             .from('teachers')
             .select('id, full_name')
+            .eq('school_id', currentSchool.id)
             .order('full_name');
 
         if (error) {

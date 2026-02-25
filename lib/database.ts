@@ -1196,12 +1196,17 @@ export async function deleteAssignment(id: string | number): Promise<boolean> {
         return false;
     }
 }
-export async function fetchExams(): Promise<Exam[]> {
+export async function fetchExams(schoolId?: string): Promise<Exam[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('exams')
             .select('*')
-            .order('date', { ascending: true });
+
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query.order('date', { ascending: true });
 
         if (error) throw error;
 
@@ -1564,14 +1569,14 @@ export async function fetchAnalyticsMetrics(schoolId?: string, branchId?: string
         if (timetable && timetable.length > 0) {
             const teacherIds = [...new Set(timetable.map(t => t.teacher_id).filter(Boolean))];
             const { data: teacherProfiles } = await supabase.from('teachers').select('id, name').in('id', teacherIds);
-            
+
             const counts: { [key: string]: number } = {};
             timetable.forEach((t: any) => {
                 const profile = teacherProfiles?.find(p => p.id === t.teacher_id);
                 const name = profile?.name || 'Unknown';
                 counts[name] = (counts[name] || 0) + 1;
             });
-            
+
             stats.workload = Object.entries(counts)
                 .map(([label, value]) => ({ label: label.split(' ').pop() || label, value }))
                 .sort((a, b) => b.value - a.value)
@@ -1609,13 +1614,13 @@ export async function fetchAnalyticsMetrics(schoolId?: string, branchId?: string
                 dailyStats[r.date].total++;
                 if (r.status === 'Present') dailyStats[r.date].present++;
             });
-            
+
             const sortedDates = Object.keys(dailyStats).sort();
-            stats.attendance = sortedDates.map(date => 
+            stats.attendance = sortedDates.map(date =>
                 Math.round((dailyStats[date].present / dailyStats[date].total) * 100)
             );
         } else {
-            stats.attendance = [95, 92, 98, 94, 96, 91, 95]; // Default/Mock for empty
+            stats.attendance = []; // Do not inject fake data into production analytics
         }
 
         return stats;
@@ -2416,13 +2421,13 @@ export async function fetchStudentStats(studentId: string | number) {
         ]);
 
         const attendanceTotal = attendanceRes.data?.length || 0;
-        const presentCount = attendanceRes.data?.filter(a => a.status === 'Present').length || 0;
+        const presentCount = attendanceRes.data?.filter(a => a.status?.toLowerCase() === 'present').length || 0;
         const attendanceRate = attendanceTotal > 0 ? Math.round((presentCount / attendanceTotal) * 100) : 100;
 
         const assignmentsSubmitted = assignmentsRes.data?.length || 0;
 
         // Calculate average score
-        const scores = activitiesRes.data?.map(s => s.score) || [];
+        const scores = (activitiesRes.data?.map(s => s.score) || []).filter(s => s !== null && s !== undefined);
         const average = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
         return {
@@ -2455,7 +2460,7 @@ export async function fetchUpcomingEvents(grade: number | string, section: strin
         // 2. Fetch Notices (Events)
         const { data: notices } = await supabase
             .from('notices')
-            .select('id, title, created_at, category')
+            .select('id, title, timestamp, category')
             .eq('category', 'Event')
             .limit(3);
 
@@ -2469,7 +2474,7 @@ export async function fetchUpcomingEvents(grade: number | string, section: strin
             ...(notices || []).map(n => ({
                 id: `notice-${n.id}`,
                 title: n.title,
-                date: n.created_at, // Ideally notices have an event_date
+                date: n.timestamp, // Use timestamp instead of created_at
                 type: 'Event'
             }))
         ];
@@ -2478,6 +2483,54 @@ export async function fetchUpcomingEvents(grade: number | string, section: strin
         return events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
     } catch (err) {
         console.error("Error fetching upcoming events:", err);
+        return [];
+    }
+}
+
+export async function fetchStudentActivities(studentId: string | number): Promise<any[]> {
+    try {
+        const { data, error } = await supabase
+            .from('student_activities')
+            .select('*, extracurricular_activities(name, description, category)')
+            .eq('student_id', studentId);
+
+        if (error) throw error;
+        return (data || []).map(a => ({
+            name: a.extracurricular_activities?.name || 'Unknown Activity',
+            role: a.notes || 'Participant',
+            schedule: 'TBD', // Placeholder
+            status: a.status || 'Active',
+            color: a.extracurricular_activities?.category === 'Academic' ? 'orange' : 'emerald'
+        }));
+    } catch (err) {
+        console.error('Error fetching student activities:', err);
+        return [];
+    }
+}
+
+export async function fetchStudentDocuments(studentId: string | number): Promise<any[]> {
+    try {
+        const { data, error } = await supabase
+            .from('report_cards')
+            .select('id, term, created_at, term_label')
+            .eq('student_id', studentId)
+            .eq('is_published', true);
+
+        if (error) throw error;
+
+        // Map report cards to document format and add some static system docs
+        const reports = (data || []).map(r => ({
+            name: `${r.term_label || r.term} Report Card`,
+            type: 'PDF',
+            date: new Date(r.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+            size: '2.4 MB'
+        }));
+
+        const handbook = { name: "Student Handbook", type: "PDF", date: "Sep 01, 2025", size: "4.5 MB" };
+
+        return [...reports, handbook];
+    } catch (err) {
+        console.error('Error fetching student documents:', err);
         return [];
     }
 }

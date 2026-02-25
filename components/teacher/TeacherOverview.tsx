@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import {
   BookOpenIcon,
   ChevronRightIcon,
@@ -166,6 +167,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
       } catch (err) {
         console.error('❌ Error fetching overview data:', err);
+        toast.error('Failed to load dashboard overview.');
       } finally {
         setLoading(false);
       }
@@ -304,7 +306,15 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
               )}
             </div>
             <div className="space-y-3">
-              {ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 1).map(a => (
+              {loading ? (
+                <div className="w-full bg-white p-3 rounded-xl shadow-sm animate-pulse flex justify-between items-center">
+                  <div className="space-y-2 w-1/2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                  <div className="h-4 bg-gray-200 rounded w-12"></div>
+                </div>
+              ) : ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 1).map(a => (
                 <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a, schoolId })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-gray-800">{a.title}</p>
@@ -338,7 +348,20 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           {/* Today's Schedule */}
           <div>
             <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Today's Schedule</h3>
-            {todaySchedule.length > 0 ? (
+            {loading ? (
+              <div className="space-y-3">
+                {Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="flex items-center space-x-3 p-3 bg-white rounded-xl shadow-sm animate-pulse">
+                    <div className="w-16 h-4 bg-gray-200 rounded"></div>
+                    <div className="w-1 h-10 rounded-full bg-gray-200"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : todaySchedule.length > 0 ? (
               <div className="space-y-3">
                 {todaySchedule.map((entry, i) => (
                   <div key={i} className="flex items-center space-x-3 p-3 bg-white rounded-xl shadow-sm">

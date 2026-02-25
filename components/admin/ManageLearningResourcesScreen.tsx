@@ -27,6 +27,7 @@ const ManageLearningResourcesScreen: React.FC = () => {
             const { data, error } = await supabase
                 .from('resources') // V2 Table
                 .select('*')
+                .eq('school_id', user?.user_metadata?.school_id || '')
                 .order('created_at', { ascending: false });
 
             // Fallback for empty table or error during migration transition
@@ -39,7 +40,10 @@ const ManageLearningResourcesScreen: React.FC = () => {
             if (error) {
                 // If error is "relation does not exist", it means V2 table isn't ready, fallback to V1 or empty
                 console.warn("V2 Resources table might not exist yet, trying legacy 'learning_resources'");
-                const { data: legacyData } = await supabase.from('learning_resources').select('*');
+                const { data: legacyData } = await supabase
+                    .from('learning_resources')
+                    .select('*')
+                    .eq('school_id', user?.user_metadata?.school_id || '');
                 setResources(legacyData || []);
             } else {
                 setResources(data || []);

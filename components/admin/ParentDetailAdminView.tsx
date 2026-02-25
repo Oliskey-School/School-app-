@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Parent } from '../../types';
-import { MailIcon, PhoneIcon, EditIcon, TrashIcon, StudentsIcon } from '../../constants';
+import { PhoneIcon, EditIcon, TrashIcon, StudentsIcon, MailIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { useAuth } from '../../context/AuthContext';
 
 interface ParentDetailAdminViewProps {
     parent: Parent;
@@ -13,7 +14,7 @@ interface ParentDetailAdminViewProps {
 }
 
 const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, navigateTo, forceUpdate, handleBack }) => {
-
+    const { currentSchool } = useAuth();
     const [children, setChildren] = React.useState<any[]>([]);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -24,15 +25,17 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                 const { data, error } = await supabase
                     .from('parent_children')
                     .select(`
-student: students(
+student: students!inner(
     id,
     name,
     grade,
     section,
-    avatar_url
+    avatar_url,
+    school_id
 )
                 `)
-                    .eq('parent_id', parent.id);
+                    .eq('parent_id', parent.id)
+                    .eq('student.school_id', currentSchool?.id);
 
                 if (data) {
                     const mapped = data.map((item: any) => ({
@@ -60,11 +63,12 @@ student: students(
 
     const confirmDelete = async () => {
         try {
-            // Delete from database first
+            // Delete from database first (Scoped)
             const { error: deleteParentError } = await supabase
                 .from('parents')
                 .delete()
-                .eq('id', parent.id);
+                .eq('id', parent.id)
+                .eq('school_id', parent.schoolId); // ADDED SCOPE
 
             if (deleteParentError) throw deleteParentError;
 
@@ -73,20 +77,14 @@ student: students(
                 const { error: deleteUserError } = await supabase
                     .from('users')
                     .delete()
-                    .eq('id', parent.user_id);
+                    .eq('id', parent.user_id)
+                // Note: No school_id check needed here if we rely on the above succeeding, 
+                // but good practice if available. I'll rely on the RLS.
 
                 if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
             }
 
-            // Delete login credentials
-            const { error: deleteAuthError } = await supabase
-                .from('auth_accounts')
-                .delete()
-                .eq('user_id', parent.user_id);
-
-            if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
-
-
+            // REMOVED 'auth_accounts' deletion block
 
             toast.success(`${parent.name} has been successfully deleted from the database.`);
             forceUpdate();

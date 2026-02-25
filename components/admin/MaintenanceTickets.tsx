@@ -2,20 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { WrenchIcon, AlertCircleIcon, CheckCircleIcon, ClockIcon } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const MaintenanceTickets = () => {
+    const { currentSchool } = useAuth();
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchTickets();
-    }, []);
+    }, [currentSchool]);
 
     const fetchTickets = async () => {
+        if (!currentSchool) return;
         try {
             const { data, error } = await supabase
                 .from('maintenance_tickets')
-                .select('*, assets(asset_name)')
+                .select('*, assets!inner(asset_name, school_id)')
+                .eq('assets.school_id', currentSchool.id)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -77,8 +82,8 @@ const MaintenanceTickets = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ticket.priority === 'Urgent' ? 'bg-red-100 text-red-800' :
-                                                        ticket.priority === 'High' ? 'bg-orange-100 text-orange-800' :
-                                                            'bg-blue-100 text-blue-800'
+                                                    ticket.priority === 'High' ? 'bg-orange-100 text-orange-800' :
+                                                        'bg-blue-100 text-blue-800'
                                                     }`}>
                                                     {ticket.priority}
                                                 </span>

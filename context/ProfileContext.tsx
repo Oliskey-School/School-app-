@@ -156,15 +156,53 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsLoading(true);
     try {
       const updated = { ...profile, ...updates };
-      const { error } = await supabase.from('users').upsert({
-        id: updated.id,
-        email: updated.email,
+      const targetId = updated.id || profile.id;
+
+      if (!targetId || targetId === 'undefined') {
+        throw new Error('User ID is undefined. Cannot update profile.');
+      }
+
+      // 1. Update global users table
+      const { error: userError } = await supabase.from('users').update({
         name: updated.name,
         avatar_url: updated.avatarUrl,
-        role: updated.role,
-        school_id: updated.schoolId
-      });
-      if (error) throw error;
+        // email and school_id are usually fixed/not editable here
+      }).eq('id', targetId);
+
+      if (userError) throw userError;
+
+      // 2. Update role-specific table for redundancy/consistency
+      const roleLower = updated.role?.toLowerCase();
+      const tableName = roleLower === 'teacher' ? 'teachers' :
+        roleLower === 'parent' ? 'parents' :
+          roleLower === 'student' ? 'students' : '';
+
+      if (tableName) {
+        // Prepare role-specific updates
+        const roleUpdates: any = {
+          name: updated.name,
+          avatar_url: updated.avatarUrl,
+          updated_at: new Date().toISOString()
+        };
+
+        // If it's a student, we might want to split names (though the table has name too)
+        if (roleLower === 'student' && updated.name.includes(' ')) {
+          const parts = updated.name.split(' ');
+          roleUpdates.first_name = parts[0];
+          roleUpdates.last_name = parts.slice(1).join(' ');
+        }
+
+        const { error: roleError } = await supabase
+          .from(tableName as any)
+          .update(roleUpdates)
+          .eq('user_id', targetId);
+
+        if (roleError) {
+          console.warn(`Note: Role table update for ${tableName} failed:`, roleError.message);
+          // We don't necessarily fail the whole operation if the main users update worked
+        }
+      }
+
       setProfileState(updated);
       sessionStorage.setItem('userProfile', JSON.stringify(updated));
     } catch (err) {

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { XCircleIcon, CheckCircleIcon, EyeIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 interface IDVerificationRequest {
     id: string;
@@ -19,6 +20,7 @@ interface IDVerificationRequest {
 }
 
 export function IDVerificationPanel() {
+    const { currentSchool } = useAuth();
     const [requests, setRequests] = useState<IDVerificationRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
@@ -27,22 +29,25 @@ export function IDVerificationPanel() {
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
+        if (!currentSchool) return;
         loadRequests();
-    }, [filter]);
+    }, [filter, currentSchool]);
 
     const loadRequests = async () => {
+        if (!currentSchool) return;
         setLoading(true);
         try {
             let query = supabase
                 .from('id_verification_requests')
                 .select(`
           *,
-          profiles:user_id (
+          profiles!inner (
             full_name,
             email,
             role
           )
         `)
+                .eq('profiles.school_id', currentSchool.id)
                 .order('created_at', { ascending: false });
 
             if (filter !== 'all') {

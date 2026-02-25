@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { ChevronRightIcon, getFormattedClassName } from '../../constants';
 
 interface ClassAttendanceSummary {
@@ -29,8 +30,8 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
         if (!schoolId) return;
         setLoading(true);
         try {
-            // 1. Fetch all classes using Hybrid API
-            const classesData = await api.getClasses();
+            // 1. Fetch all classes scoped to the current school
+            const { data: classesData } = await supabase.from('classes').select('id, name, grade, section').eq('school_id', schoolId).order('grade');
 
             // 2. Fetch attendance for the selected date using Hybrid API
             const attendanceRecords = await api.getAttendanceByDate(schoolId, selectedDate);

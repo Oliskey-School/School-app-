@@ -2,20 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { PackageIcon, QrCodeIcon, MapPinIcon, AlertCircleIcon } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const AssetInventory = () => {
+    const { currentSchool } = useAuth();
     const [assets, setAssets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchAssets();
-    }, []);
+        if (currentSchool?.id) {
+            fetchAssets();
+        } else {
+            setLoading(false);
+        }
+    }, [currentSchool?.id]);
 
     const fetchAssets = async () => {
         try {
+            if (!currentSchool?.id) return;
+
             const { data, error } = await supabase
                 .from('assets')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;

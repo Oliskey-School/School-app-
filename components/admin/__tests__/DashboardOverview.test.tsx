@@ -49,12 +49,13 @@ describe('DashboardOverview Component', () => {
       <BrowserRouter>
         <AuthProvider>
           <ProfileProvider>
-            <DashboardOverview 
-              navigateTo={vi.fn()} 
-              handleBack={vi.fn()} 
-              forceUpdate={vi.fn()} 
-              schoolId="school-123" 
-              currentBranchId={null} 
+            <DashboardOverview
+              navigateTo={vi.fn()}
+              handleBack={vi.fn()}
+              forceUpdate={vi.fn()}
+              schoolId="school-123"
+              currentBranchId={null}
+              isMainBranch={true}
             />
           </ProfileProvider>
         </AuthProvider>

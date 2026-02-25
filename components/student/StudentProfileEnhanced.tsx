@@ -12,7 +12,7 @@ import {
     Clock, Target, Briefcase, Globe, Copy
 } from 'lucide-react';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
-import { fetchAcademicPerformance, fetchStudentStats, fetchUpcomingEvents } from '../../lib/database';
+import { fetchAcademicPerformance, fetchStudentStats, fetchUpcomingEvents, fetchStudentActivities, fetchStudentDocuments } from '../../lib/database';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 
 // ... (existing imports)
@@ -37,6 +37,8 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
     const [performance, setPerformance] = useState<any[]>([]);
     const [stats, setStats] = useState({ attendanceRate: 0, assignmentsSubmitted: 0, averageScore: 0, studyHours: 0, achievements: 0 });
     const [events, setEvents] = useState<any[]>([]);
+    const [activities, setActivities] = useState<any[]>([]);
+    const [documents, setDocuments] = useState<any[]>([]);
 
     // AI Focus State
     const [learningFocus, setLearningFocus] = useState<any>(null);
@@ -91,15 +93,19 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             if (!currentStudent) return; // Should handle not found
 
             // 2. Fetch Related Data in Parallel
-            const [perfData, statsData, eventsData] = await Promise.all([
+            const [perfData, statsData, eventsData, activitiesData, docsData] = await Promise.all([
                 fetchAcademicPerformance(id),
                 fetchStudentStats(id),
-                fetchUpcomingEvents(currentStudent.grade, currentStudent.section, id)
+                fetchUpcomingEvents(currentStudent.grade, currentStudent.section, id),
+                fetchStudentActivities(id),
+                fetchStudentDocuments(id)
             ]);
 
             setPerformance(perfData);
             setStats(statsData);
             setEvents(eventsData);
+            setActivities(activitiesData);
+            setDocuments(docsData);
 
             // Update student object with real stats
             setStudent(prev => ({ ...prev, average_grade: statsData.averageScore, attendance_rate: statsData.attendanceRate }));
@@ -537,11 +543,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
                         <TabsContent value="activities" className="p-6 lg:p-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {[
-                                    { name: "Debate Club", role: "President", schedule: "Fridays, 3 PM", status: "Active", color: "orange" },
-                                    { name: "Science Fair", role: "Participant", schedule: "Annual", status: "Upcoming", color: "blue" },
-                                    { name: "Football Team", role: "Forward", schedule: "Tue & Thu, 4 PM", status: "Active", color: "emerald" }
-                                ].map((activity, i) => (
+                                {activities.length > 0 ? activities.map((activity, i) => (
                                     <div key={i} className="bg-white border boundary-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
                                         <div className={`w-12 h-12 rounded-lg bg-${activity.color}-100 text-${activity.color}-600 flex items-center justify-center mb-4`}>
                                             <Target className="w-6 h-6" />
@@ -556,7 +558,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                             {activity.status}
                                         </Badge>
                                     </div>
-                                ))}
+                                )) : (
+                                    <div className="col-span-full py-12 text-center text-slate-500 bg-white rounded-xl border-2 border-dashed border-slate-200">
+                                        No extracurricular activities recorded yet.
+                                    </div>
+                                )}
                                 {/* Add New Activity Button */}
                                 <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-orange-200 hover:text-orange-500 hover:bg-orange-50/50 transition-all cursor-pointer">
                                     <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:bg-orange-100">
@@ -573,11 +579,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                     <CardTitle>Student Documents</CardTitle>
                                 </CardHeader>
                                 <CardContent className="divide-y divide-slate-100">
-                                    {[
-                                        { name: "Term 1 Report Card", type: "PDF", date: "Dec 15, 2025", size: "2.4 MB" },
-                                        { name: "Medical Record Form", type: "PDF", date: "Sep 10, 2025", size: "1.1 MB" },
-                                        { name: "Student Handbook", type: "PDF", date: "Sep 01, 2025", size: "4.5 MB" }
-                                    ].map((doc, i) => (
+                                    {documents.length > 0 ? documents.map((doc, i) => (
                                         <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
@@ -597,7 +599,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                                 Download
                                             </Button>
                                         </div>
-                                    ))}
+                                    )) : (
+                                        <div className="p-12 text-center text-slate-500">
+                                            No documents available for download.
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         </TabsContent>

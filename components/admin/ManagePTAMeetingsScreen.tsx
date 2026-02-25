@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TrashIcon, PlusIcon, CalendarIcon, UsersIcon, VideoIcon, UserIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { useAuth } from '../../context/AuthContext';
 
 const ManagePTAMeetingsScreen: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [meetings, setMeetings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [newItem, setNewItem] = useState({
@@ -23,14 +25,17 @@ const ManagePTAMeetingsScreen: React.FC = () => {
     const [meetingToDelete, setMeetingToDelete] = useState<number | null>(null);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchMeetings();
-    }, []);
+    }, [currentSchool]);
 
     const fetchMeetings = async () => {
+        if (!currentSchool) return;
         try {
             const { data, error } = await supabase
                 .from('pta_meetings')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .order('date', { ascending: true });
 
             if (error) throw error;
@@ -44,11 +49,13 @@ const ManagePTAMeetingsScreen: React.FC = () => {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!currentSchool) return;
+
         setIsSubmitting(true);
         try {
             const { error } = await supabase
                 .from('pta_meetings')
-                .insert([newItem]);
+                .insert([{ ...newItem, school_id: currentSchool.id }]);
 
             if (error) throw error;
 

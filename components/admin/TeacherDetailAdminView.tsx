@@ -72,7 +72,8 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
             const { error: deleteTeacherError } = await supabase
                 .from('teachers')
                 .delete()
-                .eq('id', teacher.id);
+                .eq('id', teacher.id)
+                .eq('school_id', teacher.schoolId);
 
             if (deleteTeacherError) throw deleteTeacherError;
 
@@ -130,7 +131,8 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                             const { error } = await supabase
                                                 .from('teachers')
                                                 .update({ status: newStatus })
-                                                .eq('id', teacher.id);
+                                                .eq('id', teacher.id)
+                                                .eq('school_id', teacher.schoolId);
 
                                             if (error) throw error;
 

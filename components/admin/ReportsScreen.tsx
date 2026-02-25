@@ -119,31 +119,42 @@ const AttendanceCorrelationChart: React.FC<{ data: AttendanceCorrelation[] }> = 
 };
 
 
-const ReportsScreen: React.FC = () => {
+interface ReportsScreenProps {
+  schoolId: string;
+  currentBranchId: string | null;
+}
+
+const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId }) => {
   const [subjectAverages, setSubjectAverages] = useState<SubjectAverage[]>([]);
   const [topStudents, setTopStudents] = useState<TopStudent[]>([]);
   const [attendanceData, setAttendanceData] = useState<AttendanceCorrelation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!schoolId) return; // Prevent raw fetching if ID isn't ready
+
     const fetchReportsData = async () => {
       setLoading(true);
+      setError(null);
       try {
         // Fetch Performance Data
         // Join with students to get names/grades
         // Note: supabase-js plain query doesn't do deep aggregation easily without Views or RPC.
         // We will fetch raw data and aggregate in JS for now (assuming dataset < 1000 records for prototype)
 
-        const { data: performanceData, error: perfError } = await supabase
-          .from('academic_performance')
-          .select('student_id, subject, score');
+        let perfQuery = supabase.from('academic_performance').select('student_id, subject, score').eq('school_id', schoolId);
+        let studentQuery = supabase.from('students').select('id, name, grade, section, avatar_url').eq('school_id', schoolId);
 
+        if (currentBranchId && currentBranchId !== 'all') {
+          perfQuery = perfQuery.eq('branch_id', currentBranchId);
+          studentQuery = studentQuery.eq('branch_id', currentBranchId);
+        }
+
+        const { data: performanceData, error: perfError } = await perfQuery;
         if (perfError) throw perfError;
 
-        const { data: studentsData, error: studentError } = await supabase
-          .from('students')
-          .select('id, name, grade, section, avatar_url');
-
+        const { data: studentsData, error: studentError } = await studentQuery;
         if (studentError) throw studentError;
 
         // 1. Calculate Subject Averages
@@ -218,45 +229,52 @@ const ReportsScreen: React.FC = () => {
 
         setAttendanceData(correlationData);
 
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching reports:", err);
+        setError(err.message || 'Failed to generate school reports.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchReportsData();
-  }, []);
-
-  if (loading) {
-    return <div className="p-8 text-center text-gray-500">Loading reports...</div>;
-  }
+  }, [schoolId, currentBranchId]);
 
   return (
     <div className="p-4 space-y-5 bg-gray-50">
-      <div className="bg-white rounded-2xl shadow-sm p-4">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="bg-sky-100 text-sky-500 p-2 rounded-lg"><ChartBarIcon /></div>
-          <h3 className="font-bold text-gray-800">Average Grades by Subject</h3>
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">
+          {error}
         </div>
-        {subjectAverages.length > 0 ? <SubjectGradesChart data={subjectAverages} /> : <p className="text-gray-400 text-sm">No academic data available</p>}
-      </div>
+      )}
+      {loading && <div className="p-8 text-center text-indigo-500 font-semibold animate-pulse">Generating reports...</div>}
 
-      <div className="bg-white rounded-2xl shadow-sm p-4">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="bg-green-100 text-green-500 p-2 rounded-lg"><TrophyIcon /></div>
-          <h3 className="font-bold text-gray-800">Top Performing Students</h3>
-        </div>
-        {topStudents.length > 0 ? <TopStudentsList students={topStudents} /> : <p className="text-gray-400 text-sm">No student data available</p>}
-      </div>
+      {!loading && !error && (
+        <>
+          <div className="bg-white rounded-2xl shadow-sm p-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="bg-sky-100 text-sky-500 p-2 rounded-lg"><ChartBarIcon /></div>
+              <h3 className="font-bold text-gray-800">Average Grades by Subject</h3>
+            </div>
+            {subjectAverages.length > 0 ? <SubjectGradesChart data={subjectAverages} /> : <p className="text-gray-400 text-sm">No academic data available</p>}
+          </div>
 
-      <div className="bg-white rounded-2xl shadow-sm p-4">
-        <div className="flex items-center space-x-3 mb-2">
-          <div className="bg-indigo-100 text-indigo-500 p-2 rounded-lg"><TrendingUpIcon /></div>
-          <h3 className="font-bold text-gray-800">Attendance-Performance Trend</h3>
-        </div>
-        {attendanceData.length > 0 ? <AttendanceCorrelationChart data={attendanceData} /> : <p className="text-gray-400 text-sm">Insufficient data for analysis</p>}
-      </div>
+          <div className="bg-white rounded-2xl shadow-sm p-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="bg-green-100 text-green-500 p-2 rounded-lg"><TrophyIcon /></div>
+              <h3 className="font-bold text-gray-800">Top Performing Students</h3>
+            </div>
+            {topStudents.length > 0 ? <TopStudentsList students={topStudents} /> : <p className="text-gray-400 text-sm">No student data available</p>}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm p-4">
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="bg-indigo-100 text-indigo-500 p-2 rounded-lg"><TrendingUpIcon /></div>
+              <h3 className="font-bold text-gray-800">Attendance-Performance Trend</h3>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

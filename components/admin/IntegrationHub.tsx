@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Plug, ToggleLeft, ToggleRight, RefreshCw, AlertCircle, CheckCircle, Plus } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface Integration {
     id: number;
@@ -28,6 +29,7 @@ interface ThirdPartyApp {
 }
 
 const IntegrationHub: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [integrations, setIntegrations] = useState<Integration[]>([]);
     const [thirdPartyApps, setThirdPartyApps] = useState<ThirdPartyApp[]>([]);
     const [installedApps, setInstalledApps] = useState<number[]>([]);
@@ -35,8 +37,9 @@ const IntegrationHub: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'government' | 'marketplace'>('government');
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchData();
-    }, []);
+    }, [currentSchool]);
 
     const fetchData = async () => {
         try {
@@ -46,6 +49,7 @@ const IntegrationHub: React.FC = () => {
             const { data: integrationsData } = await supabase
                 .from('external_integrations')
                 .select('*')
+                .eq('school_id', currentSchool!.id)
                 .order('integration_name');
 
             setIntegrations(integrationsData || []);
@@ -63,6 +67,7 @@ const IntegrationHub: React.FC = () => {
             const { data: installationsData } = await supabase
                 .from('app_installations')
                 .select('app_id')
+                .eq('school_id', currentSchool!.id)
                 .eq('is_active', true);
 
             setInstalledApps(installationsData?.map(i => i.app_id) || []);
@@ -99,6 +104,7 @@ const IntegrationHub: React.FC = () => {
             const { error } = await supabase
                 .from('sync_logs')
                 .insert({
+                    school_id: currentSchool!.id,
                     integration_id: integrationId,
                     sync_type: 'Manual',
                     sync_direction: 'pull',
@@ -131,8 +137,9 @@ const IntegrationHub: React.FC = () => {
             const { error } = await supabase
                 .from('app_installations')
                 .insert({
+                    school_id: currentSchool!.id,
                     app_id: appId,
-                    installed_by: 1 // Current user
+                    installed_by: 'system' // Use a generic string or proper user id if available
                 });
 
             if (error) throw error;
@@ -204,8 +211,8 @@ const IntegrationHub: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('government')}
                             className={`py-4 px-2 border-b-2 font-semibold transition-colors ${activeTab === 'government'
-                                    ? 'border-teal-600 text-teal-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                ? 'border-teal-600 text-teal-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             🏛️ Government Systems
@@ -213,8 +220,8 @@ const IntegrationHub: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('marketplace')}
                             className={`py-4 px-2 border-b-2 font-semibold transition-colors ${activeTab === 'marketplace'
-                                    ? 'border-teal-600 text-teal-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                ? 'border-teal-600 text-teal-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             🏪 App Marketplace
@@ -281,8 +288,8 @@ const IntegrationHub: React.FC = () => {
                                                     onClick={() => syncIntegration(integration.id, integration.integration_name)}
                                                     disabled={!integration.is_active}
                                                     className={`px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 ${integration.is_active
-                                                            ? 'bg-teal-600 text-white hover:bg-teal-700'
-                                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                        ? 'bg-teal-600 text-white hover:bg-teal-700'
+                                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                                         }`}
                                                     title="Sync Now"
                                                 >
@@ -293,8 +300,8 @@ const IntegrationHub: React.FC = () => {
                                                 <button
                                                     onClick={() => toggleIntegration(integration.id, integration.is_active)}
                                                     className={`px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 ${integration.is_active
-                                                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
                                                         }`}
                                                 >
                                                     {integration.is_active ? (

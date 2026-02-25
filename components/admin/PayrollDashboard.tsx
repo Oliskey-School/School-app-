@@ -10,6 +10,7 @@ import {
 } from '../../constants';
 import { formatCurrency } from '../../lib/payroll';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 interface PayrollStats {
     totalTeachers: number;
@@ -29,6 +30,7 @@ interface RecentPayslip {
 }
 
 const PayrollDashboard: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [stats, setStats] = useState<PayrollStats>({
         totalTeachers: 0,
         totalPayroll: 0,
@@ -40,10 +42,12 @@ const PayrollDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchDashboardData();
-    }, []);
+    }, [currentSchool]);
 
     const fetchDashboardData = async () => {
+        if (!currentSchool) return;
         try {
             setLoading(true);
 
@@ -59,8 +63,14 @@ const PayrollDashboard: React.FC = () => {
             // Fetch total teachers with active salary
             const { data: teachers, error: teachersError } = await supabase
                 .from('teacher_salaries')
-                .select('base_salary')
-                .eq('is_active', true);
+                .select(`
+                    base_salary,
+                    teachers!inner (
+                        school_id
+                    )
+                `)
+                .eq('is_active', true)
+                .eq('teachers.school_id', currentSchool.id);
 
             if (teachersError) throw teachersError;
 
@@ -71,7 +81,8 @@ const PayrollDashboard: React.FC = () => {
             const { data: pendingData, error: pendingError } = await supabase
                 .from('payslips')
                 .select('id')
-                .eq('status', 'Draft');
+                .eq('status', 'Draft')
+                .eq('school_id', currentSchool.id);
 
             if (pendingError) throw pendingError;
 
@@ -80,6 +91,7 @@ const PayrollDashboard: React.FC = () => {
                 .from('payslips')
                 .select('net_salary')
                 .eq('status', 'Paid')
+                .eq('school_id', currentSchool.id)
                 .gte('period_start', monthStart)
                 .lte('period_end', monthEnd);
 
@@ -90,7 +102,14 @@ const PayrollDashboard: React.FC = () => {
             // Fetch outstanding arrears
             const { data: arrearsData, error: arrearsError } = await supabase
                 .from('arrears')
-                .select('amount_owed, amount_paid')
+                .select(`
+                    amount_owed, 
+                    amount_paid,
+                    teachers!inner (
+                        school_id
+                    )
+                `)
+                .eq('teachers.school_id', currentSchool.id)
                 .in('status', ['Outstanding', 'Partially Paid']);
 
             if (arrearsError) throw arrearsError;
@@ -110,8 +129,9 @@ const PayrollDashboard: React.FC = () => {
           net_salary,
           status,
           teacher_id,
-          teachers (full_name)
+          teachers!inner (full_name, school_id)
         `)
+                .eq('teachers.school_id', currentSchool.id)
                 .order('created_at', { ascending: false })
                 .limit(5);
 

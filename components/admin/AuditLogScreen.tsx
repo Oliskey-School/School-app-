@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { fetchAuditLogs } from '../../lib/database';
+import { useAuth } from '../../context/AuthContext';
 import {
   LoginIcon,
   LogoutIcon,
@@ -39,16 +40,20 @@ const formatDistanceToNow = (isoDate: string): string => {
 };
 
 const AuditLogScreen: React.FC = () => {
+  const { currentSchool } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadLogs();
-  }, []);
+    if (currentSchool) {
+      loadLogs();
+    }
+  }, [currentSchool]);
 
   const loadLogs = async () => {
+    if (!currentSchool) return;
     setLoading(true);
-    const data = await fetchAuditLogs();
+    const data = await fetchAuditLogs(50, currentSchool.id);
     setLogs(data);
     setLoading(false);
   };

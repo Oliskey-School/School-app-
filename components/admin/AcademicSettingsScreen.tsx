@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { BookOpenIcon, SaveIcon, ChevronRightIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -17,6 +18,9 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpe
 };
 
 const AcademicSettingsScreen: React.FC = () => {
+  const { currentSchool, user } = useAuth();
+  const schoolId = currentSchool?.id || user?.user_metadata?.school_id;
+
   const [calendar, setCalendar] = useState({ start: '2024-09-05', end: '2025-06-20' });
   const [grading, setGrading] = useState({ scale: 'percentage', weighted: true });
   const [loading, setLoading] = useState(true);
@@ -24,23 +28,44 @@ const AcademicSettingsScreen: React.FC = () => {
 
   useEffect(() => {
     const fetchSettings = async () => {
+      if (!schoolId) return;
       setLoading(true);
-      const { data: calendarData } = await supabase.from('system_settings').select('value').eq('key', 'academic_calendar').single();
-      const { data: gradingData } = await supabase.from('system_settings').select('value').eq('key', 'grading_config').single();
+      try {
+        const { data: calendarData } = await supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'academic_calendar').maybeSingle();
+        const { data: gradingData } = await supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'grading_config').maybeSingle();
 
-      if (calendarData) setCalendar(calendarData.value);
-      if (gradingData) setGrading(gradingData.value);
-      setLoading(false);
+        if (calendarData) setCalendar(calendarData.value);
+        if (gradingData) setGrading(gradingData.value);
+      } catch (err) {
+        console.error('Failed to load settings:', err);
+        toast.error('Error loading academic settings.');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchSettings();
-  }, []);
+  }, [schoolId]);
 
   const saveSettings = async () => {
+    if (!schoolId) {
+      toast.error("School context missing.");
+      return;
+    }
     setSaving(true);
-    await supabase.from('system_settings').upsert({ key: 'academic_calendar', value: calendar });
-    await supabase.from('system_settings').upsert({ key: 'grading_config', value: grading });
-    setSaving(false);
-    toast.success('Settings saved!');
+    try {
+      const { error: calErr } = await supabase.from('system_settings').upsert({ school_id: schoolId, key: 'academic_calendar', value: calendar });
+      if (calErr) throw calErr;
+
+      const { error: gradeErr } = await supabase.from('system_settings').upsert({ school_id: schoolId, key: 'grading_config', value: grading });
+      if (gradeErr) throw gradeErr;
+
+      toast.success('Settings saved successfully!');
+    } catch (err: any) {
+      console.error('Error saving settings:', err);
+      toast.error(`Failed to save settings: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

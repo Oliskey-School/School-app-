@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
+import { supabase } from '../../lib/supabase';
 import { BookOpenIcon, CheckCircleIcon, ClipboardListIcon, SUBJECT_COLORS } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 
@@ -23,6 +24,7 @@ const TermTab: React.FC<{ term: string; isActive: boolean; onClick: () => void; 
 const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoolId }) => {
     // State for fetched data
     const [performanceData, setPerformanceData] = useState<any[]>([]);
+    const [reportCards, setReportCards] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTerm, setActiveTerm] = useState<string>('');
     const [quizResults, setQuizResults] = useState<any[]>([]);
@@ -33,7 +35,10 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
             try {
                 // Using Hybrid API for student records
-                const grades = await api.getStudentPerformance(studentId);
+                const [grades, reports] = await Promise.all([
+                    api.getStudentPerformance(studentId),
+                    supabase.from('report_cards').select('*').eq('student_id', studentId)
+                ]);
 
                 if (grades) {
                     setPerformanceData(grades);
@@ -43,6 +48,10 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                     } else if (terms.length === 0) {
                         setActiveTerm('First Term');
                     }
+                }
+
+                if (reports.data) {
+                    setReportCards(reports.data);
                 }
             } catch (err) {
                 console.error('Error fetching results via Hybrid API:', err);
@@ -80,13 +89,26 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
         return terms.length > 0 ? terms : ['First Term', 'Second Term']; // Default
     }, [performanceData]);
 
+    const activeReportCard = useMemo(() => {
+        return reportCards.find(r => r.term === activeTerm && r.is_published);
+    }, [reportCards, activeTerm]);
+
+    const isAnyResultPublished = useMemo(() => {
+        return reportCards.some(r => r.is_published);
+    }, [reportCards]);
+
     if (loading) return <div className="p-10 text-center">Loading academic records...</div>;
 
-    if (performanceData.length === 0) {
+    if (performanceData.length === 0 || !isAnyResultPublished) {
         return (
             <div className="p-6 text-center bg-gray-50 h-full flex flex-col justify-center">
-                <h3 className="font-bold text-lg text-gray-800">No Performance Data Available</h3>
-                <p className="text-gray-600 mt-2">Your academic performance data has not been published yet.</p>
+                <div className="mx-auto w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+                    <ClipboardListIcon className="h-10 w-10 text-orange-600" />
+                </div>
+                <h3 className="font-bold text-lg text-gray-800">No Published Results</h3>
+                <p className="text-gray-600 mt-2 max-w-xs mx-auto">
+                    Your official academic results for the current term have not been published by the administration yet.
+                </p>
             </div>
         );
     }
@@ -117,6 +139,45 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                 </div>
                             )) : <p className="text-gray-500 text-sm">No grades recorded for this term.</p>}
                         </div>
+
+                        {/* Result Summary (Report Card Highlights) */}
+                        {activeReportCard && (
+                            <div className="mt-6 p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                                <h4 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
+                                    <ClipboardListIcon className="h-4 w-4" />
+                                    Official Term Summary
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                                        <p className="text-xs text-gray-500 font-medium uppercase">Average Score</p>
+                                        <p className="text-xl font-bold text-gray-800">{activeReportCard.grade_average}%</p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                                        <p className="text-xs text-gray-500 font-medium uppercase">Overall Grade</p>
+                                        <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {activeReportCard.teacher_comment && (
+                                        <div>
+                                            <p className="text-xs font-bold text-orange-700 uppercase">Teacher's Remark</p>
+                                            <p className="text-sm text-gray-700 italic">"{activeReportCard.teacher_comment}"</p>
+                                        </div>
+                                    )}
+                                    {activeReportCard.principal_comment && (
+                                        <div className="pt-2 border-t border-orange-200">
+                                            <p className="text-xs font-bold text-orange-700 uppercase">Principal's Decision</p>
+                                            <p className="text-sm text-gray-700 italic">"{activeReportCard.principal_comment}"</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="mt-4">
+                                    <button className="w-full py-2 bg-white border border-orange-200 text-orange-700 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm">
+                                        View Full Digital Report Card
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* NEW: Quiz Results Section */}
                         <div className="mt-6">

@@ -354,21 +354,28 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         const fetchContext = async () => {
             // Get user's school_id
             const { data: { user } } = await supabase.auth.getUser();
+            let currentSchoolId: string | null = null;
             if (user) {
                 const { data: profile } = await supabase
                     .from('profiles')
                     .select('school_id')
                     .eq('id', user.id)
                     .single();
-                if (profile) setUserSchoolId(profile.school_id);
+                if (profile) {
+                    setUserSchoolId(profile.school_id);
+                    currentSchoolId = profile.school_id;
+                }
             }
+
+            if (!currentSchoolId) return;
 
             // Get teachers
             const { data } = await supabase
                 .from('teachers')
-                .select('id, name, employment_type, available_days, subject_specialization, school_id');
+                .select('id, name, employment_type, available_days, subject_specialization, school_id')
+                .eq('school_id', currentSchoolId);
             if (data) {
-                setTeachers(data.map(t => t.name));
+                setTeachers(data.map((t: any) => t.name));
                 (window as any).__teacherData = data;
             }
         };
@@ -566,7 +573,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         const { error: deleteError } = await supabase
             .from('timetable')
             .delete()
-            .eq('class_name', className); // Delete ALL for this class (dangerous? should filter by term?)
+            .eq('class_name', className) // Delete ALL for this class (dangerous? should filter by term?)
+            .eq('school_id', userSchoolId);
 
         if (deleteError) throw deleteError;
 

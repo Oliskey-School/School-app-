@@ -54,6 +54,53 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
     const [avatar, setAvatar] = useState(user?.avatarUrl || '');
     const [email, setEmail] = useState(user?.email || '');
     const [saving, setSaving] = useState(false);
+    const [stats, setStats] = useState({
+        attendanceRate: 0,
+        assignmentsSubmitted: 0,
+        averageScore: 0
+    });
+
+    // Fetch real stats
+    useEffect(() => {
+        const fetchStats = async () => {
+            if (!user?.id) return;
+            try {
+                // Import from database.ts logic? Or use direct supabase
+                const { data: attendance } = await supabase.from('student_attendance').select('status').eq('student_id', user.id);
+                const { data: assignments } = await supabase.from('assignment_submissions').select('id').eq('student_id', user.id);
+                const { data: performance } = await supabase.from('academic_performance').select('score').eq('student_id', user.id);
+
+                const attendanceTotal = attendance?.length || 0;
+                const presentCount = attendance?.filter(a => a.status === 'Present').length || 0;
+                const attendanceRate = attendanceTotal > 0 ? Math.round((presentCount / attendanceTotal) * 100) : 100;
+
+                const scores = performance?.map(p => p.score) || [];
+                const average = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+                // Map score to letter grade
+                const getGrade = (score: number) => {
+                    if (score >= 90) return 'A+';
+                    if (score >= 80) return 'A';
+                    if (score >= 70) return 'B';
+                    if (score >= 60) return 'C';
+                    if (score >= 50) return 'D';
+                    return 'F';
+                };
+
+                setStats({
+                    attendanceRate,
+                    assignmentsSubmitted: assignments?.length || 0,
+                    averageScore: average
+                });
+            } catch (err) {
+                console.error("Error fetching stats for edit profile:", err);
+            }
+        };
+
+        fetchStats();
+    }, [user?.id]);
+
+    // Derived initials
 
     // Derived initials
     const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'ST';
@@ -112,6 +159,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
         setSaving(true);
         try {
             await updateProfile({
+                id: user?.id,
                 name,
                 avatarUrl: avatar,
                 // Email is usually not editable directly here without re-auth, so we skip it for now or assume read-only
@@ -185,9 +233,9 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
 
                     {/* Stats Cards */}
                     <div className="flex justify-between w-full gap-3 mb-8">
-                        <StatCard icon={<ClockIcon />} label="Attendance" value="98%" color="text-green-500 bg-green-500" />
-                        <StatCard icon={<BookOpenIcon />} label="Assignments" value="12" color="text-blue-500 bg-blue-500" />
-                        <StatCard icon={<ChartBarIcon />} label="Avg Grade" value="A" color="text-purple-500 bg-purple-500" />
+                        <StatCard icon={<ClockIcon />} label="Attendance" value={`${stats.attendanceRate}%`} color="text-green-500 bg-green-500" />
+                        <StatCard icon={<BookOpenIcon />} label="Assignments" value={stats.assignmentsSubmitted.toString()} color="text-blue-500 bg-blue-500" />
+                        <StatCard icon={<ChartBarIcon />} label="Avg Grade" value={stats.averageScore >= 80 ? 'A' : stats.averageScore >= 70 ? 'B' : stats.averageScore >= 60 ? 'C' : 'D'} color="text-purple-500 bg-purple-500" />
                     </div>
 
                     {/* Form Fields */}

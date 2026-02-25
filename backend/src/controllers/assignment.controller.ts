@@ -6,17 +6,40 @@ import { supabase } from '../config/supabase';
 export const getAssignments = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;
+        // If teacher role, only show THEIR assignments by default
         if (req.user.role === 'teacher') {
             const { data: teacher } = await supabase
                 .from('teachers')
                 .select('id')
                 .eq('user_id', req.user.id)
-                .single();
-            if (teacher) teacherId = teacher.id;
-            else return res.json([]);
+                .maybeSingle();
+
+            if (teacher) {
+                teacherId = teacher.id;
+            } else {
+                // Try email fallback if user_id is missing or doesn't match
+                const { data: teacherByEmail } = await supabase
+                    .from('teachers')
+                    .select('id')
+                    .eq('email', req.user.email)
+                    .maybeSingle();
+
+                if (teacherByEmail) {
+                    teacherId = teacherByEmail.id;
+                } else {
+                    console.warn(`⚠️ [Backend] No teacher profile found for user ${req.user.id}`);
+                    return res.json([]);
+                }
+            }
         }
 
-        const result = await AssignmentService.getAssignments(req.user.school_id, req.query.classId as string, teacherId);
+        const { classId, className } = req.query;
+        const result = await AssignmentService.getAssignments(
+            req.user.school_id,
+            classId as string,
+            teacherId,
+            className as string
+        );
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

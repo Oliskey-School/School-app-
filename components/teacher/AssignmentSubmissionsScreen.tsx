@@ -116,6 +116,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
 
         } catch (error) {
             console.error("Error loading submissions:", error);
+            toast.error("Failed to load submissions.");
         } finally {
             setLoading(false);
         }

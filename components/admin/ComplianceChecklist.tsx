@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 
 const ComplianceChecklist = () => {
+    const { currentSchool } = useAuth();
     const [checks, setChecks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchChecks();
-    }, []);
+        if (currentSchool) {
+            fetchChecks();
+        }
+    }, [currentSchool]);
 
     const fetchChecks = async () => {
+        if (!currentSchool) return;
         try {
             const { data, error } = await supabase
                 .from('compliance_checks')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .order('last_run_at', { ascending: false });
 
             if (error) throw error;
@@ -63,7 +69,7 @@ const ComplianceChecklist = () => {
                                     </div>
                                     <div className="text-right">
                                         <div className={`text-sm font-bold ${check.last_result === 'Pass' ? 'text-green-600' :
-                                                check.last_result === 'Fail' ? 'text-red-600' : 'text-gray-600'
+                                            check.last_result === 'Fail' ? 'text-red-600' : 'text-gray-600'
                                             }`}>{check.last_result || 'Pending'}</div>
                                         <div className="text-xs text-gray-400">Freq: {check.check_frequency}</div>
                                     </div>

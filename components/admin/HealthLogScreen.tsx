@@ -123,7 +123,12 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
         fetchLogs();
 
         const channel = supabase.channel('health_logs_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'health_logs' }, () => {
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'health_logs',
+                filter: `school_id=eq.${schoolId}`
+            }, () => {
                 fetchLogs();
             })
             .subscribe();

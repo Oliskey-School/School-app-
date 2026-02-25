@@ -128,127 +128,148 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            const cacheKey = `timetable_${context.userId}_${context.userType}`;
+    const fetchData = async () => {
+        const cacheKey = `timetable_${context.userId}_${context.userType}`;
 
-            // 1. Cache First Strategy
-            const cachedData = await offlineStorage.load<any>(cacheKey);
-            if (cachedData) {
-                setTimetable(cachedData.timetable || {});
-                setTeacherAssignments(cachedData.teacherAssignments || {});
-                setClassName(cachedData.className || '');
-                setLoading(false); // Instant load!
-            } else {
-                setLoading(true);
+        // 1. Cache First Strategy
+        const cachedData = await offlineStorage.load<any>(cacheKey);
+        if (cachedData) {
+            setTimetable(cachedData.timetable || {});
+            setTeacherAssignments(cachedData.teacherAssignments || {});
+            setClassName(cachedData.className || '');
+            setLoading(false); // Instant load!
+        } else {
+            setLoading(true);
+        }
+
+        try {
+            let targetClassName = '';
+
+            // 2. Identify Target Class/Teacher
+            if (context.userType === 'student' || context.userType === 'parent') {
+                let studentQuery = supabase
+                    .from('students')
+                    .select('grade, section')
+                    .eq('id', context.userId);
+
+                if (schoolId) studentQuery = studentQuery.eq('school_id', schoolId);
+
+                const { data: student } = await studentQuery.maybeSingle();
+
+                if (student) {
+                    const gradeName = getGradeDisplayName(student.grade);
+                    targetClassName = gradeName;
+                    // Optional: Append section if necessary, but keep broad for now to match 'SSS 1'
+                    // if (student.section) targetClassName += ` ${student.section}`;
+                }
             }
 
-            try {
-                let targetClassName = '';
+            // 3. Fetch Timetable Data with Timeout & Scoping
+            let query = supabase.from('timetable')
+                .select('day, start_time, end_time, subject, class_name, teacher_id')
+                .eq('status', 'Published');
 
-                // 2. Identify Target Class/Teacher
-                if (context.userType === 'student' || context.userType === 'parent') {
-                    let studentQuery = supabase
-                        .from('students')
-                        .select('grade, section')
-                        .eq('id', context.userId);
+            if (schoolId) query = query.eq('school_id', schoolId);
+            if (currentBranchId) query = query.eq('branch_id', currentBranchId);
 
-                    if (schoolId) studentQuery = studentQuery.eq('school_id', schoolId);
+            if (context.userType === 'teacher') {
+                query = query.eq('teacher_id', context.userId);
+            } else if (targetClassName) {
+                query = query.ilike('class_name', `%${targetClassName}%`);
+            }
 
-                    const { data: student } = await studentQuery.maybeSingle();
+            // Add 5s Timeout
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
 
-                    if (student) {
-                        const gradeName = getGradeDisplayName(student.grade);
-                        targetClassName = gradeName;
-                        // Optional: Append section if necessary, but keep broad for now to match 'SSS 1'
-                        // if (student.section) targetClassName += ` ${student.section}`;
-                    }
-                }
+            const { data, error } = await Promise.race([
+                query,
+                timeoutPromise
+            ]) as any;
 
-                // 3. Fetch Timetable Data with Timeout & Scoping
-                let query = supabase.from('timetable')
-                    .select('day, start_time, end_time, subject, class_name, teacher_id')
-                    .eq('status', 'Published');
+            if (error) throw error;
 
-                if (schoolId) query = query.eq('school_id', schoolId);
-                if (currentBranchId) query = query.eq('branch_id', currentBranchId);
+            if (data && data.length > 0) {
+                // 4. Transform Data
+                const newTimetable: { [key: string]: string | null } = {};
+                const newTeachers: { [key: string]: string | null } = {};
 
-                if (context.userType === 'teacher') {
-                    query = query.eq('teacher_id', context.userId);
-                } else if (targetClassName) {
-                    query = query.ilike('class_name', `%${targetClassName}%`);
-                }
+                const teacherIds = [...new Set(data.map((d: any) => d.teacher_id).filter(Boolean))];
+                const { data: teachersData } = await supabase.from('teachers').select('id, name').in('id', teacherIds);
+                const teacherMap = new Map((teachersData || []).map((t: any) => [t.id, t.name]));
 
-                // Add 5s Timeout
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
+                const getPeriodName = (start: string) => {
+                    const timeShort = start.substring(0, 5);
+                    const p = PERIODS.find(p => p.start === timeShort);
+                    return p ? p.name : null;
+                };
 
-                const { data, error } = await Promise.race([
-                    query,
-                    timeoutPromise
-                ]) as any;
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    // 4. Transform Data
-                    const newTimetable: { [key: string]: string | null } = {};
-                    const newTeachers: { [key: string]: string | null } = {};
-
-                    const teacherIds = [...new Set(data.map((d: any) => d.teacher_id).filter(Boolean))];
-                    const { data: teachersData } = await supabase.from('teachers').select('id, name').in('id', teacherIds);
-                    const teacherMap = new Map((teachersData || []).map((t: any) => [t.id, t.name]));
-
-                    const getPeriodName = (start: string) => {
-                        const timeShort = start.substring(0, 5);
-                        const p = PERIODS.find(p => p.start === timeShort);
-                        return p ? p.name : null;
-                    };
-
-                    data.forEach((entry: any) => {
-                        const pName = getPeriodName(entry.start_time);
-                        if (pName) {
-                            const key = `${entry.day}-${pName}`;
-                            newTimetable[key] = entry.subject;
-                            if (entry.teacher_id) {
-                                newTeachers[key] = teacherMap.get(entry.teacher_id) || null;
-                            }
+                data.forEach((entry: any) => {
+                    const pName = getPeriodName(entry.start_time);
+                    if (pName) {
+                        const key = `${entry.day}-${pName}`;
+                        newTimetable[key] = entry.subject;
+                        if (entry.teacher_id) {
+                            newTeachers[key] = teacherMap.get(entry.teacher_id) || null;
                         }
-                    });
+                    }
+                });
 
-                    const finalClassName = data[0].class_name || className;
+                const finalClassName = data[0].class_name || className;
 
-                    setTimetable(newTimetable);
-                    setTeacherAssignments(newTeachers);
-                    if (!className && finalClassName) setClassName(finalClassName);
+                setTimetable(newTimetable);
+                setTeacherAssignments(newTeachers);
+                if (!className && finalClassName) setClassName(finalClassName);
 
-                    // Update Cache
-                    await offlineStorage.save(cacheKey, {
-                        timetable: newTimetable,
-                        teacherAssignments: newTeachers,
-                        className: finalClassName
-                    });
+                // Update Cache
+                await offlineStorage.save(cacheKey, {
+                    timetable: newTimetable,
+                    teacherAssignments: newTeachers,
+                    className: finalClassName
+                });
 
-                } else if (!cachedData) {
-                    // NO Data and NO Cache? Fallback to empty
-                    setTimetable({});
-                    setTeacherAssignments({});
-                }
-
-            } catch (err) {
-                console.warn('Error fetching timetable (using cache/fallback):', err);
-                if (!cachedData) {
-                    // Fallback Demo Data if completely empty and error occurred
-                    const demoTimetable: any = { 'Monday-Period 1': 'Mathematics', 'Monday-Period 2': 'English' };
-                    setTimetable(demoTimetable);
-                    setClassName('Grade 10A');
-                }
-            } finally {
-                setLoading(false);
+            } else if (!cachedData) {
+                // NO Data and NO Cache? Fallback to empty
+                setTimetable({});
+                setTeacherAssignments({});
             }
-        };
 
+        } catch (err) {
+            console.warn('Error fetching timetable (using cache/fallback):', err);
+            if (!cachedData) {
+                // Fallback Demo Data if completely empty and error occurred
+                const demoTimetable: any = { 'Monday-Period 1': 'Mathematics', 'Monday-Period 2': 'English' };
+                setTimetable(demoTimetable);
+                setClassName('Grade 10A');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchData();
-    }, [context]);
+
+        // Real-time subscription for timetable changes
+        const channel = supabase
+            .channel('timetable-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'timetable'
+                },
+                () => {
+                    console.log('🔄 [Timetable] Real-time update detected, refreshing...');
+                    fetchData();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [context, schoolId, currentBranchId]);
 
     if (loading) {
         return (

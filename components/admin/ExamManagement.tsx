@@ -25,10 +25,17 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
     const [examToDelete, setExamToDelete] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!currentSchool?.id) return;
+
         loadData();
 
         const examsChannel = supabase.channel('exams-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'exams' }, () => {
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'exams',
+                filter: `school_id=eq.${currentSchool.id}`
+            }, () => {
                 loadData();
             })
             .subscribe();
@@ -39,11 +46,12 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
     }, [currentSchool?.id]);
 
     const loadData = async () => {
+        if (!currentSchool?.id) return;
         setLoading(true);
         try {
             const [examsData, teachersData] = await Promise.all([
-                fetchExams(),
-                currentSchool?.id ? fetchTeachers(currentSchool.id) : Promise.resolve([])
+                fetchExams(currentSchool.id),
+                fetchTeachers(currentSchool.id)
             ]);
             setExams(examsData);
             setTeachers(teachersData);
@@ -85,7 +93,8 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                         class_name: examData.className,
                         subject: examData.subject
                     })
-                    .eq('id', exam.id);
+                    .eq('id', exam.id)
+                    .eq('school_id', currentSchool?.id);
 
                 if (error) {
                     toast.error('Failed to update exam');
@@ -109,7 +118,8 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
         const { error } = await supabase
             .from('exams')
             .delete()
-            .eq('id', examToDelete);
+            .eq('id', examToDelete)
+            .eq('school_id', currentSchool?.id);
 
         if (error) {
             toast.error('Failed to delete exam');
@@ -125,7 +135,8 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
         const { error } = await supabase
             .from('exams')
             .update({ is_published: true })
-            .eq('id', examId);
+            .eq('id', examId)
+            .eq('school_id', currentSchool?.id);
 
         if (error) {
             toast.error('Failed to publish exam');

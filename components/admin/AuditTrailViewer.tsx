@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import { Shield, Search, Filter, Download, AlertCircle, CheckCircle, Eye } from 'lucide-react';
 
 interface AuditLog {
@@ -21,6 +22,7 @@ interface AuditLog {
 }
 
 const AuditTrailViewer: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
     const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -38,19 +40,23 @@ const AuditTrailViewer: React.FC = () => {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
 
     useEffect(() => {
-        fetchAuditLogs();
-    }, [dateRange]);
+        if (currentSchool) {
+            fetchAuditLogs();
+        }
+    }, [dateRange, currentSchool]);
 
     useEffect(() => {
         applyFilters();
     }, [auditLogs, searchTerm, actionFilter, riskFilter]);
 
     const fetchAuditLogs = async () => {
+        if (!currentSchool) return;
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from('audit_trails')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .gte('performed_at', dateRange.start)
                 .lte('performed_at', dateRange.end)
                 .order('performed_at', { ascending: false })

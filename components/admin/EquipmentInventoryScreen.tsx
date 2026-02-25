@@ -12,6 +12,7 @@ import {
     HardDrive,
     Shield
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface Equipment {
     id: number;
@@ -32,6 +33,7 @@ const EquipmentInventoryScreen = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('All');
     const [isAdding, setIsAdding] = useState(false);
+    const { currentSchool } = useAuth();
 
     const [newEquipment, setNewEquipment] = useState<Partial<Equipment>>({
         name: '',
@@ -41,19 +43,23 @@ const EquipmentInventoryScreen = () => {
     });
 
     useEffect(() => {
+        if (!currentSchool) return;
         fetchData();
-    }, []);
+    }, [currentSchool]);
 
     const fetchData = async () => {
+        if (!currentSchool) return;
         setLoading(true);
         const { data: equipData } = await supabase
             .from('equipment_tracking')
             .select('*, facility_registers(name)')
+            .eq('school_id', currentSchool.id)
             .order('name');
 
         const { data: facData } = await supabase
             .from('facility_registers')
-            .select('id, name');
+            .select('id, name')
+            .eq('school_id', currentSchool.id);
 
         if (equipData) setEquipment(equipData);
         if (facData) setFacilities(facData);
@@ -61,8 +67,8 @@ const EquipmentInventoryScreen = () => {
     };
 
     const handleAdd = async () => {
-        if (!newEquipment.name) return;
-        const { error } = await supabase.from('equipment_tracking').insert([newEquipment]);
+        if (!newEquipment.name || !currentSchool) return;
+        const { error } = await supabase.from('equipment_tracking').insert([{ ...newEquipment, school_id: currentSchool.id }]);
         if (!error) {
             setIsAdding(false);
             setNewEquipment({ name: '', category: 'Other', condition: 'Good', facility_id: null });
@@ -71,8 +77,10 @@ const EquipmentInventoryScreen = () => {
     };
 
     const handleDelete = async (id: number) => {
-        if (!window.confirm('Delete this item?')) return;
-        const { error } = await supabase.from('equipment_tracking').delete().eq('id', id);
+        if (!window.confirm('Delete this item?') || !currentSchool) return;
+        const { error } = await supabase.from('equipment_tracking').delete()
+            .eq('id', id)
+            .eq('school_id', currentSchool.id);
         if (!error) fetchData();
     };
 

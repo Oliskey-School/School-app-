@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'; import { Student, Teacher } from 
 import IDCardGenerator from '../shared/IDCardGenerator';
 import { CreditCard } from 'lucide-react';
 import { getFormattedClassName } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface IDCardManagementProps {
     initialUser?: Student | Teacher;
@@ -10,6 +11,7 @@ interface IDCardManagementProps {
 }
 
 const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initialView = 'students' }) => {
+    const { currentSchool } = useAuth();
     const [view, setView] = useState<'students' | 'teachers'>('students');
     const [students, setStudents] = useState<Student[]>([]);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -32,11 +34,13 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
     }, [view]);
 
     const fetchStudents = async () => {
+        if (!currentSchool) return;
         setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('students')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .order('name');
 
             if (error) throw error;
@@ -49,11 +53,13 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
     };
 
     const fetchTeachers = async () => {
+        if (!currentSchool) return;
         setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('teachers')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .order('name');
 
             if (error) throw error;

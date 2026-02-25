@@ -121,6 +121,7 @@ interface AnalyticsScreenProps {
 
 const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBranchId }) => {
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [metrics, setMetrics] = useState<any>({
         performance: [],
         fees: { paid: 0, overdue: 0, unpaid: 0, total: 0 },
@@ -131,11 +132,19 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
 
     const loadData = async () => {
         setLoading(true);
-        const data = await fetchAnalyticsMetrics(schoolId, currentBranchId || undefined);
-        if (data) {
-            setMetrics(data);
+        setError(null);
+        try {
+            const data = await fetchAnalyticsMetrics(schoolId, currentBranchId || undefined);
+            if (data) {
+                setMetrics(data);
+            } else {
+                setError("Failed to fetch analytics data from the server.");
+            }
+        } catch (err: any) {
+            setError(err.message || "An unexpected error occurred while loading analytics.");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -153,6 +162,11 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto">
+                {error && (
+                    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">
+                        {error}
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Student Performance */}
                     <div className="bg-white rounded-2xl shadow-sm p-4">

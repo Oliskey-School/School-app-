@@ -31,7 +31,7 @@ export type TableName =
     | 'assignments' | 'grades' | 'attendance_records'
     | 'notices' | 'messages' | 'schools' | 'branches'
     | 'sync_queue' | 'conflict_log' | 'notifications'
-    | 'class_teachers' | 'teacher_subjects';
+    | 'class_teachers' | 'teacher_subjects' | 'generated_resources';
 
 export interface SyncQueueItem {
     id: string;
@@ -56,7 +56,7 @@ export interface QueryOptions {
 // ============================================================================
 
 const DB_NAME = 'school_app_offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_PREFIX = 'table_';
 
 class OfflineDatabase {
@@ -101,7 +101,7 @@ class OfflineDatabase {
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
             'sync_queue', 'conflict_log', 'notifications',
-            'class_teachers', 'teacher_subjects'
+            'class_teachers', 'teacher_subjects', 'generated_resources'
         ];
 
         tables.forEach(table => {
@@ -309,7 +309,7 @@ class OfflineDatabase {
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
             'sync_queue', 'conflict_log', 'notifications',
-            'class_teachers', 'teacher_subjects'
+            'class_teachers', 'teacher_subjects', 'generated_resources'
         ];
 
         await Promise.all(tables.map(table => this.clearTable(table)));
@@ -452,7 +452,7 @@ class OfflineDatabase {
             'assignments', 'grades', 'attendance_records',
             'notices', 'messages', 'schools', 'branches',
             'sync_queue', 'conflict_log', 'notifications',
-            'class_teachers', 'teacher_subjects'
+            'class_teachers', 'teacher_subjects', 'generated_resources'
         ];
 
         const exported: any = {};

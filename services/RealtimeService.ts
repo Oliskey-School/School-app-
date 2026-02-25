@@ -32,7 +32,7 @@ class RealtimeService {
         this.channel = supabase.channel('global_changes')
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public' },
+                { event: '*', schema: 'public', filter },
                 (payload) => {
                     const table = (payload as any).table;
                     console.log(`📥 Realtime Update [${table}]:`, payload.eventType);
@@ -101,7 +101,8 @@ class RealtimeService {
                 'students', 'teachers', 'parents', 'users', 'classes', 'subjects',
                 'timetable', 'conversations', 'assignments', 'grades',
                 'attendance_records', 'notices', 'messages', 'schools',
-                'branches', 'notifications', 'class_teachers', 'teacher_subjects'
+                'branches', 'notifications', 'class_teachers', 'teacher_subjects',
+                'generated_resources'
             ];
 
             if (knownTables.includes(table as string)) {
@@ -121,6 +122,8 @@ class RealtimeService {
                                 showNotification('Grades Updated', { body: 'New grades have been recorded or modified.' });
                             } else if (table === 'attendance_records') {
                                 showNotification('Attendance Update', { body: 'An attendance record has been updated.' });
+                            } else if (table === 'timetable' && payload.new.status === 'Published') {
+                                showNotification('Timetable Updated', { body: 'Your class timetable has been updated or published.' });
                             }
                         }
                         break;

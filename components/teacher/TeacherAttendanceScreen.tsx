@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, XCircleIcon } from '../../constants';
 // import { mockStudents } from '../../data';
 import DonutChart from '../ui/DonutChart';
+import CenteredLoader from '../ui/CenteredLoader';
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType, Student, AttendanceStatus, ClassInfo } from '../../types';
 import { getFormattedClassName } from '../../constants';
@@ -124,6 +125,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
             } catch (err) {
                 console.error("Error fetching attendance data:", err);
+                toast.error("Failed to load attendance data.");
             } finally {
                 setIsLoading(false);
             }
@@ -262,7 +264,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
             {/* Student List */}
             <main className="flex-grow overflow-y-auto">
                 {isLoading ? (
-                    <div className="p-8 text-center text-gray-500">Loading attendance data...</div>
+                    <CenteredLoader message="Loading attendance data..." className="py-12" />
                 ) : (
                     <ul className="divide-y divide-gray-200">
                         {students.map(student => (

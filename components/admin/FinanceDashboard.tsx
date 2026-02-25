@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { DollarSign, TrendingUp, TrendingDown, PieChart, Calendar, Download, CreditCard } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { useAuth } from '../../context/AuthContext';
 
 interface FinancialSummary {
     period_type: string;
@@ -29,6 +30,9 @@ interface PaymentMethodBreakdown {
 }
 
 const FinanceDashboard: React.FC = () => {
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
+
     const [viewMode, setViewMode] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
     const [selectedPeriod, setSelectedPeriod] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [financialData, setFinancialData] = useState<FinancialSummary | null>(null);
@@ -54,6 +58,7 @@ const FinanceDashboard: React.FC = () => {
     const fetchFinancialData = async () => {
         try {
             setLoading(true);
+            if (!schoolId) return;
 
             // Calculate period dates based on view mode
             const { startDate, endDate } = calculatePeriodDates();
@@ -62,6 +67,7 @@ const FinanceDashboard: React.FC = () => {
             const { data: summaryData } = await supabase
                 .from('financial_summaries')
                 .select('*')
+                .eq('school_id', schoolId)
                 .eq('period_type', viewMode)
                 .gte('period_start', startDate)
                 .lte('period_end', endDate)
@@ -103,10 +109,13 @@ const FinanceDashboard: React.FC = () => {
     };
 
     const calculateFinancialSummary = async (startDate: string, endDate: string): Promise<FinancialSummary> => {
+        if (!schoolId) throw new Error("School Context Missing");
+
         // Fetch payments (fees)
         const { data: payments } = await supabase
             .from('payments')
             .select('amount, payment_method')
+            .eq('school_id', schoolId)
             .gte('payment_date', startDate)
             .lte('payment_date', endDate)
             .eq('status', 'Completed');
@@ -117,6 +126,7 @@ const FinanceDashboard: React.FC = () => {
         const { data: donations } = await supabase
             .from('donations')
             .select('amount')
+            .eq('school_id', schoolId)
             .gte('donation_date', startDate)
             .lte('donation_date', endDate)
             .eq('status', 'Completed');
@@ -127,6 +137,7 @@ const FinanceDashboard: React.FC = () => {
         const { data: salaries } = await supabase
             .from('salary_payments')
             .select('amount_paid')
+            .eq('school_id', schoolId)
             .gte('payment_date', startDate)
             .lte('payment_date', endDate);
 
@@ -155,11 +166,13 @@ const FinanceDashboard: React.FC = () => {
 
     const fetchPaymentMethods = async () => {
         try {
+            if (!schoolId) return;
             const { startDate, endDate } = calculatePeriodDates();
 
             const { data: payments } = await supabase
                 .from('payments')
                 .select('payment_method, amount')
+                .eq('school_id', schoolId)
                 .gte('payment_date', startDate)
                 .lte('payment_date', endDate)
                 .eq('status', 'Completed');
@@ -194,9 +207,11 @@ const FinanceDashboard: React.FC = () => {
 
     const fetchFeeCollection = async () => {
         try {
+            if (!schoolId) return;
             const { data: fees } = await supabase
                 .from('student_fees')
-                .select('total_fee, paid_amount');
+                .select('total_fee, paid_amount')
+                .eq('school_id', schoolId);
 
             if (fees) {
                 const totalFees = fees.reduce((sum, f) => sum + f.total_fee, 0);

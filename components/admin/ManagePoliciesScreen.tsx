@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 import { TrashIcon, PlusIcon, DocumentTextIcon, LinkIcon, SearchIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 const ManagePoliciesScreen: React.FC = () => {
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
     const [policies, setPolicies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [newPolicy, setNewPolicy] = useState({ title: '', description: '', url: '' });
@@ -23,9 +27,11 @@ const ManagePoliciesScreen: React.FC = () => {
 
     const fetchPolicies = async () => {
         try {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('school_policies')
                 .select('*')
+                .eq('school_id', schoolId)
                 .order('created_at', { ascending: false });
             if (error) throw error;
             setPolicies(data || []);
@@ -42,9 +48,13 @@ const ManagePoliciesScreen: React.FC = () => {
         setIsSubmitting(true);
         setStatusMessage(null);
         try {
+            if (!schoolId) {
+                toast.error("School context missing.");
+                return;
+            }
             const { error } = await supabase
                 .from('school_policies')
-                .insert([newPolicy]);
+                .insert([{ ...newPolicy, school_id: schoolId }]);
 
             if (error) throw error;
 
@@ -65,10 +75,12 @@ const ManagePoliciesScreen: React.FC = () => {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this policy?')) return;
         try {
+            if (!schoolId) return;
             const { error } = await supabase
                 .from('school_policies')
                 .delete()
-                .eq('id', id);
+                .eq('id', id)
+                .eq('school_id', schoolId);
 
             if (error) throw error;
             fetchPolicies();
@@ -90,8 +102,9 @@ const ManagePoliciesScreen: React.FC = () => {
     };
 
     useEffect(() => {
+        if (!schoolId) return;
         const channel = supabase.channel('policies_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_policies' }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_policies', filter: `school_id=eq.${schoolId}` }, () => {
                 fetchPolicies();
             })
             .subscribe();
@@ -99,7 +112,7 @@ const ManagePoliciesScreen: React.FC = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [schoolId]);
 
     return (
         <div className="flex flex-col h-full bg-gray-50 p-6 space-y-6 overflow-y-auto">

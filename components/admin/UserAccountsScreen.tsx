@@ -123,7 +123,7 @@ const UserAccountsScreen: React.FC = () => {
     const toggleUserStatus = async (accountId: string, currentStatus: boolean) => {
         try {
             const { error } = await supabase
-                .from('auth_accounts')
+                .from('profiles')
                 .update({ is_active: !currentStatus })
                 .eq('id', accountId);
 
@@ -147,6 +147,21 @@ const UserAccountsScreen: React.FC = () => {
     const confirmDeleteUser = (email: string) => {
         setUserToDelete(email);
         setShowDeleteModal(true);
+    };
+
+    const handleResetPassword = async (email: string) => {
+        if (!email) {
+            toast.error("Cannot reset password: email is missing.");
+            return;
+        }
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email);
+            if (error) throw error;
+            toast.success(`Password reset email sent securely to ${email}`);
+        } catch (err: any) {
+            console.error('Password reset error:', err);
+            toast.error(`Failed to send reset email: ${err.message}`);
+        }
     };
 
     const handleDeleteUser = async () => {
@@ -271,7 +286,7 @@ const UserAccountsScreen: React.FC = () => {
                                                 </button>
                                                 <button
                                                     className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                                                    onClick={() => toast.success(`Password reset for ${account.username} sent to ${account.email}`)}
+                                                    onClick={() => handleResetPassword(account.email)}
                                                 >
                                                     Reset
                                                 </button>
@@ -375,7 +390,7 @@ const UserAccountsScreen: React.FC = () => {
                                     </button>
                                     <button
                                         className="flex-1 py-2 rounded-lg text-sm font-semibold bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100"
-                                        onClick={() => toast.success(`Password reset for ${account.username} sent to ${account.email}`)}
+                                        onClick={() => handleResetPassword(account.email)}
                                     >
                                         Reset Pass
                                     </button>

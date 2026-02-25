@@ -421,7 +421,9 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any[]>(`/timetable?schoolId=${schoolId}${className ? `&className=${className}` : ''}${teacherId ? `&teacherId=${teacherId}` : ''}`);
         }
-        let query = supabase.from('timetable').select('*').eq('school_id', schoolId);
+        let query = supabase.from('timetable').select('*')
+            .eq('school_id', schoolId)
+            .eq('status', 'Published');
         if (className) query = query.ilike('class_name', `%${className}%`);
         if (teacherId) query = query.eq('teacher_id', teacherId);
         const { data, error } = await query.order('start_time', { ascending: true });
@@ -755,12 +757,21 @@ class HybridApiClient {
     // ASSIGNMENTS
     // ============================================
 
-    async getAssignments(schoolId: string, classId?: string, options: ApiOptions = {}): Promise<any[]> {
+    async getAssignments(schoolId: string, filters?: { classId?: string; className?: string; teacherId?: string }, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/assignments?schoolId=${schoolId}${classId ? `&classId=${classId}` : ''}`);
+            let url = `/assignments?schoolId=${schoolId}`;
+            if (filters?.classId) url += `&classId=${filters.classId}`;
+            if (filters?.className) url += `&className=${encodeURIComponent(filters.className)}`;
+            if (filters?.teacherId) url += `&teacherId=${filters.teacherId}`;
+            return this.fetch<any[]>(url);
         }
+
+        // Direct Supabase fallback
         let query = supabase.from('assignments').select('*').eq('school_id', schoolId);
-        if (classId) query = query.eq('class_id', classId);
+        if (filters?.classId) query = query.eq('class_id', filters.classId);
+        if (filters?.className) query = query.eq('class_name', filters.className);
+        if (filters?.teacherId) query = query.eq('teacher_id', filters.teacherId);
+
         const { data, error } = await query.order('due_date', { ascending: false });
         if (error) throw error;
         return data || [];
@@ -1339,6 +1350,37 @@ class HybridApiClient {
         const { data, error } = await supabase.from('quiz_submissions').insert([submission]).select().single();
         if (error) throw error;
         return data;
+    }
+
+    async getQuizzesByClass(schoolId: string, grade: string, section?: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any[]>(`/quizzes?schoolId=${schoolId}&grade=${grade}${section ? `&section=${section}` : ''}`);
+        }
+
+        let query = supabase
+            .from('quizzes')
+            .select(`
+                *,
+                classes ( id, grade, section ),
+                subjects ( name )
+            `)
+            .eq('school_id', schoolId)
+            .eq('is_published', true);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        // Filter for this class/grade
+        return (data || []).filter((q: any) => {
+            if (q.classes) {
+                return String(q.classes.grade) === String(grade) &&
+                    (!q.classes.section || !section || q.classes.section === section);
+            }
+            if (q.grade) {
+                return String(q.grade) === String(grade);
+            }
+            return true;
+        });
     }
 
     async createAnonymousReport(reportData: any, options: ApiOptions = {}): Promise<any> {

@@ -122,14 +122,15 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
 
     const fetchInitialData = async () => {
         try {
+            if (!schoolId) return;
             // Fetch Classes
-            const { data: classesData } = await supabase.from('classes').select('id, name, grade').order('grade');
+            const { data: classesData } = await supabase.from('classes').select('id, name, grade').eq('school_id', schoolId).order('grade');
             if (classesData) {
                 setAllClasses(deduplicateClasses(classesData));
             }
 
             // Fetch Teachers
-            const { data: teachersData } = await supabase.from('teachers').select('id, name, subjects, available_days');
+            const { data: teachersData } = await supabase.from('teachers').select('id, name, subjects, available_days').eq('school_id', schoolId);
             if (teachersData) setAllTeachers(teachersData);
 
         } catch (error) {

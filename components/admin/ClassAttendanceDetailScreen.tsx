@@ -2,11 +2,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Student, ClassInfo, AttendanceStatus } from '../../types';
 import { fetchStudentsByClass } from '../../lib/database';
+import { useAuth } from '../../context/AuthContext';
 import DonutChart from '../ui/DonutChart';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ExclamationCircleIcon } from '../../constants';
 
 interface ClassAttendanceDetailScreenProps {
-  classInfo: ClassInfo & { present: number; total: number; };
+    classInfo: ClassInfo & { present: number; total: number; };
 }
 
 const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ status }) => {
@@ -26,14 +27,16 @@ const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ sta
 };
 
 const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = ({ classInfo }) => {
+    const { currentSchool } = useAuth();
     const [studentsInClass, setStudentsInClass] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const loadStudents = async () => {
+            if (!currentSchool) return;
             setLoading(true);
             try {
-                const data = await fetchStudentsByClass(classInfo.grade, classInfo.section);
+                const data = await fetchStudentsByClass(classInfo.grade, classInfo.section, currentSchool.id);
                 setStudentsInClass(data);
             } catch (err) {
                 console.error("Error loading class students:", err);
@@ -41,13 +44,15 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
                 setLoading(false);
             }
         };
-        loadStudents();
-    }, [classInfo.grade, classInfo.section]);
+        if (currentSchool) {
+            loadStudents();
+        }
+    }, [classInfo.grade, classInfo.section, currentSchool]);
 
     const attendanceSummary = useMemo(() => {
         const total = studentsInClass.length;
         if (total === 0) return { total: 0, present: 0, absent: 0, late: 0, presentPercentage: 0 };
-        
+
         const present = studentsInClass.filter(s => s.attendanceStatus === 'Present').length;
         const absent = studentsInClass.filter(s => s.attendanceStatus === 'Absent').length;
         const late = studentsInClass.filter(s => s.attendanceStatus === 'Late').length;
@@ -66,8 +71,8 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
                     <div>
                         <p className="font-bold text-lg text-gray-800">Class Attendance</p>
                         <p className="text-sm text-gray-500">
-                            <span className="text-green-600 font-medium">{attendanceSummary.present} Present</span> &bull; 
-                            <span className="text-blue-500 font-medium"> {attendanceSummary.late} Late</span> &bull; 
+                            <span className="text-green-600 font-medium">{attendanceSummary.present} Present</span> &bull;
+                            <span className="text-blue-500 font-medium"> {attendanceSummary.late} Late</span> &bull;
                             <span className="text-red-600 font-medium"> {attendanceSummary.absent} Absent</span>
                         </p>
                     </div>

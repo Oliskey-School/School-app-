@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, MapPinIcon, UserIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface EmergencyAlert {
     id: number;
@@ -23,8 +24,11 @@ const EmergencyAlert: React.FC = () => {
     const [selectedAlert, setSelectedAlert] = useState<EmergencyAlert | null>(null);
     const [responseNotes, setResponseNotes] = useState('');
     const [loading, setLoading] = useState(true);
+    const { currentSchool } = useAuth();
 
     useEffect(() => {
+        if (!currentSchool) return;
+
         fetchAlerts();
 
         // Real-time subscription for new alerts
@@ -33,7 +37,8 @@ const EmergencyAlert: React.FC = () => {
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
-                table: 'emergency_alerts'
+                table: 'emergency_alerts',
+                filter: `school_id=eq.${currentSchool.id}`
             }, (payload) => {
                 fetchAlerts();
                 toast.error('🚨 NEW EMERGENCY ALERT!', { duration: 10000 });
@@ -45,15 +50,17 @@ const EmergencyAlert: React.FC = () => {
         return () => {
             subscription.unsubscribe();
         };
-    }, [filter]);
+    }, [filter, currentSchool]);
 
     const fetchAlerts = async () => {
+        if (!currentSchool) return;
         try {
             setLoading(true);
 
             let query = supabase
                 .from('emergency_alerts')
                 .select('*')
+                .eq('school_id', currentSchool.id)
                 .order('timestamp', { ascending: false });
 
             if (filter === 'active') {
@@ -175,8 +182,8 @@ const EmergencyAlert: React.FC = () => {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}

@@ -69,6 +69,7 @@ import CBTScoresScreen from '../teacher/CBTScoresScreen';
 import QuizBuilderScreen from '../teacher/QuizBuilderScreen';
 import ClassGradebookScreen from '../teacher/ClassGradebookScreen';
 import LessonNotesUploadScreen from '../teacher/LessonNotesUploadScreen';
+import TeacherAttendanceHistoryScreen from '../teacher/TeacherAttendanceHistoryScreen';
 
 // Lazy load AddStudentScreen for teachers
 const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
@@ -292,11 +293,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     selectClassForAttendance: TeacherSelectClassForAttendance,
     markAttendance: TeacherMarkAttendanceScreen,
     teacherSelfAttendance: TeacherSelfAttendance,
+    attendanceHistory: TeacherAttendanceHistoryScreen,
     library: LibraryScreen,
     gallery: PhotoGalleryScreen,
     calendar: CalendarScreen,
     addExam: AddExamScreen,
-    createAssignment: CreateAssignmentScreen,
+    assignmentCreator: CreateAssignmentScreen,
     assignmentsList: TeacherAssignmentsListScreen,
     classAssignments: ClassAssignmentsScreen,
     assignmentSubmissions: AssignmentSubmissionsScreen,

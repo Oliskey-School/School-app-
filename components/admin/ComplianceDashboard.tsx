@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import {
     ShieldCheck,
     AlertTriangle,
@@ -21,18 +22,24 @@ interface ComplianceMetrics {
 }
 
 const ComplianceDashboard = () => {
+    const { currentSchool } = useAuth();
     const [metrics, setMetrics] = useState<ComplianceMetrics | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchMetrics();
-    }, []);
+        if (currentSchool) {
+            fetchMetrics();
+        }
+    }, [currentSchool]);
 
     const fetchMetrics = async () => {
+        if (!currentSchool) return;
+
         setLoading(true);
         const { data, error } = await supabase
             .from('vw_compliance_metrics')
             .select('*')
+            .eq('school_id', currentSchool.id)
             .single();
 
         if (data) setMetrics(data);

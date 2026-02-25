@@ -127,7 +127,8 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
         setShowDeleteModal(false);
         setSlipToDelete(null);
 
-        const { error } = await supabase.from('permission_slips').delete().eq('id', id);
+        if (!schoolId) return;
+        const { error } = await supabase.from('permission_slips').delete().eq('id', id).eq('school_id', schoolId);
         if (!error) {
             fetchRecentSlips();
             toast.success('Slip deleted.');

@@ -70,7 +70,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
           <TeacherAttendanceIcon className="w-5 h-5" />
           <span>Attendance</span>
         </button>
-        <button onClick={() => navigateTo('createAssignment', 'New Assignment', { classInfo })} className="flex items-center justify-center space-x-2 py-3 px-4 bg-amber-500 text-white font-semibold rounded-xl shadow-md hover:bg-amber-600 transition-colors">
+        <button onClick={() => navigateTo('assignmentCreator', 'New Assignment', { classInfo })} className="flex items-center justify-center space-x-2 py-3 px-4 bg-amber-500 text-white font-semibold rounded-xl shadow-md hover:bg-amber-600 transition-colors">
           <ClipboardListIcon className="w-5 h-5" />
           <span>New Assignment</span>
         </button>
