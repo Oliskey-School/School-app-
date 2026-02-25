@@ -274,13 +274,8 @@ export class StudentService {
             throw new Error('Student ID, Guardian Name, and Guardian Email are required.');
         }
 
-        // Initialize Admin client strictly for server-side trusted linking bypassing RLS
-        const { createClient } = require('@supabase/supabase-js');
-        const config = require('../config/env').config;
-        const supabaseAdmin = createClient(
-            config.supabaseUrl,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-        );
+        // Use the top-level supabase client for trusted linking bypassing RLS
+        const supabaseAdmin = supabase;
 
         let parentIdToLink: string | null = null;
         let generatedPassword = null;

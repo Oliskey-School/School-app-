@@ -198,6 +198,10 @@ export const useTeacherClasses = (teacherId?: string | null) => {
 
                 console.log('📊 [useTeacherClasses] Fetching data for school:', targetSchoolId);
 
+                // Let's rely entirely on modern class_teachers bridging if data exists.
+                // The issue: "JSS" or "Primary" legacy string matched everything.
+                // If a school sets up a teacher properly, modernData works perfectly.
+                // If the array is empty, we only do an EXACT match with legacy strings.
                 if (finalClasses.length === 0 && finalSubjects.length === 0) {
                     console.log('ℹ️ [useTeacherClasses] Modern assignments missing, checking legacy fallback tables...');
 
@@ -215,17 +219,15 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                                 .eq('school_id', targetSchoolId);
 
                             if (allClasses) {
-                                const normalize = (s: string) => s.replace(/Grade|Year|JSS|SSS|SS|Primary|Basic|\s/gi, '').toUpperCase();
+                                const normalize = (s: string) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
                                 legacyClasses.forEach((legacy: any) => {
                                     if (!legacy.class_name) return;
-                                    const parsed = parseClassName(legacy.class_name);
+                                    const legacyStr = normalize(legacy.class_name);
 
                                     const matches = allClasses.filter(c => {
-                                        if (c.grade === parsed.grade && parsed.grade !== 0) {
-                                            if (parsed.section) return normalize(c.section || '') === normalize(parsed.section);
-                                            return true;
-                                        }
-                                        return normalize(legacy.class_name).includes(normalize(`${c.grade}${c.section || ''}`));
+                                        const cName = normalize(c.name);
+                                        // STRICT MATCH ONLY: If legacy string says "JSS 3", match EXACTLY "JSS 3"
+                                        return cName === legacyStr;
                                     });
 
                                     matches.forEach(match => {
@@ -247,6 +249,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                             }
                         }
                     }
+
 
                     // Subject Fallback
                     if (finalSubjects.length === 0 && targetSchoolId) {
