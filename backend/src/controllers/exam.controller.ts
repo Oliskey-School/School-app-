@@ -1,10 +1,22 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ExamService } from '../services/exam.service';
+import { supabase } from '../config/supabase';
 
 export const getExams = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await ExamService.getExams(req.user.school_id);
+        let teacherId = undefined;
+        if (req.user.role === 'teacher') {
+            const { data: teacher } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('user_id', req.user.id)
+                .single();
+            if (teacher) teacherId = teacher.id;
+            else return res.json([]);
+        }
+
+        const result = await ExamService.getExams(req.user.school_id, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

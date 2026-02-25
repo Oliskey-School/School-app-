@@ -1,11 +1,24 @@
 import { supabase } from '../config/supabase';
 
 export class ClassService {
-    static async getClasses(schoolId: string) {
-        const { data, error } = await supabase
-            .from('classes')
-            .select('*')
-            .eq('school_id', schoolId)
+    static async getClasses(schoolId: string, teacherId?: string) {
+        let query;
+        
+        if (teacherId) {
+            // Join with class_teachers to only get classes assigned to this teacher
+            query = supabase
+                .from('classes')
+                .select('*, class_teachers!inner(teacher_id)')
+                .eq('school_id', schoolId)
+                .eq('class_teachers.teacher_id', teacherId);
+        } else {
+            query = supabase
+                .from('classes')
+                .select('*')
+                .eq('school_id', schoolId);
+        }
+
+        const { data, error } = await query
             .order('grade', { ascending: true })
             .order('section', { ascending: true });
 

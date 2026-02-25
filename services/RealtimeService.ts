@@ -32,109 +32,102 @@ class RealtimeService {
         this.channel = supabase.channel('global_changes')
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'messages', filter: filter },
-                (p) => {
-                    this.handleDataUpdate('messages', p);
-                    if (p.eventType === 'INSERT' && p.new.sender_id !== userId) {
-                        showNotification('New Message', {
-                            body: p.new.content || 'You have a new message'
-                        });
-                    }
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'conversations', filter: filter },
-                (p) => this.handleDataUpdate('conversations', p)
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'auth_accounts', filter: `school_id=eq.${schoolId}` }, // Users might span branches in auth_accounts
-                (p) => this.handleDataUpdate('users' as any, p)
-            )
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'notices', filter: filter },
+                { event: '*', schema: 'public' },
                 (payload) => {
-                    this.handleDataUpdate('notices', payload);
-                    showNotification('New School Notice', {
-                        body: payload.new.title || 'Check the dashboard'
-                    });
-                }
-            )
-            // Core Tables
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: filter }, (p) => this.handleDataUpdate('students', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers', filter: filter }, (p) => this.handleDataUpdate('teachers', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'classes', filter: filter }, (p) => this.handleDataUpdate('classes', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'subjects', filter: filter }, (p) => this.handleDataUpdate('subjects', p))
+                    const table = (payload as any).table;
+                    console.log(`📥 Realtime Update [${table}]:`, payload.eventType);
+                    this.handleDataUpdate(table as any, payload);
 
-            // Teacher & Assignment Tables
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_classes', filter: filter }, (p) => this.handleDataUpdate('classes' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_subjects', filter: filter }, (p) => this.handleDataUpdate('subjects' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments', filter: filter }, (p) => this.handleDataUpdate('assignments', p))
-
-            // Attendance, Grades & Fees
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_attendance', filter: filter }, (p) => this.handleDataUpdate('student_attendance' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'grades', filter: filter }, (p) => this.handleDataUpdate('grades', p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees', filter: filter }, (p) => this.handleDataUpdate('student_fees' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable', filter: filter }, (p) => this.handleDataUpdate('timetable' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'report_cards', filter: filter }, (p) => this.handleDataUpdate('report_cards' as any, p))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'report_card_records', filter: filter }, (p) => this.handleDataUpdate('report_card_records' as any, p))
-
-            // Notifications - FIXED: Now listening to all events (*) including UPDATE (marking as read)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: filter }, (p) => {
-                this.handleDataUpdate('notifications' as any, p);
-                
-                if (p.eventType === 'INSERT') {
-                    const audience = Array.isArray(p.new.audience) ? p.new.audience : [p.new.audience];
-                    const lowercaseAudience = audience.map((a: string) => (a || '').toLowerCase());
-
-                    if (p.new.user_id === userId ||
-                        lowercaseAudience.includes('all') ||
-                        lowercaseAudience.includes('admin') ||
-                        lowercaseAudience.includes('teacher') ||
-                        lowercaseAudience.includes('parent') ||
-                        lowercaseAudience.includes('student')) {
-
-                        showNotification(p.new.title || 'New Notification', {
-                            body: p.new.message || 'You have a new update'
+                    // Specific toast for messages
+                    if (table === 'messages' && payload.eventType === 'INSERT' && payload.new.sender_id !== userId) {
+                        showNotification('New Message', {
+                            body: payload.new.content || 'You have a new message'
                         });
                     }
+
+                    // Specific toast for notices
+                    if (table === 'notices' && payload.eventType === 'INSERT') {
+                        showNotification('New School Notice', {
+                            body: payload.new.title || 'Check the dashboard'
+                        });
+                    }
+
+                    // Specific toast for notifications
+                    if (table === 'notifications' && payload.eventType === 'INSERT') {
+                        const audience = Array.isArray(payload.new.audience) ? payload.new.audience : [payload.new.audience];
+                        const lowercaseAudience = audience.map((a: string) => (a || '').toLowerCase());
+
+                        if (payload.new.user_id === userId ||
+                            lowercaseAudience.includes('all') ||
+                            lowercaseAudience.includes('admin') ||
+                            lowercaseAudience.includes('teacher') ||
+                            lowercaseAudience.includes('parent') ||
+                            lowercaseAudience.includes('student')) {
+
+                            showNotification(payload.new.title || 'New Notification', {
+                                body: payload.new.message || 'You have a new update'
+                            });
+                        }
+                    }
                 }
-            })
-            .subscribe((status) => {
+            )
+            .subscribe((status, err) => {
                 if (status === 'SUBSCRIBED') {
-                    console.log('✅ Realtime Sync Connected');
+                    console.log(`✅ [Realtime] Connected to Global Channel (School: ${this.schoolId})`);
+                }
+                if (status === 'CHANNEL_ERROR') {
+                    console.error('❌ [Realtime] Channel Error:', err);
+                }
+                if (status === 'TIMED_OUT') {
+                    console.warn('⚠️ [Realtime] Subscription timed out. Check your internet connection.');
                 }
             });
     }
 
     private async handleDataUpdate(table: TableName, payload: any) {
-        console.log(`📥 Realtime Update [${table}]:`, payload.eventType);
-
         try {
-            switch (payload.eventType) {
-                case 'INSERT':
-                case 'UPDATE':
-                    await offlineDB.upsert(table, payload.new.id, payload.new, {
-                        syncStatus: 'synced',
-                        lastSynced: Date.now()
-                    });
+            // Tenant Isolation Check: Only process updates for the current school
+            // Note: payload.new or payload.old might have school_id
+            const record = payload.new || payload.old;
+            const recordSchoolId = record?.school_id;
 
-                    // Show specific toasts for record changes
-                    if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-                        if (table === 'classes' || (table as string) === 'class_teachers') {
-                            showNotification('Academic Update', { body: 'A class or teacher assignment has been updated.' });
-                        } else if (table === 'grades') {
-                            showNotification('Grades Updated', { body: 'New grades have been recorded or modified.' });
-                        } else if (table === 'attendance_records') {
-                            showNotification('Attendance Update', { body: 'An attendance record has been updated.' });
+            if (recordSchoolId && this.schoolId && String(recordSchoolId) !== String(this.schoolId)) {
+                // Ignore updates from other schools (tenant isolation)
+                return;
+            }
+
+            // Update Offline DB if table exists in schema
+            const knownTables: string[] = [
+                'students', 'teachers', 'parents', 'users', 'classes', 'subjects',
+                'timetable', 'conversations', 'assignments', 'grades',
+                'attendance_records', 'notices', 'messages', 'schools',
+                'branches', 'notifications', 'class_teachers', 'teacher_subjects'
+            ];
+
+            if (knownTables.includes(table as string)) {
+                switch (payload.eventType) {
+                    case 'INSERT':
+                    case 'UPDATE':
+                        await offlineDB.upsert(table, payload.new.id, payload.new, {
+                            syncStatus: 'synced',
+                            lastSynced: Date.now()
+                        });
+
+                        // Show specific toasts for record changes
+                        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                            if (table === 'classes' || (table as string) === 'class_teachers') {
+                                showNotification('Academic Update', { body: 'A class or teacher assignment has been updated.' });
+                            } else if (table === 'grades') {
+                                showNotification('Grades Updated', { body: 'New grades have been recorded or modified.' });
+                            } else if (table === 'attendance_records') {
+                                showNotification('Attendance Update', { body: 'An attendance record has been updated.' });
+                            }
                         }
-                    }
-                    break;
-                case 'DELETE':
-                    await offlineDB.delete(table, payload.old.id);
-                    break;
+                        break;
+                    case 'DELETE':
+                        await offlineDB.delete(table, payload.old.id);
+                        break;
+                }
             }
 
             // Notify SyncEngine
@@ -143,13 +136,14 @@ class RealtimeService {
             // Notify UI via Window Event
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('realtime-update', {
-                    detail: { table, record: payload.new || payload.old }
+                    detail: { table, record: payload.new || payload.old, eventType: payload.eventType }
                 }));
             }
         } catch (err) {
             console.error(`❌ Failed to apply realtime update to ${table}:`, err);
         }
     }
+
 
     destroy() {
         if (this.channel) {

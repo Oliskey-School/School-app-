@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Student, ClassInfo } from '../../types';
 import { ChevronRightIcon, TeacherAttendanceIcon, ClipboardListIcon } from '../../constants';
 import { getFormattedClassName } from '../../constants';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 interface ClassDetailScreenProps {
   classInfo: ClassInfo;
@@ -13,52 +14,22 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStudents();
-
-    // Real-time subscription for students table
-    const subscription = supabase
-      .channel(`class_students_${classInfo.grade}_${classInfo.section}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'students' },
-        (payload: any) => {
-          // Verify if the change affects this class
-          const newData = payload.new;
-          const oldData = payload.old;
-
-          if (
-            (newData && newData.grade === classInfo.grade && newData.section === classInfo.section) ||
-            (oldData && oldData.grade === classInfo.grade && oldData.section === classInfo.section)
-          ) {
-            fetchStudents();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [classInfo]);
-
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('grade', classInfo.grade)
-        .eq('section', classInfo.section)
-        .order('name', { ascending: true });
-
+      let query = supabase.from('students').select('*');
+      if (classInfo.id) {
+        query = query.or(`class_id.eq.${classInfo.id},current_class_id.eq.${classInfo.id}`);
+      } else {
+        query = query.eq('grade', classInfo.grade).eq('section', classInfo.section);
+      }
+      const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;
-
       if (data) {
         setStudents(data.map((s: any) => ({
           id: s.id,
           schoolId: s.school_generated_id,
-          name: s.name,
+          name: s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
           email: s.email || '',
           avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
           grade: s.grade,
@@ -74,6 +45,14 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchStudents();
+  }, [classInfo]);
+
+  // Auto-refresh when students table changes in real-time
+  useRealtimeRefresh(['students'], fetchStudents);
+
 
   const formattedClassName = classInfo.name || getFormattedClassName(classInfo.grade, classInfo.section);
 
@@ -115,7 +94,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
                 <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
                 <div className="flex-grow text-left">
                   <p className="font-bold text-gray-800">{student.name}</p>
-                  <p className="text-sm text-gray-500">ID: {student.schoolId || `SCH-0${student.id}`}</p>
+                  <p className="text-sm text-gray-500">ID: {student.schoolId || 'Pending'}</p>
                 </div>
                 <ChevronRightIcon className="text-gray-400" />
               </button>

@@ -11,6 +11,8 @@ import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+
 interface ReportCardInputScreenProps {
     student: Student;
     term: string;
@@ -138,6 +140,9 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
         console.log('🔄 [ReportCardInput] Auto-sync triggered');
         setRefreshTrigger(prev => prev + 1);
     });
+
+    useRealtimeRefresh(['report_card_records', 'report_cards'], () => setRefreshTrigger(prev => prev + 1));
+
 
     const loadData = async () => {
         setLoading(true);

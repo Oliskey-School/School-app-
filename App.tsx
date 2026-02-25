@@ -198,8 +198,8 @@ const AuthenticatedApp: React.FC = () => {
       }
 
       if (schoolId) {
-        console.log(`🔌 Initializing Realtime for school: ${schoolId}, branch: ${currentBranch?.id || 'All'}`);
-        realtimeService.initialize(user.id, schoolId, currentBranch?.id);
+        console.log(`👤 Active School Context: ${schoolId}`);
+        // realtimeService.initialize is now handled globally by useRealtimeSync() hook
       }
 
       // Show welcome toast after email verification

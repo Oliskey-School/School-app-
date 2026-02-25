@@ -4,55 +4,28 @@ import { useAuth } from '../context/AuthContext';
 
 /**
  * A reusable hook to create global auto-sync listeners on Supabase.
- * It strictly filters by the user's current school to prevent data cross-talk.
+ * Uses the global RealtimeService events for maximum efficiency.
  * 
  * @param tables Array of table names to listen to (e.g., ['students', 'assignments'])
  * @param onUpdate The callback function to execute when a change occurs.
  */
 export const useAutoSync = (tables: string[], onUpdate: () => void) => {
-    const { currentSchool } = useAuth();
-
     useEffect(() => {
-        if (!currentSchool?.id || tables.length === 0) return;
+        if (tables.length === 0) return;
 
-        const channels: any[] = [];
-        // Generate a unique ID for this instance so that if multiple components
-        // listen to the same table, one unmounting doesn't kill the channel for the others.
-        const instanceId = Math.random().toString(36).substring(2, 9);
-
-        tables.forEach((table) => {
-            // We use 'postgres_changes' to listen to inserts, updates, and deletes.
-            // We strictly add a filter for the current school_id to maintain tenant isolation.
-            const channel = supabase
-                .channel(`auto-sync-${table}-${currentSchool.id}-${instanceId}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*', // Listen to INSERT, UPDATE, DELETE
-                        schema: 'public',
-                        table: table,
-                        filter: `school_id=eq.${currentSchool.id}` // TENANT ISOLATION
-                    },
-                    (payload) => {
-                        console.log(`🔄 [AutoSync Triggered] Table: ${table}, Event: ${payload.eventType}`);
-                        onUpdate();
-                    }
-                )
-                .subscribe((status) => {
-                    if (status === 'SUBSCRIBED') {
-                        // console.log(`📡 [AutoSync] Connected to ${table}`);
-                    }
-                });
-
-            channels.push(channel);
-        });
-
-        // Cleanup: remove all subscriptions when the component unmounts
-        // or when the dependencies change.
-        return () => {
-            channels.forEach((channel) => {
-                supabase.removeChannel(channel);
-            });
+        const handleRealtimeUpdate = (event: any) => {
+            const { table } = event.detail;
+            if (tables.includes(table) || tables.includes('*')) {
+                console.log(`🔄 [AutoSync Triggered via Global Channel] Table: ${table}`);
+                onUpdate();
+            }
         };
-    }, [tables.join(','), currentSchool?.id, onUpdate]);
+
+        window.addEventListener('realtime-update', handleRealtimeUpdate);
+
+        return () => {
+            window.removeEventListener('realtime-update', handleRealtimeUpdate);
+        };
+    }, [tables.join(','), onUpdate]);
 };
+

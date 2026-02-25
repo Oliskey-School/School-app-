@@ -1,12 +1,17 @@
 import { supabase } from '../config/supabase';
 
 export class ExamService {
-    static async getExams(schoolId: string) {
-        const { data, error } = await supabase
+    static async getExams(schoolId: string, teacherId?: string) {
+        let query = supabase
             .from('exams')
             .select('*')
-            .eq('school_id', schoolId)
-            .order('created_at', { ascending: false });
+            .eq('school_id', schoolId);
+        
+        if (teacherId) {
+            query = query.eq('teacher_id', teacherId);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw new Error(error.message);
         return data || [];
     }

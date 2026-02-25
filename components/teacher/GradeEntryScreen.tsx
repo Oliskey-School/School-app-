@@ -177,7 +177,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
                                     )}
                                     <div>
                                         <p className="font-bold text-gray-800">{student.name}</p>
-                                        <p className="text-sm text-gray-500">ID: {student.schoolGeneratedId || `SCH-${student.id}`}</p>
+                                        <p className="text-sm text-gray-500">ID: {student.school_generated_id || 'Pending'}</p>
                                     </div>
                                 </div>
                                 <input

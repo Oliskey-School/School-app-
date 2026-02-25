@@ -114,7 +114,12 @@ const EnrollmentLineChart = ({ data, color }: { data: { year: number, count: num
     );
 };
 
-const AnalyticsScreen: React.FC = () => {
+interface AnalyticsScreenProps {
+    schoolId: string;
+    currentBranchId: string | null;
+}
+
+const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBranchId }) => {
     const [loading, setLoading] = useState(true);
     const [metrics, setMetrics] = useState<any>({
         performance: [],
@@ -126,7 +131,7 @@ const AnalyticsScreen: React.FC = () => {
 
     const loadData = async () => {
         setLoading(true);
-        const data = await fetchAnalyticsMetrics();
+        const data = await fetchAnalyticsMetrics(schoolId, currentBranchId || undefined);
         if (data) {
             setMetrics(data);
         }
@@ -134,8 +139,10 @@ const AnalyticsScreen: React.FC = () => {
     };
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (schoolId) {
+            loadData();
+        }
+    }, [schoolId, currentBranchId]);
 
     return (
         <div className="flex flex-col h-full bg-gray-50 relative">

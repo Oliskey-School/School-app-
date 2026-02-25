@@ -68,11 +68,11 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
         type: userType,
         id: user.id,
         name: user.name,
-        cardNumber: `${userType.toUpperCase()}-${String(user.id).padStart(6, '0')}`
+        cardNumber: (user as any).school_generated_id || (user as any).schoolGeneratedId || user.id
     });
 
     const displayName = user.name;
-    const displayId = (user as any).schoolGeneratedId || (user as any).school_generated_id || `ID-${user.id.substring(0, 8)}`;
+    const displayId = (user as any).school_generated_id || (user as any).schoolGeneratedId || 'Pending';
 
     return (
         <div className="flex flex-col items-center space-y-6 p-4 sm:p-6 w-full max-w-full overflow-hidden">

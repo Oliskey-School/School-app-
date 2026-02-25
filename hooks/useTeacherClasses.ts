@@ -191,15 +191,15 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                     });
                 }
 
-                // 2. Fallback for Legacy Data (if missing classes or subjects)
+                // 2. Fallback for Legacy Data (Only if modern assignments are completely missing)
                 // Determine school context for data fetching
                 const metadataSchoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
                 const targetSchoolId = currentSchoolId || profile?.schoolId || metadataSchoolId;
 
                 console.log('📊 [useTeacherClasses] Fetching data for school:', targetSchoolId);
 
-                if (finalClasses.length === 0 || finalSubjects.length === 0) {
-                    console.log('ℹ️ [useTeacherClasses] Modern data incomplete, checking legacy...');
+                if (finalClasses.length === 0 && finalSubjects.length === 0) {
+                    console.log('ℹ️ [useTeacherClasses] Modern assignments missing, checking legacy fallback tables...');
 
                     // Class Fallback
                     if (finalClasses.length === 0 && targetSchoolId) {

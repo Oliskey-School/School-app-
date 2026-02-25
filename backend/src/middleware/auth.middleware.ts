@@ -17,6 +17,18 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     const token = authHeader.split(' ')[1];
 
+    // 0. Demo Mode Bypass
+    if (token === 'demo-auth-token') {
+        console.log('🛡️ [Auth Success] (Demo Bypass) Using Oliskey Demo Context');
+        req.user = {
+            id: '6f90901e-4119-457d-8d73-745b17831a30', // Real Demo Teacher User ID
+            email: 'teacher@demo.com',
+            role: 'teacher',
+            school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' // Real Demo School ID
+        };
+        return next();
+    }
+
     try {
         // 1. First try verifying with local secret (Mock/Test Tokens)
         try {

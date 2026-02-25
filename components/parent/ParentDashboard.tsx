@@ -120,7 +120,7 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
                         <div>
                             <h3 className="font-bold text-lg text-gray-800">{student.name}</h3>
                             <p className="text-sm font-semibold" style={{ color: colorTheme.text }}>{formattedClassName}</p>
-                            <p className="text-xs text-gray-500 mt-1">ID: {student.schoolGeneratedId || `SCH-${student.id}`}</p>
+                            <p className="text-xs text-gray-500 mt-1">ID: {student.schoolGeneratedId || 'Pending'}</p>
                         </div>
                     </div>
                     <button onClick={() => navigateTo('childDetail', student.name, { student: student })} className="bg-white p-2 rounded-full shadow-sm hover:bg-gray-100">

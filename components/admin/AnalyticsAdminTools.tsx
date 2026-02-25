@@ -3,89 +3,15 @@ import { ChevronRightIcon } from '../../constants';
 
 interface AnalyticsAdminToolsProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    schoolId: string;
+    currentBranchId: string | null;
 }
 
 const toolsCategories = [
-    {
-        view: 'attendanceHeatmap',
-        title: 'Attendance Heatmap',
-        description: 'Visual attendance tracking with trends',
-        icon: '📊',
-        color: 'text-blue-600 bg-blue-100'
-    },
-    {
-        view: 'financeDashboard',
-        title: 'Finance Dashboard',
-        description: 'Revenue, expenses, and forecasting',
-        icon: '💰',
-        color: 'text-green-600 bg-green-100'
-    },
-    {
-        view: 'academicAnalytics',
-        title: 'Academic Analytics',
-        description: 'Grade distribution and performance',
-        icon: '📚',
-        color: 'text-purple-600 bg-purple-100'
-    },
-    {
-        view: 'budgetPlanner',
-        title: 'Budget Planner',
-        description: 'Annual budgets and allocations',
-        icon: '💼',
-        color: 'text-indigo-600 bg-indigo-100'
-    },
-    {
-        view: 'auditTrailViewer',
-        title: 'Audit Trail',
-        description: 'Security monitoring and compliance',
-        icon: '🔒',
-        color: 'text-red-600 bg-red-100'
-    },
-    {
-        view: 'integrationHub',
-        title: 'Integration Hub',
-        description: 'WAEC, NECO, JAMB & third-party apps',
-        icon: '🔌',
-        color: 'text-teal-600 bg-teal-100'
-    },
-    {
-        view: 'vendorManagement',
-        title: 'Vendor Management',
-        description: 'Suppliers and purchase orders',
-        icon: '🚚',
-        color: 'text-orange-600 bg-orange-100'
-    },
-    {
-        view: 'assetInventory',
-        title: 'Asset Inventory',
-        description: 'Equipment tracking & QR codes',
-        icon: '📦',
-        color: 'text-cyan-600 bg-cyan-100'
-    },
-    {
-        view: 'privacyDashboard',
-        title: 'Privacy (NDPR)',
-        description: 'Data protection & consent',
-        icon: '🛡️',
-        color: 'text-slate-600 bg-slate-100'
-    },
-    {
-        view: 'complianceChecklist',
-        title: 'Compliance Checks',
-        description: 'Automated regulatory health',
-        icon: '✅',
-        color: 'text-emerald-600 bg-emerald-100'
-    },
-    {
-        view: 'maintenanceTickets',
-        title: 'Maintenance Tickets',
-        description: 'Repairs & issue tracking',
-        icon: '🔧',
-        color: 'text-rose-600 bg-rose-100'
-    },
+    // ... same categories ...
 ];
 
-const AnalyticsAdminTools: React.FC<AnalyticsAdminToolsProps> = ({ navigateTo }) => {
+const AnalyticsAdminTools: React.FC<AnalyticsAdminToolsProps> = ({ navigateTo, schoolId, currentBranchId }) => {
     return (
         <div className="p-4 space-y-3 bg-gray-50">
             <div className="bg-gradient-to-r from-teal-600 to-cyan-600 rounded-xl p-6 text-white mb-4">
@@ -93,10 +19,88 @@ const AnalyticsAdminTools: React.FC<AnalyticsAdminToolsProps> = ({ navigateTo })
                 <p className="text-teal-100">Advanced analytics, budgeting, and system integrations</p>
             </div>
 
-            {toolsCategories.map(tool => (
+            {[
+                {
+                    view: 'attendanceHeatmap',
+                    title: 'Attendance Heatmap',
+                    description: 'Visual attendance tracking with trends',
+                    icon: '📊',
+                    color: 'text-blue-600 bg-blue-100'
+                },
+                {
+                    view: 'financeDashboard',
+                    title: 'Finance Dashboard',
+                    description: 'Revenue, expenses, and forecasting',
+                    icon: '💰',
+                    color: 'text-green-600 bg-green-100'
+                },
+                {
+                    view: 'academicAnalytics',
+                    title: 'Academic Analytics',
+                    description: 'Grade distribution and performance',
+                    icon: '📚',
+                    color: 'text-purple-600 bg-purple-100'
+                },
+                {
+                    view: 'budgetPlanner',
+                    title: 'Budget Planner',
+                    description: 'Annual budgets and allocations',
+                    icon: '💼',
+                    color: 'text-indigo-600 bg-indigo-100'
+                },
+                {
+                    view: 'auditTrailViewer',
+                    title: 'Audit Trail',
+                    description: 'Security monitoring and compliance',
+                    icon: '🔒',
+                    color: 'text-red-600 bg-red-100'
+                },
+                {
+                    view: 'integrationHub',
+                    title: 'Integration Hub',
+                    description: 'WAEC, NECO, JAMB & third-party apps',
+                    icon: '🔌',
+                    color: 'text-teal-600 bg-teal-100'
+                },
+                {
+                    view: 'vendorManagement',
+                    title: 'Vendor Management',
+                    description: 'Suppliers and purchase orders',
+                    icon: '🚚',
+                    color: 'text-orange-600 bg-orange-100'
+                },
+                {
+                    view: 'assetInventory',
+                    title: 'Asset Inventory',
+                    description: 'Equipment tracking & QR codes',
+                    icon: '📦',
+                    color: 'text-cyan-600 bg-cyan-100'
+                },
+                {
+                    view: 'privacyDashboard',
+                    title: 'Privacy (NDPR)',
+                    description: 'Data protection & consent',
+                    icon: '🛡️',
+                    color: 'text-slate-600 bg-slate-100'
+                },
+                {
+                    view: 'complianceChecklist',
+                    title: 'Compliance Checks',
+                    description: 'Automated regulatory health',
+                    icon: '✅',
+                    color: 'text-emerald-600 bg-emerald-100'
+                },
+                {
+                    view: 'maintenanceTickets',
+                    title: 'Maintenance Tickets',
+                    description: 'Repairs & issue tracking',
+                    icon: '🔧',
+                    color: 'text-rose-600 bg-rose-100'
+                },
+            ].map(tool => (
                 <button
                     key={tool.view}
-                    onClick={() => navigateTo(tool.view, tool.title, {})}
+                    onClick={() => navigateTo(tool.view, tool.title, { schoolId, currentBranchId })}
                     className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
                 >
                     <div className="flex items-center space-x-4">

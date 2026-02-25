@@ -81,7 +81,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                     <div>
                         <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
                         <p className="text-gray-500 font-medium">Grade {student.grade}{student.section}</p>
-                        <p className="text-xs text-gray-400">ID: {student.schoolId || `SCH-0${student.id}`}</p>
+                        <p className="text-xs text-gray-400">ID: {student.schoolId || 'Pending Generation'}</p>
                     </div>
                 </div>
 

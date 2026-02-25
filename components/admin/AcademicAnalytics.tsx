@@ -23,7 +23,12 @@ interface ClassComparison {
     studentCount: number;
 }
 
-const AcademicAnalytics: React.FC = () => {
+interface AcademicAnalyticsProps {
+    schoolId: string;
+    currentBranchId: string | null;
+}
+
+const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, currentBranchId }) => {
     const [gradeDistribution, setGradeDistribution] = useState<GradeDistribution[]>([]);
     const [subjectPerformance, setSubjectPerformance] = useState<SubjectPerformance[]>([]);
     const [classComparison, setClassComparison] = useState<ClassComparison[]>([]);
@@ -42,8 +47,10 @@ const AcademicAnalytics: React.FC = () => {
     });
 
     useEffect(() => {
-        fetchAnalytics();
-    }, [selectedTerm, selectedClass]);
+        if (schoolId) {
+            fetchAnalytics();
+        }
+    }, [selectedTerm, selectedClass, schoolId, currentBranchId]);
 
     const fetchAnalytics = async () => {
         try {
@@ -64,9 +71,16 @@ const AcademicAnalytics: React.FC = () => {
 
     const fetchGradeDistribution = async () => {
         try {
-            const { data: grades } = await supabase
+            let query = supabase
                 .from('academic_performance')
-                .select('grade');
+                .select('grade')
+                .eq('school_id', schoolId);
+            
+            if (currentBranchId && currentBranchId !== 'all') {
+                query = query.eq('branch_id', currentBranchId);
+            }
+
+            const { data: grades } = await query;
 
             if (grades) {
                 const distribution = calculateGradeDistribution(grades);
@@ -97,9 +111,16 @@ const AcademicAnalytics: React.FC = () => {
 
     const fetchSubjectPerformance = async () => {
         try {
-            const { data: grades } = await supabase
+            let query = supabase
                 .from('academic_performance')
-                .select('subject, score');
+                .select('subject, score')
+                .eq('school_id', schoolId);
+            
+            if (currentBranchId && currentBranchId !== 'all') {
+                query = query.eq('branch_id', currentBranchId);
+            }
+
+            const { data: grades } = await query;
 
             if (grades) {
                 const subjectMap: { [key: string]: number[] } = {};
@@ -132,15 +153,43 @@ const AcademicAnalytics: React.FC = () => {
 
     const fetchClassComparison = async () => {
         try {
-            // Simulated class comparison data
-            const comparison: ClassComparison[] = [
-                { className: 'JSS 1A', averageGPA: 3.2, passRate: 85, studentCount: 35 },
-                { className: 'JSS 1B', averageGPA: 3.5, passRate: 90, studentCount: 32 },
-                { className: 'JSS 2A', averageGPA: 3.1, passRate: 82, studentCount: 38 },
-                { className: 'JSS 2B', averageGPA: 3.4, passRate: 88, studentCount: 36 },
-                { className: 'JSS 3A', averageGPA: 3.6, passRate: 92, studentCount: 30 },
-            ];
-            setClassComparison(comparison);
+            // Real comparison logic based on academic_performance and classes
+            let query = supabase
+                .from('academic_performance')
+                .select('score, students!inner(id, current_class_id, classes!inner(id, name))')
+                .eq('school_id', schoolId);
+            
+            if (currentBranchId && currentBranchId !== 'all') {
+                query = query.eq('branch_id', currentBranchId);
+            }
+
+            const { data: performanceData } = await query;
+
+            if (performanceData) {
+                const classMap: { [key: string]: { scores: number[], studentIds: Set<string> } } = {};
+                
+                performanceData.forEach((item: any) => {
+                    const className = item.students?.classes?.name || 'Unknown';
+                    if (!classMap[className]) {
+                        classMap[className] = { scores: [], studentIds: new Set() };
+                    }
+                    classMap[className].scores.push(item.score || 0);
+                    if (item.students?.id) classMap[className].studentIds.add(item.students.id);
+                });
+
+                const comparison: ClassComparison[] = Object.entries(classMap).map(([className, data]) => {
+                    const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+                    const passed = data.scores.filter(s => s >= 50).length;
+                    return {
+                        className,
+                        averageGPA: Math.round((avgScore / 100 * 4) * 10) / 10,
+                        passRate: Math.round((passed / data.scores.length) * 100),
+                        studentCount: data.studentIds.size
+                    };
+                });
+
+                setClassComparison(comparison.sort((a, b) => b.averageGPA - a.averageGPA));
+            }
         } catch (error: any) {
             console.error('Error fetching class comparison:', error);
         }
@@ -148,9 +197,16 @@ const AcademicAnalytics: React.FC = () => {
 
     const fetchKeyMetrics = async () => {
         try {
-            const { data: grades } = await supabase
+            let query = supabase
                 .from('academic_performance')
-                .select('score, student_id');
+                .select('score, student_id')
+                .eq('school_id', schoolId);
+            
+            if (currentBranchId && currentBranchId !== 'all') {
+                query = query.eq('branch_id', currentBranchId);
+            }
+
+            const { data: grades } = await query;
 
             if (grades && grades.length > 0) {
                 const avgScore = grades.reduce((sum, g) => sum + (g.score || 0), 0) / grades.length;

@@ -1,11 +1,24 @@
 import { supabase } from '../config/supabase';
 
 export class ReportCardService {
-    static async getReportCards(schoolId: string) {
-        const { data, error } = await supabase
+    static async getReportCards(schoolId: string, teacherId?: string) {
+        let query = supabase
             .from('report_cards')
-            .select('*')
-            .eq('school_id', schoolId)
+            .select('*, students!inner(id, class_id)')
+            .eq('school_id', schoolId);
+        
+        if (teacherId) {
+            // Join with class_teachers via student's class
+            // This assumes students have a current_class_id or similar.
+            // Looking at the schema used in other services:
+            query = supabase
+                .from('report_cards')
+                .select('*, students!inner(id, current_class_id, class_teachers!inner(teacher_id))')
+                .eq('school_id', schoolId)
+                .eq('students.class_teachers.teacher_id', teacherId);
+        }
+
+        const { data, error } = await query
             .order('session', { ascending: false })
             .order('term', { ascending: false });
 

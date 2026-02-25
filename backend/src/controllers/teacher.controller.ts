@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { TeacherService } from '../services/teacher.service';
+import { supabase } from '../config/supabase';
 
 export const createTeacher = async (req: AuthRequest, res: Response) => {
     try {
@@ -13,6 +14,17 @@ export const createTeacher = async (req: AuthRequest, res: Response) => {
 
 export const getAllTeachers = async (req: AuthRequest, res: Response) => {
     try {
+        if (req.user.role === 'teacher') {
+            const { data: teacher, error } = await supabase
+                .from('teachers')
+                .select('*')
+                .eq('user_id', req.user.id)
+                .single();
+            
+            if (error) throw error;
+            return res.json(teacher ? [teacher] : []);
+        }
+
         const result = await TeacherService.getAllTeachers(req.user.school_id);
         res.json(result);
     } catch (error: any) {

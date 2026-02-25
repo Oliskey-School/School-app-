@@ -71,7 +71,7 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
 
             <div className="flex-grow text-left">
               <p className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{student.name}</p>
-              <p className="text-xs text-gray-500 font-medium tracking-wide">ID: <span className="font-mono text-gray-400">SCH-{String(student.id).padStart(4, '0')}</span></p>
+              <p className="text-xs text-gray-500 font-medium tracking-wide">ID: <span className="font-mono text-gray-400">{student.schoolGeneratedId || 'Pending'}</span></p>
             </div>
 
             <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">

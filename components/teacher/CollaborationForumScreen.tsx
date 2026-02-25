@@ -5,6 +5,8 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+
 
 const formatDistanceToNow = (date: string | Date) => {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -45,6 +47,10 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
   useEffect(() => {
     loadTopics();
   }, [currentSchool?.id, forumEnabled]);
+
+  useRealtimeRefresh(['forum_topics', 'forum_posts'], loadTopics);
+
+
 
   if (!forumEnabled) {
     return (

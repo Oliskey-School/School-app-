@@ -147,7 +147,7 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
                                         }
                                     </p>
                                     <p className="text-xs text-gray-400 mt-1">
-                                        ID: {view === 'students' ? 'STU' : 'TCH'}-{String(user.id).padStart(6, '0')}
+                                        ID: {user.school_generated_id || 'Pending Generation'}
                                     </p>
                                 </div>
                             </div>

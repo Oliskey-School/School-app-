@@ -19,9 +19,7 @@ export const useUserIdentity = () => {
         user?.app_metadata?.custom_id ||
         user?.user_metadata?.custom_id ||
         user?.app_metadata?.staff_id ||
-        user?.user_metadata?.staff_id ||
-        user?.app_metadata?.school_id ||
-        user?.user_metadata?.school_id;
+        user?.user_metadata?.staff_id;
 
     const userRole = user?.app_metadata?.role || user?.user_metadata?.role || 'Admin';
 

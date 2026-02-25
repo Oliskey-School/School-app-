@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useTeacherClasses } from './useTeacherClasses';
+import { ClassInfo } from '../types';
 
 interface TeacherStats {
     totalStudents: number;
@@ -9,7 +10,11 @@ interface TeacherStats {
     avgStudentScore: number;
 }
 
-export const useTeacherStats = (teacherId: string | undefined, schoolId: string | undefined) => {
+export const useTeacherStats = (
+    teacherId: string | undefined,
+    schoolId: string | undefined,
+    teacherClasses?: ClassInfo[] | null
+) => {
     const [stats, setStats] = useState<TeacherStats>({
         totalStudents: 0,
         totalClasses: 0,
@@ -20,7 +25,11 @@ export const useTeacherStats = (teacherId: string | undefined, schoolId: string 
     const [version, setVersion] = useState(0);
     const forceUpdate = () => setVersion(v => v + 1);
 
-    const { classes, loading: classesLoading } = useTeacherClasses(teacherId);
+    // Only call useTeacherClasses if teacherClasses is not provided
+    const { classes: fetchedClasses, loading: classesLoading } = useTeacherClasses(teacherClasses ? null : teacherId);
+
+    // Resolve which classes to use
+    const classes = teacherClasses || fetchedClasses;
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -64,6 +73,7 @@ export const useTeacherStats = (teacherId: string | undefined, schoolId: string 
                             .from('students')
                             .select('id, current_class_id, grade, section')
                             .in('grade', grades)
+                            .eq('school_id', schoolId) // Ensure isolation between schools
                             .eq('status', 'Active');
 
                         // Robust Client-Side Filtering

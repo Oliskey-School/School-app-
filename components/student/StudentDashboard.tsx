@@ -797,12 +797,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                             email: user?.email,
                                             school_id: effectiveSchoolId,
                                             name: currentUser.user_metadata?.full_name || 'New Student',
-                                            grade: 10,
-                                            section: 'A',
-                                            attendance_status: 'Present',
-                                            school_generated_id: 'ST-' + Math.floor(Math.random() * 100000),
-                                        }, {
-                                            onConflict: 'user_id'
+                                                                                        grade: 10,
+                                                                                        section: 'A',
+                                                                                        attendance_status: 'Present'
+                                                                                    }, {                                            onConflict: 'user_id'
                                         })
                                         .select()
                                         .single();
@@ -827,7 +825,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         </button>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100">
-                        <p className="text-xs text-gray-400">User ID: {user?.id || 'N/A'}</p>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Secure Session Active</p>
                     </div>
                 </div>
             </div>

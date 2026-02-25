@@ -21,7 +21,7 @@
     "@capacitor/push-notifications": "8.0.0",
     "@expo/metro-runtime": "6.1.2",
     "@google/genai": "latest",
-    "@google/generative-ai": "0.24.1",
+    "@google/generative-ai": "^0.24.1",
     "@hcaptcha/react-hcaptcha": "2.0.2",
     "@prisma/client": "7.0.1",
     "@supabase/supabase-js": "2",

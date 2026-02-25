@@ -188,8 +188,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // [NEW] Persist Backend Token for API calls
-        if (userData.token) {
-            localStorage.setItem('auth_token', userData.token);
+        const effectiveToken = userData.token || (userData.isDemo ? 'demo-auth-token' : null);
+
+        if (effectiveToken) {
+            localStorage.setItem('auth_token', effectiveToken);
 
             // CRITICAL FIX: Sync the token to Supabase Client so RLS works
             // We attempt to use the token as both access and refresh if refresh is missing

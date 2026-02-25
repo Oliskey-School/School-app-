@@ -102,12 +102,13 @@ const parseClassName = (name: string) => {
 
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherProfile, teacherId, schoolId, currentBranchId }) => {
   const theme = THEME_CONFIG[DashboardType.Teacher];
 
   const { classes: teacherClasses, loading: classesLoading, teacherId: resolvedTeacherId, schoolId: resolvedSchoolId } = useTeacherClasses(teacherId);
-  const { stats, loading: statsLoading } = useTeacherStats(resolvedTeacherId || teacherId || currentUser?.id, resolvedSchoolId || schoolId);
+  const { stats, loading: statsLoading } = useTeacherStats(resolvedTeacherId || teacherId || currentUser?.id, resolvedSchoolId || schoolId, teacherClasses);
 
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
   const [ungradedAssignments, setUngradedAssignments] = useState<any[]>([]);
@@ -173,6 +174,30 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     fetchData();
 
   }, [currentUser, teacherId, profile, schoolId]);
+
+  // Auto-refresh when relevant tables change in real-time
+  const refetchOverview = () => {
+    const fetchData = async () => {
+      const actualTeacherId = resolvedTeacherId || teacherId;
+      const actualSchoolId = resolvedSchoolId || schoolId;
+      if (!actualSchoolId || !actualTeacherId) return;
+      try {
+        const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+        const [scheduleRes, assignmentsRes] = await Promise.all([
+          supabase.from('timetable').select('id, start_time, subject, class_name')
+            .eq('teacher_id', actualTeacherId).eq('school_id', actualSchoolId).eq('day', todayName).eq('status', 'Published')
+            .order('start_time', { ascending: true }),
+          supabase.from('assignments').select('id, title, class_name, created_at')
+            .eq('school_id', actualSchoolId).eq('teacher_id', actualTeacherId)
+            .order('created_at', { ascending: false }).limit(3)
+        ]);
+        setTodaySchedule(scheduleRes.data || []);
+        setUngradedAssignments(assignmentsRes.data || []);
+      } catch (err) { console.error('❌ Realtime refetch error:', err); }
+    };
+    fetchData();
+  };
+  useRealtimeRefresh(['assignments', 'timetable', 'students', 'teachers', 'classes'], refetchOverview);
 
   useAutoSync(
     ['teacher_classes', 'class_teachers', 'assignments', 'timetable', 'report_cards'],

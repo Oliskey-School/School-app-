@@ -767,15 +767,11 @@ class HybridApiClient {
     }
 
     async createAssignment(assignmentData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/assignments', {
-                method: 'POST',
-                body: JSON.stringify(assignmentData),
-            });
-        }
-        const { data, error } = await supabase.from('assignments').insert([assignmentData]).select().single();
-        if (error) throw error;
-        return data;
+        // ALWAYS use backend for assignments to ensure RLS compliance and attachment handling
+        return this.fetch<any>('/assignments', {
+            method: 'POST',
+            body: JSON.stringify(assignmentData),
+        });
     }
 
     async getSubmissions(assignmentId: string, options: ApiOptions = {}): Promise<any[]> {

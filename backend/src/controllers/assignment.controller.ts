@@ -1,10 +1,22 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AssignmentService } from '../services/assignment.service';
+import { supabase } from '../config/supabase';
 
 export const getAssignments = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await AssignmentService.getAssignments(req.user.school_id, req.query.classId as string);
+        let teacherId = undefined;
+        if (req.user.role === 'teacher') {
+            const { data: teacher } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('user_id', req.user.id)
+                .single();
+            if (teacher) teacherId = teacher.id;
+            else return res.json([]);
+        }
+
+        const result = await AssignmentService.getAssignments(req.user.school_id, req.query.classId as string, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

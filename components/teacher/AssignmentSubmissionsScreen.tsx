@@ -3,6 +3,8 @@ import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { Submission, Assignment, Student } from '../../types';
 import { CheckCircleIcon, ClockIcon, MailIcon } from '../../constants';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+
 
 interface AssignmentSubmissionsScreenProps {
     assignment: Assignment;
@@ -81,7 +83,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
             // Rough match for grade/section from className
             const gradeMatch = assignment.className.match(/\d+/);
             const sectionMatch = assignment.className.match(/[A-Z]/);
-            
+
             let classStudents = data || [];
             if (gradeMatch && sectionMatch) {
                 const grade = parseInt(gradeMatch[0]);
@@ -122,6 +124,9 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
     useEffect(() => {
         fetchData();
     }, [assignment.id, assignment.className, forceUpdate]);
+
+    useRealtimeRefresh(['assignment_submissions'], fetchData);
+
 
     const { submittedStudents, notSubmittedStudents } = useMemo(() => {
         const submittedStudentIds = new Set(submissions.map(s => s.student.id));
@@ -174,7 +179,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
 
             toast.success("Grade saved successfully");
             fetchData();
-            handleBack(); 
+            handleBack();
         } catch (err) {
             console.error("Error saving grade:", err);
             toast.error("Failed to save grade");

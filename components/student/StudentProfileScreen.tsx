@@ -26,7 +26,7 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                 attendance_rate: initialStudent.attendance || 95,
                 average_grade: initialStudent.performance || 88,
                 class_name: `Grade ${initialStudent.grade}${initialStudent.section}`,
-                admission_number: initialStudent.schoolId || 'STU-001'
+                admission_number: initialStudent.schoolGeneratedId || initialStudent.school_generated_id || 'Pending Generation'
             });
         }
     }, [studentId, initialStudent]);
@@ -114,7 +114,7 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                             <p className="text-white/90 text-lg mb-4 font-medium opacity-90">{student.class_name || 'Grade 10'}</p>
                             <div className="flex flex-wrap justify-center md:justify-start gap-3">
                                 <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-semibold border border-white/20">
-                                    ID: {student.admission_number || student.schoolId}
+                                    ID: {student.admission_number || 'Pending Generation'}
                                 </span>
                                 <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-semibold border border-white/20 flex items-center gap-2">
                                     <Calendar className="w-4 h-4" />

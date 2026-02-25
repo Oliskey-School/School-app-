@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Assignment } from '../../types';
 import { ChevronRightIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 interface ClassAssignmentsScreenProps {
     className: string;
@@ -13,39 +14,42 @@ const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ classNa
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchAssignments = async () => {
-            setLoading(true);
-            try {
-                const { data, error } = await supabase
-                    .from('assignments')
-                    .select('*')
-                    .eq('class_name', className)
-                    .order('due_date', { ascending: false });
+    const fetchAssignments = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('assignments')
+                .select('*')
+                .eq('class_name', className)
+                .order('due_date', { ascending: false });
 
-                if (error) throw error;
+            if (error) throw error;
 
-                if (data) {
-                    setAssignments(data.map((a: any) => ({
-                        id: a.id,
-                        title: a.title,
-                        description: a.description,
-                        className: a.class_name,
-                        subject: a.subject,
-                        dueDate: a.due_date,
-                        totalStudents: a.total_students || 0,
-                        submissionsCount: a.submissions_count || 0
-                    })));
-                }
-            } catch (err) {
-                console.error('Error fetching class assignments:', err);
-            } finally {
-                setLoading(false);
+            if (data) {
+                setAssignments(data.map((a: any) => ({
+                    id: a.id,
+                    title: a.title,
+                    description: a.description,
+                    className: a.class_name,
+                    subject: a.subject,
+                    dueDate: a.due_date,
+                    totalStudents: a.total_students || 0,
+                    submissionsCount: a.submissions_count || 0
+                })));
             }
-        };
+        } catch (err) {
+            console.error('Error fetching class assignments:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchAssignments();
     }, [className]);
+
+    useRealtimeRefresh(['assignments'], fetchAssignments);
+
 
     if (loading) {
         return <div className="p-8 text-center text-gray-500">Loading assignments...</div>;
@@ -76,14 +80,14 @@ const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ classNa
                                 aria-label={`View submissions for ${assignment.title}`}
                             >
                                 <span>View Submissions</span>
-                                <ChevronRightIcon className="h-5 w-5"/>
+                                <ChevronRightIcon className="h-5 w-5" />
                             </button>
                         </div>
                     </div>
                 ))}
             </div>
             {assignments.length === 0 && (
-                 <div className="text-center py-10 bg-white rounded-lg shadow-sm">
+                <div className="text-center py-10 bg-white rounded-lg shadow-sm">
                     <p className="text-gray-500">No assignments found for this class.</p>
                 </div>
             )}

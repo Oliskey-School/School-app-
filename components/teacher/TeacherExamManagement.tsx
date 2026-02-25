@@ -4,6 +4,7 @@ import { PlusIcon, EditIcon, TrashIcon, EXAM_TYPE_COLORS, EnterResultsIcon } fro
 import { Exam } from '../../types';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface TeacherExamManagementProps {
@@ -53,6 +54,9 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
     useAutoSync(['exams'], () => {
         fetchExams();
     });
+
+    useRealtimeRefresh(['exams'], fetchExams);
+
 
     const handleDeleteClick = (exam: Exam) => {
         if (exam.isPublished) {

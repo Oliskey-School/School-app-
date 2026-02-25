@@ -4,6 +4,8 @@ import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
 import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../../constants';
 import CenteredLoader from '../ui/CenteredLoader';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+
 
 
 interface GradebookEntry {
@@ -98,84 +100,77 @@ const ClassGradebookScreen: React.FC<{
         fetchClasses();
     }, [teacherId]);
 
-    // Fetch Students and Grades for selected Class/Subject
-    useEffect(() => {
+    const loadData = async () => {
         if (!selectedClass || !selectedSubject) return;
+        setLoading(true);
+        try {
+            // Dynamically import to get latest logic
+            const { fetchStudentsByClass, fetchReportCard } = await import('../../lib/database');
 
-        const loadData = async () => {
-            setLoading(true);
-            try {
-                // Dynamically import to get latest logic
-                const { fetchStudentsByClass, fetchReportCard } = await import('../../lib/database');
-
-                // Parse class ID "JSS1-A" to grade/section if possible, or assume selectedClass IS the ID
-                // But earlier mock data had id="JSS1-A".
-                // If we are using real data, selectedClass might be "JSS 1A" (string).
-                // I need to parse "JSS 1" -> 1 (Grade) and "A" (Section).
-                // Or if we fetch classes from DB, we should have grade/section in the object.
-                // But `classes` state might just be objects.
-                // I'll look at `classes` state.
-                const clsObj = classes.find(c => c.id === selectedClass);
-                if (!clsObj) {
-                    // Should not happen
-                    setLoading(false);
-                    return;
-                }
-
-                const grade = clsObj.grade;
-                const section = clsObj.section;
-
-                // 1. Fetch Students
-                const studentData = await fetchStudentsByClass(grade, section, schoolId, currentBranchId);
-
-                if (studentData.length === 0) {
-                    setStudents([]);
-                    setLoading(false);
-                    return;
-                }
-
-                // 2. Fetch Existing Report Cards (Grades)
-                // We iterate students. For optimization we loops.
-                const merged: GradebookEntry[] = [];
-                const currentSession = "2025/2026";
-                const currentTerm = "First Term";
-
-                for (const s of studentData) {
-                    const rc = await fetchReportCard(s.id, currentTerm, currentSession);
-                    // Find record for this subject
-                    const scoreRecord = rc?.academicRecords?.find(r => r.subject === selectedSubject);
-
-                    const ca = scoreRecord?.ca || 0;
-                    const exam = scoreRecord?.exam || 0;
-                    const total = scoreRecord?.total || (ca + exam);
-
-                    merged.push({
-                        studentId: s.id,
-                        studentName: s.name,
-                        avatarUrl: s.avatarUrl || '',
-                        schoolId: s.schoolId || '', // Ensure schoolId is captured
-                        ca: ca === 0 ? '' : ca.toString(),
-                        exam: exam === 0 ? '' : exam.toString(),
-                        total: total,
-                        grade: getGrade(total),
-                        remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
-                        status: (rc?.status as 'Draft' | 'Submitted' | 'Published') || 'Draft',
-                        isDirty: false
-                    });
-                }
-
-                setStudents(merged);
-
-            } catch (err) {
-                console.error("Error loading gradebook:", err);
-                toast.error("Failed to load gradebook.");
-            } finally {
+            const clsObj = classes.find(c => c.id === selectedClass);
+            if (!clsObj) {
                 setLoading(false);
+                return;
             }
-        };
 
+            const grade = clsObj.grade;
+            const section = clsObj.section;
+
+            // 1. Fetch Students
+            const studentData = await fetchStudentsByClass(grade, section, schoolId, currentBranchId);
+
+            if (studentData.length === 0) {
+                setStudents([]);
+                setLoading(false);
+                return;
+            }
+
+            // 2. Fetch Existing Report Cards (Grades)
+            const merged: GradebookEntry[] = [];
+            const currentSession = "2025/2026";
+            const currentTerm = "First Term";
+
+            for (const s of studentData) {
+                const rc = await fetchReportCard(s.id, currentTerm, currentSession);
+                // Find record for this subject
+                const scoreRecord = rc?.academicRecords?.find(r => r.subject === selectedSubject);
+
+                const ca = scoreRecord?.ca || 0;
+                const exam = scoreRecord?.exam || 0;
+                const total = scoreRecord?.total || (ca + exam);
+
+                merged.push({
+                    studentId: s.id,
+                    studentName: s.name,
+                    avatarUrl: s.avatarUrl || '',
+                    schoolId: s.schoolId || '', // Use the actual UUID for DB operations
+                    ca: ca === 0 ? '' : ca.toString(),
+                    exam: exam === 0 ? '' : exam.toString(),
+                    total: total,
+                    grade: getGrade(total),
+                    remark: scoreRecord?.remark || getRemark(total, getGrade(total)),
+                    status: (rc?.status as 'Draft' | 'Submitted' | 'Published') || 'Draft',
+                    isDirty: false
+                });
+            }
+
+            setStudents(merged);
+
+        } catch (err) {
+            console.error("Error loading gradebook:", err);
+            toast.error("Failed to load gradebook.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         loadData();
     }, [selectedClass, selectedSubject, classes]);
+
+    useRealtimeRefresh(['report_card_records', 'report_cards'], loadData);
+
+
 
     const handleScoreChange = (index: number, field: 'ca' | 'exam', value: string) => {
         const newStudents = [...students];
@@ -264,16 +259,20 @@ const ClassGradebookScreen: React.FC<{
                     academicRecords
                 };
 
-                await upsertReportCard(entry.studentId, reportCardToSave as any, entry.schoolId);
-                successCount++;
+                const success = await upsertReportCard(entry.studentId, reportCardToSave as any, entry.schoolId);
+                if (success) {
+                    successCount++;
+                } else {
+                    console.error(`Failed to save grades for student ${entry.studentId}`);
+                }
             }
 
             // Mark all as clean
             setStudents(students.map(s => ({ ...s, isDirty: false })));
             if (status === 'Submitted') {
-                toast.success(`Submitted grades for ${successCount} students to Admin!`);
+                toast.success(`Submitted grades for ${successCount} of ${entriesToSave.length} students!`);
             } else {
-                toast.success(`Saved draft for ${successCount} students.`);
+                toast.success(`Saved draft for ${successCount} of ${entriesToSave.length} students.`);
             }
 
         } catch (error) {
@@ -377,7 +376,7 @@ const ClassGradebookScreen: React.FC<{
                                                     </div>
                                                     <div className="ml-4">
                                                         <div className="text-sm font-bold text-gray-900">{student.studentName}</div>
-                                                        <div className="text-xs text-gray-500">ID: {student.studentId}</div>
+                                                        <div className="text-xs text-gray-500">ID: {student.schoolId || 'Pending'}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -444,7 +443,7 @@ const ClassGradebookScreen: React.FC<{
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm font-bold text-gray-900 truncate">{student.studentName}</div>
-                                            <div className="text-xs text-gray-500">ID: {student.studentId}</div>
+                                            <div className="text-xs text-gray-500">ID: {student.schoolId || 'Pending'}</div>
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
                                             <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${student.total >= 50 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>

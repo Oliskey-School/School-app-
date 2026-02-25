@@ -126,7 +126,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                                     {teacher.first_name} {teacher.last_name}
                                 </CardTitle>
                                 <p className="text-sm text-gray-600">
-                                    Staff ID: {teacher.staff_id || `T-${teacherId}`}
+                                    Staff ID: {teacher.school_generated_id || 'Pending Generation'}
                                 </p>
                                 <p className="text-sm text-gray-600">
                                     Subject: {teacher.subject || 'Not assigned'}

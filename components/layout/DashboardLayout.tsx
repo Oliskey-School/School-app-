@@ -125,6 +125,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                         notificationCount={notificationCount}
                         className="w-full flex-shrink-0"
                         userName={profile?.name || user?.user_metadata?.full_name} // Also sync name
+                        customId={profile?.schoolGeneratedId || user?.user_metadata?.school_generated_id}
                     />
                 )}
 

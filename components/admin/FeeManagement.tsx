@@ -49,7 +49,7 @@ const FeeManagement: React.FC<any> = (props) => {
     if (schoolId) {
       const [feesData, studentsData] = await Promise.all([
         fetchAllFees(schoolId),
-        supabase.from('students').select('id, name, grade, section').eq('school_id', schoolId)
+        supabase.from('students').select('id, name, grade, section, school_generated_id').eq('school_id', schoolId)
       ]);
 
       setFees(feesData);
@@ -182,7 +182,7 @@ const FeeManagement: React.FC<any> = (props) => {
                 return (
                   <tr key={fee.id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{student?.name || `ID: ${fee.studentId}`}</div>
+                      <div className="font-medium text-gray-900">{student?.name || `ID: ${student?.school_generated_id || 'Pending'}`}</div>
                       <div className="text-xs text-gray-500">{student?.grade} {student?.section}</div>
                     </td>
                     <td className="px-6 py-4">

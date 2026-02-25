@@ -4,7 +4,8 @@ import { SearchIcon, UserIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 
 interface UserListItem {
-    id: number;
+    id: string | number;
+    schoolGeneratedId?: string;
     name: string;
     avatarUrl: string;
     description: string;
@@ -30,7 +31,7 @@ const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user,
         </div>
         <div className="flex-grow">
             <p className="font-bold text-gray-800">{user.name}</p>
-            <p className="text-sm text-gray-500">{user.description} • ID: {user.id}</p>
+            <p className="text-sm text-gray-500">{user.description} • ID: {user.schoolGeneratedId || user.id}</p>
         </div>
         <div className="p-2 bg-purple-50 text-purple-600 rounded-full">
             <UserIcon className="w-5 h-5" />
@@ -58,7 +59,7 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo, teacherId, cu
             setSearching(true);
 
             try {
-                let query = supabase.from('users').select('id, name, avatar_url, role, email');
+                let query = supabase.from('users').select('id, name, avatar_url, role, email, school_generated_id');
 
                 // Filter by Role based on Tab
                 if (activeTab === 'Students') {
@@ -66,27 +67,18 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo, teacherId, cu
                 } else if (activeTab === 'Parents') {
                     query = query.eq('role', 'Parent');
                 } else if (activeTab === 'Staff') {
-                    // Staff includes Teachers and Admins usually
                     query = query.in('role', ['Teacher', 'Admin']);
                 }
 
-                // Search Logic
-                if (activeTab === 'Staff') {
-                    // Strict User ID search for Staff
+                // Search Logic: If searchTerm looks like an ID, search by ID or school_generated_id
+                if (searchTerm.startsWith('OLISKEY_') || !isNaN(Number(searchTerm))) {
                     if (!isNaN(Number(searchTerm))) {
-                        query = query.eq('id', Number(searchTerm));
+                        query = query.or(`id.eq.${searchTerm},school_generated_id.ilike.%${searchTerm}%`);
                     } else {
-                        // If not a number, maybe return empty or allow name search? 
-                        // User said "only be able to search for each other by userID only".
-                        // So if strictly adhering, we return nothing if not a number.
-                        // But for usability, maybe exact email match? 
-                        // Let's stick to ID as requested.
-                        setResults([]);
-                        setSearching(false);
-                        return;
+                        query = query.eq('school_generated_id', searchTerm.toUpperCase());
                     }
                 } else {
-                    // Fuzzy Name search for others
+                    // Fuzzy Name search
                     query = query.ilike('name', `%${searchTerm}%`);
                 }
 
@@ -99,10 +91,11 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo, teacherId, cu
                         .filter((u: any) => u.id !== myId) // Exclude self
                         .map((u: any) => ({
                             id: u.id,
+                            schoolGeneratedId: u.school_generated_id,
                             name: u.name,
                             avatarUrl: u.avatar_url,
                             role: u.role,
-                            description: u.role // Could fetch more details if needed
+                            description: u.role
                         }));
                     setResults(mapped);
                 }

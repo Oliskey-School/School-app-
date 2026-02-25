@@ -1,10 +1,23 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { LessonPlanService } from '../services/lessonPlan.service';
+import { supabase } from '../config/supabase';
 
 export const getLessonPlans = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await LessonPlanService.getLessonPlans(req.user.school_id, req.query.teacherId as string);
+        let teacherId = req.query.teacherId as string;
+        
+        if (req.user.role === 'teacher') {
+            const { data: teacher } = await supabase
+                .from('teachers')
+                .select('id')
+                .eq('user_id', req.user.id)
+                .single();
+            if (teacher) teacherId = teacher.id;
+            else return res.json([]);
+        }
+
+        const result = await LessonPlanService.getLessonPlans(req.user.school_id, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

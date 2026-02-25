@@ -19,7 +19,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                 // Use an optional join for students because demo students might not be linked via user_id
                 const { data, error } = await supabase
                     .from('quiz_submissions')
-                    .select('*, profiles:student_id(full_name, students(name))')
+                    .select('*, profiles:student_id(full_name, students(name, school_generated_id))')
                     .eq('quiz_id', test.id)
                     .order('submitted_at', { ascending: false });
 
@@ -35,7 +35,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                         return {
                             id: sub.id,
                             examId: test.id,
-                            studentId: sub.student_id,
+                            studentId: sub.profiles?.students?.[0]?.school_generated_id || sub.student_id,
                             studentName: sub.profiles?.students?.[0]?.name || sub.profiles?.full_name || 'Unknown',
                             score: score,
                             totalQuestions: total,

@@ -89,7 +89,7 @@ export interface ReportCardAcademicRecord {
 }
 
 export interface ReportCard {
-  id: string; // From database
+  id?: string; // From database (optional for new drafts)
   term: string; // e.g., "Second Term"
   session: string; // e.g., "2023/2024"
   academicRecords: ReportCardAcademicRecord[];

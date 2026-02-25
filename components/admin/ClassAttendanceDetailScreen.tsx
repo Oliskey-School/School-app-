@@ -88,7 +88,7 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
                                 <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
                                 <div>
                                     <p className="font-bold text-gray-800">{student.name}</p>
-                                    <p className="text-sm text-gray-500">ID: {student.schoolGeneratedId || student.id}</p>
+                                    <p className="text-sm text-gray-500">ID: {student.schoolGeneratedId || 'Pending'}</p>
                                 </div>
                             </div>
                             <AttendanceStatusIndicator status={student.attendanceStatus} />

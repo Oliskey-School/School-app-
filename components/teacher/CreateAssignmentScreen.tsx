@@ -35,7 +35,7 @@ const formatFileSize = (bytes: number): string => {
 
 interface CreateAssignmentScreenProps {
   classInfo?: ClassInfo;
-  onAssignmentAdded: (newAssignment: Omit<Assignment, 'id'>) => void;
+  onAssignmentAdded?: (newAssignment: Omit<Assignment, 'id'>) => void;
   handleBack: () => void;
 }
 
@@ -131,31 +131,48 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
       }
 
       const dbPayload = {
-        title, description, content_summary: description,
+        title,
+        description,
+        content_summary: description,
         class_name: targetClass?.name || 'Unknown',
         subject: targetSubject?.name || 'Unknown',
         due_date: new Date(dueDate).toISOString(),
         total_students: targetClass?.studentCount || 25,
         submissions_count: 0,
         teacher_id: activeTeacherId,
-        school_id: currentSchool?.id,
+        school_id: currentSchool?.id || profile?.schoolId,
         class_id: selectedClassId,
         subject_id: selectedSubjectId,
-        branch_id: targetClass?.branch_id,
-        attachment_urls: fileUrls,
+        branch_id: targetClass?.branch_id || profile?.branchId,
+        attachment_url: fileUrls[0] || null,
+        attachments: attachedFiles.map((file, index) => ({
+          file_name: file.name,
+          file_url: fileUrls[index],
+          file_type: file.type,
+          file_size: file.size
+        })),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
+      if (!dbPayload.school_id) {
+        toast.error("School context missing. Please re-login.");
+        return;
+      }
+
       await api.createAssignment(dbPayload);
-      onAssignmentAdded({
-        title, description,
-        className: dbPayload.class_name,
-        subject: dbPayload.subject,
-        dueDate: dbPayload.due_date,
-        totalStudents: 25,
-        submissionsCount: 0
-      });
+
+      if (onAssignmentAdded) {
+        onAssignmentAdded({
+          title,
+          description,
+          className: dbPayload.class_name,
+          subject: dbPayload.subject,
+          dueDate: dbPayload.due_date,
+          totalStudents: dbPayload.total_students,
+          submissionsCount: 0
+        });
+      }
       toast.success("Assignment published!");
       handleBack();
     } catch (err) {

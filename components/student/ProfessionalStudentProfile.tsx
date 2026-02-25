@@ -90,7 +90,7 @@ export default function ProfessionalStudentProfile({ studentId }: StudentProfile
                             <p className="text-white/90 text-lg mb-4">{student.class_name}</p>
                             <div className="flex flex-wrap justify-center md:justify-start gap-3">
                                 <span className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium">
-                                    School ID: {student.admission_number || student.schoolId}
+                                    School ID: {student.admission_number || 'Pending Generation'}
                                 </span>
                                 <span className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium flex items-center gap-2">
                                     <Calendar className="w-4 h-4" />

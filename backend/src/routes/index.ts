@@ -25,6 +25,7 @@ import virtualClassRoutes from './virtual-class.routes';
 import academicRoutes from './academic.routes';
 import resourceRoutes from './resource.routes';
 import studentReportRoutes from './studentReport.routes';
+import aiRoutes from './ai.routes';
 
 const router = Router();
 
@@ -53,6 +54,7 @@ router.use('/virtual-classes', virtualClassRoutes);
 router.use('/academic-performance', academicRoutes);
 router.use('/resources', resourceRoutes);
 router.use('/student-reports', studentReportRoutes);
+router.use('/ai', aiRoutes);
 
 router.use('/', inviteRoutes);
 
