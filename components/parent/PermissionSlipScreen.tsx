@@ -3,25 +3,42 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
 
-const PermissionSlipScreen: React.FC = () => {
+interface PermissionSlipScreenProps {
+    students?: any[];
+}
+
+const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = [] }) => {
     const [slips, setSlips] = useState<any[]>([]);
     const [currentSlipIndex, setCurrentSlipIndex] = useState(0);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         fetchSlips();
-    }, []);
+    }, [students]);
 
     const fetchSlips = async () => {
+        if (!students || students.length === 0) {
+            setSlips([]);
+            setLoading(false);
+            return;
+        }
+
         try {
-            // In a real app, filter by student_ids belonging to the parent
+            const relevantGrades = students.map(s => s.grade);
+
             const { data, error } = await supabase
                 .from('permission_slips')
                 .select('*')
                 .order('id', { ascending: false });
 
             if (error) throw error;
-            setSlips(data || []);
+
+            const filteredSlips = data?.filter(slip =>
+                !slip.target_grades || slip.target_grades.length === 0 ||
+                slip.target_grades.some((g: string) => relevantGrades.includes(g))
+            ) || [];
+
+            setSlips(filteredSlips || []);
         } catch (err) {
             console.error('Error fetching slips:', err);
         } finally {

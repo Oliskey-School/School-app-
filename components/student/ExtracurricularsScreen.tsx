@@ -1,47 +1,120 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Activity, ActivityCategory, ExtracurricularEvent } from '../../types';
-import { mockActivities, mockExtracurricularEvents } from '../../data';
+import { mockActivities } from '../../data';
 import { ACTIVITY_CATEGORY_CONFIG, ChevronLeftIcon, ChevronRightIcon } from '../../constants';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 type FilterType = 'All' | ActivityCategory;
 
 const ExtracurricularsScreen: React.FC = () => {
+    const { user } = useAuth();
     const [activeFilter, setActiveFilter] = useState<FilterType>('All');
-    const [signedUpActivities, setSignedUpActivities] = useState<Set<number>>(new Set([2, 4]));
-    const [currentDate, setCurrentDate] = useState(new Date('2024-08-01T12:00:00Z'));
+    const [signedUpActivities, setSignedUpActivities] = useState<Set<number>>(new Set());
+    const [eventsByDate, setEventsByDate] = useState<{ [key: string]: ExtracurricularEvent[] }>({});
+    const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [loading, setLoading] = useState(true);
 
-    const handleSignUpToggle = (activityId: number) => {
+    useEffect(() => {
+        const fetchExtracurricularData = async () => {
+            if (!user?.id) return;
+            setLoading(true);
+            try {
+                // 1. Fetch user's signed-up activities
+                const { data: participants } = await supabase
+                    .from('extracurricular_participants')
+                    .select('activity_id')
+                    .eq('student_user_id', user.id);
+
+                if (participants) {
+                    setSignedUpActivities(new Set(participants.map(p => p.activity_id)));
+                }
+
+                // 2. Fetch real calendar events
+                const { data: events } = await supabase
+                    .from('extracurricular_events')
+                    .select('*')
+                    .gte('date', new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toISOString())
+                    .lte('date', new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0).toISOString());
+
+                if (events) {
+                    const mappedEvents = events.reduce((acc: any, event: any) => {
+                        const dateKey = event.date.split('T')[0];
+                        (acc[dateKey] = acc[dateKey] || []).push({
+                            id: event.id,
+                            title: event.title,
+                            date: dateKey,
+                            category: event.category || 'Club',
+                            description: event.description
+                        });
+                        return acc;
+                    }, {} as { [key: string]: ExtracurricularEvent[] });
+                    setEventsByDate(mappedEvents);
+                }
+            } catch (error) {
+                console.error("Error fetching extracurriculars:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchExtracurricularData();
+    }, [user?.id, currentDate.getMonth()]); // Refetch when month changes
+
+    const handleSignUpToggle = async (activityId: number) => {
+        if (!user?.id) return;
+
+        const isCurrentlySignedUp = signedUpActivities.has(activityId);
+
+        // Optimistic UI update
         setSignedUpActivities(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(activityId)) {
-                newSet.delete(activityId);
-            } else {
-                newSet.add(activityId);
-            }
+            isCurrentlySignedUp ? newSet.delete(activityId) : newSet.add(activityId);
             return newSet;
         });
+
+        try {
+            if (isCurrentlySignedUp) {
+                // Leave
+                await supabase
+                    .from('extracurricular_participants')
+                    .delete()
+                    .eq('student_user_id', user.id)
+                    .eq('activity_id', activityId);
+                toast.success("Successfully left the activity.");
+            } else {
+                // Join
+                await supabase
+                    .from('extracurricular_participants')
+                    .insert({ student_user_id: user.id, activity_id: activityId });
+                toast.success("Successfully signed up for the activity!");
+            }
+        } catch (error) {
+            console.error("Error toggling sign up:", error);
+            toast.error("Failed to update activity status.");
+            // Revert optimistic update
+            setSignedUpActivities(prev => {
+                const newSet = new Set(prev);
+                isCurrentlySignedUp ? newSet.add(activityId) : newSet.delete(activityId);
+                return newSet;
+            });
+        }
     };
 
     const filteredActivities = useMemo(() => {
         if (activeFilter === 'All') return mockActivities;
         return mockActivities.filter(a => a.category === activeFilter);
     }, [activeFilter]);
-    
+
     // Calendar Logic
     const firstDayOfMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), [currentDate]);
     const daysInMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate(), [currentDate]);
     const startingDayIndex = firstDayOfMonth.getDay();
-    const eventsByDate = useMemo(() => {
-        return mockExtracurricularEvents.reduce((acc, event) => {
-            (acc[event.date] = acc[event.date] || []).push(event);
-            return acc;
-        }, {} as { [key: string]: ExtracurricularEvent[] });
-    }, []);
 
     const selectedDateEvents = useMemo(() => {
-        const dateKey = selectedDate.toISOString().split('T')[0];
+        const dateKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
         return eventsByDate[dateKey] || [];
     }, [selectedDate, eventsByDate]);
 
@@ -70,7 +143,7 @@ const ExtracurricularsScreen: React.FC = () => {
                                     const config = ACTIVITY_CATEGORY_CONFIG[activity.category];
                                     const Icon = activity.icon;
                                     return (
-                                        <div key={activity.id} className={`p-4 rounded-xl shadow-sm border-l-4 ${config.bg} ${config.color.replace('text-','border-')}`}>
+                                        <div key={activity.id} className={`p-4 rounded-xl shadow-sm border-l-4 ${config.bg} ${config.color.replace('text-', 'border-')}`}>
                                             <div className="flex items-start space-x-3">
                                                 <div className={`p-2 rounded-lg ${config.bg}`}>
                                                     <Icon className={`w-6 h-6 ${config.color}`} />

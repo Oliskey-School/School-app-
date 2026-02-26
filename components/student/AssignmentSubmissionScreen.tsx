@@ -117,11 +117,8 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       handleBack();
 
     } catch (err: any) {
-      // Ignore AbortError if we believe the main submission succeeded
       if (err.name === 'AbortError' || err.message?.includes('signal is aborted')) {
         console.warn("Caught AbortError during submission, checking if we can proceed...");
-        // If it's just a signal abort, we might already be navigating away or the request actually hit the server.
-        // For a better UX, we'll show success if we reached this point after the main insert/update.
         toast.success("Assignment submitted successfully!");
         forceUpdate();
         handleBack();
@@ -129,7 +126,13 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       }
 
       console.error("Submission error:", err);
-      toast.error("Failed to submit assignment: " + (err.message || "Unknown error"));
+
+      // Explicitly handle 403 Forbidden or missing permissions
+      if (err.status === 403 || err.message?.toLowerCase().includes('permission denied')) {
+        toast.error("You do not have permission to submit to this assignment.");
+      } else {
+        toast.error("Failed to submit assignment: " + (err.message || "Unknown error"));
+      }
     }
   };
 

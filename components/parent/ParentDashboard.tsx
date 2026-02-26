@@ -510,7 +510,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         notifications: (props: any) => <NotificationsScreen {...props} userType="parent" navigateTo={navigateTo} />,
         calendar: CalendarScreen, library: LibraryScreen, busRoute: BusRouteScreen, feeStatus: (props: any) => <FeeStatusScreen {...props} parentId={parentId} />,
         selectReport: (props: any) => <SelectChildForReportScreen {...props} parentId={parentId} />,
-        reportCard: ReportCardScreen, timetable: TimetableScreen, more: ParentProfileScreen, editParentProfile: EditParentProfileScreen,
+        reportCard: ReportCardScreen, timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'parent', userId: parentId || '' }} students={students} />, more: ParentProfileScreen, editParentProfile: EditParentProfileScreen,
         feedback: FeedbackScreen, notificationSettings: ParentNotificationSettingsScreen, securitySettings: ParentSecurityScreen,
         learningResources: LearningResourcesScreen, schoolPolicies: SchoolPoliciesScreen, ptaMeetings: PTAMeetingScreen, photoGallery: ParentPhotoGalleryScreen,
         volunteering: VolunteeringScreen, permissionSlips: PermissionSlipScreen, appointments: (props: any) => <AppointmentScreen {...props} parentId={user?.id} students={students} />,

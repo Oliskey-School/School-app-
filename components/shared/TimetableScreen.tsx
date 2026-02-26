@@ -107,16 +107,18 @@ interface TimetableScreenProps {
         userType: 'teacher' | 'student' | 'parent';
         userId: string | number;
     },
+    students?: any[];
     schoolId?: string;
     currentBranchId?: string | null;
     title?: string; // Optional title override
 }
 
-const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, currentBranchId }) => {
+const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, currentBranchId, students }) => {
     const [timetable, setTimetable] = useState<{ [key: string]: string | null }>({});
     const [teacherAssignments, setTeacherAssignments] = useState<{ [key: string]: string | null }>({});
     const [loading, setLoading] = useState(true);
     const [className, setClassName] = useState('');
+    const [selectedStudent, setSelectedStudent] = useState<any>(null);
 
     // UI State
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -128,8 +130,15 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    useEffect(() => {
+        if (context.userType === 'parent' && students && students.length > 0 && !selectedStudent) {
+            setSelectedStudent(students[0]);
+        }
+    }, [students, context.userType]);
+
     const fetchData = async () => {
-        const cacheKey = `timetable_${context.userId}_${context.userType}`;
+        const studentIdContext = context.userType === 'parent' && selectedStudent ? selectedStudent.id : context.userId;
+        const cacheKey = `timetable_${studentIdContext}_${context.userType}`;
 
         // 1. Cache First Strategy
         const cachedData = await offlineStorage.load<any>(cacheKey);
@@ -146,7 +155,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             let targetClassName = '';
 
             // 2. Identify Target Class/Teacher
-            if (context.userType === 'student' || context.userType === 'parent') {
+            if (context.userType === 'student') {
                 let studentQuery = supabase
                     .from('students')
                     .select('grade, section')
@@ -162,6 +171,8 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                     // Optional: Append section if necessary, but keep broad for now to match 'SSS 1'
                     // if (student.section) targetClassName += ` ${student.section}`;
                 }
+            } else if (context.userType === 'parent' && selectedStudent) {
+                targetClassName = getGradeDisplayName(selectedStudent.grade);
             }
 
             // 3. Fetch Timetable Data with Timeout & Scoping
@@ -269,7 +280,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [context, schoolId, currentBranchId]);
+    }, [context.userId, context.userType, schoolId, currentBranchId, selectedStudent?.id]);
 
     if (loading) {
         return (
@@ -320,6 +331,23 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             <main className="flex-1 overflow-auto bg-gray-50/50 relative p-0 md:p-6">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 pattern-grid-lg opacity-[0.03] pointer-events-none hidden md:block"></div>
+
+                {/* Child Switcher for Parents */}
+                {context.userType === 'parent' && students && students.length > 1 && (
+                    <div className="flex space-x-3 overflow-x-auto p-4 bg-white border-b border-gray-200 scrollbar-hide mb-4 shadow-sm">
+                        {students.map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => setSelectedStudent(s)}
+                                className={`flex items-center space-x-2 px-4 py-2 rounded-xl border-2 transition-all flex-shrink-0 ${selectedStudent?.id === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-gray-700 border-gray-100 hover:border-indigo-300'
+                                    }`}
+                            >
+                                <img src={s.avatarUrl || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" alt={s.name} />
+                                <span className="font-semibold text-sm">{s.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {isMobile ? (
                     <div className="flex flex-col h-full bg-gray-50">

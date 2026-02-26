@@ -13,7 +13,7 @@ interface ClassroomScreenProps {
 const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigateTo }) => {
   const { user } = useAuth();
   const { profile } = useProfile();
-  
+
   const [student, setStudent] = useState<Student | null>(null);
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [classmates, setClassmates] = useState<Student[]>([]);
@@ -37,8 +37,8 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
           // 3. Fetch Notices
           const allNotices = await fetchNotices(currentStudent.schoolId);
           const classAnnouncements = allNotices.filter(
-            n => (n.audience.includes('all') || n.audience.includes('students')) && 
-                 (!n.className || n.className === `Grade ${currentStudent.grade}${currentStudent.section}`)
+            n => (n.audience.includes('all') || n.audience.includes('students')) &&
+              (!n.className || n.className === `Grade ${currentStudent.grade}${currentStudent.section}`)
           ).slice(0, 2);
           setAnnouncements(classAnnouncements);
         }
@@ -65,11 +65,21 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
   const ringColor = bgColor.replace('bg-', 'ring-').replace('-100', '-300').replace('-200', '-300').replace('-300', '-400').replace('-400', '-500').replace('-500', '-600');
 
   const quickActions = [
-    { label: 'Assignments', icon: <ClipboardListIcon className="h-6 w-6"/>, action: () => navigateTo('assignments', `${subjectName} Assignments`, { studentId: student?.id, subjectFilter: subjectName }) },
-    { label: 'Resources', icon: <BookOpenIcon className="h-6 w-6"/>, action: () => navigateTo('library', 'E-Learning Library') },
+    { label: 'Assignments', icon: <ClipboardListIcon className="h-6 w-6" />, action: () => navigateTo('assignments', `${subjectName} Assignments`, { studentId: student?.id, subjectFilter: subjectName }) },
+    { label: 'Resources', icon: <BookOpenIcon className="h-6 w-6" />, action: () => navigateTo('library', 'E-Learning Library') },
   ];
-  
+
   if (loading) return <div className="p-8 text-center text-gray-500">Loading classroom...</div>;
+
+  if (!student && !loading) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50 items-center justify-center p-8">
+        <BookOpenIcon className="h-16 w-16 text-gray-300 mb-4" />
+        <h3 className="text-xl font-bold text-gray-800">Classroom Unavailable</h3>
+        <p className="text-gray-500 mt-2 text-center max-w-sm">We could not load your student profile. Please try refreshing or logging in again to access the classroom.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -81,59 +91,59 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2 space-y-5">
-                {/* Quick Actions */}
-                <div className="grid grid-cols-2 gap-4">
-                    {quickActions.map(item => (
-                        <button key={item.label} onClick={item.action} className={`bg-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2 hover:ring-2 ${ringColor} transition-all`}>
-                            <div className={textColor}>{item.icon}</div>
-                            <span className={`font-semibold ${textColor} text-center text-sm`}>{item.label}</span>
-                        </button>
-                    ))}
-                </div>
-
-                {/* Latest Announcements */}
-                <div>
-                    <div className="flex items-center space-x-2 mb-2 px-1">
-                        <MegaphoneIcon className={`h-5 w-5 ${textColor}`} />
-                        <h3 className="font-bold text-lg text-gray-800">Latest Announcements</h3>
-                    </div>
-                    {announcements.length > 0 ? (
-                        <div className="space-y-3">
-                        {announcements.map(notice => (
-                            <div key={notice.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-400">
-                            <h4 className="font-bold text-gray-800">{notice.title}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{notice.content.substring(0, 100)}...</p>
-                            </div>
-                        ))}
-                        </div>
-                    ) : (
-                        <div className="bg-white p-4 rounded-xl text-center text-gray-500 shadow-sm">
-                        No new announcements for this class.
-                        </div>
-                    )}
-                </div>
+          <div className="lg:col-span-2 space-y-5">
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 gap-4">
+              {quickActions.map(item => (
+                <button key={item.label} onClick={item.action} className={`bg-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2 hover:ring-2 ${ringColor} transition-all`}>
+                  <div className={textColor}>{item.icon}</div>
+                  <span className={`font-semibold ${textColor} text-center text-sm`}>{item.label}</span>
+                </button>
+              ))}
             </div>
 
-            <div className="lg:col-span-1">
-                {/* Classmates */}
-                 <div>
-                    <div className="flex items-center space-x-2 mb-3 px-1">
-                        <UsersIcon className={`h-5 w-5 ${textColor}`} />
-                        <h3 className="font-bold text-lg text-gray-800">Classmates</h3>
+            {/* Latest Announcements */}
+            <div>
+              <div className="flex items-center space-x-2 mb-2 px-1">
+                <MegaphoneIcon className={`h-5 w-5 ${textColor}`} />
+                <h3 className="font-bold text-lg text-gray-800">Latest Announcements</h3>
+              </div>
+              {announcements.length > 0 ? (
+                <div className="space-y-3">
+                  {announcements.map(notice => (
+                    <div key={notice.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-400">
+                      <h4 className="font-bold text-gray-800">{notice.title}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{notice.content.substring(0, 100)}...</p>
                     </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
-                        {classmates.length > 0 ? classmates.map(c => (
-                            <div key={c.id} className="flex items-center space-x-3">
-                                <img src={c.avatarUrl} alt={c.name} className="w-10 h-10 rounded-full object-cover"/>
-                                <p className="text-sm font-medium text-gray-700">{c.name}</p>
-                            </div>
-                        )) : (
-                          <p className="text-sm text-gray-400 text-center py-4">No classmates found.</p>
-                        )}
-                    </div>
+                  ))}
                 </div>
+              ) : (
+                <div className="bg-white p-4 rounded-xl text-center text-gray-500 shadow-sm">
+                  No new announcements for this class.
+                </div>
+              )}
             </div>
+          </div>
+
+          <div className="lg:col-span-1">
+            {/* Classmates */}
+            <div>
+              <div className="flex items-center space-x-2 mb-3 px-1">
+                <UsersIcon className={`h-5 w-5 ${textColor}`} />
+                <h3 className="font-bold text-lg text-gray-800">Classmates</h3>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
+                {classmates.length > 0 ? classmates.map(c => (
+                  <div key={c.id} className="flex items-center space-x-3">
+                    <img src={c.avatarUrl} alt={c.name} className="w-10 h-10 rounded-full object-cover" />
+                    <p className="text-sm font-medium text-gray-700">{c.name}</p>
+                  </div>
+                )) : (
+                  <p className="text-sm text-gray-400 text-center py-4">No classmates found.</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
