@@ -33,6 +33,8 @@ import {
     BookOpenIcon,
     SecurityIcon,
     FileTextIcon,
+    AcademicCapIcon,
+    UserGroupIcon,
 } from '../../constants';
 // Mock data removed
 import { AuditLog, RoleName } from '../../types';
@@ -41,6 +43,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { fetchAuditLogs } from '../../lib/database';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
 import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { useApi } from '../../lib/hooks/useApi';
@@ -282,6 +285,7 @@ interface DashboardOverviewProps {
 const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handleBack, forceUpdate, schoolId, currentBranchId, isMainBranch }) => {
     const { currentSchool, user } = useAuth();
     const { profile } = useProfile();
+    const navigate = useNavigate(); // Moved here from the instruction's suggested location
 
     // Fallback: If prop is missing (race condition), try to use profile or auth context
     const activeSchoolId = schoolId || profile?.schoolId || user?.user_metadata?.school_id;
@@ -311,6 +315,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
+    const [enrollmentData, setEnrollmentData] = useState<{ year: number; count: number }[]>([]);
+
     // --- DIAGNOSTIC LOGGING ---
     useEffect(() => {
         const runDiagnostics = async () => {
@@ -323,7 +329,14 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                     console.log('✅ [Diagnostic] RLS Context Result:', JSON.stringify(data, null, 2));
                     // Check if current user has a profile
                     if (!data.context.profile_school_id) {
-                        console.warn('⚠️ [Diagnostic] Current user has NO school_id in public.profiles!');
+                        const jwtId = data.context.jwt_school_id;
+                        if (jwtId) {
+                            console.log('ℹ️ [Diagnostic] Profile school_id is missing, but JWT metadata contains school_id. System is falling back to JWT context.');
+                        } else {
+                            console.warn('⚠️ [Diagnostic] Critical: Current user has NO school_id in public.profiles OR JWT metadata!');
+                        }
+                    } else {
+                        console.log('✅ [Diagnostic] Profile school_id verified:', data.context.profile_school_id);
                     }
                 }
             }
@@ -339,7 +352,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const [busRosterAssigned, setBusRosterAssigned] = useState(0);
     const [busRosterTotal, setBusRosterTotal] = useState(0);
     const [latestHealthLog, setLatestHealthLog] = useState<any>(null);
-    const [enrollmentData, setEnrollmentData] = useState<{ year: number; count: number }[]>([]);
+    // const [enrollmentData, setEnrollmentData] = useState<{ year: number; count: number }[]>([]); // Duplicate declaration removed
 
     const [unpublishedReports, setUnpublishedReports] = useState(0);
     const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0); // Added for student approvals
@@ -620,9 +633,21 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                 />
                                 <QuickActionCard
                                     label="PTA Meetings"
-                                    icon={<UsersIcon />}
-                                    onClick={() => navigateTo('managePTAMeetings', 'Manage PTA Meetings')}
-                                    color="bg-purple-500"
+                                    icon={<AcademicCapIcon />}
+                                    onClick={() => navigateTo('manageCurriculum', 'Curriculum Management')}
+                                    color="bg-sky-600"
+                                />
+                                <QuickActionCard
+                                    label="External Exams"
+                                    icon={<Beaker />}
+                                    onClick={() => navigate('/external-exams')}
+                                    color="bg-indigo-600 shadow-lg shadow-indigo-100 ring-2 ring-indigo-50"
+                                />
+                                <QuickActionCard
+                                    label="Enrollment"
+                                    icon={<UserGroupIcon />}
+                                    onClick={() => navigateTo('enrollmentPage', 'Student Enrollment')}
+                                    color="bg-indigo-600"
                                 />
                                 <QuickActionCard
                                     label="Curriculum"

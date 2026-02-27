@@ -2,6 +2,7 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useMemo, useEffect } from 'react';
 import { PlusIcon, EditIcon, TrashIcon, PublishIcon, EXAM_TYPE_COLORS } from '../../constants';
+import { useNavigate } from 'react-router-dom';
 import { Exam, Teacher } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { fetchExams, fetchTeachers } from '../../lib/database';
@@ -15,6 +16,7 @@ interface ExamManagementProps {
 }
 
 const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate, handleBack }) => {
+    const navigate = useNavigate();
     const { currentSchool } = useAuth();
     const [exams, setExams] = useState<Exam[]>([]);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -242,12 +244,13 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                 {filteredExams.length === 0 && !loading && <p className="text-center text-gray-500 py-8">No exams found for this filter.</p>}
             </main>
 
-            <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
+            <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40 space-y-4 flex flex-col items-end">
                 <button
-                    onClick={() => navigateTo('examRegistration', 'Setup New Exam')}
-                    className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95"
+                    onClick={() => navigate('/external-exams')}
+                    className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-2xl shadow-xl hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95"
                 >
-                    <PlusIcon className="h-6 w-6" />
+                    <PlusIcon className="h-5 w-5" />
+                    <span className="text-sm font-bold">External Exams Page</span>
                 </button>
             </div>
 

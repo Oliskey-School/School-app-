@@ -18,10 +18,17 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
     setLoading(true);
     try {
       let query = supabase.from('students').select('*');
-      if (classInfo.id) {
+      
+      // Only use ID if it looks like a UUID (36 chars)
+      if (classInfo.id && classInfo.id.length === 36) {
         query = query.or(`class_id.eq.${classInfo.id},current_class_id.eq.${classInfo.id}`);
       } else {
-        query = query.eq('grade', classInfo.grade).eq('section', classInfo.section);
+        query = query.eq('grade', classInfo.grade);
+        if (classInfo.section && classInfo.section !== 'null' && classInfo.section !== '') {
+          query = query.eq('section', classInfo.section);
+        } else {
+          query = query.is('section', null);
+        }
       }
       const { data, error } = await query.order('name', { ascending: true });
       if (error) throw error;

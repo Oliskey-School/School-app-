@@ -111,6 +111,7 @@ const NotificationsScreen = lazy(() => import('../shared/NotificationsScreen'));
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
 const AdminResultsEntrySelector = lazy(() => import('../admin/AdminResultsEntrySelector'));
 const ClassGradebookScreen = lazy(() => import('../teacher/ClassGradebookScreen'));
+const ReportCardInputScreen = lazy(() => import('../teacher/ReportCardInputScreen'));
 const ResultsEntryEnhanced = lazy(() => import('../teacher/ResultsEntryEnhanced'));
 const AdminMessagesScreen = lazy(() => import('../admin/AdminMessagesScreen'));
 const AdminNewChatScreen = lazy(() => import('../admin/AdminNewChatScreen'));
@@ -249,6 +250,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         attendanceOverview: AttendanceOverviewScreen,
         classAttendanceDetail: ClassAttendanceDetailScreen,
         adminSelectTermForReport: AdminSelectTermForReport,
+        adminReportCardInput: ReportCardInputScreen,
         healthLog: HealthLogScreen,
         busDutyRoster: BusDutyRosterScreen,
         selectUserTypeToAdd: SelectUserTypeToAddScreen,

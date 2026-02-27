@@ -12,9 +12,10 @@ interface GradebookEntry {
     studentId: string;
     studentName: string;
     avatarUrl: string;
-    schoolId: string; // Added for correct RLS and data integrity
-    ca: string;   // max 40
-    exam: string; // max 60
+    schoolId: string;
+    test1: string;   // max 20
+    test2: string;   // max 20
+    exam: string;    // max 60
     total: number;
     grade: string;
     remark: string;
@@ -51,6 +52,11 @@ const ClassGradebookScreen: React.FC<{
     const [students, setStudents] = useState<GradebookEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [currentSession, setCurrentSession] = useState("2023/2024");
+    const [currentTerm, setCurrentTerm] = useState("First Term");
+
+    const sessions = ["2023/2024", "2024/2025", "2025/2026"];
+    const terms = ["First Term", "Second Term", "Third Term"];
 
     // Fetch Teacher's Classes (Mock or Real)
     useEffect(() => {
@@ -127,24 +133,24 @@ const ClassGradebookScreen: React.FC<{
 
             // 2. Fetch Existing Report Cards (Grades)
             const merged: GradebookEntry[] = [];
-            const currentSession = "2025/2026";
-            const currentTerm = "First Term";
 
             for (const s of studentData) {
                 const rc = await fetchReportCard(s.id, currentTerm, currentSession);
                 // Find record for this subject
                 const scoreRecord = rc?.academicRecords?.find(r => r.subject === selectedSubject);
 
-                const ca = scoreRecord?.ca || 0;
+                const test1 = scoreRecord?.test1 || 0;
+                const test2 = scoreRecord?.test2 || 0;
                 const exam = scoreRecord?.exam || 0;
-                const total = scoreRecord?.total || (ca + exam);
+                const total = scoreRecord?.total || (test1 + test2 + exam);
 
                 merged.push({
                     studentId: s.id,
                     studentName: s.name,
                     avatarUrl: s.avatarUrl || '',
                     schoolId: s.schoolId || '', // Use the actual UUID for DB operations
-                    ca: ca === 0 ? '' : ca.toString(),
+                    test1: test1 === 0 ? '' : test1.toString(),
+                    test2: test2 === 0 ? '' : test2.toString(),
                     exam: exam === 0 ? '' : exam.toString(),
                     total: total,
                     grade: getGrade(total),
@@ -172,7 +178,7 @@ const ClassGradebookScreen: React.FC<{
 
 
 
-    const handleScoreChange = (index: number, field: 'ca' | 'exam', value: string) => {
+    const handleScoreChange = (index: number, field: 'test1' | 'test2' | 'exam', value: string) => {
         const newStudents = [...students];
         const entry = { ...newStudents[index] };
 
@@ -180,17 +186,19 @@ const ClassGradebookScreen: React.FC<{
         let numVal = parseInt(value, 10);
         if (isNaN(numVal)) numVal = 0;
 
-        if (field === 'ca' && numVal > 40) return; // Max 40
-        if (field === 'exam' && numVal > 60) return; // Max 60
+        if (field === 'test1' && numVal > 20) return; // Max 20
+        if (field === 'test2' && numVal > 20) return; // Max 20
+        if (field === 'exam' && numVal > 60) return;  // Max 60
 
         if (value === '' || !isNaN(parseInt(value))) {
             (entry as any)[field] = value;
             entry.isDirty = true;
 
             // Recalculate
-            const ca = parseInt(entry.ca || '0', 10);
+            const t1 = parseInt(entry.test1 || '0', 10);
+            const t2 = parseInt(entry.test2 || '0', 10);
             const exam = parseInt(entry.exam || '0', 10);
-            entry.total = ca + exam;
+            entry.total = t1 + t2 + exam;
             entry.grade = getGrade(entry.total);
 
             newStudents[index] = entry;
@@ -219,9 +227,7 @@ const ClassGradebookScreen: React.FC<{
         setSaving(true);
         try {
             const { upsertReportCard } = await import('../../lib/database');
-            const currentSession = "2025/2026";
-            const currentTerm = "First Term";
-
+            // Using dynamic session/term from state
             let successCount = 0;
 
             for (const entry of entriesToSave) {
@@ -234,7 +240,8 @@ const ClassGradebookScreen: React.FC<{
                 const recordIndex = academicRecords.findIndex(r => r.subject === selectedSubject);
                 const newRecord = {
                     subject: selectedSubject,
-                    ca: parseInt(entry.ca || '0', 10),
+                    test1: parseInt(entry.test1 || '0', 10),
+                    test2: parseInt(entry.test2 || '0', 10),
                     exam: parseInt(entry.exam || '0', 10),
                     total: entry.total,
                     grade: entry.grade,
@@ -292,6 +299,22 @@ const ClassGradebookScreen: React.FC<{
                 <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                     <div>
                         <h2 className="text-xl font-bold text-gray-800">Class Gradebook</h2>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <select
+                                value={currentSession}
+                                onChange={(e) => setCurrentSession(e.target.value)}
+                                className="text-[10px] font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
+                            >
+                                {sessions.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <select
+                                value={currentTerm}
+                                onChange={(e) => setCurrentTerm(e.target.value)}
+                                className="text-[10px] font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
+                            >
+                                {terms.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
                         <p className="text-sm text-gray-500">Manage CA and Exam scores efficiently</p>
                     </div>
 
@@ -352,10 +375,11 @@ const ClassGradebookScreen: React.FC<{
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Student</th>
-                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">CA (40)</th>
-                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Exam (60)</th>
-                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Total</th>
-                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-20">Grade</th>
+                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Test 1 (20)</th>
+                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Test 2 (20)</th>
+                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Exam (60)</th>
+                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-20">Total</th>
+                                        <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-16">Grade</th>
                                         <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Status</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                                     </tr>
@@ -383,9 +407,18 @@ const ClassGradebookScreen: React.FC<{
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 <input
                                                     type="text"
-                                                    value={student.ca}
-                                                    onChange={e => handleScoreChange(idx, 'ca', e.target.value)}
-                                                    className="w-20 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
+                                                    value={student.test1}
+                                                    onChange={e => handleScoreChange(idx, 'test1', e.target.value)}
+                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
+                                                    placeholder="0"
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <input
+                                                    type="text"
+                                                    value={student.test2}
+                                                    onChange={e => handleScoreChange(idx, 'test2', e.target.value)}
+                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
                                                     placeholder="0"
                                                 />
                                             </td>
@@ -394,7 +427,7 @@ const ClassGradebookScreen: React.FC<{
                                                     type="text"
                                                     value={student.exam}
                                                     onChange={e => handleScoreChange(idx, 'exam', e.target.value)}
-                                                    className="w-20 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
+                                                    className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
                                                     placeholder="0"
                                                 />
                                             </td>
@@ -454,24 +487,34 @@ const ClassGradebookScreen: React.FC<{
                                     </div>
 
                                     {/* Score Inputs */}
-                                    <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div className="grid grid-cols-3 gap-2 mb-3">
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">CA (40)</label>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Test 1 (20)</label>
                                             <input
                                                 type="text"
-                                                value={student.ca}
-                                                onChange={e => handleScoreChange(idx, 'ca', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-2 text-lg font-semibold focus:ring-purple-500 focus:border-purple-500"
+                                                value={student.test1}
+                                                onChange={e => handleScoreChange(idx, 'test1', e.target.value)}
+                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500"
                                                 placeholder="0"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Exam (60)</label>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Test 2 (20)</label>
+                                            <input
+                                                type="text"
+                                                value={student.test2}
+                                                onChange={e => handleScoreChange(idx, 'test2', e.target.value)}
+                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Exam (60)</label>
                                             <input
                                                 type="text"
                                                 value={student.exam}
                                                 onChange={e => handleScoreChange(idx, 'exam', e.target.value)}
-                                                className="w-full text-center border border-gray-300 rounded-lg py-2 text-lg font-semibold focus:ring-purple-500 focus:border-purple-500"
+                                                className="w-full text-center border border-gray-300 rounded-lg py-1.5 text-sm font-semibold focus:ring-purple-500 focus:border-purple-500"
                                                 placeholder="0"
                                             />
                                         </div>

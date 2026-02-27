@@ -73,12 +73,19 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
             if (!selectedClass) throw new Error("Class not found");
 
             // 2. Fetch students
-            const { data: students, error: studentError } = await supabase
+            let studentQuery = supabase
                 .from('students')
                 .select('id')
                 .eq('school_id', schoolId)
-                .eq('grade', selectedClass.grade)
-                .eq('section', selectedClass.section);
+                .eq('grade', selectedClass.grade);
+
+            if (selectedClass.section && selectedClass.section !== 'null' && selectedClass.section !== '') {
+                studentQuery = studentQuery.eq('section', selectedClass.section);
+            } else {
+                studentQuery = studentQuery.is('section', null);
+            }
+
+            const { data: students, error: studentError } = await studentQuery;
 
             if (studentError) throw studentError;
             if (!students || students.length === 0) {

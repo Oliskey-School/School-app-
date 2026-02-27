@@ -130,8 +130,13 @@ export async function fetchStudentsByClass(grade: number | string, section: stri
         let query = supabase
             .from('students')
             .select('id, school_id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday')
-            .eq('grade', grade)
-            .eq('section', section);
+            .eq('grade', grade);
+
+        if (section && section !== 'null' && section !== '') {
+            query = query.eq('section', section);
+        } else {
+            query = query.is('section', null);
+        }
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
@@ -2042,9 +2047,10 @@ export async function fetchReportCard(studentId: string | number, term: string, 
             principalComment: data.principal_comment || '',
             academicRecords: (data.report_card_records || []).map((r: any) => ({
                 subject: r.subject,
-                ca: r.ca,
-                exam: r.exam,
-                total: r.total,
+                test1: r.test1 || 0,
+                test2: r.test2 || 0,
+                exam: r.exam || 0,
+                total: r.total || 0,
                 grade: r.grade,
                 remark: r.remark
             }))
@@ -2079,7 +2085,7 @@ export async function upsertReportCard(studentId: string | number, reportCard: R
                 teacher_comment: reportCard.teacherComment,
                 principal_comment: reportCard.principalComment,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'student_id,term,session' })
+            }, { onConflict: 'student_id,term,session,school_id' })
             .select()
             .single();
 
@@ -2094,7 +2100,8 @@ export async function upsertReportCard(studentId: string | number, reportCard: R
         const records = reportCard.academicRecords.map(rec => ({
             report_card_id: reportCardId,
             subject: rec.subject,
-            ca: rec.ca,
+            test1: rec.test1 || 0,
+            test2: rec.test2 || 0,
             exam: rec.exam,
             total: rec.total,
             grade: rec.grade,
@@ -2122,7 +2129,8 @@ export async function upsertReportCard(studentId: string | number, reportCard: R
                 score: score,
                 grade: rec.grade,
                 remark: rec.remark,
-                ca_score: rec.ca,
+                test1: rec.test1 || 0,
+                test2: rec.test2 || 0,
                 exam_score: rec.exam,
                 last_updated: new Date().toISOString()
             }, { onConflict: 'student_id, subject, term, session' });

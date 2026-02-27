@@ -33,7 +33,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   const [reportCards, setReportCards] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<ReportCard['status'] | 'All'>('Submitted');
+  const [activeTab, setActiveTab] = useState<ReportCard['status'] | 'All'>('All');
   const [showPreview, setShowPreview] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentReportInfo | null>(null);
 
@@ -370,9 +370,6 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-40 text-center animate-fade-in group">
-            <div className="w-24 h-24 bg-white border border-gray-200 rounded-[2rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform duration-500">
-              <FilterIcon className="w-10 h-10 text-gray-400 group-hover:text-indigo-500 transition-colors" />
-            </div>
             <h3 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-wide">
               {activeTab === 'All' ? 'Neural Registry Empty' : `No ${activeTab} Reports`}
             </h3>

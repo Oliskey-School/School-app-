@@ -76,16 +76,15 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
                 // If class has a specific section, fetch by class ID
                 // Otherwise fetch all students in that grade for the school
-                if (classInfo.section) {
-                    // Match by grade and section to ensure consistency with Admin list
-                    studentQuery = studentQuery
-                        .eq('grade', classInfo.grade)
-                        .eq('section', classInfo.section)
-                        .eq('school_id', effectiveSchoolId);
+                // Match by grade and effective section to ensure consistency
+                studentQuery = studentQuery
+                    .eq('grade', classInfo.grade)
+                    .eq('school_id', effectiveSchoolId);
+
+                if (classInfo.section && classInfo.section !== 'null' && classInfo.section !== '') {
+                    studentQuery = studentQuery.eq('section', classInfo.section);
                 } else {
-                    studentQuery = studentQuery
-                        .eq('grade', classInfo.grade)
-                        .eq('school_id', effectiveSchoolId);
+                    studentQuery = studentQuery.is('section', null);
                 }
 
                 const { data: classStudents, error: studentError } = await studentQuery

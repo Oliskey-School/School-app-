@@ -120,14 +120,16 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
 
             const mergedRecords = finalSubjects.map(subject => {
                 const perf = performance?.find((p: any) => p.subject?.toLowerCase() === (subject as string)?.toLowerCase());
-                const ca = perf?.ca_score || 0;
+                const test1 = perf?.test1 || 0;
+                const test2 = perf?.test2 || 0;
                 const exam = perf?.exam_score || (perf?.score || 0);
-                const total = ca + exam;
+                const total = test1 + test2 + exam;
                 const grade = getGrade(total);
 
                 return {
                     subject,
-                    ca,
+                    test1,
+                    test2,
                     exam,
                     total,
                     grade,
@@ -244,11 +246,17 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                             </div>
                                             <div className="flex-1 px-10">
                                                 <h1 className="text-4xl font-black text-gray-900 leading-none uppercase tracking-tighter mb-2">
-                                                    {currentSchool?.name || 'Smart School Academy'}
+                                                    {currentSchool?.name || schoolId}
                                                 </h1>
-                                                <p className="text-indigo-600 font-black uppercase tracking-[0.4em] text-[10px] mb-4 italic">
-                                                    {currentSchool?.motto || 'Knowledge • Integrity • Excellence'}
+                                                <p className="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mb-4">
+                                                    {currentSchool?.motto || 'Excellence in Education'}
                                                 </p>
+                                                <div className="flex justify-center items-center gap-6 text-[9px] font-black text-indigo-900/60 uppercase tracking-widest mt-2 border-t border-indigo-50 pt-3">
+                                                    <span>{currentSchool?.address || 'School Campus Protocol'}</span>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-200"></span>
+                                                    <span>{currentSchool?.phone || 'Central Communications'}</span>
+                                                </div>
+                                            </div>
                                                 <div className="flex items-center justify-center gap-6 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                     <span>{currentSchool?.address || 'Institution HQ'}</span>
                                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-200" />
@@ -319,9 +327,12 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                             <table className="w-full text-left">
                                                 <thead>
                                                     <tr className="bg-gray-900 text-white">
-                                                        <th className="py-6 px-10 text-[10px] font-black uppercase tracking-widest">Subject Discipline</th>
-                                                        <th className="py-6 px-10 text-[10px] font-black uppercase tracking-widest text-center">Neural Score</th>
-                                                        <th className="py-6 px-10 text-[10px] font-black uppercase tracking-widest text-right">Alpha Grade</th>
+                                                        <th className="py-6 px-10 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Subject Discipline</th>
+                                                        <th className="py-6 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">1st Test</th>
+                                                        <th className="py-6 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">2nd Test</th>
+                                                        <th className="py-6 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">Exam</th>
+                                                        <th className="py-6 px-4 text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap">Total</th>
+                                                        <th className="py-6 px-10 text-[10px] font-black uppercase tracking-widest text-right whitespace-nowrap">Grade</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100">
@@ -329,8 +340,23 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                         dynamicReport.academicRecords.map((item, index) => (
                                                             <tr key={index} className="hover:bg-gray-50 transition-colors group/row">
                                                                 <td className="py-6 px-10 font-black text-gray-800 uppercase text-xs tracking-tight">{item.subject}</td>
-                                                                <td className="py-6 px-10 text-center">
-                                                                    <div className="inline-block px-4 py-2 bg-gray-100 rounded-2xl font-black text-gray-900 text-sm min-w-[3rem]">
+                                                                <td className="py-6 px-4 text-center">
+                                                                    <div className="inline-block px-3 py-1.5 bg-gray-50 rounded-xl font-bold text-gray-600 text-xs">
+                                                                        {item.test1 || '-'}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-6 px-4 text-center">
+                                                                    <div className="inline-block px-3 py-1.5 bg-gray-50 rounded-xl font-bold text-gray-600 text-xs">
+                                                                        {item.test2 || '-'}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-6 px-4 text-center">
+                                                                    <div className="inline-block px-3 py-1.5 bg-gray-50 rounded-xl font-bold text-gray-600 text-xs">
+                                                                        {item.exam || '-'}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-6 px-4 text-center">
+                                                                    <div className="inline-block px-4 py-2 bg-indigo-50 rounded-2xl font-black text-indigo-900 text-sm">
                                                                         {item.total}
                                                                     </div>
                                                                 </td>

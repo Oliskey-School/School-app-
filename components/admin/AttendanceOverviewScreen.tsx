@@ -14,9 +14,10 @@ interface ClassAttendanceSummary {
 interface AttendanceOverviewScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     schoolId?: string;
+    currentBranchId?: string | null;
 }
 
-const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ navigateTo, schoolId }) => {
+const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ navigateTo, schoolId, currentBranchId }) => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [attendanceData, setAttendanceData] = useState<ClassAttendanceSummary[]>([]);
     const [loading, setLoading] = useState(false);
@@ -24,20 +25,24 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
 
     useEffect(() => {
         if (schoolId) fetchAttendanceData();
-    }, [selectedDate, schoolId]);
+    }, [selectedDate, schoolId, currentBranchId]);
 
     const fetchAttendanceData = async () => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            // 1. Fetch all classes scoped to the current school
-            const { data: classesData } = await supabase.from('classes').select('id, name, grade, section').eq('school_id', schoolId).order('grade');
+            // 1. Fetch all classes scoped to the current school and branch
+            let classesQuery = supabase.from('classes').select('id, name, grade, section').eq('school_id', schoolId);
+            if (currentBranchId && currentBranchId !== 'all') {
+                classesQuery = classesQuery.eq('branch_id', currentBranchId);
+            }
+            const { data: classesData } = await classesQuery.order('grade');
 
             // 2. Fetch attendance for the selected date using Hybrid API
             const attendanceRecords = await api.getAttendanceByDate(schoolId, selectedDate);
 
-            // 3. Fetch all students to match with classes
-            const allStudents = await api.getStudents(schoolId);
+            // 3. Fetch all students to match with classes, scoped by branch
+            const allStudents = await api.getStudents(schoolId, currentBranchId || undefined);
 
             const processedData: ClassAttendanceSummary[] = [];
 

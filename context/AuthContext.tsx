@@ -117,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         name: schoolData.name,
                         slug: schoolData.slug,
                         logoUrl: schoolData.logo_url,
+                        motto: schoolData.motto,
                         website: schoolData.website,
                         address: schoolData.address,
                         contactEmail: schoolData.contact_email,

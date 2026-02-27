@@ -548,14 +548,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         const setupListener = async () => {
             try {
                 // 1. Get Class ID scoped to School
-                const { data: cls } = await supabase
+                let classQuery = supabase
                     .from('classes')
                     .select('id')
                     .eq('school_id', schoolId)
-                    .eq('grade', student.grade)
-                    .eq('section', student.section)
-                    .limit(1)
-                    .maybeSingle();
+                    .eq('grade', student.grade);
+
+                if (student.section && student.section !== 'null' && student.section !== '') {
+                    classQuery = classQuery.eq('section', student.section);
+                } else {
+                    classQuery = classQuery.is('section', null);
+                }
+
+                const { data: cls } = await classQuery.limit(1).maybeSingle();
 
                 if (cls) {
                     myClassId = cls.id;

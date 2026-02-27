@@ -16,13 +16,15 @@ import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 interface ReportCardInputScreenProps {
     student: Student;
     term: string;
+    session: string;
     handleBack: () => void;
     isAdmin?: boolean;
 }
 
 type AcademicRecordState = {
     subject: string;
-    ca: string;
+    test1: string;
+    test2: string;
     exam: string;
     total: number;
     grade: string;
@@ -55,8 +57,8 @@ const getScoreInputStyle = (scoreStr: string, maxScore: number): string => {
 };
 
 
-const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, term, handleBack, isAdmin = false }) => {
-    const { user: authUser } = useAuth();
+const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, term, session, handleBack, isAdmin = false }) => {
+    const { user: authUser, currentSchool } = useAuth();
     const [academicData, setAcademicData] = useState<AcademicRecordState[]>([]);
     const [skills, setSkills] = useState<Record<string, Rating>>({});
     const [psychomotor, setPsychomotor] = useState<Record<string, Rating>>({});
@@ -218,25 +220,30 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
             (recordToUpdate as any)[field] = value;
 
-            if (field === 'ca' || field === 'exam') {
-                let caScore = parseInt(recordToUpdate.ca, 10) || 0;
+            if (field === 'test1' || field === 'test2' || field === 'exam') {
+                let test1Score = parseInt(recordToUpdate.test1, 10) || 0;
+                let test2Score = parseInt(recordToUpdate.test2, 10) || 0;
                 let examScore = parseInt(recordToUpdate.exam, 10) || 0;
 
-                if (caScore > 40) {
-                    caScore = 40;
-                    recordToUpdate.ca = '40';
+                if (field === 'test1' && test1Score > 20) {
+                    test1Score = 20;
+                    recordToUpdate.test1 = '20';
                 }
-                if (examScore > 60) {
+                if (field === 'test2' && test2Score > 20) {
+                    test2Score = 20;
+                    recordToUpdate.test2 = '20';
+                }
+                if (field === 'exam' && examScore > 60) {
                     examScore = 60;
                     recordToUpdate.exam = '60';
                 }
 
-                const total = caScore + examScore;
+                const total = test1Score + test2Score + examScore;
                 recordToUpdate.total = total;
                 recordToUpdate.grade = getGrade(total);
 
                 if (!recordToUpdate.remarkIsManual) {
-                    recordToUpdate.remark = getRemark(total);
+                    recordToUpdate.remark = getRemark(total, recordToUpdate.grade);
                 }
             }
 
@@ -251,8 +258,8 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
     const handleGenerateRemark = async (index: number) => {
         const record = academicData[index];
-        if (!record || record.ca === '' || record.exam === '') {
-            toast.error("Please enter CA and Exam scores first.");
+        if (!record || record.test1 === '' || record.test2 === '' || record.exam === '') {
+            toast.error("Please enter Test 1, Test 2, and Exam scores first.");
             return;
         }
 
@@ -261,7 +268,8 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
             const prompt = `Generate a short, constructive remark for a student's report card.
             Subject: ${record.subject}
-            Continuous Assessment (CA) Score (out of 40): ${record.ca}
+            Test 1 Score (out of 20): ${record.test1}
+            Test 2 Score (out of 20): ${record.test2}
             Exam Score (out of 60): ${record.exam}
             Total Score (out of 100): ${record.total}
             
@@ -292,11 +300,12 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
         const newReportCard: ReportCard = {
             term,
-            session: "2023/2024",
+            session: session, // Use session from props
             status,
             academicRecords: academicData.map(rec => ({
                 subject: rec.subject,
-                ca: parseInt(rec.ca, 10) || 0,
+                test1: parseInt(rec.test1, 10) || 0,
+                test2: parseInt(rec.test2, 10) || 0,
                 exam: parseInt(rec.exam, 10) || 0,
                 total: rec.total,
                 grade: rec.grade,
@@ -346,15 +355,21 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
                     <div className="text-center pt-2">
                         <div className="flex justify-center items-center gap-3 mb-2">
-                            <SchoolLogoIcon className="text-indigo-600 h-12 w-12" />
-                            <h1 className="text-3xl font-black text-gray-900 tracking-tight">Smart School Academy</h1>
+                            {currentSchool?.logoUrl ? (
+                                <img src={currentSchool.logoUrl} alt="School Logo" className="h-14 w-14 object-contain rounded-lg" />
+                            ) : (
+                                <SchoolLogoIcon className="text-indigo-600 h-12 w-12" />
+                            )}
+                            <h1 className="text-3xl font-black text-gray-900 tracking-tight">{currentSchool?.name || 'School Academy'}</h1>
                         </div>
+                        {currentSchool?.motto && <p className="text-gray-500 italic text-xs mb-1">"{currentSchool.motto}"</p>}
                         <p className="text-indigo-600 font-black uppercase tracking-[0.2em] text-xs">End of Term Report Card - Input System</p>
 
                         <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm font-bold text-gray-500">
                             <span className="bg-gray-100 px-3 py-1 rounded-full">STUDENT: <span className="text-gray-900">{student.name}</span></span>
                             <span className="bg-gray-100 px-3 py-1 rounded-full">TERM: <span className="text-gray-900">{term}</span></span>
                             <span className="bg-gray-100 px-3 py-1 rounded-full">CLASS: <span className="text-gray-900">{student.grade}{student.section}</span></span>
+                            <span className="bg-gray-100 px-3 py-1 rounded-full">SESSION: <span className="text-gray-900">{session}</span></span>
                         </div>
                     </div>
                 </header>
@@ -365,7 +380,8 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                         <thead className="bg-gray-50 text-gray-600 font-black uppercase tracking-wider text-[10px]">
                             <tr>
                                 <th className="p-3 border border-gray-200 text-left">Subject</th>
-                                <th className="p-3 border border-gray-200 w-24 text-center text-indigo-600">CA (40)</th>
+                                <th className="p-3 border border-gray-200 w-20 text-center text-indigo-600">Test 1 (20)</th>
+                                <th className="p-3 border border-gray-200 w-20 text-center text-indigo-600">Test 2 (20)</th>
                                 <th className="p-3 border border-gray-200 w-24 text-center text-indigo-600">Exam (60)</th>
                                 <th className="p-3 border border-gray-200 w-24 text-center bg-indigo-50">Total (100)</th>
                                 <th className="p-3 border border-gray-200 w-20 text-center">Grade</th>
@@ -379,8 +395,42 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                                 return (
                                     <tr key={index} className={canEditScores ? '' : 'bg-gray-50'}>
                                         <td className="p-1 border font-semibold text-gray-800">{record.subject}</td>
-                                        <td className="p-1 border"><input type="number" max="40" min="0" value={record.ca} disabled={!canEditScores || isLocked} onChange={e => handleAcademicChange(index, 'ca', e.target.value)} className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.ca, 40)}`} /></td>
-                                        <td className="p-1 border"><input type="number" max="60" min="0" value={record.exam} disabled={!canEditScores || isLocked} onChange={e => handleAcademicChange(index, 'exam', e.target.value)} className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.exam, 60)}`} /></td>
+                                        <td className="p-1 border">
+                                            <input
+                                                type="number"
+                                                max="20"
+                                                min="0"
+                                                value={record.test1}
+                                                disabled={!canEditScores || isLocked}
+                                                onChange={e => handleAcademicChange(index, 'test1', e.target.value)}
+                                                className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.test1, 20)}`}
+                                                placeholder="T1"
+                                            />
+                                        </td>
+                                        <td className="p-1 border">
+                                            <input
+                                                type="number"
+                                                max="20"
+                                                min="0"
+                                                value={record.test2}
+                                                disabled={!canEditScores || isLocked}
+                                                onChange={e => handleAcademicChange(index, 'test2', e.target.value)}
+                                                className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.test2, 20)}`}
+                                                placeholder="T2"
+                                            />
+                                        </td>
+                                        <td className="p-1 border">
+                                            <input
+                                                type="number"
+                                                max="60"
+                                                min="0"
+                                                value={record.exam}
+                                                disabled={!canEditScores || isLocked}
+                                                onChange={e => handleAcademicChange(index, 'exam', e.target.value)}
+                                                className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.exam, 60)}`}
+                                                placeholder="Exam"
+                                            />
+                                        </td>
                                         <td className="p-1 border text-center font-bold text-gray-800">{record.total}</td>
                                         <td className="p-1 border text-center font-bold text-gray-800">{record.grade}</td>
                                         <td className="p-1 border">

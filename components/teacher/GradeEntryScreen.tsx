@@ -62,12 +62,18 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
             setLoading(true);
             try {
                 // 1. Fetch Students
-                const { data: studentsData, error } = await supabase
+                let studentQuery = supabase
                     .from('students')
                     .select('*')
-                    .eq('grade', gradeSection.grade)
-                    .eq('section', gradeSection.section)
-                    .order('name');
+                    .eq('grade', gradeSection.grade);
+
+                if (gradeSection.section && gradeSection.section !== 'null' && gradeSection.section !== '') {
+                    studentQuery = studentQuery.eq('section', gradeSection.section);
+                } else {
+                    studentQuery = studentQuery.is('section', null);
+                }
+
+                const { data: studentsData, error } = await studentQuery.order('name');
 
                 if (error) throw error;
 

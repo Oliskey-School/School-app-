@@ -8,6 +8,7 @@ import { CheckCircleIcon, XCircleIcon, ClockIcon, ExclamationCircleIcon } from '
 
 interface ClassAttendanceDetailScreenProps {
     classInfo: ClassInfo & { present: number; total: number; };
+    currentBranchId?: string | null;
 }
 
 const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ status }) => {
@@ -26,7 +27,7 @@ const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ sta
     );
 };
 
-const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = ({ classInfo }) => {
+const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = ({ classInfo, currentBranchId }) => {
     const { currentSchool } = useAuth();
     const [studentsInClass, setStudentsInClass] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
@@ -36,7 +37,7 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
             if (!currentSchool) return;
             setLoading(true);
             try {
-                const data = await fetchStudentsByClass(classInfo.grade, classInfo.section, currentSchool.id);
+                const data = await fetchStudentsByClass(classInfo.grade, classInfo.section, currentSchool.id, currentBranchId || undefined);
                 setStudentsInClass(data);
             } catch (err) {
                 console.error("Error loading class students:", err);
@@ -47,7 +48,7 @@ const ClassAttendanceDetailScreen: React.FC<ClassAttendanceDetailScreenProps> = 
         if (currentSchool) {
             loadStudents();
         }
-    }, [classInfo.grade, classInfo.section, currentSchool]);
+    }, [classInfo.grade, classInfo.section, currentSchool, currentBranchId]);
 
     const attendanceSummary = useMemo(() => {
         const total = studentsInClass.length;

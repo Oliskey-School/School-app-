@@ -72,7 +72,8 @@ vi.mock('../../../lib/api', () => {
         bulkFetchAttendance: vi.fn().mockResolvedValue([]),
         getStudentPerformance: vi.fn().mockResolvedValue([]),
         getQuizResults: vi.fn().mockResolvedValue([]),
-        getTimetable: vi.fn().mockResolvedValue([])
+        getTimetable: vi.fn().mockResolvedValue([]),
+        getQuizzesByClass: vi.fn().mockResolvedValue([])
     };
     return {
         api: mockApi,
@@ -124,9 +125,9 @@ describe('StudentDashboard Visibility', () => {
         expect(screen.getByText(/AI Tools/i)).toBeTruthy();
         
         // Verify quick access items
-        expect(screen.getByText(/Subjects/i)).toBeTruthy();
-        expect(screen.getByText(/Timetable/i)).toBeTruthy();
-        expect(screen.getByText(/CBT Exams/i)).toBeTruthy();
+        expect(screen.getAllByText(/Subjects/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Timetable/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Games/i).length).toBeGreaterThan(0);
 
         // Verify bottom navigation items are present
         expect(screen.getAllByText(/Home/i).length).toBeGreaterThan(0);

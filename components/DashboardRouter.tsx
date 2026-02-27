@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DashboardType } from '../types';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
 import PremiumErrorPage from './ui/PremiumErrorPage';
 
@@ -21,6 +21,7 @@ const ComplianceOfficerDashboard = React.lazy(() => import('./admin/ComplianceOf
 const ExamOfficerDashboard = React.lazy(() => import('./admin/ExamOfficerDashboard'));
 const CounselorDashboard = React.lazy(() => import('./admin/CounselorDashboard'));
 const SubscriptionPage = React.lazy(() => import('./subscription/SubscriptionPage'));
+const ExternalExamsPage = React.lazy(() => import('./admin/ExternalExamsPage'));
 
 // Simple Loading Component
 const LoadingScreen = () => (
@@ -130,14 +131,23 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
                 Using CSS variables is cleaner.
              */}
             <div
-                className="dashboard-container"
+                className="dashboard-container h-full w-full"
                 style={{
                     // @ts-ignore custom property
                     '--school-primary': currentSchool?.primaryColor || '#4F46E5', // Default Indigo-600
                     '--school-secondary': currentSchool?.secondaryColor || '#ffffff',
                 } as React.CSSProperties}
             >
-                {renderDashboard()}
+                <Routes>
+                    {/* The root dashboard based on role */}
+                    <Route path="/" element={renderDashboard()} />
+                    
+                    {/* The specific External Exams page requested by the user */}
+                    <Route path="/external-exams" element={<ExternalExamsPage {...props} />} />
+                    
+                    {/* Fallback to root dashboard if path and role mismatch */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
             </div>
         </React.Suspense>
     );

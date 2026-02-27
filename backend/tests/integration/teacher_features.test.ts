@@ -35,7 +35,7 @@ vi.mock('../../src/config/supabase', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {
-        req.user = { 
+        req.user = {
             id: 'test-teacher-id',
             school_id: 'school-123',
             role: 'teacher',
@@ -70,7 +70,10 @@ describe('Teacher Backend Integration Tests', () => {
     describe('Assignment Management', () => {
         it('GET /api/assignments - Should list assignments', async () => {
             const mockAssignments = [{ id: 'a1', title: 'Math Homework' }];
-            mockQuery.then.mockImplementation((cb: any) => cb({ data: mockAssignments, error: null }));
+            // Controller first does maybeSingle() to find teacher profile, then calls AssignmentService
+            mockQuery.maybeSingle.mockResolvedValueOnce({ data: { id: 'teacher-profile-1' }, error: null });
+            // AssignmentService.getAssignments ends with .order() which is awaited
+            mockQuery.order.mockResolvedValueOnce({ data: mockAssignments, error: null });
 
             const res = await request(app).get('/api/assignments');
             expect(res.status).toBe(200);
@@ -98,7 +101,7 @@ describe('Teacher Backend Integration Tests', () => {
                 .post('/api/attendance')
                 .send({ records: [{ studentId: 's1', status: 'Present', date: '2026-02-25' }] });
 
-            expect(res.status).toBe(200); 
+            expect(res.status).toBe(200);
         });
     });
 

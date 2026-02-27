@@ -81,7 +81,8 @@ export type Rating = 'A' | 'B' | 'C' | 'D' | 'E' | '';
 
 export interface ReportCardAcademicRecord {
   subject: string;
-  ca: number;
+  test1: number;
+  test2: number;
   exam: number;
   total: number;
   grade: string;
