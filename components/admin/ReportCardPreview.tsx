@@ -257,13 +257,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                     <span>{currentSchool?.phone || 'Central Communications'}</span>
                                                 </div>
                                             </div>
-                                                <div className="flex items-center justify-center gap-6 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                    <span>{currentSchool?.address || 'Institution HQ'}</span>
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-200" />
-                                                    <span>{currentSchool?.contactEmail || 'Contact Email'}</span>
-                                                </div>
-                                            </div>
-                                            <div className="w-28 px-4 py-3 bg-gray-900 text-white rounded-3xl">
+                                            <div className="w-28 px-4 py-3 bg-gray-900 text-white rounded-3xl text-left">
                                                 <div className="text-[10px] font-black uppercase tracking-tighter opacity-50 mb-1 leading-none">Session</div>
                                                 <div className="text-sm font-black tracking-tight">{dynamicReport.session}</div>
                                             </div>

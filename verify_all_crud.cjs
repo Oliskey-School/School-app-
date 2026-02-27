@@ -14,10 +14,10 @@ const tables = [
 ];
 
 async function runDiagnostics() {
-    console.log('🚀 Final Final System-Wide CRUD Verification (100% SUCCESS TARGET)\n');
+    console.log('🚀 FINAL System-Wide CRUD Verification (100% SUCCESS TARGET)\n');
     const errors = [];
 
-    // Context IDs
+    // Fetch context IDs
     const { data: prof } = await supabase.from('profiles').select('id').limit(1).maybeSingle();
     const { data: teacher } = await supabase.from('teachers').select('id').limit(1).maybeSingle();
     const { data: student } = await supabase.from('students').select('id').limit(1).maybeSingle();
@@ -64,6 +64,8 @@ async function runDiagnostics() {
                 case 'timetable':
                     payload.day = 'Monday'; payload.start_time = '09:00:00'; payload.end_time = '10:00:00';
                     payload.subject = subject?.name || 'Math'; payload.teacher_id = teacher?.id;
+                    payload.class_name = cls?.name || 'Diag Class';
+                    payload.period_index = 1;
                     break;
                 case 'teacher_attendance':
                     payload.teacher_id = teacher?.id; payload.status = 'present'; payload.date = new Date().toISOString().split('T')[0];
@@ -75,7 +77,7 @@ async function runDiagnostics() {
                     payload.title = 'Diag HW'; payload.subject_id = subject?.id; payload.due_date = new Date().toISOString();
                     break;
                 case 'assignment_submissions':
-                    payload.assignment_id = assignment?.id; payload.student_id = student?.id; payload.submission_text = 'Done';
+                    payload.assignment_id = assignment?.id; payload.student_id = student?.id; payload.student_user_id = prof?.id; payload.submission_text = 'Done';
                     break;
                 case 'messages':
                     payload.conversation_id = conv?.id; payload.sender_user_id = prof?.id; payload.body = 'Ping';
@@ -121,16 +123,17 @@ async function runDiagnostics() {
                 insertStatus = '✅';
             }
 
+            // Read
             const { data: readData, error: readError } = await supabase.from(table).select('*').limit(1);
             readStatus = readError ? '❌' : '✅';
             if (readError) errors.push(`[${table} READ] ${readError.message} (${readError.code})`);
 
+            // Update
             if (readData && readData.length > 0) {
                 const record = readData[0];
                 const updatePayload = {};
-                const fields = ['status', 'name', 'title', 'full_name', 'body', 'remarks', 'subject', 'relationship', 'score', 'submission_text', 'content'];
+                const fields = ['status', 'name', 'title', 'full_name', 'body', 'remarks', 'subject', 'relationship', 'score', 'submission_text', 'content', 'first_name'];
                 for (const f of fields) { if (f in record) { updatePayload[f] = record[f]; break; } }
-                
                 if (Object.keys(updatePayload).length > 0) {
                     const { error: updError } = await supabase.from(table).update(updatePayload).eq('id', record.id);
                     updateStatus = updError ? '❌' : '✅';
