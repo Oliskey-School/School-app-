@@ -117,8 +117,9 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
 
         const finalGroups: Record<number, any[]> = {};
         Object.values(groups).forEach(g => {
-            if (!finalGroups[g.grade]) finalGroups[g.grade] = [];
-            finalGroups[g.grade].push(g);
+            const gradeNum = g.grade !== null && g.grade !== undefined ? Number(g.grade) : 0;
+            if (!finalGroups[gradeNum]) finalGroups[gradeNum] = [];
+            finalGroups[gradeNum].push(g);
         });
         return finalGroups;
     }, [classes]);
@@ -154,7 +155,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                                 <h3 className={`font-bold text-lg ${textColor}`}>{formattedClassNameWithoutSection}</h3>
                             </div>
                             <div className="p-4 space-y-3">
-                                {gradeClasses.map(group => (
+                                {gradeClasses && gradeClasses.map(group => (
                                     <div key={group.name} className="space-y-2">
                                         {group.sections.map(cls => (
                                             <div

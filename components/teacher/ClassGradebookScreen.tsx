@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../../constants';
 import CenteredLoader from '../ui/CenteredLoader';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
@@ -52,11 +53,64 @@ const ClassGradebookScreen: React.FC<{
     const [students, setStudents] = useState<GradebookEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [currentSession, setCurrentSession] = useState("2023/2024");
-    const [currentTerm, setCurrentTerm] = useState("First Term");
+    const [sessions, setSessions] = useState<string[]>([]);
+    const [terms, setTerms] = useState<any[]>([]);
+    const [currentSession, setCurrentSession] = useState("");
+    const [currentTerm, setCurrentTerm] = useState<any>(null);
+    const [isPeriodOpen, setIsPeriodOpen] = useState(true);
 
-    const sessions = ["2023/2024", "2024/2025", "2025/2026"];
-    const terms = ["First Term", "Second Term", "Third Term"];
+    // Fetch Academic Periods from Backend
+    useEffect(() => {
+        const fetchPeriods = async () => {
+            if (!currentSchool?.id) return;
+            try {
+                const { data, error } = await supabase
+                    .from('academic_terms')
+                    .select('*')
+                    .eq('school_id', currentSchool.id)
+                    .order('start_date', { ascending: false });
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const uniqueSessions = Array.from(new Set(data.map(t => t.academic_year)));
+                    setSessions(uniqueSessions);
+                    setTerms(data);
+
+                    // Set default current session and term
+                    const current = data.find(t => t.is_current) || data[0];
+                    setCurrentSession(current.academic_year);
+                    setCurrentTerm(current);
+                } else {
+                    // Fallback if empty
+                    setSessions(["2024/2025"]);
+                    const fallbackTerm = { name: "First Term", academic_year: "2024/2025", start_date: '2024-09-01', end_date: '2025-07-30' };
+                    setTerms([fallbackTerm]);
+                    setCurrentSession("2024/2025");
+                    setCurrentTerm(fallbackTerm);
+                }
+            } catch (err) {
+                console.error("Error fetching academic periods:", err);
+            }
+        };
+        fetchPeriods();
+    }, [currentSchool?.id]);
+
+    // Check if within starting/ending point
+    useEffect(() => {
+        if (currentTerm) {
+            const now = new Date();
+            const start = new Date(currentTerm.start_date);
+            const end = new Date(currentTerm.end_date);
+            // In a real app, you might have a specific 'results_entry_end_date'
+            // For now, we'll just show the period info
+            console.log(`Results Entry Period: ${currentTerm.start_date} to ${currentTerm.end_date}`);
+        }
+    }, [currentTerm]);
+
+    const filteredTerms = useMemo(() => {
+        return terms.filter(t => t.academic_year === currentSession);
+    }, [terms, currentSession]);
 
     // Fetch Teacher's Classes (Mock or Real)
     useEffect(() => {

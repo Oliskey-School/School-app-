@@ -42,12 +42,6 @@ vi.mock('../../../services/RealtimeService', () => ({
 // Mock child components to isolate Dashboard shell testing
 vi.mock('../TeacherOverview', () => ({ default: () => <div>Overview Content</div> }));
 
-// Mock IndexedDB
-global.indexedDB = {
-    open: vi.fn(),
-    deleteDatabase: vi.fn(),
-} as any;
-
 describe('TeacherDashboard', () => {
   it('renders the dashboard shell correctly', async () => {
     render(

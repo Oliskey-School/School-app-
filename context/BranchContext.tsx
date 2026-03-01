@@ -2,17 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { isDemoMode, backendFetch } from '../lib/database';
 import { ChevronDown, Building } from 'lucide-react';
-import { DashboardType } from '../types';
-
-// Types
-export interface Branch {
-    id: string;
-    name: string;
-    is_main: boolean;
-    curriculum_type?: 'nigerian' | 'british' | 'american';
-    location?: string;
-}
+import { Branch, DashboardType } from '../types';
 
 interface BranchContextType {
     currentBranch: Branch | null;
@@ -47,13 +39,28 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 setIsLoading(true);
 
                 // Fetch all branches for this school
-                const { data, error } = await supabase
+                let { data, error } = await supabase
                     .from('branches')
                     .select('id, name, is_main, curriculum_type, location')
                     .eq('school_id', currentSchool.id)
-                    .order('is_main', { ascending: false });
+                    .order('is_main', { ascending: false }) as { data: Branch[] | null, error: any };
 
-                if (error) throw error;
+                // Fallback to backend API if direct query returns nothing and we're in demo mode
+                if ((!data || data.length === 0) && (isDemoMode() || !error)) {
+                    try {
+                        const backendData = await backendFetch<Branch[]>('/branches');
+                        if (backendData && backendData.length > 0) {
+                            data = backendData;
+                        }
+                    } catch (backendErr) {
+                        console.error('Backend fallback failed for branches:', backendErr);
+                    }
+                }
+
+                if (error && !data) {
+                    console.error('Supabase fetchBranches error:', error);
+                    // Don't throw here, allow fallback or empty state
+                }
 
                 if (data && data.length > 0) {
                     setBranches(data);

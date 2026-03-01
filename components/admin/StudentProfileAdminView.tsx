@@ -47,6 +47,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         late: 0,
         leave: 0,
     });
+    const [enrollments, setEnrollments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const academicPerformance = student.academicPerformance || [];
@@ -54,13 +55,16 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         ? Math.round(academicPerformance.reduce((sum, record) => sum + record.score, 0) / academicPerformance.length)
         : 0;
 
-    const formattedClassName = getFormattedClassName(student.grade, student.section);
-
-    // Fetch attendance data from database
+    // Fetch enrollments and attendance
     React.useEffect(() => {
-        const fetchAttendance = async () => {
+        const loadProfileData = async () => {
             try {
-                const { data: attendanceRecords, error } = await supabase
+                const enrollmentResults = await supabase.from('student_enrollments').select('classes(name, section)').eq('student_id', student.id);
+                if (enrollmentResults.data) {
+                    setEnrollments(enrollmentResults.data.map((e: any) => `${e.classes.name}${e.classes.section ? ` (${e.classes.section})` : ''}`));
+                }
+
+                const { data: attendanceRecords } = await supabase
                     .from('student_attendance')
                     .select('status')
                     .eq('student_id', student.id);
@@ -194,7 +198,22 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                             <img src={student.avatarUrl} alt={student.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100" />
                             <div>
                                 <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
-                                <p className="text-gray-500 font-medium">{formattedClassName}{student.department && `, ${student.department} `}</p>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {enrollments.length > 0 ? (
+                                        enrollments.map((className, idx) => (
+                                            <span key={idx} className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full border border-indigo-100">
+                                                {className}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <p className="text-gray-500 font-medium text-sm">{getFormattedClassName(student.grade, student.section)}</p>
+                                    )}
+                                    {student.department && (
+                                        <span className="bg-amber-50 text-amber-700 text-xs font-bold px-2 py-1 rounded-full border border-amber-100">
+                                            {student.department}
+                                        </span>
+                                    )}
+                                </div>
                                 {student.birthday && (
                                     <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
                                         <CakeIcon className="w-4 h-4" />

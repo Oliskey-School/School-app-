@@ -95,21 +95,7 @@ const StatItem = ({ icon, label, value, colorClass }: { icon: React.ReactNode, l
 );
 
 const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: string, props?: any) => void, colorTheme: { bg: string, text: string } }> = ({ data, navigateTo, colorTheme }) => {
-    const { student, feeInfo, nextHomework, attendancePercentage } = data;
-    const formattedClassName = getFormattedClassName(student.grade, student.section);
-
-    const feeStatus = feeInfo ? (
-        <div className="flex flex-col">
-            <span className={feeInfo.status === 'overdue' ? 'text-red-600 font-bold' : 'text-gray-800 font-semibold'}>
-                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(feeInfo.totalDue)}
-            </span>
-            {feeInfo.nextDueDate && (
-                <span className="text-xs text-gray-500 mt-0.5">
-                    Due: {new Date(feeInfo.nextDueDate).toLocaleDateString('en-GB')}
-                </span>
-            )}
-        </div>
-    ) : <span className="text-green-600 font-semibold">All Paid</span>;
+    const { student, feeInfo, nextHomework, attendancePercentage, enrollments } = data;
 
     return (
         <div className="bg-white rounded-2xl shadow-md overflow-hidden transition-transform hover:shadow-lg">
@@ -119,7 +105,17 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
                         <img src={student.avatarUrl} alt={student.name} className="w-14 h-14 rounded-full object-cover border-2" style={{ borderColor: colorTheme.bg }} />
                         <div>
                             <h3 className="font-bold text-lg text-gray-800">{student.name}</h3>
-                            <p className="text-sm font-semibold" style={{ color: colorTheme.text }}>{formattedClassName}</p>
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                                {enrollments && enrollments.length > 0 ? (
+                                    enrollments.map((cls: string, idx: number) => (
+                                        <span key={idx} className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/80 border" style={{ color: colorTheme.text, borderColor: `${colorTheme.bg}40` }}>
+                                            {cls}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <p className="text-sm font-semibold" style={{ color: colorTheme.text }}>{getFormattedClassName(student.grade, student.section)}</p>
+                                )}
+                            </div>
                             <p className="text-xs text-gray-500 mt-1">ID: {student.schoolGeneratedId || 'Pending'}</p>
                         </div>
                     </div>
@@ -147,13 +143,30 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
     useEffect(() => {
         const fetchAcademics = async () => {
             try {
+                // Get student's class IDs from enrollments
+                const { data: enrollmentData } = await supabase
+                    .from('student_enrollments')
+                    .select('class_id')
+                    .eq('student_id', student.id);
+
+                const classIds = enrollmentData?.map(e => e.class_id) || [];
+
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
                 let assignmentsQuery = supabase
                     .from('assignments')
                     .select('*')
-                    .or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`)
                     .eq('school_id', schoolId)
-                    .gt('due_date', new Date().toISOString())
+                    .gte('due_date', sevenDaysAgo.toISOString())
                     .order('due_date', { ascending: true });
+
+                if (classIds.length > 0) {
+                    assignmentsQuery = assignmentsQuery.in('class_id', classIds);
+                } else {
+                    // Fallback to rough name match if no enrollments found
+                    assignmentsQuery = assignmentsQuery.or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`);
+                }
 
                 if (currentBranchId) assignmentsQuery = assignmentsQuery.eq('branch_id', currentBranchId);
 
@@ -366,10 +379,11 @@ const ParentDashboardContent = ({ navigateTo, schoolId, currentUser, version, st
             const ids = students.map(s => s.id);
             try {
                 const today = new Date().toISOString();
-                const [allFees, allAttendance, allAssignments] = await Promise.all([
+                const [allFees, allAttendance, allAssignments, allEnrollments] = await Promise.all([
                     api.bulkFetchFees(ids, ['pending', 'partial']),
                     api.bulkFetchAttendance(ids),
-                    api.getAssignments(schoolId as string)
+                    api.getAssignments(schoolId as string),
+                    supabase.from('student_enrollments').select('student_id, class_id, classes(name, section)').in('student_id', ids)
                 ]);
                 const stats = students.map(student => {
                     const studentFees = (allFees || []).filter((f: any) => f.studentId === student.id);
@@ -378,7 +392,10 @@ const ParentDashboardContent = ({ navigateTo, schoolId, currentUser, version, st
                     const presentCount = studentAtt.filter((a: any) => a.status === 'Present').length;
                     const attendancePercentage = studentAtt.length > 0 ? Math.round((presentCount / studentAtt.length) * 100) : 0;
                     const nextHomework = (allAssignments || []).find((a: any) => a.class_name?.toLowerCase().includes(String(student.grade).toLowerCase()) && a.class_name?.toLowerCase().includes(String(student.section).toLowerCase()));
-                    return { student, feeInfo, nextHomework: nextHomework ? { subject: nextHomework.subject, title: nextHomework.title } : null, attendancePercentage };
+                    const studentEnrollments = (allEnrollments.data || [])
+                        .filter((e: any) => e.student_id === student.id)
+                        .map((e: any) => `${e.classes.name}${e.classes.section ? ` (${e.classes.section})` : ''}`);
+                    return { student, feeInfo, nextHomework: nextHomework ? { subject: nextHomework.subject, title: nextHomework.title } : null, attendancePercentage, enrollments: studentEnrollments };
                 });
                 setChildrenStats(stats);
             } catch (err) { console.error("Error batch fetching dashboard stats:", err); }

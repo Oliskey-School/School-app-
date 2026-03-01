@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Hybrid API Client
  * 
  * This client provides two modes of operation:
@@ -17,9 +17,13 @@ interface ApiOptions {
 }
 
 const getAuthToken = async (): Promise<string | null> => {
+    // 🛡️ Demo Mode Priority
+    if (sessionStorage.getItem('is_demo_mode') === 'true') {
+        return 'demo-auth-token';
+    }
+
     const local = localStorage.getItem('auth_token');
     if (local) {
-        console.log('🔑 [API] Found cached auth_token in localStorage');
         return local;
     }
 
@@ -28,9 +32,9 @@ const getAuthToken = async (): Promise<string | null> => {
     const sessionToken = data.session?.access_token || null;
 
     if (sessionToken) {
-        console.log('🔑 [API] Retrieved access_token from Supabase session');
+        console.log('ðŸ”‘ [API] Retrieved access_token from Supabase session');
     } else {
-        console.warn('⚠️ [API] No auth token found in localStorage or Supabase session');
+        console.warn('âš ï¸ [API] No auth token found in localStorage or Supabase session');
     }
 
     return sessionToken;
@@ -43,6 +47,12 @@ class HybridApiClient {
     constructor(baseUrl: string = API_BASE_URL, options: ApiOptions = { useBackend: false }) {
         this.baseUrl = baseUrl;
         this.options = options;
+    }
+
+    private isDemoMode(): boolean {
+        const isDemo = sessionStorage.getItem('is_demo_mode') === 'true';
+        if (isDemo) console.log('🛡️ [API] Operating in Demo Mode (Backend Fallback Active)');
+        return isDemo;
     }
 
     /**
@@ -72,7 +82,7 @@ class HybridApiClient {
     }
 
     private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        console.log(`🌐 [API Request] ${endpoint}`);
+        console.log(`ðŸŒ [API Request] ${endpoint}`);
         const token = await getAuthToken();
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
@@ -82,7 +92,7 @@ class HybridApiClient {
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         } else {
-            console.warn(`⚠️ [API] Sending request to ${endpoint} WITHOUT token!`);
+            console.warn(`âš ï¸ [API] Sending request to ${endpoint} WITHOUT token!`);
         }
 
         const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -92,7 +102,7 @@ class HybridApiClient {
 
         if (!response.ok) {
             const error = await response.json();
-            console.error(`❌ [API Error] ${endpoint}:`, error);
+            console.error(`âŒ [API Error] ${endpoint}:`, error);
             throw new Error(error.message || 'API request failed');
         }
 
@@ -105,8 +115,18 @@ class HybridApiClient {
 
     async getDashboardStats(schoolId: string, branchId?: string): Promise<any> {
         if (!schoolId) return null;
-        if (this.options.useBackend) {
-            return this.fetch<any>(`/dashboard/stats${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
+
+        const isDemoMode = sessionStorage.getItem('is_demo_mode') === 'true';
+
+        if (this.options.useBackend || isDemoMode) {
+            try {
+                const stats = await this.fetch<any>(`/dashboard/stats${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
+                if (stats && (stats.totalStudents > 0 || stats.totalTeachers > 0)) {
+                    return stats;
+                }
+            } catch (err) {
+                console.warn('Backend stats fetch failed, falling back to RPC:', err);
+            }
         }
 
         try {
@@ -120,8 +140,20 @@ class HybridApiClient {
             });
 
             if (error) {
-                console.error('RPC Error fetching dashboard stats:', error);
+                // If RPC fails and we didn't already try backend, try backend now
+                if (!isDemoMode) {
+                    return this.fetch<any>(`/dashboard/stats${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
+                }
                 throw error;
+            }
+
+            // If we got 0s everywhere, it might be RLS blocking us (even if error is null)
+            if (data && data.totalStudents === 0 && data.totalTeachers === 0 && !isDemoMode) {
+                try {
+                    return await this.fetch<any>(`/dashboard/stats${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
+                } catch (e) {
+                    // Ignore and return the 0s
+                }
             }
 
             return {
@@ -142,13 +174,61 @@ class HybridApiClient {
         }
     }
 
+    async getTeacherDashboardStats(teacherId: string, schoolId: string, branchId?: string | null): Promise<any> {
+        if (!teacherId || !schoolId) return null;
+
+        let result: any = {};
+        if (this.isDemoMode() || this.options.useBackend) {
+            try {
+                const url = `/dashboard/stats?teacherId=${teacherId}&schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`;
+                result = await this.fetch<any>(url);
+            } catch (err) {
+                console.warn('Backend teacher stats fetch failed, falling back to direct:', err);
+            }
+        }
+
+        if (!result || Object.keys(result).length === 0) {
+            // Direct implementation (Syncing with useTeacherStats logic)
+            try {
+                // First resolve real teacher id if it's the auth user id
+                const { data: teacherRow } = await supabase
+                    .from('teachers')
+                    .select('id')
+                    .or(`id.eq.${teacherId},user_id.eq.${teacherId}`)
+                    .maybeSingle();
+
+                const resolvedId = teacherRow ? teacherRow.id : teacherId;
+
+                const { data, error } = await supabase.rpc('get_teacher_analytics', {
+                    p_teacher_id: resolvedId,
+                    p_school_id: schoolId,
+                    p_branch_id: branchId && branchId !== 'all' ? branchId : null
+                });
+
+                if (error) throw error;
+                result = data && data.length > 0 ? data[0] : {};
+            } catch (err) {
+                console.error('Error in getTeacherDashboardStats direct:', err);
+                return null;
+            }
+        }
+
+        // Ensure statistics are always numeric and correctly mapped (handle both snake_case from DB and camelCase from potential backend)
+        return {
+            totalStudents: Number(result.totalStudents ?? result.total_students) || 0,
+            totalClasses: Number(result.totalClasses ?? result.total_classes) || 0,
+            attendanceRate: Number(result.attendanceRate ?? result.attendance_rate) || 0,
+            avgStudentScore: Number(result.avgStudentScore ?? result.avg_student_score) || 0
+        };
+    }
+
     // ============================================
     // STUDENTS
     // ============================================
 
     async getStudents(schoolId: string, branchId?: string, options: ApiOptions & { includeUntagged?: boolean } = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/students${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/students?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
 
         let query = supabase.from('students')
@@ -169,16 +249,16 @@ class HybridApiClient {
     }
 
     async getStudentById(id: string | number, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any>(`/students/${id}`);
         }
-        const { data, error } = await supabase.from('students').select('*').eq('id', id).single();
+        const { data, error } = await supabase.from('students').select('*').eq('id', id).maybeSingle();
         if (error) throw error;
         return data;
     }
 
     async getMyStudentProfile(options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any>('/students/me');
         }
         // Direct Supabase fallback (client resolved)
@@ -194,8 +274,30 @@ class HybridApiClient {
                 report_cards (*)
             `)
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
+        if (error) throw error;
+        return data;
+    }
+
+    async getMyTeacherProfile(options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any>('/teachers/me');
+        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const { data, error } = await supabase.from('teachers').select('*').eq('user_id', user.id).maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
+    async getMyParentProfile(options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any>('/parents/me');
+        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const { data, error } = await supabase.from('parents').select('*, children:students(*)').eq('user_id', user.id).maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -226,11 +328,11 @@ class HybridApiClient {
                 .maybeSingle();
 
             if (existingParent) {
-                console.log('🔗 [API] Linked student to existing parent:', enrollmentData.parentEmail);
+                console.log('ðŸ”— [API] Linked student to existing parent:', enrollmentData.parentEmail);
                 parentId = existingParent.id;
             } else {
                 // Create new parent record
-                console.log('🆕 [API] Creating new parent record for:', enrollmentData.parentEmail);
+                console.log('ðŸ†• [API] Creating new parent record for:', enrollmentData.parentEmail);
                 const { data: newParent, error: parentError } = await supabase
                     .from('parents')
                     .insert([{
@@ -242,10 +344,10 @@ class HybridApiClient {
                         branch_id: enrollmentData.branch_id
                     }])
                     .select('id')
-                    .single();
+                    .maybeSingle();
 
                 if (parentError) {
-                    console.error('❌ [API] Parent creation failed:', parentError);
+                    console.error('âŒ [API] Parent creation failed:', parentError);
                     throw parentError;
                 }
                 parentId = newParent.id;
@@ -268,9 +370,9 @@ class HybridApiClient {
             // Any other metadata
         };
 
-        const { data, error } = await supabase.from('students').insert([studentPayload]).select().single();
+        const { data, error } = await supabase.from('students').insert([studentPayload]).select().maybeSingle();
         if (error) {
-            console.error('❌ [API] Student enrollment failed:', error);
+            console.error('âŒ [API] Student enrollment failed:', error);
             throw error;
         }
         return data;
@@ -284,20 +386,65 @@ class HybridApiClient {
         });
     }
 
+    async linkStudentToClasses(studentId: string, classIds: string[], schoolId: string, branchId?: string): Promise<boolean> {
+        if (this.options.useBackend) {
+            await this.fetch<any>(`/students/${studentId}/link-classes`, {
+                method: 'POST',
+                body: JSON.stringify({ classIds, schoolId, branchId }),
+            });
+            return true;
+        }
+
+        try {
+            // 1. Remove existing enrollments
+            await supabase.from('student_enrollments').delete().eq('student_id', studentId);
+
+            // 2. Add new enrollments
+            if (classIds.length > 0) {
+                const inserts = classIds.map((id, index) => ({
+                    student_id: studentId,
+                    class_id: id,
+                    school_id: schoolId,
+                    branch_id: branchId || null,
+                    is_primary: index === 0 // First one is primary
+                }));
+
+                const { error } = await supabase.from('student_enrollments').insert(inserts);
+                if (error) throw error;
+
+                // 3. Update the student table with the primary class_id for backward compatibility
+                const primaryClassId = classIds[0];
+                const { data: classData } = await supabase.from('classes').select('grade, section').eq('id', primaryClassId).maybeSingle();
+
+                if (classData) {
+                    await supabase.from('students').update({
+                        class_id: primaryClassId,
+                        grade: classData.grade,
+                        section: classData.section
+                    }).eq('id', studentId);
+                }
+            }
+            return true;
+        } catch (err) {
+            console.error('Error in linkStudentToClasses:', err);
+            throw err;
+        }
+    }
+
     async updateStudent(id: string | number, studentData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any>(`/students/${id}`, {
                 method: 'PUT',
                 body: JSON.stringify(studentData),
             });
         }
-        const { data, error } = await supabase.from('students').update(studentData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('students').update(studentData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
 
     async bulkUpdateStudentStatus(ids: string[], status: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any[]>('/students/bulk-status', {
                 method: 'PUT',
                 body: JSON.stringify({ ids, status }),
@@ -309,7 +456,7 @@ class HybridApiClient {
     }
 
     async deleteStudent(id: string | number, options: ApiOptions = {}): Promise<void> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             await this.fetch<any>(`/students/${id}`, { method: 'DELETE' });
             return;
         }
@@ -322,8 +469,8 @@ class HybridApiClient {
     // ============================================
 
     async getTeachers(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/teachers${branchId && branchId !== 'all' ? `?branchId=${branchId}` : ''}`);
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/teachers?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
 
         let query = supabase.from('teachers')
@@ -339,26 +486,47 @@ class HybridApiClient {
         return data || [];
     }
 
+    async getTeacherById(id: string, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any>(`/teachers/${id}`);
+        }
+        const { data, error } = await supabase
+            .from('teachers')
+            .select(`
+                *,
+                class_teachers (
+                    class_id,
+                    subject_id,
+                    classes ( id, name, grade, section, school_id ),
+                    subjects ( id, name )
+                )
+            `)
+            .eq('id', id)
+            .maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
     async createTeacher(teacherData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any>('/teachers', {
                 method: 'POST',
                 body: JSON.stringify(teacherData),
             });
         }
-        const { data, error } = await supabase.from('teachers').insert([teacherData]).select().single();
+        const { data, error } = await supabase.from('teachers').insert([teacherData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
 
     async updateTeacher(id: string, teacherData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any>(`/teachers/${id}`, {
                 method: 'PUT',
                 body: JSON.stringify(teacherData),
             });
         }
-        const { data, error } = await supabase.from('teachers').update(teacherData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('teachers').update(teacherData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -392,7 +560,7 @@ class HybridApiClient {
                 body: JSON.stringify({ status, amountPaid }),
             });
         }
-        const { data, error } = await supabase.from('student_fees').update({ status, paid_amount: amountPaid }).eq('id', feeId).select().single();
+        const { data, error } = await supabase.from('student_fees').update({ status, paid_amount: amountPaid }).eq('id', feeId).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -418,7 +586,7 @@ class HybridApiClient {
     // ============================================
 
     async getTimetable(schoolId: string, className?: string, teacherId?: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any[]>(`/timetable?schoolId=${schoolId}${className ? `&className=${className}` : ''}${teacherId ? `&teacherId=${teacherId}` : ''}`);
         }
         let query = supabase.from('timetable').select('*')
@@ -432,11 +600,27 @@ class HybridApiClient {
     }
 
     // ============================================
+    // TEACHER ATTENDANCE (STAFF)
+    // ============================================
+
+    async submitTeacherAttendance(options: ApiOptions = {}): Promise<any> {
+        // ALWAYS route through backend for business logic and notifications
+        return this.fetch<any>('/teachers/me/attendance', {
+            method: 'POST',
+            body: JSON.stringify({}),
+        });
+    }
+
+    async getTeacherAttendanceHistory(limit: number = 30, options: ApiOptions = {}): Promise<any[]> {
+        return this.fetch<any[]>(`/teachers/me/attendance?limit=${limit}`);
+    }
+
+    // ============================================
     // STUDENT PERFORMANCE
     // ============================================
 
     async getStudentPerformance(studentId: string | number, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any[]>('/students/me/performance');
         }
         const { data, error } = await supabase.from('academic_performance').select('*').eq('student_id', studentId);
@@ -445,7 +629,7 @@ class HybridApiClient {
     }
 
     async getQuizResults(studentId: string | number, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any[]>('/students/me/quiz-results');
         }
         const { data, error } = await supabase.from('quiz_submissions').select('*, quizzes(title, subject)').eq('student_id', studentId).order('submitted_at', { ascending: false });
@@ -458,10 +642,23 @@ class HybridApiClient {
     // ============================================
 
     async getClasses(options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any[]>('/classes');
         }
         const { data, error } = await supabase.from('classes').select('id, name, grade').order('grade');
+        if (error) throw error;
+        return data || [];
+    }
+
+    async fetchClasses(schoolId?: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/classes${schoolId ? `?schoolId=${schoolId}` : ''}`);
+        }
+        let query = supabase.from('classes').select('id, name, grade, section, department, branch_id');
+        if (schoolId) {
+            query = query.eq('school_id', schoolId);
+        }
+        const { data, error } = await query.order('grade').order('section');
         if (error) throw error;
         return data || [];
     }
@@ -473,7 +670,7 @@ class HybridApiClient {
                 body: JSON.stringify(classData),
             });
         }
-        const { data, error } = await supabase.from('classes').insert([classData]).select().single();
+        const { data, error } = await supabase.from('classes').insert([classData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -485,7 +682,7 @@ class HybridApiClient {
                 body: JSON.stringify(classData),
             });
         }
-        const { data, error } = await supabase.from('classes').update(classData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('classes').update(classData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -499,24 +696,52 @@ class HybridApiClient {
         if (error) throw error;
     }
 
+    async fetchStudentEnrollments(studentId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/students/${studentId}/enrollments`);
+        }
+        const { data, error } = await supabase
+            .from('student_enrollments')
+            .select(`
+                id,
+                class_id,
+                is_primary,
+                status,
+                classes (
+                    id, 
+                    name, 
+                    grade, 
+                    section
+                )
+            `)
+            .eq('student_id', studentId);
+
+        if (error) throw error;
+        return data || [];
+    }
+
     // ============================================
     // PARENTS
     // ============================================
 
-    async getParents(options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/parents');
+    async getParents(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/parents?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
-        const { data, error } = await supabase.from('parents').select('id, name, email, phone, avatar_url, school_generated_id').order('name');
+        let query = supabase.from('parents').select('id, name, email, phone, avatar_url, school_generated_id').eq('school_id', schoolId);
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+        const { data, error } = await query.order('name');
         if (error) throw error;
         return data || [];
     }
 
     async getParentById(id: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any>(`/parents/${id}`);
         }
-        const { data, error } = await supabase.from('parents').select('*').eq('id', id).single();
+        const { data, error } = await supabase.from('parents').select('*').eq('id', id).maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -528,7 +753,7 @@ class HybridApiClient {
                 body: JSON.stringify(parentData),
             });
         }
-        const { data, error } = await supabase.from('parents').insert([parentData]).select().single();
+        const { data, error } = await supabase.from('parents').insert([parentData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -598,15 +823,21 @@ class HybridApiClient {
     // NOTICES
     // ============================================
 
-    async getNotices(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/notices?schoolId=${schoolId}`);
+    async getNotices(schoolId: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/notices?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
-        const { data, error } = await supabase
+
+        let query = supabase
             .from('notices')
             .select('id, title, content, timestamp, category, is_pinned, audience, branch_id')
-            .eq('school_id', schoolId)
-            .order('timestamp', { ascending: false });
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query.order('timestamp', { ascending: false });
         if (error) throw error;
         return data || [];
     }
@@ -618,7 +849,7 @@ class HybridApiClient {
                 body: JSON.stringify(noticeData),
             });
         }
-        const { data, error } = await supabase.from('notices').insert([noticeData]).select().single();
+        const { data, error } = await supabase.from('notices').insert([noticeData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -628,7 +859,7 @@ class HybridApiClient {
     // ============================================
 
     async saveAttendance(records: any[], options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any>('/attendance', {
                 method: 'POST',
                 body: JSON.stringify({ records }),
@@ -640,7 +871,7 @@ class HybridApiClient {
     }
 
     async getAttendance(classId: string, date: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any[]>(`/attendance?classId=${classId}&date=${date}`);
         }
         const { data, error } = await supabase.from('student_attendance').select('*').eq('class_id', classId).eq('date', date);
@@ -648,12 +879,51 @@ class HybridApiClient {
         return data || [];
     }
 
-    async getAttendanceByDate(schoolId: string, date: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            // Updated to match backend query structure
-            return this.fetch<any[]>(`/attendance?date=${date}&schoolId=${schoolId}`);
+    async getBehaviorNotes(studentId: string | number, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/students/${studentId}/behavior-notes`);
         }
-        const { data, error } = await supabase.from('student_attendance').select('*').eq('school_id', schoolId).eq('date', date);
+        const { data, error } = await supabase
+            .from('behavior_notes')
+            .select('*')
+            .eq('student_id', studentId)
+            .order('date', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    }
+
+    async createBehaviorNote(noteData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any>(`/students/${noteData.student_id}/behavior-notes`, {
+                method: 'POST',
+                body: JSON.stringify(noteData),
+            });
+        }
+        const { data, error } = await supabase.from('behavior_notes')
+            .insert([{
+                ...noteData
+            }])
+            .select()
+            .maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
+    async getAttendanceByDate(schoolId: string, date: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            // Updated to match backend query structure
+            return this.fetch<any[]>(`/attendance?date=${date}&schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+        }
+
+        let query = supabase.from('student_attendance').select('*')
+            .eq('school_id', schoolId)
+            .eq('date', date);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         return data || [];
     }
@@ -708,7 +978,7 @@ class HybridApiClient {
     // ============================================
 
     async getReportCards(schoolId: string, branchId?: string | null, options: ApiOptions & { includeUntagged?: boolean } = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             return this.fetch<any[]>(`/report-cards?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
         let query = supabase
@@ -748,7 +1018,7 @@ class HybridApiClient {
         } else {
             updateData.published_at = null;
         }
-        const { data, error } = await supabase.from('report_cards').update(updateData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('report_cards').update(updateData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -757,12 +1027,13 @@ class HybridApiClient {
     // ASSIGNMENTS
     // ============================================
 
-    async getAssignments(schoolId: string, filters?: { classId?: string; className?: string; teacherId?: string }, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
+    async getAssignments(schoolId: string, filters?: { classId?: string; className?: string; teacherId?: string; branchId?: string | null }, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
             let url = `/assignments?schoolId=${schoolId}`;
             if (filters?.classId) url += `&classId=${filters.classId}`;
             if (filters?.className) url += `&className=${encodeURIComponent(filters.className)}`;
             if (filters?.teacherId) url += `&teacherId=${filters.teacherId}`;
+            if (filters?.branchId && filters.branchId !== 'all') url += `&branchId=${filters.branchId}`;
             return this.fetch<any[]>(url);
         }
 
@@ -771,6 +1042,7 @@ class HybridApiClient {
         if (filters?.classId) query = query.eq('class_id', filters.classId);
         if (filters?.className) query = query.eq('class_name', filters.className);
         if (filters?.teacherId) query = query.eq('teacher_id', filters.teacherId);
+        if (filters?.branchId && filters.branchId !== 'all') query = query.eq('branch_id', filters.branchId);
 
         const { data, error } = await query.order('due_date', { ascending: false });
         if (error) throw error;
@@ -783,6 +1055,15 @@ class HybridApiClient {
             method: 'POST',
             body: JSON.stringify(assignmentData),
         });
+    }
+
+    async deleteAssignment(id: string, options: ApiOptions = {}): Promise<void> {
+        if (options.useBackend ?? this.options.useBackend) {
+            await this.fetch<void>(`/assignments/${id}`, { method: 'DELETE' });
+            return;
+        }
+        const { error } = await supabase.from('assignments').delete().eq('id', id);
+        if (error) throw error;
     }
 
     async getSubmissions(assignmentId: string, options: ApiOptions = {}): Promise<any[]> {
@@ -801,7 +1082,7 @@ class HybridApiClient {
                 body: JSON.stringify(gradeData),
             });
         }
-        const { data, error } = await supabase.from('assignment_submissions').update(gradeData).eq('id', submissionId).select().single();
+        const { data, error } = await supabase.from('assignment_submissions').update(gradeData).eq('id', submissionId).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -813,7 +1094,7 @@ class HybridApiClient {
                 body: JSON.stringify(submissionData),
             });
         }
-        const { data, error } = await supabase.from('assignment_submissions').insert([{ ...submissionData, assignment_id: assignmentId }]).select().single();
+        const { data, error } = await supabase.from('assignment_submissions').insert([{ ...submissionData, assignment_id: assignmentId }]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -822,11 +1103,17 @@ class HybridApiClient {
     // EXAMS & CBT
     // ============================================
 
-    async getExams(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/exams?schoolId=${schoolId}`);
+    async getExams(schoolId: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/exams?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
-        const { data, error } = await supabase.from('exams').select('*').eq('school_id', schoolId).order('date', { ascending: false });
+
+        let query = supabase.from('exams').select('*').eq('school_id', schoolId);
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query.order('date', { ascending: false });
         if (error) throw error;
         return data || [];
     }
@@ -838,7 +1125,7 @@ class HybridApiClient {
                 body: JSON.stringify(examData),
             });
         }
-        const { data, error } = await supabase.from('exams').insert([examData]).select().single();
+        const { data, error } = await supabase.from('exams').insert([examData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -850,7 +1137,7 @@ class HybridApiClient {
                 body: JSON.stringify(examData),
             });
         }
-        const { data, error } = await supabase.from('exams').update(examData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('exams').update(examData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -884,7 +1171,7 @@ class HybridApiClient {
                 body: JSON.stringify(resourceData),
             });
         }
-        const { data, error } = await supabase.from('resources').insert([resourceData]).select().single();
+        const { data, error } = await supabase.from('resources').insert([resourceData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -893,12 +1180,15 @@ class HybridApiClient {
     // LESSON PLANS
     // ============================================
 
-    async getLessonPlans(schoolId: string, teacherId?: string, options: ApiOptions = {}): Promise<any[]> {
+    async getLessonPlans(schoolId: string, teacherId?: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/lesson-plans?schoolId=${schoolId}${teacherId ? `&teacherId=${teacherId}` : ''}`);
+            return this.fetch<any[]>(`/lesson-plans?schoolId=${schoolId}${teacherId ? `&teacherId=${teacherId}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
+
         let query = supabase.from('lesson_notes').select('*').eq('school_id', schoolId);
         if (teacherId) query = query.eq('teacher_id', teacherId);
+        if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
+
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw error;
         return data || [];
@@ -911,7 +1201,7 @@ class HybridApiClient {
                 body: JSON.stringify(planData),
             });
         }
-        const { data, error } = await supabase.from('lesson_notes').insert([planData]).select().single();
+        const { data, error } = await supabase.from('lesson_notes').insert([planData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -956,7 +1246,7 @@ class HybridApiClient {
                 .update({ ...resourceData, updated_at: new Date().toISOString() })
                 .eq('id', existing.id)
                 .select()
-                .single();
+                .maybeSingle();
             if (error) throw error;
             return data;
         } else {
@@ -964,7 +1254,7 @@ class HybridApiClient {
                 .from('generated_resources')
                 .insert([resourceData])
                 .select()
-                .single();
+                .maybeSingle();
             if (error) throw error;
             return data;
         }
@@ -974,11 +1264,15 @@ class HybridApiClient {
     // FORUM
     // ============================================
 
-    async getForumTopics(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+    async getForumTopics(schoolId: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/forum/topics?schoolId=${schoolId}`);
+            return this.fetch<any[]>(`/forum/topics?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
-        const { data, error } = await supabase.from('forum_topics').select('*').eq('school_id', schoolId).order('last_activity', { ascending: false });
+
+        let query = supabase.from('forum_topics').select('*').eq('school_id', schoolId);
+        if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
+
+        const { data, error } = await query.order('last_activity', { ascending: false });
         if (error) throw error;
         return data || [];
     }
@@ -990,7 +1284,7 @@ class HybridApiClient {
                 body: JSON.stringify(topicData),
             });
         }
-        const { data, error } = await supabase.from('forum_topics').insert([topicData]).select().single();
+        const { data, error } = await supabase.from('forum_topics').insert([topicData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1011,7 +1305,7 @@ class HybridApiClient {
                 body: JSON.stringify(postData),
             });
         }
-        const { data, error } = await supabase.from('forum_posts').insert([postData]).select().single();
+        const { data, error } = await supabase.from('forum_posts').insert([postData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1020,12 +1314,16 @@ class HybridApiClient {
     // TRANSACTIONS
     // ============================================
 
-    async getTransactions(schoolId: string, feeId?: string, options: ApiOptions = {}): Promise<any[]> {
+    async getTransactions(schoolId: string, feeId?: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/transactions?schoolId=${schoolId}${feeId ? `&feeId=${feeId}` : ''}`);
+            return this.fetch<any[]>(`/transactions?schoolId=${schoolId}${feeId ? `&feeId=${feeId}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
+
+        // Note: transactions table only supports school_id and transaction_type/category filtering.
+        // fee_id, branch_id, and status columns do not exist on this table.
         let query = supabase.from('transactions').select('*').eq('school_id', schoolId);
-        if (feeId) query = query.eq('fee_id', feeId).eq('status', 'Success');
+        if (feeId) query = query.eq('category', feeId); // fallback: treat feeId as a category filter
+
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw error;
         return data || [];
@@ -1038,7 +1336,7 @@ class HybridApiClient {
                 body: JSON.stringify(transactionData),
             });
         }
-        const { data, error } = await supabase.from('transactions').insert([transactionData]).select().single();
+        const { data, error } = await supabase.from('transactions').insert([transactionData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1047,11 +1345,16 @@ class HybridApiClient {
     // BUSES
     // ============================================
 
-    async getBuses(options: ApiOptions = {}): Promise<any[]> {
+    async getBuses(schoolId?: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/buses');
+            return this.fetch<any[]>(`/buses?${schoolId ? `schoolId=${schoolId}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
-        const { data, error } = await supabase.from('transport_buses').select('*').order('name');
+
+        let query = supabase.from('transport_buses').select('*');
+        if (schoolId) query = query.eq('school_id', schoolId);
+        if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
+
+        const { data, error } = await query.order('name');
         if (error) throw error;
         return data || [];
     }
@@ -1063,7 +1366,7 @@ class HybridApiClient {
                 body: JSON.stringify(busData),
             });
         }
-        const { data, error } = await supabase.from('transport_buses').insert([busData]).select().single();
+        const { data, error } = await supabase.from('transport_buses').insert([busData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1075,7 +1378,7 @@ class HybridApiClient {
                 body: JSON.stringify(busData),
             });
         }
-        const { data, error } = await supabase.from('transport_buses').update(busData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('transport_buses').update(busData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1093,11 +1396,15 @@ class HybridApiClient {
     // USERS & SCHOOLS
     // ============================================
 
-    async getUsers(options: ApiOptions = {}): Promise<any[]> {
+    async getUsers(schoolId?: string, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/users');
+            return this.fetch<any[]>(`/users${schoolId ? `?schoolId=${schoolId}` : ''}`);
         }
-        const { data, error } = await supabase.from('profiles').select('*').order('full_name');
+
+        let query = supabase.from('profiles').select('*');
+        if (schoolId) query = query.eq('school_id', schoolId);
+
+        const { data, error } = await query.order('full_name');
         if (error) throw error;
         return data || [];
     }
@@ -1106,7 +1413,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any>(`/users/${id}`);
         }
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1118,7 +1425,7 @@ class HybridApiClient {
                 body: JSON.stringify(userData),
             });
         }
-        const { data, error } = await supabase.from('profiles').insert([userData]).select().single();
+        const { data, error } = await supabase.from('profiles').insert([userData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1130,7 +1437,7 @@ class HybridApiClient {
                 body: JSON.stringify(userData),
             });
         }
-        const { data, error } = await supabase.from('profiles').update(userData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('profiles').update(userData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1148,7 +1455,7 @@ class HybridApiClient {
         if (options.useBackend ?? this.options.useBackend) {
             return this.fetch<any>(`/schools/${id}`);
         }
-        const { data, error } = await supabase.from('schools').select('*').eq('id', id).single();
+        const { data, error } = await supabase.from('schools').select('*').eq('id', id).maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1160,7 +1467,7 @@ class HybridApiClient {
                 body: JSON.stringify(schoolData),
             });
         }
-        const { data, error } = await supabase.from('schools').insert([schoolData]).select().single();
+        const { data, error } = await supabase.from('schools').insert([schoolData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1172,7 +1479,7 @@ class HybridApiClient {
                 body: JSON.stringify(schoolData),
             });
         }
-        const { data, error } = await supabase.from('schools').update(schoolData).eq('id', id).select().single();
+        const { data, error } = await supabase.from('schools').update(schoolData).eq('id', id).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1223,7 +1530,7 @@ class HybridApiClient {
                 body: JSON.stringify(notificationData),
             });
         }
-        const { data, error } = await supabase.from('notifications').insert([notificationData]).select().single();
+        const { data, error } = await supabase.from('notifications').insert([notificationData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1269,7 +1576,7 @@ class HybridApiClient {
                 is_active: true,
             })
             .select()
-            .single();
+            .maybeSingle();
 
         if (quizError) throw quizError;
 
@@ -1307,7 +1614,7 @@ class HybridApiClient {
             .update({ is_published: isPublished, status: isPublished ? 'published' : 'draft' })
             .eq('id', id)
             .select()
-            .single();
+            .maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1340,6 +1647,7 @@ class HybridApiClient {
             quiz_id: submissionData.quiz_id || submissionData.exam_id,
             student_id: submissionData.student_id,
             school_id: submissionData.school_id,
+            branch_id: submissionData.branch_id,
             score: submissionData.score,
             total_questions: submissionData.total_questions,
             answers: submissionData.answers,
@@ -1347,14 +1655,14 @@ class HybridApiClient {
             status: submissionData.status || 'graded',
             submitted_at: submissionData.submitted_at || new Date().toISOString(),
         };
-        const { data, error } = await supabase.from('quiz_submissions').insert([submission]).select().single();
+        const { data, error } = await supabase.from('quiz_submissions').insert([submission]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
 
-    async getQuizzesByClass(schoolId: string, grade: string, section?: string, options: ApiOptions = {}): Promise<any[]> {
+    async getQuizzesByClass(schoolId: string, grade: string, section?: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/quizzes?schoolId=${schoolId}&grade=${grade}${section ? `&section=${section}` : ''}`);
+            return this.fetch<any[]>(`/quizzes?schoolId=${schoolId}&grade=${grade}${section ? `&section=${section}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
         }
 
         let query = supabase
@@ -1366,6 +1674,10 @@ class HybridApiClient {
             `)
             .eq('school_id', schoolId)
             .eq('is_published', true);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
 
         const { data, error } = await query;
         if (error) throw error;
@@ -1390,7 +1702,7 @@ class HybridApiClient {
                 body: JSON.stringify(reportData),
             });
         }
-        const { data, error } = await supabase.from('anonymous_reports').insert([reportData]).select().single();
+        const { data, error } = await supabase.from('anonymous_reports').insert([reportData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1402,7 +1714,7 @@ class HybridApiClient {
                 body: JSON.stringify(requestData),
             });
         }
-        const { data, error } = await supabase.from('menstrual_support_requests').insert([requestData]).select().single();
+        const { data, error } = await supabase.from('menstrual_support_requests').insert([requestData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1418,7 +1730,7 @@ class HybridApiClient {
                 body: JSON.stringify(sessionData),
             });
         }
-        const { data, error } = await supabase.from('virtual_class_sessions').insert([sessionData]).select().single();
+        const { data, error } = await supabase.from('virtual_class_sessions').insert([sessionData]).select().maybeSingle();
         if (error) throw error;
         return data;
     }
@@ -1430,7 +1742,7 @@ class HybridApiClient {
     async checkBackendHealth(): Promise<{ supabase: boolean; backend: boolean }> {
         let backendOk = false;
         try {
-            const response = await fetch(`${this.baseUrl.replace('/api', '')}/`);
+            const response = await fetch(this.baseUrl.replace('/api', '') + '/');
             backendOk = response.ok;
         } catch {
             backendOk = false;

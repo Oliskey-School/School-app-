@@ -100,7 +100,7 @@ class RealtimeService {
             const knownTables: string[] = [
                 'students', 'teachers', 'parents', 'users', 'classes', 'subjects',
                 'timetable', 'conversations', 'assignments', 'grades',
-                'attendance_records', 'notices', 'messages', 'schools',
+                'attendance_records', 'student_attendance', 'notices', 'messages', 'schools',
                 'branches', 'notifications', 'class_teachers', 'teacher_subjects',
                 'generated_resources'
             ];

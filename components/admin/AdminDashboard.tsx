@@ -424,6 +424,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             </Suspense>
         );
 
+        if (currentNavigation.view === 'onboardingPage') return (
+            <Suspense fallback={<PremiumLoader message="Preparing onboarding module..." />}>
+                <PilotOnboardingPage {...currentNavigation.props} {...commonProps} onComplete={handleBack} />
+            </Suspense>
+        );
+
         return (
             <Suspense fallback={<PremiumLoader message={`Loading ${currentNavigation.title}...`} />}>
                 <ComponentToRender {...currentNavigation.props} {...commonProps} />

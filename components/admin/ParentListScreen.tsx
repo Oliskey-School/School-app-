@@ -77,7 +77,7 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
     const schoolIdForFilter = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
     const subscription = supabase
       .channel('public:parents')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parents', filter: `school_id=eq.${schoolIdForFilter}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parents', filter: schoolIdForFilter ? `school_id=eq.${schoolIdForFilter}` : undefined }, () => {
         fetchParentsData();
       })
       .subscribe();
@@ -85,7 +85,7 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [currentBranchId, profile?.schoolId, user?.id]);
+  }, [currentBranchId, profile?.schoolId, user?.id, propSchoolId]);
 
   const filteredParents = useMemo(() =>
     parents.filter(parent => parent.name.toLowerCase().includes(searchTerm.toLowerCase())),

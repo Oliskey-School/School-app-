@@ -98,7 +98,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 }
 
                 // 2. Fetch Existing Attendance for Selected Date using api client
-                const attendanceData = await api.getAttendance(classInfo.id, selectedDate);
+                const attendanceData = await api.getAttendance(classInfo.id, selectedDate, { useBackend: true });
 
                 // Map API data to UI model
                 const studentsWithAttendance = classStudents.map((s: any) => {
@@ -174,7 +174,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         console.log("DEBUG: Submitting Attendance Payload:", upsertData);
 
         try {
-            await api.saveAttendance(upsertData);
+            await api.saveAttendance(upsertData, { useBackend: true });
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
         } catch (err) {
             console.error('Error submitting attendance:', err);

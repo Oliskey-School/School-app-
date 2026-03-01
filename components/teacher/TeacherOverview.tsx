@@ -13,6 +13,7 @@ import {
   CheckCircleIcon,
   EditIcon,
   CalculatorIcon,
+  ChartBarIcon,
   SUBJECT_COLORS,
   UserGroupIcon,
   getFormattedClassName
@@ -109,7 +110,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   const theme = THEME_CONFIG[DashboardType.Teacher];
 
   const { classes: teacherClasses, loading: classesLoading, teacherId: resolvedTeacherId, schoolId: resolvedSchoolId } = useTeacherClasses(teacherId);
-  const { stats, loading: statsLoading } = useTeacherStats(resolvedTeacherId || teacherId || currentUser?.id, resolvedSchoolId || schoolId, teacherClasses);
+  const { stats, loading: statsLoading } = useTeacherStats(resolvedTeacherId || teacherId || currentUser?.id, resolvedSchoolId || schoolId, currentBranchId, teacherClasses);
 
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
   const [ungradedAssignments, setUngradedAssignments] = useState<any[]>([]);
@@ -258,7 +259,6 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
       {/* Your Assigned Classes & Subjects */}
       <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Your Assigned Classes</h3>
         <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar">
           {classesLoading ? (
             Array(2).fill(0).map((_, i) => (
@@ -276,7 +276,6 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
               >
                 <div className="flex justify-between items-start mb-1">
                   <p className="font-bold text-gray-800 text-base">{c.name || getFormattedClassName(c.grade, c.section)}</p>
-                  <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-purple-500 transition-colors" />
                 </div>
                 <div className="flex items-center space-x-1.5">
                   <div className={`w-2 h-2 rounded-full ${SUBJECT_COLORS[c.subject] || 'bg-purple-400'}`}></div>

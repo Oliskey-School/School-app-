@@ -58,6 +58,8 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
   const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
   const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
+  if (!profile) return <div className="p-8 text-center text-gray-500">Profile not found.</div>;
+
   const menuItems = [
     { id: 'linkChild', icon: <UserPlus />, label: 'Link Child Account' },
     { id: 'editParentProfile', icon: <EditIcon />, label: 'Edit Profile' },
@@ -109,20 +111,20 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       <div className={`w-full md:w-[400px] md:flex-shrink-0 bg-gray-50 flex flex-col ${activeSetting ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
           <div className="flex items-center p-4 space-x-4 bg-white rounded-xl shadow-sm">
-            <img src={profile.avatarUrl} alt="Parent Avatar" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square" />
+            <img src={profile.avatar_url || 'https://i.pravatar.cc/150?u=parent'} alt="Parent Avatar" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square" />
             <div>
-              <h3 className="text-xl font-bold text-gray-800">{profile.name}</h3>
+              <h3 className="text-xl font-bold text-gray-800">{profile.full_name}</h3>
               <p className="text-sm text-gray-500 mb-1">{profile.email}</p>
               <div
                 className="inline-flex items-center gap-2 px-2 py-1 bg-gray-100 text-gray-600 rounded border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
                 onClick={() => {
-                  const idToCopy = profile.schoolGeneratedId || formatId(customId) || 'ID: Pending';
+                  const idToCopy = profile.school_generated_id || formatId(customId) || 'ID: Pending';
                   if (idToCopy !== 'ID: Pending') copyToClipboard(idToCopy);
                   else toast.error("ID is still pending generation.");
                 }}
               >
                 <span className="text-xs font-mono font-medium">
-                  {profile.schoolGeneratedId || formatId(customId) || 'ID: Pending'}
+                  {profile.school_generated_id || formatId(customId) || 'ID: Pending'}
                 </span>
                 <Copy className="w-3 h-3 text-gray-400" />
                 {copied && <span className="text-xs text-green-600 font-bold ml-1">✓</span>}

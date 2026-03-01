@@ -19,16 +19,19 @@ export class StudentService {
         }
 
         const fullName = `${firstName} ${lastName}`;
-        const studentEmail = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 1000)}@student.school.com`;
+        const studentEmail = enrollmentData.email || `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 1000)}@student.school.com`;
+        const generatedPassword = enrollmentData.password || 'student' + Math.floor(1000 + Math.random() * 9000);
+        const generatedUsername = enrollmentData.username || (firstName.toLowerCase() + '.' + lastName.toLowerCase() + Math.floor(Math.random() * 100));
 
         // 1. Create Auth User using Admin Client (Service Role)
         const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
             email: studentEmail,
-            password: 'password123', // In real app, generate or send reset link
+            password: generatedPassword,
             user_metadata: {
                 full_name: fullName,
                 role: 'student',
-                school_id: schoolId
+                school_id: schoolId,
+                username: generatedUsername
             },
             email_confirm: true
         });
@@ -65,6 +68,7 @@ export class StudentService {
             .insert([{
                 user_id: userId,
                 school_id: schoolId,
+                branch_id: enrollmentData.branch_id,
                 name: fullName,
                 first_name: firstName,
                 last_name: lastName,
@@ -73,8 +77,10 @@ export class StudentService {
                 grade: enrollmentData.grade || 1,
                 section: enrollmentData.section || 'A',
                 class_id: enrollmentData.class_id,
-                status: 'Active',
+                status: enrollmentData.status || 'Active',
                 attendance_status: 'Present',
+                admission_number: enrollmentData.admissionNumber,
+                address: enrollmentData.address || enrollmentData.parentAddress,
                 birth_certificate: documentUrls?.birthCertificate,
                 previous_report: documentUrls?.previousReport,
                 medical_records: documentUrls?.medicalRecords,
@@ -149,16 +155,23 @@ export class StudentService {
 
         return {
             studentId: student.id,
-            email: studentEmail
+            email: studentEmail,
+            username: generatedUsername,
+            password: generatedPassword
         };
     }
 
-    static async getAllStudents(schoolId: string) {
-        const { data, error } = await supabase
+    static async getAllStudents(schoolId: string, branchId?: string) {
+        let query = supabase
             .from('students')
             .select('*')
-            .eq('school_id', schoolId)
-            .order('created_at', { ascending: false });
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query.order('name');
 
         if (error) throw new Error(error.message);
         return data;

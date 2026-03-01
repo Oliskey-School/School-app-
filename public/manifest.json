@@ -16,52 +16,15 @@
     "dir": "ltr",
     "icons": [
         {
-            "src": "/icons/icon-72.png",
-            "sizes": "72x72",
-            "type": "image/png",
-            "purpose": "any"
-        },
-        {
-            "src": "/icons/icon-96.png",
-            "sizes": "96x96",
-            "type": "image/png",
-            "purpose": "any"
-        },
-        {
-            "src": "/icons/icon-128.png",
-            "sizes": "128x128",
-            "type": "image/png",
-            "purpose": "any"
-        },
-        {
             "src": "/icons/icon-144.png",
             "sizes": "144x144",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/icons/icon-152.png",
-            "sizes": "152x152",
-            "type": "image/png",
-            "purpose": "any"
-        },
-        {
-            "src": "/icons/icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any maskable"
-        },
-        {
-            "src": "/icons/icon-384.png",
-            "sizes": "384x384",
-            "type": "image/png",
-            "purpose": "any"
-        },
-        {
-            "src": "/icons/icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "any maskable"
+            "src": "/favicon.ico",
+            "sizes": "32x32",
+            "type": "image/x-icon"
         }
     ],
     "shortcuts": [
@@ -69,51 +32,19 @@
             "name": "Mark Attendance",
             "short_name": "Attendance",
             "description": "Quick access to mark student attendance",
-            "url": "/attendance",
-            "icons": [
-                {
-                    "src": "/icons/attendance-icon.png",
-                    "sizes": "96x96"
-                }
-            ]
+            "url": "/attendance"
         },
         {
             "name": "Messages",
             "short_name": "Messages",
             "description": "View and send messages",
-            "url": "/messages",
-            "icons": [
-                {
-                    "src": "/icons/message-icon.png",
-                    "sizes": "96x96"
-                }
-            ]
+            "url": "/messages"
         },
         {
             "name": "Pay Fees",
             "short_name": "Pay",
             "description": "Pay school fees",
-            "url": "/payments",
-            "icons": [
-                {
-                    "src": "/icons/payment-icon.png",
-                    "sizes": "96x96"
-                }
-            ]
-        }
-    ],
-    "screenshots": [
-        {
-            "src": "/screenshots/dashboard.png",
-            "sizes": "540x720",
-            "type": "image/png",
-            "platform": "narrow"
-        },
-        {
-            "src": "/screenshots/desktop.png",
-            "sizes": "1280x720",
-            "type": "image/png",
-            "platform": "wide"
+            "url": "/payments"
         }
     ],
     "prefer_related_applications": false,

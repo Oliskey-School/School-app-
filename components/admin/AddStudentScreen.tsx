@@ -30,8 +30,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [fullName, setFullName] = useState('');
     const [gender, setGender] = useState('');
     const [birthday, setBirthday] = useState('');
-    const [className, setClassName] = useState('');
-    const [section, setSection] = useState('');
+    const [availableClasses, setAvailableClasses] = useState<any[]>([]);
+    const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
     const [department, setDepartment] = useState<Department | ''>('');
     const [isLoading, setIsLoading] = useState(false);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
@@ -55,9 +55,10 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [studentAddress, setStudentAddress] = useState(''); // ⚠️ Added orphaned field
 
     const grade = useMemo(() => {
-        const match = className.match(/\d+/);
-        return match ? parseInt(match[0], 10) : 0;
-    }, [className]);
+        if (selectedClassIds.length === 0) return 0;
+        const primaryClass = availableClasses.find(c => c.id === selectedClassIds[0]);
+        return primaryClass?.grade || 0;
+    }, [selectedClassIds, availableClasses]);
     useEffect(() => {
         if (!schoolId) {
             console.log("School ID missing in profile/auth, refreshing...");
@@ -66,13 +67,26 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     }, [refreshProfile, schoolId]);
 
     useEffect(() => {
+        const loadClasses = async () => {
+            const classes = await api.fetchClasses(schoolId);
+            setAvailableClasses(classes);
+        };
+        if (schoolId) loadClasses();
+    }, [schoolId]);
+
+    useEffect(() => {
         if (studentToEdit) {
             setSelectedImage(studentToEdit.avatarUrl);
             setFullName(studentToEdit.name);
             setBirthday(studentToEdit.birthday || '');
-            setClassName(`Grade ${studentToEdit.grade} `);
-            setSection(studentToEdit.section);
             setDepartment(studentToEdit.department || '');
+
+            // Fetch Enrollments
+            const loadEnrollments = async () => {
+                const enrollments = await api.fetchStudentEnrollments(studentToEdit.id);
+                setSelectedClassIds(enrollments.map(e => e.class_id));
+            };
+            loadEnrollments();
 
             // Fetch Guardian Info
             const fetchGuardian = async () => {
@@ -123,7 +137,6 @@ parents(
             reader.readAsDataURL(file);
         }
     };
-
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const { isLimitReached, currentCount, maxLimit, isPremium } = useTenantLimit();
 
@@ -137,7 +150,6 @@ parents(
         e.preventDefault();
         setIsLoading(true);
 
-        // CHECK USAGE LIMITS (Only for new students, not edits)
         if (!studentToEdit && isLimitReached) {
             setShowUpgradeModal(true);
             setIsLoading(false);
@@ -145,368 +157,73 @@ parents(
         }
 
         try {
-            // Normalize inputs
-            const gEmail = guardianEmail.trim().toLowerCase();
-            const gName = guardianName.trim();
+            const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
+            const [firstName, ...lastNameParts] = fullName.split(' ');
+            const lastName = lastNameParts.join(' ') || '.';
 
-            if (gName && !gEmail) {
-                toast.error("Guardian Email is required to create or link guardian details.");
+            const studentData = {
+                firstName,
+                lastName,
+                email: !studentToEdit ? `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com` : undefined,
+                gender,
+                dateOfBirth: birthday,
+                class_id: selectedClassIds[0],
+                selectedClassIds,
+                department,
+                school_id: schoolId,
+                branch_id: currentBranchId || profile.branchId || null,
+                admissionNumber,
+                address: studentAddress,
+                parentName: guardianName,
+                parentEmail: guardianEmail,
+                parentPhone: guardianPhone,
+                documentUrls: { passportPhoto: avatarUrl }
+            };
+
+            if (studentToEdit) {
+                // UPDATE
+                await api.updateStudent(studentToEdit.id, {
+                    name: fullName,
+                    first_name: firstName,
+                    last_name: lastName,
+                    department: department || null,
+                    birthday: birthday || null,
+                    avatar_url: avatarUrl,
+                    admission_number: admissionNumber || null,
+                    address: studentAddress || null,
+                    gender: gender || null,
+                }, { useBackend: true });
+
+                // Sync Enrollments (Keep this for now if updateStudent doesn't handle them)
+                await api.linkStudentToClasses(studentToEdit.id, selectedClassIds, schoolId, studentData.branch_id);
+
+                // Guardian Update
+                if (guardianEmail && guardianName) {
+                    await api.linkGuardian({
+                        studentId: studentToEdit.id,
+                        guardianName: guardianName,
+                        guardianEmail: guardianEmail,
+                        guardianPhone: guardianPhone,
+                        branchId: studentData.branch_id
+                    });
+                }
+
+                toast.success('Student updated successfully!');
+            } else {
+                // CREATE via Backend
+                const result = await api.enrollStudent(studentData, { useBackend: true });
+
+                setCredentials({
+                    username: result.username,
+                    password: result.password,
+                    email: result.email,
+                    // If backend returned nested result, map it here
+                });
+                setShowCredentialsModal(true);
                 setIsLoading(false);
                 return;
             }
 
-            // Generate email for the student
-            let generatedEmail = `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com`;
-            const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
-
-            // Determine Status and Branch
-            const isTeacher = profile?.role === 'teacher' || user?.user_metadata?.role === 'teacher';
-            // If editing, preserve status unless explicitly approved? For now, keep as is or default to Active.
-            // If creating, Teachers -> Pending, Admins -> Active
-            const initialStatus = (isTeacher ? 'Pending' : 'Active') as 'Pending' | 'Active';
-            const branchId = currentBranchId || profile.branchId || null;
-
-            if (studentToEdit) {
-                // UPDATE MODE - Update existing student in Supabase
-                const { error: updateError } = await supabase
-                    .from('students')
-                    .update({
-                        name: fullName,
-                        grade,
-                        section,
-                        department: department || null,
-                        birthday: birthday || null,
-                        dob: birthday || null, // Also update dob column
-                        avatar_url: avatarUrl,
-                        admission_number: admissionNumber || null, // ⚠️ Added
-                        address: studentAddress || null, // ⚠️ Added
-                        gender: gender || null,
-                        // status: 'Active' // Don't reset status on edit unless admin?
-                        // If admin edits, maybe they want to approve? But separate approve action is better.
-                    })
-                    .eq('id', studentToEdit.id);
-
-                if (updateError) throw updateError;
-
-                let guardianMessage = '';
-
-                // --- GUARDIAN HANDLING FOR UPDATE ---
-                if (gEmail && gName) {
-                    try {
-                        // 1. Check if User exists first (to handle cases where User exists but Parent profile doesn't)
-                        const { data: existingUser } = await supabase
-                            .from('users')
-                            .select('id, name, email')
-                            .eq('email', gEmail)
-                            .maybeSingle();
-
-                        let parentIdToLink: string | null = null; // UUID type
-                        let parentNameForMsg = gName;
-
-                        if (existingUser) {
-                            // User exists. Check if Parent profile exists.
-                            const { data: existingParent } = await supabase
-                                .from('parents')
-                                .select('id')
-                                .eq('user_id', existingUser.id)
-                                .maybeSingle();
-
-                            if (existingParent) {
-                                parentIdToLink = existingParent.id;
-                                // Update phone/name if needed? Optional.
-                            } else {
-                                // User exists, create Parent profile
-                                const { data: newProfile, error: profileErr } = await supabase
-                                    .from('parents')
-                                    .insert([{
-                                        user_id: existingUser.id,
-                                        name: gName,
-                                        email: gEmail,
-                                        phone: guardianPhone || null,
-                                        avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                        branch_id: branchId
-                                    }])
-                                    .select()
-                                    .single();
-
-                                if (profileErr) throw profileErr;
-                                parentIdToLink = newProfile.id;
-                            }
-                        } else {
-                            // Create Fresh User & Parent
-                            const { data: newUser, error: uErr } = await supabase
-                                .from('users')
-                                .insert([{
-                                    email: gEmail,
-                                    name: gName,
-                                    role: 'parent',
-                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                    school_id: schoolId,
-                                    branch_id: branchId
-                                }])
-                                .select()
-                                .single();
-
-                            if (uErr) throw uErr;
-
-                            const { data: newParent, error: pErr } = await supabase
-                                .from('parents')
-                                .insert([{
-                                    user_id: newUser.id,
-                                    name: gName,
-                                    email: gEmail,
-                                    phone: guardianPhone || null,
-                                    avatar_url: `https://i.pravatar.cc/150?u=${gName.replace(' ', '')}`,
-                                    school_id: schoolId,
-                                    branch_id: branchId
-                                }])
-                                .select()
-                                .single();
-
-                            if (pErr) throw pErr;
-                            parentIdToLink = newParent.id;
-
-                            // Create Auth
-                            await createUserAccount(gName, 'Parent', gEmail, newUser.id);
-                            await sendVerificationEmail(gName, gEmail, 'School App Account Created');
-                            guardianMessage += `\nNew Guardian account created for ${gName}.`;
-                        }
-
-                        // 2. Link if we have a Parent ID
-                        if (parentIdToLink && studentToEdit?.id) {
-                            // ✅ FIX 1: Update student.parent_id FK
-                            const { error: linkError } = await supabase
-                                .from('students')
-                                .update({ parent_id: parentIdToLink })
-                                .eq('id', studentToEdit.id);
-
-                            if (linkError) {
-                                console.error('Failed to link parent_id to student:', linkError);
-                            }
-
-                            // ✅ FIX 2: Check if already linked in junction table
-                            const { data: link } = await supabase
-                                .from('parent_children')
-                                .select('*')
-                                .eq('parent_id', parentIdToLink)
-                                .eq('student_id', studentToEdit.id)
-                                .maybeSingle();
-
-                            if (!link) {
-                                const { error: junctionError } = await supabase
-                                    .from('parent_children')
-                                    .insert({
-                                        parent_id: parentIdToLink,
-                                        student_id: studentToEdit.id,
-                                        school_id: schoolId,
-                                        branch_id: branchId
-                                    });
-
-                                if (junctionError && junctionError.code !== '23505') {
-                                    console.warn('Junction table insert failed:', junctionError);
-                                }
-                                guardianMessage += `\nLinked to guardian: ${parentNameForMsg}.`;
-                            } else {
-                                guardianMessage += `\nAlready linked to ${parentNameForMsg}.`;
-                            }
-                        }
-
-                    } catch (gErr: any) {
-                        console.error('Error updating guardian:', gErr);
-                        guardianMessage += `\nError updating guardian: ${gErr.message || 'Unknown error'}`;
-                    }
-                }
-
-                toast.success(`Student updated successfully!${guardianMessage}`);
-            } else {
-                // CREATE MODE
-
-                // 1. Create Login Credentials (Auth User) FIRST
-                // This validates email uniqueness in Supabase Auth immediately.
-
-                if (!schoolId) {
-                    toast.error('Fatal: Current admin/user has no School ID. Cannot register student.');
-                    setIsLoading(false);
-                    return;
-                }
-
-                let authResult = await createUserAccount(fullName, 'Student', generatedEmail, schoolId);
-
-                // Handle already registered error with a unique suffix retry
-                if (authResult.error && (authResult.error.includes('already registered') || authResult.error.includes('duplicate'))) {
-                    console.log(`Email ${generatedEmail} is already registered. Retrying with uniqueness suffix...`);
-                    const randomSuffix = Math.floor(100 + Math.random() * 900); // 3-digit random number
-                    const [localPart, domain] = generatedEmail.split('@');
-                    const uniqueEmail = `${localPart}${randomSuffix}@${domain}`;
-
-                    const retryResult = await createUserAccount(fullName, 'Student', uniqueEmail, schoolId);
-
-                    if (!retryResult.error) {
-                        authResult = retryResult; // Success on retry
-                        generatedEmail = uniqueEmail; // Update the email for subsequent profile creation
-                        toast.success(`Account created with unique identifier: ${uniqueEmail}`);
-                    } else {
-                        // Retry failed, keep the original error or the new one?
-                        // If checking for 'already registered' again, it means the random suffix also collided (rare)
-                        // or there is a deeper issue.
-                        console.warn('Retry creation failed:', retryResult.error);
-                        authResult = retryResult;
-                    }
-                }
-
-                if (authResult.error) {
-                    // Check specifically for "already registered" first (in case retry failed)
-                    if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
-                        toast.error(`Student with email ${generatedEmail} is already registered. Please try a different name or manually edit the email.`);
-                        setIsLoading(false);
-                        return;
-                    }
-
-                    // Check specifically for email DELIVERY errors or rate limits
-                    // Avoid catching "user with this *email* exists"
-                    const lowerError = authResult.error.toLowerCase();
-                    if ((lowerError.includes('email') && lowerError.includes('sending')) || lowerError.includes('rate limit')) {
-                        // warning but proceed? No, if we don't have an ID, we cannot proceed.
-                        if (!authResult.userId) {
-                            toast.error(`Fatal: Could not create login account (${authResult.error}). Operations aborted.`);
-                            setIsLoading(false);
-                            return;
-                        }
-                    } else {
-                        // For captive failures etc
-                        toast.error('Login account failed: ' + authResult.error + '. Aborting.');
-                        setIsLoading(false);
-                        return;
-                    }
-                }
-
-                if (!authResult.userId) {
-                    toast.error('Auth created but no ID returned. Aborting.');
-                    setIsLoading(false);
-                    return;
-                }
-
-                // 2. Create User Profile in users table (with conflict handling)
-                // The auth trigger already created a record in profiles table,
-                // now we ensure the users table is also populated
-                const { error: userInsertError } = await supabase
-                    .from('users')
-                    .insert([{
-                        id: authResult.userId,
-                        email: generatedEmail,
-                        name: fullName,
-                        role: 'student',
-                        school_id: schoolId,
-                        branch_id: branchId, // Add Branch
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
-
-                if (userInsertError) {
-                    // If it's a duplicate key error, it means the user already exists (created by trigger)
-                    // This is fine, we can continue
-                    if (userInsertError.code !== '23505') { // 23505 is duplicate key violation
-                        console.error('Error creating user profile:', userInsertError);
-                        throw new Error(`Failed to create user profile: ${userInsertError.message}`);
-                    } else {
-                        console.log('User profile already exists (created by trigger), continuing...');
-                    }
-                }
-
-                // Reference to the created/existing user
-                const userData = { id: authResult.userId };
-
-
-                // 3. Create Student Profile
-                const { error: studentError } = await supabase
-                    .from('students')
-                    .insert([{
-                        user_id: userData.id,
-                        school_id: schoolId,
-                        branch_id: branchId, // Add Branch
-                        name: fullName,
-                        email: generatedEmail, // Add email
-                        avatar_url: avatarUrl,
-                        grade: grade,
-                        section: section,
-                        department: department || null,
-                        birthday: birthday || null,
-                        dob: birthday || null, // Also save to dob column
-                        admission_number: admissionNumber || null, // ⚠️ Added
-                        address: studentAddress || null, // ⚠️ Added
-                        gender: gender || null,
-                        status: initialStatus,
-                        attendance_status: 'Present'
-                    }])
-                    .select();
-
-                if (studentError) {
-                    console.error("Student Creation Failed. Rolling back user...", studentError);
-                    await supabase.from('users').delete().eq('id', userData.id);
-                    throw studentError;
-                }
-
-                // Fetch the student ID for linking
-                const { data: studentData, error: fetchStudentError } = await supabase
-                    .from('students')
-                    .select('id')
-                    .eq('user_id', userData.id)
-                    .single();
-
-                if (fetchStudentError) throw fetchStudentError;
-
-                // 4. Log Success
-                console.log('Student credentials created successfully.');
-
-
-                // 5. Send verification email (Student)
-                const emailResult = await sendVerificationEmail(fullName, generatedEmail, 'School App');
-                if (!emailResult.success) {
-                    console.warn('Warning: Email verification notification failed:', emailResult.error);
-                }
-
-                // --- GUARDIAN ACCOUNT AUTOMATION ---
-                let parentAuthDetails = null;
-
-                if (gEmail && gName && studentData?.id) {
-                    try {
-                        const GuardianResponse = await api.linkGuardian({
-                            studentId: studentData.id,
-                            guardianName: gName,
-                            guardianEmail: gEmail,
-                            guardianPhone: guardianPhone,
-                            branchId: branchId
-                        });
-
-                        if (GuardianResponse.credentials) {
-                            parentAuthDetails = GuardianResponse.credentials;
-                            await sendVerificationEmail(gName, gEmail, 'School App Account Created');
-                        } else {
-                            toast.success(`Linked to existing guardian: ${gName}.`, { duration: 4000 });
-                            await sendVerificationEmail(gName, gEmail, 'Student Added');
-                        }
-
-                    } catch (gErr) {
-                        console.error("Error processing guardian:", gErr);
-                        toast.error("Student created, but failed to link Guardian: " + (gErr as any).message);
-                    }
-                }
-                // -----------------------------------
-
-                // Show credentials modal instead of alert
-                setCredentials({
-                    username: authResult.username,
-                    password: authResult.password,
-                    email: generatedEmail,
-                    secondary: parentAuthDetails || undefined
-                });
-                setShowCredentialsModal(true);
-                setIsLoading(false);
-                return; // Wait for modal close
-            }
-
-            // Trigger parent component to refresh data from Supabase
             forceUpdate();
             handleBack();
         } catch (error: any) {
@@ -614,23 +331,34 @@ parents(
                                         <input type="date" name="birthday" id="birthday" value={birthday} onChange={e => setBirthday(e.target.value)} className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" placeholder="Date of Birth" />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                                        <select id="class" name="class" value={className} onChange={e => setClassName(e.target.value)} className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" required>
-                                            <option value="">Select Class...</option>
-                                            {[...Array(12).keys()].map(i => <option key={i + 1} value={`Grade ${i + 1}`}>Grade {i + 1}</option>)}
-                                        </select>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Class Enrollments</label>
+                                    <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                                        {availableClasses.length > 0 ? (
+                                            availableClasses.map((cls) => (
+                                                <label key={cls.id} className="flex items-center space-x-3 p-2 hover:bg-white rounded-md cursor-pointer transition-colors border border-transparent hover:border-gray-200">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="h-5 w-5 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                                                        checked={selectedClassIds.includes(cls.id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedClassIds([...selectedClassIds, cls.id]);
+                                                            } else {
+                                                                setSelectedClassIds(selectedClassIds.filter(id => id !== cls.id));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span className="text-sm font-medium text-gray-700">
+                                                        {cls.name} {cls.section ? `(${cls.section})` : ''}
+                                                    </span>
+                                                </label>
+                                            ))
+                                        ) : (
+                                            <p className="text-xs text-gray-500 italic py-2 text-center">No classes configured for this school.</p>
+                                        )}
                                     </div>
-                                    <div>
-                                        <label htmlFor="section" className="block text-sm font-medium text-gray-700 mb-1">Section</label>
-                                        <select id="section" name="section" value={section} onChange={e => setSection(e.target.value)} className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" required>
-                                            <option value="">Select Section...</option>
-                                            <option>A</option>
-                                            <option>B</option>
-                                            <option>C</option>
-                                        </select>
-                                    </div>
+                                    <p className="mt-1 text-xs text-gray-400">The first selected class will be treated as the Primary Class.</p>
                                 </div>
                                 {grade >= 10 && (
                                     <div>

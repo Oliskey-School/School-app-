@@ -49,10 +49,17 @@ export function useOfflineQuery<T = any>(
     // Listen for sync completion OR realtime updates to refetch
     useEffect(() => {
         const handleRefresh = (data?: any) => {
-            // Only invalidate if the event table matches this query's table (usually index 0 of queryKey)
-            // 'data.table' comes from 'realtime-update', otherwise for 'sync-complete' we refresh all
-            const table = data?.table;
-            if (!table || queryKey.includes(table) || queryKey[0] === table) {
+            // data.tables comes from 'sync-complete', data.table comes from 'realtime-update'
+            const modifiedTables = data?.tables || (data?.table ? [data.table] : null);
+            
+            // If we have a specific list of modified tables, check if this query's table is in it
+            if (modifiedTables) {
+                const currentTable = queryKey[0] as string;
+                if (modifiedTables.includes(currentTable) || queryKey.some(k => modifiedTables.includes(k))) {
+                    queryClient.invalidateQueries({ queryKey });
+                }
+            } else if (!data) {
+                // Legacy or general refresh
                 queryClient.invalidateQueries({ queryKey });
             }
         };

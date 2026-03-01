@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { Submission, Assignment, Student } from '../../types';
-import { CheckCircleIcon, ClockIcon, MailIcon } from '../../constants';
+import { CheckCircleIcon, ClockIcon, MailIcon, TrashIcon } from '../../constants';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import { fetchStudentsByClassId } from '../../lib/database';
 
 
 interface AssignmentSubmissionsScreenProps {
@@ -78,17 +79,23 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
     const fetchData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Students in the class
-            const data = await api.getStudents(schoolId);
-            // Rough match for grade/section from className
-            const gradeMatch = assignment.className.match(/\d+/);
-            const sectionMatch = assignment.className.match(/[A-Z]/);
+            // 1. Fetch Students in the class using new enrollment logic
+            let classStudents: Student[] = [];
 
-            let classStudents = data || [];
-            if (gradeMatch && sectionMatch) {
-                const grade = parseInt(gradeMatch[0]);
-                const section = sectionMatch[0];
-                classStudents = classStudents.filter(s => s.grade === grade && s.section === section);
+            if (assignment.classId) {
+                classStudents = await fetchStudentsByClassId(assignment.classId);
+            } else {
+                // Fallback to legacy grade/section match if classId is missing
+                const data = await api.getStudents(schoolId);
+                const gradeMatch = assignment.className.match(/\d+/);
+                const sectionMatch = assignment.className.match(/[A-Z]/);
+
+                classStudents = data || [];
+                if (gradeMatch && sectionMatch) {
+                    const grade = parseInt(gradeMatch[0]);
+                    const section = sectionMatch[0];
+                    classStudents = classStudents.filter(s => s.grade === grade && s.section === section);
+                }
             }
             setAllClassStudents(classStudents);
 
@@ -205,13 +212,41 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
         });
     };
 
+    const handleDeleteAssignment = async () => {
+        if (!window.confirm("Are you sure you want to delete this assignment? All submissions will be lost.")) return;
+
+        try {
+            setLoading(true);
+            await api.deleteAssignment(assignment.id);
+            toast.success("Assignment deleted successfully");
+            handleBack();
+        } catch (err) {
+            console.error("Error deleting assignment:", err);
+            toast.error("Failed to delete assignment");
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 space-y-4 overflow-y-auto">
+                {/* Header Actions */}
+                <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-xl font-bold text-gray-800">{assignment.title}</h2>
+                    <button
+                        onClick={handleDeleteAssignment}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center space-x-1"
+                        title="Delete Assignment"
+                    >
+                        <TrashIcon className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Delete</span>
+                    </button>
+                </div>
+
                 {/* Summary Header */}
                 <div className="bg-white p-4 rounded-xl shadow-sm text-center grid grid-cols-3 divide-x divide-gray-200">
                     <div>
-                        <p className="text-2xl font-bold text-purple-700">{submissions.length}/{assignment.totalStudents}</p>
+                        <p className="text-2xl font-bold text-purple-700">{submissions.length}/{allClassStudents.length || assignment.totalStudents}</p>
                         <p className="text-xs text-gray-500 font-medium">Submitted</p>
                     </div>
                     <div>

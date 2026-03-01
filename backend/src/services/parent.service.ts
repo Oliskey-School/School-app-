@@ -1,8 +1,8 @@
 import { supabase } from '../config/supabase';
 
 export class ParentService {
-    static async getParents(schoolId: string) {
-        const { data, error } = await supabase
+    static async getParents(schoolId: string, branchId?: string) {
+        let query = supabase
             .from('parents')
             .select(`
                 *,
@@ -11,8 +11,13 @@ export class ParentService {
                     students (id, name, grade, section)
                 )
             `)
-            .eq('school_id', schoolId)
-            .order('name');
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query.order('name');
 
         if (error) throw new Error(error.message);
         return (data || []).map((p: any) => ({

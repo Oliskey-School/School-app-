@@ -42,6 +42,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
     const { customId, copyToClipboard, copied, formatId } = useUserIdentity();
     const [activeSetting, setActiveSetting] = useState<SettingView>(null);
 
+    if (!profile) return <div className="p-8 text-center text-gray-500">No profile data found. Please try logging in again.</div>;
+
     const settingsItems = [
         { id: 'editProfile', icon: <EditIcon />, label: 'Edit Profile', color: 'bg-blue-100 text-blue-500' },
         { id: 'notificationsSettings', icon: <NotificationIcon />, label: 'Notifications', color: 'bg-green-100 text-green-500' },
@@ -81,11 +83,11 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                 <div className="flex-grow p-4 space-y-4 overflow-y-auto">
                     <div className="flex flex-col items-center p-6 space-y-2 bg-white rounded-xl shadow-sm">
                         <img
-                            src={profile.avatarUrl || 'https://i.pravatar.cc/150?u=admin'}
-                            alt={profile.name}
+                            src={profile.avatar_url || 'https://i.pravatar.cc/150?u=admin'}
+                            alt={profile.full_name}
                             className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0 aspect-square bg-gray-200"
                         />
-                        <h3 className="text-2xl font-bold text-gray-800">{profile.name}</h3>
+                        <h3 className="text-2xl font-bold text-gray-800">{profile.full_name}</h3>
                         <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full mb-2 capitalize">
                             {profile.role === 'admin' ? 'Administrator' : (profile.role || 'Administrator')}
                         </span>
@@ -93,10 +95,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                         {/* ID Display */}
                         <div
                             className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-gray-200 transition-colors"
-                            onClick={() => copyToClipboard(formatId(customId || (profile as any).schoolGeneratedId))}
+                            onClick={() => copyToClipboard(formatId(customId || (profile as any).school_generated_id))}
                         >
                             <span className="text-xs text-gray-600 font-mono font-medium">
-                                {formatId(customId || (profile as any).schoolGeneratedId) || 'ID: Loading...'}
+                                {formatId(customId || (profile as any).school_generated_id) || 'ID: Loading...'}
                             </span>
                             <CopyIcon className="w-3 h-3 text-gray-400" />
                             {copied && <span className="text-xs text-green-600 font-medium ml-1">Copied!</span>}

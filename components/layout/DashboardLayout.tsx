@@ -116,16 +116,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                 {!hideHeader && (
                     <Header
                         title={title || 'Dashboard'}
-                        // Use profile.avatarUrl (live state) -> fallback to user metadata (stable auth) -> empty
-                        avatarUrl={profile?.avatarUrl || user?.user_metadata?.avatar_url || ''}
+                        // Use profile.avatar_url (live state) -> fallback to user metadata (stable auth) -> empty
+                        avatarUrl={profile?.avatar_url || user?.user_metadata?.avatar_url || ''}
                         bgColor={theme?.mainBg || 'bg-indigo-800'}
                         onLogout={handleLogout}
                         onBack={onBack}
                         onMenuClick={() => setIsMobileMenuOpen(true)}
                         notificationCount={notificationCount}
                         className="w-full flex-shrink-0"
-                        userName={profile?.name || user?.user_metadata?.full_name} // Also sync name
-                        customId={profile?.schoolGeneratedId || user?.user_metadata?.school_generated_id}
+                        userName={profile?.full_name || user?.user_metadata?.full_name} // Also sync name
+                        customId={profile?.school_generated_id || user?.user_metadata?.school_generated_id}
                     />
                 )}
 

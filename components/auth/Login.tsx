@@ -185,6 +185,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
         const dashboardType = mapRoleToDashboard(mockUser.role);
         const DEMO_SCHOOL = {
           id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f', // Main Branch with 95 students
           name: 'Oliskey Demo School',
           slug: 'demo',
           subscriptionStatus: 'active',
@@ -239,6 +240,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
         const DEMO_SCHOOL = {
           id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f', // Main Branch with 95 students
           name: 'Oliskey Demo School',
           slug: 'demo',
           subscriptionStatus: 'active',

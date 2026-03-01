@@ -6,14 +6,14 @@ export class TeacherService {
 
         // 1. Create Auth User (Optional step if managed elsewhere, but good for completeness)
         // In a real app, you might want to check if user already exists
-        
+
         // 2. Create Teacher Record
         const { data: teacher, error } = await supabase
             .from('teachers')
-            .insert([{ 
-                name, 
-                email, 
-                phone, 
+            .insert([{
+                name,
+                email,
+                phone,
                 avatar_url,
                 school_id: schoolId,
                 status: 'Active'
@@ -38,12 +38,17 @@ export class TeacherService {
         return teacher;
     }
 
-    static async getAllTeachers(schoolId: string) {
-        const { data, error } = await supabase
+    static async getAllTeachers(schoolId: string, branchId?: string) {
+        let query = supabase
             .from('teachers')
             .select('*')
-            .eq('school_id', schoolId)
-            .order('created_at', { ascending: false });
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query.order('name');
 
         if (error) throw new Error(error.message);
         return data;
@@ -83,5 +88,55 @@ export class TeacherService {
 
         if (error) throw new Error(error.message);
         return true;
+    }
+
+    static async submitMyAttendance(schoolId: string, userId: string) {
+        // 1. Resolve teacher ID from user ID
+        const { data: teacher, error: tErr } = await supabase
+            .from('teachers')
+            .select('id')
+            .eq('user_id', userId)
+            .single();
+
+        if (tErr || !teacher) throw new Error('Teacher record not found');
+
+        const date = new Date().toISOString().split('T')[0];
+        const checkIn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+        const { data, error } = await supabase
+            .from('teacher_attendance')
+            .insert({
+                teacher_id: teacher.id,
+                school_id: schoolId,
+                date,
+                status: 'present',
+                approval_status: 'pending',
+                check_in: checkIn
+            })
+            .select()
+            .single();
+
+        if (error) throw new Error(error.message);
+        return data;
+    }
+
+    static async getMyAttendanceHistory(userId: string, limit: number = 30) {
+        const { data: teacher, error: tErr } = await supabase
+            .from('teachers')
+            .select('id')
+            .eq('user_id', userId)
+            .single();
+
+        if (tErr || !teacher) throw new Error('Teacher record not found');
+
+        const { data, error } = await supabase
+            .from('teacher_attendance')
+            .select('*')
+            .eq('teacher_id', teacher.id)
+            .order('date', { ascending: false })
+            .limit(limit);
+
+        if (error) throw new Error(error.message);
+        return data;
     }
 }

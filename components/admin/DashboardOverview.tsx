@@ -288,14 +288,14 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const navigate = useNavigate(); // Moved here from the instruction's suggested location
 
     // Fallback: If prop is missing (race condition), try to use profile or auth context
-    const activeSchoolId = schoolId || profile?.schoolId || user?.user_metadata?.school_id;
+    const activeSchoolId = schoolId || profile?.school_id || user?.user_metadata?.school_id;
 
     const [dashboardError, setDashboardError] = useState<string | null>(null);
 
     useEffect(() => {
         console.log('[Dashboard] Detected Context:', {
             currentSchoolId: currentSchool?.id,
-            profileSchoolId: profile.schoolId,
+            profileSchoolId: profile?.school_id,
             metadataSchoolId: user?.user_metadata?.school_id,
             resolvedSchoolId: schoolId
         });

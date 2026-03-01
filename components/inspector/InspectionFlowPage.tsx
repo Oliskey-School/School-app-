@@ -17,7 +17,8 @@ import {
 type InspectionStatus = 'Scheduled' | 'In Progress' | 'Review' | 'Completed';
 
 interface InspectionItem {
-    id: number;
+    id: string;
+    inspection_id: string;
     category: 'Facilities' | 'Curriculum' | 'Safety' | 'Admin' | 'Staffing';
     item_text: string;
     is_compliant: boolean;
@@ -26,8 +27,9 @@ interface InspectionItem {
 }
 
 const InspectionFlowPage = () => {
+    const { currentSchool } = useAuth();
     const [step, setStep] = useState(1);
-    const [inspectionId, setInspectionId] = useState<number | null>(null);
+    const [inspectionId, setInspectionId] = useState<string | null>(null);
     const [status, setStatus] = useState<InspectionStatus>('Scheduled');
     const [items, setItems] = useState<InspectionItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -36,33 +38,89 @@ const InspectionFlowPage = () => {
     const categories: InspectionItem['category'][] = ['Facilities', 'Curriculum', 'Safety', 'Admin', 'Staffing'];
 
     const startInspection = async () => {
-        setLoading(true);
-        // This would usually be triggered by select school/curriculum
-        // For demonstration, we'll create a dummy session
-        const { data, error } = await supabase.from('inspections').insert([{
-            status: 'In Progress',
-            started_at: new Date().toISOString()
-        }]).select().single();
-
-        if (data) {
-            setInspectionId(data.id);
-            setStatus('In Progress');
-            setStep(2);
-            // Default checklist items
-            const defaultItems: Partial<InspectionItem>[] = [
-                { category: 'Facilities', item_text: 'Adequate classroom lighting and ventilation', is_compliant: false },
-                { category: 'Curriculum', item_text: 'Alignment with Ministry Approved Scheme of Work', is_compliant: false },
-                { category: 'Safety', item_text: 'Functioning fire extinguishers in every wing', is_compliant: false },
-            ];
-            setItems(defaultItems as InspectionItem[]);
+        if (!currentSchool) {
+            toast.error("School context missing");
+            return;
         }
-        setLoading(false);
+        setLoading(true);
+        
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            
+            const { data, error } = await supabase.from('inspections').insert([{
+                school_id: currentSchool.id,
+                inspector_id: user?.id,
+                status: 'In Progress',
+                started_at: new Date().toISOString()
+            }]).select().single();
+
+            if (data) {
+                setInspectionId(data.id);
+                setStatus('In Progress');
+                
+                // Create initial checklist items in DB
+                const defaultItemTexts = [
+                    { category: 'Facilities', text: 'Adequate classroom lighting and ventilation' },
+                    { category: 'Curriculum', text: 'Alignment with Ministry Approved Scheme of Work' },
+                    { category: 'Safety', text: 'Functioning fire extinguishers in every wing' },
+                ];
+
+                const { data: createdItems, error: itemsError } = await supabase
+                    .from('inspection_items')
+                    .insert(defaultItemTexts.map(t => ({
+                        inspection_id: data.id,
+                        category: t.category,
+                        item_text: t.text,
+                        is_compliant: false
+                    })))
+                    .select();
+
+                if (createdItems) {
+                    setItems(createdItems);
+                    setStep(2);
+                }
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Failed to start inspection");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const toggleCompliance = (index: number) => {
-        const newItems = [...items];
-        newItems[index].is_compliant = !newItems[index].is_compliant;
-        setItems(newItems);
+    const toggleCompliance = async (index: number) => {
+        const item = items[index];
+        const newCompliantStatus = !item.is_compliant;
+        
+        try {
+            const { error } = await supabase
+                .from('inspection_items')
+                .update({ is_compliant: newCompliantStatus })
+                .eq('id', item.id);
+
+            if (!error) {
+                const newItems = [...items];
+                newItems[index].is_compliant = newCompliantStatus;
+                setItems(newItems);
+            }
+        } catch (err) {
+            console.error("Failed to update item compliance", err);
+        }
+    };
+
+    const updateComment = async (index: number, comment: string) => {
+        const item = items[index];
+        try {
+            await supabase
+                .from('inspection_items')
+                .update({ comments: comment })
+                .eq('id', item.id);
+            
+            const newItems = [...items];
+            newItems[index].comments = comment;
+            setItems(newItems);
+        } catch (err) {
+            console.error("Failed to update comment", err);
+        }
     };
 
     const StepIndicator = () => (

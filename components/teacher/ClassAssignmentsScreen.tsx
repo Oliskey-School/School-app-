@@ -31,6 +31,7 @@ const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ classNa
                     title: a.title,
                     description: a.description,
                     className: a.class_name,
+                    classId: a.class_id,
                     subject: a.subject,
                     dueDate: a.due_date,
                     totalStudents: a.total_students || 0,

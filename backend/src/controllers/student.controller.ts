@@ -32,30 +32,30 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
                 .select('id')
                 .eq('user_id', req.user.id)
                 .single();
-            
+
             if (!teacher) return res.json([]);
 
             const { data: classes } = await supabase
                 .from('class_teachers')
                 .select('class_id')
                 .eq('teacher_id', teacher.id);
-            
+
             if (!classes || classes.length === 0) return res.json([]);
 
             const classIds = classes.map(c => c.class_id);
-            
+
             const { data: students, error } = await supabase
                 .from('students')
                 .select('*')
                 .eq('school_id', req.user.school_id)
                 .in('current_class_id', classIds)
                 .order('name');
-            
+
             if (error) throw error;
             return res.json(students || []);
         }
-
-        const result = await StudentService.getAllStudents(req.user.school_id);
+        const branchId = req.query.branchId as string;
+        const result = await StudentService.getAllStudents(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

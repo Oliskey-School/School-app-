@@ -52,7 +52,10 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
                     const studentIds = classStudents.map((s: any) => s.id);
 
                     const classRecords = (attendanceRecords || []).filter((r: any) => studentIds.includes(r.student_id));
-                    const presentCount = classRecords.filter((r: any) => r.status === 'Present' || r.status === 'Late').length;
+                    const presentCount = classRecords.filter((r: any) => {
+                        const s = (r.status || '').toLowerCase();
+                        return s === 'present' || s === 'late';
+                    }).length;
 
                     processedData.push({
                         grade: cls.grade,
@@ -67,9 +70,9 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
             setAttendanceData(processedData);
 
             // Calc stats
-            const totalP = (attendanceRecords || []).filter((r: any) => r.status === 'Present').length;
-            const totalA = (attendanceRecords || []).filter((r: any) => r.status === 'Absent').length;
-            const totalL = (attendanceRecords || []).filter((r: any) => r.status === 'Late').length;
+            const totalP = (attendanceRecords || []).filter((r: any) => (r.status || '').toLowerCase() === 'present').length;
+            const totalA = (attendanceRecords || []).filter((r: any) => (r.status || '').toLowerCase() === 'absent').length;
+            const totalL = (attendanceRecords || []).filter((r: any) => (r.status || '').toLowerCase() === 'late').length;
             const totalRecorded = (attendanceRecords || []).length;
 
             setStats({

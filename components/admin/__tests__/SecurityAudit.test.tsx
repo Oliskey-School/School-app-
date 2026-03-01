@@ -14,13 +14,11 @@ import { toast } from 'react-hot-toast';
 vi.mock('../../../lib/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn(() => ({ data: {}, error: null })),
-          maybeSingle: vi.fn(() => ({ data: {}, error: null })),
-        })),
-        maybeSingle: vi.fn(() => ({ data: {}, error: null })),
-      })),
+      select: vi.fn(function() { return this; }),
+      eq: vi.fn(function() { return this; }),
+      order: vi.fn(function() { return this; }),
+      single: vi.fn(() => ({ data: {}, error: null })),
+      maybeSingle: vi.fn(() => ({ data: {}, error: null })),
       insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => ({ data: { id: '123' }, error: null })) })) })),
       update: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
       upsert: vi.fn(() => ({ error: null })),

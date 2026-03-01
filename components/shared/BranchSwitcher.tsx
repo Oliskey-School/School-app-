@@ -44,13 +44,34 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
         return colors[type as keyof typeof colors] || 'from-gray-500/20 to-slate-500/20 border-gray-500/30';
     };
 
-    if (!branches || branches.length <= 1) {
-        return null; // Don't show if only one branch
+    if (!branches || branches.length === 0) {
+        return null; // Don't show if no branches found
     }
 
-    // Hide for non-admin roles
+    // For non-admin roles, show a simplified, read-only branch display
     if (role !== DashboardType.Admin && role !== DashboardType.SuperAdmin && role !== DashboardType.Proprietor) {
-        return null;
+        const branchName = currentBranch?.name || 'Main Campus';
+        const curriculumType = currentBranch?.curriculum_type || 'nigerian';
+        
+        return (
+            <div className={`
+                flex items-center gap-2 px-3 py-1.5 rounded-lg
+                backdrop-blur-md bg-white/5 
+                border border-white/10
+                shadow-sm
+            `}>
+                <div className={`
+                    w-5 h-5 rounded-md bg-gradient-to-br ${getCurriculumColor(curriculumType)}
+                    flex items-center justify-center
+                    border
+                `}>
+                    <Building2 className="w-3 h-3 text-white" />
+                </div>
+                <span className="text-xs font-bold text-white opacity-90 truncate max-w-[120px]">
+                    {branchName}
+                </span>
+            </div>
+        );
     }
 
     return (
@@ -59,7 +80,7 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`
-                    group relative p-1 rounded-lg
+                    group relative px-2 py-1 rounded-lg
                     backdrop-blur-md bg-white/5 
                     border border-white/10
                     shadow-sm
@@ -68,7 +89,7 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
                     ${isOpen ? 'bg-white/10 shadow-inner' : ''}
                 `}
             >
-                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                     {/* Branch Icon */}
                     <div className={`
                         w-6 h-6 rounded-md bg-gradient-to-br ${getCurriculumColor(currentBranch?.curriculum_type || 'nigerian')}
@@ -79,6 +100,11 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
                     `}>
                         <Building2 className="w-3.5 h-3.5 text-white" />
                     </div>
+
+                    {/* Branch Name */}
+                    <span className="text-xs font-bold text-white tracking-wide truncate max-w-[100px] hidden sm:inline-block">
+                        {currentBranch ? currentBranch.name : 'All Branches'}
+                    </span>
 
                     {/* Chevron */}
                     <ChevronDown className={`w-3.5 h-3.5 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />

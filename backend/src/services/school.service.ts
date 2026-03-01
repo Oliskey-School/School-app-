@@ -63,4 +63,15 @@ export class SchoolService {
         if (error) throw new Error(error.message);
         return true;
     }
+
+    static async getBranches(schoolId: string) {
+        const { data: branches, error } = await supabase
+            .from('branches')
+            .select('*')
+            .eq('school_id', schoolId)
+            .order('is_main', { ascending: false });
+
+        if (error) throw new Error(error.message);
+        return branches;
+    }
 }

@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 
 interface Facility {
-    id: number;
+    id: string;
+    school_id: string;
     name: string;
     type: 'Classroom' | 'Laboratory' | 'Toilet' | 'Library' | 'Sick bay' | 'Staff Room' | 'Other';
     capacity: number;
@@ -21,6 +22,7 @@ interface Facility {
 }
 
 const FacilityRegisterScreen = () => {
+    const { currentSchool } = useAuth();
     const [facilities, setFacilities] = useState<Facility[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -34,14 +36,18 @@ const FacilityRegisterScreen = () => {
     });
 
     useEffect(() => {
-        fetchFacilities();
-    }, []);
+        if (currentSchool) {
+            fetchFacilities();
+        }
+    }, [currentSchool]);
 
     const fetchFacilities = async () => {
+        if (!currentSchool) return;
         setLoading(true);
         const { data, error } = await supabase
             .from('facility_registers')
             .select('*')
+            .eq('school_id', currentSchool.id)
             .order('name');
 
         if (data) setFacilities(data);
@@ -49,11 +55,14 @@ const FacilityRegisterScreen = () => {
     };
 
     const handleAdd = async () => {
-        if (!newFacility.name) return;
+        if (!newFacility.name || !currentSchool) return;
 
         const { error } = await supabase
             .from('facility_registers')
-            .insert([newFacility]);
+            .insert([{
+                ...newFacility,
+                school_id: currentSchool.id
+            }]);
 
         if (!error) {
             setIsAdding(false);
@@ -62,9 +71,13 @@ const FacilityRegisterScreen = () => {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Are you sure you want to delete this facility?')) return;
-        const { error } = await supabase.from('facility_registers').delete().eq('id', id);
+    const handleDelete = async (id: string) => {
+        if (!window.confirm('Are you sure you want to delete this facility?') || !currentSchool) return;
+        const { error } = await supabase
+            .from('facility_registers')
+            .delete()
+            .eq('id', id)
+            .eq('school_id', currentSchool.id);
         if (!error) fetchFacilities();
     };
 

@@ -10,12 +10,12 @@ export const MOCK_USERS: Record<string, any> = {
         metadata: { role: 'admin', full_name: 'System Admin', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     teacher: {
-        id: 'd3300000-0000-0000-0000-000000000002',
-        email: 'demo_teacher@school.com',
+        id: 'f65c2228-566f-4559-9182-4dbcd5985b05',
+        email: 'john.smith@demo.com',
         password: 'password123',
         role: 'teacher',
-        name: 'Demo Teacher',
-        metadata: { role: 'teacher', full_name: 'Demo Teacher', subjects: ['Mathematics'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        name: 'Bisola Odupitan',
+        metadata: { role: 'teacher', full_name: 'Bisola Odupitan', subjects: ['Mathematics'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
     },
     parent: {
         id: 'd3300000-0000-0000-0000-000000000003',

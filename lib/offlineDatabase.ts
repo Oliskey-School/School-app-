@@ -190,19 +190,58 @@ class OfflineDatabase {
     }
 
     /**
-     * Get all records from a table
+     * Get all records from a table with optimized filtering and pagination
      */
     async getAll<T>(table: TableName, options?: QueryOptions): Promise<OfflineRecord<T>[]> {
         const store = await this.getStore(table, 'readonly');
+        
+        // OPTIMIZATION: Use index if filtering by a single indexed field
+        const whereKeys = options?.where ? Object.keys(options.where) : [];
+        const indexName = whereKeys.length === 1 ? this.getAvailableIndex(table, whereKeys[0]) : null;
 
         return new Promise((resolve, reject) => {
-            const request = store.getAll();
+            let request: IDBRequest;
+            
+            if (indexName) {
+                const index = store.index(indexName);
+                request = index.getAll(options!.where![whereKeys[0]]);
+            } else if (options?.limit && options.limit < 100 && !options.where) {
+                // Use cursor for small limits without complex filtering
+                const results: OfflineRecord<T>[] = [];
+                const cursorRequest = store.openCursor();
+                let advanced = false;
+
+                cursorRequest.onsuccess = (event) => {
+                    const cursor = (event.target as IDBRequest).result;
+                    if (!cursor) {
+                        resolve(results);
+                        return;
+                    }
+
+                    if (options.offset && !advanced) {
+                        advanced = true;
+                        cursor.advance(options.offset);
+                        return;
+                    }
+
+                    results.push(cursor.value);
+                    if (results.length < options.limit!) {
+                        cursor.continue();
+                    } else {
+                        resolve(results);
+                    }
+                };
+                cursorRequest.onerror = () => reject(cursorRequest.error);
+                return;
+            } else {
+                request = store.getAll();
+            }
 
             request.onsuccess = () => {
                 let results = request.result || [];
 
-                // Apply filters
-                if (options?.where) {
+                // Apply remaining filters if not already filtered by index
+                if (options?.where && !indexName) {
                     results = this.filterRecords(results, options.where);
                 }
 
@@ -211,12 +250,14 @@ class OfflineDatabase {
                     results = this.sortRecords(results, options.orderBy);
                 }
 
-                // Apply pagination
-                if (options?.offset) {
-                    results = results.slice(options.offset);
-                }
-                if (options?.limit) {
-                    results = results.slice(0, options.limit);
+                // Apply pagination if not already applied by cursor
+                if (!indexName || (options?.offset || options?.limit)) {
+                    if (options?.offset) {
+                        results = results.slice(options.offset);
+                    }
+                    if (options?.limit) {
+                        results = results.slice(0, options.limit);
+                    }
                 }
 
                 resolve(results);
@@ -224,6 +265,26 @@ class OfflineDatabase {
 
             request.onerror = () => reject(request.error);
         });
+    }
+
+    /**
+     * Helper to check if an index exists for a field
+     */
+    private getAvailableIndex(table: TableName, field: string): string | null {
+        // Common indexes
+        if (['lastSynced', 'syncStatus', 'localUpdatedAt'].includes(field)) return field;
+        
+        // Field to index mapping
+        const mapping: Record<string, string> = {
+            'school_id': 'school_id',
+            'email': 'email',
+            'class_id': 'class_id',
+            'student_id': 'student_id',
+            'day': 'day',
+            'class_name': 'class_name'
+        };
+
+        return mapping[field] || null;
     }
 
     /**
@@ -283,6 +344,19 @@ class OfflineDatabase {
 
             transaction.oncomplete = () => resolve();
             transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    /**
+     * Get the total number of records in a table efficiently
+     */
+    async count(table: TableName): Promise<number> {
+        const store = await this.getStore(table, 'readonly');
+
+        return new Promise((resolve, reject) => {
+            const request = store.count();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
         });
     }
 
@@ -485,8 +559,7 @@ export const dbHelpers = {
      * Get count of records in a table
      */
     async count(table: TableName): Promise<number> {
-        const records = await offlineDB.getAll(table);
-        return records.length;
+        return offlineDB.count(table);
     },
 
     /**

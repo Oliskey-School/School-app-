@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { getTeacherAttendanceHistory, TeacherAttendance } from '../../lib/teacherAttendanceService';
-import { CheckCircleIcon, CalendarIcon, ChevronRightIcon } from '../../constants';
+import api from '../../lib/api';
+import { CheckCircleIcon, CalendarIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 
+interface TeacherAttendance {
+    id: string;
+    teacher_id: string;
+    date: string;
+    status: string;
+    approval_status: string;
+    check_in: string;
+    approved_by?: string;
+}
+
 interface TeacherAttendanceHistoryScreenProps {
-    teacherId: string;
+    teacherId?: string | null;
     handleBack: () => void;
 }
 
@@ -15,18 +24,13 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
 
     useEffect(() => {
         const fetchHistory = async () => {
-            if (!teacherId) return;
             setLoading(true);
             try {
-                const res = await getTeacherAttendanceHistory(teacherId, 100); // Fetch more for history view
-                if (res.success) {
-                    setHistory(res.data || []);
-                } else {
-                    toast.error(res.error || "Failed to load history");
-                }
-            } catch (err) {
+                const data = await api.getTeacherAttendanceHistory(100);
+                setHistory(data || []);
+            } catch (err: any) {
                 console.error("Error fetching history:", err);
-                toast.error("An unexpected error occurred");
+                toast.error(err.message || "Failed to load history");
             } finally {
                 setLoading(false);
             }

@@ -159,10 +159,8 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
         setSaving(true);
         try {
             await updateProfile({
-                id: user?.id,
-                name,
-                avatarUrl: avatar,
-                // Email is usually not editable directly here without re-auth, so we skip it for now or assume read-only
+                full_name: name,
+                avatar_url: avatar,
             });
 
             toast.success('Profile updated successfully!');

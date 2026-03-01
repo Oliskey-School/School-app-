@@ -32,8 +32,17 @@ export class AuthService {
         if (isDemoAccount && password === 'password123') {
             // Return a mock demo user based on the email
             const role = email.split('@')[0].replace('demo_', '');
+            
+            // USE VALID UUIDs for demo accounts to satisfy PG schema
+            const demoIdMap: { [key: string]: string } = {
+                'admin': 'd3300000-0000-0000-0000-000000000001',
+                'teacher': 'd3300000-0000-0000-0000-000000000002',
+                'parent': 'd3300000-0000-0000-0000-000000000003',
+                'student': 'd3300000-0000-0000-0000-000000000004'
+            };
+
             const demoUser = {
-                id: `demo-${role}-id`,
+                id: demoIdMap[role] || `d3300000-0000-0000-0000-000000000005`,
                 email: email,
                 role: role.charAt(0).toUpperCase() + role.slice(1),
                 school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',

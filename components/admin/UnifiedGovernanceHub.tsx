@@ -2,6 +2,30 @@ import React from 'react';
 import { Shield, Sparkles, TrendingUp, Globe, Target, Layers, ArrowRight, Award, Zap } from 'lucide-react';
 
 const UnifiedGovernanceHub: React.FC = () => {
+    const { currentSchool } = useAuth();
+    const [stats, setStats] = React.useState<any>(null);
+
+    React.useEffect(() => {
+        const fetchGovernanceStats = async () => {
+            if (!currentSchool) return;
+            
+            // Get counts from various tables to show "governance strength"
+            const tables = ['students', 'teachers', 'school_policies', 'inspections'];
+            const results = await Promise.all(tables.map(t => 
+                supabase.from(t).select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id)
+            ));
+
+            setStats({
+                students: results[0].count || 0,
+                teachers: results[1].count || 0,
+                policies: results[2].count || 0,
+                inspections: results[3].count || 0,
+            });
+        };
+
+        fetchGovernanceStats();
+    }, [currentSchool]);
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700">
             {/* Hero Section */}
@@ -17,15 +41,15 @@ const UnifiedGovernanceHub: React.FC = () => {
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-emerald-400">Modern African Schools.</span>
                     </h1>
                     <p className="text-xl text-gray-400 font-medium">
-                        The only platform that bridges the gap between Ministry of Education compliance,
-                        dual-track curriculum management, and multi-channel parental empowerment.
+                        School ID: <span className="text-white font-mono">{currentSchool?.id?.substring(0, 8)}...</span> | 
+                        Current Track: <span className="text-emerald-400">{currentSchool?.curriculum_type || 'Unset'}</span>
                     </p>
                     <div className="flex gap-4 pt-4">
                         <button className="bg-white text-gray-900 px-8 py-3 rounded-2xl font-black hover:bg-gray-100 transition shadow-lg shadow-white/5 active:scale-95">
                             Download Strategy Deck
                         </button>
                         <button className="bg-gray-800 text-white px-8 py-3 rounded-2xl font-bold border border-gray-700 hover:bg-gray-700 transition active:scale-95">
-                            Scale to Multi-Campus
+                            Active Entities: {stats ? (stats.students + stats.teachers) : '...'}
                         </button>
                     </div>
                 </div>
@@ -33,32 +57,29 @@ const UnifiedGovernanceHub: React.FC = () => {
 
             {/* Core Pillars */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center pt-6">
-                <div className="space-y-4">
+                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                     <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
                         <Shield className="w-8 h-8" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">Absolute Compliance</h3>
-                    <p className="text-gray-500 text-sm px-4 italic leading-relaxed">
-                        Pre-configured for Nigerian MoE Standards (ASC, TRCN) and International (Cambridge) audit requirements.
-                    </p>
+                    <h3 className="text-xl font-bold text-gray-900">Compliance</h3>
+                    <p className="text-2xl font-black text-blue-600">{stats?.policies || 0} Active Policies</p>
+                    <p className="text-gray-500 text-xs italic">Ministry Standards Met</p>
                 </div>
-                <div className="space-y-4">
+                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                     <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
                         <Layers className="w-8 h-8" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">Dual-Track Logic</h3>
-                    <p className="text-gray-500 text-sm px-4 italic leading-relaxed">
-                        Proprietary data-isolation engine ensures simultaneous management of WAEC and IGCSE tracks without friction.
-                    </p>
+                    <h3 className="text-xl font-bold text-gray-900">Audits</h3>
+                    <p className="text-2xl font-black text-emerald-600">{stats?.inspections || 0} Inspections</p>
+                    <p className="text-gray-500 text-xs italic">Digital Audit Trail</p>
                 </div>
-                <div className="space-y-4">
+                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                     <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
                         <Globe className="w-8 h-8" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">Edge Connectivity</h3>
-                    <p className="text-gray-500 text-sm px-4 italic leading-relaxed">
-                        Zero-data USSD, SMS, and Radio-synced lessons reach 100% of parents, regardless of internet access.
-                    </p>
+                    <h3 className="text-xl font-bold text-gray-900">Reach</h3>
+                    <p className="text-2xl font-black text-purple-600">100% Edge Ready</p>
+                    <p className="text-gray-500 text-xs italic">Multi-Channel Access</p>
                 </div>
             </div>
 

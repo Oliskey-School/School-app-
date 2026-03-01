@@ -1,234 +1,170 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { formatSchoolId } from '../utils/idFormatter';
+import { User } from '@supabase/supabase-js';
+import { useAuth } from './AuthContext';
 
-interface UserProfile {
-  id?: number | string;
-  name: string;
-  email: string;
-  phone: string;
-  avatarUrl: string;
-  role?: string;
-  supabaseId?: string;
-  schoolId?: string;
-  branchId?: string;
-  schoolGeneratedId?: string;
-  grade?: number;
-  section?: string;
+/**
+ * EXACT SCHEMA INTERFACE (based on Supabase MCP inspection)
+ */
+export interface UserProfile {
+    id: string; // uuid
+    full_name: string;
+    email: string | null;
+    phone: string | null;
+    avatar_url: string | null;
+    role: string | null; // e.g., 'Student', 'Teacher', 'Parent', 'Admin'
+    school_id: string; // uuid
+    branch_id: string | null; // uuid
+    school_generated_id: string | null;
+    username: string | null;
+    is_active: boolean | null;
+    created_at: string;
+    updated_at: string;
 }
 
 interface ProfileContextType {
-  profile: UserProfile;
-  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
-  refreshProfile: () => Promise<void>;
-  loadProfileFromDatabase: (userId?: string, email?: string) => Promise<void | UserProfile>;
-  isLoading: boolean;
-  setProfile: (profile: UserProfile) => void;
+    profile: UserProfile | null;
+    isLoading: boolean;
+    refreshProfile: () => Promise<void>;
+    updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [profile, setProfileState] = useState<UserProfile>({
-    name: 'User',
-    email: 'user@school.com',
-    phone: '',
-    avatarUrl: 'https://i.pravatar.cc/150?u=user',
-    role: 'Parent',
-  });
-  const [isLoading, setIsLoading] = useState(false);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const { user: authUser } = useAuth();
 
-  const fetchAndSyncProfile = useCallback(async (email: string) => {
-    try {
-      console.log('🔄 Profile fetch for:', email);
+    /**
+     * FETCH PROFILE DATA
+     * Uses the exact schema discovered via MCP
+     */
+    const fetchProfile = useCallback(async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .ilike('email', email)
-        .maybeSingle();
-
-      if (userData) {
-        let schoolId = userData.school_id;
-        let sourceId = '';
-        let phone = '';
-        let roleAvatar = '';
-        const role = userData.role || 'Parent';
-
-        // school_id healing
-        if (!schoolId || schoolId === '00000000-0000-0000-0000-000000000000') {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          schoolId = authUser?.user_metadata?.school_id || authUser?.app_metadata?.school_id;
-          if (schoolId) await supabase.rpc('sync_user_metadata', { p_school_id: schoolId });
+            if (error) {
+                console.error('Error fetching profile:', error.message);
+                setProfile(null);
+            } else {
+                setProfile(data as UserProfile);
+            }
+        } catch (err) {
+            console.error('Unexpected error fetching profile:', err);
+            setProfile(null);
         }
+    }, []);
 
-        const roleLower = role.toLowerCase();
-        const tableName = roleLower === 'teacher' ? 'teachers' : roleLower === 'parent' ? 'parents' : roleLower === 'student' ? 'students' : '';
+    /**
+     * INITIALIZE SESSION & AUTH LISTENERS
+     * This handles hard refreshes by checking the session immediately
+     */
+    useEffect(() => {
+        let mounted = true;
 
-        if (tableName) {
-          const columns = roleLower === 'student' ? 'avatar_url, school_generated_id' : 'phone, avatar_url, school_generated_id';
-          let { data: roleData } = await supabase.from(tableName as any).select(columns).eq('user_id', userData.id).maybeSingle();
-          if (!roleData) {
-            const { data: emailMatch } = await supabase.from(tableName as any).select(columns).ilike('email', email).maybeSingle();
-            roleData = emailMatch;
-          }
+        const initializeAuth = async () => {
+            setIsLoading(true);
 
-          if (roleData) {
-            const r = roleData as any;
-            phone = r.phone || '';
-            roleAvatar = r.avatar_url || '';
-            sourceId = r.school_generated_id || '';
-          }
-        }
+            // 1. Recover existing session (crucial for refresh)
+            const { data: { session } } = await supabase.auth.getSession();
 
-        const freshProfile: UserProfile = {
-          id: userData.id,
-          name: userData.name || 'User',
-          email: userData.email,
-          phone: phone,
-          avatarUrl: roleAvatar || userData.avatar_url || 'https://i.pravatar.cc/150?u=user',
-          role: role,
-          schoolId: schoolId,
-          schoolGeneratedId: sourceId || (userData as any).school_generated_id || (userData as any).custom_id || '',
-          branchId: (userData as any).branch_id
+            if (session?.user) {
+                await fetchProfile(session.user.id);
+            } else {
+                setProfile(null);
+            }
+
+            if (mounted) setIsLoading(false);
         };
 
-        setProfileState(freshProfile);
-        sessionStorage.setItem('userProfile', JSON.stringify(freshProfile));
-        return freshProfile;
-      }
+        initializeAuth();
 
-      // Demo fallback
-      if (email.toLowerCase() === 'user@school.com') {
-        const demo: UserProfile = {
-          name: 'Demo Parent',
-          email: 'user@school.com',
-          phone: '+234 801 234 5678',
-          avatarUrl: 'https://i.pravatar.cc/150?u=parent',
-          role: 'Parent',
-          schoolId: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-          schoolGeneratedId: 'OLISKEY_PAR_0001'
+        // 2. Listen for auth changes (sign in, sign out, token refresh)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (session?.user) {
+                    await fetchProfile(session.user.id);
+                }
+            } else if (event === 'SIGNED_OUT') {
+                setProfile(null);
+            }
+
+            if (mounted) setIsLoading(false);
+        });
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
         };
-        setProfileState(demo);
-        sessionStorage.setItem('userProfile', JSON.stringify(demo));
-        return demo;
-      }
+    }, [fetchProfile]);
 
-    } catch (err) {
-      console.error('Profile error:', err);
-    }
-    return null;
-  }, []);
+    /**
+     * SYNC WITH AUTH CONTEXT
+     * This handles "Quick Login" or mock logins where a session is manually set
+     */
+    useEffect(() => {
+        if (authUser && !profile) {
+            console.log('🔄 [Profile] Syncing with AuthContext User:', authUser.id);
+            fetchProfile(authUser.id);
+        } else if (!authUser && profile) {
+            setProfile(null);
+        }
+    }, [authUser, fetchProfile, profile]);
 
-  useEffect(() => {
-    const init = async () => {
-      setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        await fetchAndSyncProfile(user.email);
-      } else {
-        const saved = sessionStorage.getItem('userProfile');
-        if (saved) setProfileState(JSON.parse(saved));
-      }
-      setIsLoading(false);
+    const refreshProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await fetchProfile(user.id);
+        }
     };
-    init();
-  }, [fetchAndSyncProfile]);
 
-  const setProfile = useCallback((newProfile: UserProfile) => {
-    setProfileState(newProfile);
-    sessionStorage.setItem('userProfile', JSON.stringify(newProfile));
-  }, []);
+    const updateProfile = async (updates: Partial<UserProfile>) => {
+        if (!profile?.id) return { error: 'No profile loaded' };
 
-  const loadProfileFromDatabase = useCallback(async (userId?: string, email?: string) => {
-    setIsLoading(true);
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    const targetEmail = email || authUser?.email;
-    let res = null;
-    if (targetEmail) {
-      res = await fetchAndSyncProfile(targetEmail);
-    }
-    setIsLoading(false);
-    return res;
-  }, [fetchAndSyncProfile]);
+        const { data, error } = await supabase
+            .from('profiles')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', profile.id)
+            .select()
+            .single();
 
-  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
-    setIsLoading(true);
-    try {
-      const updated = { ...profile, ...updates };
-      const targetId = updated.id || profile.id;
-
-      if (!targetId || targetId === 'undefined') {
-        throw new Error('User ID is undefined. Cannot update profile.');
-      }
-
-      // 1. Update global users table
-      const { error: userError } = await supabase.from('users').update({
-        name: updated.name,
-        avatar_url: updated.avatarUrl,
-        // email and school_id are usually fixed/not editable here
-      }).eq('id', targetId);
-
-      if (userError) throw userError;
-
-      // 2. Update role-specific table for redundancy/consistency
-      const roleLower = updated.role?.toLowerCase();
-      const tableName = roleLower === 'teacher' ? 'teachers' :
-        roleLower === 'parent' ? 'parents' :
-          roleLower === 'student' ? 'students' : '';
-
-      if (tableName) {
-        // Prepare role-specific updates
-        const roleUpdates: any = {
-          name: updated.name,
-          avatar_url: updated.avatarUrl,
-          updated_at: new Date().toISOString()
-        };
-
-        // If it's a student, we might want to split names (though the table has name too)
-        if (roleLower === 'student' && updated.name.includes(' ')) {
-          const parts = updated.name.split(' ');
-          roleUpdates.first_name = parts[0];
-          roleUpdates.last_name = parts.slice(1).join(' ');
+        if (!error && data) {
+            setProfile(data as UserProfile);
         }
+        return { error };
+    };
 
-        const { error: roleError } = await supabase
-          .from(tableName as any)
-          .update(roleUpdates)
-          .eq('user_id', targetId);
-
-        if (roleError) {
-          console.warn(`Note: Role table update for ${tableName} failed:`, roleError.message);
-          // We don't necessarily fail the whole operation if the main users update worked
-        }
-      }
-
-      setProfileState(updated);
-      sessionStorage.setItem('userProfile', JSON.stringify(updated));
-    } catch (err) {
-      console.error('Update error:', err);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [profile]);
-
-  const refreshProfile = useCallback(async () => {
-    setIsLoading(true);
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser?.email) await fetchAndSyncProfile(authUser.email);
-    setIsLoading(false);
-  }, [fetchAndSyncProfile]);
-
-  return (
-    <ProfileContext.Provider value={{ profile, updateProfile, refreshProfile, loadProfileFromDatabase, isLoading, setProfile }}>
-      {children}
-    </ProfileContext.Provider>
-  );
+    return (
+        <ProfileContext.Provider value={{ profile, isLoading, refreshProfile, updateProfile }}>
+            {/* 
+                STRICT LOADING ENFORCEMENT
+                Prevents children (the app) from rendering with stale/dummy data 
+                until the profile is actually verified or determined to be null.
+            */}
+            {isLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f9fafb' }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #4f46e5', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+                        <p style={{ color: '#4b5563', fontFamily: 'sans-serif' }}>Loading secure profile...</p>
+                        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                    </div>
+                </div>
+            ) : (
+                children
+            )}
+        </ProfileContext.Provider>
+    );
 };
 
 export const useProfile = () => {
-  const context = useContext(ProfileContext);
-  if (!context) throw new Error('useProfile must be used within ProfileProvider');
-  return context;
+    const context = useContext(ProfileContext);
+    if (context === undefined) {
+        throw new Error('useProfile must be used within a ProfileProvider');
+    }
+    return context;
 };

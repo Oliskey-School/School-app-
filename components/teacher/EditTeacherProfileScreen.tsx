@@ -20,10 +20,10 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     const [saving, setSaving] = useState(false);
 
     // Form State initialized from Context
-    const [name, setName] = useState(profile.name || '');
-    const [email, setEmail] = useState(profile.email || '');
-    const [phone, setPhone] = useState(profile.phone || '');
-    const [avatar, setAvatar] = useState(profile.avatarUrl || 'https://i.pravatar.cc/150?u=teacher');
+    const [name, setName] = useState(profile?.full_name || '');
+    const [email, setEmail] = useState(profile?.email || '');
+    const [phone, setPhone] = useState(profile?.phone || '');
+    const [avatar, setAvatar] = useState(profile?.avatar_url || 'https://i.pravatar.cc/150?u=teacher');
     const [subjects, setSubjects] = useState<string[]>([]);
     // Removed incorrect useAuth destructuring
     const supabaseClient = supabase; // Standard import exists at the top usually, but let's be safe.
@@ -32,26 +32,28 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     // Fetch Teacher specific data (subjects)
     useEffect(() => {
         const fetchTeacherData = async () => {
-            if (!profile.email) return;
+            if (!profile?.email) return;
             const { data, error } = await supabase
                 .from('teachers')
                 .select('subjects')
                 .eq('email', profile.email)
-                .single();
+                .maybeSingle();
 
             if (data?.subjects) {
                 setSubjects(Array.isArray(data.subjects) ? data.subjects : [data.subjects]);
             }
         };
         fetchTeacherData();
-    }, [profile.email]);
+    }, [profile?.email]);
 
     // Update local state when context profile changes (e.g. initial load)
     useEffect(() => {
-        setName(profile.name || '');
-        setEmail(profile.email || '');
-        setPhone(profile.phone || '');
-        setAvatar(profile.avatarUrl || 'https://i.pravatar.cc/150?u=teacher');
+        if (profile) {
+            setName(profile.full_name || '');
+            setEmail(profile.email || '');
+            setPhone(profile.phone || '');
+            setAvatar(profile.avatar_url || 'https://i.pravatar.cc/150?u=teacher');
+        }
     }, [profile]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,15 +99,14 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!profile) return;
         setSaving(true);
 
         try {
             // 2. Use updateProfile from Context
-            // This updates the central 'users' table and local state
             await updateProfile({
-                name,
-                email,
-                avatarUrl: avatar,
+                full_name: name,
+                avatar_url: avatar,
                 phone
             });
 
@@ -114,6 +115,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                 const { error: teacherError } = await supabase
                     .from('teachers')
                     .update({
+                        name: name, // Sync name back to teachers table too
                         subjects
                     })
                     .eq('email', profile.email);
@@ -134,7 +136,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading profile...</div>;
+    if (!profile) return <div className="p-8 text-center text-gray-500">Profile not found.</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">

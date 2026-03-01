@@ -9,9 +9,10 @@ interface DonutChartProps {
 }
 
 const DonutChart: React.FC<DonutChartProps> = ({ percentage, color, size = 100, strokeWidth = 10 }) => {
+  const safePercentage = isNaN(percentage) || percentage === null || percentage === undefined ? 0 : percentage;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
+  const offset = circumference - (safePercentage / 100) * circumference;
 
   return (
     <svg width={size} height={size} className="-rotate-90">

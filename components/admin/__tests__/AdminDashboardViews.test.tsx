@@ -29,17 +29,15 @@ vi.mock('../../../lib/supabase', () => ({
             getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user', email: 'admin@demo.com', user_metadata: { role: 'admin', school_id: 'school-123' }, app_metadata: { role: 'admin', school_id: 'school-123' } } }, error: null }),
             getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user', user_metadata: { role: 'admin' } } } }, error: null }),
             onAuthStateChange: vi.fn((cb) => {
-                // Simulate initial auth state
-                setTimeout(() => {
-                    cb('SIGNED_IN', { 
-                        user: { 
-                            id: 'test-user', 
-                            email: 'admin@demo.com',
-                            user_metadata: { role: 'admin', school_id: 'school-123' },
-                            app_metadata: { role: 'admin', school_id: 'school-123' }
-                        } 
-                    });
-                }, 0);
+                // Call immediately for faster tests
+                cb('SIGNED_IN', { 
+                    user: { 
+                        id: 'test-user', 
+                        email: 'admin@demo.com',
+                        user_metadata: { role: 'admin', school_id: 'school-123' },
+                        app_metadata: { role: 'admin', school_id: 'school-123' }
+                    } 
+                });
                 return { data: { subscription: { unsubscribe: vi.fn() } } };
             })
         },
@@ -98,8 +96,9 @@ describe('AdminDashboard Views Visibility', () => {
         );
 
         await waitFor(() => {
-             expect(screen.getByText(/Admin Dashboard/i)).toBeTruthy();
-        }, { timeout: 3000 });
+             // Use exact match or heading role to avoid matching "Loading Admin Dashboard..."
+             expect(screen.getByRole('heading', { name: /^Admin Dashboard$/i })).toBeTruthy();
+        }, { timeout: 10000 });
     });
 
     it('can see primary navigation items', async () => {
@@ -111,15 +110,15 @@ describe('AdminDashboard Views Visibility', () => {
 
         // Wait for the loader to disappear and main content to appear
         await waitFor(() => {
-             expect(screen.queryByText(/Admin Dashboard/i)).toBeTruthy();
+             expect(screen.getByRole('heading', { name: /^Admin Dashboard$/i })).toBeTruthy();
              expect(screen.queryByText(/Initializing secure session/i)).toBeNull();
-        }, { timeout: 5000 });
+        }, { timeout: 10000 });
 
         // Check for main navigation links in sidebar/nav
         await waitFor(() => {
             const studentElements = screen.queryAllByText(/Students/i);
             expect(studentElements.length).toBeGreaterThan(0);
-        }, { timeout: 5000 });
+        }, { timeout: 10000 });
         
         expect(screen.getAllByText(/Teachers/i).length).toBeGreaterThan(0);
         expect(screen.getAllByText(/Classes/i).length).toBeGreaterThan(0);

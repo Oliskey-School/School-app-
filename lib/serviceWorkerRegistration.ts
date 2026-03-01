@@ -90,13 +90,15 @@ export async function requestBackgroundSync(tag: string = 'offline-sync'): Promi
     if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
         try {
             const registration = await navigator.serviceWorker.ready;
-            await (registration as any).sync.register(tag);
-            console.log(`✅ Background sync requested: ${tag}`);
+            if ((registration as any).sync) {
+                await (registration as any).sync.register(tag);
+                console.log(`✅ Background sync requested: ${tag}`);
+            }
         } catch (error) {
-            console.error('❌ Background sync registration failed:', error);
+            console.warn('ℹ️ Background sync registration skipped:', error);
         }
     } else {
-        console.warn('⚠️ Background Sync not supported');
+        console.warn('ℹ️ Background Sync not supported by browser');
     }
 }
 

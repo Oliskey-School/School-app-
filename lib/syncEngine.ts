@@ -155,22 +155,33 @@ class SyncEngine extends EventEmitter {
 
         let syncedCount = 0;
         let failedCount = 0;
+        const modifiedTables = new Set<TableName>();
 
         try {
             // Step 1: Process local changes (push to server)
             const pushResult = await this.pushLocalChanges();
             syncedCount += pushResult.synced;
             failedCount += pushResult.failed;
+            // Push changes usually modify the table they are for
+            // (handled inside processSyncQueueItem or here if we track)
 
             // Step 2: Pull server changes (fetch from server)
             const pullResult = await this.pullServerChanges();
             syncedCount += pullResult.synced;
             failedCount += pullResult.failed;
+            
+            // Track which tables were modified in pullServerChanges
+            // We can return this from pullServerChanges or just track it
+            if (pullResult.modifiedTables) {
+                pullResult.modifiedTables.forEach(t => modifiedTables.add(t));
+            }
 
             // Step 3: Initial hydration if first sync
             if (!this.state.isInitialSyncComplete) {
                 await this.initialHydration();
                 this.updateState({ isInitialSyncComplete: true });
+                // All essential tables modified
+                ['users', 'schools', 'classes', 'subjects', 'timetable'].forEach(t => modifiedTables.add(t as TableName));
             }
 
             this.updateState({
@@ -179,9 +190,13 @@ class SyncEngine extends EventEmitter {
                 pendingOperations: failedCount
             });
 
-            this.emit('sync-complete', { synced: syncedCount, failed: failedCount });
+            this.emit('sync-complete', { 
+                synced: syncedCount, 
+                failed: failedCount,
+                tables: Array.from(modifiedTables) 
+            });
 
-            console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
+            console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed. Modified tables: ${Array.from(modifiedTables).join(', ')}`);
         } catch (error) {
             console.error('❌ Sync failed:', error);
             this.updateState({ status: SyncStatus.ERROR });
@@ -327,7 +342,7 @@ class SyncEngine extends EventEmitter {
     /**
      * Pull server changes and update local database
      */
-    private async pullServerChanges(): Promise<{ synced: number; failed: number }> {
+    private async pullServerChanges(): Promise<{ synced: number; failed: number; modifiedTables: TableName[] }> {
         // Essential tables for app startup
         const essentialTables: TableName[] = [
             'schools', 'users', 'branches', 'notices'
@@ -341,106 +356,105 @@ class SyncEngine extends EventEmitter {
 
         let synced = 0;
         let failed = 0;
+        const modifiedTables = new Set<TableName>();
 
         // On first sync, only fetch essential tables to reduce blocking
         const tablesToSync = this.state.lastSync === 0 ? essentialTables : [...essentialTables, ...backgroundTables];
 
-        console.log(`📥 Starting staggered pull for ${tablesToSync.length} tables...`);
-
-        // Get session to check for school_id validity
-        const { data: { session } } = await supabase.auth.getSession();
-        let schoolId = session?.user?.user_metadata?.school_id || session?.user?.app_metadata?.school_id;
-
-        // Fallback: Query public.users if metadata is missing (robust resolution)
-        if (!schoolId && session?.user?.id) {
-            const { data: userProfile } = await supabase
-                .from('users')
-                .select('school_id')
-                .eq('id', session.user.id)
-                .maybeSingle();
-
-            if (userProfile?.school_id) {
-                schoolId = userProfile.school_id;
-                console.log('✅ Resolved school_id from public.users:', schoolId);
-            }
-        }
-
-        // Fallback for Demo Users (even if session is null)
+        // Check for Demo Mode first to avoid auth lock contention
         const isDemoMode = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('is_demo_mode') === 'true';
-        if (!schoolId && (session?.user?.email?.includes('demo') || isDemoMode)) {
+        let schoolId = null;
+
+        if (isDemoMode) {
             schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-            console.log('🛡️ [SyncEngine] resolved school_id via Demo Mode fallback');
-        }
-
-
-        for (const table of tablesToSync) {
+            console.log('🛡️ [SyncEngine] Operating in Demo Mode');
+        } else {
             try {
-                // ADDED: Small delay between table fetches to prevent AbortError / network congestion
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Get session to check for school_id validity
+                const { data: { session } } = await supabase.auth.getSession();
+                schoolId = session?.user?.user_metadata?.school_id || session?.user?.app_metadata?.school_id;
 
-                if (!this.isSyncing) break; // Check if sync was cancelled mid-sequence
+                // Fallback: Query public.users if metadata is missing
+                if (!schoolId && session?.user?.id) {
+                    const { data: userProfile } = await supabase
+                        .from('users')
+                        .select('school_id')
+                        .eq('id', session.user.id)
+                        .maybeSingle();
 
-                // Skip sensitive tables if no school_id (prevents 401s)
-                if (['grades', 'attendance_records', 'timetable', 'assignments'].includes(table) && !schoolId) {
-                    console.log(`⏭️ Skipping ${table} - no school_id (preventing 401)`);
-                    continue;
-                }
-
-                // Get last sync timestamp for delta sync
-                const lastSync = this.state.lastSync;
-
-                let query = supabase.from(table).select('*');
-
-                // Delta sync: only fetch records updated since last sync
-                if (lastSync > 0) {
-                    const lastSyncDate = new Date(lastSync).toISOString();
-                    query = query.gt('updated_at', lastSyncDate);
-                }
-
-                // Limit to prevent overwhelming the client
-                query = query.limit(1000);
-
-                const { data, error } = await query;
-
-                if (error) {
-                    // Skip permission errors silently (common for demo users without RLS policies)
-                    if (error.code === '42501' || error.message?.includes('permission denied')) {
-                        console.log(`⏭️ Skipping ${table} - no permission (expected for demo users)`);
-                        continue; // Skip this table, don't count as failed
+                    if (userProfile?.school_id) {
+                        schoolId = userProfile.school_id;
                     }
-
-                    if (error.message?.includes('AbortError')) {
-                        console.warn(`⚠️ Fetch for ${table} was aborted. This usually happens on navigation or multiple sync triggers. Skipping.`);
-                    } else {
-                        console.error(`Failed to fetch ${table}:`, error);
-                        failed++;
-                    }
-                    continue;
                 }
-
-                if (data && data.length > 0) {
-                    // Batch update local database
-                    const records = data.map(record => ({
-                        id: record.id,
-                        data: record,
-                        metadata: {
-                            syncStatus: 'synced' as const,
-                            lastSynced: Date.now()
-                        }
-                    }));
-
-                    await offlineDB.batchUpsert(table, records);
-                    synced += data.length;
-
-                    console.log(`📥 Pulled ${data.length} records from ${table}`);
+            } catch (err: any) {
+                if (err.name === 'NavigatorLockAcquireTimeoutError') {
+                    console.warn('⚠️ SyncEngine: Auth lock timeout, using restricted sync mode');
+                } else {
+                    throw err;
                 }
-            } catch (error) {
-                console.error(`Error pulling ${table}:`, error);
-                failed++;
             }
         }
 
-        return { synced, failed };
+        // Limit concurrency to 3 parallel fetches to balance speed and network load
+        const concurrencyLimit = 3;
+        const batches = [];
+        for (let i = 0; i < tablesToSync.length; i += concurrencyLimit) {
+            batches.push(tablesToSync.slice(i, i + concurrencyLimit));
+        }
+
+        for (const batch of batches) {
+            if (!this.isSyncing) break;
+
+            await Promise.all(batch.map(async (table) => {
+                try {
+                    // Skip sensitive tables if no school_id
+                    if (['grades', 'attendance_records', 'timetable', 'assignments'].includes(table) && !schoolId) {
+                        return;
+                    }
+
+                    const lastSync = this.state.lastSync;
+                    let query = supabase.from(table).select('*');
+
+                    if (lastSync > 0) {
+                        const lastSyncDate = new Date(lastSync).toISOString();
+                        query = query.gt('updated_at', lastSyncDate);
+                    }
+
+                    query = query.limit(1000);
+
+                    const { data, error } = await query;
+
+                    if (error) {
+                        if (error.code !== '42501' && !error.message?.includes('permission denied')) {
+                            console.error(`Failed to fetch ${table}:`, error);
+                            failed++;
+                        }
+                        return;
+                    }
+
+                    if (data && data.length > 0) {
+                        const records = data.map(record => ({
+                            id: record.id,
+                            data: record,
+                            metadata: {
+                                syncStatus: 'synced' as const,
+                                lastSynced: Date.now()
+                            }
+                        }));
+
+                        await offlineDB.batchUpsert(table, records);
+                        synced += data.length;
+                        modifiedTables.add(table);
+                        console.log(`📥 Pulled ${data.length} records from ${table}`);
+                    }
+                } catch (error) {
+                    console.error(`Error pulling ${table}:`, error);
+                    failed++;
+                }
+            }));
+        }
+
+        return { synced, failed, modifiedTables: Array.from(modifiedTables) };
     }
 
     // ========================================================================
@@ -453,14 +467,12 @@ class SyncEngine extends EventEmitter {
     private async initialHydration(): Promise<void> {
         console.log('🌊 Starting initial data hydration...');
 
-        // Fetch essential data for the current user
-        // This would be customized based on user role and school
-
         const tables: TableName[] = [
             'users', 'schools', 'classes', 'subjects', 'timetable'
         ];
 
-        for (const table of tables) {
+        // Parallel hydration for initial setup
+        await Promise.all(tables.map(async (table) => {
             try {
                 const { data } = await supabase.from(table).select('*').limit(500);
 
@@ -480,7 +492,7 @@ class SyncEngine extends EventEmitter {
             } catch (error) {
                 console.error(`Failed to hydrate ${table}:`, error);
             }
-        }
+        }));
     }
 
     // ========================================================================

@@ -513,8 +513,8 @@ class DataService {
      * Check if data is available offline
      */
     async isAvailableOffline(table: TableName): Promise<boolean> {
-        const records = await offlineDB.getAll(table);
-        return records.length > 0;
+        const count = await offlineDB.count(table);
+        return count > 0;
     }
 }
 

@@ -4,7 +4,8 @@ import { ParentService } from '../services/parent.service';
 
 export const getParents = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await ParentService.getParents(req.user.school_id);
+        const branchId = req.query.branchId as string;
+        const result = await ParentService.getParents(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

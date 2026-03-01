@@ -18,19 +18,21 @@ import {
 type TabType = 'incidents' | 'drills' | 'safeguarding';
 
 interface Incident {
-    id: number;
+    id: string;
+    school_id: string;
     incident_type: string;
     severity: string;
     description: string;
     action_taken: string;
     incident_date: string;
     notified_parent: boolean;
-    student_id: number;
+    student_id: string;
     students?: { name: string };
 }
 
 interface Drill {
-    id: number;
+    id: string;
+    school_id: string;
     drill_type: string;
     drill_date: string;
     duration_minutes: number;
@@ -40,7 +42,8 @@ interface Drill {
 }
 
 interface Policy {
-    id: number;
+    id: string;
+    school_id: string;
     title: string;
     version: string;
     effective_date: string;
@@ -49,6 +52,7 @@ interface Policy {
 }
 
 const SafetyHealthLogs = () => {
+    const { currentSchool } = useAuth();
     const [activeTab, setActiveTab] = useState<TabType>('incidents');
     const [loading, setLoading] = useState(true);
     const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -57,19 +61,34 @@ const SafetyHealthLogs = () => {
     const [isAdding, setIsAdding] = useState(false);
 
     useEffect(() => {
-        fetchData();
-    }, [activeTab]);
+        if (currentSchool) {
+            fetchData();
+        }
+    }, [activeTab, currentSchool]);
 
     const fetchData = async () => {
+        if (!currentSchool) return;
         setLoading(true);
         if (activeTab === 'incidents') {
-            const { data } = await supabase.from('health_incident_logs').select('*, students(name)').order('incident_date', { ascending: false });
+            const { data } = await supabase
+                .from('health_incident_logs')
+                .select('*, students(name)')
+                .eq('school_id', currentSchool.id)
+                .order('incident_date', { ascending: false });
             if (data) setIncidents(data);
         } else if (activeTab === 'drills') {
-            const { data } = await supabase.from('emergency_drills').select('*').order('drill_date', { ascending: false });
+            const { data } = await supabase
+                .from('emergency_drills')
+                .select('*')
+                .eq('school_id', currentSchool.id)
+                .order('drill_date', { ascending: false });
             if (data) setDrills(data);
         } else if (activeTab === 'safeguarding') {
-            const { data } = await supabase.from('safeguarding_policies').select('*').order('effective_date', { ascending: false });
+            const { data } = await supabase
+                .from('safeguarding_policies')
+                .select('*')
+                .eq('school_id', currentSchool.id)
+                .order('effective_date', { ascending: false });
             if (data) setPolicies(data);
         }
         setLoading(false);

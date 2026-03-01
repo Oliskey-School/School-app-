@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardType } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 import {
     SearchIcon,
     XCircleIcon,
@@ -46,6 +47,7 @@ const getIconForType = (type: SearchResult['type']) => {
 
 const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, navigateTo, onClose }) => {
     const { profile } = useProfile();
+    const { currentBranchId } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -70,6 +72,14 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
         const newResults: SearchResult[] = [];
 
         try {
+            // Helper to apply branch filter
+            const applyBranch = (query: any) => {
+                if (currentBranchId && currentBranchId !== 'all') {
+                    return query.eq('branch_id', currentBranchId);
+                }
+                return query;
+            };
+
             // Parallel fetch from multiple tables
             const [
                 { data: students },
@@ -80,13 +90,13 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
                 { data: notices },
                 { data: parents }
             ] = await Promise.all([
-                supabase.from('students').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,school_generated_id.ilike.%${term}%`).limit(10),
-                supabase.from('teachers').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`).limit(5),
-                supabase.from('classes').select('*').eq('school_id', schoolId).ilike('name', `%${term}%`).limit(5),
-                supabase.from('assignments').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`).limit(5),
-                supabase.from('quizzes').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`).limit(5),
-                supabase.from('notices').select('*').eq('school_id', schoolId).or(`title.ilike.%${term}%,content.ilike.%${term}%`).limit(5),
-                supabase.from('parents').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`).limit(5)
+                applyBranch(supabase.from('students').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,school_generated_id.ilike.%${term}%`)).limit(10),
+                applyBranch(supabase.from('teachers').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`)).limit(5),
+                applyBranch(supabase.from('classes').select('*').eq('school_id', schoolId).ilike('name', `%${term}%`)).limit(5),
+                applyBranch(supabase.from('assignments').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`)).limit(5),
+                applyBranch(supabase.from('quizzes').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`)).limit(5),
+                applyBranch(supabase.from('notices').select('*').eq('school_id', schoolId).or(`title.ilike.%${term}%,content.ilike.%${term}%`)).limit(5),
+                applyBranch(supabase.from('parents').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`)).limit(5)
             ]);
 
             // Map Students

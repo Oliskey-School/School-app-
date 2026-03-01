@@ -17,15 +17,49 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     const token = authHeader.split(' ')[1];
 
-    // 0. Demo Mode Bypass
-    if (token === 'demo-auth-token') {
-        console.log('🛡️ [Auth Success] (Demo Bypass) Using Oliskey Demo Context');
-        req.user = {
-            id: 'd3300000-0000-0000-0000-000000000002', // Unified Demo Teacher User ID
-            email: 'demo_teacher@school.com',
-            role: 'teacher',
-            school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' // Real Demo School ID
-        };
+    // 0. Demo Mode Bypass (Improved for Role-Specific Mock Context)
+    if (token && token.startsWith('demo-token-') || token === 'demo-auth-token' || token.startsWith('demo-auth-token-')) {
+        let role = 'teacher';
+        if (token.includes('parent')) role = 'parent';
+        else if (token.includes('student')) role = 'student';
+        else if (token.includes('admin')) role = 'admin';
+
+        console.log(`🛡️ [Auth Success] (Demo Bypass) Context Role: ${role.toUpperCase()}`);
+
+        // Default to Demo School Context
+        const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
+        // Set User context based on Demo Role
+        if (role === 'parent') {
+            req.user = {
+                id: 'd3300000-0000-0000-0000-000000000003', // Unified Demo Parent User ID
+                email: 'demo_parent@school.com',
+                role: 'parent',
+                school_id: DEMO_SCHOOL_ID
+            };
+        } else if (role === 'student') {
+            req.user = {
+                id: 'd3300000-0000-0000-0000-000000000004', // Unified Demo Student User ID
+                email: 'demo_student@school.com',
+                role: 'student',
+                school_id: DEMO_SCHOOL_ID
+            };
+        } else if (role === 'admin') {
+            req.user = {
+                id: '014811ea-281f-484e-b039-e37beb8d92b2', // Unified Demo Admin User ID
+                email: 'user@school.com',
+                role: 'admin',
+                school_id: DEMO_SCHOOL_ID
+            };
+        } else {
+            // Default: Teacher
+            req.user = {
+                id: 'd3300000-0000-0000-0000-000000000002', // Unified Demo Teacher User ID
+                email: 'demo_teacher@school.com',
+                role: 'teacher',
+                school_id: DEMO_SCHOOL_ID
+            };
+        }
         return next();
     }
 

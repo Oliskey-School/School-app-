@@ -80,23 +80,47 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
         setConfirming(false);
         setSending(true);
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const schoolId = (user?.app_metadata?.school_id || user?.user_metadata?.school_id);
+
+            // 1. Save to Database for history and real-time dashboard updates
+            const { data: alert, error: dbError } = await supabase
+                .from('emergency_alerts')
+                .insert({
+                    school_id: schoolId,
+                    alert_type: urgency === 'emergency' ? 'lockdown' : 'severe_weather', // Simplified mapping
+                    title,
+                    message,
+                    severity: urgency === 'emergency' ? 'critical' : 'warning',
+                    sent_by: user?.id,
+                    target_audiences: targetAudience // Ensure this column exists or handle separately
+                })
+                .select()
+                .single();
+
+            if (dbError) throw dbError;
+
+            // 2. Trigger Real-time Notifications via Edge Function
             // Send to each target audience
             for (const audience of targetAudience) {
                 const { error } = await supabase.functions.invoke('send-notification', {
                     body: {
                         role: audience === 'all' ? undefined : audience,
-                        title,
+                        title: `🚨 ${title}`,
                         body: message,
                         urgency,
-                        channel: 'all'
+                        school_id: schoolId,
+                        alert_id: alert?.id
                     }
                 });
 
-                if (error) throw error;
+                // We don't throw if edge function fails, just log it, 
+                // since DB record is already saved
+                if (error) console.error('Edge function error:', error);
             }
 
             setSuccess(true);
-            toast.success('Emergency broadcast sent successfully!');
+            toast.success('Emergency broadcast sent and logged!');
             setTimeout(() => {
                 setTitle('');
                 setMessage('');
@@ -105,9 +129,9 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                 onClose?.();
             }, 2000);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Broadcast error:', error);
-            toast.error('Failed to send emergency broadcast');
+            toast.error(error.message || 'Failed to send emergency broadcast');
         } finally {
             setSending(false);
         }

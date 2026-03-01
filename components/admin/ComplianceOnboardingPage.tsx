@@ -34,6 +34,16 @@ interface DocumentData {
     curriculumType: 'Nigerian' | 'British' | 'Both' | '';
 }
 
+// Map frontend keys to DB document types
+const DOC_TYPE_MAP: Record<string, string> = {
+    cacExpiryDate: 'CAC',
+    ministryExpiryDate: 'MinistryApproval',
+    fireSafetyExpiry: 'FireSafety',
+    healthExpiry: 'Health',
+    insuranceExpiry: 'Insurance',
+    buildingExpiry: 'BuildingPlan',
+};
+
 export default function ComplianceOnboardingPage({
     onComplete,
     schoolId
@@ -55,6 +65,34 @@ export default function ComplianceOnboardingPage({
         buildingExpiry: '',
         curriculumType: '',
     });
+
+    // Auto-save logic
+    const autoSaveField = async (field: string, value: any) => {
+        if (!schoolId) return;
+
+        try {
+            if (field === 'curriculumType') {
+                await supabase
+                    .from('schools')
+                    .update({ curriculum_type: value })
+                    .eq('id', schoolId);
+                console.log('✅ Curriculum auto-saved');
+            } else if (DOC_TYPE_MAP[field]) {
+                const docType = DOC_TYPE_MAP[field];
+                await supabase
+                    .from('school_documents')
+                    .upsert({
+                        school_id: schoolId,
+                        document_type: docType,
+                        expiry_date: value,
+                        verification_status: 'Pending'
+                    }, { onConflict: 'school_id,document_type' });
+                console.log(`✅ ${docType} expiry auto-saved`);
+            }
+        } catch (err) {
+            console.error('Auto-save error:', err);
+        }
+    };
 
     useEffect(() => {
         const fetchExistingDocs = async () => {
@@ -82,7 +120,7 @@ export default function ComplianceOnboardingPage({
                     setFormData(prev => {
                         const next = { ...prev };
                         if (school?.curriculum_type) {
-                            next.curriculumType = school.curriculum_type;
+                            next.curriculumType = school.curriculum_type as any;
                         }
 
                         docs?.forEach(doc => {
@@ -122,12 +160,67 @@ export default function ComplianceOnboardingPage({
 
     const handleInputChange = (field: keyof DocumentData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        // Explicitly ensuring NO backend write happens here
-        console.log(`[Compliance] Local state update: ${field} = ${value}`);
+        // Trigger auto-save to backend
+        autoSaveField(field as string, value);
     };
 
-    const handleFileChange = (field: keyof DocumentData, file: File | undefined) => {
+    const handleFileChange = async (field: keyof DocumentData, file: File | undefined) => {
         setFormData(prev => ({ ...prev, [field]: file }));
+        
+        // Auto-upload file if selected
+        if (file && schoolId) {
+            try {
+                const folder = field.includes('Document') || field.includes('Approval') ? 'legal' : 
+                               field.includes('Cert') ? 'safety' : 
+                               field.includes('insurance') ? 'insurance' : 'building';
+                
+                const fileName = `${Date.now()}_${file.name}`;
+                const { data, error } = await supabase.storage
+                    .from('school-compliance')
+                    .upload(`${schoolId}/${folder}/${fileName}`, file);
+
+                if (error) throw error;
+
+                const { data: urlData } = supabase.storage
+                    .from('school-compliance')
+                    .getPublicUrl(data.path);
+
+                const publicUrl = urlData.publicUrl;
+                
+                // Map file field to doc type for DB update
+                let docType = '';
+                if (field === 'cacDocument') docType = 'CAC';
+                if (field === 'ministryApproval') docType = 'MinistryApproval';
+                if (field === 'fireSafetyCert') docType = 'FireSafety';
+                if (field === 'healthCert') docType = 'Health';
+                if (field === 'insuranceDoc') docType = 'Insurance';
+                if (field === 'buildingApproval') docType = 'BuildingPlan';
+
+                if (docType) {
+                    await supabase
+                        .from('school_documents')
+                        .upsert({
+                            school_id: schoolId,
+                            document_type: docType,
+                            file_url: publicUrl,
+                            verification_status: 'Pending'
+                        }, { onConflict: 'school_id,document_type' });
+                    
+                    console.log(`✅ ${docType} file uploaded and linked`);
+                    toast({
+                        title: 'File Uploaded',
+                        description: `${file.name} saved to backend.`,
+                    });
+                }
+            } catch (err: any) {
+                console.error('File auto-upload error:', err);
+                toast({
+                    title: 'Upload Failed',
+                    description: err.message,
+                    variant: 'destructive'
+                });
+            }
+        }
     };
 
     const validateStep = () => {

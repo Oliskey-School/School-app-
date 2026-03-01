@@ -15,19 +15,21 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
     const { profile, updateProfile } = useProfile();
 
     // Form State from Context
-    const [name, setName] = useState(profile.name || '');
-    const [email, setEmail] = useState(profile.email || '');
-    const [phone, setPhone] = useState(profile.phone || '');
-    const [avatar, setAvatar] = useState(profile.avatarUrl || 'https://i.pravatar.cc/150?u=parent');
+    const [name, setName] = useState(profile?.full_name || '');
+    const [email, setEmail] = useState(profile?.email || '');
+    const [phone, setPhone] = useState(profile?.phone || '');
+    const [avatar, setAvatar] = useState(profile?.avatar_url || 'https://i.pravatar.cc/150?u=parent');
 
     const [saving, setSaving] = useState(false);
 
     // Sync with context if it loads late or changes
     useEffect(() => {
-        setName(profile.name || '');
-        setEmail(profile.email || '');
-        setPhone(profile.phone || '');
-        if (profile.avatarUrl) setAvatar(profile.avatarUrl);
+        if (profile) {
+            setName(profile.full_name || '');
+            setEmail(profile.email || '');
+            setPhone(profile.phone || '');
+            if (profile.avatar_url) setAvatar(profile.avatar_url);
+        }
     }, [profile]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,14 +45,15 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!profile) return;
         setSaving(true);
 
         try {
             // 2. Update via Context (Users Table)
             await updateProfile({
-                name,
+                full_name: name,
                 email,
-                avatarUrl: avatar,
+                avatar_url: avatar,
                 phone
             });
 
@@ -64,6 +67,8 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
             setSaving(false);
         }
     };
+
+    if (!profile) return <div className="p-8 text-center text-gray-500">Profile not found.</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">

@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase';
 import api from '../../lib/api';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useProfile } from '../../context/ProfileContext';
+import { fetchParentsByClassId } from '../../lib/database';
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -162,7 +163,30 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
         return;
       }
 
-      await api.createAssignment(dbPayload);
+      const createdAssignment = await api.createAssignment(dbPayload);
+
+      // 2. Notify Parents
+      try {
+        const parents = await fetchParentsByClassId(selectedClassId);
+        if (parents.length > 0) {
+          const notificationPromises = parents.map(parent =>
+            api.createNotification({
+              school_id: dbPayload.school_id,
+              user_id: parent.user_id, // We need to make sure fetchParentsByClassId returns user_id
+              category: 'Homework',
+              title: 'New Assignment: ' + title,
+              summary: `A new assignment has been posted for ${dbPayload.class_name} in ${dbPayload.subject}. Due: ${new Date(dueDate).toLocaleDateString()}`,
+              timestamp: new Date().toISOString(),
+              is_read: false,
+              audience: ['parent'],
+              related_id: createdAssignment?.id
+            }).catch(e => console.error("Error notifying parent:", parent.id, e))
+          );
+          await Promise.all(notificationPromises);
+        }
+      } catch (notifErr) {
+        console.error("Parent notification error:", notifErr);
+      }
 
       if (onAssignmentAdded) {
         onAssignmentAdded({

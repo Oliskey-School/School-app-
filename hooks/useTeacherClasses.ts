@@ -10,7 +10,7 @@ export interface TeacherAssignment {
     subjectId: string;
 }
 
-export const useTeacherClasses = (teacherId?: string | null) => {
+export const useTeacherClasses = (teacherId?: string | null, branchId?: string | null) => {
     const { profile } = useProfile();
     const { user: authUser } = useAuth();
 
@@ -20,6 +20,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
 
     const [resolvedTeacherId, setResolvedTeacherId] = useState<string | null>(null);
     const [resolvedSchoolId, setResolvedSchoolId] = useState<string | null>(null);
+    const [resolvedBranchId, setResolvedBranchId] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<any>(null);
@@ -30,84 +31,44 @@ export const useTeacherClasses = (teacherId?: string | null) => {
         let channel: any = null;
 
         const fetchClassesAndSubjects = async () => {
-            let currentTeacherId = null;
-            let currentSchoolId = null;
+            let currentTeacherId = teacherId;
+            let currentSchoolId = profile?.schoolId || authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
 
             setLoading(true);
 
             try {
-                // 1. Resolve Teacher ID
-                if (teacherId && (teacherId.length > 30 || teacherId.startsWith('d330'))) {
-                    console.log('🔍 [useTeacherClasses] Resolving provided teacherId:', teacherId);
-                    const { data: teacherRow } = await supabase
-                        .from('teachers')
-                        .select('id, school_id')
-                        .or(`id.eq.${teacherId},user_id.eq.${teacherId}`)
-                        .maybeSingle();
+                const { api } = await import('../lib/api');
 
-                    if (teacherRow) {
-                        currentTeacherId = teacherRow.id;
-                        currentSchoolId = teacherRow.school_id;
-                    }
-                }
-
+                // 1. Resolve Teacher ID if not provided
                 if (!currentTeacherId) {
                     const targetEmail = (profile?.email || authUser?.email || '').toLowerCase();
                     const targetUserId = profile?.id || authUser?.id;
-                    const metadataSchoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
-                    const contextSchoolId = profile?.schoolId || metadataSchoolId;
-
-                    console.log('🔍 [useTeacherClasses] Resolving from context:', {
-                        targetEmail,
-                        targetUserId,
-                        contextSchoolId
-                    });
 
                     if (targetUserId || targetEmail) {
+                        // Check for both current ID and potential demo unified IDs
+                        const demoTeacherIds = [
+                            'd3300000-0000-0000-0000-000000000002',
+                            'e7c92f78-3f44-435b-9079-6d77faae023e'
+                        ];
                         const { data: teacherRows } = await supabase
                             .from('teachers')
                             .select('id, school_id, email')
-                            .or(`user_id.eq.${targetUserId},email.ilike.${targetEmail}`);
+                            .or(`user_id.eq.${targetUserId},email.ilike.${targetEmail},id.eq.${targetUserId},id.in.(${demoTeacherIds.join(',')})`);
 
                         if (teacherRows && teacherRows.length > 0) {
-                            // Priority to the teacher record matching current school context
-                            const schoolMatch = teacherRows.find(t => t.school_id === contextSchoolId);
-                            const matched = schoolMatch || teacherRows[0];
+                            // Prioritize exact email match if multiple records exist (common in demo mode)
+                            const matched = teacherRows.find(t =>
+                                t.school_id === currentSchoolId &&
+                                (t.email?.toLowerCase() === targetEmail)
+                            ) || teacherRows.find(t => t.school_id === currentSchoolId) || teacherRows[0];
+
                             currentTeacherId = matched.id;
                             currentSchoolId = matched.school_id;
-                            console.log('✅ [useTeacherClasses] Resolved teacher identity:', {
-                                resolvedTeacherId: currentTeacherId,
-                                resolvedSchoolId: currentSchoolId,
-                                isContextMatch: !!schoolMatch
-                            });
-                        } else if (contextSchoolId && (targetUserId || targetEmail)) {
-                            // AUTO-HEALING: No teacher record found, but we have enough context to create one
-                            console.log('🛡️ [useTeacherClasses] Auto-healing: Creating missing teacher record for school:', contextSchoolId);
-                            const { data: newTeacher, error: createError } = await supabase
-                                .from('teachers')
-                                .insert({
-                                    user_id: targetUserId || null,
-                                    email: targetEmail || null,
-                                    school_id: contextSchoolId,
-                                    name: profile?.name || authUser?.user_metadata?.full_name || 'New Teacher',
-                                    status: 'Active'
-                                })
-                                .select()
-                                .single();
-
-                            if (newTeacher) {
-                                currentTeacherId = newTeacher.id;
-                                currentSchoolId = newTeacher.school_id;
-                                console.log('✅ [useTeacherClasses] Auto-created teacher identity:', currentTeacherId);
-                            } else if (createError) {
-                                console.error('❌ [useTeacherClasses] Auto-healing failed:', createError);
-                            }
                         }
                     }
                 }
 
                 if (!currentTeacherId) {
-                    console.warn('⚠️ [useTeacherClasses] Could not resolve teacher identity.');
                     setLoading(false);
                     return;
                 }
@@ -115,50 +76,17 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                 setResolvedTeacherId(currentTeacherId);
                 setResolvedSchoolId(currentSchoolId);
 
-                console.log('✅ [useTeacherClasses] Resolved Teacher:', currentTeacherId, 'School:', currentSchoolId);
+                // 2. Fetch Detailed Data via Hybrid API (handles Demo Mode backend fallback)
+                const teacherData = await api.getTeacherById(currentTeacherId);
 
-                if (!channel) {
-                    channel = supabase
-                        .channel(`teacher-classes-${currentTeacherId}`)
-                        .on('postgres_changes', {
-                            event: '*',
-                            schema: 'public',
-                            table: 'class_teachers',
-                            filter: `teacher_id=eq.${currentTeacherId}`
-                        }, () => forceUpdate())
-                        .on('postgres_changes', {
-                            event: '*',
-                            schema: 'public',
-                            table: 'teacher_classes',
-                            filter: `teacher_id=eq.${currentTeacherId}`
-                        }, () => forceUpdate())
-                        .subscribe();
-                }
+                if (teacherData && teacherData.class_teachers) {
+                    const finalClasses: ClassInfo[] = [];
+                    const finalSubjects: Subject[] = [];
+                    const finalAssignments: TeacherAssignment[] = [];
+                    const addedClassKeys = new Set<string>();
+                    const addedSubjectKeys = new Set<string>();
 
-                setLoading(true);
-
-                const finalClasses: ClassInfo[] = [];
-                const finalSubjects: Subject[] = [];
-                const finalAssignments: TeacherAssignment[] = [];
-
-                const addedClassKeys = new Set<string>();
-                const addedSubjectKeys = new Set<string>();
-
-                // 1. Fetch Assignments via class_teachers (modern table)
-                const { data: modernData, error: assignmentError } = await supabase
-                    .from('class_teachers')
-                    .select(`
-                        class_id,
-                        subject_id,
-                        classes (id, name, grade, section, school_id),
-                        subjects (id, name)
-                    `)
-                    .eq('teacher_id', currentTeacherId);
-
-                if (assignmentError) throw assignmentError;
-
-                if (modernData && modernData.length > 0) {
-                    modernData.forEach((item: any) => {
+                    teacherData.class_teachers.forEach((item: any) => {
                         const c = item.classes;
                         const s = item.subjects;
 
@@ -189,99 +117,23 @@ export const useTeacherClasses = (teacherId?: string | null) => {
                             finalAssignments.push({ classId: c.id, subjectId: s.id });
                         }
                     });
+
+                    setClasses(deduplicateClasses(finalClasses));
+                    setSubjects(finalSubjects);
+                    setAssignments(finalAssignments);
                 }
 
-                // 2. Fallback for Legacy Data (Only if modern assignments are completely missing)
-                // Determine school context for data fetching
-                const metadataSchoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
-                const targetSchoolId = currentSchoolId || profile?.schoolId || metadataSchoolId;
-
-                console.log('📊 [useTeacherClasses] Fetching data for school:', targetSchoolId);
-
-                // Let's rely entirely on modern class_teachers bridging if data exists.
-                // The issue: "JSS" or "Primary" legacy string matched everything.
-                // If a school sets up a teacher properly, modernData works perfectly.
-                // If the array is empty, we only do an EXACT match with legacy strings.
-                if (finalClasses.length === 0 && finalSubjects.length === 0) {
-                    console.log('ℹ️ [useTeacherClasses] Modern assignments missing, checking legacy fallback tables...');
-
-                    // Class Fallback
-                    if (finalClasses.length === 0 && targetSchoolId) {
-                        const { data: legacyClasses } = await supabase
-                            .from('teacher_classes')
-                            .select('class_name')
-                            .eq('teacher_id', currentTeacherId);
-
-                        if (legacyClasses && legacyClasses.length > 0) {
-                            const { data: allClasses } = await supabase
-                                .from('classes')
-                                .select('id, name, grade, section, school_id')
-                                .eq('school_id', targetSchoolId);
-
-                            if (allClasses) {
-                                const normalize = (s: string) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-                                legacyClasses.forEach((legacy: any) => {
-                                    if (!legacy.class_name) return;
-                                    const legacyStr = normalize(legacy.class_name);
-
-                                    const matches = allClasses.filter(c => {
-                                        const cName = normalize(c.name);
-                                        // STRICT MATCH ONLY: If legacy string says "JSS 3", match EXACTLY "JSS 3"
-                                        return cName === legacyStr;
-                                    });
-
-                                    matches.forEach(match => {
-                                        const key = `${match.id}-general`;
-                                        if (!addedClassKeys.has(key)) {
-                                            finalClasses.push({
-                                                id: match.id,
-                                                name: match.name,
-                                                grade: match.grade,
-                                                section: match.section || '',
-                                                subject: 'General',
-                                                studentCount: 0,
-                                                schoolId: match.school_id
-                                            });
-                                            addedClassKeys.add(key);
-                                        }
-                                    });
-                                });
-                            }
-                        }
-                    }
-
-
-                    // Subject Fallback
-                    if (finalSubjects.length === 0 && targetSchoolId) {
-                        const { data: legacySubjects } = await supabase
-                            .from('teacher_subjects')
-                            .select('subject')
-                            .eq('teacher_id', currentTeacherId);
-
-                        if (legacySubjects && legacySubjects.length > 0) {
-                            const { data: schoolSubjects } = await supabase
-                                .from('subjects')
-                                .select('id, name')
-                                .eq('school_id', targetSchoolId);
-
-                            if (schoolSubjects) {
-                                const normalize = (s: string) => s.toLowerCase().replace(/\s/g, '');
-                                legacySubjects.forEach((legacy: any) => {
-                                    if (!legacy.subject) return;
-                                    const match = schoolSubjects.find(s => normalize(s.name) === normalize(legacy.subject));
-                                    if (match && !addedSubjectKeys.has(match.id)) {
-                                        finalSubjects.push({ id: match.id, name: match.name });
-                                        addedSubjectKeys.add(match.id);
-                                    }
-                                });
-                            }
-                        }
-                    }
+                if (!channel) {
+                    channel = supabase
+                        .channel(`teacher-classes-${currentTeacherId}`)
+                        .on('postgres_changes', {
+                            event: '*',
+                            schema: 'public',
+                            table: 'class_teachers',
+                            filter: `teacher_id=eq.${currentTeacherId}`
+                        }, () => forceUpdate())
+                        .subscribe();
                 }
-
-                setClasses(deduplicateClasses(finalClasses));
-                setSubjects(finalSubjects);
-                setAssignments(finalAssignments);
 
             } catch (err) {
                 console.error('❌ [useTeacherClasses] Error:', err);
@@ -294,9 +146,7 @@ export const useTeacherClasses = (teacherId?: string | null) => {
         fetchClassesAndSubjects();
 
         return () => {
-            if (channel) {
-                supabase.removeChannel(channel);
-            }
+            if (channel) supabase.removeChannel(channel);
         };
     }, [profile?.email, profile?.id, profile?.schoolId, authUser?.email, authUser?.id, teacherId, version]);
 

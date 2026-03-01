@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { realtimeService } from '../../services/RealtimeService';
 import { syncEngine } from '../../lib/syncEngine';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -157,36 +158,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
 
     try {
       if (!schoolId) return;
-
-      let query = supabase.from('teachers')
-        .select('id, name, avatar_url, email, school_generated_id, school_id, notification_preferences')
-        .eq('school_id', schoolId);
-
-      let emailToQuery = user?.email || currentUser?.email;
-
-      if (!emailToQuery) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email) emailToQuery = user.email;
-      }
-
-      if (emailToQuery) {
-        query = query.eq('email', emailToQuery);
-      }
-
-      const { data, error } = await query.maybeSingle();
-
-      if (error) {
-        if (error.code === '42501' || error.message?.includes('permission denied')) {
-          setTeacherId('demo-teacher-id');
-          setTeacherProfile({
-            name: 'Demo Teacher',
-            avatarUrl: '',
-            notification_preferences: {}
-          });
-          return; // Exit early
-        }
-        return;
-      }
+      const data = await api.getMyTeacherProfile();
 
       if (data) {
         setTeacherId(data.id);
@@ -197,28 +169,22 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           schoolId: data.school_id,
           notification_preferences: data.notification_preferences
         } as any);
-      } else if (emailToQuery) {
-        // AUTO-HEALING: If no teacher profile found, create one automatically
-        // linked to the current school so they are "connected" immediately.
-        console.log("⚠️ No teacher profile found. Auto-creating for School:", schoolId);
-
-        try {
+      } else {
+        // Auto-Healing ...
+        const emailToQuery = user?.email || currentUser?.email;
+        if (emailToQuery) {
+          console.log("⚠️ No teacher profile found. Auto-creating for School:", schoolId);
           const { data: newTeacher, error: createError } = await supabase
             .from('teachers')
             .insert({
               email: emailToQuery,
               school_id: schoolId,
-              name: 'New Teacher', // Default name, can be updated later
+              name: 'New Teacher',
               status: 'Active',
-              user_id: currentUserId || undefined // Link to auth user if we have it
+              user_id: currentUserId || undefined
             })
-            .select()
-            .single();
-
-          if (createError) {
-            console.error("Failed to auto-create teacher profile:", createError);
-          } else if (newTeacher) {
-            console.log("✅ Auto-created teacher profile!", newTeacher);
+            .select().single();
+          if (newTeacher) {
             setTeacherId(newTeacher.id);
             setTeacherProfile({
               name: newTeacher.name,
@@ -227,15 +193,17 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
               schoolGeneratedId: newTeacher.school_generated_id,
               notification_preferences: newTeacher.notification_preferences
             });
-            // Force refresh to ensure UI updates
-            forceUpdate();
           }
-        } catch (healErr) {
-          console.error("Auto-heal failed:", healErr);
         }
       }
     } catch (err) {
-      console.error('Unexpected error fetching profile:', err);
+      console.error("Profile Fetch Error:", err);
+      setTeacherId('demo-teacher-id');
+      setTeacherProfile({
+        name: 'Demo Teacher',
+        avatarUrl: '',
+        notification_preferences: {}
+      });
     }
   };
 

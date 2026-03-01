@@ -385,33 +385,29 @@ const App: React.FC = () => {
 
 
   return (
-    <AuthProvider>
-      <ProfileProvider>
-        <BranchProvider>
-          {/* Toast Notifications */}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 6000,
-            }}
-          />
+    <>
+      {/* Toast Notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 6000,
+        }}
+      />
 
-          {/* Offline indicator - shows when no internet connection */}
-          <OfflineIndicator />
+      {/* Offline indicator - shows when no internet connection */}
+      <OfflineIndicator />
 
-          {isInitializing ? (
-            <PremiumLoader message={initMessage} />
-          ) : (
-            <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
-              <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
-                <AuthenticatedApp />
-                <PWAInstallPrompt />
-              </div>
-            </div>
-          )}
-        </BranchProvider>
-      </ProfileProvider>
-    </AuthProvider>
+      {isInitializing ? (
+        <PremiumLoader message={initMessage} />
+      ) : (
+        <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
+          <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
+            <AuthenticatedApp />
+            <PWAInstallPrompt />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

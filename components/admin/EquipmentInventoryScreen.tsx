@@ -15,20 +15,21 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 interface Equipment {
-    id: number;
+    id: string;
+    school_id: string;
     name: string;
     category: 'Computer' | 'Science Kit' | 'Fire Safety' | 'Furniture' | 'First Aid' | 'Electrical' | 'Other';
     serial_number: string;
     condition: 'New' | 'Good' | 'Fair' | 'Poor' | 'Needs Replacement';
     purchase_date: string;
     next_service_date: string;
-    facility_id: number | null;
+    facility_id: string | null;
     facility_registers?: { name: string };
 }
 
 const EquipmentInventoryScreen = () => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);
-    const [facilities, setFacilities] = useState<{ id: number, name: string }[]>([]);
+    const [facilities, setFacilities] = useState<{ id: string, name: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('All');
@@ -43,8 +44,9 @@ const EquipmentInventoryScreen = () => {
     });
 
     useEffect(() => {
-        if (!currentSchool) return;
-        fetchData();
+        if (currentSchool) {
+            fetchData();
+        }
     }, [currentSchool]);
 
     const fetchData = async () => {
@@ -76,7 +78,7 @@ const EquipmentInventoryScreen = () => {
         }
     };
 
-    const handleDelete = async (id: number) => {
+    const handleDelete = async (id: string) => {
         if (!window.confirm('Delete this item?') || !currentSchool) return;
         const { error } = await supabase.from('equipment_tracking').delete()
             .eq('id', id)

@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import {
-    submitTeacherAttendance,
-    getTeacherAttendanceHistory,
-    getTodayAttendanceStatus,
-    TeacherAttendance,
-} from '../../lib/teacherAttendanceService';
+import api from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, CalendarIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+
+interface TeacherAttendance {
+    id: string;
+    teacher_id: string;
+    date: string;
+    status: string;
+    approval_status: string;
+    check_in: string;
+}
 
 interface TeacherSelfAttendanceProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -19,7 +23,6 @@ interface TeacherSelfAttendanceProps {
 const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateTo, teacherId: propTeacherId }) => {
     const { profile } = useProfile();
     const { user } = useAuth();
-    const [teacherId, setTeacherId] = useState<string | null>(propTeacherId || null);
     const [todayStatus, setTodayStatus] = useState<TeacherAttendance | null>(null);
     const [attendanceHistory, setAttendanceHistory] = useState<TeacherAttendance[]>([]);
     const [loading, setLoading] = useState(true);
@@ -31,83 +34,17 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
         return () => clearInterval(timer);
     }, []);
 
-    // Resolve teacher ID if not provided
-    useEffect(() => {
-        const resolveTeacherId = async () => {
-            if (propTeacherId) {
-                setTeacherId(propTeacherId);
-                return;
-            }
-
-            // Try using profile ID directly
-            if (profile?.id) {
-                const resolvedId = String(profile.id); // Ensure it's a string
-                console.log('✅ Using profile.id as teacherId:', resolvedId);
-                setTeacherId(resolvedId);
-                return;
-            }
-
-            // Fallback: fetch teacher by email
-            const emailToQuery = profile?.email || user?.email;
-
-            if (!emailToQuery) {
-                console.warn('⚠️ No email available to query teacher profile');
-                setLoading(false);
-                return;
-            }
-
-            console.log('🔍 Fetching teacher by email:', emailToQuery);
-
-            try {
-                const { data: teacherData, error: teacherError } = await supabase
-                    .from('teachers')
-                    .select('id, name, email')
-                    .eq('email', emailToQuery)
-                    .maybeSingle();
-
-                if (teacherError) {
-                    console.error('❌ Error fetching teacher profile by email:', teacherError);
-                    setLoading(false);
-                    return;
-                }
-
-                if (teacherData) {
-                    const resolvedId = String(teacherData.id); // Ensure it's a string
-                    console.log('✅ Found teacher by email:', { id: resolvedId, name: teacherData.name });
-                    setTeacherId(resolvedId);
-                } else {
-                    console.warn('⚠️ No teacher profile found for email:', emailToQuery);
-                    setLoading(false);
-                }
-            } catch (err) {
-                console.error('❌ Error in teacher lookup:', err);
-                setLoading(false);
-            }
-        };
-
-        resolveTeacherId();
-    }, [propTeacherId, profile?.id, profile?.email, user?.email]);
-
     const loadAttendanceData = async () => {
-
-        if (!teacherId) {
-            setLoading(false);
-            return;
-        }
-
         setLoading(true);
         try {
-            // Get today's status
-            const statusRes = await getTodayAttendanceStatus(teacherId);
-            if (statusRes.success) {
-                setTodayStatus(statusRes.data);
-            }
+            // Get attendance history (which includes today)
+            const history = await api.getTeacherAttendanceHistory(30);
+            setAttendanceHistory(history || []);
 
-            // Get attendance history
-            const historyRes = await getTeacherAttendanceHistory(teacherId, 30);
-            if (historyRes.success) {
-                setAttendanceHistory(historyRes.data || []);
-            }
+            // Find today's entry
+            const todayStr = new Date().toISOString().split('T')[0];
+            const today = history.find(h => h.date === todayStr);
+            setTodayStatus(today || null);
         } catch (error) {
             console.error('Error loading attendance data:', error);
             toast.error("Failed to load attendance records");
@@ -117,51 +54,18 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
     };
 
     useEffect(() => {
-        if (teacherId) {
-            loadAttendanceData();
-
-            // Subscribe to real-time updates for THIS teacher
-            const channel = supabase.channel(`teacher_attendance_${teacherId}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'teacher_attendance',
-                        filter: `teacher_id=eq.${teacherId}`,
-                    },
-                    () => {
-                        loadAttendanceData();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
-        } else {
-            setLoading(false);
-        }
-    }, [teacherId]);
+        loadAttendanceData();
+    }, []);
 
     const handleCheckIn = async () => {
-        if (!teacherId) {
-            toast.error("Teacher profile not found. Please contact admin.");
-            return;
-        }
-
         setSubmitting(true);
         try {
-            const res = await submitTeacherAttendance(teacherId);
-            if (res.success) {
-                toast.success("Attendance marked successfully!");
-                loadAttendanceData(); // Refresh
-            } else {
-                toast.error(res.error || "Failed to mark attendance");
-            }
-        } catch (error) {
+            await api.submitTeacherAttendance();
+            toast.success("Attendance marked successfully!");
+            loadAttendanceData(); // Refresh
+        } catch (error: any) {
             console.error('Check-in error:', error);
-            toast.error("An unexpected error occurred");
+            toast.error(error.message || "Failed to mark attendance");
         } finally {
             setSubmitting(false);
         }
@@ -198,7 +102,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                         </p>
                     </div>
                     <button
-                        onClick={() => navigateTo('attendanceHistory', 'Attendance History', { teacherId })}
+                        onClick={() => navigateTo('attendanceHistory', 'Attendance History', {})}
                         className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center hover:bg-purple-200 transition-colors active:scale-95"
                         title="View Attendance History"
                     >

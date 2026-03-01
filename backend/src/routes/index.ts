@@ -26,6 +26,7 @@ import academicRoutes from './academic.routes';
 import resourceRoutes from './resource.routes';
 import studentReportRoutes from './studentReport.routes';
 import aiRoutes from './ai.routes';
+import branchRoutes from './branch.routes';
 
 const router = Router();
 
@@ -55,6 +56,7 @@ router.use('/academic-performance', academicRoutes);
 router.use('/resources', resourceRoutes);
 router.use('/student-reports', studentReportRoutes);
 router.use('/ai', aiRoutes);
+router.use('/branches', branchRoutes);
 
 router.use('/', inviteRoutes);
 

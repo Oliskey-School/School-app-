@@ -42,8 +42,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (session) {
-                setIsDemo(false); // Real session found, clear demo flag
-                sessionStorage.removeItem('is_demo_mode');
+                // Determine if this is a demo user from metadata or email domain used for tests
+                const isDemoUser = session.user.user_metadata?.is_demo ||
+                    session.user.app_metadata?.is_demo ||
+                    session.user.email?.endsWith('@demo.com') ||
+                    session.user.email?.endsWith('@school.com') ||
+                    session.user.app_metadata?.school_id === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
+                setIsDemo(isDemoUser);
+                if (isDemoUser) {
+                    sessionStorage.setItem('is_demo_mode', 'true');
+                } else {
+                    sessionStorage.removeItem('is_demo_mode');
+                }
+
                 const metadata = session.user.app_metadata || {};
                 const userRole = metadata.role || session.user.user_metadata?.role;
                 const schoolId = metadata.school_id;
@@ -154,6 +166,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // This method is called by the Login component AFTER successful Supabase auth
         // or for "Mock" logins.
 
+        // [CRITICAL] Clear any existing real Supabase session if entering Demo Mode
+        // This prevents the Supabase client from sending stale/invalid Bearer tokens
+        if (userData.isDemo) {
+            console.log("🛡️ [Auth] Entering Demo Mode, clearing Supabase session...");
+            try {
+                // Clear Supabase client's internal auth state
+                await supabase.auth.signOut({ scope: 'local' });
+                
+                // Also clear the tab-specific storage just in case
+                const tabKey = sessionStorage.getItem('sb-tab-id');
+                if (tabKey) {
+                    sessionStorage.removeItem(`sb-auth-token-${tabKey}`);
+                }
+            } catch (err) {
+                console.warn("Non-critical: Error clearing session during demo transition", err);
+            }
+        }
+
         // Create a minimal user object for state
         const mockUser = {
             id: userData.userId,
@@ -163,9 +193,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 full_name: userData.email?.split('@')[0],
                 is_demo: userData.isDemo, // Persist demo flag
                 custom_id: userData.schoolGeneratedId, // Include custom ID in user_metadata
+                school_id: userData.school?.id,
+                branch_id: userData.school?.branch_id
             },
             app_metadata: {
                 custom_id: userData.schoolGeneratedId, // Include custom ID in app_metadata
+                school_id: userData.school?.id,
+                branch_id: userData.school?.branch_id
             },
             aud: 'authenticated',
             created_at: new Date().toISOString(),
@@ -186,29 +220,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Fetch (or Mock) School for this user if provided
         if (userData.school) {
             setCurrentSchool(userData.school);
+            if (userData.school.branch_id) {
+                setCurrentBranchId(userData.school.branch_id);
+            }
         }
 
         // [NEW] Persist Backend Token for API calls
-        const effectiveToken = userData.token || (userData.isDemo ? 'demo-auth-token' : null);
+        // In demo mode, we use a role-specific token so the backend can correctly identify the mock user's context
+        const effectiveToken = userData.token || (userData.isDemo ? `demo-auth-token-${dashboard}` : null);
 
         if (effectiveToken) {
             localStorage.setItem('auth_token', effectiveToken);
 
             // CRITICAL FIX: Sync the token to Supabase Client so RLS works
             // We attempt to use the token as both access and refresh if refresh is missing
-            try {
-                const { error: sessionError } = await supabase.auth.setSession({
-                    access_token: userData.token,
-                    refresh_token: userData.refreshToken || userData.token
-                });
+            if (userData.token) {
+                try {
+                    const { error: sessionError } = await supabase.auth.setSession({
+                        access_token: userData.token,
+                        refresh_token: userData.refreshToken || userData.token
+                    });
 
-                if (sessionError) {
-                    console.warn("⚠️ Failed to sync Supabase session from backend token:", sessionError.message);
-                } else {
-                    console.log("✅ Supabase Client Session Synced with Backend Token");
+                    if (sessionError) {
+                        console.warn("⚠️ Failed to sync Supabase session from backend token:", sessionError.message);
+                    } else {
+                        console.log("✅ Supabase Client Session Synced with Backend Token");
+                    }
+                } catch (err) {
+                    console.error("Session Sync Error:", err);
                 }
-            } catch (err) {
-                console.error("Session Sync Error:", err);
+            } else {
+                console.log("ℹ️ [Auth] No token provided for sync, continuing in local state mode.");
             }
         }
 

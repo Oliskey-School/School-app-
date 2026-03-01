@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { Student, BehaviorNote } from '../../types';
 import { DocumentTextIcon, BookOpenIcon, ClipboardListIcon, CheckCircleIcon, PlusIcon, SUBJECT_COLORS, ReportIcon } from '../../constants';
 import { fetchBehaviorNotes, createBehaviorNote, fetchAcademicPerformance } from '../../lib/database';
+import { useAuth } from '../../context/AuthContext';
 
 interface StudentProfileScreenProps {
     student: Student;
@@ -11,6 +12,7 @@ interface StudentProfileScreenProps {
 }
 
 const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack }) => {
+    const { user } = useAuth();
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
     const [academicRecords, setAcademicRecords] = useState<any[]>([]);
     const [newNote, setNewNote] = useState('');
@@ -49,11 +51,13 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
         try {
             const success = await createBehaviorNote({
                 studentId: student.id,
+                schoolId: student.schoolId || (student as any).school_id || (user?.app_metadata as any)?.school_id || '',
+                branchId: (student as any).branchId || (student as any).branch_id || (user?.app_metadata as any)?.branch_id,
                 title: newNoteTitle,
                 note: newNote,
                 type: newNoteType,
                 date: new Date().toISOString().split('T')[0],
-                teacherName: 'Teacher', // Ideally fetch from Auth Context
+                teacherName: user?.user_metadata?.full_name || 'Teacher',
             });
 
             if (success) {

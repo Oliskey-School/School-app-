@@ -24,6 +24,17 @@ export interface School {
   secondaryColor?: string;
 }
 
+export interface Branch {
+  id: string;
+  school_id?: string;
+  name: string;
+  is_main: boolean;
+  curriculum_type?: string;
+  location?: string;
+  address?: string;
+  phone?: string;
+}
+
 export interface SchoolUser {
   id: string; // UUID from auth.users
   schoolId: string;
@@ -370,6 +381,7 @@ export interface Assignment {
   title: string;
   description?: string;
   className: string; // e.g., "Grade 10A"
+  classId?: string; // Link to class table
   subject: string;
   dueDate: string; // ISO string
   totalStudents: number;
