@@ -143,53 +143,45 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
     useEffect(() => {
         const fetchAcademics = async () => {
             try {
-                // Get student's class IDs from enrollments
-                const { data: enrollmentData } = await supabase
-                    .from('student_enrollments')
-                    .select('class_id')
+                setLoading(true);
+                // 1. Fetch Assignments
+                const assignmentsData = await api.getAssignments(schoolId || '', {
+                    classId: student.current_class_id || undefined
+                });
+
+                // 2. Fetch Submissions
+                const { data: submissionsData } = await supabase
+                    .from('assignment_submissions')
+                    .select('*')
                     .eq('student_id', student.id);
 
-                const classIds = enrollmentData?.map(e => e.class_id) || [];
-
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-                let assignmentsQuery = supabase
-                    .from('assignments')
-                    .select('*')
-                    .eq('school_id', schoolId)
-                    .gte('due_date', sevenDaysAgo.toISOString())
-                    .order('due_date', { ascending: true });
-
-                if (classIds.length > 0) {
-                    assignmentsQuery = assignmentsQuery.in('class_id', classIds);
-                } else {
-                    // Fallback to rough name match if no enrollments found
-                    assignmentsQuery = assignmentsQuery.or(`class_name.ilike.%${student.grade}%,class_name.ilike.%${student.section}%`);
-                }
-
-                if (currentBranchId) assignmentsQuery = assignmentsQuery.eq('branch_id', currentBranchId);
-
-                const { data: assignmentsData } = await assignmentsQuery;
-                const { data: submissionsData } = await supabase.from('assignment_submissions').select('*').eq('school_id', schoolId).eq('student_id', student.id);
-
                 if (assignmentsData) {
-                    const merged: StudentAssignment[] = assignmentsData.map((a: any) => ({
-                        id: a.id, title: a.title, description: a.description, className: a.class_name, subject: a.subject, dueDate: a.due_date,
+                    const merged: StudentAssignment[] = (assignmentsData || []).map((a: any) => ({
+                        id: a.id,
+                        title: a.title,
+                        description: a.description,
+                        className: a.class_name,
+                        subject: a.subject,
+                        dueDate: a.due_date,
                         totalStudents: a.total_students || 0,
                         submissionsCount: a.submissions_count || 0,
                         submission: submissionsData?.find((s: any) => s.assignment_id === a.id) ? {
-                            id: submissionsData.find((s: any) => s.assignment_id === a.id).id, assignmentId: a.id,
+                            id: submissionsData.find((s: any) => s.assignment_id === a.id).id,
+                            assignmentId: a.id,
                             student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
                             submittedAt: submissionsData.find((s: any) => s.assignment_id === a.id).submitted_at,
-                            isLate: false, status: submissionsData.find((s: any) => s.assignment_id === a.id).grade ? 'Graded' : 'Ungraded',
+                            isLate: false,
+                            status: submissionsData.find((s: any) => s.assignment_id === a.id).grade ? 'Graded' : 'Ungraded',
                             grade: submissionsData.find((s: any) => s.assignment_id === a.id).grade
                         } : undefined
                     }));
                     setAssignments(merged);
                 }
-            } catch (err) { console.error("Error fetching academics:", err); }
-            finally { setLoading(false); }
+            } catch (err) {
+                console.error("Error fetching academics:", err);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchAcademics();
     }, [student, schoolId, currentBranchId, refreshTrigger]);
@@ -200,9 +192,9 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
     });
 
     const averageScore = useMemo(() => {
-        if (!student.academicPerformance?.length) return 0;
-        return Math.round(student.academicPerformance.reduce((acc, curr) => acc + curr.score, 0) / student.academicPerformance.length);
-    }, [student]);
+        if (!academicRecords.length) return 0;
+        return Math.round(academicRecords.reduce((acc, curr) => acc + curr.score, 0) / academicRecords.length);
+    }, [academicRecords]);
 
     return (
         <div className="p-4 space-y-4">
@@ -211,7 +203,7 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
                     <h3 className="font-bold text-lg">Personalized Advice</h3>
                     <p className="text-sm opacity-90">Get AI-powered tips for your child.</p>
                 </div>
-                <button onClick={() => navigateTo('aiParentingTips', 'AI Parenting Tips', { student })} className="bg-white/20 px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center space-x-2">
+                <button onClick={() => navigateTo('aiParentingTips', 'AI Parenting Tips', { student: { ...student, academicPerformance: academicRecords } })} className="bg-white/20 px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center space-x-2">
                     <SparklesIcon className="h-5 w-5" /><span>Get Tips</span>
                 </button>
             </div>
@@ -221,9 +213,9 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
                         <div><h4 className="font-bold text-gray-800">Term Performance</h4><p className="text-sm text-gray-700">Current Term</p></div>
                         {averageScore > 0 && <div className="text-right"><p className="font-bold text-2xl text-green-600">{averageScore}%</p><p className="text-xs text-gray-700">Overall Average</p></div>}
                     </div>
-                    {student.academicPerformance && student.academicPerformance.length > 0 ? (
+                    {academicRecords.length > 0 ? (
                         <div className="mt-3 space-y-2">
-                            {student.academicPerformance.map((grade, i) => (
+                            {academicRecords.map((grade, i) => (
                                 <div key={i} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
                                     <span className="font-semibold text-sm text-gray-700">{grade.subject}</span>
                                     <span className="font-bold text-sm text-gray-800">{grade.score}%</span>
@@ -254,10 +246,31 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
 };
 
 const BehaviorTab = ({ student }: { student: Student }) => {
+    const [notes, setNotes] = useState<any[]>(student.behaviorNotes || []);
+    const [loading, setLoading] = useState(!student.behaviorNotes);
+
+    useEffect(() => {
+        const fetchNotes = async () => {
+            if (student.behaviorNotes && student.behaviorNotes.length > 0) return;
+            try {
+                setLoading(true);
+                const data = await api.getBehaviorNotes(student.id);
+                setNotes(data || []);
+            } catch (err) {
+                console.error("Error fetching behavior notes:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchNotes();
+    }, [student.id]);
+
+    if (loading) return <div className="p-8 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div></div>;
+
     return (
         <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {student.behaviorNotes && student.behaviorNotes.length > 0 ? [...student.behaviorNotes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => {
+                {notes.length > 0 ? [...notes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => {
                     const isPositive = note.type === 'Positive';
                     return (
                         <div key={note.id} className={`p-4 rounded-xl border-l-4 ${isPositive ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
@@ -288,9 +301,20 @@ const AttendanceTab = ({ student }: { student: Student }) => {
 
     useEffect(() => {
         const fetchAttendance = async () => {
-            const { data } = await supabase.from('student_attendance').select('*').eq('student_id', student.id);
-            if (data) setAttendance(data.map((a: any) => ({ id: a.id, studentId: a.student_id, date: a.date, status: a.status })));
-            setLoading(false);
+            setLoading(true);
+            try {
+                const data = await api.getAttendanceByStudent(student.id);
+                if (data) setAttendance(data.map((a: any) => ({
+                    id: a.id,
+                    studentId: a.student_id,
+                    date: a.date,
+                    status: a.status
+                })));
+            } catch (err) {
+                console.error("Error fetching attendance:", err);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchAttendance();
     }, [student.id, refreshTrigger]);

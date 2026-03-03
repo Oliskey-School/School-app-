@@ -12,7 +12,7 @@ export interface UseAssignmentsResult {
     deleteAssignment: (id: number) => Promise<boolean>;
 }
 
-export function useAssignments(filters?: { className?: string; subject?: string }): UseAssignmentsResult {
+export function useAssignments(filters?: { className?: string; subject?: string; teacherId?: string }): UseAssignmentsResult {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -27,6 +27,9 @@ export function useAssignments(filters?: { className?: string; subject?: string 
             }
             if (filters?.subject) {
                 query = query.eq('subject', filters.subject);
+            }
+            if (filters?.teacherId) {
+                query = query.eq('teacher_id', filters.teacherId);
             }
 
             const { data, error: fetchError } = await query.order('due_date', { ascending: false });
@@ -78,6 +81,8 @@ export function useAssignments(filters?: { className?: string; subject?: string 
                     due_date: assignmentData.dueDate,
                     total_students: assignmentData.totalStudents,
                     submissions_count: assignmentData.submissionsCount,
+                    teacher_id: assignmentData.teacherId,
+                    class_id: assignmentData.classId
                 }])
                 .select()
                 .single();
@@ -104,6 +109,8 @@ export function useAssignments(filters?: { className?: string; subject?: string 
                     due_date: updates.dueDate,
                     total_students: updates.totalStudents,
                     submissions_count: updates.submissionsCount,
+                    teacher_id: updates.teacherId,
+                    class_id: updates.classId
                 })
                 .eq('id', id)
                 .select()
@@ -152,8 +159,10 @@ const transformSupabaseAssignment = (a: any): Assignment => ({
     title: a.title,
     description: a.description,
     className: a.class_name,
+    classId: a.class_id,
     subject: a.subject,
     dueDate: a.due_date,
     totalStudents: a.total_students,
     submissionsCount: a.submissions_count,
+    teacherId: a.teacher_id
 });

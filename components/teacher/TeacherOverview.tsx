@@ -115,6 +115,8 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
   const [ungradedAssignments, setUngradedAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [version, setVersion] = useState(0);
+  const forceUpdate = () => setVersion(v => v + 1);
 
   // Effect to calculate stats from teacherClasses (REMOVED - handled by hook)
   /*
@@ -157,7 +159,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           supabase
             .from('assignments')
             .select('id, title, class_name, created_at')
-            .eq('school_id', schoolId)
+            .eq('school_id', actualSchoolId)
             .eq('teacher_id', actualTeacherId)
             .order('created_at', { ascending: false })
             .limit(3)
@@ -168,15 +170,16 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
       } catch (err) {
         console.error('❌ Error fetching overview data:', err);
-        toast.error('Failed to load dashboard overview.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    if (!classesLoading && resolvedTeacherId) {
+        fetchData();
+    }
 
-  }, [currentUser, teacherId, profile, schoolId]);
+  }, [resolvedTeacherId, resolvedSchoolId, classesLoading, currentBranchId, version]);
 
   // Auto-refresh when relevant tables change in real-time
   const refetchOverview = () => {
@@ -206,14 +209,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     ['teacher_classes', 'class_teachers', 'assignments', 'timetable', 'report_cards'],
     () => {
       console.log('🔄 [TeacherOverview] Auto-Sync Triggered');
-      // For now, since fetchData is dependent on props inside the effect, 
-      // we can rely on the components themselves (like useTeacherClasses) to re-fetch,
-      // but we still want to trigger the local fetchData to refresh schedule/assignments.
-      // In a refactor, fetchData should be memoized. We'll force an update to trigger it.
-      // Let's actually pull fetchData out or duplicate its call safely if needed.
-      // But since the overarching TeacherDashboard re-renders, it might be enough.
-      // To be safe, we'll force the page to reload its data.
-      setLoading(true);
+      forceUpdate();
     }
   );
 

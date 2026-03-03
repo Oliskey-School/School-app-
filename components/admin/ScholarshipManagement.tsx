@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Award, Users, DollarSign, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface Scholarship {
     id: number;
@@ -57,18 +58,25 @@ const ScholarshipManagement: React.FC = () => {
     const [totalAwarded, setTotalAwarded] = useState(0);
     const [pendingApplications, setPendingApplications] = useState(0);
 
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
+
     useEffect(() => {
-        fetchScholarships();
-        fetchApplications();
-        fetchRecipients();
-        fetchStats();
-    }, []);
+        if (schoolId) {
+            fetchScholarships();
+            fetchApplications();
+            fetchRecipients();
+            fetchStats();
+        }
+    }, [schoolId]);
 
     const fetchScholarships = async () => {
         try {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('scholarships')
                 .select('*')
+                .eq('school_id', schoolId)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -82,13 +90,15 @@ const ScholarshipManagement: React.FC = () => {
 
     const fetchApplications = async () => {
         try {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('scholarship_applications')
                 .select(`
-          *,
-          students (name, class),
-          scholarships (scholarship_name, amount)
-        `)
+                  *,
+                  students!inner (name, class, school_id),
+                  scholarships!inner (scholarship_name, amount, school_id)
+                `)
+                .eq('students.school_id', schoolId)
                 .order('applied_date', { ascending: false });
 
             if (error) throw error;
@@ -100,13 +110,15 @@ const ScholarshipManagement: React.FC = () => {
 
     const fetchRecipients = async () => {
         try {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('scholarship_recipients')
                 .select(`
-          *,
-          students (name, class),
-          scholarships (scholarship_name, amount)
-        `)
+                  *,
+                  students!inner (name, class, school_id),
+                  scholarships!inner (scholarship_name, amount, school_id)
+                `)
+                .eq('students.school_id', schoolId)
                 .order('award_date', { ascending: false });
 
             if (error) throw error;
@@ -118,22 +130,26 @@ const ScholarshipManagement: React.FC = () => {
 
     const fetchStats = async () => {
         try {
+            if (!schoolId) return;
             // Total scholarships
             const { count: totalCount } = await supabase
                 .from('scholarships')
-                .select('*', { count: 'exact', head: true });
+                .select('*', { count: 'exact', head: true })
+                .eq('school_id', schoolId);
             setTotalScholarships(totalCount || 0);
 
             // Total awarded
             const { count: awardedCount } = await supabase
                 .from('scholarship_recipients')
-                .select('*', { count: 'exact', head: true });
+                .select('*, students!inner(school_id)', { count: 'exact', head: true })
+                .eq('students.school_id', schoolId);
             setTotalAwarded(awardedCount || 0);
 
             // Pending applications
             const { count: pendingCount } = await supabase
                 .from('scholarship_applications')
-                .select('*', { count: 'exact', head: true })
+                .select('*, students!inner(school_id)', { count: 'exact', head: true })
+                .eq('students.school_id', schoolId)
                 .eq('status', 'Pending');
             setPendingApplications(pendingCount || 0);
         } catch (error: any) {
@@ -161,7 +177,8 @@ const ScholarshipManagement: React.FC = () => {
                     slots_available: Number(slotsAvailable) || 1,
                     slots_filled: 0,
                     is_active: true,
-                    is_renewable: isRenewable
+                    is_renewable: isRenewable,
+                    school_id: schoolId
                 });
 
             if (error) throw error;
@@ -308,8 +325,8 @@ const ScholarshipManagement: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('scholarships')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'scholarships'
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Scholarships ({scholarships.length})
@@ -317,8 +334,8 @@ const ScholarshipManagement: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('applications')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'applications'
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Applications ({applications.length})
@@ -326,8 +343,8 @@ const ScholarshipManagement: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('recipients')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'recipients'
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Recipients ({recipients.length})

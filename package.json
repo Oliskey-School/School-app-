@@ -6,6 +6,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
+    "test:clean": "npx rimraf .playwright-results .playwright-report && npx playwright test",
     "server": "npx tsx watch backend/src/server.ts",
     "db:verify": "echo 'Copy contents of supabase/migrations/20260128_verify_migration.sql and run in Supabase SQL Editor'",
     "db:migrate": "npx supabase db push",
@@ -74,6 +75,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "7.5.0",
+    "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.1",
     "@types/bcryptjs": "2.4.6",

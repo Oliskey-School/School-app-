@@ -1,6 +1,6 @@
-const CACHE_NAME = 'school-app-v2';
-const ASSETS_CACHE = 'assets-v2';
-const API_CACHE = 'api-v2';
+const CACHE_NAME = 'school-app-v3';
+const ASSETS_CACHE = 'assets-v3';
+const API_CACHE = 'api-v3';
 
 // Assets to precache
 const PRECACHE_URLS = [
@@ -52,6 +52,11 @@ self.addEventListener('fetch', (event) => {
         url.hostname.includes('192.168.')
     ) {
         // Do not call respondWith at all, let the browser handle it
+        return;
+    }
+
+    // Ignore Supabase requests - handled by SyncEngine/IndexedDB
+    if (url.hostname.includes('supabase.co')) {
         return;
     }
 

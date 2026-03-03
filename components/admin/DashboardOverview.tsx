@@ -332,6 +332,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         const jwtId = data.context.jwt_school_id;
                         if (jwtId) {
                             console.log('ℹ️ [Diagnostic] Profile school_id is missing, but JWT metadata contains school_id. System is falling back to JWT context.');
+                        } else if (currentSchool?.id === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1') {
+                            console.log('🛡️ [Diagnostic] Demo School Account detected via UI Context. school_id absence in DB/JWT is expected.');
                         } else {
                             console.warn('⚠️ [Diagnostic] Critical: Current user has NO school_id in public.profiles OR JWT metadata!');
                         }

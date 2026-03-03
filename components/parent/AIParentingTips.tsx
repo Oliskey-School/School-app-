@@ -19,20 +19,37 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
     const [tips, setTips] = useState<Tip[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [academicData, setAcademicData] = useState(student.academicPerformance || []);
+    const [behaviorData, setBehaviorData] = useState(student.behaviorNotes || []);
 
     useEffect(() => {
         const generateTips = async () => {
             setIsLoading(true);
             setError(null);
             try {
+                // Fetch missing data if necessary
+                let currentAcademic = academicData;
+                let currentBehavior = behaviorData;
+
+                if (currentAcademic.length === 0 || currentBehavior.length === 0) {
+                    const [records, notes] = await Promise.all([
+                        api.getStudentAcademicRecords(student.id),
+                        api.getBehaviorNotes(student.id)
+                    ]);
+                    currentAcademic = records || [];
+                    currentBehavior = notes || [];
+                    setAcademicData(currentAcademic);
+                    setBehaviorData(currentBehavior);
+                }
+
                 const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
 
-                const academicSummary = student.academicPerformance
+                const academicSummary = currentAcademic
                     ?.slice(-4) // get latest 4 records
                     .map(p => `${p.subject}: ${p.score}%`)
                     .join(', ');
 
-                const behaviorSummary = student.behaviorNotes
+                const behaviorSummary = currentBehavior
                     ?.map(n => `${n.type} note - ${n.title}: ${n.note}`)
                     .join('; ');
 
@@ -125,8 +142,8 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
         <div className="p-4 space-y-4 bg-gray-50">
             <div className="bg-green-50 p-4 rounded-xl text-center border border-green-200">
                 <SparklesIcon className="h-10 w-10 mx-auto text-green-400 mb-2" />
-                <h3 className="font-bold text-lg text-green-800">Parenting Tips for {student.name}</h3>
-                <p className="text-sm text-green-700">Powered by AI to help your child thrive.</p>
+                <h3 className="font-bold text-lg text-green-800">Insights for {student.name}</h3>
+                <p className="text-sm text-green-700">Artificial intelligence analyzing grades and behavior.</p>
             </div>
             {tips?.map((tipSection, index) => (
                 <div key={index} className="bg-white rounded-xl shadow-sm p-4">

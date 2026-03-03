@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { CheckCircle, BarChart2, MessageSquare, Star, ThumbsUp } from 'lucide-react';
 
 interface Survey {
-    id: number;
+    id: string; // Changed to string (UUID)
     title: string;
     description: string;
     start_date: string;
@@ -17,8 +18,8 @@ interface Survey {
 }
 
 interface Question {
-    id: number;
-    survey_id: number;
+    id: string; // Changed to string (UUID)
+    survey_id: string;
     question_text: string;
     question_type: string;
     question_order: number;
@@ -26,34 +27,30 @@ interface Question {
     is_required: boolean;
 }
 
-const SurveysAndPolls: React.FC = () => {
+interface SurveysAndPollsProps {
+    schoolId?: string;
+}
+
+const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
     const { profile } = useProfile();
     const [surveys, setSurveys] = useState<Survey[]>([]);
     const [selectedSurvey, setSelectedSurvey] = useState<Survey | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
-    const [responses, setResponses] = useState<{ [key: number]: any }>({});
+    const [responses, setResponses] = useState<{ [key: string]: any }>({});
     const [loading, setLoading] = useState(true);
     const [hasResponded, setHasResponded] = useState(false);
     const [showSurveyModal, setShowSurveyModal] = useState(false);
 
     useEffect(() => {
-        fetchSurveys();
-    }, []);
+        if (schoolId) {
+            fetchSurveys();
+        }
+    }, [schoolId]);
 
     const fetchSurveys = async () => {
         try {
-            const today = new Date().toISOString().split('T')[0];
-
-            const { data, error } = await supabase
-                .from('surveys')
-                .select('*')
-                .eq('is_active', true)
-                .lte('start_date', today)
-                .gte('end_date', today)
-                .in('target_audience', ['Parents', 'All'])
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            setLoading(true);
+            const data = await api.getSurveys(schoolId || '');
             setSurveys(data || []);
         } catch (error: any) {
             console.error('Error fetching surveys:', error);
@@ -62,18 +59,12 @@ const SurveysAndPolls: React.FC = () => {
         }
     };
 
-    const fetchQuestions = async (surveyId: number) => {
+    const fetchQuestions = async (surveyId: string) => {
         try {
-            const { data, error } = await supabase
-                .from('survey_questions')
-                .select('*')
-                .eq('survey_id', surveyId)
-                .order('question_order', { ascending: true });
-
-            if (error) throw error;
+            const data = await api.getSurveyQuestions(surveyId);
             setQuestions(data || []);
 
-            // Check if user has already responded
+            // Check if user has already responded (direct query for efficiency)
             const { data: existingResponse } = await supabase
                 .from('survey_responses')
                 .select('id')
@@ -93,7 +84,7 @@ const SurveysAndPolls: React.FC = () => {
         setShowSurveyModal(true);
     };
 
-    const handleResponseChange = (questionId: number, value: any) => {
+    const handleResponseChange = (questionId: string, value: any) => {
         setResponses(prev => ({
             ...prev,
             [questionId]: value
@@ -119,24 +110,16 @@ const SurveysAndPolls: React.FC = () => {
                 survey_id: selectedSurvey.id,
                 question_id: q.id,
                 user_id: selectedSurvey.is_anonymous ? null : profile.id,
-                user_type: 'Parent',
+                user_type: profile.role || 'Parent',
                 response_text: q.question_type === 'Text' ? responses[q.id] : null,
-                response_option: q.question_type === 'Multiple Choice' || q.question_type === 'Yes/No' ? responses[q.id] : null,
+                response_option: q.question_type === 'Multiple Choice' || q.question_type === 'Yes/No' || q.question_type === 'Checkbox' ?
+                    (Array.isArray(responses[q.id]) ? responses[q.id].join(',') : responses[q.id]) : null,
                 rating: q.question_type === 'Rating' ? responses[q.id] : null
             }));
 
-            const { error } = await supabase
-                .from('survey_responses')
-                .insert(responseData);
+            await api.submitSurveyResponse(responseData);
 
-            if (error) throw error;
-
-            // Update survey response count
-            await supabase
-                .from('surveys')
-                .update({ response_count: selectedSurvey.response_count + 1 })
-                .eq('id', selectedSurvey.id);
-
+            // Update local state or trigger a refresh if needed
             toast.success('Thank you for your feedback! 🎉');
             setShowSurveyModal(false);
             setResponses({});
@@ -211,8 +194,8 @@ const SurveysAndPolls: React.FC = () => {
                                 type="button"
                                 onClick={() => handleResponseChange(question.id, rating)}
                                 className={`p-3 rounded-lg transition-all ${responses[question.id] >= rating
-                                        ? 'bg-yellow-400 text-white scale-110'
-                                        : 'bg-gray-200 text-gray-400 hover:bg-gray-300'
+                                    ? 'bg-yellow-400 text-white scale-110'
+                                    : 'bg-gray-200 text-gray-400 hover:bg-gray-300'
                                     }`}
                             >
                                 <Star className="h-6 w-6 fill-current" />
@@ -231,8 +214,8 @@ const SurveysAndPolls: React.FC = () => {
                             type="button"
                             onClick={() => handleResponseChange(question.id, 'Yes')}
                             className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${responses[question.id] === 'Yes'
-                                    ? 'bg-green-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <ThumbsUp className="h-5 w-5 inline mr-2" />
@@ -242,8 +225,8 @@ const SurveysAndPolls: React.FC = () => {
                             type="button"
                             onClick={() => handleResponseChange(question.id, 'No')}
                             className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${responses[question.id] === 'No'
-                                    ? 'bg-red-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-red-600 text-white'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             No

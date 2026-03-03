@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { MessageSquare, Send, Calendar, Users, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface SMSLesson {
     id: number;
@@ -32,6 +33,8 @@ interface SMSSchedule {
 }
 
 const SMSLessonManager: React.FC = () => {
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
     const [lessons, setLessons] = useState<SMSLesson[]>([]);
     const [schedules, setSchedules] = useState<SMSSchedule[]>([]);
     const [activeTab, setActiveTab] = useState<'create' | 'schedule' | 'history'>('create');
@@ -54,16 +57,13 @@ const SMSLessonManager: React.FC = () => {
 
     const MAX_SMS_LENGTH = 160;
 
-    useEffect(() => {
-        fetchLessons();
-        fetchSchedules();
-    }, []);
-
     const fetchLessons = async () => {
         try {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('sms_lessons')
                 .select('*')
+                .eq('school_id', schoolId)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -77,12 +77,14 @@ const SMSLessonManager: React.FC = () => {
 
     const fetchSchedules = async () => {
         try {
+            if (!schoolId) return;
             const { data, error } = await supabase
                 .from('sms_schedules')
                 .select(`
-          *,
-          sms_lessons (lesson_title, content)
-        `)
+                  *,
+                  sms_lessons!inner (lesson_title, content, school_id)
+                `)
+                .eq('sms_lessons.school_id', schoolId)
                 .order('scheduled_date', { ascending: false })
                 .order('scheduled_time', { ascending: false });
 
@@ -92,6 +94,13 @@ const SMSLessonManager: React.FC = () => {
             console.error('Error fetching schedules:', error);
         }
     };
+
+    useEffect(() => {
+        if (schoolId) {
+            fetchLessons();
+            fetchSchedules();
+        }
+    }, [schoolId]);
 
     const handleCreateLesson = async () => {
         if (!lessonTitle || !content) {
@@ -108,6 +117,7 @@ const SMSLessonManager: React.FC = () => {
             const { error } = await supabase
                 .from('sms_lessons')
                 .insert({
+                    school_id: schoolId,
                     lesson_title: lessonTitle,
                     subject,
                     grade,
@@ -139,6 +149,7 @@ const SMSLessonManager: React.FC = () => {
             const { count } = await supabase
                 .from('sms_contacts')
                 .select('*', { count: 'exact', head: true })
+                .eq('school_id', schoolId)
                 .eq('opt_in', true);
 
             const recipientCount = count || 0;
@@ -210,8 +221,8 @@ const SMSLessonManager: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('create')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'create'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Create Lesson
@@ -219,8 +230,8 @@ const SMSLessonManager: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('schedule')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'schedule'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     Schedule SMS
@@ -228,8 +239,8 @@ const SMSLessonManager: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('history')}
                     className={`px-6 py-3 rounded-lg font-semibold transition-colors ${activeTab === 'history'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                 >
                     History ({schedules.length})

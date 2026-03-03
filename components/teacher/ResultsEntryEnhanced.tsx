@@ -17,6 +17,13 @@ interface ResultsEntryProps {
     teacherCurriculumEligibility: 'Nigerian' | 'British' | 'Both' | null;
 }
 
+interface ResultRecord {
+    ca: string;
+    exam: string;
+    total: number;
+    grade: string;
+}
+
 export default function ResultsEntryEnhanced({
     teacherId,
     classId,
@@ -25,7 +32,7 @@ export default function ResultsEntryEnhanced({
 }: ResultsEntryProps) {
     const [selectedCurriculum, setSelectedCurriculum] = useState<'Nigerian' | 'British'>('Nigerian');
     const [students, setStudents] = useState<any[]>([]);
-    const [results, setResults] = useState<{ [key: string]: { ca: string; exam: string; total: number; grade: string } }>({});
+    const [results, setResults] = useState<{ [key: string]: ResultRecord }>({});
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [exam, setExam] = useState<any>(null);
@@ -271,10 +278,10 @@ export default function ResultsEntryEnhanced({
     };
 
     const averageScore = students.length > 0
-        ? (Object.values(results).reduce((sum, r) => sum + r.total, 0) / students.length).toFixed(2)
+        ? (Object.values(results).reduce((sum: number, r: ResultRecord) => sum + r.total, 0) / students.length).toFixed(2)
         : '0.00';
 
-    const passCount = Object.values(results).filter(r =>
+    const passCount = Object.values(results).filter((r: ResultRecord) =>
         selectedCurriculum === 'Nigerian' ? r.total >= 40 : r.total >= 40
     ).length;
 

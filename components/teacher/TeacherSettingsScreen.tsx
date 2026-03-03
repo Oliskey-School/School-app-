@@ -14,7 +14,9 @@ import {
     ChevronLeftIcon,
     ExamIcon,
     UserIcon,
-    ShieldCheckIcon
+    ShieldCheckIcon,
+    CalendarPlusIcon,
+    DollarSignIcon
 } from '../../constants';
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType } from '../../types';
@@ -73,20 +75,26 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
     const profile = dashboardProfile || commonTeacherProfile || propProfile || { name: 'Teacher', avatarUrl: '' };
 
     // Fetch real-time stats
-    const { stats, loading: statsLoading } = useTeacherStats(teacherId || currentUser?.id, (profile as any).schoolId || currentUser?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1');
+    const { stats, loading: statsLoading } = useTeacherStats(teacherId || currentUser?.id, (profile as any).schoolId || currentUser?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', null);
 
     const settingsItems = [
         { id: 'editTeacherProfile', icon: <EditIcon />, label: 'Edit Profile', color: 'bg-blue-100 text-blue-500' },
         { id: 'cbtManagement', icon: <ExamIcon />, label: 'CBT & Examination', color: 'bg-indigo-100 text-indigo-500' },
         { id: 'professionalDevelopment', icon: <TrendingUpIcon />, label: 'Professional Development', color: 'bg-teal-100 text-teal-500' },
         { id: 'teacherNotificationSettings', icon: <NotificationIcon />, label: 'Notifications', color: 'bg-green-100 text-green-500' },
+        { id: 'leaveRequest', icon: <CalendarPlusIcon />, label: 'My Leaves', color: 'bg-pink-100 text-pink-500' },
+        { id: 'payslips', icon: <DollarSignIcon />, label: 'My Payslips', color: 'bg-amber-100 text-amber-500' },
         { id: 'teacherSecurity', icon: <SecurityIcon />, label: 'Security & Password', color: 'bg-orange-100 text-orange-500' },
         { id: 'help', icon: <HelpIcon />, label: 'Help & Support', color: 'bg-purple-100 text-purple-500' },
     ];
 
     const handleItemClick = (id: string) => {
         if (id === 'help') {
-            toast('Help Center coming soon!', { icon: 'ℹ️' });
+            navigateTo('helpSupport', 'Help & Support', { teacherId });
+        } else if (id === 'leaveRequest') {
+            navigateTo('leaveRequest', 'My Leaves', { teacherId });
+        } else if (id === 'payslips') {
+            navigateTo('payslips', 'My Payslips', { teacherId });
         } else {
             setActiveSetting(id as SettingView);
         }

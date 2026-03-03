@@ -30,7 +30,7 @@ interface SuperAdminDashboardProps {
 
 const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const [activeScreen, setActiveScreen] = useState('overview');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -95,9 +95,25 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
 
     return (
         <div className="flex h-screen w-full bg-gray-100 overflow-hidden">
+            {/* Sidebar Overlay (Mobile only) */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
             <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0`}>
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col h-full relative">
+                    {/* Close Button (Mobile only) */}
+                    <button 
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="lg:hidden absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+
                     {/* Logo */}
                     <div className="h-16 flex items-center px-6 bg-slate-950 border-b border-slate-800">
                         <Building className="w-6 h-6 text-purple-400 mr-3" />

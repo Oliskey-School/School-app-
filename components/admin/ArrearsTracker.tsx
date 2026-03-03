@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import {
     ExclamationCircleIcon,
     DollarSignIcon,
@@ -27,22 +28,30 @@ const ArrearsTracker: React.FC = () => {
     const [selectedArrear, setSelectedArrear] = useState<Arrears | null>(null);
     const [paymentAmount, setPaymentAmount] = useState(0);
 
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
+
     useEffect(() => {
-        fetchArrears();
-    }, []);
+        if (schoolId) {
+            fetchArrears();
+        }
+    }, [schoolId]);
 
     const fetchArrears = async () => {
         try {
             setLoading(true);
+            if (!schoolId) return;
 
             const { data, error } = await supabase
                 .from('arrears')
                 .select(`
           *,
-          teachers (
-            full_name
+          teachers!inner (
+            full_name,
+            school_id
           )
         `)
+                .eq('teachers.school_id', schoolId)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -150,8 +159,8 @@ const ArrearsTracker: React.FC = () => {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === f
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}

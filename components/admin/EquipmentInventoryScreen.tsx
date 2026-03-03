@@ -39,7 +39,9 @@ const EquipmentInventoryScreen = () => {
     const [newEquipment, setNewEquipment] = useState<Partial<Equipment>>({
         name: '',
         category: 'Other',
+        serial_number: '',
         condition: 'Good',
+        next_service_date: '',
         facility_id: null
     });
 
@@ -70,11 +72,40 @@ const EquipmentInventoryScreen = () => {
 
     const handleAdd = async () => {
         if (!newEquipment.name || !currentSchool) return;
-        const { error } = await supabase.from('equipment_tracking').insert([{ ...newEquipment, school_id: currentSchool.id }]);
-        if (!error) {
+
+        try {
+            // Explicitly map and sanitize fields to match DB schema
+            const payload = {
+                name: newEquipment.name.trim(),
+                category: newEquipment.category || 'Other',
+                serial_number: newEquipment.serial_number?.trim() || null,
+                condition: newEquipment.condition || 'Good',
+                next_service_date: newEquipment.next_service_date || null,
+                facility_id: newEquipment.facility_id || null,
+                school_id: currentSchool.id
+            };
+
+            const { error } = await supabase.from('equipment_tracking').insert([payload]);
+
+            if (error) {
+                console.error('Failed to add equipment:', error);
+                alert(`Failed to add equipment: ${error.message}`);
+                return;
+            }
+
             setIsAdding(false);
-            setNewEquipment({ name: '', category: 'Other', condition: 'Good', facility_id: null });
+            setNewEquipment({
+                name: '',
+                category: 'Other',
+                serial_number: '',
+                condition: 'Good',
+                next_service_date: '',
+                facility_id: null
+            });
             fetchData();
+        } catch (err: any) {
+            console.error('Unexpected error during handleAdd:', err);
+            alert('An unexpected error occurred. Please try again.');
         }
     };
 
@@ -277,7 +308,7 @@ const EquipmentInventoryScreen = () => {
                                 <select
                                     className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
                                     value={newEquipment.facility_id || ''}
-                                    onChange={e => setNewEquipment({ ...newEquipment, facility_id: e.target.value ? parseInt(e.target.value) : null })}
+                                    onChange={e => setNewEquipment({ ...newEquipment, facility_id: e.target.value || null })}
                                 >
                                     <option value="">Unassigned</option>
                                     {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -291,6 +322,20 @@ const EquipmentInventoryScreen = () => {
                                     value={newEquipment.next_service_date}
                                     onChange={e => setNewEquipment({ ...newEquipment, next_service_date: e.target.value })}
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Condition</label>
+                                <select
+                                    className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                                    value={newEquipment.condition}
+                                    onChange={e => setNewEquipment({ ...newEquipment, condition: e.target.value as any })}
+                                >
+                                    <option value="New">New</option>
+                                    <option value="Good">Good</option>
+                                    <option value="Fair">Fair</option>
+                                    <option value="Poor">Poor</option>
+                                    <option value="Needs Replacement">Needs Replacement</option>
+                                </select>
                             </div>
                         </div>
 

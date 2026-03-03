@@ -245,18 +245,15 @@ export async function fetchStudentsByClass(grade: number | string, section: stri
 export async function fetchStudentsByClassId(classId: string): Promise<Student[]> {
     try {
         const { data, error } = await supabase
-            .from('student_enrollments')
+            .from('students')
             .select(`
-                student:students (
-                    id, school_id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday
-                )
+                id, school_id, school_generated_id, name, email, avatar_url, grade, section, department, attendance_status, birthday, class_id
             `)
-            .eq('class_id', classId);
+            .or(`class_id.eq.${classId},current_class_id.eq.${classId}`);
 
         if (error) throw error;
 
-        return (data || []).map((item: any) => {
-            const s = item.student;
+        return (data || []).map((s: any) => {
             return {
                 id: s.id,
                 schoolId: s.school_id,
@@ -268,7 +265,8 @@ export async function fetchStudentsByClassId(classId: string): Promise<Student[]
                 section: s.section,
                 department: s.department,
                 attendanceStatus: s.attendance_status || 'Absent',
-                birthday: s.birthday
+                birthday: s.birthday,
+                classId: s.class_id
             };
         });
     } catch (err) {
@@ -1039,7 +1037,7 @@ export async function fetchNotices(schoolId?: string): Promise<Notice[]> {
     try {
         let query = supabase
             .from('notices')
-            .select('id, title, content, timestamp, category, is_pinned, audience');
+            .select('id, title, content, timestamp, category, is_pinned, audience, image_url, video_url');
 
         if (schoolId) {
             query = query.eq('school_id', schoolId);
@@ -1057,7 +1055,9 @@ export async function fetchNotices(schoolId?: string): Promise<Notice[]> {
             timestamp: n.timestamp,
             category: n.category,
             isPinned: n.is_pinned || false,
-            audience: n.audience || ['all']
+            audience: n.audience || ['all'],
+            imageUrl: n.image_url,
+            videoUrl: n.video_url
         }));
     } catch (err) {
         console.error('Error fetching notices:', err);
@@ -1333,12 +1333,18 @@ export async function linkStudentToClasses(studentId: string, classIds: string[]
 // ASSIGNMENTS
 // ============================================
 
-export async function fetchAssignments(): Promise<Assignment[]> {
+export async function fetchAssignments(teacherId?: string): Promise<Assignment[]> {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('assignments')
-            .select('id, title, description, class_name, subject, due_date, total_students, submissions_count')
+            .select('id, title, description, class_name, subject, due_date, total_students, submissions_count, teacher_id, class_id')
             .order('due_date', { ascending: true });
+
+        if (teacherId) {
+            query = query.eq('teacher_id', teacherId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -1350,7 +1356,9 @@ export async function fetchAssignments(): Promise<Assignment[]> {
             subject: a.subject,
             dueDate: a.due_date,
             totalStudents: a.total_students || 0,
-            submissionsCount: a.submissions_count || 0
+            submissionsCount: a.submissions_count || 0,
+            teacherId: a.teacher_id,
+            classId: a.class_id
         }));
     } catch (err) {
         console.error('Error fetching assignments:', err);
@@ -1364,6 +1372,9 @@ export async function createAssignment(assignmentData: {
     className: string;
     subject: string;
     dueDate: string;
+    teacherId?: string;
+    classId?: string;
+    schoolId?: string;
 }): Promise<Assignment | null> {
     try {
         const { data, error } = await supabase
@@ -1374,6 +1385,9 @@ export async function createAssignment(assignmentData: {
                 class_name: assignmentData.className,
                 subject: assignmentData.subject,
                 due_date: assignmentData.dueDate,
+                teacher_id: assignmentData.teacherId,
+                class_id: assignmentData.classId,
+                school_id: assignmentData.schoolId,
                 created_at: new Date().toISOString()
             })
             .select()
@@ -1389,7 +1403,9 @@ export async function createAssignment(assignmentData: {
             subject: data.subject,
             dueDate: data.due_date,
             totalStudents: data.total_students || 0,
-            submissionsCount: data.submissions_count || 0
+            submissionsCount: data.submissions_count || 0,
+            teacherId: data.teacher_id,
+            classId: data.class_id
         };
     } catch (err) {
         console.error('Error creating assignment:', err);

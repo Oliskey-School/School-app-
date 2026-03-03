@@ -25,6 +25,7 @@ type AcademicRecordState = {
     subject: string;
     test1: string;
     test2: string;
+    ca: string;
     exam: string;
     total: number;
     grade: string;
@@ -173,19 +174,30 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
             const allSubjectNames = Array.from(new Set([...expectedSubjects, ...existingRecordsMap.keys()]));
 
-            const initialData = allSubjectNames.map(subjectName => {
+            const initialData: AcademicRecordState[] = allSubjectNames.map(subjectName => {
                 const existingRecord = existingRecordsMap.get(subjectName);
                 if (existingRecord) {
                     return {
-                        ...existingRecord,
-                        ca: existingRecord.ca.toString(),
-                        exam: existingRecord.exam.toString(),
+                        subject: existingRecord.subject,
+                        test1: (existingRecord.test1 ?? 0).toString(),
+                        test2: (existingRecord.test2 ?? 0).toString(),
+                        ca: (existingRecord.ca ?? 0).toString(),
+                        exam: (existingRecord.exam ?? 0).toString(),
+                        total: existingRecord.total,
+                        grade: existingRecord.grade,
+                        remark: existingRecord.remark,
                         remarkIsManual: !!existingRecord.remark,
                     };
                 } else {
                     return {
                         subject: subjectName,
-                        ca: '', exam: '', total: 0, grade: '', remark: '',
+                        test1: '',
+                        test2: '',
+                        ca: '',
+                        exam: '',
+                        total: 0,
+                        grade: '',
+                        remark: '',
                         remarkIsManual: false,
                     };
                 }
@@ -243,7 +255,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 recordToUpdate.grade = getGrade(total);
 
                 if (!recordToUpdate.remarkIsManual) {
-                    recordToUpdate.remark = getRemark(total, recordToUpdate.grade);
+                    recordToUpdate.remark = getRemark(total);
                 }
             }
 

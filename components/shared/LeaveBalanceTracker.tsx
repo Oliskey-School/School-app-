@@ -10,7 +10,7 @@ interface LeaveBalance {
 }
 
 interface LeaveBalanceTrackerProps {
-    teacherId?: number;
+    teacherId?: string;
     compact?: boolean;
 }
 

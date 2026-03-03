@@ -9,12 +9,16 @@ import { useAuth } from './AuthContext';
 export interface UserProfile {
     id: string; // uuid
     full_name: string;
+    name?: string; // Alias for full_name
     email: string | null;
     phone: string | null;
     avatar_url: string | null;
+    avatarUrl?: string | null; // Alias for avatar_url
     role: string | null; // e.g., 'Student', 'Teacher', 'Parent', 'Admin'
     school_id: string; // uuid
+    schoolId?: string; // Alias for school_id
     branch_id: string | null; // uuid
+    branchId?: string | null; // Alias for branch_id
     school_generated_id: string | null;
     username: string | null;
     is_active: boolean | null;
@@ -27,6 +31,7 @@ interface ProfileContextType {
     isLoading: boolean;
     refreshProfile: () => Promise<void>;
     updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>;
+    setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -52,7 +57,15 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 console.error('Error fetching profile:', error.message);
                 setProfile(null);
             } else {
-                setProfile(data as UserProfile);
+                // Map snake_case to camelCase aliases for legacy component support
+                const mappedProfile: UserProfile = {
+                    ...data,
+                    name: data.full_name,
+                    schoolId: data.school_id,
+                    branchId: data.branch_id,
+                    avatarUrl: data.avatar_url
+                };
+                setProfile(mappedProfile);
             }
         } catch (err) {
             console.error('Unexpected error fetching profile:', err);
@@ -126,21 +139,35 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const updateProfile = async (updates: Partial<UserProfile>) => {
         if (!profile?.id) return { error: 'No profile loaded' };
 
+        // Handle camelCase aliases if provided in updates
+        const dbUpdates: any = { ...updates };
+        if (updates.name) dbUpdates.full_name = updates.name;
+        if (updates.schoolId) dbUpdates.school_id = updates.schoolId;
+        if (updates.branchId) dbUpdates.branch_id = updates.branchId;
+        if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
+
         const { data, error } = await supabase
             .from('profiles')
-            .update({ ...updates, updated_at: new Date().toISOString() })
+            .update({ ...dbUpdates, updated_at: new Date().toISOString() })
             .eq('id', profile.id)
             .select()
             .single();
 
         if (!error && data) {
-            setProfile(data as UserProfile);
+            const mappedProfile: UserProfile = {
+                ...data,
+                name: data.full_name,
+                schoolId: data.school_id,
+                branchId: data.branch_id,
+                avatarUrl: data.avatar_url
+            };
+            setProfile(mappedProfile);
         }
         return { error };
     };
 
     return (
-        <ProfileContext.Provider value={{ profile, isLoading, refreshProfile, updateProfile }}>
+        <ProfileContext.Provider value={{ profile, isLoading, refreshProfile, updateProfile, setProfile }}>
             {/* 
                 STRICT LOADING ENFORCEMENT
                 Prevents children (the app) from rendering with stale/dummy data 

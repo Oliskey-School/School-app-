@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
+// import { useProfile } from '../../context/ProfileContext';
 import PaymentStatusBadge from '../shared/PaymentStatusBadge';
 import {
     DollarSignIcon,
@@ -20,47 +21,25 @@ interface PaymentRecord {
     payment_metadata?: any;
 }
 
-const MyPaymentHistory: React.FC = () => {
-    const { profile } = useProfile();
+interface MyPaymentHistoryProps {
+    teacherId: string;
+}
+
+const MyPaymentHistory: React.FC<MyPaymentHistoryProps> = ({ teacherId }) => {
     const [payments, setPayments] = useState<PaymentRecord[]>([]);
     const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
     const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     useEffect(() => {
         fetchPayments();
     }, []);
 
     const fetchPayments = async () => {
+        if (!teacherId) return;
         try {
             setLoading(true);
-
-            // Get teacher ID
-            const { data: teacherData, error: teacherError } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (teacherError || !teacherData) {
-                console.error('Teacher not found');
-                setLoading(false);
-                return;
-            }
-
-            // Get payments
-            const { data, error } = await supabase
-                .from('payment_transactions')
-                .select(`
-          *,
-          payslips (
-            period_start,
-            period_end
-          )
-        `)
-                .eq('payslips.teacher_id', teacherData.id)
-                .order('payment_date', { ascending: false });
-
-            if (error) throw error;
+            const data = await api.getTeacherPaymentTransactions(teacherId);
 
             const formatted: PaymentRecord[] = (data || []).map((item: any) => ({
                 id: item.id,
@@ -78,6 +57,9 @@ const MyPaymentHistory: React.FC = () => {
             setPayments(formatted);
         } catch (error: any) {
             console.error('Error fetching payments:', error);
+            if (error.code === '42P01') { // Table not found
+                setErrorOccurred(true);
+            }
         } finally {
             setLoading(false);
         }
@@ -143,7 +125,12 @@ const MyPaymentHistory: React.FC = () => {
                     <h3 className="text-lg font-bold text-gray-900">Payment Records</h3>
                 </div>
                 <div className="divide-y divide-gray-200">
-                    {payments.length === 0 ? (
+                    {errorOccurred ? (
+                        <div className="p-8 text-center text-gray-500">
+                            <CheckCircleIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+                            <p className="text-blue-700">Digital payment history is currently being synchronized. Please check back later.</p>
+                        </div>
+                    ) : payments.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">
                             <DocumentTextIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <p>No payment records yet</p>
@@ -191,7 +178,10 @@ const MyPaymentHistory: React.FC = () => {
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-gray-900">Payment Receipt</h3>
-                                <PaymentStatusBadge status={selectedPayment.status} />
+                                <div className="flex flex-col items-end">
+                                    <PaymentStatusBadge status={selectedPayment.status} />
+                                    <span className="text-[10px] text-gray-400 mt-1">ID: {teacherId}</span>
+                                </div>
                             </div>
 
                             <div className="space-y-4">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
 import PaymentStatusBadge from '../shared/PaymentStatusBadge';
 import {
     DocumentTextIcon,
@@ -11,81 +11,73 @@ import {
 } from '../../constants';
 
 interface Payslip {
-    id: number;
+    id: string;
     period_start: string;
     period_end: string;
-    base_salary: number;
     gross_salary: number;
-    tax: number;
-    pension: number;
+    total_deductions: number;
     net_salary: number;
     status: string;
+    tax: number;
+    pension: number;
     items: Array<{
-        description: string;
+        name: string;
         amount: number;
-        item_type: string;
+        category: string;
     }>;
 }
 
-const PayslipViewer: React.FC = () => {
-    const { profile } = useProfile();
+interface PayslipViewerProps {
+    teacherId: string;
+}
+
+const PayslipViewer: React.FC<PayslipViewerProps> = ({ teacherId }) => {
     const [payslips, setPayslips] = useState<Payslip[]>([]);
     const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
     const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     useEffect(() => {
-        fetchPayslips();
-    }, []);
+        if (teacherId) {
+            fetchPayslips();
+        }
+    }, [teacherId]);
 
     const fetchPayslips = async () => {
         try {
             setLoading(true);
+            const data = await api.getPayslips(teacherId);
 
-            // Get teacher ID
-            const { data: teacherData, error: teacherError } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
+            if (data && data.length > 0) {
+                const formatted: Payslip[] = data.map((item: any) => {
+                    const items = item.payslip_items || [];
+                    const taxItem = items.find((i: any) => i.name.toLowerCase().includes('tax'));
+                    const pensionItem = items.find((i: any) => i.name.toLowerCase().includes('pension'));
 
-            if (teacherError || !teacherData) {
-                console.error('Teacher not found');
-                setLoading(false);
-                return;
+                    return {
+                        id: item.id,
+                        period_start: item.period_start,
+                        period_end: item.period_end,
+                        gross_salary: item.gross_salary,
+                        total_deductions: item.total_deductions,
+                        net_salary: item.net_salary,
+                        status: item.status,
+                        tax: taxItem ? Math.abs(taxItem.amount) : 0,
+                        pension: pensionItem ? Math.abs(pensionItem.amount) : 0,
+                        items: items.map((p: any) => ({
+                            name: p.name,
+                            amount: p.amount,
+                            category: p.category
+                        }))
+                    };
+                });
+                setPayslips(formatted);
+            } else {
+                setPayslips([]);
             }
-
-            // Get payslips
-            const { data: payslipsData, error } = await supabase
-                .from('payslips')
-                .select(`
-          *,
-          payslip_items (
-            description,
-            amount,
-            item_type
-          )
-        `)
-                .eq('teacher_id', teacherData.id)
-                .order('period_start', { ascending: false });
-
-            if (error) throw error;
-
-            const formatted: Payslip[] = (payslipsData || []).map((p: any) => ({
-                id: p.id,
-                period_start: p.period_start,
-                period_end: p.period_end,
-                base_salary: p.base_salary,
-                gross_salary: p.gross_salary,
-                tax: p.tax,
-                pension: p.pension,
-                net_salary: p.net_salary,
-                status: p.status,
-                items: p.payslip_items || []
-            }));
-
-            setPayslips(formatted);
         } catch (error: any) {
             console.error('Error fetching payslips:', error);
+            setErrorOccurred(true);
         } finally {
             setLoading(false);
         }
@@ -115,7 +107,13 @@ const PayslipViewer: React.FC = () => {
 
             {/* Payslips List */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {payslips.length === 0 ? (
+                {errorOccurred ? (
+                    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
+                        <DollarSignIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-blue-900 mb-2">Payroll Feature Coming Soon</h3>
+                        <p className="text-blue-700">Digital payslip generation is being integrated into your portal. Please contact the HR Department for your current salary statements.</p>
+                    </div>
+                ) : payslips.length === 0 ? (
                     <div className="col-span-2 text-center py-12 text-gray-500">
                         <DocumentTextIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                         <p>No payslips available yet</p>
@@ -150,7 +148,7 @@ const PayslipViewer: React.FC = () => {
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-600">Deductions</span>
                                     <span className="font-medium text-red-600">
-                                        ₦{(payslip.tax + payslip.pension).toLocaleString()}
+                                        ₦{payslip.total_deductions.toLocaleString()}
                                     </span>
                                 </div>
                                 <div className="flex justify-between font-bold pt-2 border-t">
@@ -175,7 +173,7 @@ const PayslipViewer: React.FC = () => {
                             {/* Header */}
                             <div className="flex items-center justify-between mb-6 pb-4 border-b">
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Payslip</h3>
+                                    <h3 className="text-xl font-bold text-gray-900">Payslip Details</h3>
                                     <p className="text-sm text-gray-600">
                                         {new Date(selectedPayslip.period_start).toLocaleDateString('en-US', {
                                             month: 'long',
@@ -190,8 +188,8 @@ const PayslipViewer: React.FC = () => {
                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                     <div>
-                                        <p className="text-gray-600">Employee Name</p>
-                                        <p className="font-semibold">{profile.name}</p>
+                                        <p className="text-gray-600">Employee ID</p>
+                                        <p className="font-semibold">{teacherId}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-600">Period</p>
@@ -202,52 +200,34 @@ const PayslipViewer: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Earnings */}
+                            {/* Payslip Items */}
                             <div className="mb-6">
-                                <h4 className="font-semibold text-gray-900 mb-3">Earnings</h4>
-                                <div className="space-y-2">
-                                    {selectedPayslip.items
-                                        .filter((item) => item.item_type === 'Earning')
-                                        .map((item, idx) => (
-                                            <div key={idx} className="flex justify-between text-sm">
-                                                <span className="text-gray-700">{item.description}</span>
-                                                <span className="font-medium">₦{item.amount.toLocaleString()}</span>
-                                            </div>
-                                        ))}
-                                    <div className="flex justify-between font-semibold pt-2 border-t">
-                                        <span>Gross Salary</span>
-                                        <span>₦{selectedPayslip.gross_salary.toLocaleString()}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Deductions */}
-                            <div className="mb-6">
-                                <h4 className="font-semibold text-gray-900 mb-3">Deductions</h4>
-                                <div className="space-y-2">
-                                    {selectedPayslip.items
-                                        .filter((item) => item.item_type === 'Deduction')
-                                        .map((item, idx) => (
-                                            <div key={idx} className="flex justify-between text-sm">
-                                                <span className="text-gray-700">{item.description}</span>
-                                                <span className="font-medium text-red-600">₦{item.amount.toLocaleString()}</span>
-                                            </div>
-                                        ))}
-                                    <div className="flex justify-between font-semibold pt-2 border-t">
-                                        <span>Total Deductions</span>
-                                        <span className="text-red-600">
-                                            ₦{selectedPayslip.items
-                                                .filter((i) => i.item_type === 'Deduction')
-                                                .reduce((sum, i) => sum + i.amount, 0)
-                                                .toLocaleString()}
-                                        </span>
+                                <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                                <div className="space-y-2 border rounded-lg p-4">
+                                    {selectedPayslip.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-700">{item.name}</span>
+                                            <span className={`font-medium ${item.category === 'Earning' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {item.category === 'Earning' ? '+' : '-'}₦{Math.abs(item.amount).toLocaleString()}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    <div className="pt-4 mt-2 border-t space-y-2">
+                                        <div className="flex justify-between font-semibold">
+                                            <span className="text-gray-700">Gross Salary</span>
+                                            <span>₦{selectedPayslip.gross_salary.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between font-semibold text-red-600">
+                                            <span>Total Deductions</span>
+                                            <span>-₦{selectedPayslip.total_deductions.toLocaleString()}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Net Salary */}
                             <div className="p-6 bg-gradient-to-r from-green-600 to-green-800 rounded-lg text-white mb-6">
-                                <p className="text-sm text-green-100">Net Salary</p>
+                                <p className="text-sm text-green-100 font-medium">Net Payout</p>
                                 <p className="text-3xl font-bold mt-1">₦{selectedPayslip.net_salary.toLocaleString()}</p>
                             </div>
 
@@ -255,14 +235,13 @@ const PayslipViewer: React.FC = () => {
                             <div className="flex space-x-3">
                                 <button
                                     onClick={() => setSelectedPayslip(null)}
-                                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium border"
                                 >
                                     Close
                                 </button>
                                 <button
-                                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center space-x-2"
-
                                     onClick={() => toast('PDF download feature coming soon!', { icon: 'ℹ️' })}
+                                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center space-x-2"
                                 >
                                     <DownloadIcon className="w-5 h-5" />
                                     <span>Download PDF</span>

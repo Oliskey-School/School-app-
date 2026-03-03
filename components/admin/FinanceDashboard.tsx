@@ -299,25 +299,25 @@ const FinanceDashboard: React.FC = () => {
         : 0;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-green-600 to-teal-600 rounded-xl p-6 text-white mb-6">
-                <h1 className="text-3xl font-bold mb-2">💰 Financial Dashboard</h1>
-                <p className="text-green-100">Comprehensive financial analytics and forecasting</p>
+            <div className="bg-gradient-to-r from-green-600 to-teal-600 rounded-xl p-4 sm:p-6 text-white mb-6">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2">💰 Financial Dashboard</h1>
+                <p className="text-green-100 text-sm sm:text-base">Comprehensive financial analytics and forecasting</p>
             </div>
 
             {/* Controls */}
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-                <div className="flex flex-wrap gap-4 items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <div>
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
+                        <div className="w-full sm:w-auto">
                             <label className="block text-sm font-semibold text-gray-700 mb-2">View Mode</label>
                             <div className="flex space-x-2">
                                 {(['monthly', 'quarterly', 'annual'] as const).map(mode => (
                                     <button
                                         key={mode}
                                         onClick={() => setViewMode(mode)}
-                                        className={`px-4 py-2 rounded-lg font-semibold ${viewMode === mode
+                                        className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold ${viewMode === mode
                                             ? 'bg-green-600 text-white'
                                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                             }`}
@@ -328,21 +328,21 @@ const FinanceDashboard: React.FC = () => {
                             </div>
                         </div>
 
-                        <div>
+                        <div className="w-full sm:w-auto">
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Period</label>
                             <input
                                 type="month"
                                 value={selectedPeriod}
                                 onChange={(e) => setSelectedPeriod(e.target.value)}
                                 max={new Date().toISOString().slice(0, 7)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
                             />
                         </div>
                     </div>
 
                     <button
                         onClick={exportReport}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold flex items-center space-x-2"
+                        className="w-full md:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold flex items-center justify-center space-x-2 text-sm"
                     >
                         <Download className="h-5 w-5" />
                         <span>Export Report</span>
@@ -351,53 +351,53 @@ const FinanceDashboard: React.FC = () => {
             </div>
 
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Total Revenue</p>
-                            <p className="text-2xl font-bold text-gray-900">₦{financialData.total_revenue.toLocaleString()}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">₦{financialData.total_revenue.toLocaleString()}</p>
                         </div>
-                        <div className="p-3 bg-green-100 rounded-lg">
-                            <TrendingUp className="h-6 w-6 text-green-600" />
+                        <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+                            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Total Expenses</p>
-                            <p className="text-2xl font-bold text-gray-900">₦{financialData.total_expenses.toLocaleString()}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Total Expenses</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">₦{financialData.total_expenses.toLocaleString()}</p>
                         </div>
-                        <div className="p-3 bg-red-100 rounded-lg">
-                            <TrendingDown className="h-6 w-6 text-red-600" />
+                        <div className="p-2 sm:p-3 bg-red-100 rounded-lg">
+                            <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Net Income</p>
-                            <p className={`text-2xl font-bold ${financialData.net_income >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className="text-xs sm:text-sm text-gray-600">Net Income</p>
+                            <p className={`text-xl sm:text-2xl font-bold ${financialData.net_income >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 ₦{financialData.net_income.toLocaleString()}
                             </p>
                         </div>
-                        <div className={`p-3 rounded-lg ${financialData.net_income >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                            <DollarSign className={`h-6 w-6 ${financialData.net_income >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                        <div className={`p-2 sm:p-3 rounded-lg ${financialData.net_income >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                            <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 ${financialData.net_income >= 0 ? 'text-green-600' : 'text-red-600'}`} />
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Profit Margin</p>
-                            <p className="text-2xl font-bold text-gray-900">{profitMargin.toFixed(1)}%</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Profit Margin</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">{profitMargin.toFixed(1)}%</p>
                         </div>
-                        <div className="p-3 bg-blue-100 rounded-lg">
-                            <PieChart className="h-6 w-6 text-blue-600" />
+                        <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
+                            <PieChart className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                         </div>
                     </div>
                 </div>

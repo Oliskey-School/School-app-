@@ -31,3 +31,12 @@ owner/secrets/
 .gemini/
 test_output.txt
 test_output_utf8.txt
+
+# Playwright
+/.playwright-results/
+/.playwright-report/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

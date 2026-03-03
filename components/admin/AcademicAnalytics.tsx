@@ -253,66 +253,66 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
     }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white mb-6">
-                <h1 className="text-3xl font-bold mb-2">📊 Academic Analytics</h1>
-                <p className="text-indigo-100">Comprehensive performance tracking and analysis</p>
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 sm:p-6 text-white mb-6">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2">📊 Academic Analytics</h1>
+                <p className="text-indigo-100 text-sm sm:text-base">Comprehensive performance tracking and analysis</p>
             </div>
 
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Overall GPA</p>
-                            <p className="text-3xl font-bold text-indigo-600">{metrics.overallGPA}</p>
-                            <p className="text-xs text-gray-500 mt-1">out of 4.0</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Overall GPA</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-indigo-600">{metrics.overallGPA}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 mt-1">out of 4.0</p>
                         </div>
-                        <div className="p-3 bg-indigo-100 rounded-lg">
-                            <Award className="h-6 w-6 text-indigo-600" />
+                        <div className="p-2 sm:p-3 bg-indigo-100 rounded-lg">
+                            <Award className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" />
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Pass Rate</p>
-                            <p className="text-3xl font-bold text-green-600">{metrics.passRate}%</p>
-                            <p className="text-xs text-green-500 mt-1 flex items-center">
+                            <p className="text-xs sm:text-sm text-gray-600">Pass Rate</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-green-600">{metrics.passRate}%</p>
+                            <p className="text-[10px] sm:text-xs text-green-500 mt-1 flex items-center">
                                 <TrendingUp className="h-3 w-3 mr-1" />
                                 +{metrics.improvement}% from last term
                             </p>
                         </div>
-                        <div className="p-3 bg-green-100 rounded-lg">
-                            <Target className="h-6 w-6 text-green-600" />
+                        <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+                            <Target className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Top Performer</p>
-                            <p className="text-lg font-bold text-gray-900">{metrics.topPerformer}</p>
-                            <p className="text-xs text-gray-500 mt-1">GPA: 4.0</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Top Performer</p>
+                            <p className="text-base sm:text-lg font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{metrics.topPerformer}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 mt-1">GPA: 4.0</p>
                         </div>
-                        <div className="p-3 bg-yellow-100 rounded-lg">
-                            <Award className="h-6 w-6 text-yellow-600" />
+                        <div className="p-2 sm:p-3 bg-yellow-100 rounded-lg">
+                            <Award className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-gray-600">Total Students</p>
-                            <p className="text-3xl font-bold text-gray-900">{classComparison.reduce((sum, c) => sum + c.studentCount, 0)}</p>
-                            <p className="text-xs text-gray-500 mt-1">across {classComparison.length} classes</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Total Students</p>
+                            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{classComparison.reduce((sum, c) => sum + c.studentCount, 0)}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 mt-1">across {classComparison.length} classes</p>
                         </div>
-                        <div className="p-3 bg-blue-100 rounded-lg">
-                            <Users className="h-6 w-6 text-blue-600" />
+                        <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
+                            <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                         </div>
                     </div>
                 </div>
@@ -408,9 +408,9 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
             </div>
 
             {/* Predictive Analytics */}
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-6 mt-6">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 sm:p-6 mt-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-3">🔮 Predictive Analytics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-white rounded-lg p-4">
                         <p className="text-sm text-gray-600 mb-1">Projected End-of-Term GPA</p>
                         <p className="text-2xl font-bold text-indigo-600">3.4</p>

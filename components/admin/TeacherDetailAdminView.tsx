@@ -23,7 +23,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
     // Use the new hook for real-time analytics
     // Note: initialTeacher might not have school_id typed correctly if it's a partial type, 
     // but usually it should. If missing, we might need to fetch it or fallback.
-    const { stats, loading: statsLoading } = useTeacherStats(teacher.id, teacher.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1');
+    const { stats, loading: statsLoading } = useTeacherStats(teacher.id, teacher.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', null);
 
     // Fetch latest data on mount
     React.useEffect(() => {

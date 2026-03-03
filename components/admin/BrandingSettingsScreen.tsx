@@ -1,9 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SchoolLogoIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 const BrandingSettingsScreen: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [logo, setLogo] = useState<string | null>(null);
-    const [primaryColor, setPrimaryColor] = useState('#4f46e5'); // Default indigo
+    const [primaryColor, setPrimaryColor] = useState('#4f46e5');
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (currentSchool) {
+            setLogo((currentSchool as any).logo_url || currentSchool.logoUrl || null);
+            // Assuming settings JSON contains primaryColor
+            setPrimaryColor((currentSchool as any).settings?.primaryColor || currentSchool.primaryColor || '#4f46e5');
+        }
+    }, [currentSchool]);
+
+    const handleSave = async () => {
+        if (!currentSchool?.id) return;
+
+        setIsLoading(true);
+        try {
+            const { error } = await supabase
+                .from('schools')
+                .update({
+                    logo_url: logo,
+                    settings: {
+                        ...((currentSchool as any).settings || {}),
+                        primaryColor: primaryColor
+                    }
+                })
+                .eq('id', currentSchool.id);
+
+            if (error) throw error;
+            toast.success('Branding settings saved successfully');
+        } catch (error: any) {
+            toast.error(`Failed to save: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -21,7 +59,7 @@ const BrandingSettingsScreen: React.FC = () => {
                     </div>
                     <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm">
                         <span>Upload Logo</span>
-                        <input type="file" onChange={handleLogoChange} accept="image/*" className="hidden"/>
+                        <input type="file" onChange={handleLogoChange} accept="image/*" className="hidden" />
                     </label>
                 </div>
             </div>
@@ -29,11 +67,18 @@ const BrandingSettingsScreen: React.FC = () => {
                 <h3 className="font-bold text-gray-800 mb-3">Primary Color Theme</h3>
                 <div className="flex items-center space-x-4">
                     <div className="relative">
-                        <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-14 h-14 p-0 border-none rounded-lg cursor-pointer" style={{'WebkitAppearance': 'none'}}/>
+                        <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-14 h-14 p-0 border-none rounded-lg cursor-pointer" style={{ 'WebkitAppearance': 'none' }} />
                     </div>
-                    <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="p-2 border rounded-md font-mono text-sm"/>
+                    <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="p-2 border rounded-md font-mono text-sm" />
                 </div>
             </div>
+            <button
+                onClick={handleSave}
+                disabled={isLoading}
+                className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition disabled:opacity-50"
+            >
+                {isLoading ? 'Saving...' : 'Save Branding Settings'}
+            </button>
         </div>
     );
 };

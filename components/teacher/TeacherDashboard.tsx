@@ -71,6 +71,10 @@ import QuizBuilderScreen from '../teacher/QuizBuilderScreen';
 import ClassGradebookScreen from '../teacher/ClassGradebookScreen';
 import LessonNotesUploadScreen from '../teacher/LessonNotesUploadScreen';
 import TeacherAttendanceHistoryScreen from '../teacher/TeacherAttendanceHistoryScreen';
+import LeaveRequest from '../teacher/LeaveRequest';
+import PayslipViewer from '../teacher/PayslipViewer';
+import TeacherSalaryProfile from '../teacher/TeacherSalaryProfile';
+import MyPaymentHistory from '../teacher/MyPaymentHistory';
 
 // Lazy load AddStudentScreen for teachers
 const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
@@ -170,29 +174,74 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
           notification_preferences: data.notification_preferences
         } as any);
       } else {
-        // Auto-Healing ...
-        const emailToQuery = user?.email || currentUser?.email;
-        if (emailToQuery) {
-          console.log("⚠️ No teacher profile found. Auto-creating for School:", schoolId);
-          const { data: newTeacher, error: createError } = await supabase
+        // Auto-Healing/Linking Logic
+        const emailToQuery = (user?.email || currentUser?.email || '').toLowerCase();
+        if (emailToQuery && schoolId) {
+          // 1. First check if a teacher with this email already exists in this school
+          const { data: existingTeacher } = await supabase
             .from('teachers')
-            .insert({
-              email: emailToQuery,
-              school_id: schoolId,
-              name: 'New Teacher',
-              status: 'Active',
-              user_id: currentUserId || undefined
-            })
-            .select().single();
-          if (newTeacher) {
-            setTeacherId(newTeacher.id);
+            .select('*')
+            .eq('school_id', schoolId)
+            .ilike('email', emailToQuery)
+            .maybeSingle();
+
+          if (existingTeacher) {
+            // 2. If record exists but is not linked to current UUID, link it
+            if (!existingTeacher.user_id && user?.id) {
+              console.log("🔗 Linking existing teacher profile to user_id:", user.id);
+              const { data: updatedTeacher } = await supabase
+                .from('teachers')
+                .update({ user_id: user.id })
+                .eq('id', existingTeacher.id)
+                .select()
+                .single();
+
+              if (updatedTeacher) {
+                setTeacherId(updatedTeacher.id);
+                setTeacherProfile({
+                  name: updatedTeacher.name,
+                  avatarUrl: updatedTeacher.avatar_url || '',
+                  schoolId: updatedTeacher.school_id,
+                  schoolGeneratedId: updatedTeacher.school_generated_id,
+                  notification_preferences: updatedTeacher.notification_preferences
+                });
+                return;
+              }
+            }
+
+            // Just use existing record
+            setTeacherId(existingTeacher.id);
             setTeacherProfile({
-              name: newTeacher.name,
-              avatarUrl: newTeacher.avatar_url || '',
-              schoolId: newTeacher.school_id,
-              schoolGeneratedId: newTeacher.school_generated_id,
-              notification_preferences: newTeacher.notification_preferences
+              name: existingTeacher.name,
+              avatarUrl: existingTeacher.avatar_url || '',
+              schoolId: existingTeacher.school_id,
+              schoolGeneratedId: existingTeacher.school_generated_id,
+              notification_preferences: existingTeacher.notification_preferences
             });
+          } else {
+            // 3. Only create if absolutely no record exists for this email/school
+            console.log("⚠️ No teacher record found. Creating new profile for School:", schoolId);
+            const { data: newTeacher } = await supabase
+              .from('teachers')
+              .insert({
+                email: emailToQuery,
+                school_id: schoolId,
+                name: user?.user_metadata?.name || 'New Teacher',
+                status: 'Active',
+                user_id: user?.id || undefined
+              })
+              .select().single();
+
+            if (newTeacher) {
+              setTeacherId(newTeacher.id);
+              setTeacherProfile({
+                name: newTeacher.name,
+                avatarUrl: newTeacher.avatar_url || '',
+                schoolId: newTeacher.school_id,
+                schoolGeneratedId: newTeacher.school_generated_id,
+                notification_preferences: newTeacher.notification_preferences
+              });
+            }
           }
         }
       }
@@ -311,6 +360,10 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId || ''} onClose={handleBack} />,
     classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
     lessonNotesUpload: (props: any) => <LessonNotesUploadScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
+    leaveRequest: (props: any) => <LeaveRequest {...props} teacherId={teacherId || ''} />,
+    payslips: (props: any) => <PayslipViewer {...props} teacherId={teacherId || ''} />,
+    salaryProfile: (props: any) => <TeacherSalaryProfile {...props} teacherId={teacherId || ''} />,
+    paymentHistory: (props: any) => <MyPaymentHistory {...props} teacherId={teacherId || ''} />,
   };
 
   const currentNavigation = viewStack[viewStack.length - 1];

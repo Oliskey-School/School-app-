@@ -36,14 +36,30 @@ const ComplianceDashboard = () => {
         if (!currentSchool) return;
 
         setLoading(true);
-        const { data, error } = await supabase
-            .from('vw_compliance_metrics')
-            .select('*')
-            .eq('school_id', currentSchool.id)
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('vw_compliance_metrics')
+                .select('*')
+                .eq('school_id', currentSchool.id)
+                .maybeSingle();
 
-        if (data) setMetrics(data);
-        setLoading(false);
+            if (error) throw error;
+            if (data) {
+                setMetrics(data);
+            } else {
+                // Fallback if no metrics found for this school
+                setMetrics({
+                    facilities_score: 100,
+                    equipment_score: 100,
+                    safety_score: 100,
+                    safeguarding_score: 100
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching compliance metrics:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const getStatusColor = (score: number) => {

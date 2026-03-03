@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { HeartIcon, PhoneIcon, BookOpenIcon, ExclamationCircleIcon } from '../../constants';
 
 interface Resource {
-    id: number;
+    id: string; // Changed to string (UUID)
     title: string;
     category: string;
     description: string;
     content_url: string;
     is_crisis_resource: boolean;
+    view_count: number;
 }
 
 interface Helpline {
-    id: number;
+    id: string; // Changed to string (UUID)
     organization_name: string;
     helpline_type: string;
     phone_number: string;
@@ -21,42 +23,53 @@ interface Helpline {
     is_toll_free: boolean;
 }
 
-const MentalHealthResources: React.FC = () => {
+interface MentalHealthResourcesProps {
+    schoolId?: string;
+}
+
+const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId }) => {
     const [resources, setResources] = useState<Resource[]>([]);
     const [helplines, setHelplines] = useState<Helpline[]>([]);
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (schoolId) {
+            fetchData();
+        }
+    }, [schoolId]);
 
     const fetchData = async () => {
         try {
             setLoading(true);
 
-            const [resourcesRes, helplinesRes] = await Promise.all([
-                supabase.from('mental_health_resources').select('*').eq('is_active', true),
-                supabase.from('crisis_helplines').select('*').eq('is_active', true)
+            const [resData, helpData] = await Promise.all([
+                api.getMentalHealthResources(schoolId || ''),
+                api.getCrisisHelplines(schoolId || '')
             ]);
 
-            setResources(resourcesRes.data || []);
-            setHelplines(helplinesRes.data || []);
+            setResources(resData || []);
+            setHelplines(helpData || []);
         } catch (error: any) {
-            console.error('Error:', error);
+            console.error('Error fetching mental health data:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleResourceClick = async (resourceId: number, url: string) => {
+    const handleResourceClick = async (resource: Resource) => {
         // Track view count
-        await supabase.from('mental_health_resources')
-            .update({ view_count: supabase.rpc('increment_view_count') })
-            .eq('id', resourceId);
+        try {
+            await supabase.rpc('increment_view_count', { resource_id: resource.id });
+        } catch (e) {
+            // Fallback: direct update if RPC is missing
+            await supabase.from('mental_health_resources')
+                .update({ view_count: (resource.view_count || 0) + 1 })
+                .eq('id', resource.id);
+        }
 
-        if (url) {
-            window.open(url, '_blank');
+        if (resource.content_url) {
+            window.open(resource.content_url, '_blank');
         }
     };
 

@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { PinIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { Notice, AnnouncementCategory } from '../../types';
-import { fetchNotices } from '../../lib/database';
+import { api } from '../../lib/api';
 
 interface NoticeboardScreenProps {
   userType: 'parent' | 'student' | 'teacher' | 'admin';
@@ -82,7 +82,7 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType, schoolI
 
   const loadNotices = async () => {
     setLoading(true);
-    const data = await fetchNotices(schoolId);
+    const data = await api.getNotices(schoolId || '');
     // fetchNotices already returns Notice[], so no mapping needed if types align
     // But fetchNotices in DB returns basic shape, might need to ensure mapped correctly?
     // Let's check fetchNotices implementation again.

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { ExclamationCircleIcon } from '../../constants';
 
 interface PanicButtonProps {
     isFloating?: boolean;
+    schoolId?: string;
 }
 
-const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true }) => {
+const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true, schoolId }) => {
     const { profile } = useProfile();
     const [isActivating, setIsActivating] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -36,31 +38,16 @@ const PanicButton: React.FC<PanicButtonProps> = ({ isFloating = true }) => {
 
             const coords = await getLocation();
 
-            // Create emergency alert
-            const { data: alertData, error: alertError } = await supabase
-                .from('emergency_alerts')
-                .insert({
-                    alert_type: 'Security Threat',
-                    severity_level: 'Critical',
-                    triggered_by: profile.id,
-                    user_type: profile.role,
-                    location: location || 'Unknown',
-                    location_coordinates: `(${coords.latitude},${coords.longitude})`,
-                    status: 'Active'
-                })
-                .select()
-                .single();
-
-            if (alertError) throw alertError;
-
-            // Log panic activation
-            await supabase.from('panic_activations').insert({
-                user_id: profile.id,
-                user_type: profile.role,
-                location: location || 'Unknown',
-                location_coordinates: `(${coords.latitude},${coords.longitude})`,
-                emergency_alert_id: alertData.id,
-                device_info: navigator.userAgent
+            const { data: alertData, error: alertError } = await api.triggerPanicAlert({
+                schoolId: schoolId,
+                userId: profile.id,
+                type: 'Security Threat',
+                location: {
+                    name: location || 'Unknown',
+                    lat: coords.latitude,
+                    lng: coords.longitude,
+                    address: location || 'Unknown'
+                }
             });
 
             toast.success('🚨 EMERGENCY ALERT SENT! Help is on the way.');

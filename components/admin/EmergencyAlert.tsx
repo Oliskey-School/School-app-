@@ -5,17 +5,16 @@ import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, MapPinIcon, UserIcon } f
 import { useAuth } from '../../context/AuthContext';
 
 interface EmergencyAlert {
-    id: number;
+    id: string; // Changed to string (UUID)
     alert_type: string;
-    severity_level: string;
-    triggered_by: number;
-    user_type: string;
+    title: string;
+    message: string;
+    severity: string;
+    sent_by: string; // Changed to string (UUID)
     location: string;
-    timestamp: string;
-    status: string;
-    response_time: number | null;
-    notes: string;
-    trigger_user_name?: string;
+    sent_at: string;
+    all_clear: boolean;
+    target_audiences: string[];
 }
 
 const EmergencyAlert: React.FC = () => {
@@ -61,12 +60,12 @@ const EmergencyAlert: React.FC = () => {
                 .from('emergency_alerts')
                 .select('*')
                 .eq('school_id', currentSchool.id)
-                .order('timestamp', { ascending: false });
+                .order('sent_at', { ascending: false });
 
             if (filter === 'active') {
-                query = query.in('status', ['Active', 'In Progress']);
+                query = query.eq('all_clear', false);
             } else if (filter === 'resolved') {
-                query = query.eq('status', 'Resolved');
+                query = query.eq('all_clear', true);
             }
 
             const { data, error } = await query;
@@ -92,14 +91,14 @@ const EmergencyAlert: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const startTime = new Date(selectedAlert?.timestamp || new Date()).getTime();
+            const startTime = new Date(selectedAlert?.sent_at || new Date()).getTime();
             const responseTime = Math.floor((Date.now() - startTime) / 1000);
 
             const { error } = await supabase
                 .from('emergency_alerts')
                 .update({
-                    status: 'In Progress',
-                    response_time: responseTime
+                    all_clear: false, // Keeping it active for now but could add a "status" column if needed later
+                    // notes: `In Progress - Response time: ${responseTime}s`
                 })
                 .eq('id', alertId);
 
@@ -121,10 +120,10 @@ const EmergencyAlert: React.FC = () => {
             const { error } = await supabase
                 .from('emergency_alerts')
                 .update({
-                    status: 'Resolved',
-                    resolved_by: user.id,
-                    resolved_at: new Date().toISOString(),
-                    notes: responseNotes
+                    all_clear: true,
+                    // resolved_by: user.id,
+                    // resolved_at: new Date().toISOString(),
+                    message: `${selectedAlert?.message}\n\nResolution Notes: ${responseNotes}`
                 })
                 .eq('id', alertId);
 
@@ -148,13 +147,8 @@ const EmergencyAlert: React.FC = () => {
         }
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'Active': return 'bg-red-500 text-white';
-            case 'In Progress': return 'bg-orange-500 text-white';
-            case 'Resolved': return 'bg-green-500 text-white';
-            default: return 'bg-gray-500 text-white';
-        }
+    const getStatusColor = (all_clear: boolean) => {
+        return all_clear ? 'bg-green-500 text-white' : 'bg-red-500 text-white';
     };
 
     return (
@@ -166,10 +160,10 @@ const EmergencyAlert: React.FC = () => {
                     <p className="text-sm text-gray-600 mt-1">Monitor and respond to emergencies</p>
                 </div>
                 <div className="flex items-center space-x-2">
-                    {alerts.filter(a => a.status === 'Active').length > 0 && (
+                    {alerts.filter(a => !a.all_clear).length > 0 && (
                         <div className="flex items-center space-x-2 bg-red-100 text-red-800 px-4 py-2 rounded-lg animate-pulse">
                             <AlertTriangleIcon className="w-5 h-5" />
-                            <span className="font-bold">{alerts.filter(a => a.status === 'Active').length} Active</span>
+                            <span className="font-bold">{alerts.filter(a => !a.all_clear).length} Active</span>
                         </div>
                     )}
                 </div>
@@ -206,34 +200,38 @@ const EmergencyAlert: React.FC = () => {
                     alerts.map((alert) => (
                         <div
                             key={alert.id}
-                            className={`bg-white rounded-xl shadow-sm border-2 p-6 ${getSeverityColor(alert.severity_level)}`}
+                            className={`bg-white rounded-xl shadow-sm border-2 p-6 ${getSeverityColor(alert.severity)}`}
+
                         >
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                     <div className="flex items-center space-x-2 mb-2">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(alert.status)}`}>
-                                            {alert.status}
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(alert.all_clear)}`}>
+                                            {alert.all_clear ? 'Resolved' : 'Active'}
                                         </span>
                                         <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium">
-                                            {alert.severity_level}
+                                            {alert.severity}
                                         </span>
-                                        <span className="text-xs text-gray-500">
+                                        <span className="text-xs text-gray-500 uppercase tracking-wider font-bold">
                                             {alert.alert_type}
                                         </span>
                                     </div>
 
+                                    <h3 className="text-lg font-bold text-gray-900 mb-1">{alert.title}</h3>
+                                    <p className="text-sm text-gray-600 mb-4">{alert.message}</p>
+
                                     <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
                                         <div className="flex items-center space-x-2 text-gray-700">
                                             <UserIcon className="w-4 h-4" />
-                                            <span>{alert.user_type} (ID: {alert.triggered_by})</span>
+                                            <span>Sent by (ID: {alert.sent_by?.substring(0, 8)}...)</span>
                                         </div>
                                         <div className="flex items-center space-x-2 text-gray-700">
                                             <MapPinIcon className="w-4 h-4" />
-                                            <span>{alert.location}</span>
+                                            <span>{alert.location || 'Campus Wide'}</span>
                                         </div>
                                         <div className="flex items-center space-x-2 text-gray-700">
                                             <ClockIcon className="w-4 h-4" />
-                                            <span>{new Date(alert.timestamp).toLocaleString()}</span>
+                                            <span>{new Date(alert.sent_at).toLocaleString()}</span>
                                         </div>
                                         {alert.response_time && (
                                             <div className="flex items-center space-x-2 text-gray-700">
@@ -250,16 +248,8 @@ const EmergencyAlert: React.FC = () => {
                                     )}
                                 </div>
 
-                                {alert.status !== 'Resolved' && (
+                                {!alert.all_clear && (
                                     <div className="flex flex-col space-y-2">
-                                        {alert.status === 'Active' && (
-                                            <button
-                                                onClick={() => handleRespond(alert.id)}
-                                                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium text-sm"
-                                            >
-                                                Respond
-                                            </button>
-                                        )}
                                         <button
                                             onClick={() => setSelectedAlert(alert)}
                                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"

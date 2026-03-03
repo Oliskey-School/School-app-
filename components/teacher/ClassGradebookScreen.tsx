@@ -47,6 +47,7 @@ const ClassGradebookScreen: React.FC<{
     classInfo?: { id: string, grade: number, section: string, subject: string, studentCount?: number };
     handleBack: () => void;
 }> = ({ teacherId, schoolId, currentBranchId, classInfo, handleBack }) => {
+    const { currentSchool } = useAuth();
     const [classes, setClasses] = useState<ClassInfo[]>(classInfo ? [classInfo as any] : []);
     const [selectedClass, setSelectedClass] = useState<string>(classInfo?.id || '');
     const [selectedSubject, setSelectedSubject] = useState<string>(classInfo?.subject || '');
@@ -362,11 +363,18 @@ const ClassGradebookScreen: React.FC<{
                                 {sessions.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                             <select
-                                value={currentTerm}
-                                onChange={(e) => setCurrentTerm(e.target.value)}
+                                value={currentTerm?.id || currentTerm?.name || ""}
+                                onChange={(e) => {
+                                    const selected = terms.find(t => t.id === e.target.value || t.name === e.target.value);
+                                    if (selected) setCurrentTerm(selected);
+                                }}
                                 className="text-[10px] font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
                             >
-                                {terms.map(t => <option key={t} value={t}>{t}</option>)}
+                                {filteredTerms.map(t => (
+                                    <option key={t.id || t.name} value={t.id || t.name}>
+                                        {t.name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <p className="text-sm text-gray-500">Manage CA and Exam scores efficiently</p>

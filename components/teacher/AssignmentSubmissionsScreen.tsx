@@ -84,7 +84,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
 
             if (assignment.classId) {
                 classStudents = await fetchStudentsByClassId(assignment.classId);
-            } else {
+            } else if (assignment.className) {
                 // Fallback to legacy grade/section match if classId is missing
                 const data = await api.getStudents(schoolId);
                 const gradeMatch = assignment.className.match(/\d+/);
@@ -96,6 +96,9 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                     const section = sectionMatch[0];
                     classStudents = classStudents.filter(s => s.grade === grade && s.section === section);
                 }
+            } else {
+                console.warn('Assignment has no classId or className');
+                classStudents = [];
             }
             setAllClassStudents(classStudents);
 

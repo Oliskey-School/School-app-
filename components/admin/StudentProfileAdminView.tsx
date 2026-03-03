@@ -64,13 +64,13 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                     setEnrollments(enrollmentResults.data.map((e: any) => `${e.classes.name}${e.classes.section ? ` (${e.classes.section})` : ''}`));
                 }
 
-                const { data: attendanceRecords } = await supabase
+                const { data: attendanceRecords, error: attendanceError } = await supabase
                     .from('student_attendance')
                     .select('status')
                     .eq('student_id', student.id);
 
-                if (error) {
-                    console.error('Error fetching attendance:', error);
+                if (attendanceError) {
+                    console.error('Error fetching attendance:', attendanceError);
                     setLoading(false);
                     return;
                 }
@@ -100,7 +100,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             }
         };
 
-        fetchAttendance();
+        loadProfileData();
     }, [student.id]);
 
     const handleDelete = async () => {

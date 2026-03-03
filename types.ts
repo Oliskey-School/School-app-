@@ -22,6 +22,7 @@ export interface School {
   createdAt: string;
   primaryColor?: string;
   secondaryColor?: string;
+  settings?: any;
 }
 
 export interface Branch {
@@ -94,6 +95,7 @@ export interface ReportCardAcademicRecord {
   subject: string;
   test1: number;
   test2: number;
+  ca?: number; // Combined CA score
   exam: number;
   total: number;
   grade: string;
@@ -386,6 +388,7 @@ export interface Assignment {
   dueDate: string; // ISO string
   totalStudents: number;
   submissionsCount: number;
+  teacherId?: string;
 }
 
 export type GradingStatus = 'Graded' | 'Ungraded';

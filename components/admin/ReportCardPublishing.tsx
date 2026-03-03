@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon, ChevronRightIcon, BuildingLibraryIcon, BookOpenIcon } from '../../constants';
+import { SearchIcon, CheckCircleIcon, ClockIcon, PublishIcon, FilterIcon, RefreshIcon, ChevronDownIcon, EyeIcon, XCircleIcon, ChevronRightIcon, BuildingLibraryIcon, BookOpenIcon, UserIcon } from '../../constants';
 import ReportCardPreview from './ReportCardPreview';
 import { StudentReportInfo, ReportCard, Student } from '../../types';
 import { api } from '../../lib/api';
@@ -72,15 +72,25 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
         const studentReports = reportCardsData?.filter(rc => rc.student_id === student.id) || [];
         const latestReport = studentReports[0];
 
+        // Normalize status
+        let normalizedStatus: ReportCard['status'] = 'Draft';
+        if (latestReport?.status) {
+          const s = latestReport.status.charAt(0).toUpperCase() + latestReport.status.slice(1).toLowerCase();
+          if (['Draft', 'Submitted', 'Published'].includes(s)) {
+            normalizedStatus = s as ReportCard['status'];
+          }
+        }
+
         return {
           ...student,
-          status: latestReport ? (latestReport.status as ReportCard['status']) : 'Draft',
+          avatarUrl: student.avatar_url || student.avatarUrl, // Handle both naming conventions
+          status: normalizedStatus,
           hasReport: !!latestReport,
           reportCards: studentReports.map(rc => ({
             id: rc.id,
             session: rc.session,
             term: rc.term,
-            status: rc.status as ReportCard['status'],
+            status: (rc.status?.charAt(0).toUpperCase() + rc.status?.slice(1).toLowerCase()) as ReportCard['status'] || 'Draft',
             gradeAverage: rc.grade_average,
             position: rc.position,
             totalStudents: rc.total_students
@@ -88,6 +98,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
         };
       });
 
+      console.log(`[Diagnostic] Mapping complete. ${studentsWithReportStatus.length} students processed.`);
       setStudentsWithReports(studentsWithReportStatus as StudentReportInfo[]);
     } catch (err) {
       console.error('Error fetching students with reports:', err);
@@ -286,14 +297,16 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                         />
                       ) : (
                         <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 text-indigo-500">
-                          <span className="font-black text-lg md:text-xl">{student.name.charAt(0)}</span>
+                          <UserIcon className="w-6 h-6 md:w-8 h-8 opacity-40" />
                         </div>
                       )}
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 border-white flex items-center justify-center shadow-md ${statusStyles[student.status].bg} ${statusStyles[student.status].border}`}>
-                        <div className={statusStyles[student.status].text}>
-                          {React.cloneElement(statusStyles[student.status].icon as React.ReactElement, { className: 'w-2.5 h-2.5 md:w-3 md:h-3' })}
+                      {statusStyles[student.status] && (
+                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 border-white flex items-center justify-center shadow-md ${statusStyles[student.status].bg} ${statusStyles[student.status].border}`}>
+                          <div className={statusStyles[student.status].text}>
+                            {React.cloneElement(statusStyles[student.status].icon as React.ReactElement, { className: 'w-2.5 h-2.5 md:w-3 md:h-3' })}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-black text-gray-800 line-clamp-1 text-base md:text-lg group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{student.name}</h3>
@@ -303,20 +316,26 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
                 </div>
 
                 {/* Status Indicator */}
-                <div className={`flex items-center gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl md:rounded-2xl border transition-all duration-500 mb-4 md:mb-6 ${statusStyles[student.status].bg} ${statusStyles[student.status].border}`}>
-                  <div className={`${statusStyles[student.status].text}`}>
-                    {statusStyles[student.status].icon}
-                  </div>
-                  <span className="text-[9px] md:text-[10px] font-black tracking-[0.1em] text-inherit uppercase">
-                    {student.status === 'Draft' ? 'Drafting' : student.status}
-                  </span>
-                  {student.status === 'Published' && (
-                    <div className="ml-auto flex items-center gap-1.5">
-                      <div className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[8px] md:text-[9px] uppercase font-black text-emerald-600 tracking-widest">Live</span>
+                {statusStyles[student.status] ? (
+                  <div className={`flex items-center gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl md:rounded-2xl border transition-all duration-500 mb-4 md:mb-6 ${statusStyles[student.status].bg} ${statusStyles[student.status].border}`}>
+                    <div className={`${statusStyles[student.status].text}`}>
+                      {statusStyles[student.status].icon}
                     </div>
-                  )}
-                </div>
+                    <span className="text-[9px] md:text-[10px] font-black tracking-[0.1em] text-inherit uppercase">
+                      {student.status === 'Draft' ? 'Drafting' : student.status}
+                    </span>
+                    {student.status === 'Published' && (
+                      <div className="ml-auto flex items-center gap-1.5">
+                        <div className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[8px] md:text-[9px] uppercase font-black text-emerald-600 tracking-widest">Live</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-100 border border-gray-200 mb-4 opacity-50">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Unknown Status</span>
+                  </div>
+                )}
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6 md:mb-8">

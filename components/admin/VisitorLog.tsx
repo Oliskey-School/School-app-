@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { UserIcon, CheckCircleIcon, ClockIcon, CameraIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface Visitor {
     id: number;
@@ -17,6 +18,8 @@ interface Visitor {
 }
 
 const VisitorLog: React.FC = () => {
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
     const [visitors, setVisitors] = useState<Visitor[]>([]);
     const [showCheckIn, setShowCheckIn] = useState(false);
     const [formData, setFormData] = useState({
@@ -31,16 +34,14 @@ const VisitorLog: React.FC = () => {
     });
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchVisitors();
-    }, []);
-
     const fetchVisitors = async () => {
         try {
+            if (!schoolId) return;
             setLoading(true);
             const { data, error } = await supabase
                 .from('visitor_logs')
                 .select('*')
+                .eq('school_id', schoolId)
                 .order('check_in_time', { ascending: false })
                 .limit(50);
 
@@ -54,8 +55,14 @@ const VisitorLog: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        if (schoolId) {
+            fetchVisitors();
+        }
+    }, [schoolId]);
+
     const generateQRCode = () => {
-        return `VIS-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        return `VIS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     };
 
     const handleCheckIn = async (e: React.FormEvent) => {
@@ -65,6 +72,7 @@ const VisitorLog: React.FC = () => {
 
             const { error } = await supabase.from('visitor_logs').insert({
                 ...formData,
+                school_id: schoolId,
                 qr_code: qrCode,
                 verification_status: 'Verified'
             });
@@ -94,7 +102,8 @@ const VisitorLog: React.FC = () => {
             const { error } = await supabase
                 .from('visitor_logs')
                 .update({ check_out_time: new Date().toISOString() })
-                .eq('id', visitorId);
+                .eq('id', visitorId)
+                .eq('school_id', schoolId);
 
             if (error) throw error;
             toast.success('Visitor checked out');
@@ -169,8 +178,8 @@ const VisitorLog: React.FC = () => {
                                                 </span>
                                             )}
                                             <span className={`px-2 py-1 rounded text-xs font-medium ${visitor.verification_status === 'Verified'
-                                                    ? 'bg-blue-100 text-blue-800'
-                                                    : 'bg-yellow-100 text-yellow-800'
+                                                ? 'bg-blue-100 text-blue-800'
+                                                : 'bg-yellow-100 text-yellow-800'
                                                 }`}>
                                                 {visitor.verification_status}
                                             </span>

@@ -40,6 +40,14 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
         storageKey: getTabSpecificStorageKey(),
         // PKCE flow for better security
         flowType: 'pkce',
+        // Fix for Navigator Lock timeout errors during high-concurrency sync
+        // Custom lock implementation that bypasses the internal 10s timeout
+        lock: async (name, _acquire, fn) => {
+            if (typeof navigator === 'undefined' || !navigator.locks) {
+                return await fn();
+            }
+            return await navigator.locks.request(name, fn);
+        }
     },
     global: {
         headers: {

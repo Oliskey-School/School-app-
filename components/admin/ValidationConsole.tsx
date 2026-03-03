@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Beaker, ShieldCheck, FileSearch, Play, CheckCircle, AlertCircle, RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 const ValidationConsole: React.FC = () => {
     const { currentSchool } = useAuth();

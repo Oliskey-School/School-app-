@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
+// import { useProfile } from '../../context/ProfileContext';
 import { formatCurrency } from '../../lib/payroll';
 import {
     DocumentTextIcon,
@@ -12,13 +13,14 @@ import {
 
 interface TeacherSalaryProfileProps {
     navigateTo?: (view: string, title: string, props?: any) => void;
+    teacherId: string;
 }
 
-const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = () => {
-    const { profile } = useProfile();
+const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId }) => {
     const [salaryData, setSalaryData] = useState<any>(null);
     const [payslips, setPayslips] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [errorOccurred, setErrorOccurred] = useState(false);
 
     useEffect(() => {
         fetchSalaryData();
@@ -26,30 +28,30 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = () => {
     }, []);
 
     const fetchSalaryData = async () => {
+        if (!teacherId) return;
         try {
-            // Find teacher by email
-            const { data: teacherData, error: teacherError } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (teacherError || !teacherData) {
-                console.error('Teacher not found');
-                setLoading(false);
-                return;
-            }
-
-            // Get active salary
+            // Get data from staff_profiles
             const { data, error } = await supabase
-                .from('teacher_salaries')
+                .from('staff_profiles')
                 .select('*')
-                .eq('teacher_id', teacherData.id)
-                .eq('is_active', true)
-                .single();
+                .eq('teacher_id', teacherId)
+                .maybeSingle();
 
-            if (error) throw error;
-            setSalaryData(data);
+            if (error) {
+                if (error.code === '42P01') setErrorOccurred(true);
+                throw error;
+            }
+            if (data) {
+                setSalaryData({
+                    base_salary: data.salary || 0,
+                    currency: 'NGN', // Assuming NGN for now or can be added to staff_profiles
+                    effective_date: data.hire_date || data.created_at,
+                    payment_frequency: 'Monthly',
+                    is_active: true,
+                    bank_name: data.bank_name || 'Not Set',
+                    account_number: data.account_number || 'Not Set'
+                });
+            }
         } catch (error: any) {
             console.error('Error fetching salary:', error);
         } finally {
@@ -58,23 +60,9 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = () => {
     };
 
     const fetchPayslips = async () => {
+        if (!teacherId) return;
         try {
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) return;
-
-            const { data, error } = await supabase
-                .from('payslips')
-                .select('*')
-                .eq('teacher_id', teacherData.id)
-                .order('period_start', { ascending: false })
-                .limit(6);
-
-            if (error) throw error;
+            const data = await api.getPayslips(teacherId);
             setPayslips(data || []);
         } catch (error: any) {
             console.error('Error fetching payslips:', error);
@@ -98,6 +86,18 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = () => {
         return (
             <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
+    if (errorOccurred) {
+        return (
+            <div className="p-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
+                    <DollarSignIcon className="w-16 h-16 text-blue-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-blue-900 mb-2">Salary Profile Coming Soon</h3>
+                    <p className="text-blue-700 max-w-md mx-auto">Your digital salary profile and configuration are being finalized. Please check back later or contact the finance department for details.</p>
+                </div>
             </div>
         );
     }

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Shield, Sparkles, TrendingUp, Globe, Target, Layers, ArrowRight, Award, Zap } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 const UnifiedGovernanceHub: React.FC = () => {
     const { currentSchool } = useAuth();

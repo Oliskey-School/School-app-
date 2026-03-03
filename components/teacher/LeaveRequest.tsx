@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
+// import { useProfile } from '../../context/ProfileContext'; // Removed profile dependency
 import { toast } from 'react-hot-toast';
 import LeaveBalanceTracker from '../shared/LeaveBalanceTracker';
 import {
@@ -12,34 +13,35 @@ import {
 
 interface LeaveRequestProps {
     navigateTo?: (view: string, title: string, props?: any) => void;
+    teacherId: string; // Required prop from dashboard (UUID)
 }
 
 interface LeaveType {
-    id: number;
+    id: string;
     name: string;
-    default_days: number;
-    requires_approval: boolean;
+    description?: string;
 }
 
 interface RequestFormData {
-    leave_type_id: number;
+    leave_type: string;
+    leave_type_id: string;
     start_date: string;
     end_date: string;
     reason: string;
     notes?: string;
 }
 
-const LeaveRequest: React.FC<LeaveRequestProps> = () => {
-    const { profile } = useProfile();
-    const [teacherId, setTeacherId] = useState<number | null>(null);
+const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId }) => {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [myRequests, setMyRequests] = useState<any[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [schoolId, setSchoolId] = useState<string | null>(null);
 
     const [formData, setFormData] = useState<RequestFormData>({
-        leave_type_id: 0,
+        leave_type: '',
+        leave_type_id: '',
         start_date: '',
         end_date: '',
         reason: '',
@@ -48,26 +50,31 @@ const LeaveRequest: React.FC<LeaveRequestProps> = () => {
 
     useEffect(() => {
         initialize();
-    }, []);
+    }, [teacherId]);
 
     const initialize = async () => {
+        if (!teacherId) return;
         try {
-            // Get teacher ID from email
-            const { data: teacherData, error: teacherError } = await supabase
+            // First get the school_id for the teacher
+            const { data: teacher } = await supabase
                 .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
+                .select('school_id')
+                .eq('id', teacherId)
                 .single();
-
-            if (teacherError || !teacherData) {
-                console.error('Teacher not found');
-                setLoading(false);
-                return;
+            
+            if (teacher?.school_id) {
+                setSchoolId(teacher.school_id);
+                await fetchMyRequests(teacherId);
+                const types = await fetchLeaveTypes(teacher.school_id);
+                
+                if (types && types.length > 0) {
+                    setFormData(prev => ({
+                        ...prev,
+                        leave_type: types[0].name,
+                        leave_type_id: types[0].id
+                    }));
+                }
             }
-
-            setTeacherId(teacherData.id);
-            await fetchLeaveTypes();
-            await fetchMyRequests(teacherData.id);
         } catch (error: any) {
             console.error('Error initializing:', error);
         } finally {
@@ -75,31 +82,29 @@ const LeaveRequest: React.FC<LeaveRequestProps> = () => {
         }
     };
 
-    const fetchLeaveTypes = async () => {
-        const { data, error } = await supabase
-            .from('leave_types')
-            .select('*')
-            .eq('is_active', true)
-            .order('name');
-
-        if (error) {
+    const fetchLeaveTypes = async (sId: string) => {
+        try {
+            const types = await api.getLeaveTypes(sId);
+            if (types && types.length > 0) {
+                const mapped = types.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    description: t.description
+                }));
+                setLeaveTypes(mapped);
+                return mapped;
+            }
+            return [];
+        } catch (error) {
             console.error('Error fetching leave types:', error);
-            return;
-        }
-
-        setLeaveTypes(data || []);
-        if (data && data.length > 0) {
-            setFormData(prev => ({ ...prev, leave_type_id: data[0].id }));
+            return [];
         }
     };
 
-    const fetchMyRequests = async (tId: number) => {
+    const fetchMyRequests = async (tId: string) => {
         const { data, error } = await supabase
             .from('leave_requests')
-            .select(`
-        *,
-        leave_types (name)
-      `)
+            .select('*')
             .eq('teacher_id', tId)
             .order('created_at', { ascending: false })
             .limit(10);
@@ -147,7 +152,9 @@ const LeaveRequest: React.FC<LeaveRequestProps> = () => {
                 .from('leave_requests')
                 .insert({
                     teacher_id: teacherId,
+                    school_id: schoolId,
                     leave_type_id: formData.leave_type_id,
+                    leave_type: formData.leave_type, // Maintain name for reference
                     start_date: formData.start_date,
                     end_date: formData.end_date,
                     days_requested: days,
@@ -161,7 +168,8 @@ const LeaveRequest: React.FC<LeaveRequestProps> = () => {
             toast.success('Leave request submitted successfully');
             setShowForm(false);
             setFormData({
-                leave_type_id: leaveTypes[0]?.id || 0,
+                leave_type: leaveTypes.length > 0 ? leaveTypes[0].name : '',
+                leave_type_id: leaveTypes.length > 0 ? leaveTypes[0].id : '',
                 start_date: '',
                 end_date: '',
                 reason: '',
@@ -244,13 +252,20 @@ const LeaveRequest: React.FC<LeaveRequestProps> = () => {
                                     </label>
                                     <select
                                         value={formData.leave_type_id}
-                                        onChange={(e) => setFormData({ ...formData, leave_type_id: Number(e.target.value) })}
+                                        onChange={(e) => {
+                                            const selectedType = leaveTypes.find(t => t.id === e.target.value);
+                                            setFormData({ 
+                                                ...formData, 
+                                                leave_type_id: e.target.value,
+                                                leave_type: selectedType ? selectedType.name : ''
+                                            });
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                         required
                                     >
                                         {leaveTypes.map((type) => (
                                             <option key={type.id} value={type.id}>
-                                                {type.name} ({type.default_days} days)
+                                                {type.name}
                                             </option>
                                         ))}
                                     </select>
@@ -360,7 +375,7 @@ const LeaveRequest: React.FC<LeaveRequestProps> = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-2">
                                             <h4 className="font-semibold text-gray-900">
-                                                {request.leave_types?.name || 'Unknown Type'}
+                                                {request.leave_type || 'Leave Request'}
                                             </h4>
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
                                                 {request.status}

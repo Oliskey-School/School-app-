@@ -600,6 +600,63 @@ class HybridApiClient {
     }
 
     // ============================================
+    // PAYROLL & HR
+    // ============================================
+
+    async getLeaveTypes(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/leave-types?school_id=${schoolId}`);
+        }
+        const { data, error } = await supabase.from('leave_types').select('*').eq('school_id', schoolId).eq('is_active', true);
+        if (error) throw error;
+        return data || [];
+    }
+
+    async getPayslips(teacherId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/payroll/payslips?teacher_id=${teacherId}`);
+        }
+        const { data, error } = await supabase
+            .from('payslips')
+            .select('*, payslip_items(*)')
+            .eq('teacher_id', teacherId)
+            .order('period_start', { ascending: false });
+        if (error) throw error;
+        return data || [];
+    }
+
+    async getTeacherPaymentTransactions(teacherId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/payroll/transactions?teacher_id=${teacherId}`);
+        }
+        const { data, error } = await supabase
+            .from('payment_transactions')
+            .select('*, payslips(period_start, period_end)')
+            .eq('payslip_id.teacher_id', teacherId) // This join might need standard query approach
+            .order('payment_date', { ascending: false });
+
+        // If the above nested filter fails in some supabase versions, we fetch payslips first or use a RPC
+        if (error) {
+            // Alternative: use inner join syntax if supported or separate fetch
+            const { data: altData, error: altError } = await supabase
+                .from('payment_transactions')
+                .select('*, payslips!inner(period_start, period_end, teacher_id)')
+                .eq('payslips.teacher_id', teacherId)
+                .order('payment_date', { ascending: false });
+
+            if (altError) throw altError;
+            return altData || [];
+        }
+        return data || [];
+    }
+
+    async createSupportTicket(ticketData: { school_id: string, user_id: string, title: string, description: string, category: string, priority: string }): Promise<any> {
+        const { data, error } = await supabase.from('support_tickets').insert([ticketData]).select().maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
+    // ============================================
     // TEACHER ATTENDANCE (STAFF)
     // ============================================
 
@@ -973,6 +1030,26 @@ class HybridApiClient {
         return data || [];
     }
 
+    async getStudentAcademicRecords(studentId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/students/${studentId}/academic-performance`);
+        }
+        const { data, error } = await supabase
+            .from('academic_performance')
+            .select('*')
+            .eq('student_id', studentId)
+            .order('term', { ascending: false });
+        if (error) throw error;
+
+        // Map to AcademicRecord interface if needed
+        return (data || []).map((r: any) => ({
+            subject: r.subject,
+            score: r.score,
+            term: r.term,
+            teacherRemark: r.teacher_remark
+        }));
+    }
+
     // ============================================
     // REPORT CARDS
     // ============================================
@@ -1050,11 +1127,41 @@ class HybridApiClient {
     }
 
     async createAssignment(assignmentData: any, options: ApiOptions = {}): Promise<any> {
-        // ALWAYS use backend for assignments to ensure RLS compliance and attachment handling
-        return this.fetch<any>('/assignments', {
-            method: 'POST',
-            body: JSON.stringify(assignmentData),
-        });
+        // Try backend first if preferred or in demo mode
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            try {
+                return await this.fetch<any>('/assignments', {
+                    method: 'POST',
+                    body: JSON.stringify(assignmentData),
+                });
+            } catch (err) {
+                console.warn('Backend assignment creation failed, falling back to direct:', err);
+                // Fall through to direct Supabase
+            }
+        }
+
+        // Direct Supabase implementation
+        const { data, error } = await supabase
+            .from('assignments')
+            .insert([{
+                title: assignmentData.title,
+                description: assignmentData.description,
+                class_name: assignmentData.className || assignmentData.class_name,
+                class_id: assignmentData.classId || assignmentData.class_id,
+                subject: assignmentData.subject,
+                due_date: assignmentData.dueDate || assignmentData.due_date,
+                teacher_id: assignmentData.teacherId || assignmentData.teacher_id,
+                school_id: assignmentData.schoolId || assignmentData.school_id,
+                branch_id: assignmentData.branchId || assignmentData.branch_id,
+                total_students: assignmentData.totalStudents || 0,
+                submissions_count: 0,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     }
 
     async deleteAssignment(id: string, options: ApiOptions = {}): Promise<void> {
@@ -1751,6 +1858,133 @@ class HybridApiClient {
             supabase: isSupabaseConfigured,
             backend: backendOk
         };
+    }
+
+    // ============================================
+    // COMMUNITY & WELLBEING
+    // ============================================
+
+    async getSurveys(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/community/surveys?schoolId=${schoolId}`);
+        }
+        const today = new Date().toISOString().split('T')[0];
+        const { data, error } = await supabase
+            .from('surveys')
+            .select('*')
+            .eq('school_id', schoolId)
+            .eq('is_active', true)
+            .lte('start_date', today)
+            .gte('end_date', today);
+        if (error) throw error;
+        return data || [];
+    }
+
+    async getSurveyQuestions(surveyId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/community/surveys/${surveyId}/questions`);
+        }
+        const { data, error } = await supabase
+            .from('survey_questions')
+            .select('*')
+            .eq('survey_id', surveyId)
+            .order('question_order', { ascending: true });
+        if (error) throw error;
+        return data || [];
+    }
+
+    async submitSurveyResponse(responses: any[], options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any>('/community/surveys/responses', {
+                method: 'POST',
+                body: JSON.stringify(responses),
+            });
+        }
+        const { data, error } = await supabase
+            .from('survey_responses')
+            .insert(responses)
+            .select();
+        if (error) throw error;
+
+        // Optionally update response count on survey (should be done via trigger ideally)
+        return data;
+    }
+
+    async getMentalHealthResources(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/community/mental-health?schoolId=${schoolId}`);
+        }
+        const { data, error } = await supabase
+            .from('mental_health_resources')
+            .select('*')
+            .eq('school_id', schoolId)
+            .eq('is_active', true);
+        if (error) throw error;
+        return data || [];
+    }
+
+    async getCrisisHelplines(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/community/helplines?schoolId=${schoolId}`);
+        }
+        const { data, error } = await supabase
+            .from('crisis_helplines')
+            .select('*')
+            .eq('school_id', schoolId)
+            .eq('is_active', true);
+        if (error) throw error;
+        return data || [];
+    }
+
+    async triggerPanicAlert(alertData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any>('/community/panic/activate', {
+                method: 'POST',
+                body: JSON.stringify(alertData),
+            });
+        }
+        // Insert into both emergency_alerts and panic_activations for backwards compatibility
+        const { data: alert, error: alertError } = await supabase
+            .from('emergency_alerts')
+            .insert([{
+                school_id: alertData.schoolId,
+                user_id: alertData.userId,
+                type: alertData.type,
+                location: alertData.location,
+                status: 'Active'
+            }])
+            .select()
+            .single();
+
+        if (alertError) throw alertError;
+
+        const { error: activationError } = await supabase
+            .from('panic_activations')
+            .insert([{
+                school_id: alertData.schoolId,
+                user_id: alertData.userId,
+                latitude: alertData.location?.lat,
+                longitude: alertData.location?.lng,
+                alert_type: alertData.type,
+                status: 'Active'
+            }]);
+
+        if (activationError) throw activationError;
+
+        return alert;
+    }
+
+    async getPhotos(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+            return this.fetch<any[]>(`/community/photos?schoolId=${schoolId}`);
+        }
+        const { data, error } = await supabase
+            .from('photos')
+            .select('*')
+            .eq('school_id', schoolId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
     }
 }
 

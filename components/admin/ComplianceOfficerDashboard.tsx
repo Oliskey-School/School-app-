@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import {
     AdminIcon,
     ClipboardListIcon,
@@ -19,16 +21,51 @@ interface ComplianceOfficerDashboardProps {
 
 const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { profile } = useProfile();
+    const { currentSchool } = useAuth();
     const [complianceStats, setComplianceStats] = useState({
-        activeAudits: 3,
-        completedAudits: 24,
-        criticalIssues: 1,
-        resolvedIssues: 18
+        activeAudits: 0,
+        completedAudits: 0,
+        criticalIssues: 0,
+        resolvedIssues: 0
     });
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         setIsHomePage(true);
-    }, [setIsHomePage]);
+        if (currentSchool?.id) {
+            fetchStats();
+        }
+    }, [setIsHomePage, currentSchool]);
+
+    const fetchStats = async () => {
+        try {
+            setLoading(true);
+            const schoolId = currentSchool?.id;
+
+            // Fetch Document status (as audits/issues placeholder)
+            const { data: docs } = await supabase
+                .from('school_documents')
+                .select('verification_status')
+                .eq('school_id', schoolId);
+
+            // Fetch Inspections
+            const { data: inspections } = await supabase
+                .from('inspections')
+                .select('status')
+                .eq('school_id', schoolId);
+
+            setComplianceStats({
+                activeAudits: inspections?.filter(i => i.status === 'Scheduled' || i.status === 'In Progress').length || 0,
+                completedAudits: inspections?.filter(i => i.status === 'Completed').length || 0,
+                criticalIssues: docs?.filter(d => d.verification_status === 'Rejected').length || 0,
+                resolvedIssues: docs?.filter(d => d.verification_status === 'Verified').length || 0
+            });
+        } catch (error) {
+            console.error('Error fetching compliance stats:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const StatCard: React.FC<{
         title: string;

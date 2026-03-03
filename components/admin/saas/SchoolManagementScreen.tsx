@@ -41,7 +41,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedSchool, setSelectedSchool] = useState<SaaSSchool | null>(null);
 
-    const filteredSchools = schools.filter(s => {
+    const filteredSchools: SaaSSchool[] = schools.filter(s => {
         const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = filterStatus === 'all' || s.status === filterStatus;
         const matchesPlan = filterPlan === 'all' || s.plan_id?.toString() === filterPlan;
@@ -49,7 +49,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
         return matchesSearch && matchesStatus && matchesPlan && matchesSubscription;
     });
 
-    const paginatedData = paginate(filteredSchools, currentPage, pageSize);
+    const paginatedData = paginate<SaaSSchool>(filteredSchools, currentPage, pageSize);
 
     const handleStatusChange = async (schoolId: string, newStatus: 'active' | 'suspended') => {
         if (!confirm(`Are you sure you want to ${newStatus} this school?`)) return;
@@ -121,7 +121,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
         if (selectedSchools.size === paginatedData.items.length) {
             setSelectedSchools(new Set());
         } else {
-            setSelectedSchools(new Set(paginatedData.items.map(s => s.id)));
+            setSelectedSchools(new Set(paginatedData.items.map((s: SaaSSchool) => s.id)));
         }
     };
 
@@ -306,7 +306,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {paginatedData.items.map((school) => (
+                        {paginatedData.items.map((school: SaaSSchool) => (
                             <tr key={school.id} className="hover:bg-gray-50 transition">
                                 <td className="px-6 py-4">
                                     <button onClick={() => toggleSchoolSelection(school.id)}>

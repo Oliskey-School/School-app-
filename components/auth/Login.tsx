@@ -173,14 +173,26 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
       console.log(`Attempting Quick Login for ${roleKey} (${mockUser.email})...`);
 
       // 1. Attempt REAL Supabase Auth (for valid session)
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: mockUser.email,
-        password: mockUser.password,
-      });
+      // We wrap this in a sub-try/catch because some network errors might throw
+      // even if the client usually returns objects.
+      let authData = null;
+      let authError = null;
 
-      // 2. Fallback to MOCK AUTH if Real Auth fails
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: mockUser.email,
+          password: mockUser.password,
+        });
+        authData = data;
+        authError = error;
+      } catch (err: any) {
+        console.error("Supabase Auth Exception:", err);
+        authError = err;
+      }
+
+      // 2. Fallback to MOCK AUTH if Real Auth fails (400, 403, network, etc)
       if (authError) {
-        console.warn("Real Auth failed, falling back to Mock Auth:", authError.message);
+        console.warn("Real Auth failed for demo account, using mock session fallback:", authError.message || authError);
 
         const dashboardType = mapRoleToDashboard(mockUser.role);
         const DEMO_SCHOOL = {
