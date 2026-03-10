@@ -17,9 +17,13 @@ interface ParentListScreenProps {
 const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void }> = ({ parent, onSelect }) => (
   <button onClick={() => onSelect(parent)} className="w-full bg-white rounded-xl shadow-sm p-4 flex flex-col space-y-3 text-left hover:shadow-md hover:ring-2 hover:ring-sky-200 transition-all">
     <div className="flex items-center space-x-4">
-      <img src={parent.avatarUrl} alt={parent.name} className="w-16 h-16 rounded-full object-cover" />
+      <img
+        src={parent.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${parent.name}`}
+        alt={parent.name}
+        className="w-16 h-16 rounded-full object-cover"
+      />
       <div className="flex-grow">
-        <p className="font-bold text-lg text-gray-800">{parent.name}</p>
+        <p className="font-bold text-lg text-gray-800">{parent.name || 'Unknown Parent'}</p>
         <p className="text-xs text-gray-500 mb-1 font-mono">{formatSchoolId(parent.schoolGeneratedId || parent.id, 'Parent')}</p>
         <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1">
           <StudentsIcon className="w-4 h-4" />
@@ -28,8 +32,16 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void 
       </div>
     </div>
     <div className="border-t border-gray-100 pt-3 flex justify-end items-center space-x-2">
-      <a href={`mailto:${parent.email}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-sky-100"><MailIcon className="h-5 w-5 text-gray-500" /></a>
-      <a href={`tel:${parent.phone}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-green-100"><PhoneIcon className="h-5 w-5 text-gray-500" /></a>
+      {parent.email && (
+        <a href={`mailto:${parent.email}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-sky-100">
+          <MailIcon className="h-5 w-5 text-gray-500" />
+        </a>
+      )}
+      {parent.phone && (
+        <a href={`tel:${parent.phone}`} onClick={e => e.stopPropagation()} className="p-2 bg-gray-100 rounded-full hover:bg-green-100">
+          <PhoneIcon className="h-5 w-5 text-gray-500" />
+        </a>
+      )}
     </div>
   </button>
 );
@@ -46,11 +58,12 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
       setLoading(true);
       try {
         // Robust school ID retrieval: Check prop first, then profile context, then user metadata
-        const schoolId = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
+        const schoolId = propSchoolId || profile?.schoolId || profile?.school_id || user?.user_metadata?.school_id;
 
         console.log('[ParentList] Context Status:', {
           propSchoolId,
           profileSchoolId: profile?.schoolId,
+          profileSchoolIdSnake: profile?.school_id,
           metadataSchoolId: user?.user_metadata?.school_id,
           resolvedSchoolId: schoolId,
           branchId: currentBranchId
@@ -88,7 +101,11 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
   }, [currentBranchId, profile?.schoolId, user?.id, propSchoolId]);
 
   const filteredParents = useMemo(() =>
-    parents.filter(parent => parent.name.toLowerCase().includes(searchTerm.toLowerCase())),
+    parents.filter(parent => {
+      const safeName = (parent.name || '').toLowerCase();
+      const safeSearch = (searchTerm || '').toLowerCase();
+      return safeName.includes(safeSearch);
+    }),
     [searchTerm, parents]
   );
 

@@ -1,30 +1,30 @@
-
-
-import React, { useState, useMemo, useEffect } from 'react';
-import {
-    SearchIcon,
-    MailIcon,
-    PhoneIcon,
-    SUBJECT_COLORS,
-    PlusIcon,
-    ViewGridIcon,
-    ClipboardListIcon
-} from '../../constants';
-import { Teacher } from '../../types';
-import { fetchTeachers } from '../../lib/database';
-import { supabase } from '../../lib/supabase';
-import { formatSchoolId } from '../../utils/idFormatter';
+import React, { useState, useEffect } from 'react';
+import { SearchIcon, PlusIcon, FilterIcon, UsersIcon, AcademicCapIcon, ClipboardListIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
-import { useAutoSync } from '../../hooks/useAutoSync';
+import { api } from '../../lib/api';
+import { formatSchoolId } from '../../utils/idFormatter';
+import { toast } from 'react-hot-toast';
+
+interface Teacher {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+    email: string;
+    status: 'Active' | 'Inactive';
+    schoolGeneratedId?: string;
+    subjects?: string[];
+    department?: string;
+    joinDate?: string;
+}
 
 interface TeacherListScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     currentBranchId?: string | null;
-    schoolId?: string; // Added prop
+    schoolId: string;
 }
 
-const TeacherCard: React.FC<{ teacher: Teacher, onSelect: (teacher: Teacher) => void }> = ({ teacher, onSelect }) => {
+const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => void }> = ({ teacher, onSelect }) => {
     return (
         <button
             onClick={() => onSelect(teacher)}
@@ -45,7 +45,7 @@ const TeacherCard: React.FC<{ teacher: Teacher, onSelect: (teacher: Teacher) => 
                 <p className="text-xs text-gray-500 mb-1 font-mono">{formatSchoolId(teacher.schoolGeneratedId || teacher.id, 'Teacher')}</p>
                 <div className="mt-1">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                        {teacher.subjects[0] || 'Unassigned'}
+                        {Array.isArray(teacher.subjects) && teacher.subjects.length > 0 ? teacher.subjects[0] : 'Unassigned'}
                     </span>
                 </div>
             </div>
@@ -68,147 +68,167 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
     const { profile } = useProfile();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterSubject, setFilterSubject] = useState<string>('All');
-    const [filterStatus, setFilterStatus] = useState<string>('All');
     const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
+
+    const schoolId = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
 
     useEffect(() => {
-        if (user || profile || propSchoolId) {
-            loadTeachers();
-        }
-    }, [currentBranchId, propSchoolId, profile?.schoolId, user?.id]);
+        // Resolve schoolId more robustly within the effect, prioritizing prop, then profile, then user metadata
+        const effectiveSchoolId = propSchoolId || profile?.schoolId || profile?.school_id || user?.user_metadata?.school_id;
 
-    // Auto-sync
-    useAutoSync(['teachers'], () => {
-        console.log('🔄 [TeacherList] Auto-sync triggered');
-        loadTeachers();
-    });
-
-    const loadTeachers = async () => {
-        setIsLoading(true);
-        try {
-            // Robust school ID retrieval: Check prop first, then profile context, then user metadata
-            const schoolId = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
-
-            console.log('[TeacherList] Context Status:', {
+        if (effectiveSchoolId) {
+            console.log('🔄 [TeacherList] Context Status:', {
                 propSchoolId,
-                profileSchoolId: profile?.schoolId,
-                metadataSchoolId: user?.user_metadata?.school_id,
-                resolvedSchoolId: schoolId,
+                schoolIdFromProfile: profile?.schoolId,
+                schoolIdFromProfileSnake: profile?.school_id,
+                schoolIdFromMetadata: user?.user_metadata?.school_id,
+                resolvedSchoolId: effectiveSchoolId,
                 branchId: currentBranchId
             });
+            loadTeachers(effectiveSchoolId); // Pass effectiveSchoolId to loadTeachers
+        }
+    }, [propSchoolId, profile?.schoolId, profile?.school_id, user?.user_metadata?.school_id, currentBranchId]); // Add all dependencies
 
-            if (schoolId) {
-                const data = await fetchTeachers(schoolId, currentBranchId || undefined);
-                console.log('[TeacherList] Fetched Teachers:', data.length);
-                setTeachers(data);
-            } else {
-                console.warn('[TeacherList] No school context found. Aborting fetch.');
-                setTeachers([]);
-            }
+    const loadTeachers = async (id: string) => { // Accept schoolId as a parameter
+        try {
+            setLoading(true);
+            const rawData = await api.getTeachers(id, currentBranchId || undefined);
+            console.log('[TeacherList] Fetched Teachers:', rawData?.length || 0);
+
+            // Map raw data to Teacher interface with safe defaults
+            const mappedData: Teacher[] = (rawData || []).map((t: any) => ({
+                id: t.id,
+                name: t.name || 'Unknown Teacher',
+                avatarUrl: t.avatarUrl || t.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.name || t.id}`,
+                email: t.email || '',
+                status: t.status === 'Inactive' ? 'Inactive' : 'Active',
+                schoolGeneratedId: t.schoolGeneratedId || t.school_generated_id,
+                subjects: Array.isArray(t.subjects) ? t.subjects :
+                    (Array.isArray(t.teacher_subjects) ? t.teacher_subjects.map((s: any) => s.subject) : []),
+                department: t.department,
+                joinDate: t.joinDate || t.created_at,
+                classes: t.classes || []
+            }));
+
+            setTeachers(mappedData);
         } catch (error) {
-            console.error("Error loading teachers:", error);
-            setTeachers([]);
+            console.error('Error loading teachers:', error);
+            toast.error('Failed to load teachers');
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
 
-    const allSubjects = useMemo(() => {
-        const subjects = new Set<string>(['All']);
-        teachers.forEach(t => t.subjects?.forEach(s => subjects.add(s)));
-        return Array.from(subjects);
-    }, [teachers]);
+    const subjects = ['All', ...new Set(teachers.flatMap(t => Array.isArray(t.subjects) ? t.subjects : []))];
 
-    const filteredTeachers = useMemo(() => {
-        let filtered = teachers.filter(teacher =>
-            teacher.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+    const filteredTeachers = teachers.filter(teacher => {
+        const safeName = (teacher.name || '').toLowerCase();
+        const safeEmail = (teacher.email || '').toLowerCase();
+        const safeSearch = (searchTerm || '').toLowerCase();
 
-        if (filterSubject !== 'All') {
-            filtered = filtered.filter(t => t.subjects?.includes(filterSubject));
-        }
-
-        if (filterStatus !== 'All') {
-            filtered = filtered.filter(t => t.status === filterStatus);
-        }
-
-        return filtered;
-    }, [searchTerm, filterSubject, filterStatus, teachers]);
-
-    const handleSelectTeacher = (teacher: Teacher) => {
-        navigateTo('teacherDetailAdminView', teacher.name, { teacher });
-    };
+        const matchesSearch = safeName.includes(safeSearch) || safeEmail.includes(safeSearch);
+        const matchesSubject = filterSubject === 'All' || (Array.isArray(teacher.subjects) && teacher.subjects.includes(filterSubject));
+        return matchesSearch && matchesSubject;
+    });
 
     return (
-        <div className="flex flex-col h-full bg-[#f8fafc] relative">
-            {/* Search and Filters Header */}
-            <div className="p-6 pb-2 space-y-4">
-                <div className="flex items-center gap-3">
-                    <div className="relative flex-1">
-                        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search teachers..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm text-gray-700"
-                        />
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Teacher Management</h1>
+                    <p className="text-sm text-gray-500">Manage and oversee school faculty.</p>
+                </div>
+                <button
+                    onClick={() => navigateTo('AddTeacherScreen', 'Add New Teacher')}
+                    className="inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-sm shadow-blue-200 gap-2"
+                >
+                    <PlusIcon className="h-5 w-5" />
+                    <span>Add Teacher</span>
+                </button>
+            </div>
+
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center gap-4">
+                    <div className="p-3 bg-blue-50 rounded-xl">
+                        <UsersIcon className="h-6 w-6 text-blue-600" />
                     </div>
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                        <ClipboardListIcon className="h-6 w-6 text-gray-400" />
+                    <div>
+                        <p className="text-sm text-gray-500">Total Teachers</p>
+                        <p className="text-xl font-bold text-gray-900">{teachers.length}</p>
                     </div>
                 </div>
-
-                <div className="flex gap-3">
-                    <select
-                        value={filterSubject}
-                        onChange={e => setFilterSubject(e.target.value)}
-                        className="bg-white px-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none shadow-sm text-gray-600"
-                    >
-                        <option value="All">All Subjects</option>
-                        {allSubjects.filter(s => s !== 'All').map(s => (
-                            <option key={s} value={s}>{s}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={filterStatus}
-                        onChange={e => setFilterStatus(e.target.value)}
-                        className="bg-white px-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none shadow-sm text-gray-600"
-                    >
-                        <option value="All">All Status</option>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                    </select>
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center gap-4">
+                    <div className="p-3 bg-green-50 rounded-xl">
+                        <AcademicCapIcon className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-500">Active Faculty</p>
+                        <p className="text-xl font-bold text-gray-900">{teachers.filter(t => t.status === 'Active').length}</p>
+                    </div>
+                </div>
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex items-center gap-4">
+                    <div className="p-3 bg-purple-50 rounded-xl">
+                        <ClipboardListIcon className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-500">Departments</p>
+                        <p className="text-xl font-bold text-gray-900">8</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Grid Content */}
-            <main className="flex-1 p-6 pt-2 overflow-y-auto">
-                {isLoading ? (
-                    <div className="flex justify-center items-center h-64">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            {/* Filters */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-50 flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Search by name or email..."
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <div className="relative">
+                        <FilterIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <select
+                            className="pl-9 pr-8 py-2.5 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 transition-all text-sm appearance-none"
+                            value={filterSubject}
+                            onChange={(e) => setFilterSubject(e.target.value)}
+                        >
+                            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
                     </div>
-                ) : filteredTeachers.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {filteredTeachers.map(teacher => (
-                            <TeacherCard key={teacher.id} teacher={teacher} onSelect={handleSelectTeacher} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-dashed border-gray-200">
-                        <p className="text-gray-500 font-medium">No teachers found matching your criteria.</p>
-                    </div>
-                )}
-            </main>
+                </div>
+            </div>
 
-            {/* Floating Action Button */}
-            <button
-                onClick={() => navigateTo('inviteStaff', 'Invite Staff')}
-                className="fixed bottom-8 right-8 w-14 h-14 bg-[#0ea5e9] text-white rounded-full shadow-xl hover:bg-[#0284c7] transform hover:scale-110 transition-all flex items-center justify-center z-50"
-            >
-                <PlusIcon className="h-8 w-8" />
-            </button>
+            {/* List */}
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-gray-500 animate-pulse">Loading faculty records...</p>
+                </div>
+            ) : filteredTeachers.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredTeachers.map(teacher => (
+                        <TeacherCard
+                            key={teacher.id}
+                            teacher={teacher}
+                            onSelect={(t) => navigateTo('TeacherDetailAdminView', t.name, { teacher: t })}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-gray-200">
+                    <UsersIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">No Teachers Found</h3>
+                    <p className="text-gray-500">Try adjusting your search or filters to find what you're looking for.</p>
+                </div>
+            )}
         </div>
     );
 };

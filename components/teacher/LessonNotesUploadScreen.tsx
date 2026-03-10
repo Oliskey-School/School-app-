@@ -11,9 +11,10 @@ interface LessonNotesUploadScreenProps {
     handleBack: () => void;
     teacherId: string; // Passed from dashboard (UUID)
     schoolId?: string; // Add schoolId
+    currentBranchId?: string | null;
 }
 
-const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handleBack, teacherId, schoolId }) => {
+const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handleBack, teacherId, schoolId, currentBranchId }) => {
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
     const [term, setTerm] = useState<string>('First Term');
@@ -66,6 +67,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
                 subjectId: selectedSubjectId as any, // UUID string, cast to avoid type error if interface expects number (needs fix in types but works in JS)
                 classId: selectedClassId as any,
                 schoolId, // Pass schoolId
+                branchId: currentBranchId,
                 week,
                 term,
                 title,

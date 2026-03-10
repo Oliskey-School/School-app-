@@ -21,7 +21,8 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
             return res.status(400).json({ message: "Teacher ID is required" });
         }
 
-        const result = await AiService.getGeneratedResources(teacherId);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await AiService.getGeneratedResources(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -30,7 +31,8 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
 
 export const saveGeneratedResource = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await AiService.saveGeneratedResource(req.body);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await AiService.saveGeneratedResource(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

@@ -77,7 +77,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                 const { fetchAcademicPerformance, fetchBehaviorNotes } = await import('../../lib/database');
                 const [perf, notes] = await Promise.all([
                     fetchAcademicPerformance(student.id),
-                    fetchBehaviorNotes(student.id)
+                    (fetchBehaviorNotes as any)(student.id)
                 ]);
                 setPerformance(perf);
                 setBehaviorNotes(notes);

@@ -30,6 +30,7 @@ const ArrearsTracker: React.FC = () => {
 
     const { currentSchool } = useAuth();
     const schoolId = currentSchool?.id;
+    const branchId = currentSchool?.branch_id;
 
     useEffect(() => {
         if (schoolId) {
@@ -42,16 +43,23 @@ const ArrearsTracker: React.FC = () => {
             setLoading(true);
             if (!schoolId) return;
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from('arrears')
                 .select(`
           *,
           teachers!inner (
             full_name,
-            school_id
+            school_id,
+            branch_id
           )
         `)
-                .eq('teachers.school_id', schoolId)
+                .eq('teachers.school_id', schoolId);
+
+            if (branchId) {
+                query = query.eq('teachers.branch_id', branchId);
+            }
+
+            const { data, error } = await query
                 .order('created_at', { ascending: false });
 
             if (error) throw error;

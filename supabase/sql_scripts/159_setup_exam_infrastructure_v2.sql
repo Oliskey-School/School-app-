@@ -36,12 +36,12 @@ ALTER TABLE public.exam_registrations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "exam_bodies_isolation" ON public.exam_bodies;
 CREATE POLICY "exam_bodies_isolation" ON public.exam_bodies
     FOR ALL TO authenticated
-    USING (school_id = (SELECT (COALESCE(auth.jwt() -> 'user_metadata' ->> 'school_id', auth.jwt() -> 'app_metadata' ->> 'school_id'))::uuid));
+    USING (school_id = (SELECT (COALESCE(auth.jwt() -> 'app_metadata' ->> 'school_id', auth.jwt() -> 'app_metadata' ->> 'school_id'))::uuid));
 
 DROP POLICY IF EXISTS "exam_registrations_isolation" ON public.exam_registrations;
 CREATE POLICY "exam_registrations_isolation" ON public.exam_registrations
     FOR ALL TO authenticated
-    USING (school_id = (SELECT (COALESCE(auth.jwt() -> 'user_metadata' ->> 'school_id', auth.jwt() -> 'app_metadata' ->> 'school_id'))::uuid));
+    USING (school_id = (SELECT (COALESCE(auth.jwt() -> 'app_metadata' ->> 'school_id', auth.jwt() -> 'app_metadata' ->> 'school_id'))::uuid));
 
 -- 5. Defensive Healing for school_id (Fixes "column school_id does not exist" on profiles)
 DO $$

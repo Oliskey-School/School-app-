@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { getAIClient, SchemaType as Type } from '../../lib/ai';
 import { SparklesIcon, XCircleIcon, ClockIcon, UserGroupIcon, ExclamationCircleIcon, CheckCircleIcon, CalendarIcon } from '../../constants';
-import { fetchTeachers } from '../../lib/database';
+import { api } from '../../lib/api';
 import MultiClassSelector from '../shared/MultiClassSelector';
 
 // --- TYPES ---
@@ -106,7 +106,7 @@ const TimetableCreationPage: React.FC<TimetableCreationPageProps> = ({ isOpen, o
     // Initial Load
     useEffect(() => {
         if (isOpen && schoolId) {
-            fetchTeachers(schoolId).then(data => {
+            api.getTeachers(schoolId).then(data => {
                 if (data) {
                     setTeachers(data.map(t => ({ name: t.name, subjects: t.subjects || [] })));
                 }

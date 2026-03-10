@@ -4,6 +4,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
+// @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 
 // Register PWA Service Worker for extremely fast loading

@@ -43,16 +43,27 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
             const schoolId = currentSchool?.id;
 
             // Fetch Document status (as audits/issues placeholder)
-            const { data: docs } = await supabase
+            let docsQuery = supabase
                 .from('school_documents')
                 .select('verification_status')
                 .eq('school_id', schoolId);
 
+            const branchId = (useAuth() as any).currentBranchId;
+            if (branchId && branchId !== 'all') {
+                docsQuery = docsQuery.eq('branch_id', branchId);
+            }
+            const { data: docs } = await docsQuery;
+
             // Fetch Inspections
-            const { data: inspections } = await supabase
+            let inspectionsQuery = supabase
                 .from('inspections')
                 .select('status')
                 .eq('school_id', schoolId);
+
+            if (branchId && branchId !== 'all') {
+                inspectionsQuery = inspectionsQuery.eq('branch_id', branchId);
+            }
+            const { data: inspections } = await inspectionsQuery;
 
             setComplianceStats({
                 activeAudits: inspections?.filter(i => i.status === 'Scheduled' || i.status === 'In Progress').length || 0,

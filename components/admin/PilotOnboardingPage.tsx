@@ -9,15 +9,15 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const totalSteps = 4;
-    
+
     // Form State
     const [lga, setLga] = useState('');
     const [infrastructure, setInfrastructure] = useState<string[]>([]);
     const [schoolName, setSchoolName] = useState(currentSchool?.name || '');
     const [curriculumTrack, setCurriculumTrack] = useState('Dual-Track');
-    
+
     const FACILITIES = [
-        "Science Laboratory", "ICT Center", "Library", "Sports Field", 
+        "Science Laboratory", "ICT Center", "Library", "Sports Field",
         "Art Studio", "Music Room", "School Clinic", "Cafeteria"
     ];
 
@@ -26,10 +26,10 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
             if (!currentSchool?.id) return;
             const { data, error } = await supabase
                 .from('schools')
-                .select('name, lga, infrastructure_config, onboarding_step, is_onboarded, curriculum_type')
+                .select('name, state, lga, infrastructure_config, onboarding_step, is_onboarded, curriculum_type')
                 .eq('id', currentSchool.id)
                 .single();
-            
+
             if (data) {
                 setSchoolName(data.name || '');
                 setLga(data.lga || '');
@@ -62,7 +62,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                 .eq('id', currentSchool.id);
 
             if (error) throw error;
-            
+
             if (isFinal) {
                 toast.success('🎉 Hub Onboarding Complete!');
                 onComplete();
@@ -89,9 +89,9 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
     };
 
     const toggleFacility = (facility: string) => {
-        setInfrastructure(prev => 
-            prev.includes(facility) 
-                ? prev.filter(f => f !== facility) 
+        setInfrastructure(prev =>
+            prev.includes(facility)
+                ? prev.filter(f => f !== facility)
                 : [...prev, facility]
         );
     };
@@ -119,7 +119,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700 italic">Curriculum Track</label>
-                                    <select 
+                                    <select
                                         value={curriculumTrack}
                                         onChange={(e) => setCurriculumTrack(e.target.value)}
                                         className="w-full p-2.5 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-indigo-500 outline-none transition font-medium"
@@ -137,12 +137,12 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700 italic">LGA</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={lga}
                                         onChange={(e) => setLga(e.target.value)}
-                                        placeholder="e.g. Ikeja" 
-                                        className="w-full p-2.5 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-indigo-500 outline-none transition font-medium" 
+                                        placeholder="e.g. Ikeja"
+                                        className="w-full p-2.5 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-indigo-500 outline-none transition font-medium"
                                     />
                                 </div>
                             </div>
@@ -161,11 +161,10 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                                 <button
                                     key={facility}
                                     onClick={() => toggleFacility(facility)}
-                                    className={`p-4 border-2 rounded-xl text-left transition-all flex items-center justify-between group ${
-                                        infrastructure.includes(facility)
-                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                            : 'border-gray-100 bg-white text-gray-700 hover:border-gray-200'
-                                    }`}
+                                    className={`p-4 border-2 rounded-xl text-left transition-all flex items-center justify-between group ${infrastructure.includes(facility)
+                                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                        : 'border-gray-100 bg-white text-gray-700 hover:border-gray-200'
+                                        }`}
                                 >
                                     <span className="font-medium">{facility}</span>
                                     <div className={`w-5 h-5 border-2 rounded-md ${infrastructure.includes(facility) ? 'bg-emerald-500 border-emerald-500' : 'border-gray-200'}`}>

@@ -1,71 +1,68 @@
+/**
+ * Canonical role code mapping — must match backend ROLE_CODES in idGenerator.service.ts
+ * Format: SCHOOL_CODE_BRANCH_CODE_ROLE_CODE_NUMBER  e.g. EXCEL_MAIN_STU_0001
+ */
+export const ROLE_CODES: Record<string, string> = {
+    student: 'STU',
+    teacher: 'TCH',
+    parent: 'PAR',
+    admin: 'ADM',
+    superadmin: 'SADM',
+    proprietor: 'PRO',
+    inspector: 'INS',
+    examofficer: 'EXM',
+    complianceofficer: 'CMP',
+    counselor: 'CNS',
+    // Display-name variants
+    'Super Admin': 'SADM',
+    'Exam Officer': 'EXM',
+    'Compliance Officer': 'CMP',
+};
 
 /**
- * Formats a school ID to ensure it follows the standard OLISKEY_MAIN_[ROLE]_XXXX format.
- * This handles converting legacy SCH_ IDs and ensures a consistent fallback for demo users.
- * 
- * @param id - The existing ID (from DB or Metadata) or undefined
- * @param role - The user's role (Teacher, Student, Parent, Admin)
- * @returns The formatted ID string
+ * Returns the display ID for a user.
+ *
+ * Priority order:
+ * 1. Use the DB-stored school_generated_id directly if it matches the standard format
+ * 2. Reconstruct from schoolCode + branchCode + role + number if parts are available
+ * 3. Return a "PENDING" placeholder — never show a raw UUID to the user
+ *
+ * @param schoolGeneratedId  The value of school_generated_id from the DB
+ * @param role               User's role string (e.g. 'student', 'teacher')
+ * @param schoolCode         The school's code (e.g. 'EXCEL')
+ * @param branchCode         The branch's code (e.g. 'MAIN')
  */
-export const formatSchoolId = (id: string | undefined | null, role: string): string => {
-    // defined map for role codes
-    const roleMap: Record<string, string> = {
-        'Teacher': 'TCH',
-        'Student': 'STD',
-        'Parent': 'PAR',
-        'Admin': 'ADM',
-        'Super Admin': 'SADM',
-        'Proprietor': 'PRO',
-        'Inspector': 'INS',
-        'Exam Officer': 'EXM',
-        'Compliance Officer': 'CMP',
-        'Counselor': 'CNS',
-    };
-
-    const roleCode = roleMap[role] || 'USR';
-    const defaultSuffix = '00000';
-
-    // Default ID if nothing is provided
-    const fallbackId = `OLISKEY_MAIN_${roleCode}_${defaultSuffix}`;
-
-    if (!id) return fallbackId;
-
-    // Check if it's a UUID (contains multiple hyphens and matches UUID pattern)
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    
-    if (isUUID) {
-        // If it's a UUID, we don't want to show it as an ID.
-        // Instead, we return a fallback that indicates it's pending a real ID
-        // or uses a shortened version of the UUID if absolutely necessary.
-        // User said "i don't want the ID should look like this ID: 4062b039...",
-        // so we must avoid showing the UUID string entirely.
-        return `OLISKEY_MAIN_${roleCode}_PENDING`;
-    }
-
-    // Normalize: Upper case and underscores
-    let formatted = id.replace(/-/g, '_').toUpperCase();
-
-    // Fix Legacy/Metadata prefixes
-    if (formatted.startsWith('SCH_')) {
-        if (formatted.includes('_HQS_')) {
-            formatted = formatted.replace('SCH_HQS_', 'OLISKEY_MAIN_');
-        } else {
-            formatted = formatted.replace('SCH_', 'OLISKEY_MAIN_');
+export const formatSchoolId = (
+    schoolGeneratedId: string | undefined | null,
+    role: string,
+    schoolCode: string = 'SCHOOL',
+    branchCode: string = 'MAIN'
+): string => {
+    // 1. If the DB has a properly formatted ID, use it directly
+    if (schoolGeneratedId) {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(schoolGeneratedId);
+        if (!isUUID) {
+            // Normalize to uppercase and underscore-separated
+            return schoolGeneratedId.toUpperCase().replace(/[-\s]/g, '_');
         }
     }
 
-    // Ensure it starts with OLISKEY_MAIN_ or OLISKEY_
-    if (!formatted.startsWith('OLISKEY_MAIN_') && !formatted.startsWith('OLISKEY_')) {
-        // If it doesn't look like our standard ID, it might be a partial ID (like '0001')
-        // or a different system ID. We prefix it.
-        if (/^\d+$/.test(formatted)) {
-            // It's just a number
-            return `OLISKEY_MAIN_${roleCode}_${formatted.padStart(5, '0')}`;
-        }
-        
-        // If it's something else, try to make it look like our standard
-        return `OLISKEY_MAIN_${roleCode}_${formatted}`;
+    // 2. Build from parts if we have school/branch codes
+    const roleLower = role.toLowerCase();
+    const roleCode = ROLE_CODES[roleLower] || ROLE_CODES[role] || role.substring(0, 3).toUpperCase();
+
+    if (schoolCode && schoolCode !== 'SCHOOL') {
+        return `${schoolCode.toUpperCase()}_${branchCode.toUpperCase()}_${roleCode}_PENDING`;
     }
 
-    return formatted;
+    // 3. Generic placeholder — never expose a UUID
+    return `${roleCode}_PENDING`;
+};
+
+/**
+ * Validates that a string conforms to the standard ID format.
+ * SCHOOL_BRANCH_ROLE_NUMBER — e.g. EXCEL_MAIN_STU_0001
+ */
+export const isValidSchoolId = (id: string): boolean => {
+    return /^[A-Z0-9]+_[A-Z0-9]+_[A-Z]+_\d{4}$/.test(id);
 };

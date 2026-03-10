@@ -37,11 +37,17 @@ const ComplianceDashboard = () => {
 
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('vw_compliance_metrics')
                 .select('*')
-                .eq('school_id', currentSchool.id)
-                .maybeSingle();
+                .eq('school_id', currentSchool.id);
+
+            const branchId = (useAuth() as any).currentBranchId;
+            if (branchId && branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query.maybeSingle();
 
             if (error) throw error;
             if (data) {

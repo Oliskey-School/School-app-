@@ -36,6 +36,7 @@ interface Experiment {
 
 const CHEMICALS: Chemical[] = [
     { id: 'water', name: 'Distilled Water', formula: 'H₂O', color: 'bg-blue-100', type: 'liquid', ph: 7 },
+    { id: 'oil', name: 'Cooking Oil', formula: 'C₁₈H₃₄O₂', color: 'bg-yellow-200', type: 'liquid', ph: 7 },
     { id: 'acid', name: 'Hydrochloric Acid', formula: 'HCl', color: 'bg-transparent', type: 'liquid', ph: 1 },
     { id: 'base', name: 'Sodium Hydroxide', formula: 'NaOH', color: 'bg-transparent', type: 'liquid', ph: 14 },
     { id: 'indicator', name: 'Universal Indicator', formula: 'UI', color: 'bg-yellow-600', type: 'liquid' },
@@ -67,6 +68,14 @@ const EXPERIMENTS: Experiment[] = [
         targetResult: { state: 'bubbling' },
         requiredSteps: ['acid', 'magnesium'],
         hint: "Acids react with reactive metals to produce Hydrogen gas."
+    },
+    {
+        id: 4,
+        title: "Layering Liquids",
+        description: "Create a density column with Oil and Water.",
+        targetResult: { state: 'layered' },
+        requiredSteps: ['water', 'oil'],
+        hint: "Oil is less dense than water and will float on top."
     }
 ];
 
@@ -156,6 +165,14 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
         if (hasAcid && hasMagnesium) {
             newState = 'bubbling';
             speak("Reaction started! Hydrogen gas produced.");
+        }
+
+        // 4. Density Layering
+        const hasOil = beakerContents.some(c => c.id === 'oil') || chem.id === 'oil';
+        const hasWater = beakerContents.some(c => c.id === 'water') || chem.id === 'water';
+        if (hasOil && hasWater) {
+            newState = 'layered' as any;
+            speak("Look! The oil is floating on the water because it is less dense.");
         }
 
         setBeakerPh(newPh);

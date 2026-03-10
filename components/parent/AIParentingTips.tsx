@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
+import { api } from '../../lib/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Student } from '../../types';

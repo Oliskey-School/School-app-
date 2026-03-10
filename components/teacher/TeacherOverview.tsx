@@ -23,6 +23,7 @@ import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { useTeacherStats } from '../../hooks/useTeacherStats';
+import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
 
 interface TeacherOverviewProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -150,17 +151,20 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           .eq('day', todayName)
           .eq('status', 'Published');
 
-        if (currentBranchId) {
+        let assignmentsQuery = supabase
+          .from('assignments')
+          .select('id, title, class_name, created_at')
+          .eq('school_id', actualSchoolId)
+          .eq('teacher_id', actualTeacherId);
+
+        if (currentBranchId && currentBranchId !== 'all') {
           scheduleQuery = scheduleQuery.eq('branch_id', currentBranchId);
+          assignmentsQuery = assignmentsQuery.eq('branch_id', currentBranchId);
         }
 
         const [scheduleRes, assignmentsRes] = await Promise.all([
           scheduleQuery.order('start_time', { ascending: true }),
-          supabase
-            .from('assignments')
-            .select('id, title, class_name, created_at')
-            .eq('school_id', actualSchoolId)
-            .eq('teacher_id', actualTeacherId)
+          assignmentsQuery
             .order('created_at', { ascending: false })
             .limit(3)
         ]);
@@ -176,7 +180,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     };
 
     if (!classesLoading && resolvedTeacherId) {
-        fetchData();
+      fetchData();
     }
 
   }, [resolvedTeacherId, resolvedSchoolId, classesLoading, currentBranchId, version]);
@@ -224,24 +228,27 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   };
 
   const quickActions = [
-    { label: "Add Student", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>, action: () => navigateTo('addStudent', 'Add Student', {}) },
-    { label: "My Attendance", icon: <CheckCircleIcon className="h-7 w-7" />, action: () => navigateTo('teacherSelfAttendance', 'My Attendance', {}) },
-    { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', {}) },
-    { label: "Assignments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assignmentsList', 'Manage Assignments', {}) },
-    { label: "Lesson Notes", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('lessonNotesUpload', 'Upload Lesson Notes', {}) },
-    { label: "Resources", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('resources', 'Resource Hub', {}) },
-    { label: "Appointments", icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Appointments', {}) },
-    { label: "Virtual Class", icon: <VideoIcon className="h-7 w-7" />, action: () => navigateTo('virtualClass', 'Virtual Classroom', {}) },
-    { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', {}) },
-    { label: "Quiz Builder", icon: <EditIcon className="h-7 w-7" />, action: () => navigateTo('quizBuilder', 'Create Assessment', {}) },
-    { label: "Gradebook", icon: <CalculatorIcon className="h-7 w-7" />, action: () => navigateTo('classGradebook', 'Class Gradebook', {}) },
-    { label: "Exams", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('examManagement', 'Manage Exams', { schoolId, teacherId }) },
-    { label: "Forum", icon: <UserGroupIcon className="h-7 w-7" />, action: () => navigateTo('collaborationForum', 'Teacher Forum', {}) },
-    { label: "Reports", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('reports', 'Student Reports', {}) },
+    { label: "Add Student", icon: <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>, action: () => navigateTo('addStudent', 'Add Student', { schoolId }) },
+    { label: "My Attendance", icon: <CheckCircleIcon className="h-7 w-7" />, action: () => navigateTo('teacherSelfAttendance', 'My Attendance', { teacherId }) },
+    { label: "Attendance", icon: <TeacherAttendanceIcon className="h-7 w-7" />, action: () => navigateTo('selectClassForAttendance', 'Select Class', { teacherId, schoolId }) },
+    { label: "Assignments", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('assignmentsList', 'Manage Assignments', { teacherId, branchId: currentBranchId }) },
+    { label: "Lesson Notes", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('lessonNotesUpload', 'Upload Lesson Notes', { teacherId }) },
+    { label: "Resources", icon: <BriefcaseIcon className="h-7 w-7" />, action: () => navigateTo('resources', 'Resource Hub', { schoolId }) },
+    { label: "Appointments", icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Appointments', { teacherId }) },
+    { label: "Virtual Class", icon: <VideoIcon className="h-7 w-7" />, action: () => navigateTo('virtualClass', 'Virtual Classroom', { teacherId, schoolId }) },
+    { label: "AI Planner", icon: <SparklesIcon className="h-7 w-7" />, action: () => navigateTo('lessonPlanner', 'AI Lesson Planner', { teacherId }) },
+    { label: "Quiz Builder", icon: <EditIcon className="h-7 w-7" />, action: () => navigateTo('quizBuilder', 'Create Assessment', { teacherId }) },
+    { label: "Gradebook", icon: <CalculatorIcon className="h-7 w-7" />, action: () => navigateTo('classGradebook', 'Class Gradebook', { teacherId }) },
+    { label: "Exams", icon: <ClipboardListIcon className="h-7 w-7" />, action: () => navigateTo('examManagement', 'Manage Exams', { schoolId, teacherId, branchId: currentBranchId }) },
+    { label: "Forum", icon: <UserGroupIcon className="h-7 w-7" />, action: () => navigateTo('collaborationForum', 'Teacher Forum', { schoolId }) },
+    { label: "Reports", icon: <BookOpenIcon className="h-7 w-7" />, action: () => navigateTo('reports', 'Student Reports', { teacherId, schoolId }) },
   ];
 
   return (
     <div className="p-4 lg:p-6 space-y-6 bg-gray-50">
+      {!currentUser?.user_metadata?.email_verified && (
+        <EmailVerificationPrompt />
+      )}
       {/* Welcome Message */}
       <div className={`p-5 rounded-2xl text-white shadow-lg ${theme.mainBg}`}>
         <h3 className="text-2xl font-bold">Welcome, {teacherProfile?.name || 'Teacher'}!</h3>
@@ -267,7 +274,13 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             teacherClasses.map((c, i) => (
               <button
                 key={i}
-                onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), { classInfo: c })}
+                onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), {
+                  classInfo: {
+                    ...c,
+                    schoolId: schoolId,
+                    branchId: currentBranchId
+                  }
+                })}
                 className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all text-left border-b-4 border-purple-500 group"
               >
                 <div className="flex justify-between items-start mb-1">
@@ -310,7 +323,12 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                   <div className="h-4 bg-gray-200 rounded w-12"></div>
                 </div>
               ) : ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 1).map(a => (
-                <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, { assignment: a, schoolId })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
+                <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, {
+                  assignment: a,
+                  schoolId,
+                  teacherId,
+                  branchId: currentBranchId
+                })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-gray-800">{a.title}</p>
                     <p className="text-sm text-gray-500">{a.class_name}</p>

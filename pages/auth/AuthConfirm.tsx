@@ -48,13 +48,28 @@ export const AuthConfirm: React.FC = () => {
                     throw new Error(errorDescription.replace(/\+/g, ' '));
                 }
 
+                // Helper to sync confirmation to our database
+                const syncConfirmation = async (userId: string) => {
+                    try {
+                        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                        await fetch(`${API_URL}/auth/confirm-email`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId })
+                        });
+                    } catch (e) {
+                        console.error('Failed to sync confirmation to backend:', e);
+                    }
+                };
+
                 // Handle PKCE code exchange if present
                 if (code) {
                     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
                     if (error) throw error;
                     if (data.session) {
                         setStatus('success');
-                        // ... proceed
+                        await syncConfirmation(data.session.user.id);
+
                         localStorage.setItem('show_welcome_toast', 'true');
                         setTimeout(() => {
                             window.location.hash = '';
@@ -74,12 +89,16 @@ export const AuthConfirm: React.FC = () => {
 
                 // If we have access_token and refresh_token from hash, set session directly
                 if (accessToken && refreshToken) {
-                    const { error: sessionError } = await supabase.auth.setSession({
+                    const { data, error: sessionError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken
                     });
 
                     if (sessionError) throw sessionError;
+
+                    if (data.user) {
+                        await syncConfirmation(data.user.id);
+                    }
 
                     // Success
                     setStatus('success');
@@ -104,6 +123,8 @@ export const AuthConfirm: React.FC = () => {
                 }
 
                 if (data.user) {
+                    await syncConfirmation(data.user.id);
+
                     setStatus('success');
                     localStorage.setItem('show_welcome_toast', 'true');
 

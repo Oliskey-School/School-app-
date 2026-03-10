@@ -29,7 +29,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
         setLoadingNotes(true);
         try {
             const [notes, performance] = await Promise.all([
-                fetchBehaviorNotes(student.id),
+                (fetchBehaviorNotes as any)(student.id),
                 fetchAcademicPerformance(student.id)
             ]);
             setBehaviorNotes(notes);

@@ -13,6 +13,7 @@ import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
+import { api } from '../../lib/api';
 import UpgradeModal from '../shared/UpgradeModal';
 
 interface AddTeacherScreenProps {
@@ -63,17 +64,17 @@ const MultiSelect: React.FC<{
 
             {/* Main Input Container */}
             <div
-                className="min-h-[42px] p-2 border border-gray-300 rounded-lg bg-gray-50 flex flex-wrap gap-2 items-center cursor-text focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all"
+                className="min-h-[42px] p-2 border border-gray-300 rounded-lg bg-gray-50 flex flex-wrap gap-2 items-center cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all"
                 onClick={() => setIsOpen(true)}
             >
                 {/* Selected Tags */}
                 {selected.map(item => (
-                    <span key={item} className="flex items-center gap-1 bg-sky-100 text-sky-800 text-sm font-medium px-2 py-1 rounded-md">
+                    <span key={item} className="flex items-center gap-1 bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded-md">
                         {item}
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleSelection(item); }}
-                            className="text-sky-600 hover:text-sky-800 focus:outline-none"
+                            className="text-blue-600 hover:text-blue-800 focus:outline-none"
                         >
                             <XCircleIcon className="w-4 h-4" />
                         </button>
@@ -103,7 +104,7 @@ const MultiSelect: React.FC<{
                             <div
                                 key={option}
                                 onClick={() => toggleSelection(option)}
-                                className="px-4 py-2 hover:bg-sky-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between"
+                                className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between"
                             >
                                 <span>{option}</span>
                             </div>
@@ -160,24 +161,21 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
         const fetchRefs = async () => {
             try {
                 // Fetch Subjects
-                const { data: sData } = await supabase.from('subjects').select('id, name').eq('school_id', schoolId);
+                const sData = await api.getSubjects(schoolId, branchId || undefined);
                 if (sData) {
-                    setValidSubjects(sData.map(d => d.name));
+                    setValidSubjects(sData.map((d: any) => d.name));
                     const sMap: Record<string, string> = {};
-                    sData.forEach(s => { sMap[s.name] = s.id; });
+                    sData.forEach((s: any) => { sMap[s.name] = s.id; });
                     setSubjectIdMap(sMap);
                 }
 
                 // Fetch Classes (Filter by current school)
-                const { data: cData } = await supabase
-                    .from('classes')
-                    .select('id, name')
-                    .eq('school_id', schoolId);
+                const cData = await api.getClasses(schoolId, branchId || undefined);
 
                 if (cData) {
-                    setValidClasses(cData.map(d => d.name));
+                    setValidClasses(cData.map((d: any) => d.name));
                     const map: Record<string, string> = {};
-                    cData.forEach(c => {
+                    cData.forEach((c: any) => {
                         map[c.name] = c.id;
                     });
                     setClassIdMap(map);
@@ -534,7 +532,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                             <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center">
                                 {avatar ? <img src={avatar} alt="Teacher" className="w-full h-full rounded-full object-cover" /> : <UserIcon className="w-12 h-12 text-gray-400" />}
                             </div>
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-sky-500 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-sky-600">
+                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
                             </label>
@@ -633,7 +631,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400' : 'bg-sky-500 hover:bg-sky-600'} transition-colors`}
+                        className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
                     >
                         {isLoading ? 'Saving...' : (teacherToEdit ? 'Update Teacher' : 'Save Teacher')}
                     </button>
@@ -665,7 +663,7 @@ const InputField: React.FC<{ id: string, label: string, value: string, onChange:
         <label htmlFor={id} className="text-sm font-medium text-gray-600 sr-only">{label}</label>
         <div className="relative">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">{icon}</span>
-            <input type={type} name={id} id={id} value={value} onChange={e => onChange(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" placeholder={label} required />
+            <input type={type} name={id} id={id} value={value} onChange={e => onChange(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder={label} required />
         </div>
     </div>
 );

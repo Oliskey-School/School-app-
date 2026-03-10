@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase'; import { Student, Teacher } from '../../types';
+import { api } from '../../lib/api'; import { Student, Teacher } from '../../types';
 import IDCardGenerator from '../shared/IDCardGenerator';
 import { CreditCard } from 'lucide-react';
 import { getFormattedClassName } from '../../constants';
@@ -11,7 +11,7 @@ interface IDCardManagementProps {
 }
 
 const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initialView = 'students' }) => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [view, setView] = useState<'students' | 'teachers'>('students');
     const [students, setStudents] = useState<Student[]>([]);
     const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -37,14 +37,13 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
         if (!currentSchool) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('students')
-                .select('*')
-                .eq('school_id', currentSchool.id)
-                .order('name');
-
-            if (error) throw error;
-            setStudents(data || []);
+            const data = await api.getStudents(currentSchool.id, currentBranchId || undefined, { includeUntagged: true });
+            setStudents((data || []).map((s: any) => ({
+                ...s,
+                avatarUrl: s.avatar_url || s.avatarUrl || 'https://i.pravatar.cc/150',
+                schoolGeneratedId: s.school_generated_id || s.schoolGeneratedId,
+                school_generated_id: s.school_generated_id
+            })));
         } catch (error) {
             console.error('Error fetching students:', error);
         } finally {
@@ -56,14 +55,13 @@ const IDCardManagement: React.FC<IDCardManagementProps> = ({ initialUser, initia
         if (!currentSchool) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('teachers')
-                .select('*')
-                .eq('school_id', currentSchool.id)
-                .order('name');
-
-            if (error) throw error;
-            setTeachers(data || []);
+            const data = await api.getTeachers(currentSchool.id, currentBranchId || undefined);
+            setTeachers((data || []).map((t: any) => ({
+                ...t,
+                avatarUrl: t.avatar_url || t.avatarUrl || 'https://i.pravatar.cc/150',
+                schoolGeneratedId: t.school_generated_id || t.schoolGeneratedId,
+                school_generated_id: t.school_generated_id
+            })));
         } catch (error) {
             console.error('Error fetching teachers:', error);
         } finally {

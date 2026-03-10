@@ -83,7 +83,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
 
         return {
           ...student,
-          avatarUrl: student.avatar_url || student.avatarUrl, // Handle both naming conventions
+          avatarUrl: (student as any).avatar_url || student.avatarUrl, // Handle both naming conventions
           status: normalizedStatus,
           hasReport: !!latestReport,
           reportCards: studentReports.map(rc => ({
@@ -99,7 +99,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
       });
 
       console.log(`[Diagnostic] Mapping complete. ${studentsWithReportStatus.length} students processed.`);
-      setStudentsWithReports(studentsWithReportStatus as StudentReportInfo[]);
+      setStudentsWithReports(studentsWithReportStatus as unknown as StudentReportInfo[]);
     } catch (err) {
       console.error('Error fetching students with reports:', err);
     } finally {

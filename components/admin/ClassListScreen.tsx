@@ -23,7 +23,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
 
     const { data: classes = [], isLoading } = useQuery({
         queryKey,
-        queryFn: () => fetchClasses(schoolId, currentBranchId || undefined),
+        queryFn: () => api.getClasses(schoolId, currentBranchId || undefined),
         enabled: !!schoolId,
     });
 
@@ -61,6 +61,17 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
         onSuccessMessage: 'Class deleted',
     });
 
+    const initializeMutation = useOptimisticMutation({
+        queryKey,
+        mutationFn: async () => {
+            if (!schoolId) throw new Error("School ID is required");
+            await api.initializeStandardClasses(schoolId, currentBranchId);
+            return true;
+        },
+        updateFn: (old) => old, // Will be invalidated anyway
+        onSuccessMessage: 'Standard classes initialized!',
+    });
+
 
     const handleDeleteClass = async (id: string) => {
         if (window.confirm('Are you sure you want to delete this class? This may fail if there are enrolled students.')) {
@@ -87,7 +98,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
         if (!classStudents[classId] && !loadingStudents[classId]) {
             setLoadingStudents(prev => ({ ...prev, [classId]: true }));
             try {
-                const students = await fetchStudentsByClassId(classId);
+                const students = await api.getStudents(schoolId || '', currentBranchId || undefined, { classId });
                 setClassStudents(prev => ({ ...prev, [classId]: students }));
             } catch (error) {
                 console.error("Failed to load students for class", classId);
@@ -257,13 +268,25 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
                     <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
                         <BookOpenIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                         <h3 className="text-lg font-bold text-gray-800">No Classes Found</h3>
-                        <p className="text-gray-500 max-w-xs mx-auto mt-2">Start by adding your first class or use curriculum settings to auto-generate them.</p>
-                        <button
-                            onClick={() => navigateTo('classForm', 'Add New Class')}
-                            className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
-                        >
-                            Create Class Now
-                        </button>
+                        <p className="text-gray-500 max-w-xs mx-auto mt-2">Start by adding your first class or initialize the standard set for your school.</p>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
+                            <button
+                                onClick={() => navigateTo('classForm', 'Add New Class')}
+                                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all w-full sm:w-auto"
+                            >
+                                <PlusIcon className="w-4 h-4 inline mr-2" />
+                                Create Class Now
+                            </button>
+
+                            <button
+                                onClick={() => initializeMutation.mutate(undefined)}
+                                disabled={initializeMutation.isPending}
+                                className="px-6 py-3 bg-white border-2 border-indigo-600 text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-all w-full sm:w-auto disabled:opacity-50"
+                            >
+                                {initializeMutation.isPending ? 'Initializing...' : 'Use Standard Classes'}
+                            </button>
+                        </div>
                     </div>
                 )}
             </main>

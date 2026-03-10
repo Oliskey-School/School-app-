@@ -31,7 +31,7 @@ const MOCK_USERS = [
         email: 'demo_teacher@school.com',
         password: 'password123',
         role: 'teacher',
-        full_name: 'Demo Teacher',
+        full_name: 'Bisola Odupitan',
         school_id: DEMO_SCHOOL_ID
     },
     {

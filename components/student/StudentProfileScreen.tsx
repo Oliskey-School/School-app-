@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Award, TrendingUp, BookOpen, Download, FileText, Users, LogOut, Settings, Camera, ChevronRight, Bell, Shield, Book } from 'lucide-react'; // Using Lucide icons for consistency with Professional profile
 import { supabase } from '../../lib/supabase';
 import { Student } from '../../types';
-import { useProfile } from '../../context/ProfileContext';
-import { ExamIcon, LogoutIcon } from '../../constants'; // Keep custom icons where needed
+import { ExamIcon, LogoutIcon, SchoolIcon } from '../../constants'; // Keep custom icons where needed
+import { RefreshCw as RefreshIcon } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 interface StudentProfileScreenProps {
     studentId: number;
@@ -13,8 +15,23 @@ interface StudentProfileScreenProps {
 }
 
 export default function StudentProfileScreen({ studentId, student: initialStudent, onLogout, navigateTo }: StudentProfileScreenProps) {
+    const { memberships, switchSchool, currentSchool } = useAuth();
     const [student, setStudent] = useState<any>(initialStudent || null);
     const [loading, setLoading] = useState(false);
+    const [isSwitching, setIsSwitching] = useState(false);
+
+    const handleSwitchSchool = async (schoolId: string) => {
+        if (schoolId === currentSchool?.id) return;
+        setIsSwitching(true);
+        try {
+            await switchSchool(schoolId);
+            toast.success('Switched school successfully');
+        } catch (err) {
+            toast.error('Failed to switch school');
+        } finally {
+            setIsSwitching(false);
+        }
+    };
 
     useEffect(() => {
         if (!initialStudent && studentId) {
@@ -243,6 +260,46 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                                 />
                             </div>
                         </div>
+
+                        {/* School Switcher Section */}
+                        {memberships.length > 1 && (
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <SchoolIcon className="w-5 h-5 text-orange-600" />
+                                    Your Schools
+                                </h3>
+                                <div className="space-y-2">
+                                    {memberships.map((m) => (
+                                        <button
+                                            key={m.school_id}
+                                            onClick={() => handleSwitchSchool(m.school_id)}
+                                            disabled={isSwitching}
+                                            className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${m.school_id === currentSchool?.id
+                                                ? 'bg-orange-50 border border-orange-200'
+                                                : 'hover:bg-gray-50 border border-transparent'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3 text-left">
+                                                <div className={`p-2 rounded-lg ${m.school_id === currentSchool?.id ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
+                                                    <SchoolIcon className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <p className={`font-bold text-sm ${m.school_id === currentSchool?.id ? 'text-orange-700' : 'text-gray-700'}`}>
+                                                        {m.schools?.name || 'School'}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-500 capitalize">{m.role}</p>
+                                                </div>
+                                            </div>
+                                            {m.school_id === currentSchool?.id ? (
+                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                            ) : (
+                                                <RefreshIcon className={`w-3 h-3 text-gray-300 ${isSwitching ? 'animate-spin' : ''}`} />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Upcoming Events */}
                         <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl shadow-md p-6 text-white">

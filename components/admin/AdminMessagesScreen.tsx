@@ -3,6 +3,8 @@ import { Conversation } from '../../types';
 import ChatScreen from '../shared/ChatScreen';
 import { SearchIcon, PlusIcon, MessagesIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
+import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 const formatTimestamp = (isoDate: string): string => {
     if (!isoDate) return '';
@@ -28,6 +30,8 @@ interface AdminMessagesScreenProps {
 }
 
 const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat, onNewChat, navigateTo, currentUserId }) => {
+    const { profile } = useProfile();
+    const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState<'All' | 'Unread' | 'Groups' | 'Favourites'>('All');
 
@@ -51,11 +55,20 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
         const fetchConversations = async () => {
             setIsLoading(true);
             try {
+                const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+                const branchId = profile?.branch_id;
+
                 // Get IDs of conversations I'm in
-                const { data: participation, error: pError } = await supabase
+                let participationQuery = supabase
                     .from('conversation_participants')
                     .select('conversation_id')
                     .eq('user_id', currentUserId);
+
+                if (schoolId) participationQuery = participationQuery.eq('school_id', schoolId);
+                // branch_id on participants? Usually participants are tied to conversation which is tied to branch.
+                // Let's check conversation table instead for branch filtering.
+
+                const { data: participation, error: pError } = await participationQuery;
 
                 if (pError) throw pError;
 
@@ -68,7 +81,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                 }
 
                 // Fetch conversations details + participants to find the "other" person
-                const { data: convs, error: cError } = await supabase
+                let convsQuery = supabase
                     .from('conversations')
                     .select(`
                         *,
@@ -76,8 +89,12 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                             user:users(id, name, avatar_url, role)
                         )
                     `)
-                    .in('id', conversationIds)
-                    .order('last_message_at', { ascending: false });
+                    .in('id', conversationIds);
+
+                if (schoolId) convsQuery = convsQuery.eq('school_id', schoolId);
+                if (branchId && branchId !== 'all') convsQuery = convsQuery.eq('branch_id', branchId);
+
+                const { data: convs, error: cError } = await convsQuery.order('last_message_at', { ascending: false });
 
                 if (cError) throw cError;
 

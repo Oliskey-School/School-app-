@@ -1199,7 +1199,7 @@ DECLARE
     _memoized_id UUID;
 BEGIN
     -- Check JWT metadata first (Most efficient)
-    _school_id := (NULLIF(auth.jwt() -> 'user_metadata' ->> 'school_id', ''))::UUID;
+    _school_id := (NULLIF(auth.jwt() -> 'app_metadata' ->> 'school_id', ''))::UUID;
     
     IF _school_id IS NOT NULL THEN
         RETURN _school_id;

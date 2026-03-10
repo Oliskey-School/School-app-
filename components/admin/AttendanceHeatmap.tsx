@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { Calendar, Download, Filter, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface HeatmapData {
@@ -25,6 +27,7 @@ interface AttendanceHeatmapProps {
 }
 
 const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({ schoolId }) => {
+    const { currentBranchId } = useAuth();
     const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
     const [selectedClass, setSelectedClass] = useState<number | 'all'>('all');
@@ -49,14 +52,8 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({ schoolId }) => {
     const fetchClasses = async () => {
         if (!schoolId) return;
         try {
-            const { data, error } = await supabase
-                .from('classes')
-                .select('id, class_name')
-                .eq('school_id', schoolId)
-                .order('class_name');
-
-            if (error) throw error;
-            setClasses(data || []);
+            const data = await api.getClasses(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
+            setClasses(data.map((c: any) => ({ id: c.id, class_name: c.name })) || []);
         } catch (error: any) {
             console.error('Error fetching classes:', error);
         }

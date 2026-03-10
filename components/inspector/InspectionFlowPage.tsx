@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 import {
     ClipboardCheck,
     Image as ImageIcon,
@@ -43,10 +45,10 @@ const InspectionFlowPage = () => {
             return;
         }
         setLoading(true);
-        
+
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            
+
             const { data, error } = await supabase.from('inspections').insert([{
                 school_id: currentSchool.id,
                 inspector_id: user?.id,
@@ -57,7 +59,7 @@ const InspectionFlowPage = () => {
             if (data) {
                 setInspectionId(data.id);
                 setStatus('In Progress');
-                
+
                 // Create initial checklist items in DB
                 const defaultItemTexts = [
                     { category: 'Facilities', text: 'Adequate classroom lighting and ventilation' },
@@ -90,7 +92,7 @@ const InspectionFlowPage = () => {
     const toggleCompliance = async (index: number) => {
         const item = items[index];
         const newCompliantStatus = !item.is_compliant;
-        
+
         try {
             const { error } = await supabase
                 .from('inspection_items')
@@ -114,7 +116,7 @@ const InspectionFlowPage = () => {
                 .from('inspection_items')
                 .update({ comments: comment })
                 .eq('id', item.id);
-            
+
             const newItems = [...items];
             newItems[index].comments = comment;
             setItems(newItems);

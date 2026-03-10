@@ -2,6 +2,7 @@ import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TrashIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ClipboardListIcon, UserIcon } from '../../constants';
+import { api } from '../../lib/api';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface ManagePermissionSlipsScreenProps {
@@ -33,12 +34,12 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
 
     const fetchClasses = async () => {
         if (!schoolId) return;
-        const { data } = await supabase
-            .from('classes')
-            .select('*')
-            .eq('school_id', schoolId)
-            .order('id');
-        setClasses(data || []);
+        try {
+            const data = await api.getClasses(schoolId);
+            setClasses(data || []);
+        } catch (err) {
+            console.error('Error fetching classes:', err);
+        }
     };
 
     const fetchRecentSlips = async () => {
@@ -72,22 +73,18 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
             const selectedClass = classes.find(c => c.id === newItem.selectedClassId);
             if (!selectedClass) throw new Error("Class not found");
 
-            // 2. Fetch students
-            let studentQuery = supabase
-                .from('students')
-                .select('id')
-                .eq('school_id', schoolId)
-                .eq('grade', selectedClass.grade);
+            // 2. Fetch students via API (demo mode compatible)
+            const allStudents = await api.getStudents(schoolId!, undefined, { includeUntagged: true });
+            const students = (allStudents || []).filter((s: any) => {
+                const sGrade = s.grade;
+                const sSection = s.section;
+                if (sGrade !== selectedClass.grade) return false;
+                if (selectedClass.section && selectedClass.section !== 'null' && selectedClass.section !== '') {
+                    return sSection === selectedClass.section;
+                }
+                return !sSection;
+            });
 
-            if (selectedClass.section && selectedClass.section !== 'null' && selectedClass.section !== '') {
-                studentQuery = studentQuery.eq('section', selectedClass.section);
-            } else {
-                studentQuery = studentQuery.is('section', null);
-            }
-
-            const { data: students, error: studentError } = await studentQuery;
-
-            if (studentError) throw studentError;
             if (!students || students.length === 0) {
                 toast.error('No students found in this class.');
                 setIsSubmitting(false);

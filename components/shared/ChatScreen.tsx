@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { SendIcon, PaperclipIcon, HappyIcon, DotsVerticalIcon, SearchIcon, ChevronLeftIcon, CheckCircleIcon } from '../../constants';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 import CenteredLoader from '../ui/CenteredLoader';
 
 interface ChatScreenProps {
@@ -26,6 +27,7 @@ const THEME_STYLES = {
 
 const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, roomDetails, currentUserId, themeColor = 'indigo', hideHeader = false }) => {
     const { user } = useAuth();
+    const { profile } = useProfile();
     const theme = THEME_STYLES[themeColor] || THEME_STYLES.indigo;
 
     // Resolve conversation ID: explicit prop > conversation object > null
@@ -56,9 +58,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
     // 1. Fetch Conversation List
     useEffect(() => {
         const fetchConversations = async () => {
-            if (!currentUserId) return;
+            if (!currentUserId || !user) return;
 
-            // This is a simplified fetch - ideally you join with 'users' to get the other participant's name
+            const schoolId = user.user_metadata?.school_id || user.app_metadata?.school_id;
+            const branchId = profile?.branch_id;
             // For MVP, assuming 'conversations' table has some metadata or we fetch participants
             try {
                 // Fetch conversations where I am a participant
@@ -66,10 +69,14 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                 // Fallback: Fetch all for demo or use a known RPC/query if available.
                 // Let's assume we fetch from 'conversations' table directly for now.
 
-                const { data, error } = await supabase
+                let query = supabase
                     .from('conversations')
-                    .select('*')
-                    .order('last_message_at', { ascending: false });
+                    .select('*');
+
+                if (schoolId) query = query.eq('school_id', schoolId);
+                if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
+
+                const { data, error } = await query.order('last_message_at', { ascending: false });
 
                 if (data) {
                     // Filter or Map to display format
@@ -225,7 +232,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                     sender_id: effectiveUserId,
                     content: text,
                     type: 'text',
-                    school_id: user?.user_metadata?.school_id // Use user_metadata for school_id
+                    school_id: user?.user_metadata?.school_id || user?.app_metadata?.school_id,
+                    branch_id: profile?.branch_id
                 });
                 if (error) throw error;
             }
@@ -261,7 +269,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                     content: file.name,
                     type: attachment.type,
                     media_url: publicUrl,
-                    school_id: user?.user_metadata?.school_id
+                    school_id: user?.user_metadata?.school_id || user?.app_metadata?.school_id,
+                    branch_id: profile?.branch_id
                 });
 
                 if (msgError) console.error("Error saving message record:", msgError);

@@ -155,6 +155,14 @@ export const educationalGamesData: EducationalGame[] = [
   },
   {
     level: 'Junior Secondary (12-14 years)',
+    subject: 'Literacy',
+    gameName: 'Vocabulary Ninja',
+    howToPlay: 'Slice through the words! Only tap the correct category words like Action Verbs or Adjectives.',
+    learningGoal: 'Fast-paced vocabulary categorization and part-of-speech recognition.',
+    mode: 'Online'
+  },
+  {
+    level: 'Junior Secondary (12-14 years)',
     subject: 'Science',
     gameName: 'Virtual Science Lab',
     howToPlay: 'Mix chemicals safely in a virtual environment to observe reactions.',

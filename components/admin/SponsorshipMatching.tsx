@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Heart, User, TrendingUp, MessageCircle, CheckCircle } from 'lucide-react';
 
@@ -35,6 +37,7 @@ interface Sponsorship {
 }
 
 const SponsorshipMatching: React.FC = () => {
+    const { currentSchool, currentBranchId } = useAuth();
     const [requests, setRequests] = useState<SponsorshipRequest[]>([]);
     const [activeSponsorships, setActiveSponsorships] = useState<Sponsorship[]>([]);
     const [activeTab, setActiveTab] = useState<'requests' | 'active' | 'create'>('requests');
@@ -98,15 +101,16 @@ const SponsorshipMatching: React.FC = () => {
 
     const fetchStudents = async () => {
         try {
-            const { data, error } = await supabase
-                .from('students')
-                .select('id, name, class')
-                .order('name', { ascending: true });
-
-            if (error) throw error;
-            setStudents(data || []);
-            if (data && data.length > 0) {
-                setSelectedStudentId(data[0].id);
+            if (!currentSchool?.id) return;
+            const data = await api.getStudents(currentSchool.id, currentBranchId || undefined, { includeUntagged: true });
+            const mapped = (data || []).map((s: any) => ({
+                id: s.id,
+                name: s.name,
+                class: s.grade ? `Grade ${s.grade}${s.section || ''}` : ''
+            }));
+            setStudents(mapped);
+            if (mapped.length > 0) {
+                setSelectedStudentId(mapped[0].id);
             }
         } catch (error: any) {
             console.error('Error fetching students:', error);

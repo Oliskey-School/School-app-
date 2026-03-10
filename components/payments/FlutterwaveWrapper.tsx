@@ -23,7 +23,7 @@ interface FlutterwaveWrapperProps {
 // Declare FlutterwaveCheckout type for TypeScript
 declare global {
     interface Window {
-        FlutterwaveCheckout: any;
+        FlutterwaveCheckout: (options: any) => void;
     }
 }
 

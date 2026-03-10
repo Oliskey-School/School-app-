@@ -146,6 +146,12 @@ BEGIN
         WHEN v_role = 'student' THEN 'STU'
         WHEN v_role = 'parent' THEN 'PAR'
         WHEN v_role = 'admin' THEN 'ADM'
+        WHEN v_role = 'superadmin' THEN 'SADM'
+        WHEN v_role = 'proprietor' THEN 'PRO'
+        WHEN v_role = 'inspector' THEN 'INS'
+        WHEN v_role = 'examofficer' THEN 'EXM'
+        WHEN v_role = 'complianceofficer' THEN 'CMP'
+        WHEN v_role = 'counselor' THEN 'CNS'
         ELSE 'USR'
     END;
 

@@ -1,8 +1,13 @@
 import { supabase } from '../config/supabase';
 
 export class QuizService {
-    static async getQuizzes(schoolId: string, filterStr?: string) {
-        let query = supabase.from('quizzes').select('*').eq('school_id', schoolId).order('created_at', { ascending: false });
+    static async getQuizzes(schoolId: string, branchId: string | undefined, filterStr?: string) {
+        let query = supabase.from('quizzes').select('*').eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
         if (filterStr) {
             try {
                 const filters = JSON.parse(filterStr);
@@ -13,16 +18,21 @@ export class QuizService {
                 // Ignore parse errors
             }
         }
-        const { data, error } = await query;
+        const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw new Error(error.message);
         return data || [];
     }
 
-    static async createQuizWithQuestions(schoolId: string, payload: { quiz: any, questions: any[] }) {
+    static async createQuizWithQuestions(schoolId: string, branchId: string | undefined, payload: { quiz: any, questions: any[] }) {
         // 1. Create Quiz
+        const quizInsert = { ...payload.quiz, school_id: schoolId };
+        if (branchId && branchId !== 'all') {
+            quizInsert.branch_id = branchId;
+        }
+
         const { data: quizData, error: quizError } = await supabase
             .from('quizzes')
-            .insert([{ ...payload.quiz, school_id: schoolId }])
+            .insert([quizInsert])
             .select()
             .single();
 
@@ -30,11 +40,17 @@ export class QuizService {
 
         // 2. Insert Questions if any
         if (payload.questions && payload.questions.length > 0) {
-            const questionsPayload = payload.questions.map(q => ({
-                ...q,
-                quiz_id: quizData.id,
-                school_id: schoolId
-            }));
+            const questionsPayload = payload.questions.map(q => {
+                const qInsert = {
+                    ...q,
+                    quiz_id: quizData.id,
+                    school_id: schoolId
+                };
+                if (branchId && branchId !== 'all') {
+                    qInsert.branch_id = branchId;
+                }
+                return qInsert;
+            });
 
             const { error: qError } = await supabase
                 .from('quiz_questions')
@@ -50,12 +66,18 @@ export class QuizService {
         return quizData;
     }
 
-    static async updateQuizStatus(schoolId: string, id: string, isPublished: boolean) {
-        const { data, error } = await supabase
+    static async updateQuizStatus(schoolId: string, branchId: string | undefined, id: string, isPublished: boolean) {
+        let query = supabase
             .from('quizzes')
             .update({ is_published: isPublished })
             .eq('id', id)
-            .eq('school_id', schoolId)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query
             .select()
             .single();
 
@@ -63,20 +85,26 @@ export class QuizService {
         return data;
     }
 
-    static async submitQuizResult(schoolId: string, payload: any) {
+    static async submitQuizResult(schoolId: string, branchId: string | undefined, payload: any) {
+        const insertData: any = {
+            quiz_id: payload.quiz_id,
+            student_id: payload.student_id,
+            school_id: schoolId,
+            score: payload.score,
+            total_questions: payload.total_questions,
+            answers: payload.answers,
+            focus_violations: payload.focus_violations || 0,
+            status: payload.status || 'graded',
+            submitted_at: payload.submitted_at || new Date().toISOString()
+        };
+
+        if (branchId && branchId !== 'all') {
+            insertData.branch_id = branchId;
+        }
+
         const { data, error } = await supabase
             .from('quiz_submissions')
-            .insert([{
-                quiz_id: payload.quiz_id,
-                student_id: payload.student_id,
-                school_id: schoolId,
-                score: payload.score,
-                total_questions: payload.total_questions,
-                answers: payload.answers,
-                focus_violations: payload.focus_violations || 0,
-                status: payload.status || 'graded',
-                submitted_at: payload.submitted_at || new Date().toISOString()
-            }])
+            .insert([insertData])
             .select()
             .single();
 
@@ -84,12 +112,18 @@ export class QuizService {
         return data;
     }
 
-    static async deleteQuiz(schoolId: string, id: string) {
-        const { error } = await supabase
+    static async deleteQuiz(schoolId: string, branchId: string | undefined, id: string) {
+        let query = supabase
             .from('quizzes')
             .delete()
             .eq('id', id)
             .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { error } = await query;
 
         if (error) throw new Error(error.message);
         return true;

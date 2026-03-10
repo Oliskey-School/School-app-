@@ -5,6 +5,7 @@ import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { useAuth } from '../../context/AuthContext';
 
 import { toast } from 'react-hot-toast';
 
@@ -33,6 +34,7 @@ interface GradeEntryScreenProps {
 }
 
 const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
+    const { currentSchool } = useAuth();
     const [scores, setScores] = useState<{ [studentId: string | number]: string }>({});
     const [students, setStudents] = useState<Student[]>([]);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -59,13 +61,19 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
         }
 
         const fetchData = async () => {
+            if (!currentSchool?.id) return;
             setLoading(true);
             try {
                 // 1. Fetch Students
                 let studentQuery = supabase
                     .from('students')
                     .select('*')
+                    .eq('school_id', currentSchool.id)
                     .eq('grade', gradeSection.grade);
+
+                if (currentSchool.branch_id) {
+                    studentQuery = studentQuery.eq('branch_id', currentSchool.branch_id);
+                }
 
                 if (gradeSection.section && gradeSection.section !== 'null' && gradeSection.section !== '') {
                     studentQuery = studentQuery.eq('section', gradeSection.section);
@@ -86,7 +94,14 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
                 // 2. Fetch Existing Grades for this subject
                 const studentIds = loadedStudents.map(s => s.id);
                 if (studentIds.length > 0) {
-                    const gradesData = await api.getGrades(studentIds, exam.subject, 'First Term', { useBackend: true });
+                    const gradesData = await api.getGrades(
+                        studentIds,
+                        exam.subject,
+                        'First Term',
+                        currentSchool.id,
+                        currentSchool.branch_id,
+                        { useBackend: true }
+                    );
 
                     if (gradesData) {
                         const scoreMap: { [key: number]: string } = {};
@@ -117,6 +132,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
 
 
     const saveGrade = async (studentId: string | number, value: string) => {
+        if (!currentSchool?.id) return;
         const numericScore = parseInt(value, 10);
 
         await api.saveGrade({
@@ -125,7 +141,7 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
             score: numericScore,
             term: 'First Term',
             session: '2024/2025'
-        }, { useBackend: true });
+        }, currentSchool.id, currentSchool.branch_id, { useBackend: true });
 
         // console.log(`Saved score for student ${studentId}: ${value}`);
         setSaveStatus('saved');

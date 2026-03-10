@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ChartBarIcon, TrophyIcon, TrendingUpIcon, SUBJECT_COLORS, gradeColors } from '../../constants';
 // import { mockSubjectAverages, mockTopStudents, mockAttendanceCorrelation } from '../../data';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface SubjectAverage {
   subject: string;
@@ -53,7 +54,7 @@ const TopStudentsList: React.FC<{ students: TopStudent[] }> = ({ students }) => 
           {student.avatarUrl ? (
             <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
           ) : (
-            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-500">
               {/* Use a simple placeholder if UserIcon is not imported in this file scope's props, but ReportsScreen imports chart icons. 
                   Wait, reports screen imports chart icons. I need to make sure UserIcon is imported or available. 
                   Checking imports: `import { ChartBarIcon, TrophyIcon, TrendingUpIcon, SUBJECT_COLORS, gradeColors } from '../../constants';`
@@ -102,10 +103,10 @@ const AttendanceCorrelationChart: React.FC<{ data: AttendanceCorrelation[] }> = 
           )
         })}
         {/* Main line */}
-        <polyline fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={points} />
+        <polyline fill="none" stroke="#1d4ed8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={points} />
         {/* Data points */}
         {data.map((d, i) => (
-          <circle key={i} cx={padding + i * stepX} cy={height - padding - d.averageScore * stepY} r="3" fill="white" stroke="#4f46e5" strokeWidth="2" />
+          <circle key={i} cx={padding + i * stepX} cy={height - padding - d.averageScore * stepY} r="3" fill="white" stroke="#1d4ed8" strokeWidth="2" />
         ))}
       </svg>
       {/* X-axis labels */}
@@ -144,18 +145,16 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
         // We will fetch raw data and aggregate in JS for now (assuming dataset < 1000 records for prototype)
 
         let perfQuery = supabase.from('academic_performance').select('student_id, subject, score').eq('school_id', schoolId);
-        let studentQuery = supabase.from('students').select('id, name, grade, section, avatar_url').eq('school_id', schoolId);
 
         if (currentBranchId && currentBranchId !== 'all') {
           perfQuery = perfQuery.eq('branch_id', currentBranchId);
-          studentQuery = studentQuery.eq('branch_id', currentBranchId);
         }
 
         const { data: performanceData, error: perfError } = await perfQuery;
         if (perfError) throw perfError;
 
-        const { data: studentsData, error: studentError } = await studentQuery;
-        if (studentError) throw studentError;
+        // Use api.getStudents which works in demo mode via backend
+        const studentsData = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
 
         // 1. Calculate Subject Averages
         const subjectMap: { [key: string]: { total: number, count: number } } = {};
@@ -189,7 +188,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
             grade: student.grade,
             section: student.section,
             averageScore: avg,
-            avatarUrl: student.avatar_url
+            avatarUrl: (student as any).avatar_url
           };
         }).sort((a, b) => b.averageScore - a.averageScore).slice(0, 5); // Top 5
 
@@ -247,13 +246,13 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
           {error}
         </div>
       )}
-      {loading && <div className="p-8 text-center text-indigo-500 font-semibold animate-pulse">Generating reports...</div>}
+      {loading && <div className="p-8 text-center text-blue-500 font-semibold animate-pulse">Generating reports...</div>}
 
       {!loading && !error && (
         <>
           <div className="bg-white rounded-2xl shadow-sm p-4">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="bg-sky-100 text-sky-500 p-2 rounded-lg"><ChartBarIcon /></div>
+              <div className="bg-blue-100 text-blue-500 p-2 rounded-lg"><ChartBarIcon /></div>
               <h3 className="font-bold text-gray-800">Average Grades by Subject</h3>
             </div>
             {subjectAverages.length > 0 ? <SubjectGradesChart data={subjectAverages} /> : <p className="text-gray-400 text-sm">No academic data available</p>}
@@ -269,7 +268,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
 
           <div className="bg-white rounded-2xl shadow-sm p-4">
             <div className="flex items-center space-x-3 mb-2">
-              <div className="bg-indigo-100 text-indigo-500 p-2 rounded-lg"><TrendingUpIcon /></div>
+              <div className="bg-blue-100 text-blue-500 p-2 rounded-lg"><TrendingUpIcon /></div>
               <h3 className="font-bold text-gray-800">Attendance-Performance Trend</h3>
             </div>
           </div>

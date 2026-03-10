@@ -8,19 +8,28 @@ import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 interface ClassAssignmentsScreenProps {
     className: string;
     navigateTo: (view: string, title: string, props: any) => void;
+    schoolId: string;
+    currentBranchId?: string | null;
 }
 
-const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ className, navigateTo }) => {
+const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ className, navigateTo, schoolId, currentBranchId }) => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchAssignments = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('assignments')
                 .select('*')
                 .eq('class_name', className)
+                .eq('school_id', schoolId);
+
+            if (currentBranchId && currentBranchId !== 'all') {
+                query = query.eq('branch_id', currentBranchId);
+            }
+
+            const { data, error } = await query
                 .order('due_date', { ascending: false });
 
             if (error) throw error;

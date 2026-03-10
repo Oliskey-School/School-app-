@@ -79,14 +79,16 @@ export default function ComplianceOnboardingPage({
                 console.log('✅ Curriculum auto-saved');
             } else if (DOC_TYPE_MAP[field]) {
                 const docType = DOC_TYPE_MAP[field];
+                const branchId = (supabase as any).currentBranchId; // Assuming it's available or we need to pass it
                 await supabase
                     .from('school_documents')
                     .upsert({
                         school_id: schoolId,
+                        branch_id: branchId,
                         document_type: docType,
                         expiry_date: value,
                         verification_status: 'Pending'
-                    }, { onConflict: 'school_id,document_type' });
+                    }, { onConflict: 'school_id,document_type,branch_id' });
                 console.log(`✅ ${docType} expiry auto-saved`);
             }
         } catch (err) {
@@ -100,10 +102,16 @@ export default function ComplianceOnboardingPage({
             setFetching(true);
             try {
                 // Fetch Documents
-                const { data: docs, error } = await supabase
+                let query = supabase
                     .from('school_documents')
                     .select('*')
                     .eq('school_id', schoolId);
+
+                const branchId = (supabase as any).currentBranchId;
+                if (branchId && branchId !== 'all') {
+                    query = query.eq('branch_id', branchId);
+                }
+                const { data: docs, error } = await query;
 
                 if (error) throw error;
 
@@ -166,14 +174,14 @@ export default function ComplianceOnboardingPage({
 
     const handleFileChange = async (field: keyof DocumentData, file: File | undefined) => {
         setFormData(prev => ({ ...prev, [field]: file }));
-        
+
         // Auto-upload file if selected
         if (file && schoolId) {
             try {
-                const folder = field.includes('Document') || field.includes('Approval') ? 'legal' : 
-                               field.includes('Cert') ? 'safety' : 
-                               field.includes('insurance') ? 'insurance' : 'building';
-                
+                const folder = field.includes('Document') || field.includes('Approval') ? 'legal' :
+                    field.includes('Cert') ? 'safety' :
+                        field.includes('insurance') ? 'insurance' : 'building';
+
                 const fileName = `${Date.now()}_${file.name}`;
                 const { data, error } = await supabase.storage
                     .from('school-compliance')
@@ -186,7 +194,7 @@ export default function ComplianceOnboardingPage({
                     .getPublicUrl(data.path);
 
                 const publicUrl = urlData.publicUrl;
-                
+
                 // Map file field to doc type for DB update
                 let docType = '';
                 if (field === 'cacDocument') docType = 'CAC';
@@ -205,7 +213,7 @@ export default function ComplianceOnboardingPage({
                             file_url: publicUrl,
                             verification_status: 'Pending'
                         }, { onConflict: 'school_id,document_type' });
-                    
+
                     console.log(`✅ ${docType} file uploaded and linked`);
                     toast({
                         title: 'File Uploaded',

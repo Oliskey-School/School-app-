@@ -142,7 +142,12 @@ import { generateLocalCurriculum } from '../../utils/lessonNoteGenerator';
 
 // --- MAIN COMPONENT ---
 
-const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; teacherId?: string | null; }> = ({ navigateTo, teacherId }) => {
+const LessonPlannerScreen: React.FC<{
+    navigateTo: (view: string, title: string, props?: any) => void;
+    teacherId?: string | null;
+    schoolId?: string;
+    currentBranchId?: string | null;
+}> = ({ navigateTo, teacherId, schoolId, currentBranchId }) => {
     const [subject, setSubject] = useState('');
     const [className, setClassName] = useState('');
     // ... (keep existing state)
@@ -184,11 +189,11 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
     const [term3Scheme, setTerm3Scheme] = useState<SchemeWeek[]>([{ week: 1, topic: '', subTopics: [] }]);
     const [isGenerating, setIsGenerating] = useState(false);
 
-    const effectiveTeacherId = teacherId || '2'; // Fallback to '2' only if no auth provided (dev mode)
+    const effectiveTeacherId = teacherId || '';
 
     const fetchHistory = useCallback(async () => {
         try {
-            const data = await api.getGeneratedResources(effectiveTeacherId);
+            const data = await api.getGeneratedResources(schoolId || '');
 
             const schemes: HistoryEntry[] = data
                 .filter(row => row.scheme_content)
@@ -214,7 +219,7 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
         } catch (error) {
             console.error("Error fetching history:", error);
         }
-    }, [effectiveTeacherId]);
+    }, [effectiveTeacherId, schoolId, currentBranchId]);
 
     useEffect(() => {
         fetchHistory();
@@ -242,8 +247,10 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
         };
 
         try {
-            await api.saveGeneratedResource({
+            await api.saveGeneratedResource(schoolId || '', {
                 teacher_id: effectiveTeacherId,
+                school_id: schoolId,
+                branch_id: currentBranchId,
                 subject,
                 class_name: className,
                 term: 'All', // Defaulting as we store all 3
@@ -305,8 +312,10 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
             });
 
             // Save to Database (same as AI path)
-            await api.saveGeneratedResource({
+            await api.saveGeneratedResource(schoolId || '', {
                 teacher_id: effectiveTeacherId,
+                school_id: schoolId,
+                branch_id: currentBranchId,
                 subject: resources.subject,
                 class_name: resources.className,
                 term: 'All',
@@ -321,7 +330,7 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
                 classId: selectedClassId,
                 teacherId: effectiveTeacherId
             };
-            
+
             toast.success("Resources generated locally using curriculum map!");
             navigateTo('lessonPlanDetail', `Local Plan: ${subject}`, { resources: resourcesWithIds });
         } catch (error) {
@@ -465,8 +474,10 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
             });
 
             // Save to Database logic (Hybrid API)
-            await api.saveGeneratedResource({
+            await api.saveGeneratedResource(schoolId || '', {
                 teacher_id: effectiveTeacherId,
+                school_id: schoolId,
+                branch_id: currentBranchId,
                 subject: resources.subject || subject,
                 class_name: resources.className || className,
                 term: 'All',
@@ -574,8 +585,8 @@ const LessonPlannerScreen: React.FC<{ navigateTo: (view: string, title: string, 
             <footer className="p-4 bg-white/80 backdrop-blur-sm border-t border-gray-200 space-y-3 sticky bottom-0">
                 <div className="grid grid-cols-2 gap-3">
                     <button type="button" onClick={handleSaveScheme} className="w-full py-2.5 px-4 text-sm font-medium text-gray-800 bg-gray-100 rounded-lg shadow-sm hover:bg-gray-200">Save Scheme</button>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         onClick={handleLocalGenerate}
                         disabled={isGenerating || !subject.trim() || !className.trim() || !hasSchemeContent}
                         className="w-full py-2.5 px-4 text-sm font-medium text-blue-800 bg-blue-50 border border-blue-200 rounded-lg shadow-sm hover:bg-blue-100 disabled:opacity-50"

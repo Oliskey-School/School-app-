@@ -391,7 +391,7 @@ const VirtualClassScreen: React.FC = () => {
                     audience: [`Grade ${cls.rawGrade}`],
                     related_id: session.id,
                     is_read: false
-                }, { useBackend: true });
+                } as any);
                 toast.success('Class session started live!');
             } catch (e: any) { toast.error('Failed to start session: ' + e.message); }
         }

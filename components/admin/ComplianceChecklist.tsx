@@ -17,11 +17,17 @@ const ComplianceChecklist = () => {
     const fetchChecks = async () => {
         if (!currentSchool) return;
         try {
-            const { data, error } = await supabase
-                .from('compliance_checks')
+            let query = supabase
+                .from('compliance_checklists')
                 .select('*')
-                .eq('school_id', currentSchool.id)
-                .order('last_run_at', { ascending: false });
+                .eq('school_id', currentSchool.id);
+
+            const branchId = (useAuth() as any).currentBranchId;
+            if (branchId && branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) throw error;
             setChecks(data || []);

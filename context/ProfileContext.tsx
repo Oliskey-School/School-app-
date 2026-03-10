@@ -46,6 +46,33 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
      * Uses the exact schema discovered via MCP
      */
     const fetchProfile = useCallback(async (userId: string) => {
+        if (!userId) {
+            setProfile(null);
+            return;
+        }
+
+        // Bypass backend fetch for Demo users to avoid 406 Not Acceptable errors
+        if (userId.startsWith('d3300') || authUser?.app_metadata?.is_demo || authUser?.user_metadata?.is_demo) {
+            console.log('🛡️ [Profile] Bypassing fetch for Demo user:', userId);
+            setProfile({
+                id: userId,
+                full_name: authUser?.user_metadata?.full_name || 'Demo User',
+                name: authUser?.user_metadata?.full_name || 'Demo User',
+                email: authUser?.email || '',
+                phone: null,
+                avatar_url: null,
+                role: authUser?.user_metadata?.role || 'admin',
+                school_id: authUser?.user_metadata?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+                branch_id: authUser?.user_metadata?.branch_id || '7601cbea-e1ba-49d6-b59b-412a584cb94f',
+                school_generated_id: 'DEMO_MAIN_ADM_001',
+                username: authUser?.user_metadata?.full_name || 'demo_user',
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            });
+            return;
+        }
+
         try {
             const { data, error } = await supabase
                 .from('profiles')

@@ -14,7 +14,7 @@ export class ParentService {
             .eq('school_id', schoolId);
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
         }
 
         const { data, error } = await query.order('name');
@@ -26,10 +26,16 @@ export class ParentService {
         }));
     }
 
-    static async createParent(schoolId: string, parentData: any) {
+    static async createParent(schoolId: string, branchId: string | undefined, parentData: any) {
+        const insertData = { ...parentData, school_id: schoolId };
+
+        if (branchId && branchId !== 'all') {
+            insertData.branch_id = branchId;
+        }
+
         const { data, error } = await supabase
             .from('parents')
-            .insert([{ ...parentData, school_id: schoolId }])
+            .insert([insertData])
             .select()
             .single();
 
@@ -37,8 +43,8 @@ export class ParentService {
         return data;
     }
 
-    static async getParentById(schoolId: string, id: string) {
-        const { data, error } = await supabase
+    static async getParentById(schoolId: string, branchId: string | undefined, id: string) {
+        let query = supabase
             .from('parents')
             .select(`
                 *,
@@ -48,8 +54,13 @@ export class ParentService {
                 )
             `)
             .eq('school_id', schoolId)
-            .eq('id', id)
-            .single();
+            .eq('id', id);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query.single();
 
         if (error) throw new Error(error.message);
         return {
@@ -58,12 +69,18 @@ export class ParentService {
         };
     }
 
-    static async updateParent(schoolId: string, id: string, updates: any) {
-        const { data, error } = await supabase
+    static async updateParent(schoolId: string, branchId: string | undefined, id: string, updates: any) {
+        let query = supabase
             .from('parents')
             .update(updates)
             .eq('id', id)
-            .eq('school_id', schoolId)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query
             .select()
             .single();
 
@@ -71,27 +88,52 @@ export class ParentService {
         return data;
     }
 
-    static async deleteParent(schoolId: string, id: string) {
-        const { error } = await supabase
+    static async deleteParent(schoolId: string, branchId: string | undefined, id: string) {
+        let query = supabase
             .from('parents')
             .delete()
             .eq('id', id)
             .eq('school_id', schoolId);
 
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { error } = await query;
+
         if (error) throw new Error(error.message);
         return true;
     }
 
-    static async getChildren(schoolId: string, parentUserId: string) {
-        // 1. Get student IDs from student_parent_links (user-id based) or direct link
-        const { data: relations } = await supabase
+    static async getChildren(schoolId: string, branchId: string | undefined, parentUserId: string) {
+        // 1. Resolve parent_id from user_id
+        const { data: parent } = await supabase
+            .from('parents')
+            .select('id')
+            .eq('user_id', parentUserId)
+            .eq('school_id', schoolId)
+            .single();
+
+        if (!parent) return [];
+
+        // 2. Get student IDs from parent_children bridge table
+        let query = supabase
             .from('parent_children')
             .select('student_id')
+            .eq('parent_id', parent.id)
             .eq('school_id', schoolId);
-        // In a real multi-tenant app, we'd filter by parent_id here.
-        // For now, let's assume we find students where user_id matches the parent link.
 
-        const { data: students, error } = await supabase
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data: relations, error: relError } = await query;
+        if (relError || !relations || relations.length === 0) return [];
+
+        const studentIds = relations.map(r => r.student_id);
+
+        // 3. Fetch the specific students
+        let studentQuery = supabase
             .from('students')
             .select(`
                 *,
@@ -99,22 +141,32 @@ export class ParentService {
                 behavior_records (*),
                 report_cards (*)
             `)
-            .eq('school_id', schoolId)
-            // This is a simplified fetch for the demo/connected test.
-            // In production, we'd join via parent_children table with proper auth.
-            .order('name');
+            .in('id', studentIds)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            studentQuery = studentQuery.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
+        const { data: students, error } = await studentQuery.order('name');
 
         if (error) throw new Error(error.message);
         return students || [];
     }
 
-    static async createAppointment(schoolId: string, appointmentData: any) {
+    static async createAppointment(schoolId: string, branchId: string | undefined, appointmentData: any) {
+        const insertData = {
+            ...appointmentData,
+            school_id: schoolId
+        };
+
+        if (branchId && branchId !== 'all') {
+            insertData.branch_id = branchId;
+        }
+
         const { data, error } = await supabase
             .from('appointments')
-            .insert([{
-                ...appointmentData,
-                school_id: schoolId
-            }])
+            .insert([insertData])
             .select()
             .single();
 
@@ -122,14 +174,20 @@ export class ParentService {
         return data;
     }
 
-    static async volunteerSignup(schoolId: string, signupData: any) {
+    static async volunteerSignup(schoolId: string, branchId: string | undefined, signupData: any) {
         // 1. Insert signup
+        const insertData = {
+            ...signupData,
+            school_id: schoolId
+        };
+
+        if (branchId && branchId !== 'all') {
+            insertData.branch_id = branchId;
+        }
+
         const { data, error } = await supabase
             .from('volunteer_signups')
-            .insert([{
-                ...signupData,
-                school_id: schoolId
-            }])
+            .insert([insertData])
             .select()
             .single();
 
@@ -138,15 +196,15 @@ export class ParentService {
         // 2. Increment slots_filled
         if (signupData.opportunity_id) {
             const { data: opp } = await supabase
-                .from('volunteer_opportunities')
+                .from('volunteering_opportunities')
                 .select('slots_filled')
                 .eq('id', signupData.opportunity_id)
                 .single();
 
             if (opp) {
                 await supabase
-                    .from('volunteer_opportunities')
-                    .update({ slots_filled: (opp.slots_filled || 0) + 1 })
+                    .from('volunteering_opportunities')
+                    .update({ slots_filled: ((opp as any).slots_filled || 0) + 1 })
                     .eq('id', signupData.opportunity_id);
             }
         }
@@ -154,11 +212,18 @@ export class ParentService {
         return data;
     }
 
-    static async markNotificationRead(notificationId: string | number) {
-        const { data, error } = await supabase
+    static async markNotificationRead(schoolId: string, branchId: string | undefined, notificationId: string | number) {
+        let query = supabase
             .from('notifications')
             .update({ is_read: true })
             .eq('id', notificationId)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query
             .select()
             .single();
 

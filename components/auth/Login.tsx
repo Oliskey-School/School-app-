@@ -4,14 +4,14 @@ import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 // import { useNavigate } from 'react-router-dom';
 import { generateCustomId } from '../../lib/id-generator';
-import { SchoolLogoIcon } from '../../constants';
+import { SchoolLogoIcon, THEME_CONFIG } from '../../constants';
 // Simple Eye Icons
 const EyeIcon = ({ size = 20 }: { size?: number }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
 const EyeOffIcon = ({ size = 20 }: { size?: number }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
 import SchoolSignup from './SchoolSignup';
 import { authenticateUser } from '../../lib/auth';
 
-import { MOCK_USERS, mockLogin } from '../../lib/mockAuth';
+import { MOCK_USERS, mockLogin, DEMO_ACCOUNTS, DEMO_ROLES_ORDER, DEMO_SCHOOL_ID, DEMO_BRANCH_ID } from '../../lib/mockAuth';
 
 const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool?: () => void }> = ({ onNavigateToSignup, onNavigateToCreateSchool }) => {
   const [view, setView] = useState<'login' | 'school_signup' | 'demo'>('login');
@@ -93,9 +93,11 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
             userId: mockResult.userId,
             email: email,
             userType: mockResult.role,
-            isDemo: true, // Mark as demo
+            isDemo: true,
+            schoolGeneratedId: (mockResult as any).schoolGeneratedId,
             school: {
-              id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', // Key to Oliskey logic
+              id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+              branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
               name: 'Oliskey Demo School',
               slug: 'demo',
               subscriptionStatus: 'active',
@@ -134,39 +136,39 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     setError('');
     setIsLoading(true);
 
-    // Use credentials from MOCK_USERS
-    // @ts-ignore
-    let mockUser = MOCK_USERS[roleKey];
+    // Use credentials from DEMO_ACCOUNTS
+    let mockAccount = DEMO_ACCOUNTS[roleKey];
 
-    if (!mockUser) {
+    if (!mockAccount) {
       setError(`Demo account not configured for ${roleKey}`);
       setIsLoading(false);
       return;
     }
 
-    // Fix for Admin Demo: Use the known working admin account
-    // This allows the Demo Button to actually work with RLS data
-    /* if (roleKey === 'admin') {
-      mockUser = {
-        ...mockUser,
-        email: 'user@school.com',
-        // Maintain other props if needed, but email is key for auth
-      };
-    } else */ if (roleKey === 'teacher') {
-      mockUser = {
-        ...mockUser,
-        email: 'john.smith@demo.com', // Real DB Teacher
-      };
+    // Map account to the structure needed for login
+    let mockUser = {
+      id: (MOCK_USERS[roleKey] || MOCK_USERS['admin']).id, // Fallback ID
+      email: mockAccount.email,
+      password: mockAccount.password,
+      role: mockAccount.role,
+      metadata: (MOCK_USERS[roleKey] || MOCK_USERS['admin']).metadata
+    };
+
+    // Role-specific email overrides if needed for Real Auth
+    if (roleKey === 'teacher') {
+      mockUser.email = 'john.smith@demo.com';
     } else if (roleKey === 'parent') {
-      mockUser = {
-        ...mockUser,
-        email: 'parent1@demo.com', // Real DB Parent
-      };
-    } else if (roleKey === 'student') {
-      mockUser = {
-        ...mockUser,
-        email: 'student1@demo.com', // Real DB Student
-      };
+      mockUser.email = 'parent1@demo.com';
+    } else if (roleKey === 'admin') {
+      mockUser.email = 'user@school.com';
+    } else if (roleKey === 'proprietor') {
+      mockUser.email = 'proprietor@demo.com';
+    } else if (roleKey === 'inspector') {
+      mockUser.email = 'inspector@demo.com';
+    } else if (roleKey === 'examofficer') {
+      mockUser.email = 'examofficer@demo.com';
+    } else if (roleKey === 'complianceofficer') {
+      mockUser.email = 'compliance@demo.com';
     }
 
     try {
@@ -197,7 +199,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
         const dashboardType = mapRoleToDashboard(mockUser.role);
         const DEMO_SCHOOL = {
           id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f', // Main Branch with 95 students
+          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
           name: 'Oliskey Demo School',
           slug: 'demo',
           subscriptionStatus: 'active',
@@ -209,18 +211,19 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           email: mockUser.email,
           userType: dashboardType,
           isDemo: true,
+          schoolGeneratedId: mockUser.metadata?.school_generated_id,
           school: DEMO_SCHOOL
         });
         return;
       }
 
-      if (data.session) {
+      if (authData?.session) {
         const dashboardType = mapRoleToDashboard(mockUser.role);
 
         // Fetch schoolGeneratedId from the relevant table based on role
         let schoolGeneratedId = undefined;
         try {
-          const userId = data.user.id;
+          const userId = authData.user?.id;
           let tableName = '';
 
           // Determine which table to query based on role
@@ -235,7 +238,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           }
 
           // Fetch the school_generated_id if we have a valid table
-          if (tableName) {
+          if (tableName && userId) {
             const { data: userData, error: fetchError } = await supabase
               .from(tableName)
               .select('school_generated_id')
@@ -252,7 +255,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
         const DEMO_SCHOOL = {
           id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f', // Main Branch with 95 students
+          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
           name: 'Oliskey Demo School',
           slug: 'demo',
           subscriptionStatus: 'active',
@@ -260,14 +263,14 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
         };
 
         await signIn(dashboardType, {
-          userId: data.user.id,
-          email: data.user.email!,
+          userId: authData.user!.id,
+          email: authData.user!.email!,
           userType: dashboardType,
           isDemo: true,
           schoolGeneratedId: schoolGeneratedId,
           school: DEMO_SCHOOL,
-          token: data.session.access_token, // Critical for RLS
-          refreshToken: data.session.refresh_token
+          token: authData.session.access_token, // Critical for RLS
+          refreshToken: authData.session.refresh_token
         });
       }
     } catch (err: any) {
@@ -282,59 +285,61 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     }
   };
 
-  // Demo View (Quick Logins)
+  // Demo View — centered role switcher
   if (view === 'demo') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#F8FAFC] p-4 sm:p-6 md:p-8">
-        <div className="w-full max-w-[440px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative p-6 sm:p-8 md:p-10">
-          <div className="flex flex-col items-center text-center mb-6 sm:mb-8">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mb-4 sm:mb-6">
-              <SchoolLogoIcon className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Welcome Back</h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">Sign in to your demo portal</p>
+      <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
+        {/* Centered Card */}
+        <div className="w-full max-w-[440px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8 flex flex-col items-center">
+
+          {/* Header */}
+          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 mb-6">
+            <SchoolLogoIcon className="w-8 h-8 text-white" />
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="absolute top-4 right-4 left-4 sm:left-auto max-w-none sm:max-w-[240px] bg-red-50 text-red-600 text-[10px] sm:text-xs p-3 rounded-lg border border-red-100 shadow-sm animate-fade-in z-50">
-              {error}
-            </div>
-          )}
+          <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
+          <p className="text-sm text-slate-500 mt-1 mb-8">Sign in to your demo portal</p>
 
-          {/* Interactive Quick Logins - Responsive Grid */}
-          <div className="grid grid-cols-2 xs:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
-            {Object.entries(MOCK_USERS).map(([key, user]) => {
-              const displayRole = key === 'examofficer' ? 'Exam Officer' : key === 'compliance' ? 'Compliance' : key.charAt(0).toUpperCase() + key.slice(1);
+          {/* Role Grid */}
+          <div className="grid grid-cols-2 gap-3 w-full">
+            {DEMO_ROLES_ORDER.map((key) => {
+              const account = DEMO_ACCOUNTS[key];
+              const isActive = false; // Not needed on login page
+
+              // Get color from theme config for consistency
+              const roleTheme = THEME_CONFIG[key as DashboardType] || { cardIconBg: 'bg-slate-50', iconColor: 'text-slate-600' };
+
               return (
                 <button
                   key={key}
+                  disabled={isLoading}
                   onClick={() => handleQuickLogin(key)}
-                  disabled={isLoading || ['proprietor', 'inspector', 'examofficer', 'compliance'].includes(key)}
-                  className={`flex items-center justify-center py-2 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-[10px] sm:text-xs transition-all active:scale-95 shadow-sm hover:shadow-md
-                    ${key === 'admin' ? 'bg-[#EBF5FF] text-[#1E40AF] hover:bg-blue-100' : ''}
-                    ${key === 'teacher' ? 'bg-[#F5F3FF] text-[#5B21B6] hover:bg-purple-100' : ''}
-                    ${key === 'parent' ? 'bg-[#F0FDF4] text-[#166534] hover:bg-green-100' : ''}
-                    ${key === 'student' ? 'bg-[#FFF7ED] text-[#9A3412] hover:bg-orange-100' : ''}
-                    ${key === 'oliskey' ? 'bg-indigo-700 text-white hover:bg-indigo-800' : ''}
-                    ${['proprietor', 'inspector', 'examofficer', 'compliance'].includes(key) ? 'bg-[#F1F5F9] text-[#475569]/50 opacity-60 grayscale cursor-not-allowed shadow-none' : ''}
-                `}
+                  className={`flex items-center justify-center px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${account.color} ${account.textColor}`}
                 >
-                  {displayRole}
+                  <span className="capitalize">{key === 'examofficer' ? 'Exam Officer' : key === 'complianceofficer' ? 'Compliance' : key}</span>
                 </button>
-              )
+              );
             })}
           </div>
 
-          <div className="mt-4 text-center border-t border-slate-100 pt-6">
-            <button onClick={() => setView('login')} className="text-xs sm:text-sm font-semibold text-sky-600 hover:text-sky-700 transition">
-              Back to School Sign In
-            </button>
-          </div>
+          {/* Footer Link */}
+          <button
+            type="button"
+            onClick={() => setView('login')}
+            className="mt-8 text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors"
+          >
+            Back to School Sign In
+          </button>
+
         </div>
+
+        {/* Loading Overlay */}
         {isLoading && (
-          <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-6 flex flex-col items-center gap-3 shadow-2xl">
+              <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-slate-600 text-sm font-medium">Entering demo...</p>
+            </div>
           </div>
         )}
       </div>
@@ -487,12 +492,15 @@ async function getMockSessionForRole(roleName: string): Promise<{ success: boole
   };
 }
 
-async function checkMockCredentials(email: string, pass: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string }> {
+async function checkMockCredentials(email: string, pass: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, schoolGeneratedId?: string }> {
   // 1. Simulating a DB lookup for mock users
   await new Promise(r => setTimeout(r, 500));
 
   // Use the synced MOCK_USERS list for consistency
-  const user = Object.values(MOCK_USERS).find(u => u.email.toLowerCase() === email.toLowerCase());
+  const user = Object.values(MOCK_USERS).find(u =>
+    u.email.toLowerCase() === email.toLowerCase() ||
+    (u.username && u.username.toLowerCase() === email.toLowerCase())
+  );
 
   if (user && user.password === pass) {
     console.log("Mock Credential Bypass Success for:", email);
@@ -500,7 +508,8 @@ async function checkMockCredentials(email: string, pass: string): Promise<{ succ
       success: true,
       role: user.role,
       dashboardType: mapRoleToDashboard(user.role),
-      userId: user.id
+      userId: user.id,
+      schoolGeneratedId: user.metadata?.school_generated_id
     };
   }
 

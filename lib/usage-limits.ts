@@ -6,6 +6,11 @@ import { SAAS_PRICING } from '../types-saas';
  * Users include Teachers, Parents, and Students (basically all profiles).
  */
 export async function checkUserLimit(schoolId: string): Promise<{ allowed: boolean, count: number, limit: number }> {
+    // 0. Bypass limits completely for demo mode
+    if (sessionStorage.getItem('is_demo_mode') === 'true') {
+        return { allowed: true, count: 0, limit: Infinity };
+    }
+
     // 1. Check if school has paid the setup fee
     const { data: school, error: schoolError } = await supabase
         .from('schools')

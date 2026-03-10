@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { DollarSign, TrendingUp, TrendingDown, PieChart, Calendar, Download, CreditCard } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
 
 interface FinancialSummary {
     period_type: string;
@@ -32,6 +33,7 @@ interface PaymentMethodBreakdown {
 const FinanceDashboard: React.FC = () => {
     const { currentSchool } = useAuth();
     const schoolId = currentSchool?.id;
+    const branchId = currentSchool?.branch_id;
 
     const [viewMode, setViewMode] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
     const [selectedPeriod, setSelectedPeriod] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
@@ -43,9 +45,7 @@ const FinanceDashboard: React.FC = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     useEffect(() => {
-        fetchFinancialData();
-        fetchPaymentMethods();
-        fetchFeeCollection();
+        fetchAnalytics();
         generateForecast();
     }, [viewMode, selectedPeriod, refreshTrigger]);
 
@@ -55,34 +55,21 @@ const FinanceDashboard: React.FC = () => {
         setRefreshTrigger(prev => prev + 1);
     });
 
-    const fetchFinancialData = async () => {
+    const fetchAnalytics = async () => {
         try {
             setLoading(true);
-            if (!schoolId) return;
-
-            // Calculate period dates based on view mode
             const { startDate, endDate } = calculatePeriodDates();
 
-            // Fetch or calculate financial summary
-            const { data: summaryData } = await supabase
-                .from('financial_summaries')
-                .select('*')
-                .eq('school_id', schoolId)
-                .eq('period_type', viewMode)
-                .gte('period_start', startDate)
-                .lte('period_end', endDate)
-                .single();
+            const data = await api.getFinancialAnalytics(viewMode, startDate, endDate, branchId || undefined);
 
-            if (summaryData) {
-                setFinancialData(summaryData);
-            } else {
-                // Calculate from raw data if summary doesn't exist
-                const calculated = await calculateFinancialSummary(startDate, endDate);
-                setFinancialData(calculated);
+            if (data) {
+                setFinancialData(data.summary);
+                setPaymentMethods(data.paymentMethods || []);
+                setFeeCollectionRate(data.feeCollection || { collected: 0, outstanding: 0, rate: 0 });
             }
-
         } catch (error: any) {
-            console.error('Error fetching financial data:', error);
+            console.error('Error fetching financial analytics:', error);
+            toast.error('Failed to load financial data');
         } finally {
             setLoading(false);
         }
@@ -106,128 +93,6 @@ const FinanceDashboard: React.FC = () => {
         }
 
         return { startDate, endDate };
-    };
-
-    const calculateFinancialSummary = async (startDate: string, endDate: string): Promise<FinancialSummary> => {
-        if (!schoolId) throw new Error("School Context Missing");
-
-        // Fetch payments (fees)
-        const { data: payments } = await supabase
-            .from('payments')
-            .select('amount, payment_method')
-            .eq('school_id', schoolId)
-            .gte('payment_date', startDate)
-            .lte('payment_date', endDate)
-            .eq('status', 'Completed');
-
-        const feeRevenue = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-
-        // Fetch donations
-        const { data: donations } = await supabase
-            .from('donations')
-            .select('amount')
-            .eq('school_id', schoolId)
-            .gte('donation_date', startDate)
-            .lte('donation_date', endDate)
-            .eq('status', 'Completed');
-
-        const donationRevenue = donations?.reduce((sum, d) => sum + d.amount, 0) || 0;
-
-        // Fetch salary payments
-        const { data: salaries } = await supabase
-            .from('salary_payments')
-            .select('amount_paid')
-            .eq('school_id', schoolId)
-            .gte('payment_date', startDate)
-            .lte('payment_date', endDate);
-
-        const salaryExpenses = salaries?.reduce((sum, s) => sum + s.amount_paid, 0) || 0;
-
-        const totalRevenue = feeRevenue + donationRevenue;
-        const totalExpenses = salaryExpenses;
-
-        return {
-            period_type: viewMode,
-            period_start: startDate,
-            period_end: endDate,
-            fee_revenue: feeRevenue,
-            donation_revenue: donationRevenue,
-            grant_revenue: 0,
-            other_revenue: 0,
-            total_revenue: totalRevenue,
-            salary_expenses: salaryExpenses,
-            operational_expenses: 0,
-            maintenance_expenses: 0,
-            other_expenses: 0,
-            total_expenses: totalExpenses,
-            net_income: totalRevenue - totalExpenses
-        };
-    };
-
-    const fetchPaymentMethods = async () => {
-        try {
-            if (!schoolId) return;
-            const { startDate, endDate } = calculatePeriodDates();
-
-            const { data: payments } = await supabase
-                .from('payments')
-                .select('payment_method, amount')
-                .eq('school_id', schoolId)
-                .gte('payment_date', startDate)
-                .lte('payment_date', endDate)
-                .eq('status', 'Completed');
-
-            if (payments) {
-                const methodMap: { [key: string]: { amount: number; count: number } } = {};
-                let totalAmount = 0;
-
-                payments.forEach(p => {
-                    const method = p.payment_method || 'Other';
-                    if (!methodMap[method]) {
-                        methodMap[method] = { amount: 0, count: 0 };
-                    }
-                    methodMap[method].amount += p.amount;
-                    methodMap[method].count += 1;
-                    totalAmount += p.amount;
-                });
-
-                const breakdown: PaymentMethodBreakdown[] = Object.entries(methodMap).map(([method, data]) => ({
-                    method,
-                    amount: data.amount,
-                    count: data.count,
-                    percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0
-                }));
-
-                setPaymentMethods(breakdown.sort((a, b) => b.amount - a.amount));
-            }
-        } catch (error: any) {
-            console.error('Error fetching payment methods:', error);
-        }
-    };
-
-    const fetchFeeCollection = async () => {
-        try {
-            if (!schoolId) return;
-            const { data: fees } = await supabase
-                .from('student_fees')
-                .select('total_fee, paid_amount')
-                .eq('school_id', schoolId);
-
-            if (fees) {
-                const totalFees = fees.reduce((sum, f) => sum + f.total_fee, 0);
-                const totalPaid = fees.reduce((sum, f) => sum + f.paid_amount, 0);
-                const outstanding = totalFees - totalPaid;
-                const rate = totalFees > 0 ? (totalPaid / totalFees) * 100 : 0;
-
-                setFeeCollectionRate({
-                    collected: totalPaid,
-                    outstanding,
-                    rate: Math.round(rate * 10) / 10
-                });
-            }
-        } catch (error: any) {
-            console.error('Error fetching fee collection:', error);
-        }
     };
 
     const generateForecast = () => {

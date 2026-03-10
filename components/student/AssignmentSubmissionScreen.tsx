@@ -36,7 +36,7 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
-  const { currentSchool, user } = useAuth(); // Need school_id and user_id for insert
+  const { currentSchool, user, currentBranchId } = useAuth(); // Need school_id, branch_id and user_id for insert
 
   // Load existing submission
   React.useEffect(() => {
@@ -98,15 +98,18 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
         submission_text: textAnswer,
         attachment_url: fileNames || (existingSubmission?.attachment_url),
         submitted_at: new Date().toISOString(),
-        // is_late: new Date() > new Date(assignment.dueDate), // 'is_late' not in schema, ignoring for now
         status: 'submitted',
-        school_id: currentSchool?.id
+        school_id: currentSchool?.id,
+        branch_id: currentBranchId,
       };
 
       if (!submissionPayload.school_id && !existingSubmission) {
         // Fallback if context missing
-        const { data: assignData } = await supabase.from('assignments').select('school_id').eq('id', assignment.id).single();
-        if (assignData) submissionPayload.school_id = assignData.school_id;
+        const { data: assignData } = await supabase.from('assignments').select('school_id, branch_id').eq('id', assignment.id).single();
+        if (assignData) {
+          submissionPayload.school_id = assignData.school_id;
+          if (!submissionPayload.branch_id) submissionPayload.branch_id = assignData.branch_id;
+        }
       }
 
       // Upsert via Backend API (Bypass RLS)

@@ -4,8 +4,9 @@ import { SearchIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType, Teacher } from '../../types';
-import { fetchTeachers } from '../../lib/database';
+import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Pending' | 'Not Marked';
 
@@ -20,6 +21,7 @@ interface TeacherAttendanceScreenProps {
 }
 
 const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navigateTo }) => {
+    const { currentSchool, currentBranchId } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const theme = THEME_CONFIG[DashboardType.Admin];
     const [teachers, setTeachers] = useState<TeacherWithAttendance[]>([]);
@@ -28,17 +30,13 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
     const fetchTeacherData = async () => {
         setLoading(true);
         try {
+            if (!currentSchool?.id) return;
             // 1. Fetch all teachers
-            const allTeachers = await fetchTeachers();
+            const allTeachers = await api.getTeachers(currentSchool.id, currentBranchId || undefined);
 
             // 2. Fetch today's attendance records
             const today = new Date().toISOString().split('T')[0];
-            const { data: attendanceData, error } = await supabase
-                .from('teacher_attendance')
-                .select('*')
-                .eq('date', today);
-
-            if (error) throw error;
+            const attendanceData = await api.getTeacherAttendance(currentSchool.id, { date: today });
 
             // 3. Merge data
             const mergedData: TeacherWithAttendance[] = allTeachers.map(teacher => {

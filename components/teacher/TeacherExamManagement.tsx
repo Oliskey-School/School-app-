@@ -5,6 +5,7 @@ import { Exam } from '../../types';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import { useProfile } from '../../context/ProfileContext';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface TeacherExamManagementProps {
@@ -13,9 +14,11 @@ interface TeacherExamManagementProps {
     handleBack: () => void;
     schoolId: string;
     teacherId: string | null;
+    branchId?: string | null;
 }
 
-const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateTo, forceUpdate, handleBack, schoolId, teacherId }) => {
+const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateTo, forceUpdate, handleBack, schoolId, teacherId, branchId }) => {
+    const { profile } = useProfile();
     const [exams, setExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -25,12 +28,10 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
         if (!schoolId) return;
         setLoading(true);
         try {
-            const data = await api.getExams(schoolId);
-            const teacherExams = teacherId
-                ? data.filter((e: any) => e.teacher_id === teacherId)
-                : data;
+            const effectiveBranchId = branchId || profile?.branchId;
+            const data = await api.getExams(schoolId, effectiveBranchId || undefined, teacherId || undefined);
 
-            setExams(teacherExams.map((e: any) => ({
+            setExams(data.map((e: any) => ({
                 id: e.id,
                 subject: e.subject,
                 className: e.class_name,
@@ -48,7 +49,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
 
     useEffect(() => {
         fetchExams();
-    }, [schoolId, teacherId]);
+    }, [schoolId, teacherId, branchId, profile?.branchId]);
 
     // Auto-sync when exams change
     useAutoSync(['exams'], () => {
@@ -71,7 +72,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
         if (!examToDelete) return;
 
         try {
-            await api.deleteExam(examToDelete.id);
+            await api.deleteExam(examToDelete.id, schoolId, branchId || profile?.branchId || null);
             toast.success("Exam deleted successfully.");
             setExams(prev => prev.filter(e => e.id !== examToDelete.id));
             forceUpdate();
@@ -102,7 +103,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                 };
 
                 try {
-                    await api.updateExam(exam.id, payload);
+                    await api.updateExam(exam.id, schoolId, branchId || profile?.branchId || undefined, payload);
                     toast.success("Exam updated successfully");
                     fetchExams();
                     handleBack();
@@ -116,6 +117,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
     const handleAddNew = () => {
         navigateTo('addExam', 'Add New Exam', {
             onSave: async (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
+                const effectiveBranchId = branchId || profile?.branchId || null;
                 const payload = {
                     type: examData.type,
                     date: examData.date,
@@ -124,11 +126,12 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                     subject: examData.subject,
                     is_published: false,
                     teacher_id: teacherId,
-                    school_id: schoolId
+                    school_id: schoolId,
+                    branch_id: effectiveBranchId
                 };
 
                 try {
-                    await api.createExam(payload);
+                    await api.createExam(schoolId, branchId || profile?.branchId || undefined, payload);
                     toast.success("Exam created successfully");
                     fetchExams();
                     handleBack();
@@ -197,7 +200,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
 
             <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
                 <button
-                    onClick={() => navigateTo('examCreator', 'Setup New Exam')}
+                    onClick={handleAddNew}
                     className="p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 active:scale-95"
                 >
                     <PlusIcon className="h-6 w-6" />
@@ -216,4 +219,5 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
         </div>
     );
 };
+
 export default TeacherExamManagement;

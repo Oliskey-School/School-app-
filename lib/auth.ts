@@ -230,8 +230,52 @@ export const authenticateUser = async (
     };
 
   } catch (err: any) {
-    console.error('Error in authenticateUser:', err);
-    return { success: false, error: err.message || 'Network error during login' };
+    console.warn('Backend auth unavailable, trying direct Supabase auth...', err.message);
+
+    // FALLBACK: Try direct Supabase authentication when backend is unreachable
+    // This creates a real auth session so auth.uid() works for RLS
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: username,
+        password: password,
+      });
+
+      if (authError || !authData?.session) {
+        return { success: false, error: authError?.message || 'Invalid credentials' };
+      }
+
+      // Get user role from profile or metadata
+      const userMeta = authData.user.app_metadata || authData.user.user_metadata || {};
+      const role = userMeta.role || 'student';
+
+      // Fetch school_generated_id from profiles
+      let schoolGeneratedId: string | undefined;
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('school_generated_id, role')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        if (profileData) {
+          schoolGeneratedId = profileData.school_generated_id;
+        }
+      } catch (profileErr) {
+        console.warn('Could not fetch profile for school_generated_id:', profileErr);
+      }
+
+      return {
+        success: true,
+        userType: role.charAt(0).toUpperCase() + role.slice(1) as any,
+        userId: authData.user.id,
+        email: authData.user.email,
+        token: authData.session.access_token,
+        schoolGeneratedId,
+        userData: { school_id: userMeta.school_id }
+      };
+    } catch (supabaseErr: any) {
+      console.error('Supabase auth fallback also failed:', supabaseErr);
+      return { success: false, error: err.message || 'Network error during login' };
+    }
   }
 };
 

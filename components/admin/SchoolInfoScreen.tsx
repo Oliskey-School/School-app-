@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, BellIcon } from '../../constants';
 
 // Since we don't have a MusicIcon in constants, I'll use a fallback or add it if I could.
@@ -29,34 +30,29 @@ const SchoolInfoScreen: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    useEffect(() => {
-        fetchSchoolInfo();
-    }, []);
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
 
     useEffect(() => {
-        if (statusMessage) {
-            const timer = setTimeout(() => setStatusMessage(null), 3000);
-            return () => clearTimeout(timer);
+        if (schoolId) {
+            fetchSchoolInfo();
         }
-    }, [statusMessage]);
+    }, [schoolId]);
 
     const fetchSchoolInfo = async () => {
         try {
-            // Assuming a 'school_info' table exists with a single row or similar mechanism
-            // If not, we might need to create it or simulate it.
-            // For now, let's simulate fetching or try to fetch from a generic 'settings' table if it exists.
-            // I'll try to fetch from 'school_info' table.
-            const { data, error } = await supabase.from('school_info').select('*').single();
+            const { data, error } = await supabase
+                .from('school_info')
+                .select('*')
+                .eq('school_id', schoolId)
+                .maybeSingle();
 
-            if (error && error.code !== 'PGRST116') { // Ignore row not found
-                console.error('Error fetching info:', error);
-            }
-
+            if (error) throw error;
             if (data) {
                 setInfo(data);
             }
         } catch (err) {
-            console.error('Error:', err);
+            console.error('Error fetching info:', err);
         } finally {
             setLoading(false);
         }
@@ -64,22 +60,22 @@ const SchoolInfoScreen: React.FC = () => {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!schoolId) return;
         setIsSaving(true);
         setStatusMessage(null);
 
         try {
-            // Upsert the school info
-            // We assume ID 1 for the single school record
             const { error } = await supabase
                 .from('school_info')
-                .upsert({ id: 1, ...info });
+                .upsert({
+                    school_id: schoolId,
+                    ...info
+                }, { onConflict: 'school_id' });
 
             if (error) throw error;
             setStatusMessage({ type: 'success', text: 'School information updated!' });
         } catch (err) {
             console.error('Error saving:', err);
-            // If table doesn't exist, we might fail here. 
-            // In a real scenario we would ensure the table exists.
             setStatusMessage({ type: 'error', text: 'Failed to save information.' });
         } finally {
             setIsSaving(false);

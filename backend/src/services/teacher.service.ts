@@ -1,11 +1,20 @@
 import { supabase } from '../config/supabase';
+import { IdGeneratorService } from './idGenerator.service';
 
 export class TeacherService {
-    static async createTeacher(schoolId: string, data: any) {
-        const { name, email, phone, subjects, classes, avatar_url } = data;
+    static async createTeacher(schoolId: string, branchId: string | undefined, data: any) {
+        const { name, email, phone, subjects, classes, avatar_url, branch_id } = data;
+        const effectiveBranchId = branchId || branch_id;
 
-        // 1. Create Auth User (Optional step if managed elsewhere, but good for completeness)
-        // In a real app, you might want to check if user already exists
+        // 1. Generate standard school ID
+        let schoolGeneratedId: string | undefined;
+        if (effectiveBranchId) {
+            try {
+                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, effectiveBranchId, 'teacher');
+            } catch (idErr: any) {
+                console.warn('[TeacherService] Could not generate school ID:', idErr.message);
+            }
+        }
 
         // 2. Create Teacher Record
         const { data: teacher, error } = await supabase
@@ -16,6 +25,8 @@ export class TeacherService {
                 phone,
                 avatar_url,
                 school_id: schoolId,
+                branch_id: effectiveBranchId,
+                school_generated_id: schoolGeneratedId || null,
                 status: 'Active'
             }])
             .select()
@@ -35,6 +46,11 @@ export class TeacherService {
             await supabase.from('teacher_classes').insert(classInserts);
         }
 
+        // Sync school_generated_id to users table if this teacher has a linked user
+        if (teacher.user_id && schoolGeneratedId) {
+            await IdGeneratorService.syncToUsersTable(teacher.user_id, schoolGeneratedId);
+        }
+
         return teacher;
     }
 
@@ -45,33 +61,78 @@ export class TeacherService {
             .eq('school_id', schoolId);
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
         }
 
         const { data, error } = await query.order('name');
 
         if (error) throw new Error(error.message);
+
+        // DEMO MODE MOCK DATA INJECTION
+        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+        if (isDemoSchool && (!data || data.length === 0)) {
+            console.log('🛡️ [TeacherService] Injecting Demo Mock Teachers');
+            return [
+                { id: 't1', name: 'Robert Smith', email: 'robert@school.com', phone: '1234567890', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' },
+                { id: 't2', name: 'Sarah Wilson', email: 'sarah@school.com', phone: '0987654321', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' },
+                { id: 't3', name: 'Michael Chen', email: 'michael@school.com', phone: '5556667777', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' }
+            ];
+        }
+
         return data;
     }
 
-    static async getTeacherById(schoolId: string, id: string) {
-        const { data, error } = await supabase
+    static async getTeacherById(schoolId: string, branchId: string | undefined, id: string) {
+        let query = supabase
             .from('teachers')
-            .select('*')
+            .select(`
+                *,
+                class_teachers (
+                    class_id,
+                    subject_id,
+                    is_class_teacher,
+                    classes (id, name, grade, section, school_id, branch_id),
+                    subjects (id, name, school_id)
+                )
+            `)
             .eq('school_id', schoolId)
-            .eq('id', id)
-            .single();
+            .eq('id', id);
+
+        if (branchId && branchId !== 'all') {
+            // Be more permissive for demo data: match branch or match null
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (error) throw new Error(error.message);
+
+        // DEMO MODE MOCK DATA INJECTION
+        if (!data && id.toString().startsWith('t')) {
+            console.log(`🛡️ [TeacherService] Injecting Mock Data for teacher ID: ${id}`);
+            const mockTeachers: any = {
+                't1': { id: 't1', name: 'Robert Smith', email: 'robert@school.com', phone: '1234567890', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] },
+                't2': { id: 't2', name: 'Sarah Wilson', email: 'sarah@school.com', phone: '0987654321', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] },
+                't3': { id: 't3', name: 'Michael Chen', email: 'michael@school.com', phone: '5556667777', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] }
+            };
+            return mockTeachers[id.toString()] || null;
+        }
+
         return data;
     }
 
-    static async updateTeacher(schoolId: string, id: string, updates: any) {
-        const { data, error } = await supabase
+    static async updateTeacher(schoolId: string, branchId: string | undefined, id: string, updates: any) {
+        let query = supabase
             .from('teachers')
             .update(updates)
             .eq('school_id', schoolId)
-            .eq('id', id)
+            .eq('id', id);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query
             .select()
             .single();
 
@@ -79,24 +140,36 @@ export class TeacherService {
         return data;
     }
 
-    static async deleteTeacher(schoolId: string, id: string) {
-        const { error } = await supabase
+    static async deleteTeacher(schoolId: string, branchId: string | undefined, id: string) {
+        let query = supabase
             .from('teachers')
             .delete()
             .eq('school_id', schoolId)
             .eq('id', id);
 
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { error } = await query;
+
         if (error) throw new Error(error.message);
         return true;
     }
 
-    static async submitMyAttendance(schoolId: string, userId: string) {
+    static async submitMyAttendance(schoolId: string, branchId: string | undefined, userId: string) {
         // 1. Resolve teacher ID from user ID
-        const { data: teacher, error: tErr } = await supabase
+        let tQuery = supabase
             .from('teachers')
-            .select('id')
+            .select('id, branch_id')
             .eq('user_id', userId)
-            .single();
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            tQuery = tQuery.eq('branch_id', branchId);
+        }
+
+        const { data: teacher, error: tErr } = await tQuery.single();
 
         if (tErr || !teacher) throw new Error('Teacher record not found');
 
@@ -108,6 +181,7 @@ export class TeacherService {
             .insert({
                 teacher_id: teacher.id,
                 school_id: schoolId,
+                branch_id: branchId || (teacher as any).branch_id,
                 date,
                 status: 'present',
                 approval_status: 'pending',
@@ -120,12 +194,18 @@ export class TeacherService {
         return data;
     }
 
-    static async getMyAttendanceHistory(userId: string, limit: number = 30) {
-        const { data: teacher, error: tErr } = await supabase
+    static async getMyAttendanceHistory(schoolId: string, branchId: string | undefined, userId: string, limit: number = 30) {
+        let tQuery = supabase
             .from('teachers')
             .select('id')
             .eq('user_id', userId)
-            .single();
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            tQuery = tQuery.eq('branch_id', branchId);
+        }
+
+        const { data: teacher, error: tErr } = await tQuery.single();
 
         if (tErr || !teacher) throw new Error('Teacher record not found');
 
@@ -133,6 +213,7 @@ export class TeacherService {
             .from('teacher_attendance')
             .select('*')
             .eq('teacher_id', teacher.id)
+            .eq('school_id', schoolId)
             .order('date', { ascending: false })
             .limit(limit);
 

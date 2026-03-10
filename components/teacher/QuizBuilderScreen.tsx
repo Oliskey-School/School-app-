@@ -158,7 +158,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 };
             });
 
-            await api.createQuizWithQuestions({
+            await api.createQuizWithQuestions(schoolId, currentBranch?.id || undefined, {
                 quiz: quizPayload,
                 questions: formattedQuestions
             });

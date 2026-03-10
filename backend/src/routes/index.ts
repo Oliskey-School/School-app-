@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
+import onboardingRoutes from './onboarding.routes';
 import userRoutes from './user.routes';
 import schoolRoutes from './school.routes';
 import inviteRoutes from './invite.routes';
@@ -24,13 +25,23 @@ import quizRoutes from './quiz.routes';
 import virtualClassRoutes from './virtual-class.routes';
 import academicRoutes from './academic.routes';
 import resourceRoutes from './resource.routes';
+import externalExamRoutes from './externalExam.routes';
 import studentReportRoutes from './studentReport.routes';
 import aiRoutes from './ai.routes';
 import branchRoutes from './branch.routes';
+import subjectRoutes from './subject.routes';
+import mediaRoutes from './media.routes';
+import emergencyRoutes from './emergency.routes';
+import galleryRoutes from './gallery.routes';
+import calendarRoutes from './calendar.routes';
+import auditRoutes from './audit.routes';
+import governanceRoutes from './governance.routes';
+import healthRoutes from './health.routes';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/schools', onboardingRoutes);  // /api/schools/onboard — public signup
 router.use('/users', userRoutes);
 router.use('/schools', schoolRoutes);
 router.use('/students', studentRoutes);
@@ -39,6 +50,7 @@ router.use('/fees', feeRoutes);
 router.use('/buses', busRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/classes', classRoutes);
+router.use('/subjects', subjectRoutes);
 router.use('/parents', parentRoutes);
 router.use('/notices', noticeRoutes);
 router.use('/attendance', attendanceRoutes);
@@ -52,11 +64,19 @@ router.use('/forum', forumRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/timetable', timetableRoutes);
 router.use('/virtual-classes', virtualClassRoutes);
-router.use('/academic-performance', academicRoutes);
+router.use('/academic', academicRoutes);
+router.use('/external-exams', externalExamRoutes);
 router.use('/resources', resourceRoutes);
 router.use('/student-reports', studentReportRoutes);
 router.use('/ai', aiRoutes);
 router.use('/branches', branchRoutes);
+router.use('/media', mediaRoutes);
+router.use('/emergency', emergencyRoutes);
+router.use('/gallery', galleryRoutes);
+router.use('/calendar', calendarRoutes);
+router.use('/audit-logs', auditRoutes);
+router.use('/governance', governanceRoutes);
+router.use('/health-logs', healthRoutes);
 
 router.use('/', inviteRoutes);
 

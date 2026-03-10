@@ -4,7 +4,7 @@ import * as Yup from 'yup';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { Fee } from '../../types';
-import { assignFee } from '../../lib/payments';
+import { api } from '../../lib/api';
 import { CheckCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import { PaymentPlanModal } from './PaymentPlanModal';
 import { useAuth } from '../../context/AuthContext';
@@ -21,31 +21,61 @@ const AssignFeeSchema = Yup.object().shape({
 interface AssignFeePageProps {
     handleBack: () => void;
     forceUpdate: () => void;
+    schoolId?: string;
+    currentBranchId?: string | null;
 }
 
-const AssignFeePage: React.FC<AssignFeePageProps> = ({ handleBack, forceUpdate }) => {
+const AssignFeePage: React.FC<AssignFeePageProps> = ({
+    handleBack,
+    forceUpdate,
+    schoolId: propSchoolId,
+    currentBranchId: propBranchId
+}) => {
     const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showPaymentPlanModal, setShowPaymentPlanModal] = useState(false);
     const [selectedFee, setSelectedFee] = useState<Fee | null>(null);
     const { profile } = useProfile();
-    const { currentSchool } = useAuth();
-    const schoolId = profile.schoolId || currentSchool?.id;
+    const { currentSchool, currentBranchId: authBranchId } = useAuth();
+
+    // Prioritize props from AdminDashboard, then local context
+    const schoolId = propSchoolId || profile?.school_id || profile?.schoolId || currentSchool?.id;
+    const branchId = propBranchId !== undefined ? propBranchId : authBranchId;
 
     useEffect(() => {
-        loadStudents();
-    }, [schoolId]);
+        console.log('[AssignFeePage] Context/Prop update:', {
+            propSchoolId,
+            profileSchoolId: profile?.school_id,
+            authSchoolId: currentSchool?.id,
+            resolvedSchoolId: schoolId,
+            propBranchId,
+            authBranchId,
+            resolvedBranchId: branchId
+        });
+        if (schoolId) {
+            loadStudents();
+        }
+    }, [schoolId, branchId]);
 
     const loadStudents = async () => {
-        if (!schoolId) return;
+        if (!schoolId) {
+            console.warn('[AssignFeePage] No schoolId found, skip loading students');
+            return;
+        }
         setLoading(true);
-        const { data, error } = await supabase
-            .from('students')
-            .select('id, name, grade, section')
-            .eq('school_id', schoolId);
-
-        if (data) setStudents(data);
-        setLoading(false);
+        try {
+            console.log(`[AssignFeePage] Calling api.getStudents with schoolId: ${schoolId}, branchId: ${branchId}`);
+            const data = await api.getStudents(schoolId, branchId || undefined, { includeUntagged: true });
+            console.log(`[AssignFeePage] Successfully loaded ${data?.length || 0} students`);
+            if (data) {
+                setStudents(data);
+            }
+        } catch (error) {
+            console.error('[AssignFeePage] Error loading students:', error);
+            toast.error('Failed to load students');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleAssign = async (values: any, { resetForm }: any) => {
@@ -54,7 +84,7 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({ handleBack, forceUpdate }
                 toast.error("School ID not found. Please ensure you are logged in correctly.");
                 return;
             }
-            const newFee = await assignFee({
+            const newFee = await api.createFee(schoolId, branchId || undefined, {
                 studentId: values.studentId,
                 title: values.title,
                 description: values.description,
@@ -62,7 +92,7 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({ handleBack, forceUpdate }
                 dueDate: values.dueDate,
                 type: 'Tuition',
                 curriculumType: values.curriculumType
-            }, schoolId);
+            });
 
             // Send fee assignment notification
             try {
@@ -169,7 +199,7 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({ handleBack, forceUpdate }
                                                         className={`w-full border rounded-xl p-3 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition-all ${errors.title && touched.title ? 'border-red-500' : 'border-gray-200'}`}
                                                         placeholder="e.g. 2nd Term Tuition"
                                                     />
-                                                                                                         {errors.title && touched.title && <div className="text-red-500 text-xs mt-1">{String(errors.title)}</div>}                                                </div>
+                                                    {errors.title && touched.title && <div className="text-red-500 text-xs mt-1">{String(errors.title)}</div>}                                                </div>
 
                                                 <div>
                                                     <label className="block text-sm font-semibold text-gray-700 mb-2">Amount (NGN)</label>
@@ -179,7 +209,7 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({ handleBack, forceUpdate }
                                                         className={`w-full border rounded-xl p-3 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition-all ${errors.amount && touched.amount ? 'border-red-500' : 'border-gray-200'}`}
                                                         placeholder="0.00"
                                                     />
-                                                                                                         {errors.amount && touched.amount && <div className="text-red-500 text-xs mt-1">{String(errors.amount)}</div>}                                                </div>
+                                                    {errors.amount && touched.amount && <div className="text-red-500 text-xs mt-1">{String(errors.amount)}</div>}                                                </div>
 
                                                 <div>
                                                     <label className="block text-sm font-semibold text-gray-700 mb-2">Due Date</label>
@@ -188,7 +218,7 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({ handleBack, forceUpdate }
                                                         type="date"
                                                         className={`w-full border rounded-xl p-3 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition-all ${errors.dueDate && touched.dueDate ? 'border-red-500' : 'border-gray-200'}`}
                                                     />
-                                                                                                         {errors.dueDate && touched.dueDate && <div className="text-red-500 text-xs mt-1">{String(errors.dueDate)}</div>}                                                </div>
+                                                    {errors.dueDate && touched.dueDate && <div className="text-red-500 text-xs mt-1">{String(errors.dueDate)}</div>}                                                </div>
 
                                                 <div className="md:col-span-2">
                                                     <label className="block text-sm font-semibold text-gray-700 mb-2">Curriculum Track</label>
@@ -202,7 +232,7 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({ handleBack, forceUpdate }
                                                         <option value="British">British Curriculum</option>
                                                         <option value="Dual">Dual Track (NGN/BRI)</option>
                                                     </Field>
-                                                                                                         {errors.curriculumType && touched.curriculumType && <div className="text-red-500 text-xs mt-1">{String(errors.curriculumType)}</div>}                                                </div>
+                                                    {errors.curriculumType && touched.curriculumType && <div className="text-red-500 text-xs mt-1">{String(errors.curriculumType)}</div>}                                                </div>
 
                                                 <div className="md:col-span-2">
                                                     <label className="block text-sm font-semibold text-gray-700 mb-2">Description (Optional)</label>

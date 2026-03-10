@@ -3,18 +3,22 @@ import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, MapPinIcon, UserIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 
 interface EmergencyAlert {
-    id: string; // Changed to string (UUID)
+    id: string;
     alert_type: string;
     title: string;
     message: string;
     severity: string;
-    sent_by: string; // Changed to string (UUID)
+    sent_by: string;
     location: string;
     sent_at: string;
     all_clear: boolean;
     target_audiences: string[];
+    response_time?: number;
+    notes?: string;
+    branch_id?: string;
 }
 
 const EmergencyAlert: React.FC = () => {
@@ -24,11 +28,14 @@ const EmergencyAlert: React.FC = () => {
     const [responseNotes, setResponseNotes] = useState('');
     const [loading, setLoading] = useState(true);
     const { currentSchool } = useAuth();
+    const { profile } = useProfile();
 
     useEffect(() => {
         if (!currentSchool) return;
 
         fetchAlerts();
+
+        const branchId = profile?.branch_id;
 
         // Real-time subscription for new alerts
         const subscription = supabase
@@ -39,6 +46,9 @@ const EmergencyAlert: React.FC = () => {
                 table: 'emergency_alerts',
                 filter: `school_id=eq.${currentSchool.id}`
             }, (payload) => {
+                const newRecord = payload.new as any;
+                if (branchId && branchId !== 'all' && newRecord.branch_id !== branchId) return;
+
                 fetchAlerts();
                 toast.error('🚨 NEW EMERGENCY ALERT!', { duration: 10000 });
                 // Play alert sound
@@ -56,11 +66,17 @@ const EmergencyAlert: React.FC = () => {
         try {
             setLoading(true);
 
+            const branchId = profile?.branch_id;
+
             let query = supabase
                 .from('emergency_alerts')
                 .select('*')
                 .eq('school_id', currentSchool.id)
                 .order('sent_at', { ascending: false });
+
+            if (branchId && branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            }
 
             if (filter === 'active') {
                 query = query.eq('all_clear', false);
@@ -86,7 +102,7 @@ const EmergencyAlert: React.FC = () => {
         audio.play().catch(() => { });
     };
 
-    const handleRespond = async (alertId: number) => {
+    const handleRespond = async (alertId: string) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -112,7 +128,7 @@ const EmergencyAlert: React.FC = () => {
         }
     };
 
-    const handleResolve = async (alertId: number) => {
+    const handleResolve = async (alertId: string) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;

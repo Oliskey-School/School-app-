@@ -3,7 +3,8 @@ import { PhoneIcon, BusVehicleIcon, ClockIcon, UsersIcon } from '../../constants
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
-import { MapPin, Navigation, Shield, Users } from 'lucide-react';
+import { api } from '../../lib/api';
+import { Navigation, Shield } from 'lucide-react';
 
 // The SVG path the bus will follow
 const ROUTE_PATH = 'M 50,420 C 100,350 140,280 200,250 S 300,180 320,130 S 280,60 220,50 C 160,40 120,80 100,130 S 130,220 180,250';
@@ -48,18 +49,12 @@ const BusRouteScreen: React.FC<BusRouteScreenProps> = ({ schoolId: propSchoolId 
   useEffect(() => {
     const loadBus = async () => {
       setLoading(true);
-      if (isSupabaseConfigured && schoolId) {
+      if (schoolId) {
         try {
-          const { data, error } = await supabase
-            .from('transport_buses')
-            .select('*')
-            .eq('school_id', schoolId)
-            .eq('status', 'active')
-            .order('name')
-            .limit(1)
-            .maybeSingle();
+          // Use Central API
+          const data = await api.getBusDetails(schoolId);
 
-          if (!error && data) {
+          if (data) {
             setBusData({
               name: data.name,
               routeName: data.route_name,

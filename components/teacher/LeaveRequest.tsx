@@ -14,6 +14,8 @@ import {
 interface LeaveRequestProps {
     navigateTo?: (view: string, title: string, props?: any) => void;
     teacherId: string; // Required prop from dashboard (UUID)
+    schoolId?: string;
+    currentBranchId?: string | null;
 }
 
 interface LeaveType {
@@ -31,13 +33,12 @@ interface RequestFormData {
     notes?: string;
 }
 
-const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId }) => {
+const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, currentBranchId }) => {
     const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
     const [myRequests, setMyRequests] = useState<any[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [schoolId, setSchoolId] = useState<string | null>(null);
 
     const [formData, setFormData] = useState<RequestFormData>({
         leave_type: '',
@@ -53,27 +54,17 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId }) => {
     }, [teacherId]);
 
     const initialize = async () => {
-        if (!teacherId) return;
+        if (!teacherId || !schoolId) return;
         try {
-            // First get the school_id for the teacher
-            const { data: teacher } = await supabase
-                .from('teachers')
-                .select('school_id')
-                .eq('id', teacherId)
-                .single();
-            
-            if (teacher?.school_id) {
-                setSchoolId(teacher.school_id);
-                await fetchMyRequests(teacherId);
-                const types = await fetchLeaveTypes(teacher.school_id);
-                
-                if (types && types.length > 0) {
-                    setFormData(prev => ({
-                        ...prev,
-                        leave_type: types[0].name,
-                        leave_type_id: types[0].id
-                    }));
-                }
+            await fetchMyRequests(teacherId);
+            const types = await fetchLeaveTypes(schoolId);
+
+            if (types && types.length > 0) {
+                setFormData(prev => ({
+                    ...prev,
+                    leave_type: types[0].name,
+                    leave_type_id: types[0].id
+                }));
             }
         } catch (error: any) {
             console.error('Error initializing:', error);
@@ -102,10 +93,15 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId }) => {
     };
 
     const fetchMyRequests = async (tId: string) => {
-        const { data, error } = await supabase
+        let query = supabase
             .from('leave_requests')
             .select('*')
-            .eq('teacher_id', tId)
+            .eq('teacher_id', tId);
+
+        if (schoolId) query = query.eq('school_id', schoolId);
+        if (currentBranchId && currentBranchId !== 'all') query = query.eq('branch_id', currentBranchId);
+
+        const { data, error } = await query
             .order('created_at', { ascending: false })
             .limit(10);
 
@@ -153,6 +149,7 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId }) => {
                 .insert({
                     teacher_id: teacherId,
                     school_id: schoolId,
+                    branch_id: currentBranchId || null,
                     leave_type_id: formData.leave_type_id,
                     leave_type: formData.leave_type, // Maintain name for reference
                     start_date: formData.start_date,
@@ -254,8 +251,8 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId }) => {
                                         value={formData.leave_type_id}
                                         onChange={(e) => {
                                             const selectedType = leaveTypes.find(t => t.id === e.target.value);
-                                            setFormData({ 
-                                                ...formData, 
+                                            setFormData({
+                                                ...formData,
                                                 leave_type_id: e.target.value,
                                                 leave_type: selectedType ? selectedType.name : ''
                                             });

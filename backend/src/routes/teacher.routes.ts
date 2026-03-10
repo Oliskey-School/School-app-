@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { createTeacher, getAllTeachers, getTeacherById, updateTeacher, deleteTeacher, submitMyAttendance, getMyHistory } from '../controllers/teacher.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { requirePlanCapacity } from '../middleware/plan.middleware';
 
 const router = Router();
 
-router.post('/', authenticate, createTeacher);
+router.post('/', authenticate, requirePlanCapacity('teacher'), createTeacher);
 router.get('/', authenticate, getAllTeachers);
 router.post('/me/attendance', authenticate, submitMyAttendance);
 router.get('/me/attendance', authenticate, getMyHistory);

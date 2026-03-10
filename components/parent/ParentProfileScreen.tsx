@@ -15,8 +15,11 @@ import {
   HelpingHandIcon,
   ClipboardListIcon,
   SettingsIcon,
-  ChevronLeftIcon
+  ChevronLeftIcon,
+  SchoolIcon
 } from '../../constants';
+import { RefreshCw as RefreshIcon } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { mockParents } from '../../data';
 import EditParentProfileScreen from './EditParentProfileScreen';
 import LearningResourcesScreen from './LearningResourcesScreen';
@@ -55,8 +58,23 @@ const SettingsPlaceholder: React.FC = () => (
 
 const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, navigateTo, forceUpdate, parentId }) => {
   const { profile } = useProfile();
+  const { memberships, switchSchool, currentSchool } = useAuth();
   const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
   const [activeSetting, setActiveSetting] = useState<SettingView>(null);
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  const handleSwitchSchool = async (schoolId: string) => {
+    if (schoolId === currentSchool?.id) return;
+    setIsSwitching(true);
+    try {
+      await switchSchool(schoolId);
+      toast.success('Switched school successfully');
+    } catch (err) {
+      toast.error('Failed to switch school');
+    } finally {
+      setIsSwitching(false);
+    }
+  };
 
   if (!profile) return <div className="p-8 text-center text-gray-500">Profile not found.</div>;
 
@@ -99,7 +117,7 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
       case 'permissionSlips': return <PermissionSlipScreen />;
       case 'feedback': return <FeedbackScreen forceUpdate={forceUpdate} />;
       case 'notificationSettings': return <ParentNotificationSettingsScreen />;
-      case 'securitySettings': return <ParentSecurityScreen />;
+      case 'securitySettings': return <ParentSecurityScreen navigateTo={navigateTo} />;
       default: return <SettingsPlaceholder />;
     }
   };
@@ -145,6 +163,46 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
               </button>
             ))}
           </div>
+
+          {/* School Switcher Section */}
+          {memberships.length > 1 && (
+            <div className="space-y-2">
+              <h4 className="px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Your Schools</h4>
+              <div className="bg-white rounded-xl shadow-sm p-2 space-y-1">
+                {memberships.map((m) => (
+                  <button
+                    key={m.school_id}
+                    onClick={() => handleSwitchSchool(m.school_id)}
+                    disabled={isSwitching}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all ${m.school_id === currentSchool?.id
+                      ? 'bg-purple-50 border border-purple-100'
+                      : 'hover:bg-gray-50 text-gray-600'
+                      }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${m.school_id === currentSchool?.id ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-400'}`}>
+                        <SchoolIcon className="h-4 w-4" />
+                      </div>
+                      <div className="text-left">
+                        <p className={`font-semibold text-sm ${m.school_id === currentSchool?.id ? 'text-purple-700' : 'text-gray-700'}`}>
+                          {m.schools?.name || 'School'}
+                        </p>
+                        <p className="text-[10px] text-gray-500 capitalize">{m.role}</p>
+                      </div>
+                    </div>
+                    {m.school_id === currentSchool?.id ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-[10px] font-bold text-green-600 uppercase">Active</span>
+                      </div>
+                    ) : (
+                      <RefreshIcon className={`w-3 h-3 text-gray-300 ${isSwitching ? 'animate-spin' : ''}`} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="p-4 bg-gray-50 border-t border-gray-200">
           <button onClick={onLogout} className="w-full flex items-center justify-center space-x-2 py-3 px-4 font-medium text-red-500 bg-white rounded-lg shadow-sm border hover:bg-red-50">

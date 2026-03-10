@@ -1,7 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { api } from '../../lib/api';
+import { PhoneIcon, BusVehicleIcon, ClockIcon, UsersIcon } from '../../constants';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Conversation } from '../../types';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 const formatTimestamp = (isoDate: string): string => {
     if (!isoDate) return '';
@@ -31,6 +35,8 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
     const [activeFilter, setActiveFilter] = useState<'All' | 'Unread'>('All');
     const [rooms, setRooms] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { profile } = useProfile();
+    const { user } = useAuth();
 
     // Responsive state
     const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
@@ -51,46 +57,26 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
 
         const fetchConversations = async () => {
             try {
-                // 1. Get IDs of conversations I'm in
-                const { data: participation, error: pError } = await supabase
-                    .from('conversation_participants')
-                    .select('conversation_id, last_read_message_id')
-                    .eq('user_id', myId);
+                const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+                const branchId = profile?.branch_id;
 
-                if (pError) throw pError;
+                const convs = await api.getConversations(myId, schoolId, branchId);
 
-                const conversationIds = participation?.map(p => p.conversation_id) || [];
-
-                if (conversationIds.length === 0) {
+                if (convs.length === 0) {
                     setRooms([]);
                     setLoading(false);
                     return;
                 }
 
-                // 2. Fetch conversations details + participants
-                const { data: convs, error: cError } = await supabase
-                    .from('conversations')
-                    .select(`
-                        *,
-                        participants:conversation_participants(
-                            user:users(id, name, avatar_url, role)
-                        )
-                    `)
-                    .in('id', conversationIds)
-                    .order('last_message_at', { ascending: false });
-
-                if (cError) throw cError;
-
-                // 3. Format for UI
-                const formattedRooms = convs?.map(c => {
+                // Format for UI
+                const formattedRooms = convs.map(c => {
                     // Find other participant for DM name/avatar
                     const otherPart = c.participants?.find((p: any) => p.user?.id !== myId)?.user;
                     // Or if self-chat or fallback
                     const displayUser = otherPart || c.participants?.[0]?.user;
 
-                    // Get last read ID
-                    const myPart = participation?.find(p => p.conversation_id === c.id);
-                    const lastReadId = myPart?.last_read_message_id || 0;
+                    // Get last read ID from the data returned by api.getConversations
+                    const lastReadId = c.last_read_message_id || 0;
 
                     return {
                         id: c.id,
@@ -99,10 +85,10 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
                         lastMessage: {
                             content: c.last_message_text || 'No messages yet',
                             created_at: c.last_message_at || c.created_at,
-                            sender_id: 0, // Not explicitly needed for list list view often
-                            id: 0 // Placeholder, unread count might need real message ID check
+                            sender_id: 0,
+                            id: 0
                         },
-                        unreadCount: 0, // Logic needs improved unread calculation via real queries if critical
+                        unreadCount: 0,
                         updated_at: c.last_message_at || c.created_at,
                         is_group: c.type === 'group',
                         lastReadMessageId: lastReadId,
@@ -110,7 +96,7 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
                         creatorId: c.creator_id,
                         type: c.type
                     };
-                }) || [];
+                });
 
                 setRooms(formattedRooms);
             } catch (err) {
@@ -122,7 +108,7 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
 
         fetchConversations();
 
-        // Realtime Subscriptions
+        // Realtime Subscriptions (Keep these as they are specific to the UI channel)
         const channel = supabase.channel(`parent_chat_list_${myId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
                 fetchConversations();

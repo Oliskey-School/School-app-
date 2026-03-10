@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { api } from './api';
 
 export interface TeacherAttendance {
     id: string;
@@ -78,23 +79,14 @@ export async function getTeacherAttendanceHistory(teacherId: string, limit: numb
 /**
  * Get pending attendance requests (for admin)
  */
-export async function getPendingAttendanceRequests() {
+export async function getPendingAttendanceRequests(schoolId?: string) {
     try {
-        const { data, error } = await supabase
-            .from('teacher_attendance')
-            .select(`
-        *,
-        teachers (
-          id,
-          name,
-          email,
-          avatar_url
-        )
-      `)
-            .eq('approval_status', 'pending')
-            .order('created_at', { ascending: false });
+        if (!schoolId) {
+            // Fallback for older calls, but schoolId is preferred
+            console.warn('getPendingAttendanceRequests called without schoolId');
+        }
 
-        if (error) throw error;
+        const data = await api.getTeacherAttendance(schoolId || '', { status: 'pending' });
         return { success: true, data };
     } catch (error: any) {
         console.error('Error fetching pending attendance requests:', error);

@@ -80,7 +80,8 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
                     file_name: messageData.fileName,
                     file_size: messageData.fileSize,
                     reply_to_id: messageData.replyToId,
-                    school_id: messageData.schoolId // Ensure school_id is passed for multi-tenancy
+                    school_id: messageData.schoolId,
+                    branch_id: (messageData as any).branchId // Ensure branch_id is passed for multi-tenancy
                 }])
                 .select()
                 .single();

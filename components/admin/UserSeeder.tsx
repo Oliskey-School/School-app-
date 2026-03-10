@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 
 const DEFAULTS = [
     { type: 'Admin', name: 'System Admin', email: 'admin@school.com', username: 'admin', password: 'admin123' },
-    { type: 'Teacher', name: 'John Teacher', email: 'teacher@school.com', username: 'teacher', password: 'teacher123' },
+    { type: 'Teacher', name: 'Bisola Odupitan', email: 'teacher@school.com', username: 'teacher', password: 'teacher123' },
     { type: 'Parent', name: 'Jane Parent', email: 'parent@school.com', username: 'parent', password: 'parent123' },
     { type: 'Student', name: 'Sam Student', email: 'student@school.com', username: 'student', password: 'student123' },
 ];

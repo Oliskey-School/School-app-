@@ -29,3 +29,76 @@ export const createUser = async (req: Request, res: Response) => {
         res.status(400).json({ message: error.message });
     }
 };
+
+export const resendVerification = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+        const result = await AuthService.resendVerification(email);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const confirmEmail = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.body;
+        const result = await AuthService.confirmEmail(userId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const updateEmail = async (req: Request, res: Response) => {
+    try {
+        const { userId, newEmail } = req.body;
+        const result = await AuthService.updateEmail(userId, newEmail);
+        res.json(result);
+    } catch (error: any) {
+        console.error('[AuthController] Update Email Error:', error);
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const updateUsername = async (req: Request, res: Response) => {
+    try {
+        const { userId, newUsername } = req.body;
+        const result = await AuthService.updateUsername(userId, newUsername);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const updatePassword = async (req: Request, res: Response) => {
+    try {
+        const { userId, newPassword } = req.body;
+        const result = await AuthService.updatePassword(userId, newPassword);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const getMemberships = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) throw new Error('userId is required');
+        const memberships = await AuthService.getMemberships(userId as string);
+        res.json(memberships);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const switchSchool = async (req: Request, res: Response) => {
+    try {
+        const { userId, schoolId } = req.body;
+        if (!userId || !schoolId) throw new Error('userId and schoolId are required');
+        const result = await AuthService.switchSchool(userId, schoolId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};

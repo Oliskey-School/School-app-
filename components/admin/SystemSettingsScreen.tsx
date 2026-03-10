@@ -16,7 +16,7 @@ const settingsCategories = [
   { view: 'examManagement', title: 'Exam Management', description: 'Manage exams and results.', icon: <DocumentTextIcon />, color: 'text-rose-500 bg-rose-100' },
   { view: 'communicationHub', title: 'Communication Hub', description: 'Broadcast messages and announcements.', icon: <MegaphoneIcon />, color: 'text-amber-500 bg-amber-100' },
   { view: 'userRoles', title: 'User Roles & Permissions', description: 'Define roles and control access.', icon: <ShieldCheckIcon />, color: 'text-slate-500 bg-slate-100' },
-  { view: 'academicSettings', title: 'Academic Configuration', description: 'Set calendar, grading, and courses.', icon: <CalendarIcon />, color: 'text-sky-500 bg-sky-100' },
+  { view: 'academicSettings', title: 'Academic Configuration', description: 'Set calendar, grading, and courses.', icon: <CalendarIcon />, color: 'text-blue-600 bg-blue-100' },
   { view: 'financialSettings', title: 'Financial Settings', description: 'Manage fees and payment methods.', icon: <DollarSignIcon />, color: 'text-green-500 bg-green-100' },
   { view: 'securitySettings', title: 'Security & Compliance', description: 'Password policies, 2FA, audit logs.', icon: <ShieldCheckIcon />, color: 'text-red-500 bg-red-100' },
   { view: 'profileSettings', title: 'Personal Profile Settings', description: 'Update your account and profile information.', icon: <ProfileIcon />, color: 'text-gray-500 bg-gray-100' },

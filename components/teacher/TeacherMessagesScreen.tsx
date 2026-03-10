@@ -4,6 +4,8 @@ import { Conversation } from '../../types';
 import ChatScreen from '../shared/ChatScreen';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
 import { THEME_CONFIG } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 
 const formatTimestamp = (isoDate: string): string => {
@@ -50,6 +52,8 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
     // Determine current user ID logic (prefer currentUserId)
     const myId = currentUserId || teacherId || currentUser?.userId || '2';
 
+    const { profile } = useProfile();
+    const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState<'All' | 'Unread'>('All');
     const [conversations, setConversations] = useState<LocalConversation[]>([]);
@@ -58,11 +62,18 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
     const fetchConversations = useCallback(async () => {
         setLoading(true);
         try {
+            const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+            const branchId = profile?.branch_id;
+
             // 1. Get IDs of conversations I am in
-            const { data: myParticipations, error: partError } = await supabase
+            let partQuery = supabase
                 .from('conversation_participants')
                 .select('conversation_id')
                 .eq('user_id', myId);
+
+            if (schoolId) partQuery = partQuery.eq('school_id', schoolId);
+
+            const { data: myParticipations, error: partError } = await partQuery;
 
             if (partError) throw partError;
             if (!myParticipations || myParticipations.length === 0) {
@@ -74,10 +85,15 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
             const conversationIds = myParticipations.map(p => p.conversation_id);
 
             // 2. Fetch the conversation metadata (last message, etc.)
-            const { data: conversationList, error: convoError } = await supabase
+            let convQuery = supabase
                 .from('conversations')
                 .select('*')
-                .in('id', conversationIds)
+                .in('id', conversationIds);
+
+            if (schoolId) convQuery = convQuery.eq('school_id', schoolId);
+            if (branchId && branchId !== 'all') convQuery = convQuery.eq('branch_id', branchId);
+
+            const { data: conversationList, error: convoError } = await convQuery
                 .order('last_message_at', { ascending: false });
 
             if (convoError) throw convoError;

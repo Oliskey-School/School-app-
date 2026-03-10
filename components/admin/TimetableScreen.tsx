@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { CalendarIcon, EyeIcon, EditIcon, PlusIcon, CheckCircleIcon, ClockIcon } from '../../constants';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
 
 interface TimetableOverviewProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     schoolId?: string;
+    currentBranchId?: string | null;
 }
 
 interface ClassTimetable {
@@ -15,7 +17,7 @@ interface ClassTimetable {
     lastUpdated: string;
 }
 
-const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoolId }) => {
+const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoolId, currentBranchId }) => {
     const [timetables, setTimetables] = useState<ClassTimetable[]>([]);
     const [loading, setLoading] = useState(true);
     // New state for Level Filter
@@ -24,29 +26,29 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
 
     useEffect(() => {
         fetchTimetables();
-    }, []);
+    }, [schoolId, currentBranchId]);
 
     const fetchTimetables = async () => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            // Fetch classes to know their levels
-            const { data: classesData, error: classError } = await supabase
-                .from('classes')
-                .select('name, level')
-                .eq('school_id', schoolId);
-            if (classError) throw classError;
+            // Fetch classes to know their levels - Hybrid API for demo mode
+            const classesData = await api.getClasses(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
 
             const classLevelMap = new Map<string, string>();
             classesData?.forEach((c: any) => classLevelMap.set(c.name, c.level));
 
-            // Fetch timetable entries
-            const { data, error } = await supabase
+            // Fetch timetable entries - Strict Data Isolation
+            let timetableQuery = supabase
                 .from('timetable')
                 .select('class_name, updated_at, status')
                 .eq('school_id', schoolId);
 
-            if (error) throw error;
+            if (currentBranchId && currentBranchId !== 'all') {
+                timetableQuery = timetableQuery.eq('branch_id', currentBranchId);
+            }
+
+            const { data, error } = await timetableQuery;
 
             if (data) {
                 // Group by class name

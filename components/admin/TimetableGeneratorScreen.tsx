@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import {
     CalendarIcon,
     SparklesIcon,
@@ -83,6 +85,7 @@ const TagInput = ({ label, tags, onAdd, onRemove, placeholder }: any) => {
 
 // --- MAIN COMPONENT ---
 const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ schoolId, navigateTo, initialSelectedClasses = [] }) => {
+    const { currentBranchId } = useAuth();
     // Dashboard State
     const [classes, setClasses] = useState<any[]>([]);
     const [timetableStatuses, setTimetableStatuses] = useState<{ [key: string]: string | null }>({});
@@ -94,15 +97,18 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
 
     // --- FETCH DATA ---
     const fetchClasses = async (id: string) => {
-        const { data, error } = await supabase.from('classes').select('*').eq('school_id', id).order('grade').order('name');
-        if (error) { toast.error("Failed to load classes"); return []; }
+        const data = await api.getClasses(id, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
         return data || [];
     };
 
     const fetchTeachers = async (id: string) => {
-        const { data, error } = await supabase.from('teachers').select('*').eq('school_id', id);
-        if (error) { toast.error("Failed to load teachers"); return []; }
-        return data || [];
+        try {
+            const data = await api.getTeachers(id);
+            return data || [];
+        } catch (error) {
+            toast.error("Failed to load teachers");
+            return [];
+        }
     };
 
     const fetchTimetableStatuses = async () => {

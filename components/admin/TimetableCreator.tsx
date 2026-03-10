@@ -21,6 +21,7 @@ import {
     SUBJECT_COLORS
 } from '../../constants';
 import { deduplicateClasses } from '../../utils/classUtils';
+import { api } from '../../lib/api';
 
 // --- TYPES ---
 
@@ -124,13 +125,13 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
         try {
             if (!schoolId) return;
             // Fetch Classes
-            const { data: classesData } = await supabase.from('classes').select('id, name, grade').eq('school_id', schoolId).order('grade');
+            const classesData = await api.getClasses(schoolId);
             if (classesData) {
                 setAllClasses(deduplicateClasses(classesData));
             }
 
-            // Fetch Teachers
-            const { data: teachersData } = await supabase.from('teachers').select('id, name, subjects, available_days').eq('school_id', schoolId);
+            // Fetch Teachers (using api for demo mode compatibility)
+            const teachersData = await api.getTeachers(schoolId);
             if (teachersData) setAllTeachers(teachersData);
 
         } catch (error) {

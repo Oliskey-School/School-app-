@@ -182,10 +182,15 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
             if (!studentId) return;
 
             try {
+                if (!currentSchool?.id) return;
                 // Using Hybrid API for student records
                 const [grades, reports] = await Promise.all([
-                    api.getStudentPerformance(studentId),
-                    supabase.from('report_cards').select('*').eq('student_id', studentId)
+                    api.getStudentPerformance(studentId as any, currentSchool.id, currentSchool.branch_id),
+                    supabase.from('report_cards')
+                        .select('*')
+                        .eq('student_id', studentId)
+                        .eq('school_id', currentSchool.id)
+                        .eq('branch_id', currentSchool.branch_id || null)
                 ]);
 
                 if (grades) {
@@ -210,7 +215,8 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
         const fetchQuizResults = async () => {
             try {
-                const data = await api.getQuizResults(studentId);
+                if (!currentSchool?.id) return;
+                const data = await api.getQuizResults(studentId as any, currentSchool.id, currentSchool.branch_id);
                 setQuizResults(data);
             } catch (err) {
                 console.error("Error fetching quiz results:", err);
@@ -315,121 +321,121 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                 )}
 
                 {!showFullReport && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Grades Section */}
-                    <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
-                        <div className="flex items-center space-x-2 mb-3">
-                            <BookOpenIcon className="h-5 w-5 text-orange-600" />
-                            <h4 className="font-bold text-gray-800">Grades ({activeTerm})</h4>
-                        </div>
-                        <div className="space-y-2">
-                            {termGrades.length > 0 ? termGrades.map((record: any) => (
-                                <div key={record.subject} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
-                                    <span className="font-semibold text-sm text-gray-700">{record.subject}</span>
-                                    <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${SUBJECT_COLORS[record.subject] || 'bg-gray-200'}`}>{record.score}%</span>
-                                </div>
-                            )) : <p className="text-gray-500 text-sm">No grades recorded for this term.</p>}
-                        </div>
-
-                        {/* Result Summary (Report Card Highlights) */}
-                        {activeReportCard && (
-                            <div className="mt-6 p-4 bg-orange-50 border border-orange-100 rounded-xl">
-                                <h4 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
-                                    <ClipboardListIcon className="h-4 w-4" />
-                                    Official Term Summary
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                                        <p className="text-xs text-gray-500 font-medium uppercase">Average Score</p>
-                                        <p className="text-xl font-bold text-gray-800">{activeReportCard.grade_average}%</p>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                                        <p className="text-xs text-gray-500 font-medium uppercase">Overall Grade</p>
-                                        <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade}</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    {activeReportCard.teacher_comment && (
-                                        <div>
-                                            <p className="text-xs font-bold text-orange-700 uppercase">Teacher's Remark</p>
-                                            <p className="text-sm text-gray-700 italic">"{activeReportCard.teacher_comment}"</p>
-                                        </div>
-                                    )}
-                                    {activeReportCard.principal_comment && (
-                                        <div className="pt-2 border-t border-orange-200">
-                                            <p className="text-xs font-bold text-orange-700 uppercase">Principal's Decision</p>
-                                            <p className="text-sm text-gray-700 italic">"{activeReportCard.principal_comment}"</p>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="mt-4">
-                                    <button
-                                        onClick={() => setShowFullReport(true)}
-                                        className="w-full py-2 bg-white border border-orange-200 text-orange-700 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"
-                                    >
-                                        📄 View Full Digital Report Card
-                                    </button>
-                                </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        {/* Grades Section */}
+                        <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <BookOpenIcon className="h-5 w-5 text-orange-600" />
+                                <h4 className="font-bold text-gray-800">Grades ({activeTerm})</h4>
                             </div>
-                        )}
-
-                        {/* Quiz Results Section */}
-                        <div className="mt-6">
-                            <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                <span className="p-1 bg-purple-100 rounded text-purple-600">📝</span>
-                                Recent Quizzes
-                            </h4>
                             <div className="space-y-2">
-                                {quizResults.length > 0 ? quizResults.map((result: any) => (
-                                    <div key={result.id} className="flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg hover:shadow-sm transition-shadow">
-                                        <div>
-                                            <div className="font-semibold text-sm text-gray-800">{result.quizzes?.title || 'Quiz'}</div>
-                                            <div className="text-xs text-gray-500">{new Date(result.submitted_at).toLocaleDateString()}</div>
+                                {termGrades.length > 0 ? termGrades.map((record: any) => (
+                                    <div key={record.subject} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
+                                        <span className="font-semibold text-sm text-gray-700">{record.subject}</span>
+                                        <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${SUBJECT_COLORS[record.subject] || 'bg-gray-200'}`}>{record.score}%</span>
+                                    </div>
+                                )) : <p className="text-gray-500 text-sm">No grades recorded for this term.</p>}
+                            </div>
+
+                            {/* Result Summary (Report Card Highlights) */}
+                            {activeReportCard && (
+                                <div className="mt-6 p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                                    <h4 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
+                                        <ClipboardListIcon className="h-4 w-4" />
+                                        Official Term Summary
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                                            <p className="text-xs text-gray-500 font-medium uppercase">Average Score</p>
+                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.grade_average}%</p>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded text-gray-600">{result.quizzes?.subject}</span>
-                                            <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${result.score >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                {result.score}%
-                                            </span>
+                                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                                            <p className="text-xs text-gray-500 font-medium uppercase">Overall Grade</p>
+                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade}</p>
                                         </div>
                                     </div>
-                                )) : <p className="text-gray-500 text-sm italic">No quizzes taken yet.</p>}
+                                    <div className="space-y-3">
+                                        {activeReportCard.teacher_comment && (
+                                            <div>
+                                                <p className="text-xs font-bold text-orange-700 uppercase">Teacher's Remark</p>
+                                                <p className="text-sm text-gray-700 italic">"{activeReportCard.teacher_comment}"</p>
+                                            </div>
+                                        )}
+                                        {activeReportCard.principal_comment && (
+                                            <div className="pt-2 border-t border-orange-200">
+                                                <p className="text-xs font-bold text-orange-700 uppercase">Principal's Decision</p>
+                                                <p className="text-sm text-gray-700 italic">"{activeReportCard.principal_comment}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-4">
+                                        <button
+                                            onClick={() => setShowFullReport(true)}
+                                            className="w-full py-2 bg-white border border-orange-200 text-orange-700 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors shadow-sm"
+                                        >
+                                            📄 View Full Digital Report Card
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Quiz Results Section */}
+                            <div className="mt-6">
+                                <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <span className="p-1 bg-purple-100 rounded text-purple-600">📝</span>
+                                    Recent Quizzes
+                                </h4>
+                                <div className="space-y-2">
+                                    {quizResults.length > 0 ? quizResults.map((result: any) => (
+                                        <div key={result.id} className="flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg hover:shadow-sm transition-shadow">
+                                            <div>
+                                                <div className="font-semibold text-sm text-gray-800">{result.quizzes?.title || 'Quiz'}</div>
+                                                <div className="text-xs text-gray-500">{new Date(result.submitted_at).toLocaleDateString()}</div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded text-gray-600">{result.quizzes?.subject}</span>
+                                                <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${result.score >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {result.score}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )) : <p className="text-gray-500 text-sm italic">No quizzes taken yet.</p>}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-1 space-y-4">
+                            {/* Attendance Section */}
+                            <div className="bg-white p-4 rounded-xl shadow-sm">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <CheckCircleIcon className="h-5 w-5 text-orange-600" />
+                                    <h4 className="font-bold text-gray-800">Attendance</h4>
+                                </div>
+                                <div className="flex items-center justify-around">
+                                    <div className="relative">
+                                        <DonutChart percentage={attendancePercentage} color="#f97316" size={100} strokeWidth={10} />
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-2xl font-bold text-gray-800">{attendancePercentage}%</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1 text-sm font-medium">
+                                        <p className="text-gray-500 text-xs text-center">Term Estimate</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Behavior Notes Section */}
+                            <div className="bg-white p-4 rounded-xl shadow-sm">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <ClipboardListIcon className="h-5 w-5 text-orange-600" />
+                                    <h4 className="font-bold text-gray-800">Behavior Notes</h4>
+                                </div>
+                                <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                                    <p className="text-sm text-gray-400 text-center py-4">No behavioral notes available.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <div className="lg:col-span-1 space-y-4">
-                        {/* Attendance Section */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <div className="flex items-center space-x-2 mb-3">
-                                <CheckCircleIcon className="h-5 w-5 text-orange-600" />
-                                <h4 className="font-bold text-gray-800">Attendance</h4>
-                            </div>
-                            <div className="flex items-center justify-around">
-                                <div className="relative">
-                                    <DonutChart percentage={attendancePercentage} color="#f97316" size={100} strokeWidth={10} />
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-2xl font-bold text-gray-800">{attendancePercentage}%</span>
-                                    </div>
-                                </div>
-                                <div className="space-y-1 text-sm font-medium">
-                                    <p className="text-gray-500 text-xs text-center">Term Estimate</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Behavior Notes Section */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm">
-                            <div className="flex items-center space-x-2 mb-3">
-                                <ClipboardListIcon className="h-5 w-5 text-orange-600" />
-                                <h4 className="font-bold text-gray-800">Behavior Notes</h4>
-                            </div>
-                            <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                                <p className="text-sm text-gray-400 text-center py-4">No behavioral notes available.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 )}
             </main>
         </div>

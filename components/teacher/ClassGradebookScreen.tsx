@@ -140,7 +140,8 @@ const ClassGradebookScreen: React.FC<{
                             const section = clsStr.replace(/.*?\d+/, '').trim() || 'A'; // "A" from "10A"
 
                             return {
-                                id: clsStr,
+                                id: `${clsStr}-${subj}`,
+                                name: clsStr,
                                 grade: grade,
                                 section: section,
                                 subject: subj,
@@ -176,6 +177,7 @@ const ClassGradebookScreen: React.FC<{
 
             const grade = clsObj.grade;
             const section = clsObj.section;
+            const subject = clsObj.subject;
 
             // 1. Fetch Students
             const studentData = await fetchStudentsByClass(grade, section, schoolId, currentBranchId);
@@ -190,7 +192,7 @@ const ClassGradebookScreen: React.FC<{
             const merged: GradebookEntry[] = [];
 
             for (const s of studentData) {
-                const rc = await fetchReportCard(s.id, currentTerm, currentSession);
+                const rc = await fetchReportCard(s.id, currentTerm, currentSession, currentBranchId);
                 // Find record for this subject
                 const scoreRecord = rc?.academicRecords?.find(r => r.subject === selectedSubject);
 
@@ -287,7 +289,7 @@ const ClassGradebookScreen: React.FC<{
 
             for (const entry of entriesToSave) {
                 const { fetchReportCard } = await import('../../lib/database');
-                const existingRC = await fetchReportCard(entry.studentId, currentTerm, currentSession);
+                const existingRC = await fetchReportCard(entry.studentId, currentTerm, currentSession, currentBranchId);
 
                 let academicRecords = existingRC?.academicRecords || [];
 
@@ -321,7 +323,7 @@ const ClassGradebookScreen: React.FC<{
                     academicRecords
                 };
 
-                const success = await upsertReportCard(entry.studentId, reportCardToSave as any, entry.schoolId);
+                const success = await upsertReportCard(entry.studentId, reportCardToSave as any, entry.schoolId, currentBranchId);
                 if (success) {
                     successCount++;
                 } else {
@@ -390,7 +392,7 @@ const ClassGradebookScreen: React.FC<{
                             }}
                             className="w-full sm:w-64 p-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 font-medium focus:ring-2 focus:ring-purple-500 shadow-sm"
                         >
-                            {classes.map(c => <option key={c.id} value={c.id}>{c.id} - {c.subject}</option>)}
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name} - {c.subject}</option>)}
                         </select>
 
                         <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">

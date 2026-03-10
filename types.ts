@@ -14,6 +14,7 @@ export interface School {
   motto?: string; // School motto
   website?: string;
   address?: string;
+  state?: string;
   contactEmail?: string;
   subscriptionStatus: 'active' | 'inactive' | 'trial';
   is_premium?: boolean;
@@ -22,6 +23,8 @@ export interface School {
   createdAt: string;
   primaryColor?: string;
   secondaryColor?: string;
+  branch_id?: string | null;
+  curriculum_type?: string;
   settings?: any;
 }
 

@@ -21,7 +21,7 @@ export const listSchools = async (req: Request, res: Response) => {
 };
 export const updateSchool = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await SchoolService.updateSchool(req.params.id as string, req.body);
+        const result = await SchoolService.updateSchool(req.user.school_id, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -30,7 +30,7 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
 
 export const getSchoolById = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await SchoolService.getSchoolById(req.params.id as string);
+        const result = await SchoolService.getSchoolById(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -40,7 +40,7 @@ export const getSchoolById = async (req: AuthRequest, res: Response) => {
 export const updateSchoolStatusBulk = async (req: AuthRequest, res: Response) => {
     try {
         const { ids, status } = req.body;
-        const result = await SchoolService.updateSchoolStatusBulk(ids, status);
+        const result = await SchoolService.updateSchoolStatusBulk(req.user.school_id, ids, status);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -50,7 +50,7 @@ export const updateSchoolStatusBulk = async (req: AuthRequest, res: Response) =>
 export const deleteSchoolsBulk = async (req: AuthRequest, res: Response) => {
     try {
         const { ids } = req.body;
-        const result = await SchoolService.deleteSchoolsBulk(ids);
+        const result = await SchoolService.deleteSchoolsBulk(req.user.school_id, ids);
         res.json({ success: result });
     } catch (error: any) {
         res.status(500).json({ message: error.message });

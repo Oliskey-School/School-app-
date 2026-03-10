@@ -5,9 +5,10 @@ import { supabase } from '../config/supabase';
 
 export const createVirtualClassSession = async (req: AuthRequest, res: Response) => {
     try {
-        const sessionData = { 
+        const sessionData = {
             ...req.body,
-            school_id: req.user.school_id 
+            school_id: req.user.school_id,
+            branch_id: req.user.branch_id || req.body.branch_id
         };
 
         if (req.user.role === 'teacher') {
@@ -15,10 +16,11 @@ export const createVirtualClassSession = async (req: AuthRequest, res: Response)
                 .from('teachers')
                 .select('id')
                 .eq('user_id', req.user.id)
+                .eq('school_id', req.user.school_id)
                 .single();
-            
+
             if (!teacher) return res.status(403).json({ message: 'Teacher profile not found' });
-            
+
             // Force teacher_id to match the logged in teacher
             sessionData.teacher_id = teacher.id;
 
@@ -29,8 +31,9 @@ export const createVirtualClassSession = async (req: AuthRequest, res: Response)
                     .select('id')
                     .eq('teacher_id', teacher.id)
                     .eq('class_id', sessionData.class_id)
+                    .eq('school_id', req.user.school_id)
                     .maybeSingle();
-                
+
                 if (!access) return res.status(403).json({ message: 'Unauthorized access to this class' });
             }
         }

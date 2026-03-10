@@ -30,7 +30,7 @@ interface RecentPayslip {
 }
 
 const PayrollDashboard: React.FC = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [stats, setStats] = useState<PayrollStats>({
         totalTeachers: 0,
         totalPayroll: 0,
@@ -44,7 +44,7 @@ const PayrollDashboard: React.FC = () => {
     useEffect(() => {
         if (!currentSchool) return;
         fetchDashboardData();
-    }, [currentSchool]);
+    }, [currentSchool, currentBranchId]);
 
     const fetchDashboardData = async () => {
         if (!currentSchool) return;
@@ -61,16 +61,23 @@ const PayrollDashboard: React.FC = () => {
                 .split('T')[0];
 
             // Fetch total teachers with active salary
-            const { data: teachers, error: teachersError } = await supabase
+            let teacherSalaryQuery = supabase
                 .from('teacher_salaries')
                 .select(`
                     base_salary,
                     teachers!inner (
-                        school_id
+                        school_id,
+                        branch_id
                     )
                 `)
                 .eq('is_active', true)
                 .eq('teachers.school_id', currentSchool.id);
+
+            if (currentBranchId && currentBranchId !== 'all') {
+                teacherSalaryQuery = teacherSalaryQuery.eq('teachers.branch_id', currentBranchId);
+            }
+
+            const { data: teachers, error: teachersError } = await teacherSalaryQuery;
 
             if (teachersError) throw teachersError;
 
@@ -78,16 +85,22 @@ const PayrollDashboard: React.FC = () => {
             const totalPayroll = teachers?.reduce((sum, t) => sum + Number(t.base_salary), 0) || 0;
 
             // Fetch pending payslips
-            const { data: pendingData, error: pendingError } = await supabase
+            let pendingQuery = supabase
                 .from('payslips')
                 .select('id')
                 .eq('status', 'Draft')
                 .eq('school_id', currentSchool.id);
 
+            if (currentBranchId && currentBranchId !== 'all') {
+                pendingQuery = pendingQuery.eq('branch_id', currentBranchId);
+            }
+
+            const { data: pendingData, error: pendingError } = await pendingQuery;
+
             if (pendingError) throw pendingError;
 
             // Fetch paid this month
-            const { data: paidData, error: paidError } = await supabase
+            let paidQuery = supabase
                 .from('payslips')
                 .select('net_salary')
                 .eq('status', 'Paid')
@@ -95,7 +108,11 @@ const PayrollDashboard: React.FC = () => {
                 .gte('period_start', monthStart)
                 .lte('period_end', monthEnd);
 
-            if (paidError) throw paidError;
+            if (currentBranchId && currentBranchId !== 'all') {
+                paidQuery = paidQuery.eq('branch_id', currentBranchId);
+            }
+
+            const { data: paidData, error: paidError } = await paidQuery;
 
             const paidThisMonth = paidData?.reduce((sum, p) => sum + Number(p.net_salary), 0) || 0;
 

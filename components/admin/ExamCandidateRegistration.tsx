@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { UserGroupIcon, SearchIcon, DownloadIcon, PlusIcon, XIcon, FolderIcon, DocumentTextIcon } from '../../constants';
 
 interface ExamBody {
@@ -14,7 +15,7 @@ interface Student {
     id: string;
     name: string;
     grade: number;
-    attendance_status: string;
+    attendance_status?: string;
     enrollment_number?: string;
     school_generated_id?: string;
     track_status?: string;
@@ -85,8 +86,12 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
     }, [selectedStudents.size, onSelectionChange]);
 
     const fetchExamBodies = async () => {
-        const { data, error } = await supabase.from('exam_bodies').select('*').order('code');
-        if (data) setExamBodies(data);
+        try {
+            const data = await api.getExamBodies(schoolId);
+            if (data) setExamBodies(data);
+        } catch (error) {
+            console.error('Failed to fetch exam bodies:', error);
+        }
     };
 
     const handleCreateExamBody = async (e: React.FormEvent) => {
@@ -97,12 +102,11 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
             const { data: { user } } = await supabase.auth.getUser();
             const activeSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
 
-            const { error } = await supabase.from('exam_bodies').insert({
+            await api.createExamBody(activeSchoolId, {
                 name: newBodyName,
                 code: newBodyCode.toUpperCase(),
                 school_id: activeSchoolId
             });
-            if (error) throw error;
 
             toast.success('Exam body added successfully');
             setShowSetupModal(false);
@@ -115,11 +119,14 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
     };
 
     const fetchRegistrations = async (bodyId: string) => {
-        let query = supabase.from('exam_registrations').select('student_id').eq('exam_body_id', bodyId);
-        if (schoolId) query = query.eq('school_id', schoolId);
-        const { data } = await query;
-        if (data) setRegisteredIds(new Set(data.map(r => r.student_id)));
-        else setRegisteredIds(new Set());
+        try {
+            const data = await api.getExamRegistrations(bodyId, schoolId);
+            if (data) setRegisteredIds(new Set(data.map(r => r.student_id)));
+            else setRegisteredIds(new Set());
+        } catch (error) {
+            console.error('Failed to fetch registrations:', error);
+            setRegisteredIds(new Set());
+        }
     };
 
     const fetchEligibleStudents = async (bodyId: string) => {
@@ -127,17 +134,20 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
         const body = examBodies.find(b => b.id === bodyId);
         await fetchRegistrations(bodyId);
 
-        let query = supabase.from('students').select('*').eq('attendance_status', 'Present');
-        if (schoolId) query = query.eq('school_id', schoolId);
+        try {
+            // Use api.getStudents which works in demo mode via backend
+            const data = await api.getStudents(schoolId || '', currentBranchId || undefined, { includeUntagged: true });
 
-        const { data, error } = await query.order('name');
-
-        if (data) {
-            setStudents(data.filter(s => {
-                if (body?.curriculum_type === 'Nigerian') return true;
-                if (body?.curriculum_type === 'British') return s.grade >= 9;
-                return true;
-            }));
+            if (data) {
+                setStudents(data.filter((s: any) => {
+                    if (body?.curriculum_type === 'Nigerian') return true;
+                    if (body?.curriculum_type === 'British') return s.grade >= 9;
+                    return true;
+                }));
+            }
+        } catch (error) {
+            console.error('Failed to fetch students for exam registration:', error);
+            setStudents([]);
         }
         setLoading(false);
     };
@@ -200,9 +210,7 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
                 status: 'registered'
             }));
 
-            const { error: regError } = await supabase.from('exam_registrations').insert(registrations);
-
-            if (regError) throw regError;
+            await api.createExamRegistrations(activeSchoolId, currentBranchId || undefined, registrations);
 
             toast.success(`Successfully registered ${candidateIds.length} candidates.`);
 

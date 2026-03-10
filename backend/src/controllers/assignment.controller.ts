@@ -34,8 +34,12 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
         }
 
         const { classId, className } = req.query;
+        // Strict Data Isolation: Ensure branch_id is extracted from validated JWT context
+        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+
         const result = await AssignmentService.getAssignments(
             req.user.school_id,
+            branchId,
             classId as string,
             teacherId,
             className as string
@@ -48,7 +52,8 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 
 export const createAssignment = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await AssignmentService.createAssignment(req.user.school_id, req.body);
+        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+        const result = await AssignmentService.createAssignment(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -57,7 +62,8 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
 
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await AssignmentService.getSubmissions(req.params.id as string);
+        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+        const result = await AssignmentService.getSubmissions(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -66,7 +72,8 @@ export const getSubmissions = async (req: AuthRequest, res: Response) => {
 
 export const gradeSubmission = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await AssignmentService.gradeSubmission(req.user.school_id, req.params.id as string, req.body);
+        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+        const result = await AssignmentService.gradeSubmission(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -75,7 +82,8 @@ export const gradeSubmission = async (req: AuthRequest, res: Response) => {
 
 export const submitAssignment = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await AssignmentService.submitAssignment(req.user.school_id, req.user.id, req.params.id as string, req.body);
+        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+        const result = await AssignmentService.submitAssignment(req.user.school_id, branchId, req.user.id, req.params.id as string, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

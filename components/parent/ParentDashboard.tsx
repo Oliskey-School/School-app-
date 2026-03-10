@@ -61,6 +61,10 @@ import ParentNewChatScreen from '../parent/ParentNewChatScreen';
 import ChatScreen from '../shared/ChatScreen';
 import SchoolUtilitiesScreen from '../parent/SchoolUtilitiesScreen';
 import GlobalSearchScreen from '../shared/GlobalSearchScreen';
+import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+
+
+import ParentChangePasswordScreen from '../parent/ParentChangePasswordScreen';
 
 // Phase 5: Parent & Community Empowerment Components
 import VolunteerSignup from '../parent/VolunteerSignup';
@@ -127,7 +131,7 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
 
             <div className="px-4 py-3 grid grid-cols-2 gap-4 border-t border-gray-100">
                 <StatItem icon={<AttendanceSummaryIcon className="h-5 w-5 text-green-600" />} label="Attendance" value={`${attendancePercentage}%`} colorClass="bg-green-100" />
-                <StatItem icon={<ReceiptIcon className="h-5 w-5 text-red-600" />} label="Fees Due" value={feeStatus} colorClass="bg-red-100" />
+                <StatItem icon={<ReceiptIcon className="h-5 w-5 text-red-600" />} label="Fees Due" value={feeInfo?.status || 'N/A'} colorClass="bg-red-100" />
                 {nextHomework && <StatItem icon={<ClipboardListIcon className="h-5 w-5 text-purple-600" />} label="Homework" value={`${nextHomework.subject}`} colorClass="bg-purple-100" />}
                 <StatItem icon={<ReportIcon className="h-5 w-5 text-sky-600" />} label="Report Card" value="View" colorClass="bg-sky-100" />
             </div>
@@ -190,6 +194,8 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
         console.log('🔄 [AcademicsTab] Auto-sync triggered');
         setRefreshTrigger(prev => prev + 1);
     });
+
+    const academicRecords = student.academicPerformance || [];
 
     const averageScore = useMemo(() => {
         if (!academicRecords.length) return 0;
@@ -440,6 +446,9 @@ const ParentDashboardContent = ({ navigateTo, schoolId, currentUser, version, st
         <div className="p-4 lg:p-6 bg-gray-50">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
+                    {!currentUser?.user_metadata?.email_verified && (
+                        <EmailVerificationPrompt />
+                    )}
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                         <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-gray-800">School Utilities</h3><button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="text-sm text-blue-600 hover:text-blue-800 font-medium">View All</button></div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{quickAccessItems.map(item => (<button key={item.label} onClick={item.action} className="bg-gray-50 p-4 rounded-xl flex flex-col items-center justify-center space-y-2 hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200"><div className="text-blue-600">{item.icon}</div><span className="font-semibold text-gray-700 text-center text-xs">{item.label}</span></button>))}</div>
@@ -553,6 +562,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         selectReport: (props: any) => <SelectChildForReportScreen {...props} parentId={parentId} />,
         reportCard: ReportCardScreen, timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'parent', userId: parentId || '' }} students={students} />, more: ParentProfileScreen, editParentProfile: EditParentProfileScreen,
         feedback: FeedbackScreen, notificationSettings: ParentNotificationSettingsScreen, securitySettings: ParentSecurityScreen,
+        parentChangePassword: ParentChangePasswordScreen,
         learningResources: LearningResourcesScreen, schoolPolicies: SchoolPoliciesScreen, ptaMeetings: PTAMeetingScreen, photoGallery: ParentPhotoGalleryScreen,
         volunteering: VolunteeringScreen, permissionSlips: PermissionSlipScreen, appointments: (props: any) => <AppointmentScreen {...props} parentId={user?.id} students={students} />,
         aiParentingTips: AIParentingTipsScreen, messages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.participant?.name || 'Chat', { conversation: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,

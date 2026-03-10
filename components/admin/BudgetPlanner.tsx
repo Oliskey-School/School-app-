@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
-import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface BudgetEntry {
     id: string;
     school_id: string;
+    branch_id?: string;
     fiscal_year: string;
     category: string;
     allocated_amount: number;
@@ -15,7 +16,9 @@ interface BudgetEntry {
 }
 
 const BudgetPlanner: React.FC = () => {
-    const { profile } = useProfile();
+    const { currentSchool } = useAuth();
+    const schoolId = currentSchool?.id;
+    const branchId = currentSchool?.branch_id;
     const [entries, setEntries] = useState<BudgetEntry[]>([]);
     const [selectedYear, setSelectedYear] = useState<string>('');
     const [availableYears, setAvailableYears] = useState<string[]>([]);
@@ -29,21 +32,28 @@ const BudgetPlanner: React.FC = () => {
     const [newSpent, setNewSpent] = useState('');
 
     useEffect(() => {
-        fetchBudgets();
-    }, [profile?.schoolId]);
+        if (schoolId) {
+            fetchBudgets();
+        }
+    }, [schoolId]);
 
     const fetchBudgets = async () => {
-        const schoolId = profile?.schoolId;
         if (!schoolId) {
             setLoading(false);
             return;
         }
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            let query = supabase
                 .from('budgets')
                 .select('*')
-                .eq('school_id', schoolId)
+                .eq('school_id', schoolId);
+
+            if (branchId) {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query
                 .order('fiscal_year', { ascending: false });
 
             if (error) throw error;
@@ -65,7 +75,6 @@ const BudgetPlanner: React.FC = () => {
     };
 
     const createEntry = async () => {
-        const schoolId = profile?.schoolId;
         if (!newCategory || !newAllocated || !newFiscalYear || !schoolId) {
             toast.error('Please fill all required fields');
             return;
@@ -75,6 +84,7 @@ const BudgetPlanner: React.FC = () => {
                 .from('budgets')
                 .insert({
                     school_id: schoolId,
+                    branch_id: branchId,
                     fiscal_year: newFiscalYear,
                     category: newCategory,
                     allocated_amount: Number(newAllocated),

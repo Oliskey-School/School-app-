@@ -45,18 +45,25 @@ const PayslipGenerator: React.FC = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            let teachersQuery = supabase
                 .from('teacher_salaries')
                 .select(`
           teacher_id,
           teachers!inner (
             id,
             full_name,
-            school_id
+            school_id,
+            branch_id
           )
         `)
                 .eq('is_active', true)
                 .eq('teachers.school_id', currentSchool.id);
+
+            if (currentSchool.branch_id) {
+                teachersQuery = teachersQuery.eq('teachers.branch_id', currentSchool.branch_id);
+            }
+
+            const { data, error } = await teachersQuery;
 
             if (error) throw error;
 
@@ -91,6 +98,8 @@ const PayslipGenerator: React.FC = () => {
                 selectedTeacher,
                 periodStart,
                 periodEnd,
+                currentSchool.id,
+                currentSchool.branch_id,
                 allowances,
                 bonuses,
                 deductions
@@ -113,7 +122,11 @@ const PayslipGenerator: React.FC = () => {
         if (!preview) return;
 
         try {
-            const payslipId = await savePayslip(preview);
+            const payslipId = await savePayslip({
+                ...preview,
+                school_id: currentSchool.id,
+                branch_id: currentSchool.branch_id
+            });
             if (payslipId) {
                 toast.success('Payslip saved successfully');
                 setPreview(null);
@@ -141,7 +154,12 @@ const PayslipGenerator: React.FC = () => {
 
         try {
             setGenerating(true);
-            const result = await generateBulkPayslips(periodStart, periodEnd);
+            const result = await generateBulkPayslips(
+                periodStart,
+                periodEnd,
+                currentSchool.id,
+                currentSchool.branch_id
+            );
             toast.success(`Generated ${result.success} payslips. Failed: ${result.failed}`);
         } catch (error: any) {
             console.error('Error in bulk generation:', error);

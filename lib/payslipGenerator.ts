@@ -21,6 +21,8 @@ export interface PayslipData {
     net_salary: number;
     items: PayslipItem[];
     status: 'Draft' | 'Approved' | 'Paid';
+    school_id: string;
+    branch_id?: string;
 }
 
 /**
@@ -30,18 +32,26 @@ export async function generatePayslip(
     teacherId: string,
     periodStart: string,
     periodEnd: string,
+    schoolId: string,
+    branchId?: string,
     allowances: PayslipItem[] = [],
     bonuses: PayslipItem[] = [],
     deductions: PayslipItem[] = []
 ): Promise<PayslipData | null> {
     try {
         // Get teacher and salary info
-        const { data: salaryData, error: salaryError } = await supabase
+        let query = supabase
             .from('teacher_salaries')
-            .select('*, teachers(full_name)')
+            .select('*, teachers!inner(full_name, school_id, branch_id)')
             .eq('teacher_id', teacherId)
             .eq('is_active', true)
-            .single();
+            .eq('teachers.school_id', schoolId);
+
+        if (branchId) {
+            query = query.eq('teachers.branch_id', branchId);
+        }
+
+        const { data: salaryData, error: salaryError } = await query.single();
 
         if (salaryError || !salaryData) {
             console.error('Teacher salary not found');
@@ -87,7 +97,9 @@ export async function generatePayslip(
             pension,
             net_salary: netSalary,
             items,
-            status: 'Draft'
+            status: 'Draft',
+            school_id: schoolId,
+            branch_id: branchId
         };
 
         return payslipData;
@@ -114,7 +126,9 @@ export async function savePayslip(payslipData: PayslipData): Promise<string | nu
                 tax: payslipData.tax,
                 pension: payslipData.pension,
                 net_salary: payslipData.net_salary,
-                status: payslipData.status
+                status: payslipData.status,
+                school_id: payslipData.school_id,
+                branch_id: payslipData.branch_id
             })
             .select('id')
             .single();
@@ -172,13 +186,22 @@ export async function approvePayslip(payslipId: string): Promise<boolean> {
  */
 export async function generateBulkPayslips(
     periodStart: string,
-    periodEnd: string
+    periodEnd: string,
+    schoolId: string,
+    branchId?: string
 ): Promise<{ success: number; failed: number }> {
     try {
-        const { data: teachers, error } = await supabase
+        let query = supabase
             .from('teacher_salaries')
-            .select('teacher_id')
-            .eq('is_active', true);
+            .select('teacher_id, teachers!inner(school_id, branch_id)')
+            .eq('is_active', true)
+            .eq('teachers.school_id', schoolId);
+
+        if (branchId) {
+            query = query.eq('teachers.branch_id', branchId);
+        }
+
+        const { data: teachers, error } = await query;
 
         if (error || !teachers) {
             return { success: 0, failed: 0 };
@@ -191,7 +214,9 @@ export async function generateBulkPayslips(
             const payslipData = await generatePayslip(
                 teacher.teacher_id,
                 periodStart,
-                periodEnd
+                periodEnd,
+                schoolId,
+                branchId
             );
 
             if (payslipData) {

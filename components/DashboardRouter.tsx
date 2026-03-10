@@ -141,10 +141,10 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
                 <Routes>
                     {/* The root dashboard based on role */}
                     <Route path="/" element={renderDashboard()} />
-                    
+
                     {/* The specific External Exams page requested by the user */}
-                    <Route path="/external-exams" element={<ExternalExamsPage {...props} />} />
-                    
+                    <Route path="/external-exams" element={<ExternalExamsPage {...(props as any)} />} />
+
                     {/* Fallback to root dashboard if path and role mismatch */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

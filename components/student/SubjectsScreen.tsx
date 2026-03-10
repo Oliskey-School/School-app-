@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { Student, Teacher } from '../../types';
 import { fetchClassSubjects } from '../../lib/database';
-import { SUBJECT_COLORS, BookOpenIcon, ChevronRightIcon } from '../../constants';
+import { SUBJECT_COLORS, BookOpenIcon, ChevronRightIcon, ChevronLeftIcon, GlobeIcon, ClockIcon } from '../../constants';
 // Removed mockStudents import
 import { offlineStorage } from '../../lib/offlineStorage';
+import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 // Helper function to get default subjects based on grade and department
 const getDefaultSubjectsForGrade = (grade: number, department?: string): string[] => {
@@ -85,6 +87,10 @@ interface SubjectsScreenProps {
 const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) => {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [selectedTerm, setSelectedTerm] = useState<number | null>(null);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [isLoadingTopics, setIsLoadingTopics] = useState(false);
 
   useEffect(() => {
     const loadSubjects = async () => {
@@ -146,6 +152,40 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
     loadSubjects();
   }, [student]);
 
+  const loadTopics = async (subjectName: string, term: number) => {
+    setIsLoadingTopics(true);
+    try {
+      // Find subject ID by name if possible, or just use name if DB supports it.
+      // For now, we'll need the subject object. 
+      // fetchClassSubjects returns string[]. We should have objects ideally.
+      // I'll try to find the subject by name in the curriculum topics.
+      // OR I should use the subject name as a filter if ID is not available.
+
+      // In Supabase, curriculum_topics.subject_id is UUID.
+      // We need to fetch the subject ID first or update lib/database to return objects.
+
+      // I'll assume for now we might need to find the subject ID.
+      const { data: subjectData } = await api.supabase
+        .from('subjects')
+        .select('id')
+        .eq('name', subjectName)
+        .eq('school_id', student?.schoolId)
+        .single();
+
+      if (subjectData) {
+        const data = await api.getCurriculumTopics(subjectData.id, term);
+        setTopics(data);
+      } else {
+        toast.error('Subject details not found');
+      }
+    } catch (error) {
+      toast.error('Failed to load curriculum topics');
+      console.error(error);
+    } finally {
+      setIsLoadingTopics(false);
+    }
+  };
+
   if (!student) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -165,47 +205,141 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <main className="flex-grow p-4 space-y-4 overflow-y-auto">
-        <div className="bg-orange-50 p-4 rounded-xl text-center border border-orange-200">
-          <BookOpenIcon className="h-10 w-10 mx-auto text-orange-400 mb-2" />
-          <h3 className="font-bold text-lg text-orange-800">My Subjects</h3>
-          <p className="text-sm text-orange-700">Select a subject to enter its classroom page.</p>
-        </div>
+        {selectedSubject ? (
+          <div className="space-y-6 animate-fade-in">
+            <button
+              onClick={() => {
+                setSelectedSubject(null);
+                setSelectedTerm(null);
+                setTopics([]);
+              }}
+              className="flex items-center gap-2 text-gray-500 hover:text-orange-600 transition-colors font-bold text-sm"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+              Back to Subjects
+            </button>
 
-        {subjects.filter(s => s && s !== 'Subject').length === 0 ? (
-          <div className="text-center py-10">
-            <p className="text-gray-500">No subjects found for your class.</p>
+            <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-xl shadow-orange-900/5">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 text-orange-600">
+                  <BookOpenIcon className="w-8 h-8" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900">{selectedSubject}</h2>
+                  <p className="text-sm text-gray-500 font-medium font-sans uppercase tracking-widest">Curriculum Details</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Select Term</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3].map(t => (
+                    <button
+                      key={t}
+                      onClick={() => {
+                        setSelectedTerm(t);
+                        loadTopics(selectedSubject, t);
+                      }}
+                      className={`p-4 rounded-2xl border-2 transition-all font-black ${selectedTerm === t
+                        ? 'border-orange-500 bg-orange-50 text-orange-600'
+                        : 'border-gray-50 bg-gray-50 text-gray-400 hover:bg-white hover:border-orange-200 hover:text-gray-600'
+                        }`}
+                    >
+                      Term {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {selectedTerm && (
+              <div className="space-y-4 animate-fade-in pb-10">
+                <div className="flex items-center gap-2 px-2">
+                  <ClockIcon className="w-4 h-4 text-orange-500" />
+                  <h3 className="text-lg font-bold text-gray-800">Term {selectedTerm} Topics</h3>
+                </div>
+
+                {isLoadingTopics ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-20 bg-white rounded-2xl animate-pulse border border-gray-100" />
+                    ))}
+                  </div>
+                ) : topics.length === 0 ? (
+                  <div className="py-12 text-center bg-white rounded-3xl border border-dashed border-gray-200">
+                    <BookOpenIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                    <p className="text-gray-400 font-bold">No topics found for this term.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {topics.map((topic, idx) => (
+                      <div key={topic.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                        <div className="flex items-start gap-4">
+                          <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 font-black text-sm">
+                            {topic.week_number || idx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-bold text-gray-900 mb-1">{topic.title}</h4>
+                            <p className="text-sm text-gray-500 leading-relaxed">{topic.content}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => navigateTo('classroom', `${selectedSubject} Classroom`, { subjectName: selectedSubject })}
+                  className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <GlobeIcon className="w-5 h-5" />
+                  Go to {selectedSubject} Classroom
+                </button>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {subjects.filter(s => s && s !== 'Subject').map(subjectName => {
-              // Teacher fetching logic removed/simplified as we don't have teacher-subject map readily available
-              // We could fetch it, but for now 'N/A' is safer than crashing
-              // Or we can assume getTeacherForSubject returns undefined
-              const colorClass = SUBJECT_COLORS[subjectName] || 'bg-gray-200 text-gray-800';
-              const [bgColor, textColor] = colorClass.split(' ');
+          <>
+            <div className="bg-orange-50 p-4 rounded-xl text-center border border-orange-200">
+              <BookOpenIcon className="h-10 w-10 mx-auto text-orange-400 mb-2" />
+              <h3 className="font-bold text-lg text-orange-800">My Subjects</h3>
+              <p className="text-sm text-orange-700">Select a subject to view curriculum and classroom.</p>
+            </div>
 
-              return (
-                <button
-                  key={subjectName}
-                  onClick={() => navigateTo('classroom', `${subjectName} Classroom`, { subjectName })}
-                  className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 hover:ring-2 hover:ring-orange-200 transition-all"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center`}>
-                      <BookOpenIcon className={`w-6 h-6 ${textColor}`} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg text-gray-800">{subjectName}</h3>
-                      <p className="text-sm text-gray-500 font-medium">
-                        Enter Classroom
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRightIcon className="text-gray-400" />
-                </button>
-              );
-            })}
-          </div>
+            {subjects.filter(s => s && s !== 'Subject').length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-gray-500">No subjects found for your class.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {subjects.filter(s => s && s !== 'Subject').map(subjectName => {
+                  const colorClass = SUBJECT_COLORS[subjectName] || 'bg-gray-200 text-gray-800';
+                  const [bgColor, textColor] = colorClass.split(' ');
+
+                  return (
+                    <button
+                      key={subjectName}
+                      onClick={() => setSelectedSubject(subjectName)}
+                      className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 hover:ring-2 hover:ring-orange-200 transition-all"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-12 h-12 rounded-lg ${bgColor} flex items-center justify-center`}>
+                          <BookOpenIcon className={`w-6 h-6 ${textColor}`} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-gray-800">{subjectName}</h3>
+                          <p className="text-sm text-gray-500 font-medium">
+                            View Curriculum
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRightIcon className="text-gray-400" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

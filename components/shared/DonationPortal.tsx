@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Heart, TrendingUp, Users, Gift, Award } from 'lucide-react';
+import PremiumLoader from '../ui/PremiumLoader';
 
 interface Campaign {
     id: number;
@@ -18,7 +19,11 @@ interface Campaign {
     impact_description: string;
 }
 
-const DonationPortal: React.FC = () => {
+interface DonationPortalProps {
+    schoolId?: string;
+}
+
+const DonationPortal: React.FC<DonationPortalProps> = ({ schoolId }) => {
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
     const [donationAmount, setDonationAmount] = useState('');
@@ -36,20 +41,17 @@ const DonationPortal: React.FC = () => {
     useEffect(() => {
         fetchCampaigns();
         fetchTopDonors();
-    }, []);
+    }, [schoolId]);
 
     const fetchCampaigns = async () => {
+        setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('donation_campaigns')
-                .select('*')
-                .eq('status', 'Active')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            // Use Central API
+            const data = await api.getDonationCampaigns(schoolId);
             setCampaigns(data || []);
         } catch (error: any) {
             console.error('Error fetching campaigns:', error);
+            toast.error('Failed to load campaigns');
         } finally {
             setLoading(false);
         }
@@ -57,14 +59,8 @@ const DonationPortal: React.FC = () => {
 
     const fetchTopDonors = async () => {
         try {
-            const { data, error } = await supabase
-                .from('donors')
-                .select('*')
-                .eq('is_anonymous', false)
-                .order('total_donated', { ascending: false })
-                .limit(5);
-
-            if (error) throw error;
+            // Use Central API
+            const data = await api.getTopDonors(5);
             setTopDonors(data || []);
         } catch (error: any) {
             console.error('Error fetching donors:', error);
@@ -88,52 +84,17 @@ const DonationPortal: React.FC = () => {
         if (!selectedCampaign) return;
 
         try {
-            // Create or get donor
-            let donorId = null;
-
-            if (!isAnonymous) {
-                const { data: existingDonor } = await supabase
-                    .from('donors')
-                    .select('id')
-                    .eq('email', donorEmail)
-                    .single();
-
-                if (existingDonor) {
-                    donorId = existingDonor.id;
-                } else {
-                    const { data: newDonor, error: donorError } = await supabase
-                        .from('donors')
-                        .insert({
-                            donor_name: donorName,
-                            email: donorEmail,
-                            phone: donorPhone,
-                            donor_type: 'Individual',
-                            is_anonymous: false
-                        })
-                        .select()
-                        .single();
-
-                    if (donorError) throw donorError;
-                    donorId = newDonor.id;
-                }
-            }
-
-            // Create donation (in real app, integrate with payment gateway first)
-            const { error: donationError } = await supabase
-                .from('donations')
-                .insert({
-                    campaign_id: selectedCampaign.id,
-                    donor_id: donorId,
-                    amount: amount,
-                    currency: 'NGN',
-                    donation_type: 'OneTime',
-                    payment_method: 'Paystack', // Would be selected by user
-                    status: 'Pending', // Would be 'Completed' after payment
-                    is_anonymous: isAnonymous,
-                    message: message
-                });
-
-            if (donationError) throw donationError;
+            // Use Central API
+            await api.processDonation({
+                campaign_id: selectedCampaign.id,
+                amount: amount,
+                donor_name: donorName,
+                donor_email: donorEmail,
+                donor_phone: donorPhone,
+                is_anonymous: isAnonymous,
+                message: message,
+                currency: 'NGN'
+            });
 
             // In production, redirect to Paystack payment page here
             toast.success('Redirecting to payment gateway...');

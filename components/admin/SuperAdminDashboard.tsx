@@ -21,6 +21,8 @@ const RoleManagementScreen = lazy(() => import('./saas/RoleManagementScreen'));
 const SecuritySettings = lazy(() => import('./saas/SecuritySettings'));
 const ProfileSettings = lazy(() => import('../admin/ProfileSettings')); // Reuse settings
 const PaymentGatewaySettings = lazy(() => import('./saas/PaymentGatewaySettings'));
+import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+
 
 interface SuperAdminDashboardProps {
     onLogout?: () => void;
@@ -97,7 +99,7 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
         <div className="flex h-screen w-full bg-gray-100 overflow-hidden">
             {/* Sidebar Overlay (Mobile only) */}
             {isSidebarOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity duration-300"
                     onClick={() => setIsSidebarOpen(false)}
                 />
@@ -107,7 +109,7 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
             <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0`}>
                 <div className="flex flex-col h-full relative">
                     {/* Close Button (Mobile only) */}
-                    <button 
+                    <button
                         onClick={() => setIsSidebarOpen(false)}
                         className="lg:hidden absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                     >
@@ -223,7 +225,7 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
                         <Menu className="w-6 h-6" />
                     </button>
                     <div className="text-xl font-bold text-gray-800 lg:ml-0 ml-4">
-                        {activeScreen === 'overview' && 'Dashboard Overview'}
+                        {activeScreen === 'overview' && 'Super Admin Dashboard'}
                         {activeScreen === 'schools' && 'Manage Schools'}
                         {activeScreen === 'plans' && 'Subscription Plans'}
                         {activeScreen === 'settings' && 'Settings'}
@@ -240,6 +242,11 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
 
                 {/* Content Area */}
                 <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+                    {!currentUser?.user_metadata?.email_verified && (
+                        <div className="mb-6">
+                            <EmailVerificationPrompt />
+                        </div>
+                    )}
                     <Suspense fallback={
                         <div className="flex items-center justify-center h-full">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>

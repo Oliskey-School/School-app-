@@ -21,11 +21,18 @@ const AssetInventory = () => {
         try {
             if (!currentSchool?.id) return;
 
-            const { data, error } = await supabase
+            const branchId = (currentSchool as any).branchId || (useAuth() as any).currentBranchId;
+
+            let query = supabase
                 .from('assets')
                 .select('*')
-                .eq('school_id', currentSchool.id)
-                .order('created_at', { ascending: false });
+                .eq('school_id', currentSchool.id);
+
+            if (branchId && branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) throw error;
             setAssets(data || []);

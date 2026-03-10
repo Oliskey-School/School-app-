@@ -38,10 +38,10 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
     // Computed classes visualization
     // If we have detailed class info in mockClasses, use it. Otherwise, create a placeholder.
-    const displayClasses = teacher.classes.map(className => {
+    const displayClasses = (teacher.classes || []).map(className => {
         // Parse "Grade 7 - Math" or "10A - Physics" or "SSS 1 - Math"
         let displayName = className;
-        let subject = teacher.subjects[0] || 'General';
+        let subject = (teacher.subjects && teacher.subjects[0]) || 'General';
 
         // Check if subject is already in the string
         const parts = className.split(/\s*[-–]\s*/);
@@ -147,7 +147,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                     Change
                                 </button>
                             </div>
-                            <p className={`text-sm font-semibold inline-block px-2 py-0.5 rounded mt-2 ${SUBJECT_COLORS[teacher.subjects[0]] || 'bg-gray-200'}`}>{teacher.subjects.join(', ')}</p>
+                            <p className={`text-sm font-semibold inline-block px-2 py-0.5 rounded mt-2 ${SUBJECT_COLORS[teacher.subjects?.[0] || ''] || 'bg-gray-200'}`}>{(teacher.subjects || []).join(', ')}</p>
                             <div className="flex flex-wrap justify-center sm:justify-start gap-4 mt-2">
                                 <a href={`mailto:${teacher.email}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><MailIcon className="w-4 h-4" /><span>Email</span></a>
                                 <a href={`tel:${teacher.phone}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>

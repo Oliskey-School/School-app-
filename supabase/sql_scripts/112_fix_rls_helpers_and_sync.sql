@@ -14,7 +14,7 @@ BEGIN
     IF _school_id IS NOT NULL THEN RETURN _school_id; END IF;
 
     -- 2. Try User Metadata (Fallback)
-    _school_id := (NULLIF(auth.jwt() -> 'user_metadata' ->> 'school_id', ''))::UUID;
+    _school_id := (NULLIF(auth.jwt() -> 'app_metadata' ->> 'school_id', ''))::UUID;
     IF _school_id IS NOT NULL THEN RETURN _school_id; END IF;
 
     -- 3. Fallback to public.profiles (Final physical check)

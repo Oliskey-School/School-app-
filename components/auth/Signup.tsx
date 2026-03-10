@@ -78,36 +78,9 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
             if (signUpError) throw signUpError;
 
             if (data.user) {
-                const commonData = {
-                    user_id: data.user.id,
-                    school_id: formData.schoolId,
-                    name: formData.fullName,
-                    email: formData.email
-                };
-
-                let dbError = null;
-
-                // Create domain-specific profile
-                // Note: The database trigger 'handle_new_user' creates the record in 'users' table,
-                // but we need to ensure the record exists in the specific role table (students/teachers/parents)
-                // for the application to function correctly.
-                if (formData.role === 'student') {
-                    const { error } = await supabase.from('students').insert(commonData);
-                    dbError = error;
-                } else if (formData.role === 'teacher') {
-                    const { error } = await supabase.from('teachers').insert(commonData);
-                    dbError = error;
-                } else if (formData.role === 'parent') {
-                    const { error } = await supabase.from('parents').insert(commonData);
-                    dbError = error;
-                }
-
-                if (dbError) {
-                    // If inserting into the domain table fails, we have a partial state (Auth user exists, domain profile missing).
-                    // In a production app, we might want to delete the auth user or retry.
-                    console.error('Error creating domain profile:', dbError);
-                    throw new Error(`Failed to create ${formData.role} profile. Please contact support.`);
-                }
+                // Note: The database trigger 'handle_new_user_v5' automatically creates the record 
+                // in 'users' AND the domain-specific table (students/teachers/parents) based on metadata.
+                // No manual inserts needed here, ensuring atomicity.
 
                 toast.success("Account created successfully!");
 

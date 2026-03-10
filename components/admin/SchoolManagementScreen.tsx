@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { Building2, Plus, MapPin, Phone, Trash2, Edit2, CheckCircle2, Building, Globe } from 'lucide-react';
+import { Building2, Plus, MapPin, Phone, Trash2, Edit2, CheckCircle2, Building, Globe, UserPlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import PremiumLoader from '../ui/PremiumLoader';
+import api from '../../lib/api';
 
 interface Branch {
     id: string;
@@ -16,7 +17,11 @@ interface Branch {
     code: string;
 }
 
-const SchoolManagementScreen: React.FC = () => {
+interface SchoolManagementScreenProps {
+    navigateTo?: (view: string, title: string, props?: any) => void;
+}
+
+const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigateTo }) => {
     const { currentSchool, user } = useAuth();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
@@ -33,22 +38,31 @@ const SchoolManagementScreen: React.FC = () => {
     });
 
     useEffect(() => {
-        if (currentSchool?.id) {
-            fetchBranches();
-        }
+        if (!currentSchool?.id) return;
+
+        fetchBranches();
+
+        // Add Real-time Subscription
+        const channel = supabase.channel(`branches:${currentSchool.id}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'branches', filter: `school_id=eq.${currentSchool.id}` },
+                () => {
+                    fetchBranches();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [currentSchool?.id]);
 
     const fetchBranches = async () => {
         try {
+            if (!currentSchool?.id) return;
             setLoading(true);
-            const { data, error } = await supabase
-                .from('branches')
-                .select('*')
-                .eq('school_id', currentSchool?.id)
-                .order('is_main', { ascending: false })
-                .order('name');
-
-            if (error) throw error;
+            const data = await api.getBranches(currentSchool.id);
             setBranches(data || []);
         } catch (error: any) {
             toast.error('Failed to load branches: ' + error.message);
@@ -83,31 +97,26 @@ const SchoolManagementScreen: React.FC = () => {
         try {
             if (!currentSchool?.id) return;
 
-            const payload = {
-                ...formData,
-                school_id: currentSchool.id
-            };
+            const payload = { ...formData };
 
             if (editingBranch) {
-                const { error } = await supabase
-                    .from('branches')
-                    .update(payload)
-                    .eq('id', editingBranch.id)
-                    .eq('school_id', currentSchool.id);
-                if (error) throw error;
+                await api.updateBranch(editingBranch.id, payload);
                 toast.success('Branch updated successfully');
             } else {
-                // If setting as main, ensure others are not main (simple logic)
-                if (formData.is_main) {
+                // Main logic via backend doesn't exist out of box to update all others,
+                // but since the backend updates only this branch, we should do the main replacement locally 
+                // OR let the backend handle it if we updated the backend to do so. 
+                // For simplicity, we stick to updating is_main directly first if checked:
+                if (payload.is_main) {
                     await supabase.from('branches').update({ is_main: false }).eq('school_id', currentSchool.id);
                 }
 
-                const { error } = await supabase.from('branches').insert([payload]);
-                if (error) throw error;
+                await api.createBranch(currentSchool.id, payload);
                 toast.success('New branch added');
             }
 
             resetForm();
+            // Realtime will auto-fetch, but fetch anyway
             fetchBranches();
         } catch (error: any) {
             toast.error('Operation failed: ' + error.message);
@@ -131,11 +140,9 @@ const SchoolManagementScreen: React.FC = () => {
         if (!confirm('Are you sure you want to delete this branch?')) return;
         try {
             if (!currentSchool?.id) return;
-            const { error } = await supabase.from('branches').delete()
-                .eq('id', id)
-                .eq('school_id', currentSchool.id);
-            if (error) throw error;
+            await api.deleteBranch(id);
             toast.success('Branch deleted');
+            // Realtime will auto-fetch
             fetchBranches();
         } catch (error: any) {
             toast.error('Delete failed: ' + error.message);
@@ -306,17 +313,25 @@ const SchoolManagementScreen: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex gap-2 mt-8 pt-6 border-t border-slate-50">
+                                <div className="flex gap-2 mt-8 pt-6 border-t border-slate-50 flex-wrap">
                                     <button
                                         onClick={() => handleEdit(branch)}
-                                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-600 rounded-xl font-bold hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-600 rounded-xl font-bold hover:bg-slate-100 hover:text-slate-900 transition-all text-sm"
                                     >
                                         <Edit2 className="w-4 h-4" /> Edit
                                     </button>
+                                    {navigateTo && (
+                                        <button
+                                            onClick={() => navigateTo('addBranchAdmin', 'Assign Branch Admin', { branchId: branch.id })}
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold hover:bg-indigo-100 hover:text-indigo-700 transition-all text-sm"
+                                        >
+                                            <UserPlus className="w-4 h-4" /> Assign Admin
+                                        </button>
+                                    )}
                                     {!branch.is_main && (
                                         <button
                                             onClick={() => handleDelete(branch.id)}
-                                            className="w-12 flex items-center justify-center bg-slate-50 text-slate-400 rounded-xl font-bold hover:bg-red-50 hover:text-red-600 transition-all"
+                                            className="w-12 flex items-center justify-center bg-red-50 text-red-500 rounded-xl font-bold hover:bg-red-100 hover:text-red-700 transition-all"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>

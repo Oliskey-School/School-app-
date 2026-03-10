@@ -1,26 +1,39 @@
 import { supabase } from '../config/supabase';
 
 export class AiService {
-    static async getGeneratedResources(teacherId: string) {
-        const { data, error } = await supabase
+    static async getGeneratedResources(schoolId: string, branchId: string | undefined, teacherId: string) {
+        let query = supabase
             .from('generated_resources')
             .select('*')
             .eq('teacher_id', teacherId)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
+        const { data, error } = await query
             .order('updated_at', { ascending: false });
 
         if (error) throw new Error(error.message);
         return data || [];
     }
 
-    static async saveGeneratedResource(resourceData: any) {
+    static async saveGeneratedResource(schoolId: string, branchId: string | undefined, resourceData: any) {
         // Find existing to decide update or insert
-        const { data: existing } = await supabase
+        let query = supabase
             .from('generated_resources')
             .select('id')
             .eq('teacher_id', resourceData.teacher_id)
             .eq('subject', resourceData.subject)
             .eq('class_name', resourceData.class_name)
-            .maybeSingle();
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
+        const { data: existing } = await query.maybeSingle();
 
         if (existing) {
             const { data, error } = await supabase
@@ -32,9 +45,17 @@ export class AiService {
             if (error) throw new Error(error.message);
             return data;
         } else {
+            const insertData: any = {
+                ...resourceData,
+                school_id: schoolId
+            };
+            if (branchId && branchId !== 'all') {
+                insertData.branch_id = branchId;
+            }
+
             const { data, error } = await supabase
                 .from('generated_resources')
-                .insert([resourceData])
+                .insert([insertData])
                 .select()
                 .single();
             if (error) throw new Error(error.message);

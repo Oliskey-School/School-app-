@@ -5,6 +5,7 @@ import { getGradeDisplayName } from '../../lib/schoolSystem';
 import { TimetableEntry } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { offlineStorage } from '../../lib/offlineStorage';
+import { api } from '../../lib/api';
 
 // --- CONSTANTS & HELPERS (Matched with Admin UI) ---
 const formatTime12Hour = (timeStr: string) => {
@@ -153,51 +154,27 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
 
         try {
             let targetClassName = '';
+            let targetTeacherId = '';
 
             // 2. Identify Target Class/Teacher
             if (context.userType === 'student') {
-                let studentQuery = supabase
+                const { data: student } = await supabase
                     .from('students')
                     .select('grade, section')
-                    .eq('id', context.userId);
-
-                if (schoolId) studentQuery = studentQuery.eq('school_id', schoolId);
-
-                const { data: student } = await studentQuery.maybeSingle();
+                    .eq('id', context.userId)
+                    .maybeSingle();
 
                 if (student) {
-                    const gradeName = getGradeDisplayName(student.grade);
-                    targetClassName = gradeName;
-                    // Optional: Append section if necessary, but keep broad for now to match 'SSS 1'
-                    // if (student.section) targetClassName += ` ${student.section}`;
+                    targetClassName = getGradeDisplayName(student.grade);
                 }
             } else if (context.userType === 'parent' && selectedStudent) {
                 targetClassName = getGradeDisplayName(selectedStudent.grade);
+            } else if (context.userType === 'teacher') {
+                targetTeacherId = String(context.userId);
             }
 
-            // 3. Fetch Timetable Data with Timeout & Scoping
-            let query = supabase.from('timetable')
-                .select('day, start_time, end_time, subject, class_name, teacher_id')
-                .eq('status', 'Published');
-
-            if (schoolId) query = query.eq('school_id', schoolId);
-            if (currentBranchId) query = query.eq('branch_id', currentBranchId);
-
-            if (context.userType === 'teacher') {
-                query = query.eq('teacher_id', context.userId);
-            } else if (targetClassName) {
-                query = query.ilike('class_name', `%${targetClassName}%`);
-            }
-
-            // Add 5s Timeout
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
-
-            const { data, error } = await Promise.race([
-                query,
-                timeoutPromise
-            ]) as any;
-
-            if (error) throw error;
+            // 3. Fetch Timetable Data via Central API
+            const data = await api.getTimetable(schoolId || '', targetClassName, targetTeacherId, currentBranchId);
 
             if (data && data.length > 0) {
                 // 4. Transform Data

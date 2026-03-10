@@ -51,7 +51,7 @@ BEGIN
         FOR ALL USING (
             school_id = (SELECT school_id FROM public.profiles WHERE id = auth.uid())
             OR 
-            school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid
+            school_id = (auth.jwt() -> 'app_metadata' ->> 'school_id')::uuid
         );
 EXCEPTION
     WHEN undefined_column THEN
@@ -67,7 +67,7 @@ BEGIN
         FOR ALL USING (
             school_id = (SELECT school_id FROM public.profiles WHERE id = auth.uid())
             OR 
-            school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid
+            school_id = (auth.jwt() -> 'app_metadata' ->> 'school_id')::uuid
         );
 EXCEPTION
     WHEN undefined_column THEN

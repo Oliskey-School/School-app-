@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { LockIcon, EyeIcon, EyeOffIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const PasswordInput = ({ id, label, value, onChange }: { id: string, label: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) => {
     const [showPassword, setShowPassword] = useState(false);
@@ -36,6 +36,7 @@ const TeacherChangePasswordScreen: React.FC = () => {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -49,24 +50,20 @@ const TeacherChangePasswordScreen: React.FC = () => {
             return;
         }
 
+        setLoading(true);
         const loadingToast = toast.loading("Updating password...");
         try {
-            const { error } = await supabase.auth.updateUser({
-                password: newPassword
-            });
-
-            if (error) throw error;
+            await api.patch('/auth/update-password', { password: newPassword });
 
             toast.success("Password updated successfully!", { id: loadingToast });
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
-
-            // Note: navigateTo is not in props here yet, but let's assume we might add it or just clear.
-            // For now, just success message is fine.
         } catch (err: any) {
             console.error("Error updating password:", err);
             toast.error(err.message || "Failed to update password", { id: loadingToast });
+        } finally {
+            setLoading(false);
         }
     };
 

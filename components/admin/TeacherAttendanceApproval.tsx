@@ -27,7 +27,7 @@ const NotificationToast: React.FC<{ message: string; type: 'success' | 'error'; 
 };
 
 const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ navigateTo }) => {
-    const { user } = useAuth();
+    const { user, currentSchool } = useAuth();
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -41,7 +41,7 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
     const loadPendingRequests = async () => {
         setLoading(true);
         try {
-            const result = await getPendingAttendanceRequests();
+            const result = await getPendingAttendanceRequests(currentSchool?.id);
             if (result.success && result.data) {
                 setPendingRequests(result.data);
             }

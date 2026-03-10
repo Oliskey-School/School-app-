@@ -14,7 +14,7 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
                 .select('id')
                 .eq('user_id', req.user.id)
                 .single();
-            
+
             if (teacher) {
                 teacherId = teacher.id;
             } else {
@@ -22,8 +22,10 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
             }
         }
 
+        const branchId = req.user.branch_id || req.query.branchId as string;
         const result = await TimetableService.getTimetable(
             req.user.school_id,
+            branchId,
             className as string,
             teacherId as string
         );

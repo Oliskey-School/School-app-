@@ -42,23 +42,24 @@ BEGIN
     NULL;
 END $$;
 
--- Let's just create the Cron Job assuming internal invocation or just a log for now to prove it works.
--- Real implementation for HTTP usually involves:
--- SELECT cron.schedule(
---   'reset-demo-school-job',
---   '0 0 * * *',
---   $$
---     select
---       net.http_post(
---           url:='https://project-ref.supabase.co/functions/v1/reset-demo-school',
---           headers:='{"Content-Type": "application/json", "Authorization": "Bearer SERVICE_KEY"}'::jsonb,
---           body:='{}'::jsonb
---       ) as request_id;
---   $$
--- );
-
 -- Since we cannot know the Service Key safely here, we will output a warning 
 -- and create a stub function they can update.
+-- WE HAVE DISABLED THIS BY DEFAULT TO ENSURE DATA PERSISTENCE AS REQUESTED.
+
+/*
+SELECT cron.schedule(
+  'reset-demo-school-job',
+  '0 0 * * *',
+  $$
+    select
+      net.http_post(
+          url:='https://project-ref.supabase.co/functions/v1/reset-demo-school',
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer SERVICE_KEY"}'::jsonb,
+          body:='{}'::jsonb
+      ) as request_id;
+  $$
+);
+*/
 
 COMMENT ON EXTENSION pg_cron IS 'Used to schedule demo reset';
 

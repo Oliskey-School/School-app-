@@ -30,7 +30,7 @@ ALTER TABLE public.pta_meetings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Tenant Isolation Policy" ON public.pta_meetings;
 CREATE POLICY "Tenant Isolation Policy" ON public.pta_meetings 
-    FOR ALL USING (school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::UUID);
+    FOR ALL USING (school_id = (auth.jwt() -> 'app_metadata' ->> 'school_id')::UUID);
 
 -- 5. Add some sample data for the PTA table so it's not immediately empty
 -- (Optional: remove this if you want it completely blank)

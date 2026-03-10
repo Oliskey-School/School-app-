@@ -25,11 +25,18 @@ const SecuritySettingsScreen: React.FC = () => {
 
         const fetchLoginHistory = async () => {
             if (!currentSchool?.id) return;
-            const { data, error } = await supabase
+            let query = supabase
                 .from('audit_logs')
                 .select('*')
                 .eq('school_id', currentSchool.id)
-                .eq('type', 'login')
+                .eq('type', 'login');
+
+            const branchId = (useAuth() as any).currentBranchId;
+            if (branchId && branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query
                 .order('created_at', { ascending: false })
                 .limit(5);
 

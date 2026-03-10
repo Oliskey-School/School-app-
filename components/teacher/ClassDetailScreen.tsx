@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Student, ClassInfo } from '../../types';
 import { ChevronRightIcon, TeacherAttendanceIcon, ClipboardListIcon } from '../../constants';
 import { getFormattedClassName } from '../../constants';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import { useProfile } from '../../context/ProfileContext';
 
 interface ClassDetailScreenProps {
   classInfo: ClassInfo;
@@ -11,6 +13,7 @@ interface ClassDetailScreenProps {
 }
 
 const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, navigateTo }) => {
+  const { profile } = useProfile();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,7 +21,18 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
     setLoading(true);
     try {
       let query = supabase.from('students').select('*');
-      
+
+      // Inject strict multi-tenant filters
+      const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
+      const effectiveBranchId = classInfo.branch_id || (classInfo as any).branch_id || profile?.branchId;
+
+      if (effectiveSchoolId) {
+        query = query.eq('school_id', effectiveSchoolId);
+      }
+      if (effectiveBranchId && effectiveBranchId !== 'all') {
+        query = query.eq('branch_id', effectiveBranchId);
+      }
+
       // Only use ID if it looks like a UUID (36 chars)
       if (classInfo.id && classInfo.id.length === 36) {
         query = query.or(`class_id.eq.${classInfo.id},current_class_id.eq.${classInfo.id}`);

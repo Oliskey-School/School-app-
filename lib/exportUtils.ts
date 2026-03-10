@@ -1,6 +1,4 @@
 // Export utilities for CSV and PDF generation
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 export const exportToCSV = (data: any[], filename: string, headers?: string[]) => {
     if (!data || data.length === 0) {
@@ -40,7 +38,7 @@ export const exportToCSV = (data: any[], filename: string, headers?: string[]) =
     window.URL.revokeObjectURL(url);
 };
 
-export const exportToPDF = (
+export const exportToPDF = async (
     data: any[],
     filename: string,
     title: string,
@@ -51,6 +49,9 @@ export const exportToPDF = (
         alert('No data to export');
         return;
     }
+
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
 
     const doc = new jsPDF();
 

@@ -17,11 +17,18 @@ const MaintenanceTickets = () => {
     const fetchTickets = async () => {
         if (!currentSchool) return;
         try {
-            const { data, error } = await supabase
+            const branchId = (useAuth() as any).currentBranchId; // Or access from context if available
+
+            let query = supabase
                 .from('maintenance_tickets')
-                .select('*, assets!inner(asset_name, school_id)')
-                .eq('assets.school_id', currentSchool.id)
-                .order('created_at', { ascending: false });
+                .select('*, assets!inner(asset_name, school_id, branch_id)')
+                .eq('assets.school_id', currentSchool.id);
+
+            if (branchId && branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) throw error;
             setTickets(data || []);

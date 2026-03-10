@@ -5,8 +5,11 @@ import { supabase } from '../config/supabase';
 
 export const getStats = async (req: AuthRequest, res: Response) => {
     try {
-        let teacherId = undefined;
-        if (req.user.role === 'teacher') {
+        console.log(`[DashboardController] getStats requested. User Role: ${req.user.role}`);
+        let teacherId = (req.query.teacherId || req.query.teacher_id) as string | undefined;
+
+        if (req.user.role === 'teacher' && !teacherId) {
+            console.log('[DashboardController] User is a teacher. Fetching teacher record...');
             // Find the teacher record, prioritizing those with an email that isn't 'demo_teacher@school.com'
             // or simply the most recently updated/created one if multiples exist for a demo user_id.
             const { data: teachers } = await supabase
@@ -23,9 +26,22 @@ export const getStats = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const branchId = req.query.branchId as string;
+        const branchId = req.user.branch_id || req.query.branch_id as string || req.query.branchId as string;
+        console.log(`[DashboardController] Calling DashboardService.getStats with schoolId: ${req.user.school_id}, teacherId: ${teacherId}, branchId: ${branchId}`);
         const stats = await DashboardService.getStats(req.user.school_id, teacherId, branchId);
+        console.log(`[DashboardController] Stats returned. totalStudents: ${stats.totalStudents}, totalClasses: ${stats.totalClasses}`);
         res.json(stats);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getAuditLogs = async (req: AuthRequest, res: Response) => {
+    try {
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+        const branchId = req.query.branch_id || req.query.branchId;
+        const logs = await DashboardService.getAuditLogs(req.user.school_id, limit, branchId as string);
+        res.json(logs);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { LockIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const PasswordInput = ({ id, label, value, onChange }: { id: string, label: string, value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) => (
     <div>
@@ -36,15 +36,7 @@ const ChangePasswordScreen: React.FC = () => {
 
         setLoading(true);
         try {
-            // Note: UpdateUser usually doesn't require current password if session is active,
-            // but for strict security, re-authentication is recommended. 
-            // For this UI, we just update the password for the logged-in user.
-            const { data, error } = await supabase.auth.updateUser({
-                password: newPassword
-            });
-
-            if (error) throw error;
-
+            await api.patch('/auth/update-password', { password: newPassword });
             setMessage("Password changed successfully!");
             setCurrentPassword('');
             setNewPassword('');

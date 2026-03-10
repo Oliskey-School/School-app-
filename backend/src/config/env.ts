@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export const config = {
-    port: process.env.PORT || 5000,
+    port: process.env.BACKEND_PORT || process.env.PORT || 5000,
     jwtSecret: process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-prod',
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',

@@ -32,11 +32,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
         setLoading(true);
         try {
             // 1. Fetch all classes scoped to the current school and branch
-            let classesQuery = supabase.from('classes').select('id, name, grade, section').eq('school_id', schoolId);
-            if (currentBranchId && currentBranchId !== 'all') {
-                classesQuery = classesQuery.eq('branch_id', currentBranchId);
-            }
-            const { data: classesData } = await classesQuery.order('grade');
+            const classesData = await api.getClasses(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
 
             // 2. Fetch attendance for the selected date using Hybrid API
             const attendanceRecords = await api.getAttendanceByDate(schoolId, selectedDate);

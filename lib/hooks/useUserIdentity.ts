@@ -19,9 +19,13 @@ export const useUserIdentity = () => {
         user?.app_metadata?.custom_id ||
         user?.user_metadata?.custom_id ||
         user?.app_metadata?.staff_id ||
-        user?.user_metadata?.staff_id;
+        user?.user_metadata?.staff_id ||
+        user?.app_metadata?.student_id ||
+        user?.user_metadata?.student_id;
 
     const userRole = user?.app_metadata?.role || user?.user_metadata?.role || 'Admin';
+    const schoolCode = user?.user_metadata?.school_code || 'DEMO';
+    const branchCode = user?.user_metadata?.branch_code || 'MAIN';
 
     const copyToClipboard = useCallback(async (text: string) => {
         if (!text) return;
@@ -38,8 +42,11 @@ export const useUserIdentity = () => {
 
     const formatId = useCallback((id: string | null | undefined, role?: string) => {
         if (!id) return '';
-        return formatSchoolId(id, role || (userRole as string));
-    }, [userRole]);
+        // If the ID already contains underscores (likely already formatted or new standard), return as is
+        if (id.includes('_')) return id;
+
+        return formatSchoolId(id, role || (userRole as string), schoolCode, branchCode);
+    }, [userRole, schoolCode, branchCode]);
 
     return {
         customId,

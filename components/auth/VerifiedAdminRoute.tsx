@@ -22,7 +22,8 @@ const VerifiedAdminRoute: React.FC<VerifiedAdminRouteProps> = ({ children }) => 
             const emailConfirmed = user.email_confirmed_at || user.confirmed_at;
 
             // Allow demo accounts to bypass verification
-            const isDemo = user.email?.includes('demo') || user.user_metadata?.is_demo;
+            const isDemoUserId = user.id.startsWith('d3300');
+            const isDemo = isDemoUserId || user.email?.includes('demo') || user.user_metadata?.is_demo;
 
             if (role === 'admin' && !emailConfirmed && !isDemo) {
                 // Double check if metadata is stale by re-fetching user
@@ -42,6 +43,14 @@ const VerifiedAdminRoute: React.FC<VerifiedAdminRouteProps> = ({ children }) => 
         }
     }, [user, role, loading]);
 
+    useEffect(() => {
+        if (isVerified === false) {
+            // Redirect to Verify Email page if not verified
+            // We use window.location.hash because we might be in a HashRouter
+            window.location.hash = '#/auth/verify-email';
+        }
+    }, [isVerified]);
+
     if (loading || isVerified === null) {
         return (
             <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -53,10 +62,7 @@ const VerifiedAdminRoute: React.FC<VerifiedAdminRouteProps> = ({ children }) => 
         );
     }
 
-    if (!isVerified) {
-        // Redirect to Verify Email page if not verified
-        // We use window.location.hash because we might be in a HashRouter
-        window.location.hash = '#/auth/verify-email';
+    if (isVerified === false) {
         return null;
     }
 

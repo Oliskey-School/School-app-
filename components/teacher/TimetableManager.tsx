@@ -28,20 +28,39 @@ const TimetableManager: React.FC = () => {
     }, []);
 
     const fetchTimetable = async () => {
+        if (!profile?.school_id) return;
         try {
             setLoading(true);
-            const { data: teacherData } = await supabase
+            // Fetch teacher record with strict tenant isolation
+            let teacherQuery = supabase
                 .from('teachers')
                 .select('id')
                 .eq('email', profile.email)
-                .single();
+                .eq('school_id', profile.school_id);
 
-            if (!teacherData) return;
+            if (profile.branch_id) {
+                teacherQuery = teacherQuery.eq('branch_id', profile.branch_id);
+            }
 
-            const { data, error } = await supabase
+            const { data: teacherData } = await teacherQuery.maybeSingle();
+
+            if (!teacherData) {
+                setLoading(false);
+                return;
+            }
+
+            // Fetch timetable with strict tenant isolation
+            let timetableQuery = supabase
                 .from('teacher_timetable')
                 .select('*')
-                .eq('teacher_id', teacherData.id);
+                .eq('teacher_id', teacherData.id)
+                .eq('school_id', profile.school_id);
+
+            if (profile.branch_id) {
+                timetableQuery = timetableQuery.eq('branch_id', profile.branch_id);
+            }
+
+            const { data, error } = await timetableQuery;
 
             if (error) throw error;
             setTimetable(data || []);

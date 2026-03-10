@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { DashboardType, School } from '../types';
+import { DEMO_ACCOUNTS, DEMO_SCHOOL_ID, DEMO_BRANCH_ID } from '../lib/mockAuth';
 
 interface AuthContextType {
     session: Session | null;
@@ -10,8 +11,12 @@ interface AuthContextType {
     currentSchool: School | null;
     currentBranchId: string | null;
     loading: boolean;
+    isDemo: boolean;
+    memberships: any[];
     signIn: (dashboard: DashboardType, user: any) => Promise<void>;
     signOut: () => Promise<void>;
+    switchSchool: (schoolId: string) => Promise<void>;
+    switchDemoRole: (roleKey: string) => Promise<void>;
 }
 
 
@@ -26,7 +31,111 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [currentSchool, setCurrentSchool] = useState<School | null>(null);
     const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [memberships, setMemberships] = useState<any[]>([]);
     const [isDemo, setIsDemo] = useState(() => sessionStorage.getItem('is_demo_mode') === 'true');
+
+    const getDashboardTypeFromUserType = (userType: string): DashboardType => {
+        const lower = userType.toLowerCase();
+        if (lower === 'superadmin') return DashboardType.SuperAdmin;
+        if (lower === 'admin') return DashboardType.Admin;
+        if (lower === 'teacher') return DashboardType.Teacher;
+        if (lower === 'parent') return DashboardType.Parent;
+        if (lower === 'student') return DashboardType.Student;
+        if (lower === 'proprietor') return DashboardType.Proprietor;
+        if (lower === 'inspector') return DashboardType.Inspector;
+        if (lower === 'examofficer') return DashboardType.ExamOfficer;
+        if (lower === 'complianceofficer') return DashboardType.ComplianceOfficer;
+        if (lower === 'counselor') return DashboardType.Counselor;
+        return DashboardType.Student;
+    };
+
+    const fetchUserSchool = async (userId: string, providedSchoolId?: string) => {
+        try {
+            let schoolId = providedSchoolId;
+            if (!schoolId) {
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                schoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
+            }
+            if (!schoolId) {
+                schoolId = localStorage.getItem('last_school_id');
+            }
+            if (schoolId) {
+                localStorage.setItem('last_school_id', schoolId);
+                const { data: schoolData, error: fetchError } = await supabase
+                    .from('schools')
+                    .select('*')
+                    .eq('id', schoolId)
+                    .single();
+
+                if (fetchError) {
+                    console.error("Failed to fetch school details:", fetchError);
+                    return;
+                }
+                if (schoolData) {
+                    const mappedSchool: School = {
+                        id: schoolData.id,
+                        name: schoolData.name,
+                        slug: schoolData.slug,
+                        logoUrl: schoolData.logo_url,
+                        motto: schoolData.motto,
+                        website: schoolData.website,
+                        address: schoolData.address,
+                        state: schoolData.state,
+                        contactEmail: schoolData.contact_email,
+                        subscriptionStatus: schoolData.subscription_status,
+                        createdAt: schoolData.created_at,
+                        primaryColor: schoolData.primary_color,
+                        secondaryColor: schoolData.secondary_color
+                    };
+                    setCurrentSchool(mappedSchool);
+                    sessionStorage.setItem('school', JSON.stringify(mappedSchool));
+                }
+            }
+        } catch (err) {
+            console.error("Error fetching user school:", err);
+        }
+    };
+
+    const fetchMemberships = async (userId: string) => {
+        if (!userId || userId.startsWith('d33000')) {
+            setMemberships([]);
+            return;
+        }
+        try {
+            const { api } = await import('../lib/api');
+            const data = await api.getMemberships(userId);
+            setMemberships(data || []);
+        } catch (err) {
+            console.error("Error fetching memberships:", err);
+        }
+    };
+
+    const switchSchool = async (schoolId: string) => {
+        if (!user) return;
+        setLoading(true);
+        try {
+            const { api } = await import('../lib/api');
+            const result = await api.switchSchool(user.id, schoolId);
+
+            if (result.token) {
+                localStorage.setItem('auth_token', result.token);
+                await supabase.auth.setSession({
+                    access_token: result.token,
+                    refresh_token: session?.refresh_token || result.token
+                });
+
+                const dashboardRole = getDashboardTypeFromUserType(result.user.role);
+                setRole(dashboardRole);
+                fetchUserSchool(user.id, schoolId);
+                window.location.reload();
+            }
+        } catch (err) {
+            console.error("Error switching school:", err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         setLoading(true);
@@ -58,8 +167,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 const metadata = session.user.app_metadata || {};
                 const userRole = metadata.role || session.user.user_metadata?.role;
-                const schoolId = metadata.school_id;
-                const branchId = metadata.active_branch_id || metadata.branch_id;
+                let schoolId = metadata.school_id;
+                let branchId = metadata.active_branch_id || metadata.branch_id;
+
+                // [CRITICAL OVERRIDE] Enforce identical Demo School and Branch context
+                if (isDemoUser) {
+                    schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+                    branchId = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
+                }
 
                 if (userRole) {
                     const dashboardRole = getDashboardTypeFromUserType(userRole);
@@ -72,18 +187,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 if (branchId) {
                     setCurrentBranchId(branchId);
-                } else if (metadata.active_branch_id === null) {
+                } else if (!isDemoUser && metadata.active_branch_id === null) {
                     setCurrentBranchId(null);
                 }
 
                 setSession(session);
                 setUser(session.user);
+                fetchMemberships(session.user.id);
             } else {
+                // [SECURITY] Explicitly clear all state and storage on logout or session expiry
                 setRole(null);
                 setSession(null);
                 setUser(null);
                 setCurrentSchool(null);
                 setCurrentBranchId(null);
+                setIsDemo(false);
+                setMemberships([]);
+
+                // Rigorous cleanup of all possible auth keys to prevent ghost sessions
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_role');
+                localStorage.removeItem('last_school_id');
+                sessionStorage.removeItem('is_demo_mode');
+                sessionStorage.removeItem('school');
+
+                // Clear any supabase-specific persistence manually if listener fails
+                const keys = Object.keys(localStorage);
+                keys.forEach(key => {
+                    if (key.includes('supabase.auth.token')) {
+                        localStorage.removeItem(key);
+                    }
+                });
             }
             setLoading(false);
         });
@@ -93,111 +227,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    const fetchUserSchool = async (userId: string, providedSchoolId?: string) => {
-        try {
-            // Priority 1: Provided via JWT / App Metadata
-            let schoolId = providedSchoolId;
-
-            if (!schoolId) {
-                const { data: { user: authUser } } = await supabase.auth.getUser();
-                schoolId = authUser?.app_metadata?.school_id || authUser?.user_metadata?.school_id;
-            }
-
-            // Priority 2: Local Cache
-            if (!schoolId) {
-                schoolId = localStorage.getItem('last_school_id');
-            }
-
-            if (schoolId) {
-                localStorage.setItem('last_school_id', schoolId);
-
-                // We still fetch the School details (UI Branding)
-                const { data: schoolData, error: fetchError } = await supabase
-                    .from('schools')
-                    .select('*')
-                    .eq('id', schoolId)
-                    .single();
-
-                if (fetchError) {
-                    console.error("Failed to fetch school details:", fetchError);
-                    return;
-                }
-
-                if (schoolData) {
-                    const mappedSchool: School = {
-                        id: schoolData.id,
-                        name: schoolData.name,
-                        slug: schoolData.slug,
-                        logoUrl: schoolData.logo_url,
-                        motto: schoolData.motto,
-                        website: schoolData.website,
-                        address: schoolData.address,
-                        contactEmail: schoolData.contact_email,
-                        subscriptionStatus: schoolData.subscription_status,
-                        createdAt: schoolData.created_at,
-                        primaryColor: schoolData.primary_color,
-                        secondaryColor: schoolData.secondary_color
-                    };
-                    setCurrentSchool(mappedSchool);
-                    sessionStorage.setItem('school', JSON.stringify(mappedSchool));
-                }
-            }
-        } catch (err) {
-            console.error("Error fetching user school:", err);
-        }
-    };
-
-    const getDashboardTypeFromUserType = (userType: string): DashboardType => {
-        const lower = userType.toLowerCase();
-        if (lower === 'superadmin') return DashboardType.SuperAdmin;
-        if (lower === 'admin') return DashboardType.Admin;
-        if (lower === 'teacher') return DashboardType.Teacher;
-        if (lower === 'parent') return DashboardType.Parent;
-        if (lower === 'student') return DashboardType.Student;
-        if (lower === 'proprietor') return DashboardType.Proprietor;
-        if (lower === 'inspector') return DashboardType.Inspector;
-        if (lower === 'examofficer') return DashboardType.ExamOfficer;
-        if (lower === 'complianceofficer') return DashboardType.ComplianceOfficer;
-        if (lower === 'counselor') return DashboardType.Counselor;
-        return DashboardType.Student;
-    };
-
     const signIn = async (dashboard: DashboardType, userData: any) => {
-        // This method is called by the Login component AFTER successful Supabase auth
-        // or for "Mock" logins.
-
-        // [CRITICAL] Clear any existing real Supabase session if entering Demo Mode
-        // This prevents the Supabase client from sending stale/invalid Bearer tokens
         if (userData.isDemo) {
-            console.log("🛡️ [Auth] Entering Demo Mode, clearing Supabase session...");
-            try {
-                // Clear Supabase client's internal auth state
-                await supabase.auth.signOut({ scope: 'local' });
-                
-                // Also clear the tab-specific storage just in case
-                const tabKey = sessionStorage.getItem('sb-tab-id');
-                if (tabKey) {
-                    sessionStorage.removeItem(`sb-auth-token-${tabKey}`);
-                }
-            } catch (err) {
-                console.warn("Non-critical: Error clearing session during demo transition", err);
-            }
+            console.log("🛡️ [Auth] Entering Demo Mode — preserving Supabase session for RLS");
         }
 
-        // Create a minimal user object for state
         const mockUser = {
             id: userData.userId,
             email: userData.email,
             user_metadata: {
                 role: userData.userType?.toLowerCase(),
                 full_name: userData.email?.split('@')[0],
-                is_demo: userData.isDemo, // Persist demo flag
-                custom_id: userData.schoolGeneratedId, // Include custom ID in user_metadata
+                is_demo: userData.isDemo,
+                school_generated_id: userData.schoolGeneratedId,
+                custom_id: userData.schoolGeneratedId, // Keep for backward compatibility
                 school_id: userData.school?.id,
-                branch_id: userData.school?.branch_id
+                branch_id: userData.school?.branch_id,
+                email_verified: userData.email_verified || false
             },
             app_metadata: {
-                custom_id: userData.schoolGeneratedId, // Include custom ID in app_metadata
+                school_generated_id: userData.schoolGeneratedId,
+                custom_id: userData.schoolGeneratedId,
                 school_id: userData.school?.id,
                 branch_id: userData.school?.branch_id
             },
@@ -205,8 +255,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             created_at: new Date().toISOString(),
         } as unknown as User;
 
-
-        // Set the user and role state
         setUser(mockUser);
         setRole(dashboard);
         setLoading(false);
@@ -217,7 +265,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             sessionStorage.removeItem('is_demo_mode');
         }
 
-        // Fetch (or Mock) School for this user if provided
         if (userData.school) {
             setCurrentSchool(userData.school);
             if (userData.school.branch_id) {
@@ -225,36 +272,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
 
-        // [NEW] Persist Backend Token for API calls
-        // In demo mode, we use a role-specific token so the backend can correctly identify the mock user's context
-        const effectiveToken = userData.token || (userData.isDemo ? `demo-auth-token-${dashboard}` : null);
+        const effectiveToken = userData.token || null;
 
         if (effectiveToken) {
             localStorage.setItem('auth_token', effectiveToken);
-
-            // CRITICAL FIX: Sync the token to Supabase Client so RLS works
-            // We attempt to use the token as both access and refresh if refresh is missing
             if (userData.token) {
                 try {
-                    const { error: sessionError } = await supabase.auth.setSession({
+                    await supabase.auth.setSession({
                         access_token: userData.token,
                         refresh_token: userData.refreshToken || userData.token
                     });
-
-                    if (sessionError) {
-                        console.warn("⚠️ Failed to sync Supabase session from backend token:", sessionError.message);
-                    } else {
-                        console.log("✅ Supabase Client Session Synced with Backend Token");
-                    }
                 } catch (err) {
                     console.error("Session Sync Error:", err);
                 }
-            } else {
-                console.log("ℹ️ [Auth] No token provided for sync, continuing in local state mode.");
             }
         }
-
-        console.log('✅ Auth state updated:', { dashboard, user: mockUser.email, tokenSaved: !!userData.token });
     };
 
     const signOut = async () => {
@@ -265,6 +297,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setCurrentSchool(null);
             setCurrentBranchId(null);
             setIsDemo(false);
+            setMemberships([]);
             sessionStorage.removeItem('is_demo_mode');
             setLoading(false);
             return;
@@ -274,13 +307,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
             console.error('Error signing out:', error);
         }
-        // State will be cleared by onAuthStateChange listener
     };
 
 
 
-    // Session expiry check is now handled automatically by Supabase client library
-    // Auto-refresh on reconnect is also handled by the library
+    /**
+     * Instantly switches the active demo role without going to the login page.
+     * Signs in with the real Supabase credentials for the given demo role.
+     * The onAuthStateChange listener handles state updates automatically.
+     */
+    const switchDemoRole = async (roleKey: string) => {
+        const account = DEMO_ACCOUNTS[roleKey];
+        if (!account) {
+            console.warn(`[Demo] No demo account configured for role: ${roleKey}`);
+            return;
+        }
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: account.email,
+                password: account.password,
+            });
+            if (error) throw error;
+            // onAuthStateChange will fire and update role/user/school automatically
+            // Force demo school context in case metadata is missing
+            if (data.session) {
+                setIsDemo(true);
+                sessionStorage.setItem('is_demo_mode', 'true');
+                setCurrentBranchId(DEMO_BRANCH_ID);
+            }
+        } catch (err: any) {
+            console.error('[Demo] Role switch failed:', err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const value = React.useMemo(() => ({
         session,
@@ -290,9 +351,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentBranchId,
         loading,
         isDemo,
+        memberships,
         signIn,
-        signOut
-    }), [session, user, role, currentSchool, currentBranchId, loading, isDemo]);
+        signOut,
+        switchSchool,
+        switchDemoRole,
+    }), [session, user, role, currentSchool, currentBranchId, loading, isDemo, memberships]);
 
     return (
         <AuthContext.Provider value={value}>

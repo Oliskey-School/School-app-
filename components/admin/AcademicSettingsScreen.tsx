@@ -27,12 +27,21 @@ const AcademicSettingsScreen: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const branchId = (useAuth() as any).currentBranchId;
     const fetchSettings = async () => {
       if (!schoolId) return;
       setLoading(true);
       try {
-        const { data: calendarData } = await supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'academic_calendar').maybeSingle();
-        const { data: gradingData } = await supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'grading_config').maybeSingle();
+        let calQuery = supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'academic_calendar');
+        let gradeQuery = supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'grading_config');
+
+        if (branchId && branchId !== 'all') {
+          calQuery = calQuery.eq('branch_id', branchId);
+          gradeQuery = gradeQuery.eq('branch_id', branchId);
+        }
+
+        const { data: calendarData } = await calQuery.maybeSingle();
+        const { data: gradingData } = await gradeQuery.maybeSingle();
 
         if (calendarData) setCalendar(calendarData.value);
         if (gradingData) setGrading(gradingData.value);
@@ -52,11 +61,17 @@ const AcademicSettingsScreen: React.FC = () => {
       return;
     }
     setSaving(true);
+    const branchId = (useAuth() as any).currentBranchId;
     try {
-      const { error: calErr } = await supabase.from('system_settings').upsert({ school_id: schoolId, key: 'academic_calendar', value: calendar });
+      const payload = {
+        school_id: schoolId,
+        branch_id: (branchId && branchId !== 'all' ? branchId : null)
+      };
+
+      const { error: calErr } = await supabase.from('system_settings').upsert({ ...payload, key: 'academic_calendar', value: calendar });
       if (calErr) throw calErr;
 
-      const { error: gradeErr } = await supabase.from('system_settings').upsert({ school_id: schoolId, key: 'grading_config', value: grading });
+      const { error: gradeErr } = await supabase.from('system_settings').upsert({ ...payload, key: 'grading_config', value: grading });
       if (gradeErr) throw gradeErr;
 
       toast.success('Settings saved successfully!');
@@ -75,7 +90,7 @@ const AcademicSettingsScreen: React.FC = () => {
         <button
           onClick={saveSettings}
           disabled={saving || loading}
-          className="bg-sky-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-sky-600 disabled:opacity-50"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>

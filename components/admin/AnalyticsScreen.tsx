@@ -171,11 +171,11 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                     {/* Student Performance */}
                     <div className="bg-white rounded-2xl shadow-sm p-4">
                         <div className="flex items-center space-x-3 mb-4">
-                            <div className="bg-sky-100 text-sky-500 p-2 rounded-lg"><ChartBarIcon /></div>
+                            <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><ChartBarIcon /></div>
                             <h3 className="font-bold text-gray-800">Student Performance</h3>
                         </div>
                         {loading ? <div className="h-40 animate-pulse bg-gray-100 rounded-lg"></div> :
-                            <SimpleBarChart data={metrics.performance} colors={['bg-green-500', 'bg-sky-500', 'bg-amber-500', 'bg-red-500']} />
+                            <SimpleBarChart data={metrics.performance} colors={['bg-green-500', 'bg-blue-600', 'bg-amber-500', 'bg-red-500']} />
                         }
                     </div>
 
@@ -210,7 +210,7 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
                             <h3 className="font-bold text-gray-800">Teacher Workload (Weekly Hours)</h3>
                         </div>
                         {loading ? <div className="h-40 animate-pulse bg-gray-100 rounded-lg"></div> :
-                            <SimpleVerticalBarChart data={metrics.workload} colors={['bg-sky-400', 'bg-sky-500', 'bg-sky-600', 'bg-sky-400', 'bg-sky-500']} />
+                            <SimpleVerticalBarChart data={metrics.workload} colors={['bg-blue-400', 'bg-blue-500', 'bg-blue-600', 'bg-blue-400', 'bg-blue-500']} />
                         }
                     </div>
 

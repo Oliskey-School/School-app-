@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { TrendingUp, TrendingDown, Award, Users, BookOpen, Target } from 'lucide-react';
+import { TrendingUp, Target, TrendingDown, Award, Users } from 'lucide-react';
 
 interface GradeDistribution {
     grade: string;
@@ -11,21 +11,21 @@ interface GradeDistribution {
 
 interface SubjectPerformance {
     subject: string;
+    totalStudents: number;
     averageScore: number;
     passRate: number;
-    totalStudents: number;
 }
 
 interface ClassComparison {
     className: string;
+    studentCount: number;
     averageGPA: number;
     passRate: number;
-    studentCount: number;
 }
 
 interface AcademicAnalyticsProps {
     schoolId: string;
-    currentBranchId: string | null;
+    currentBranchId?: string | null;
 }
 
 const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, currentBranchId }) => {
@@ -55,174 +55,24 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
     const fetchAnalytics = async () => {
         try {
             setLoading(true);
-            await Promise.all([
-                fetchGradeDistribution(),
-                fetchSubjectPerformance(),
-                fetchClassComparison(),
-                fetchKeyMetrics()
-            ]);
+            const data = await api.getAcademicAnalytics(schoolId, currentBranchId || undefined, selectedTerm, selectedClass || undefined);
+
+            if (data) {
+                setGradeDistribution(data.gradeDistribution || []);
+                setSubjectPerformance(data.subjectPerformance || []);
+                setClassComparison(data.classComparison || []);
+                setMetrics(data.metrics || {
+                    overallGPA: 0,
+                    passRate: 0,
+                    topPerformer: 'N/A',
+                    improvement: 0
+                });
+            }
         } catch (error: any) {
             console.error('Error fetching analytics:', error);
             toast.error('Failed to load analytics');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchGradeDistribution = async () => {
-        try {
-            let query = supabase
-                .from('academic_performance')
-                .select('grade')
-                .eq('school_id', schoolId);
-            
-            if (currentBranchId && currentBranchId !== 'all') {
-                query = query.eq('branch_id', currentBranchId);
-            }
-
-            const { data: grades } = await query;
-
-            if (grades) {
-                const distribution = calculateGradeDistribution(grades);
-                setGradeDistribution(distribution);
-            }
-        } catch (error: any) {
-            console.error('Error fetching grade distribution:', error);
-        }
-    };
-
-    const calculateGradeDistribution = (grades: any[]) => {
-        const gradeMap: { [key: string]: number } = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0 };
-
-        grades.forEach(g => {
-            const grade = g.grade?.toUpperCase() || 'F';
-            if (gradeMap[grade] !== undefined) {
-                gradeMap[grade]++;
-            }
-        });
-
-        const total = grades.length || 1;
-        return Object.entries(gradeMap).map(([grade, count]) => ({
-            grade,
-            count,
-            percentage: (count / total) * 100
-        }));
-    };
-
-    const fetchSubjectPerformance = async () => {
-        try {
-            let query = supabase
-                .from('academic_performance')
-                .select('subject, score')
-                .eq('school_id', schoolId);
-            
-            if (currentBranchId && currentBranchId !== 'all') {
-                query = query.eq('branch_id', currentBranchId);
-            }
-
-            const { data: grades } = await query;
-
-            if (grades) {
-                const subjectMap: { [key: string]: number[] } = {};
-
-                grades.forEach(g => {
-                    const subject = g.subject || 'Unknown';
-                    if (!subjectMap[subject]) {
-                        subjectMap[subject] = [];
-                    }
-                    subjectMap[subject].push(g.score || 0);
-                });
-
-                const performance: SubjectPerformance[] = Object.entries(subjectMap).map(([subject, scores]) => {
-                    const average = scores.reduce((a, b) => a + b, 0) / scores.length;
-                    const passed = scores.filter(s => s >= 50).length;
-                    return {
-                        subject,
-                        averageScore: Math.round(average * 10) / 10,
-                        passRate: (passed / scores.length) * 100,
-                        totalStudents: scores.length
-                    };
-                });
-
-                setSubjectPerformance(performance.sort((a, b) => b.averageScore - a.averageScore));
-            }
-        } catch (error: any) {
-            console.error('Error fetching subject performance:', error);
-        }
-    };
-
-    const fetchClassComparison = async () => {
-        try {
-            // Real comparison logic based on academic_performance and classes
-            let query = supabase
-                .from('academic_performance')
-                .select('score, students!inner(id, current_class_id, classes!inner(id, name))')
-                .eq('school_id', schoolId);
-            
-            if (currentBranchId && currentBranchId !== 'all') {
-                query = query.eq('branch_id', currentBranchId);
-            }
-
-            const { data: performanceData } = await query;
-
-            if (performanceData) {
-                const classMap: { [key: string]: { scores: number[], studentIds: Set<string> } } = {};
-                
-                performanceData.forEach((item: any) => {
-                    const className = item.students?.classes?.name || 'Unknown';
-                    if (!classMap[className]) {
-                        classMap[className] = { scores: [], studentIds: new Set() };
-                    }
-                    classMap[className].scores.push(item.score || 0);
-                    if (item.students?.id) classMap[className].studentIds.add(item.students.id);
-                });
-
-                const comparison: ClassComparison[] = Object.entries(classMap).map(([className, data]) => {
-                    const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
-                    const passed = data.scores.filter(s => s >= 50).length;
-                    return {
-                        className,
-                        averageGPA: Math.round((avgScore / 100 * 4) * 10) / 10,
-                        passRate: Math.round((passed / data.scores.length) * 100),
-                        studentCount: data.studentIds.size
-                    };
-                });
-
-                setClassComparison(comparison.sort((a, b) => b.averageGPA - a.averageGPA));
-            }
-        } catch (error: any) {
-            console.error('Error fetching class comparison:', error);
-        }
-    };
-
-    const fetchKeyMetrics = async () => {
-        try {
-            let query = supabase
-                .from('academic_performance')
-                .select('score, student_id')
-                .eq('school_id', schoolId);
-            
-            if (currentBranchId && currentBranchId !== 'all') {
-                query = query.eq('branch_id', currentBranchId);
-            }
-
-            const { data: grades } = await query;
-
-            if (grades && grades.length > 0) {
-                const avgScore = grades.reduce((sum, g) => sum + (g.score || 0), 0) / grades.length;
-                const gpa = (avgScore / 100) * 4;
-                const passed = grades.filter(g => (g.score || 0) >= 50).length;
-                const passRate = (passed / grades.length) * 100;
-
-                setMetrics({
-                    overallGPA: Math.round(gpa * 100) / 100,
-                    passRate: Math.round(passRate * 10) / 10,
-                    topPerformer: 'Excellence Student',
-                    improvement: 5.2
-                });
-            }
-        } catch (error: any) {
-            console.error('Error fetching key metrics:', error);
         }
     };
 

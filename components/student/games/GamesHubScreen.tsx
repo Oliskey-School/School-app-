@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon } from 'lucide-react';
+import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon, Sword, Mic2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { educationalGamesData, EducationalGame } from '../../../data/gamesData';
 import { mockStudents, mockCustomAIGames } from '../../../data';
@@ -99,15 +99,16 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
                                         else if (game.gameName === 'Red Light, Green Light Counting') navigateTo('redLightGreenLight', 'Red Light, Green Light');
                                         else if (game.gameName === 'Spelling Sparkle') navigateTo('spellingSparkle', 'Spelling Sparkle');
                                         else if (game.gameName === 'Vocabulary Adventure') navigateTo('vocabularyAdventure', 'Vocabulary Adventure');
-                                        else if (game.gameName === 'Virtual Science Lab') navigateTo('physicsLab', 'Physics Lab');
+                                        else if (game.gameName === 'Virtual Science Lab') navigateTo('virtualScienceLab', 'Science Lab');
                                         else if (game.gameName === 'Debate Dash') navigateTo('debateDash', 'Debate Dash');
                                         else if (game.gameName === 'Geometry Jeopardy') navigateTo('geometryJeopardy', 'Geometry Jeopardy');
                                         else if (game.gameName === 'Literary Analysis Shark Tank') navigateTo('sharkTank', 'Literary Shark Tank');
-                                        else if (game.gameName === 'Virtual Science Lab') navigateTo('physicsLab', 'Physics Lab');
+                                        else if (game.gameName === 'Virtual Lab Simulation') navigateTo('physicsLab', 'Physics Lab');
                                         else if (game.gameName === 'Stock Market Game') navigateTo('stockMarket', 'Stock Market Simulator');
                                         else if (game.gameName === 'Vocabulary Pictionary') navigateTo('vocabularyPictionary', 'Vocabulary Pictionary');
                                         else if (game.gameName === 'Simple Machine Scavenger Hunt') navigateTo('simpleMachineHunt', 'Scavenger Hunt');
                                         else if (game.gameName === 'Historical Hot Seat') navigateTo('historicalHotSeat', 'Historical Hot Seat');
+                                        else if (game.gameName === 'Vocabulary Ninja') navigateTo('vocabularyNinja', 'Vocabulary Ninja');
                                         else toast('Game coming soon!', { icon: '🚧' });
                                     }}
                                 />
@@ -197,6 +198,27 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
             action: () => navigateTo('mathBattleArena', 'Math Battle Arena')
         },
         {
+            title: 'Vocabulary Ninja',
+            description: 'Slice through the words!',
+            icon: <Sword className="w-7 h-7 text-white" />,
+            bgColor: 'bg-pink-600 bg-gradient-to-br from-pink-600 to-rose-700',
+            action: () => navigateTo('vocabularyNinja', 'Vocabulary Ninja')
+        },
+        {
+            title: 'Hot Seat',
+            description: 'Historical figure roleplay.',
+            icon: <Mic2 className="w-7 h-7 text-white" />,
+            bgColor: 'bg-amber-500 bg-gradient-to-br from-amber-500 to-orange-600',
+            action: () => navigateTo('historicalHotSeat', 'Historical Hot Seat')
+        },
+        {
+            title: 'Science Lab',
+            description: 'Virtual experiments.',
+            icon: <div className="text-2xl font-bold text-white">🧪</div>,
+            bgColor: 'bg-teal-500 bg-gradient-to-br from-teal-500 to-green-600',
+            action: () => navigateTo('physicsLab', 'Physics Lab')
+        },
+        {
             title: 'Peekaboo Letters',
             description: 'Fun alphabet learning.',
             icon: <div className="text-2xl font-bold text-white">Abc</div>,
@@ -206,9 +228,8 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
     ];
 
     const comingSoonGames = [
-        { title: "Vocabulary Ninja", description: "Slice through words!", category: "Language", color: "pink" },
         { title: "History Quest", description: "Time travel adventure", category: "History", color: "amber" },
-        { title: "Science Lab", description: "Virtual experiments", category: "Science", color: "teal" }
+        { title: "Eco Warrior", description: "Save the environment!", category: "Ethics", color: "green" }
     ];
 
     const categoryTabs = ["All", "Math", "Geography", "Coding", "Logic"];

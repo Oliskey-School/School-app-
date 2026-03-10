@@ -10,13 +10,14 @@ import { Fee, Transaction, PaymentHistoryItem } from '../types';
 /**
  * Fetch fees for a specific student
  */
-export async function fetchStudentFees(studentId: string | number, schoolId?: string): Promise<Fee[]> {
+export async function fetchStudentFees(studentId: string | number, schoolId?: string, branchId?: string): Promise<Fee[]> {
     let query = supabase
         .from('student_fees')
         .select('*')
         .eq('student_id', studentId);
 
     if (schoolId) query = query.eq('school_id', schoolId);
+    if (branchId) query = query.eq('branch_id', branchId);
 
     const { data, error } = await query.order('due_date', { ascending: true });
 
@@ -31,12 +32,13 @@ export async function fetchStudentFees(studentId: string | number, schoolId?: st
 /**
  * Fetch all fees (for Admin)
  */
-export async function fetchAllFees(schoolId?: string): Promise<Fee[]> {
+export async function fetchAllFees(schoolId?: string, branchId?: string): Promise<Fee[]> {
     let query = supabase
         .from('student_fees')
         .select('*');
 
     if (schoolId) query = query.eq('school_id', schoolId);
+    if (branchId) query = query.eq('branch_id', branchId);
 
     const { data, error } = await query.order('created_at', { ascending: false });
 
@@ -73,6 +75,82 @@ export async function assignFee(fee: Omit<Fee, 'id' | 'paidAmount' | 'status'>, 
         throw error;
     }
     return normalizeFee(data);
+}
+
+/**
+ * Delete a student fee
+ */
+export async function deleteFee(feeId: string | number): Promise<void> {
+    const { error } = await supabase
+        .from('student_fees')
+        .delete()
+        .eq('id', feeId);
+
+    if (error) {
+        console.error('Error deleting fee:', error);
+        throw error;
+    }
+}
+
+/**
+ * Record a manual student payment for a fee
+ */
+export async function recordStudentPayment(
+    feeId: string | number,
+    studentId: string | number,
+    amount: number,
+    reference: string,
+    schoolId: string,
+    branchId?: string | null,
+    method: string = 'Cash'
+): Promise<void> {
+    try {
+        // 1. Fetch current fee to calculate new paid amount
+        const { data: fee, error: fetchError } = await supabase
+            .from('student_fees')
+            .select('amount, paid_amount')
+            .eq('id', feeId)
+            .single();
+
+        if (fetchError || !fee) throw new Error('Fee not found');
+
+        const newPaidAmount = (fee.paid_amount || 0) + amount;
+        const newStatus = newPaidAmount >= fee.amount ? 'paid' : 'partial';
+
+        // 2. Insert into transactions table
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error: txError } = await supabase
+            .from('transactions')
+            .insert([{
+                fee_id: feeId,
+                student_id: studentId,
+                school_id: schoolId,
+                branch_id: branchId,
+                payer_id: user?.id,
+                amount,
+                reference,
+                provider: method,
+                status: 'success'
+            }]);
+
+        if (txError) throw txError;
+
+        // 3. Update student_fees
+        const { error: updateError } = await supabase
+            .from('student_fees')
+            .update({
+                paid_amount: newPaidAmount,
+                status: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', feeId);
+
+        if (updateError) throw updateError;
+
+    } catch (err: any) {
+        console.error('Error recording student payment:', err);
+        throw err;
+    }
 }
 
 
@@ -164,12 +242,13 @@ export async function verifyTransaction(reference: string): Promise<{ success: b
 /**
  * Fetch Payment History
  */
-export async function fetchPaymentHistory(studentId?: string | number, schoolId?: string): Promise<Transaction[]> {
+export async function fetchPaymentHistory(studentId?: string | number, schoolId?: string, branchId?: string): Promise<Transaction[]> {
     let query = supabase
         .from('transactions')
         .select('*');
 
     if (schoolId) query = query.eq('school_id', schoolId);
+    if (branchId) query = query.eq('branch_id', branchId);
     if (studentId) {
         query = query.eq('student_id', studentId);
     }
@@ -177,6 +256,57 @@ export async function fetchPaymentHistory(studentId?: string | number, schoolId?
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) return [];
     return data.map(normalizeTransaction);
+}
+
+
+/**
+ * Delete a transaction and revert its effect on the fee
+ */
+export async function deleteTransaction(transactionId: string | number): Promise<void> {
+    try {
+        // 1. Fetch transaction details
+        const { data: tx, error: fetchTxError } = await supabase
+            .from('transactions')
+            .select('amount, fee_id')
+            .eq('id', transactionId)
+            .single();
+
+        if (fetchTxError || !tx) throw new Error('Transaction not found');
+
+        // 2. Delete transaction
+        const { error: deleteError } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', transactionId);
+
+        if (deleteError) throw deleteError;
+
+        // 3. Revert fee status/amount
+        if (tx.fee_id) {
+            const { data: fee, error: fetchFeeError } = await supabase
+                .from('student_fees')
+                .select('amount, paid_amount')
+                .eq('id', tx.fee_id)
+                .single();
+
+            if (fee) {
+                const newPaidAmount = Math.max(0, (fee.paid_amount || 0) - tx.amount);
+                const newStatus = newPaidAmount >= fee.amount ? 'paid' : (newPaidAmount > 0 ? 'partial' : 'pending');
+
+                await supabase
+                    .from('student_fees')
+                    .update({
+                        paid_amount: newPaidAmount,
+                        status: newStatus,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', tx.fee_id);
+            }
+        }
+    } catch (err: any) {
+        console.error('Error deleting transaction:', err);
+        throw err;
+    }
 }
 
 

@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabase';
 import { BookOpen, AlertCircle, Save, TrendingUp } from 'lucide-react';
 import { CurriculumMismatchWarning } from '../shared/TeacherCurriculumBadges';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
 
 interface ResultsEntryProps {
     teacherId: string;
@@ -30,6 +32,8 @@ export default function ResultsEntryEnhanced({
     examId,
     teacherCurriculumEligibility
 }: ResultsEntryProps) {
+    const { currentSchool, currentBranchId } = useAuth();
+    const schoolId = currentSchool?.id;
     const [selectedCurriculum, setSelectedCurriculum] = useState<'Nigerian' | 'British'>('Nigerian');
     const [students, setStudents] = useState<any[]>([]);
     const [results, setResults] = useState<{ [key: string]: ResultRecord }>({});
@@ -103,7 +107,7 @@ export default function ResultsEntryEnhanced({
 
             const studentIds = tracks.map(t => t.student_id);
 
-            // Fetch student details - try with class_id first, fallback to grade/section
+            // Fetch student details
             let { data: students, error: studentsError } = await supabase
                 .from('students')
                 .select('*')
@@ -127,12 +131,9 @@ export default function ResultsEntryEnhanced({
                 const classFiltered = students.filter(s => s.class_id === classId);
 
                 // If no results with class_id, try getting class info and filtering by grade/section
-                if (classFiltered.length === 0) {
-                    const { data: classInfo } = await supabase
-                        .from('classes')
-                        .select('grade, section')
-                        .eq('id', classId)
-                        .single();
+                if (classFiltered.length === 0 && schoolId) {
+                    const classesData = await api.getClasses(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
+                    const classInfo = classesData.find((c: any) => c.id === classId);
 
                     if (classInfo) {
                         students = students.filter(s =>
@@ -372,7 +373,7 @@ export default function ResultsEntryEnhanced({
                         </div>
                     ) : (
                         <>
-                            <div className="overfow-x-auto">
+                            <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b-2">

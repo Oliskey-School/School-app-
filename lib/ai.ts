@@ -160,9 +160,30 @@ export class GeminiClient {
     get models() {
         return {
             generateContent: this.generateContent.bind(this),
-            generateVideos: async (params: any) => {
-                console.warn("Video generation stub called.");
-                throw new Error("Video generation is currently unavailable.");
+            generateVideos: async (params: { prompt: string; subject?: string; grade?: string }) => {
+                console.log("Generating AI Video Plan for:", params.prompt);
+                const systemPrompt = `You are an AI Video Producer for an educational app. 
+                Create a detailed storyboard/script for a 30-second educational video.
+                Return a JSON object with:
+                {
+                  "title": "Video Title",
+                  "scenes": [
+                    { "timestamp": "0:00", "description": "Visual scene description", "script": "Narrator voiceover text" }
+                  ],
+                  "summary": "Educational takeaway"
+                }`;
+
+                const result = await this.generateContent({
+                    contents: `Create a video about: ${params.prompt} for ${params.subject || 'General'} (Grade ${params.grade || 'Any'})`,
+                    generationConfig: { responseMimeType: "application/json" },
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                });
+
+                try {
+                    return JSON.parse(result.text);
+                } catch (e) {
+                    return { error: "Failed to parse video plan", raw: result.text };
+                }
             }
         };
     }
@@ -178,9 +199,23 @@ export class GeminiClient {
 
     get live() {
         return {
-            connect: async () => {
-                console.warn("Live stub called.");
-                throw new Error("Live voice features are currently unavailable.");
+            connect: async (options: { onMessage?: (text: string) => void } = {}) => {
+                console.log("Connecting to Live Voice AI (Simulated Bridge)");
+
+                // Return a mock WebSocket-like interface that uses Gemini generateContent
+                return {
+                    send: async (text: string) => {
+                        const res = await this.generateContent({
+                            contents: text,
+                            systemInstruction: {
+                                parts: [{ text: "You are a friendly Live Voice Coach. Keep responses very short (1-2 sentences) and encouraging, as if speaking in real-time." }]
+                            }
+                        });
+                        if (options.onMessage) options.onMessage(res.text);
+                        return res.text;
+                    },
+                    disconnect: () => console.log("Live Voice Disconnected")
+                };
             }
         };
     }

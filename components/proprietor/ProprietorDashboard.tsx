@@ -26,6 +26,8 @@ import { AcademicStandards } from './AcademicStandards';
 import { STEMLabManager } from './STEMLabManager';
 import { PeopleOverview } from './PeopleOverview';
 import { ProprietorBottomNav } from '../ui/DashboardBottomNav';
+import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+
 
 interface ProprietorDashboardProps {
     onLogout?: () => void;
@@ -100,6 +102,9 @@ const ProprietorDashboard: React.FC<ProprietorDashboardProps> = ({ onLogout, set
             case 'people': return <PeopleOverview />;
             default: return (
                 <div className="space-y-6">
+                    {!user?.user_metadata?.email_verified && (
+                        <EmailVerificationPrompt />
+                    )}
                     {/* Welcome Section */}
                     <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-xl p-6 text-white">
                         <h2 className="text-2xl font-bold">Welcome back, {profile.name}</h2>

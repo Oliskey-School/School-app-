@@ -20,7 +20,7 @@ const actionIcons: { [key in AuditLogActionType]: React.ReactNode } = {
   create: <PlusIcon className="h-5 w-5 text-blue-500" />,
   update: <EditIcon className="h-5 w-5 text-yellow-500" />,
   delete: <TrashIcon className="h-5 w-5 text-purple-500" />,
-  publish: <PublishIcon className="h-5 w-5 text-sky-500" />,
+  publish: <PublishIcon className="h-5 w-5 text-blue-600" />,
   payment: <DollarSignIcon className="h-5 w-5 text-indigo-500" />,
 };
 

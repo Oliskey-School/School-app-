@@ -23,6 +23,7 @@ import { useOnlineStatus, OfflineIndicator } from '../shared/OfflineIndicator';
 // Lazy load all view components
 import IncomingClassModal from './IncomingClassModal'; // Import non-lazy for speed/critical alert
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
+import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
 const StudyBuddy = lazy(() => import('../student/StudyBuddy'));
 const AdventureQuestHost = lazy(() => import('../student/adventure/AdventureQuestHost'));
 const ExamSchedule = lazy(() => import('../shared/ExamSchedule'));
@@ -79,6 +80,7 @@ const CBTExamGame = lazy(() => import('./games/CBTExamGame'));
 const VocabularyPictionaryGame = lazy(() => import('./games/VocabularyPictionaryGame'));
 const SimpleMachineScavengerHuntGame = lazy(() => import('./games/SimpleMachineScavengerHuntGame'));
 const HistoricalHotSeatGame = lazy(() => import('./games/HistoricalHotSeatGame'));
+const VocabularyNinjaGame = lazy(() => import('./games/VocabularyNinjaGame'));
 const SchoolUtilitiesScreen = lazy(() => import('../parent/SchoolUtilitiesScreen'));
 const GamePlayerScreen = lazy(() => import('../shared/GamePlayerScreen'));
 const StudentCBTListScreen = lazy(() => import('./cbt/StudentCBTListScreen'));
@@ -142,8 +144,15 @@ const TodayFocus: React.FC<{
 
                 {assignments.length > 0 ? (
                     <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-gray-500">Assignments Due Soon</h4>
-                        {assignments.map(hw => (
+                        <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-semibold text-gray-500">Assignments Due Soon</h4>
+                            {assignments.length > 1 && (
+                                <button onClick={() => navigateTo('assignments', 'Assignments')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                                    See all {assignments.length}
+                                </button>
+                            )}
+                        </div>
+                        {assignments.slice(0, 1).map(hw => (
                             <button
                                 key={hw.id}
                                 onClick={() => navigateTo('assignmentSubmission', 'Submit Assignment', { assignment: hw })}
@@ -165,8 +174,15 @@ const TodayFocus: React.FC<{
 
                 {quizzes.length > 0 ? (
                     <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-gray-500">Upcoming Quizzes & Exams</h4>
-                        {quizzes.map(quiz => (
+                        <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-semibold text-gray-500">Upcoming Quizzes & Exams</h4>
+                            {quizzes.length > 1 && (
+                                <button onClick={() => navigateTo('quizzes', 'Quizzes & Exams')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                                    See all {quizzes.length}
+                                </button>
+                            )}
+                        </div>
+                        {quizzes.slice(0, 1).map(quiz => (
                             <button
                                 key={quiz.id}
                                 onClick={() => navigateTo('quizPlayer', quiz.title, { quizId: quiz.id, student })}
@@ -211,9 +227,9 @@ const Overview: React.FC<{
                 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
                 const [timetableData, assignmentsData, quizzesData] = await Promise.all([
-                    api.getTimetable(schoolId, student.grade.toString()),
-                    api.getAssignments(schoolId, { classId: student.classId || student.current_class_id }),
-                    api.getQuizzesByClass(schoolId, student.grade.toString(), student.section)
+                    api.getTimetable(schoolId, student.grade.toString(), undefined, currentBranchId),
+                    api.getAssignments(schoolId, { classId: student.classId || student.current_class_id, branchId: currentBranchId }),
+                    api.getQuizzesByClass(schoolId, student.grade.toString(), student.section, currentBranchId)
                 ]);
 
                 if (timetableData && timetableData.length > 0) {
@@ -299,6 +315,9 @@ const Overview: React.FC<{
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
+                    {!currentUser?.user_metadata?.email_verified && (
+                        <EmailVerificationPrompt />
+                    )}
 
 
                     <TodayFocus
@@ -812,7 +831,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         cbtExamGame: (props: any) => <CBTExamGame onBack={handleBack} />,
         vocabularyPictionary: (props: any) => <VocabularyPictionaryGame onBack={handleBack} />,
         simpleMachineHunt: (props: any) => <SimpleMachineScavengerHuntGame onBack={handleBack} />,
-        historicalHotSeat: HistoricalHotSeatGame,
+        historicalHotSeat: (props: any) => <HistoricalHotSeatGame onBack={handleBack} />,
+        vocabularyNinja: (props: any) => <VocabularyNinjaGame onBack={handleBack} />,
         schoolUtilities: SchoolUtilitiesScreen,
         cbtList: StudentCBTListScreen,
         cbtPlayer: (props: any) => <StudentCBTPlayerScreen {...props} handleBack={handleBack} />,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -473,7 +474,7 @@ const PolicyTab = ({ policies, setIsAdding }: PolicyTabProps) => (
 );
 
 const SafetyHealthLogs = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [activeTab, setActiveTab] = useState<TabType>('incidents');
     const [loading, setLoading] = useState(true);
     const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -501,12 +502,8 @@ const SafetyHealthLogs = () => {
                     .order('incident_date', { ascending: false });
                 if (data) setIncidents(data);
 
-                const { data: stdData } = await supabase
-                    .from('students')
-                    .select('id, name')
-                    .eq('school_id', currentSchool.id)
-                    .order('name');
-                if (stdData) setStudents(stdData);
+                const studentsData = await api.getStudents(currentSchool.id, currentBranchId || undefined, { includeUntagged: true });
+                if (studentsData) setStudents((studentsData || []).map((s: any) => ({ id: s.id, name: s.name })));
             } else if (activeTab === 'drills') {
                 const { data } = await supabase
                     .from('emergency_drills')

@@ -1,21 +1,34 @@
 import { supabase } from '../config/supabase';
 
 export class AssignmentService {
-    static async getAssignments(schoolId: string, classId?: string, teacherId?: string, className?: string) {
+    static async getAssignments(schoolId: string, branchId?: string, classId?: string, teacherId?: string, className?: string) {
         let query = supabase.from('assignments').select('*').eq('school_id', schoolId);
+
+        // Strict Data Isolation: Scope by branch
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
         if (classId) query = query.eq('class_id', classId);
         if (className) query = query.eq('class_name', className);
         if (teacherId) query = query.eq('teacher_id', teacherId);
+
         const { data, error } = await query.order('due_date', { ascending: false });
         if (error) throw new Error(error.message);
         return data || [];
     }
-    static async createAssignment(schoolId: string, assignmentData: any) {
+    static async createAssignment(schoolId: string, branchId: string | undefined, assignmentData: any) {
         const { attachments, ...mainData } = assignmentData;
+
+        // Force zero-leakage isolation
+        const insertData: any = { ...mainData, school_id: schoolId };
+        if (branchId && branchId !== 'all') {
+            insertData.branch_id = branchId;
+        }
 
         const { data: assignment, error } = await supabase
             .from('assignments')
-            .insert([{ ...mainData, school_id: schoolId }])
+            .insert([insertData])
             .select()
             .single();
 
@@ -46,37 +59,57 @@ export class AssignmentService {
         return assignment;
     }
 
-    static async getSubmissions(assignmentId: string) {
-        const { data, error } = await supabase
+    static async getSubmissions(schoolId: string, branchId: string | undefined, assignmentId: string) {
+        let query = supabase
             .from('assignment_submissions')
             .select('*, students(name, avatar_url)')
-            .eq('assignment_id', assignmentId);
+            .eq('assignment_id', assignmentId)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
+        const { data, error } = await query;
         if (error) throw new Error(error.message);
         return data || [];
     }
 
-    static async gradeSubmission(schoolId: string, submissionId: string, gradeData: any) {
-        const { data, error } = await supabase
+    static async gradeSubmission(schoolId: string, branchId: string | undefined, submissionId: string, gradeData: any) {
+        let query = supabase
             .from('assignment_submissions')
             .update(gradeData)
             .eq('id', submissionId)
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query
             .select()
             .single();
         if (error) throw new Error(error.message);
         return data;
     }
 
-    static async submitAssignment(schoolId: string, studentId: string, assignmentId: string, submissionData: any) {
+    static async submitAssignment(schoolId: string, branchId: string | undefined, studentId: string, assignmentId: string, submissionData: any) {
+        const insertData: any = {
+            ...submissionData,
+            school_id: schoolId,
+            student_id: studentId,
+            assignment_id: assignmentId,
+            status: 'submitted',
+            submitted_at: new Date().toISOString()
+        };
+
+        if (branchId && branchId !== 'all') {
+            insertData.branch_id = branchId;
+        }
+
         const { data, error } = await supabase
             .from('assignment_submissions')
-            .upsert([{
-                ...submissionData,
-                school_id: schoolId,
-                student_id: studentId,
-                assignment_id: assignmentId,
-                status: 'submitted',
-                submitted_at: new Date().toISOString()
-            }])
+            .upsert([insertData])
             .select()
             .single();
         if (error) throw new Error(error.message);

@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
@@ -27,9 +29,9 @@ const getSupabaseAdmin = () => {
  * Invites a user to join a school with a specific role
  * Requires admin authentication
  */
-router.post('/invite-user', async (req: Request, res: Response): Promise<void> => {
+router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), async (req: any, res: Response): Promise<void> => {
     try {
-        const { email, school_id, role, full_name } = req.body;
+        const { email, school_id, role, full_name, branch_id } = req.body;
 
         // Validate required fields
         if (!email || !school_id || !role || !full_name) {
@@ -54,13 +56,17 @@ router.post('/invite-user', async (req: Request, res: Response): Promise<void> =
 
         // Use Supabase Admin API to invite user
         const supabaseAdmin = getSupabaseAdmin();
+        const appUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'http://localhost:5173';
         const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
             data: {
                 school_id,
+                branch_id: branch_id || null,
                 role,
-                full_name
+                full_name,
             },
-            redirectTo: `${process.env.VITE_APP_URL || 'http://localhost:5173'}/#/auth/callback?type=invite&role=${role}`
+            // Hash-based redirect so the SPA picks it up without a 404.
+            // App.tsx detects hash containing 'invite/accept' and shows InviteAcceptScreen.
+            redirectTo: `${appUrl}/#/invite/accept?role=${encodeURIComponent(role)}&school_id=${encodeURIComponent(school_id)}${branch_id ? `&branch_id=${encodeURIComponent(branch_id)}` : ''}`,
         });
 
         if (error) {
@@ -88,6 +94,37 @@ router.post('/invite-user', async (req: Request, res: Response): Promise<void> =
             success: false,
             message: error.message || 'Internal server error'
         });
+    }
+});
+
+/**
+ * POST /api/invite/complete
+ * Called by the frontend immediately after an invited user accepts their invite
+ * and lands on the app for the first time. Generates their school_generated_id
+ * and ensures their profile is fully set up.
+ * Requires the invitee's own session token (they are already authenticated).
+ */
+router.post('/invite/complete', authenticate, async (req: any, res: Response): Promise<void> => {
+    try {
+        const userId = req.user.id;
+        const supabaseAdmin = getSupabaseAdmin();
+
+        // Call the DB RPC to generate the ID and complete the profile
+        const { data, error } = await supabaseAdmin.rpc('complete_staff_invite', {
+            p_user_id: userId,
+        });
+
+        if (error) {
+            console.error('[InviteComplete] RPC error:', error.message);
+            res.status(500).json({ success: false, message: error.message });
+            return;
+        }
+
+        console.log(`[InviteComplete] Completed for user ${userId}:`, data);
+        res.status(200).json({ success: true, ...data });
+    } catch (error: any) {
+        console.error('[InviteComplete] Error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

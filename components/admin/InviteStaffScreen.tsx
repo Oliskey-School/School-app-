@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
@@ -6,8 +6,10 @@ import {
     UserPlus,
     Mail,
     Loader2,
-    ChevronLeft
+    ChevronLeft,
+    Building
 } from 'lucide-react';
+import api from '../../lib/api';
 
 type UserRole =
     | 'admin'
@@ -37,11 +39,34 @@ interface InviteStaffScreenProps {
 const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navigateTo }) => {
     const { profile } = useProfile();
     const [isInviting, setIsInviting] = useState(false);
+    const [branches, setBranches] = useState<any[]>([]);
+
     const [invitationForm, setInvitationForm] = useState({
         email: '',
         role: 'teacher' as UserRole,
-        fullName: ''
+        fullName: '',
+        branchId: ''
     });
+
+    useEffect(() => {
+        if (profile?.schoolId) {
+            fetchBranches(profile.schoolId);
+        }
+    }, [profile?.schoolId]);
+
+    const fetchBranches = async (schoolId: string) => {
+        try {
+            const data = await api.getBranches(schoolId);
+            setBranches(data || []);
+            // Set main or first branch as default if available
+            if (data && data.length > 0) {
+                const main = data.find((b: any) => b.is_main) || data[0];
+                setInvitationForm(prev => ({ ...prev, branchId: main.id }));
+            }
+        } catch (error) {
+            console.error('Error fetching branches:', error);
+        }
+    };
 
     const handleInviteStaff = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -58,23 +83,29 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                 p_school_id: profile.schoolId,
                 p_email: invitationForm.email,
                 p_role: invitationForm.role,
-                p_full_name: invitationForm.fullName
+                p_full_name: invitationForm.fullName,
+                p_branch_id: invitationForm.branchId || null
             });
 
             if (validationError) throw validationError;
 
-            // Use the admin API to send the invitation
-            const response = await fetch('/api/invite-user', {
+            // Use the admin API to send the invitation (with auth token)
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const response = await fetch(`${apiBase}/invite-user`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
                 body: JSON.stringify({
                     email: invitationForm.email,
                     school_id: profile.schoolId,
                     role: invitationForm.role,
-                    full_name: invitationForm.fullName
-                })
+                    full_name: invitationForm.fullName,
+                    branch_id: invitationForm.branchId || null,
+                }),
             });
 
             if (!response.ok) {
@@ -83,7 +114,7 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
             }
 
             toast.success(`Invitation sent to ${invitationForm.email}!`);
-            setInvitationForm({ email: '', role: 'teacher', fullName: '' });
+            setInvitationForm({ email: '', role: 'teacher', fullName: '', branchId: branches.length > 0 ? (branches.find(b => b.is_main)?.id || branches[0].id) : '' });
 
             // Navigate back after success
             if (handleBack) handleBack();
@@ -149,6 +180,30 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
                                 placeholder="John Doe"
                             />
                         </div>
+
+                        {/* Branch Selection */}
+                        {branches.length > 0 && (
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-semibold text-gray-700">
+                                    Assign to Branch (Optional)
+                                </label>
+                                <div className="relative">
+                                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <select
+                                        value={invitationForm.branchId}
+                                        onChange={(e) => setInvitationForm({ ...invitationForm, branchId: e.target.value })}
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value="">All Branches / Main Hub</option>
+                                        {branches.map(branch => (
+                                            <option key={branch.id} value={branch.id}>
+                                                {branch.name} {branch.is_main ? '(Main Campus)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Role Selection */}

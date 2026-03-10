@@ -312,7 +312,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                             <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center">
                                 {avatar ? <img src={avatar} alt="Parent" className="w-full h-full rounded-full object-cover" /> : <UserIcon className="w-12 h-12 text-gray-400" />}
                             </div>
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-sky-500 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-sky-600">
+                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
                             </label>
@@ -339,7 +339,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                                         id="relationship"
                                         value={relationship}
                                         onChange={(e) => setRelationship(e.target.value as any)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         required
                                     >
                                         <option value="Father">Father</option>
@@ -402,7 +402,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400' : 'bg-sky-500 hover:bg-sky-600'} transition-colors`}
+                        className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
                     >
                         {isLoading ? 'Saving...' : (parentToEdit ? 'Update Parent' : 'Save Parent')}
                     </button>
@@ -449,7 +449,7 @@ const InputField: React.FC<{
                 id={id}
                 value={value}
                 onChange={e => onChange(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all placeholder-gray-400 focus:bg-white"
+                className="w-full pl-10 pr-4 py-3 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-400 focus:bg-white"
                 placeholder={placeholder || label}
                 required={required}
             />

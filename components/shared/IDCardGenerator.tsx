@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Student, Teacher } from '../../types';
 import { useProfile } from '../../context/ProfileContext';
@@ -26,6 +25,7 @@ const IDCardGenerator: React.FC<IDCardGeneratorProps> = ({ user, userType }) => 
             });
 
             const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = await import('jspdf');
             const pdf = new jsPDF({
                 orientation: 'landscape',
                 unit: 'mm',

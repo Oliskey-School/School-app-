@@ -55,16 +55,23 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
         return;
       }
 
-      const { data, error } = await supabase
+      const branchId = profile?.branch_id;
+
+      let query = supabase
         .from('notifications')
         .select('*')
-        .eq('school_id', activeSchoolId)
-        .order('created_at', { ascending: false });
+        .eq('school_id', activeSchoolId);
+
+      if (branchId && branchId !== 'all') {
+        query = query.eq('branch_id', branchId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
       const roleToCheck = (userType || 'student').toLowerCase();
-      const studentGrade = student?.grade || profile?.grade; // Fallback to profile if added there later
+      const studentGrade = student?.grade || (profile as any)?.grade;
 
       const filtered = (data || []).filter((n: any) => {
         let audience: string[] = [];
@@ -84,7 +91,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
           // Match by general role (student/teacher/etc) OR by specific class (e.g. Grade 10)
           const isGeneralRole = audStr === roleToCheck || audStr === 'all';
           const isSpecificClass = userType === 'student' && studentGrade && audStr === `grade ${studentGrade}`;
-          
+
           return isGeneralRole || isSpecificClass;
         });
 
@@ -114,6 +121,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
   useEffect(() => {
     fetchNotifications();
 
+    const branchId = profile?.branch_id;
     const activeSchoolId = schoolId || profile?.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 
     const channel = supabase.channel(`notifications-screen-${activeSchoolId}`)
@@ -123,6 +131,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
         table: 'notifications',
         filter: `school_id=eq.${activeSchoolId}`
       }, (payload) => {
+        const newRecord = payload.new as any;
+        if (branchId && branchId !== 'all' && newRecord && newRecord.branch_id && newRecord.branch_id !== branchId) return;
+
         console.log('🔔 [NotificationsScreen] Update received:', payload);
         fetchNotifications();
       })

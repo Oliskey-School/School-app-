@@ -61,7 +61,7 @@ DROP POLICY IF EXISTS "exam_bodies_isolation" ON public.exam_bodies;
 CREATE POLICY "exam_bodies_isolation" ON public.exam_bodies
   FOR ALL USING (
     school_id = (SELECT (COALESCE(
-      auth.jwt() -> 'user_metadata' ->> 'school_id',
+      auth.jwt() -> 'app_metadata' ->> 'school_id',
       auth.jwt() -> 'app_metadata' ->> 'school_id'
     ))::uuid)
   );
@@ -70,7 +70,7 @@ DROP POLICY IF EXISTS "exam_registrations_isolation" ON public.exam_registration
 CREATE POLICY "exam_registrations_isolation" ON public.exam_registrations
   FOR ALL USING (
     school_id = (SELECT (COALESCE(
-      auth.jwt() -> 'user_metadata' ->> 'school_id',
+      auth.jwt() -> 'app_metadata' ->> 'school_id',
       auth.jwt() -> 'app_metadata' ->> 'school_id'
     ))::uuid)
   );

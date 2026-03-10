@@ -16,7 +16,8 @@ export const getExams = async (req: AuthRequest, res: Response) => {
             else return res.json([]);
         }
 
-        const result = await ExamService.getExams(req.user.school_id, teacherId);
+        const branchId = req.user.branch_id || req.query.branch_id;
+        const result = await ExamService.getExams(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -25,7 +26,8 @@ export const getExams = async (req: AuthRequest, res: Response) => {
 
 export const createExam = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await ExamService.createExam(req.user.school_id, req.body);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await ExamService.createExam(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -34,7 +36,8 @@ export const createExam = async (req: AuthRequest, res: Response) => {
 
 export const updateExam = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await ExamService.updateExam(req.user.school_id, req.params.id as string, req.body);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await ExamService.updateExam(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -43,7 +46,8 @@ export const updateExam = async (req: AuthRequest, res: Response) => {
 
 export const deleteExam = async (req: AuthRequest, res: Response) => {
     try {
-        await ExamService.deleteExam(req.user.school_id, req.params.id as string);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        await ExamService.deleteExam(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -52,7 +56,8 @@ export const deleteExam = async (req: AuthRequest, res: Response) => {
 
 export const getExamResults = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await ExamService.getExamResults(req.params.id as string);
+        const branchId = req.user.branch_id || req.query.branch_id;
+        const result = await ExamService.getExamResults(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

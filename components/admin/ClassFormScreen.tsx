@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import api from '../../lib/api';
 import { XIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { ClassInfo } from '../../types';
@@ -41,17 +41,10 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
             };
 
             if (classToEdit) {
-                const { error } = await supabase
-                    .from('classes')
-                    .update(classData)
-                    .eq('id', classToEdit.id);
-                if (error) throw error;
+                await api.updateClass(classToEdit.id, classData);
                 toast.success('Class updated successfully');
             } else {
-                const { error } = await supabase
-                    .from('classes')
-                    .insert([classData]);
-                if (error) throw error;
+                await api.createClass(classData);
                 toast.success('Class created successfully');
             }
 

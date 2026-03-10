@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "dev": "vite --force",
+    "dev": "vite",
+    "predev": "npm run clean",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
@@ -11,6 +12,8 @@
     "db:verify": "echo 'Copy contents of supabase/migrations/20260128_verify_migration.sql and run in Supabase SQL Editor'",
     "db:migrate": "npx supabase db push",
     "start:all": "concurrently \"npm run dev\" \"npm run server\"",
+    "prestart:all": "npm run clean",
+    "clean": "npx rimraf node_modules/.vite",
     "setup": "npm install && echo '\n✅ Dependencies installed!\n\nNext steps:\n1. Add SUPABASE_SERVICE_ROLE_KEY to .env\n2. Run: npm run db:migrate\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
   },
   "dependencies": {
@@ -30,6 +33,7 @@
     "@tanstack/react-query-persist-client": "5.90.18",
     "@types/canvas-confetti": "1.9.0",
     "@types/qrcode": "1.5.6",
+    "axios": "^1.13.6",
     "babel-preset-expo": "54.0.8",
     "bcryptjs": "3.0.3",
     "canvas-confetti": "1.9.4",
@@ -39,7 +43,6 @@
     "expo": "54.0.27",
     "express": "5.1.0",
     "express-rate-limit": "8.2.1",
-    "firebase": "12.9.0",
     "formik": "2.4.9",
     "framer-motion": "12.25.0",
     "glob": "13.0.3",
@@ -48,6 +51,7 @@
     "html2pdf.js": "0.12.1",
     "html5-qrcode": "2.3.8",
     "idb-keyval": "6.2.2",
+    "json-server": "^0.17.4",
     "jsonwebtoken": "9.0.2",
     "jspdf": "4.0.0",
     "jspdf-autotable": "5.0.7",
@@ -89,7 +93,7 @@
     "@types/uuid": "10.0.0",
     "@vitejs/plugin-react": "5.0.0",
     "autoprefixer": "10.4.22",
-    "concurrently": "9.2.1",
+    "concurrently": "^9.2.1",
     "dotenv": "17.2.4",
     "happy-dom": "20.0.11",
     "jsdom": "27.0.1",

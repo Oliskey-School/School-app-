@@ -6,7 +6,7 @@ import { supabase } from '../config/supabase';
 export const getLessonPlans = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = req.query.teacherId as string;
-        
+
         if (req.user.role === 'teacher') {
             const { data: teacher } = await supabase
                 .from('teachers')
@@ -17,7 +17,8 @@ export const getLessonPlans = async (req: AuthRequest, res: Response) => {
             else return res.json([]);
         }
 
-        const result = await LessonPlanService.getLessonPlans(req.user.school_id, teacherId);
+        const branchId = req.user.branch_id || req.query.branchId as string;
+        const result = await LessonPlanService.getLessonPlans(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -26,7 +27,8 @@ export const getLessonPlans = async (req: AuthRequest, res: Response) => {
 
 export const createLessonPlan = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await LessonPlanService.createLessonPlan(req.user.school_id, req.body);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await LessonPlanService.createLessonPlan(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -35,7 +37,8 @@ export const createLessonPlan = async (req: AuthRequest, res: Response) => {
 
 export const updateLessonPlan = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await LessonPlanService.updateLessonPlan(req.user.school_id, req.params.id as string, req.body);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await LessonPlanService.updateLessonPlan(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -44,7 +47,8 @@ export const updateLessonPlan = async (req: AuthRequest, res: Response) => {
 
 export const deleteLessonPlan = async (req: AuthRequest, res: Response) => {
     try {
-        await LessonPlanService.deleteLessonPlan(req.user.school_id, req.params.id as string);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        await LessonPlanService.deleteLessonPlan(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
         res.status(500).json({ message: error.message });

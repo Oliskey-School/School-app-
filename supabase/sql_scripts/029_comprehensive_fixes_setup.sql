@@ -15,7 +15,7 @@ DECLARE
 BEGIN
     -- Check JWT metadata first (Most efficient)
     -- Using (SELECT ...) to ensure single evaluation per statement
-    _school_id := (NULLIF((SELECT auth.jwt() -> 'user_metadata' ->> 'school_id'), ''))::UUID;
+    _school_id := (NULLIF((SELECT auth.jwt() -> 'app_metadata' ->> 'school_id'), ''))::UUID;
     
     IF _school_id IS NOT NULL THEN
         RETURN _school_id;

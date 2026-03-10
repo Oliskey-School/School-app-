@@ -131,7 +131,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                 driver_name: formData.driverName,
                 status: formData.status
             };
-            const newBus = await api.createBus(payload);
+            const newBus = await api.createBus(schoolId, undefined, payload);
             if (newBus) {
                 const mappedBus: Bus = {
                     id: newBus.id,
@@ -171,7 +171,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                 driver_name: formData.driverName,
                 status: formData.status
             };
-            const updatedBus = await api.updateBus(editingBusId, payload);
+            const updatedBus = await api.updateBus(editingBusId, schoolId, undefined, payload);
             if (updatedBus) {
                 const mappedBus: Bus = {
                     id: updatedBus.id,
@@ -209,7 +209,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
     const handleDeleteBus = async (busId: string) => {
         if (confirm('Are you sure you want to delete this bus?')) {
             try {
-                await api.deleteBus(busId);
+                await api.deleteBus(busId, schoolId, undefined);
                 setBuses(buses.filter(bus => bus.id !== busId));
                 toast.success('Bus deleted successfully');
             } catch (error) {

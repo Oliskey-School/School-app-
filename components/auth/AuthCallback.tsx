@@ -42,6 +42,20 @@ const AuthCallback: React.FC = () => {
                     throw new Error(errorDescription?.replace(/\+/g, ' ') || 'Authentication failed');
                 }
 
+                // Helper to sync confirmation to our database
+                const syncConfirmation = async (userId: string) => {
+                    try {
+                        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                        await fetch(`${API_URL}/auth/confirm-email`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId })
+                        });
+                    } catch (e) {
+                        console.error('Failed to sync confirmation to backend:', e);
+                    }
+                };
+
                 // 2. Set the session if tokens are found
                 if (accessToken && refreshToken) {
                     console.log('🔑 Tokens found, setting session...');
@@ -55,6 +69,9 @@ const AuthCallback: React.FC = () => {
                     if (data.session) {
                         const role = data.session.user.user_metadata?.role || 'admin';
                         console.log(`✅ Session verified. User Role: ${role}`);
+
+                        // Sync confirmation to backend (transfers auth.users email to public.users)
+                        await syncConfirmation(data.session.user.id);
 
                         setStatus('success');
                         setMessage('Verification successful! Welcome.');

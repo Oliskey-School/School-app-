@@ -3,6 +3,7 @@ import { HealthLogEntry, Student } from '../../types';
 import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon } from '../../constants';
 // import { getFormattedClassName } from '../../constants'; // unused or keep if needed
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -55,29 +56,27 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
     const [isStudentListOpen, setIsStudentListOpen] = useState(false);
 
     useEffect(() => {
-        const fetchStudents = async () => {
+        const loadStudents = async () => {
             if (!schoolId) return;
-            const query = supabase
-                .from('students')
-                .select('id, name, avatarUrl:avatar_url, grade, section')
-                .eq('school_id', schoolId);
-
-            if (currentBranchId) {
-                query.eq('branch_id', currentBranchId);
-            }
-
-            const { data, error } = await query;
-
-            if (error) {
+            try {
+                const data = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
+                if (data) {
+                    setStudents((data || []).map((s: any) => ({
+                        id: s.id,
+                        name: s.name,
+                        avatarUrl: s.avatar_url || s.avatarUrl || 'https://i.pravatar.cc/150',
+                        grade: s.grade,
+                        section: s.section
+                    })) as any);
+                }
+            } catch (error) {
                 console.error('Error fetching students:', error);
-                return;
             }
-            if (data) setStudents(data as any);
         };
 
         const fetchLogs = async () => {
             if (!schoolId) return;
-            const { data, error } = await supabase
+            let logQuery = supabase
                 .from('health_logs')
                 .select(`
                     id,
@@ -93,8 +92,13 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                         avatarUrl:avatar_url
                     )
                 `)
-                .eq('school_id', schoolId)
-                .order('logged_date', { ascending: false });
+                .eq('school_id', schoolId);
+
+            if (currentBranchId && currentBranchId !== 'all') {
+                logQuery = logQuery.eq('branch_id', currentBranchId);
+            }
+
+            const { data, error } = await logQuery.order('logged_date', { ascending: false });
 
             if (error) {
                 console.error('Error fetching health logs:', error);
@@ -119,7 +123,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
             }
         };
 
-        fetchStudents();
+        loadStudents();
         fetchLogs();
 
         const channel = supabase.channel('health_logs_realtime')

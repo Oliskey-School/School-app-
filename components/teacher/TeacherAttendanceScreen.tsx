@@ -81,6 +81,11 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                     .eq('grade', classInfo.grade)
                     .eq('school_id', effectiveSchoolId);
 
+                const effectiveBranchId = currentBranchId || profile?.branchId;
+                if (effectiveBranchId && effectiveBranchId !== 'all') {
+                    studentQuery = studentQuery.eq('branch_id', effectiveBranchId);
+                }
+
                 if (classInfo.section && classInfo.section !== 'null' && classInfo.section !== '') {
                     studentQuery = studentQuery.eq('section', classInfo.section);
                 } else {
@@ -98,7 +103,12 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 }
 
                 // 2. Fetch Existing Attendance for Selected Date using api client
-                const attendanceData = await api.getAttendance(classInfo.id, selectedDate, { useBackend: true });
+                const attendanceData = await api.getAttendance(
+                    effectiveSchoolId,
+                    selectedDate,
+                    classInfo.id,
+                    effectiveBranchId || undefined
+                );
 
                 // Map API data to UI model
                 const studentsWithAttendance = classStudents.map((s: any) => {
@@ -149,9 +159,10 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     }, []);
 
     const submitAttendance = async () => {
-        const schoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
+        const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
+        const effectiveBranchId = currentBranchId || profile?.branchId || (classInfo as any).branchId || (classInfo as any).branch_id;
 
-        if (!schoolId) {
+        if (!effectiveSchoolId) {
             console.error("DEBUG: School ID missing. ClassInfo:", classInfo, "Profile:", profile);
             toast.error("School Context is missing. Please refresh.");
             return;
@@ -166,15 +177,15 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 class_id: classInfo.id,
                 date: selectedDate,
                 status: status,
-                school_id: schoolId,
-                branch_id: currentBranchId || profile?.branchId || null
+                school_id: effectiveSchoolId,
+                branch_id: effectiveBranchId || null
             };
         });
 
         console.log("DEBUG: Submitting Attendance Payload:", upsertData);
 
         try {
-            await api.saveAttendance(upsertData, { useBackend: true });
+            await api.saveAttendance(effectiveSchoolId, effectiveBranchId || undefined, upsertData);
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
         } catch (err) {
             console.error('Error submitting attendance:', err);

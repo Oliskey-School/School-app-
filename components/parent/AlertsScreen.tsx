@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 import { fetchStudentById, fetchStudentFeeSummary } from '../../lib/database';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
 import { Notification } from '../../types';
@@ -28,21 +29,27 @@ interface AlertsScreenProps {
 
 const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
   const { profile } = useProfile();
+  const { currentSchool, currentBranchId } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchNotifications = async () => {
-      if (!profile?.id) return;
+      if (!profile?.id || !currentSchool?.id) return;
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('notifications')
           .select('*')
+          .eq('school_id', currentSchool.id)
           .or(`user_id.eq.${profile.id},audience.cs.{parent},audience.cs.{all}`)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (currentBranchId && currentBranchId !== 'all') {
+            query = query.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        }
+
+        const { data, error } = await query;
 
         setNotifications((data || []).map((n: any) => ({
           id: n.id,

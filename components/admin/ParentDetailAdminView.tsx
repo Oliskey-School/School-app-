@@ -103,14 +103,14 @@ student: students!inner(
                     <div>
                         <h3 className="text-xl font-bold text-gray-800">{parent.name}</h3>
                         <div className="flex space-x-4 mt-2">
-                            <a href={`mailto:${parent.email} `} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-sky-600"><MailIcon className="w-4 h-4" /><span>Email</span></a>
-                            <a href={`tel:${parent.phone} `} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-sky-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>
+                            <a href={`mailto:${parent.email} `} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-blue-600"><MailIcon className="w-4 h-4" /><span>Email</span></a>
+                            <a href={`tel:${parent.phone} `} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-blue-600"><PhoneIcon className="w-4 h-4" /><span>Call</span></a>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-sm">
-                    <h4 className="font-bold text-gray-800 mb-2 flex items-center"><StudentsIcon className="w-5 h-5 mr-2 text-sky-500" /> Linked Children</h4>
+                    <h4 className="font-bold text-gray-800 mb-2 flex items-center"><StudentsIcon className="w-5 h-5 mr-2 text-blue-600" /> Linked Children</h4>
                     <div className="space-y-2">
                         {displayChildren.length > 0 ? displayChildren.map(child => (
                             <div key={child.id} className="bg-gray-50 p-3 rounded-lg flex items-center space-x-3">

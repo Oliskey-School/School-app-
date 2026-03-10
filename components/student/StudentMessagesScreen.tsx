@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ChatRoom, ChatUser, Student } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 const formatTimestamp = (isoDate: string): string => {
     const date = new Date(isoDate);
@@ -29,6 +31,8 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
     const [activeFilter, setActiveFilter] = useState<'All' | 'Unread'>('All');
     const [rooms, setRooms] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { profile } = useProfile();
+    const { user } = useAuth();
 
     // Responsive state
     const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
@@ -46,11 +50,18 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
 
         const fetchConversations = async () => {
             try {
+                const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+                const branchId = profile?.branch_id;
+
                 // 1. Get IDs of conversations I'm in
-                const { data: participation, error: pError } = await supabase
+                let partQuery = supabase
                     .from('conversation_participants')
                     .select('conversation_id, last_read_message_id')
                     .eq('user_id', studentId);
+
+                if (schoolId) partQuery = partQuery.eq('school_id', schoolId);
+
+                const { data: participation, error: pError } = await partQuery;
 
                 if (pError) throw pError;
 
@@ -63,7 +74,7 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
                 }
 
                 // 2. Fetch conversations details + participants
-                const { data: convs, error: cError } = await supabase
+                let convsQuery = supabase
                     .from('conversations')
                     .select(`
                         *,
@@ -71,8 +82,12 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
                             user:users(id, name, avatar_url, role)
                         )
                     `)
-                    .in('id', conversationIds)
-                    .order('last_message_at', { ascending: false });
+                    .in('id', conversationIds);
+
+                if (schoolId) convsQuery = convsQuery.eq('school_id', schoolId);
+                if (branchId && branchId !== 'all') convsQuery = convsQuery.eq('branch_id', branchId);
+
+                const { data: convs, error: cError } = await convsQuery.order('last_message_at', { ascending: false });
 
                 if (cError) throw cError;
 

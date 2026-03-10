@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { ChevronLeftIcon, ChevronRightIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
+import { useAuth } from '../../context/AuthContext';
 
 const attendanceColors: { [key in AttendanceStatus]: string } = {
     Present: 'bg-green-400 text-white',
@@ -50,15 +51,17 @@ interface AttendanceScreenProps {
 }
 
 const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
+    const { currentSchool } = useAuth();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [attendanceData, setAttendanceData] = useState<StudentAttendance[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchAttendance = async () => {
+            if (!currentSchool?.id) return;
             setLoading(true);
             try {
-                const data = await api.getAttendanceByStudent(studentId);
+                const data = await api.getAttendanceByStudent(studentId, currentSchool.id, currentSchool.branch_id);
 
                 if (data) {
                     const formatted: StudentAttendance[] = data.map((d: any) => ({

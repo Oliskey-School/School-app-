@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
+import PremiumLoader from '../ui/PremiumLoader';
 
 interface PermissionSlipScreenProps {
     students?: any[];
+    schoolId?: string;
 }
 
-const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = [] }) => {
+const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = [], schoolId }) => {
     const [slips, setSlips] = useState<any[]>([]);
     const [currentSlipIndex, setCurrentSlipIndex] = useState(0);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         fetchSlips();
-    }, [students]);
+    }, [students, schoolId]);
 
     const fetchSlips = async () => {
         if (!students || students.length === 0) {
@@ -23,24 +25,22 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
             return;
         }
 
+        setLoading(true);
         try {
             const relevantGrades = students.map(s => s.grade);
 
-            const { data, error } = await supabase
-                .from('permission_slips')
-                .select('*')
-                .order('id', { ascending: false });
+            // Use Central API
+            const data = await api.getPermissionSlips(schoolId || '');
 
-            if (error) throw error;
-
-            const filteredSlips = data?.filter(slip =>
+            const filteredSlips = data?.filter((slip: any) =>
                 !slip.target_grades || slip.target_grades.length === 0 ||
                 slip.target_grades.some((g: string) => relevantGrades.includes(g))
             ) || [];
 
-            setSlips(filteredSlips || []);
+            setSlips(filteredSlips);
         } catch (err) {
             console.error('Error fetching slips:', err);
+            toast.error('Failed to load permission slips');
         } finally {
             setLoading(false);
         }
@@ -50,12 +50,9 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
         if (!currentSlip) return;
 
         try {
-            const { error } = await supabase
-                .from('permission_slips')
-                .update({ status })
-                .eq('id', currentSlip.id);
+            await api.updatePermissionSlipStatus(currentSlip.id, status);
 
-            if (error) throw error;
+            toast.success(`Slip ${status.toLowerCase()} successfully`);
 
             // Optimistic update
             const updatedSlips = [...slips];
@@ -71,7 +68,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
     const currentSlip = slips[currentSlipIndex];
 
     if (loading) {
-        return <div className="flex justify-center items-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div></div>;
+        return <div className="flex justify-center items-center h-full"><PremiumLoader message="Loading slips..." /></div>;
     }
 
     if (!currentSlip) {
@@ -89,7 +86,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 space-y-4 overflow-y-auto">
-                <div className="bg-green-50 p-6 rounded-2xl text-center border border-green-200 shadow-sm">
+                <div className="bg-green-50 p-6 rounded-2xl text-center border border-green-200 shadow-sm transition-all duration-300">
                     <ClipboardListIcon className="h-10 w-10 mx-auto text-green-500 mb-2" />
                     <h3 className="font-bold text-lg text-green-800">Digital Permission Slip</h3>
                     {slips.length > 1 && (
@@ -97,7 +94,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                     )}
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 animate-fade-in">
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">{currentSlip.title}</h2>
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-6 pb-4 border-b border-gray-100">
                         <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-lg">
@@ -112,8 +109,8 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                         )}
                     </div>
 
-                    <div className="prose prose-sm max-w-none text-gray-600 mb-6">
-                        <p className="leading-relaxed">{currentSlip.description}</p>
+                    <div className="prose prose-sm max-w-none text-gray-600 mb-6 font-sans leading-relaxed">
+                        <p>{currentSlip.description}</p>
                     </div>
 
                     {slips.length > 1 && (
@@ -121,14 +118,14 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                             <button
                                 disabled={currentSlipIndex === 0}
                                 onClick={() => setCurrentSlipIndex(prev => prev - 1)}
-                                className="disabled:opacity-30 hover:text-green-600 font-medium"
+                                className="disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
                             >
                                 Previous
                             </button>
                             <button
                                 disabled={currentSlipIndex === slips.length - 1}
                                 onClick={() => setCurrentSlipIndex(prev => prev + 1)}
-                                className="disabled:opacity-30 hover:text-green-600 font-medium"
+                                className="disabled:opacity-30 hover:text-green-600 font-bold transition-colors"
                             >
                                 Next
                             </button>
@@ -137,11 +134,11 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
                 </div>
 
                 {currentSlip.status !== 'Pending' && (
-                    <div className={`p-6 rounded-2xl text-center border-2 ${currentSlip.status === 'Approved' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                    <div className={`p-6 rounded-2xl text-center border-2 transition-all ${currentSlip.status === 'Approved' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
                         <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-2 ${currentSlip.status === 'Approved' ? 'bg-green-100' : 'bg-red-100'}`}>
                             {currentSlip.status === 'Approved' ? <CheckCircleIcon className="w-6 h-6" /> : <XCircleIcon className="w-6 h-6" />}
                         </div>
-                        <p className="font-bold text-lg">You have {currentSlip.status} this slip.</p>
+                        <p className="font-bold text-lg">You have {currentSlip.status.toLowerCase()} this slip.</p>
                     </div>
                 )}
             </main>

@@ -8,14 +8,17 @@ interface TeacherAssignmentsListScreenProps {
     handleBack: () => void;
     forceUpdate: () => void;
     teacherId?: string | number | null;
+    branchId?: string | null;
 }
 
-const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> = ({ navigateTo, handleBack, forceUpdate, teacherId }) => {
+const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> = ({ navigateTo, handleBack, forceUpdate, teacherId, branchId }) => {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // Use real-time hook - automatically subscribes and updates
     const { data: rawAssignments, loading, isSubscribed } = useRealtimeAssignments(
-        teacherId ? String(teacherId) : undefined
+        teacherId ? String(teacherId) : undefined,
+        undefined, // schoolId (handled by hook/RLS)
+        branchId || undefined
     );
 
     // Map raw data to TypeScript interface

@@ -60,6 +60,7 @@ const ScholarshipManagement: React.FC = () => {
 
     const { currentSchool } = useAuth();
     const schoolId = currentSchool?.id;
+    const branchId = currentSchool?.branch_id;
 
     useEffect(() => {
         if (schoolId) {
@@ -73,10 +74,16 @@ const ScholarshipManagement: React.FC = () => {
     const fetchScholarships = async () => {
         try {
             if (!schoolId) return;
-            const { data, error } = await supabase
+            let query = supabase
                 .from('scholarships')
                 .select('*')
-                .eq('school_id', schoolId)
+                .eq('school_id', schoolId);
+
+            if (branchId) {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -91,14 +98,20 @@ const ScholarshipManagement: React.FC = () => {
     const fetchApplications = async () => {
         try {
             if (!schoolId) return;
-            const { data, error } = await supabase
+            let query = supabase
                 .from('scholarship_applications')
                 .select(`
                   *,
-                  students!inner (name, class, school_id),
-                  scholarships!inner (scholarship_name, amount, school_id)
+                  students!inner (name, class, school_id, branch_id),
+                  scholarships!inner (scholarship_name, amount, school_id, branch_id)
                 `)
-                .eq('students.school_id', schoolId)
+                .eq('students.school_id', schoolId);
+
+            if (branchId) {
+                query = query.eq('students.branch_id', branchId);
+            }
+
+            const { data, error } = await query
                 .order('applied_date', { ascending: false });
 
             if (error) throw error;
@@ -111,14 +124,20 @@ const ScholarshipManagement: React.FC = () => {
     const fetchRecipients = async () => {
         try {
             if (!schoolId) return;
-            const { data, error } = await supabase
+            let query = supabase
                 .from('scholarship_recipients')
                 .select(`
                   *,
-                  students!inner (name, class, school_id),
-                  scholarships!inner (scholarship_name, amount, school_id)
+                  students!inner (name, class, school_id, branch_id),
+                  scholarships!inner (scholarship_name, amount, school_id, branch_id)
                 `)
-                .eq('students.school_id', schoolId)
+                .eq('students.school_id', schoolId);
+
+            if (branchId) {
+                query = query.eq('students.branch_id', branchId);
+            }
+
+            const { data, error } = await query
                 .order('award_date', { ascending: false });
 
             if (error) throw error;
@@ -132,25 +151,43 @@ const ScholarshipManagement: React.FC = () => {
         try {
             if (!schoolId) return;
             // Total scholarships
-            const { count: totalCount } = await supabase
+            let totalQuery = supabase
                 .from('scholarships')
                 .select('*', { count: 'exact', head: true })
                 .eq('school_id', schoolId);
+
+            if (branchId) {
+                totalQuery = totalQuery.eq('branch_id', branchId);
+            }
+
+            const { count: totalCount } = await totalQuery;
             setTotalScholarships(totalCount || 0);
 
             // Total awarded
-            const { count: awardedCount } = await supabase
+            let awardedQuery = supabase
                 .from('scholarship_recipients')
-                .select('*, students!inner(school_id)', { count: 'exact', head: true })
+                .select('*, students!inner(school_id, branch_id)', { count: 'exact', head: true })
                 .eq('students.school_id', schoolId);
+
+            if (branchId) {
+                awardedQuery = awardedQuery.eq('students.branch_id', branchId);
+            }
+
+            const { count: awardedCount } = await awardedQuery;
             setTotalAwarded(awardedCount || 0);
 
             // Pending applications
-            const { count: pendingCount } = await supabase
+            let pendingQuery = supabase
                 .from('scholarship_applications')
-                .select('*, students!inner(school_id)', { count: 'exact', head: true })
+                .select('*, students!inner(school_id, branch_id)', { count: 'exact', head: true })
                 .eq('students.school_id', schoolId)
                 .eq('status', 'Pending');
+
+            if (branchId) {
+                pendingQuery = pendingQuery.eq('students.branch_id', branchId);
+            }
+
+            const { count: pendingCount } = await pendingQuery;
             setPendingApplications(pendingCount || 0);
         } catch (error: any) {
             console.error('Error fetching stats:', error);
@@ -178,7 +215,8 @@ const ScholarshipManagement: React.FC = () => {
                     slots_filled: 0,
                     is_active: true,
                     is_renewable: isRenewable,
-                    school_id: schoolId
+                    school_id: schoolId,
+                    branch_id: branchId
                 });
 
             if (error) throw error;

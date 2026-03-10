@@ -100,7 +100,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                 .select('name');
 
             // 2. Fetch latest scores
-            const performance = await api.getGrades([student.id], '', term);
+            const performance = await api.getGrades(schoolId, undefined, student.id, undefined, term);
             setAcademicPerformance(performance);
 
             // 3. Extract subjects from performance data (backup)
@@ -254,7 +254,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
                                                 <div className="flex justify-center items-center gap-6 text-[9px] font-black text-indigo-900/60 uppercase tracking-widest mt-2 border-t border-indigo-50 pt-3">
                                                     <span>{currentSchool?.address || 'School Campus Protocol'}</span>
                                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-200"></span>
-                                                    <span>{currentSchool?.phone || 'Central Communications'}</span>
+                                                    <span>{(currentSchool as any)?.phone || 'Central Communications'}</span>
                                                 </div>
                                             </div>
                                             <div className="w-28 px-4 py-3 bg-gray-900 text-white rounded-3xl text-left">

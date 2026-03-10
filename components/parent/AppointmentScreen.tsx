@@ -29,7 +29,7 @@ interface AppointmentScreenProps {
 }
 
 const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, students, navigateTo }) => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -43,8 +43,9 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
     useEffect(() => {
         const fetchTeachers = async () => {
-            // 1. Get School ID from Students prop (safest as it's already scoped to parent)
+            // 1. Get School ID from Students prop
             const studentSchoolId = students.length > 0 ? students[0].schoolId : currentSchool?.id;
+            const branchId = students.length > 0 ? students[0].branchId : currentBranchId;
 
             if (!studentSchoolId) {
                 console.warn("No school ID found for teacher fetch");
@@ -52,106 +53,48 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                 return;
             }
 
-            const { data, error } = await supabase
-                .from('teachers')
-                .select('*')
-                .eq('school_id', studentSchoolId) // Scope to school
-                .eq('status', 'Active');
+            try {
+                // Use Central API
+                const data = await api.getTeachers(studentSchoolId, branchId);
 
-            if (data) {
-                const mapTeacher = (t: any) => ({
-                    id: t.id,
-                    user_id: t.user_id, // Ensure user_id is mapped
-                    name: t.name,
-                    avatarUrl: t.avatar_url,
-                    subjects: [], // Fetch or mock subjects if needed
-                    classes: [],
-                    status: t.status,
-                    bio: '',
-                    email: t.email || '',
-                    phone: t.phone || ''
-                } as Teacher);
-
-
-                const mappedTeachers = data
-                    .filter((t: any) => t.user_id) // Only allow teachers with a linked user account
-                    .map(mapTeacher);
-                setTeachers(mappedTeachers);
+                if (data) {
+                    const mappedTeachers = data
+                        .filter((t: any) => t.user_id && t.status === 'Active')
+                        .map((t: any) => ({
+                            id: t.id,
+                            user_id: t.user_id,
+                            name: t.name,
+                            avatarUrl: t.avatar_url,
+                            subjects: t.subjects || [],
+                            classes: t.classes || [],
+                            status: t.status,
+                            email: t.email || '',
+                            phone: t.phone || ''
+                        } as Teacher));
+                    setTeachers(mappedTeachers);
+                }
+            } catch (err) {
+                console.error("Error fetching teachers:", err);
+                toast.error("Failed to load teachers");
+            } finally {
+                setLoadingTeachers(false);
             }
-            setLoadingTeachers(false);
         };
 
         fetchTeachers();
 
-        // Real-time subscription
+        // Real-time subscription (Optional: could be moved to api client if needed)
         const subscription = supabase
             .channel('public:teachers_appointment')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, (payload) => {
-                if (payload.eventType === 'INSERT') {
-                    const newTeacher = payload.new as any;
-                    if (newTeacher.status === 'Active') {
-                        setTeachers(prev => {
-                            if (prev.find(t => t.id === newTeacher.id)) return prev;
-                            return [...prev, {
-                                id: newTeacher.id,
-                                name: newTeacher.name,
-                                avatarUrl: newTeacher.avatar_url,
-                                subjects: [],
-                                classes: [],
-                                status: newTeacher.status,
-                                bio: '',
-                                email: newTeacher.email || '',
-                                phone: newTeacher.phone || ''
-                            } as Teacher];
-                        });
-                    }
-                } else if (payload.eventType === 'UPDATE') {
-                    const updatedTeacher = payload.new as any;
-                    setTeachers(prev => {
-                        // If status is not Active, remove it
-                        if (updatedTeacher.status !== 'Active') {
-                            return prev.filter(t => t.id !== updatedTeacher.id);
-                        }
-                        // If it IS Active, add or update it
-                        const existingIndex = prev.findIndex(t => t.id === updatedTeacher.id);
-                        if (existingIndex > -1) {
-                            const newPrev = [...prev];
-                            newPrev[existingIndex] = {
-                                ...newPrev[existingIndex],
-                                name: updatedTeacher.name,
-                                avatarUrl: updatedTeacher.avatar_url,
-                                status: updatedTeacher.status,
-                                email: updatedTeacher.email,
-                                phone: updatedTeacher.phone
-                            };
-                            return newPrev;
-                        } else {
-                            // Was not in list (maybe was inactive before), add it
-                            return [...prev, {
-                                id: updatedTeacher.id,
-                                user_id: updatedTeacher.user_id,
-                                name: updatedTeacher.name,
-                                avatarUrl: updatedTeacher.avatar_url,
-                                subjects: [],
-                                classes: [],
-                                status: updatedTeacher.status,
-                                bio: '',
-                                email: updatedTeacher.email || '',
-                                phone: updatedTeacher.phone || ''
-                            } as Teacher];
-                        }
-                    });
-                } else if (payload.eventType === 'DELETE') {
-                    const deletedTeacher = payload.old as any;
-                    setTeachers(prev => prev.filter(t => t.id !== deletedTeacher.id));
-                }
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
+                fetchTeachers(); // Re-fetch on change for simplicity and consistency
             })
             .subscribe();
 
         return () => {
             supabase.removeChannel(subscription);
         };
-    }, []);
+    }, [students, currentSchool?.id]);
 
     const activeTeachers = teachers;
 
@@ -208,6 +151,8 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                 starts_at: startsAt.toISOString(),
                 ends_at: endsAt.toISOString(),
                 reason: reason,
+                branch_id: selectedStudent.branchId || currentBranchId,
+                school_id: currentSchool.id
             });
 
             console.log("Booking Payload:", {

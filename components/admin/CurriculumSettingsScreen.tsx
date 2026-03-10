@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { fetchCurricula, fetchSubjects } from '../../lib/database';
 import { Curriculum, Subject } from '../../types';
-import { BookOpenIcon, CheckCircleIcon } from '../../constants';
+import { BookOpenIcon, CheckCircleIcon, ChevronLeftIcon, GlobeIcon, RefreshIcon, ClockIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
 
 const CurriculumSettingsScreen: React.FC<{
     handleBack: () => void;
@@ -13,6 +14,11 @@ const CurriculumSettingsScreen: React.FC<{
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showInfo, setShowInfo] = useState(false);
+    const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+    const [selectedTerm, setSelectedTerm] = useState<number | null>(null);
+    const [topics, setTopics] = useState<any[]>([]);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [isLoadingTopics, setIsLoadingTopics] = useState(false);
 
     useEffect(() => {
         loadTemplates();
@@ -35,6 +41,37 @@ const CurriculumSettingsScreen: React.FC<{
     const loadSubjects = async (curriculumId: string | number) => {
         const data = await fetchSubjects(curriculumId);
         setSubjects(data);
+    };
+
+    const loadTopics = async (subjectId: string, term: number) => {
+        setIsLoadingTopics(true);
+        try {
+            const data = await api.getCurriculumTopics(subjectId, String(term));
+            setTopics(data);
+        } catch (error) {
+            toast.error('Failed to load curriculum topics');
+            console.error(error);
+        } finally {
+            setIsLoadingTopics(false);
+        }
+    };
+
+    const handleSync = async (subject: Subject) => {
+        setIsSyncing(true);
+        try {
+            const source = selectedTemplate?.name.includes('Nigerian') ? 'Nigerian' : 'British';
+            const result = await api.syncCurriculumData(subject.id, source);
+            if (result.success) {
+                toast.success(result.message);
+                if (selectedTerm) loadTopics(subject.id, selectedTerm);
+            } else {
+                toast.error(result.message);
+            }
+        } catch (error) {
+            toast.error('Sync failed');
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     return (
@@ -139,7 +176,25 @@ const CurriculumSettingsScreen: React.FC<{
 
                 {/* Main Content */}
                 <div className="flex-1 overflow-y-auto bg-gray-50">
-                    {selectedTemplate ? (
+                    {selectedSubject ? (
+                        <SubjectDetailView
+                            subject={selectedSubject}
+                            term={selectedTerm}
+                            onSelectTerm={(term) => {
+                                setSelectedTerm(term);
+                                loadTopics(selectedSubject.id, term);
+                            }}
+                            onBack={() => {
+                                setSelectedSubject(null);
+                                setSelectedTerm(null);
+                                setTopics([]);
+                            }}
+                            topics={topics}
+                            isLoading={isLoadingTopics}
+                            onSync={() => handleSync(selectedSubject)}
+                            isSyncing={isSyncing}
+                        />
+                    ) : selectedTemplate ? (
                         <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 animate-fade-in">
                             {/* Curriculum Hero Card */}
                             <div className="relative overflow-hidden rounded-[2.5rem] bg-white p-1 shadow-xl shadow-indigo-900/5 border border-indigo-50">
@@ -191,9 +246,10 @@ const CurriculumSettingsScreen: React.FC<{
                                         </div>
                                     ) : (
                                         subjects.map((subject, idx) => (
-                                            <div
+                                            <button
                                                 key={subject.id}
-                                                className="group bg-white rounded-2xl p-5 border border-gray-100 hover:border-indigo-300 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-900/5 animate-scale-in"
+                                                onClick={() => setSelectedSubject(subject)}
+                                                className="group text-left bg-white rounded-2xl p-5 border border-gray-100 hover:border-indigo-300 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-900/5 animate-scale-in"
                                                 style={{ animationDelay: `${idx * 50}ms` }}
                                             >
                                                 <div className="flex items-start gap-4">
@@ -225,7 +281,7 @@ const CurriculumSettingsScreen: React.FC<{
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </button>
                                         ))
                                     )}
                                 </div>
@@ -245,6 +301,144 @@ const CurriculumSettingsScreen: React.FC<{
                     )}
                 </div>
             </div>
+        </div>
+    );
+};
+
+interface SubjectDetailViewProps {
+    subject: Subject;
+    term: number | null;
+    onSelectTerm: (term: number) => void;
+    onBack: () => void;
+    topics: any[];
+    isLoading: boolean;
+    onSync: () => void;
+    isSyncing: boolean;
+}
+
+const SubjectDetailView: React.FC<SubjectDetailViewProps> = ({
+    subject,
+    term,
+    onSelectTerm,
+    onBack,
+    topics,
+    isLoading,
+    onSync,
+    isSyncing
+}) => {
+    return (
+        <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 animate-fade-in">
+            <button
+                onClick={onBack}
+                className="flex items-center gap-2 text-gray-500 hover:text-indigo-600 transition-colors font-bold text-sm group"
+            >
+                <ChevronLeftIcon className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                Back to Subjects
+            </button>
+
+            <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-xl shadow-indigo-900/5">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex items-center gap-6">
+                        <div className="p-5 bg-indigo-50 rounded-3xl border border-indigo-100">
+                            <BookOpenIcon className="w-10 h-10 text-indigo-600" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-gray-900 tracking-tight">{subject.name}</h2>
+                            <p className="text-gray-500 font-medium">{subject.gradeLevel} • {subject.category}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onSync}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all disabled:opacity-50"
+                    >
+                        {isSyncing ? (
+                            <RefreshIcon className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <GlobeIcon className="w-5 h-5" />
+                        )}
+                        Sync Curriculum
+                    </button>
+                </div>
+
+                <div className="mt-12">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Select Academic Term</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                        {[1, 2, 3].map((t) => (
+                            <button
+                                key={t}
+                                onClick={() => onSelectTerm(t)}
+                                className={`p-4 rounded-2xl border-2 transition-all font-black text-lg ${term === t
+                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-md'
+                                    : 'border-gray-100 bg-gray-50 text-gray-400 hover:bg-white hover:border-indigo-200 hover:text-gray-600'
+                                    }`}
+                            >
+                                Term {t}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {term && (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-3">
+                            <ClockIcon className="w-5 h-5 text-indigo-600" />
+                            <h3 className="text-xl font-bold text-gray-900">Curriculum Content - Term {term}</h3>
+                        </div>
+                    </div>
+
+                    {isLoading ? (
+                        <div className="space-y-4">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="h-24 bg-white rounded-3xl animate-pulse border border-gray-100" />
+                            ))}
+                        </div>
+                    ) : topics.length === 0 ? (
+                        <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-gray-200">
+                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <BookOpenIcon className="w-10 h-10 text-gray-200" />
+                            </div>
+                            <p className="text-gray-400 font-bold">No curriculum content found for this term.</p>
+                            <p className="text-xs text-gray-400 mt-1">Try syncing with the standard curriculum sources.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {topics.map((topic, idx) => (
+                                <div
+                                    key={topic.id}
+                                    className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                                >
+                                    <div className="flex items-start gap-6">
+                                        <div className="flex-shrink-0 w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black">
+                                            {topic.week_number || idx + 1}
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xl font-bold text-gray-900 mb-2">{topic.title}</h4>
+                                            <p className="text-gray-500 text-sm leading-relaxed mb-4">{topic.content}</p>
+
+                                            {topic.learning_objectives && topic.learning_objectives.length > 0 && (
+                                                <div className="mt-4 pt-4 border-t border-gray-50">
+                                                    <h5 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">Objectives</h5>
+                                                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                        {(Array.isArray(topic.learning_objectives) ? topic.learning_objectives : []).map((obj: string, i: number) => (
+                                                            <li key={i} className="flex items-center gap-2 text-xs text-gray-600">
+                                                                <div className="w-1 h-1 rounded-full bg-indigo-400" />
+                                                                {obj}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

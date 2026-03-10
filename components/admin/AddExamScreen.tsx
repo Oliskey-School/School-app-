@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { Exam } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
 
 interface AddExamScreenProps {
   onSave: (exam: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => void;
@@ -11,7 +12,7 @@ interface AddExamScreenProps {
 }
 
 const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => {
-  const { currentSchool } = useAuth();
+  const { currentSchool, currentBranchId } = useAuth();
   const [examType, setExamType] = useState('');
   const [date, setDate] = useState('');
   const [className, setClassName] = useState('');
@@ -85,13 +86,14 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
         }
 
         // ADMIN OR FALLBACK: Fetch all classes and subjects
+        const branchId = currentBranchId || null;
         const [classesRes, subjectsRes] = await Promise.all([
-          supabase.from('classes').select('name').eq('school_id', currentSchool.id).order('name'),
-          supabase.from('subjects').select('name').eq('is_active', true).order('name')
+          api.getClasses(currentSchool.id, branchId || undefined),
+          api.getSubjects(currentSchool.id, branchId || undefined)
         ]);
 
-        if (classesRes.data) setAvailableClasses(classesRes.data);
-        if (subjectsRes.data) setAvailableSubjects(subjectsRes.data);
+        if (classesRes) setAvailableClasses(classesRes);
+        if (subjectsRes) setAvailableSubjects(subjectsRes);
       } catch (err) {
         console.error('Error fetching exam form data:', err);
       } finally {

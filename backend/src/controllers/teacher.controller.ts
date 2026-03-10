@@ -2,10 +2,12 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { TeacherService } from '../services/teacher.service';
 import { supabase } from '../config/supabase';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const createTeacher = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.createTeacher(req.user.school_id, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await TeacherService.createTeacher(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -25,7 +27,8 @@ export const getAllTeachers = async (req: AuthRequest, res: Response) => {
             return res.json(teacher ? [teacher] : []);
         }
 
-        const branchId = req.query.branchId as string;
+        const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, requestedBranch);
         const result = await TeacherService.getAllTeachers(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
@@ -35,7 +38,8 @@ export const getAllTeachers = async (req: AuthRequest, res: Response) => {
 
 export const getTeacherById = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.getTeacherById(req.user.school_id, req.params.id as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
+        const result = await TeacherService.getTeacherById(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -44,7 +48,8 @@ export const getTeacherById = async (req: AuthRequest, res: Response) => {
 
 export const updateTeacher = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.updateTeacher(req.user.school_id, req.params.id as string, req.body);
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await TeacherService.updateTeacher(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -53,7 +58,8 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
 
 export const deleteTeacher = async (req: AuthRequest, res: Response) => {
     try {
-        await TeacherService.deleteTeacher(req.user.school_id, req.params.id as string);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId as string) || req.body.branch_id);
+        await TeacherService.deleteTeacher(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -62,7 +68,7 @@ export const deleteTeacher = async (req: AuthRequest, res: Response) => {
 
 export const submitMyAttendance = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.submitMyAttendance(req.user.school_id, req.user.id);
+        const result = await TeacherService.submitMyAttendance(req.user.school_id, req.user.branch_id, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -72,7 +78,7 @@ export const submitMyAttendance = async (req: AuthRequest, res: Response) => {
 export const getMyHistory = async (req: AuthRequest, res: Response) => {
     try {
         const limit = parseInt(req.query.limit as string) || 30;
-        const result = await TeacherService.getMyAttendanceHistory(req.user.id, limit);
+        const result = await TeacherService.getMyAttendanceHistory(req.user.school_id, req.user.branch_id, req.user.id, limit);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

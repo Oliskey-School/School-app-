@@ -9,16 +9,17 @@ import { useAuth } from '../../context/AuthContext';
 interface AddBranchAdminScreenProps {
     forceUpdate: () => void;
     handleBack: () => void;
+    branchId?: string;
 }
 
-const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate, handleBack }) => {
+const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate, handleBack, branchId }) => {
     const { currentSchool } = useAuth();
     const schoolId = currentSchool?.id;
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
-    const [selectedBranchId, setSelectedBranchId] = useState('');
+    const [selectedBranchId, setSelectedBranchId] = useState(branchId || '');
     const [branches, setBranches] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [avatar, setAvatar] = useState<string | null>(null);
@@ -40,11 +41,16 @@ const AddBranchAdminScreen: React.FC<AddBranchAdminScreenProps> = ({ forceUpdate
 
             if (!error && data) {
                 setBranches(data);
-                if (data.length > 0) setSelectedBranchId(data[0].id);
+                if (branchId) {
+                    setSelectedBranchId(branchId);
+                } else if (data.length > 0 && !selectedBranchId) {
+                    setSelectedBranchId(data[0].id);
+                }
             }
         };
         fetchBranches();
-    }, [schoolId]);
+    }, [schoolId, branchId]);
+
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {

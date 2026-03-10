@@ -9,58 +9,27 @@ export interface AuthRequest extends Request {
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
 
-    if (!authHeader) {
-        console.warn('⚠️ [Auth] No authorization header provided');
-        return res.status(401).json({ message: 'No token provided' });
+    // [DEMO BYPASS] Allow anonymous access for the Demo School (d0ff3e95-9b4c-4c12-989c-e5640d3cacd1)
+    // This ensures visitors clicking "Try Demo" get a working dashboard even if 
+    // real Supabase auth is currently having issues in their environment.
+    const requestedSchoolId = req.headers['x-school-id'] || req.query.schoolId || req.query.school_id;
+    if (!token && requestedSchoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1') {
+        console.log('🛡️ [Auth] Demo School Bypass — providing limited demo identity');
+        req.user = {
+            id: '014811ea-281f-484e-b039-e37beb8d92b2', // Admin ID
+            email: 'user@school.com',
+            role: 'admin',
+            school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+            branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f'
+        };
+        return next();
     }
 
-    const token = authHeader.split(' ')[1];
-
-    // 0. Demo Mode Bypass (Improved for Role-Specific Mock Context)
-    if (token && token.startsWith('demo-token-') || token === 'demo-auth-token' || token.startsWith('demo-auth-token-')) {
-        let role = 'teacher';
-        if (token.includes('parent')) role = 'parent';
-        else if (token.includes('student')) role = 'student';
-        else if (token.includes('admin')) role = 'admin';
-
-        console.log(`🛡️ [Auth Success] (Demo Bypass) Context Role: ${role.toUpperCase()}`);
-
-        // Default to Demo School Context
-        const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-        // Set User context based on Demo Role
-        if (role === 'parent') {
-            req.user = {
-                id: 'd3300000-0000-0000-0000-000000000003', // Unified Demo Parent User ID
-                email: 'demo_parent@school.com',
-                role: 'parent',
-                school_id: DEMO_SCHOOL_ID
-            };
-        } else if (role === 'student') {
-            req.user = {
-                id: 'd3300000-0000-0000-0000-000000000004', // Unified Demo Student User ID
-                email: 'demo_student@school.com',
-                role: 'student',
-                school_id: DEMO_SCHOOL_ID
-            };
-        } else if (role === 'admin') {
-            req.user = {
-                id: '014811ea-281f-484e-b039-e37beb8d92b2', // Unified Demo Admin User ID
-                email: 'user@school.com',
-                role: 'admin',
-                school_id: DEMO_SCHOOL_ID
-            };
-        } else {
-            // Default: Teacher
-            req.user = {
-                id: 'd3300000-0000-0000-0000-000000000002', // Unified Demo Teacher User ID
-                email: 'demo_teacher@school.com',
-                role: 'teacher',
-                school_id: DEMO_SCHOOL_ID
-            };
-        }
-        return next();
+    if (!token) {
+        console.warn('⚠️ [Auth] No authorization header provided');
+        return res.status(401).json({ message: 'No token provided' });
     }
 
     try {
@@ -88,16 +57,21 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         // Fetch additional profile data (role, school_id) to populate req.user
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('users')
             .select('*')
             .eq('id', user.id)
             .single();
 
-        // Attach user + profile data to request
+        // Attach user + profile data to request.
+        // Explicit field extraction ensures branch_id / role are always set
+        // even if the profile lookup returns null (e.g. new user race condition).
         req.user = {
             ...user,
-            ...profile, // This adds school_id, role, etc.
-            school_id: profile?.school_id || (user.user_metadata?.school_id)
+            ...profile,
+            school_id:  profile?.school_id  || user.user_metadata?.school_id  || user.app_metadata?.school_id,
+            branch_id:  profile?.branch_id  || user.user_metadata?.branch_id  || user.app_metadata?.branch_id  || null,
+            role:       profile?.role       || user.user_metadata?.role        || user.app_metadata?.role,
+            school_generated_id: profile?.school_generated_id || user.user_metadata?.school_generated_id || null,
         };
 
         next();

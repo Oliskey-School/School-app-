@@ -1,33 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { SchoolPolicy } from '../../types';
 import { DocumentTextIcon, ShieldCheckIcon } from '../../constants';
 
-const SchoolPoliciesScreen: React.FC = () => {
+interface SchoolPoliciesScreenProps {
+  schoolId?: string;
+}
+
+const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId }) => {
   const [policies, setPolicies] = useState<SchoolPolicy[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchPolicies();
-  }, []);
+  }, [schoolId]);
 
   const fetchPolicies = async () => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('school_policies')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Use Central API
+      const data = await api.getSchoolPolicies(schoolId || '');
 
-      if (error) throw error;
-
-      if (data) {
-        setPolicies(data.map((p: any) => ({
-          id: p.id,
-          title: p.title,
-          description: p.description,
-          url: p.url
-        })));
-      }
+      setPolicies(data.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        url: p.url
+      })));
     } catch (error) {
       console.error('Error fetching policies:', error);
     } finally {

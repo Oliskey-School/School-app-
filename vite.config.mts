@@ -12,8 +12,10 @@ export default defineConfig(({ mode }) => {
       environment: 'happy-dom',
       setupFiles: './setupTests.ts',
     },
+    cacheDir: '.vite',
     server: {
       port: 3000,
+      strictPort: true,
       host: '0.0.0.0',
       proxy: {
         '/api': {

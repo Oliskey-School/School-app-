@@ -34,23 +34,22 @@ export const PaymentService = {
     /**
      * Verify transaction and update subscription status
      */
-    verifyTransaction: async ({ reference }: PaymentVerification) => {
+    verifyTransaction: async ({ reference, gateway = 'paystack' }: { reference: string, gateway?: string }) => {
         try {
-            // 1. In a production app, verify with Paystack API via a secure backend function.
-            // For this implementation, we will trust the client-side success callback but validate duplicates.
+            // CALL BACKEND FOR SECURE VERIFICATION
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions/verify/${reference}?gateway=${gateway}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
 
-            // Check if reference already used
-            const { data: existing } = await supabase
-                .from('payments')
-                .select('id')
-                .eq('reference', reference)
-                .maybeSingle();
+            const result = await response.json();
 
-            if (existing) {
-                throw new Error('Transaction reference already processed');
+            if (!response.ok) {
+                throw new Error(result.message || 'Payment verification failed');
             }
 
-            return { success: true };
+            return { success: true, data: result };
         } catch (error: any) {
             console.error('Verification error:', error);
             return { success: false, error: error.message };

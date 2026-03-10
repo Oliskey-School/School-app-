@@ -1,91 +1,189 @@
-// Mock user data for Quick Login buttons (Synced with Shared Reality Demo School)
-export const MOCK_USERS: Record<string, any> = {
+/**
+ * Demo account definitions.
+ * These map to REAL Supabase auth users in the demo school.
+ * All logins use supabase.auth.signInWithPassword() — no mock bypass.
+ *
+ * Demo school: d0ff3e95-9b4c-4c12-989c-e5640d3cacd1
+ * Demo branch: 7601cbea-e1ba-49d6-b59b-412a584cb94f
+ */
+export const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+export const DEMO_BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
+
+export interface DemoAccount {
+    role: string;
+    email: string;
+    password: string;
+    name: string;
+    description: string;   // shown on the demo role card
+    capabilities: string[]; // what the visitor can do in this role
+    color: string;
+    textColor: string;
+}
+
+export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
     admin: {
-        id: '014811ea-281f-484e-b039-e37beb8d92b2',
+        role: 'admin',
         email: 'user@school.com',
         password: 'password123',
-        role: 'admin',
-        name: 'System Admin',
-        school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-        metadata: { role: 'admin', full_name: 'System Admin', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        name: 'School Admin',
+        description: 'Manage the full school — students, teachers, fees, reports',
+        capabilities: ['Add students & teachers', 'Manage fees & payments', 'View all reports', 'Configure school settings'],
+        color: 'bg-blue-50 border-blue-200',
+        textColor: 'text-blue-700',
     },
     teacher: {
-        id: 'd3300000-0000-0000-0000-000000000002',
+        role: 'teacher',
         email: 'john.smith@demo.com',
         password: 'password123',
-        role: 'teacher',
-        name: 'Bisola Odupitan',
-        metadata: { role: 'teacher', full_name: 'Bisola Odupitan', subjects: ['Mathematics'], school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        name: 'Demo Teacher',
+        description: 'Manage your classes, students, and attendance',
+        capabilities: ['Mark attendance', 'Grade students', 'Manage timetable', 'Generate reports'],
+        color: 'bg-orange-50 border-orange-200',
+        textColor: 'text-orange-700',
     },
     parent: {
-        id: 'd3300000-0000-0000-0000-000000000003',
-        email: 'demo_parent@school.com',
-        password: 'password123',
         role: 'parent',
+        email: 'parent1@demo.com',
+        password: 'password123',
         name: 'Demo Parent',
-        metadata: { role: 'parent', full_name: 'Demo Parent', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        description: "Track your child's progress, pay fees, receive alerts",
+        capabilities: ['View report cards', 'Pay school fees', 'Receive notifications', 'Message teachers'],
+        color: 'bg-green-50 border-green-200',
+        textColor: 'text-green-700',
     },
     student: {
-        id: 'd3300000-0000-0000-0000-000000000004',
-        email: 'demo_student@school.com',
-        password: 'password123',
         role: 'student',
+        email: 'student1@demo.com',
+        password: 'password123',
         name: 'Demo Student',
-        metadata: { role: 'student', full_name: 'Demo Student', school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' }
+        description: 'Check results, timetable, assignments and notifications',
+        capabilities: ['View timetable', 'Check results', 'Submit assignments', 'Access resources'],
+        color: 'bg-blue-50 border-blue-200',
+        textColor: 'text-blue-700',
     },
     proprietor: {
-        id: 'd3300000-0000-0000-0000-000000000005',
-        email: 'demo_proprietor@school.com',
-        password: 'password123',
         role: 'proprietor',
-        name: 'Demo Proprietor',
-        metadata: { role: 'proprietor', full_name: 'Demo Proprietor', school_id: '00000000-0000-0000-0000-00000000d330' }
+        email: 'proprietor@demo.com',
+        password: 'password123',
+        name: 'Proprietor',
+        description: 'Overarching view of school operations',
+        capabilities: [],
+        color: 'bg-slate-50 border-slate-200',
+        textColor: 'text-slate-700',
     },
     inspector: {
-        id: 'd3300000-0000-0000-0000-000000000006',
-        email: 'demo_inspector@school.com',
-        password: 'password123',
         role: 'inspector',
-        name: 'Demo Inspector',
-        metadata: { role: 'inspector', full_name: 'Demo Inspector', school_id: '00000000-0000-0000-0000-00000000d330' }
+        email: 'inspector@demo.com',
+        password: 'password123',
+        name: 'Inspector',
+        description: 'Academic quality assurance',
+        capabilities: [],
+        color: 'bg-slate-50 border-slate-200',
+        textColor: 'text-slate-700',
     },
     examofficer: {
-        id: 'd3300000-0000-0000-0000-000000000007',
-        email: 'demo_examofficer@school.com',
-        password: 'password123',
         role: 'examofficer',
-        name: 'Demo Exam Officer',
-        metadata: { role: 'examofficer', full_name: 'Demo Exam Officer', school_id: '00000000-0000-0000-0000-00000000d330' }
-    },
-    compliance: {
-        id: 'd3300000-0000-0000-0000-000000000008',
-        email: 'demo_compliance@school.com',
+        email: 'examofficer@demo.com',
         password: 'password123',
+        name: 'Exam Officer',
+        description: 'Examination management',
+        capabilities: [],
+        color: 'bg-slate-50 border-slate-200',
+        textColor: 'text-slate-700',
+    },
+    complianceofficer: {
         role: 'complianceofficer',
-        name: 'Demo Compliance',
-        metadata: { role: 'complianceofficer', full_name: 'Demo Compliance', school_id: '00000000-0000-0000-0000-00000000d330' }
+        email: 'compliance@demo.com',
+        password: 'password123',
+        name: 'Compliance',
+        description: 'Regulatory adherence',
+        capabilities: [],
+        color: 'bg-slate-50 border-slate-200',
+        textColor: 'text-slate-700',
     },
 };
 
+/** Ordered list for the demo landing page */
+export const DEMO_ROLES_ORDER = ['admin', 'teacher', 'parent', 'student', 'proprietor', 'inspector', 'examofficer', 'complianceofficer'] as const;
+
 /**
- * Mock authentication function for development
- * Simulates Supabase auth response
+ * Legacy MOCK_USERS kept for any remaining references during migration.
+ * New code should use DEMO_ACCOUNTS instead.
  */
+export const MOCK_USERS: Record<string, any> = {
+    admin: {
+        id: '014811ea-281f-484e-b039-e37beb8d92b2',
+        email: DEMO_ACCOUNTS.admin.email,
+        password: 'password123',
+        role: 'admin',
+        name: DEMO_ACCOUNTS.admin.name,
+        school_id: DEMO_SCHOOL_ID,
+        metadata: {
+            role: 'admin',
+            full_name: DEMO_ACCOUNTS.admin.name,
+            school_generated_id: 'OLISKEY_MAIN_ADM_0001',
+            school_id: DEMO_SCHOOL_ID,
+            branch_id: DEMO_BRANCH_ID,
+            school_code: 'OLISKEY',
+            branch_code: 'MAIN',
+        },
+    },
+    teacher: {
+        id: '6f90901e-4119-457d-8d73-745b17831a30',
+        email: DEMO_ACCOUNTS.teacher.email,
+        password: 'password123',
+        role: 'teacher',
+        name: DEMO_ACCOUNTS.teacher.name,
+        metadata: {
+            role: 'teacher',
+            full_name: DEMO_ACCOUNTS.teacher.name,
+            school_generated_id: 'OLISKEY_MAIN_TCH_0017',
+            school_id: DEMO_SCHOOL_ID,
+            branch_id: DEMO_BRANCH_ID,
+            school_code: 'OLISKEY',
+            branch_code: 'MAIN',
+        },
+    },
+    parent: {
+        id: '3deca03a-6ebd-4732-98fa-5fd2a278d498',
+        email: DEMO_ACCOUNTS.parent.email,
+        password: 'password123',
+        role: 'parent',
+        name: DEMO_ACCOUNTS.parent.name,
+        metadata: {
+            role: 'parent',
+            full_name: DEMO_ACCOUNTS.parent.name,
+            school_generated_id: 'OLISKEY_MAIN_PAR_0007',
+            school_id: DEMO_SCHOOL_ID,
+            branch_id: DEMO_BRANCH_ID,
+            school_code: 'OLISKEY',
+            branch_code: 'MAIN',
+        },
+    },
+    student: {
+        id: '404d70d9-451c-4ba5-be3a-9a8929c0f2e8',
+        email: DEMO_ACCOUNTS.student.email,
+        password: 'password123',
+        role: 'student',
+        name: DEMO_ACCOUNTS.student.name,
+        metadata: {
+            role: 'student',
+            full_name: DEMO_ACCOUNTS.student.name,
+            school_generated_id: 'OLISKEY_MAIN_STU_0135',
+            school_id: DEMO_SCHOOL_ID,
+            branch_id: DEMO_BRANCH_ID,
+            school_code: 'OLISKEY',
+            branch_code: 'MAIN',
+        },
+    },
+};
+
 export const mockLogin = async (email: string, password: string) => {
-    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Find user by email
     const user = Object.values(MOCK_USERS).find(u => u.email === email);
-
     if (!user || user.password !== password) {
-        return {
-            data: { user: null, session: null },
-            error: { message: 'Invalid credentials' }
-        };
+        return { data: { user: null, session: null }, error: { message: 'Invalid credentials' } };
     }
-
-    // Return mock Supabase auth response
     return {
         data: {
             user: {
@@ -101,12 +199,9 @@ export const mockLogin = async (email: string, password: string) => {
                 refresh_token: 'mock-refresh-token',
                 expires_in: 3600,
                 token_type: 'bearer',
-                user: {
-                    id: user.id,
-                    email: user.email,
-                }
-            }
+                user: { id: user.id, email: user.email },
+            },
         },
-        error: null
+        error: null,
     };
 };

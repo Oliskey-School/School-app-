@@ -26,6 +26,7 @@ export function useRealtimeNotifications(userRole?: string) {
     const fetchCount = async () => {
         // We need both to accurately filter multi-tenant notifications
         let schoolId = currentSchool?.id || user?.app_metadata?.school_id || user?.user_metadata?.school_id;
+        let branchId = profile?.branch_id;
 
         // Demo Fallback
         const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo || !schoolId;
@@ -39,14 +40,18 @@ export function useRealtimeNotifications(userRole?: string) {
         }
 
         try {
-            console.log(`🔔 [Notifications] Fetching for School: ${schoolId}, User: ${currentUserId}`);
-            // Optimization: Filter for the user or global/role-based audience directly in the query if possible, 
-            // but since audience is a JSONB/Array, we'll fetch school unread and filter in JS for accuracy.
-            const { data, error } = await supabase
+            console.log(`🔔 [Notifications] Fetching for School: ${schoolId}, Branch: ${branchId}, User: ${currentUserId}`);
+            let query = supabase
                 .from('notifications')
-                .select('id, user_id, audience, is_read')
+                .select('id, user_id, audience, is_read, branch_id')
                 .eq('school_id', schoolId)
                 .eq('is_read', false);
+
+            if (branchId && branchId !== 'all') {
+                query = query.eq('branch_id', branchId);
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error('Error fetching notification count:', error);
@@ -79,6 +84,7 @@ export function useRealtimeNotifications(userRole?: string) {
 
     useEffect(() => {
         let schoolId = currentSchool?.id || user?.app_metadata?.school_id || user?.user_metadata?.school_id;
+        const branchId = profile?.branch_id;
         const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo || !schoolId;
         if (!schoolId && isDemo) {
             schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
@@ -108,8 +114,9 @@ export function useRealtimeNotifications(userRole?: string) {
 
                     // Show Toast ONLY on INSERT
                     if (payload.eventType === 'INSERT') {
-                        // Local verification of school_id
+                        // Local verification of school_id and branch_id
                         if (newRecord.school_id !== schoolId) return;
+                        if (branchId && branchId !== 'all' && newRecord.branch_id !== branchId) return;
 
                         // Audience & User Filtering for Toast
                         const roleToCheck = (userRole || profile?.role || 'student').toLowerCase();

@@ -24,10 +24,10 @@ ON public.student_enrollments
 FOR ALL
 TO authenticated
 USING (
-  school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid
+  school_id = (auth.jwt() -> 'app_metadata' ->> 'school_id')::uuid
 )
 WITH CHECK (
-  school_id = (auth.jwt() -> 'user_metadata' ->> 'school_id')::uuid
+  school_id = (auth.jwt() -> 'app_metadata' ->> 'school_id')::uuid
 );
 
 -- 4. Initial Data Migration: Populate enrollments from existing students.class_id

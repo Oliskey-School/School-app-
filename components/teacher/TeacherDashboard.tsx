@@ -105,6 +105,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   const { currentSchool, currentBranchId, user } = useAuth();
   const schoolId = currentSchool?.id;
 
+  const effectiveSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined);
+
   // Fetch Integer User ID for Chat
   useEffect(() => {
     const getUser = async () => {
@@ -379,7 +381,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     teacherId, // Pass the dynamic teacher ID
     currentUser: user,
     currentUserId,
-    schoolId: schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined),
+    schoolId: effectiveSchoolId,
     currentBranchId
   };
 

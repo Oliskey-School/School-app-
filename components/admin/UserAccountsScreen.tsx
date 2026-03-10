@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { SearchIcon, UserIcon, RefreshIcon } from '../../constants';
+import { api } from '../../lib/api';
 // Import ConfirmationModal assuming it is accessible in ../ui/ConfirmationModal
 import ConfirmationModal from '../ui/ConfirmationModal';
 
@@ -47,36 +48,8 @@ const UserAccountsScreen: React.FC = () => {
                 return;
             }
 
-            let query = supabase
-                .from('profiles')
-                .select('*')
-                .eq('school_id', schoolId);
-
-            if (branchId) {
-                query = query.eq('branch_id', branchId);
-            }
-
-            const { data, error } = await query;
-
-            if (error) {
-                console.error("❌ [UserAccounts] Supabase query error:", error);
-                throw error;
-            }
-
-            if (data) {
-                console.log(`✅ [UserAccounts] Loaded ${data.length} accounts for branch: ${branchId}`);
-                const mapped = data.map((acc: any) => ({
-                    id: acc.id,
-                    username: acc.username || acc.email?.split('@')[0] || 'user',
-                    user_type: acc.role || 'Unknown',
-                    email: acc.email || '',
-                    user_id: acc.school_generated_id ? parseInt(acc.school_generated_id.replace(/\D/g, '')) || null : null,
-                    created_at: acc.created_at,
-                    is_active: acc.is_active !== false,
-                    name: acc.full_name || 'Unknown User'
-                }));
-                setAccounts(mapped);
-            }
+            const data = await api.getUsers(schoolId, branchId);
+            setAccounts(data || []);
         } catch (err: any) {
             console.error("❌ [UserAccounts] Fatal error:", err);
             toast.error(`Failed to load accounts: ${err.message || 'Unknown error'}`);

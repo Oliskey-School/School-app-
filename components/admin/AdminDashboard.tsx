@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
+import ErrorBoundary from '../ui/ErrorBoundary';
 import { useProfile } from '../../context/ProfileContext';
 import PremiumLoader from '../ui/PremiumLoader';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -10,6 +11,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { formatSchoolId } from '../../utils/idFormatter';
+import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+import TrialBanner from '../ui/TrialBanner';
 
 // Lazy load all admin screens
 const DashboardOverview = lazy(() => import('../admin/DashboardOverview'));
@@ -125,6 +128,7 @@ const AssignFeePage = lazy(() => import('../admin/AssignFeePage'));
 const AdminActionsScreen = lazy(() => import('../admin/AdminActionsScreen'));
 const SchoolManagementScreen = lazy(() => import('../admin/SchoolManagementScreen'));
 const ClassFormScreen = lazy(() => import('../admin/ClassFormScreen'));
+const RecordPaymentScreen = lazy(() => import('../admin/RecordPaymentScreen'));
 
 type ViewStackItem = {
     view: string;
@@ -216,6 +220,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         teacherList: TeacherListScreen,
         teacherPerformance: TeacherPerformanceScreen,
         timetable: TimetableGeneratorScreen,
+        timetableGenerator: TimetableGeneratorScreen,
         timetableEditor: TimetableEditor,
         timetableCreator: TimetableCreator,
         aiTimetableCreator: TimetableCreationPage,
@@ -246,6 +251,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         brandingSettings: BrandingSettingsScreen,
         personalSecuritySettings: PersonalSecuritySettingsScreen,
         teacherDetailAdminView: TeacherDetailAdminView,
+        TeacherDetailAdminView: TeacherDetailAdminView,
         teacherAttendanceDetail: TeacherAttendanceDetail,
         attendanceOverview: AttendanceOverviewScreen,
         classAttendanceDetail: ClassAttendanceDetailScreen,
@@ -255,6 +261,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         busDutyRoster: BusDutyRosterScreen,
         selectUserTypeToAdd: SelectUserTypeToAddScreen,
         addTeacher: AddTeacherScreen,
+        AddTeacherScreen: AddTeacherScreen,
         addParent: AddParentScreen,
         parentList: ParentListScreen,
         parentDetailAdminView: ParentDetailAdminView,
@@ -322,6 +329,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         adminActions: AdminActionsScreen,
         schoolManagement: SchoolManagementScreen,
         classForm: ClassFormScreen,
+        recordPayment: RecordPaymentScreen,
     };
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -448,8 +456,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             {!isSupabaseConfigured && <div className="bg-amber-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Supabase Config Missing</div>}
             {isSupabaseConfigured && dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}
 
+            {/* Plan / Trial Banner */}
+            <TrialBanner onUpgradeClick={() => navigateTo('upgrade', 'Upgrade Plan')} />
+
             <div key={`${viewStack.length}-${version}`} className="w-full h-full">
-                {renderContent()}
+                <ErrorBoundary
+                    key={currentNavigation.view}
+                    title={`${currentNavigation.title} Error`}
+                    message="We encountered an issue while rendering this screen. This could be due to a data mismatch or a temporary connection issue."
+                    onReset={forceUpdate}
+                >
+                    <div className="px-4 sm:px-0">
+                        <EmailVerificationPrompt />
+                    </div>
+                    {renderContent()}
+                </ErrorBoundary>
             </div>
 
             <Suspense fallback={<PremiumLoader message="Searching school database..." />}>

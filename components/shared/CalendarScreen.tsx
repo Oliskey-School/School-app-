@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { api } from '../../lib/api';
 import { ChevronLeftIcon, ChevronRightIcon, EVENT_TYPE_CONFIG, CakeIcon, CalendarIcon, ClockIcon } from '../../constants';
 import { mockCalendarEvents } from '../../data';
 import { CalendarEvent } from '../../types';
@@ -13,12 +14,31 @@ interface CalendarScreenProps {
     birthdayHighlights?: BirthdayHighlight[];
 }
 
-const CalendarScreen: React.FC<CalendarScreenProps> = ({ birthdayHighlights = [] }) => {
+const CalendarScreen: React.FC<CalendarScreenProps & { schoolId?: string }> = ({ birthdayHighlights = [], schoolId }) => {
     // Start with a fixed date for consistently showing data in this demo
     // In a real app, use new Date()
     const [currentDate, setCurrentDate] = useState(new Date('2024-08-01T12:00:00Z'));
     const [selectedDate, setSelectedDate] = useState(new Date('2024-08-10T12:00:00Z'));
     const [direction, setDirection] = useState<'left' | 'right' | 'none'>('none');
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchEvents();
+    }, [schoolId]);
+
+    const fetchEvents = async () => {
+        setLoading(true);
+        try {
+            // Use Central API
+            const data = await api.getCalendarEvents(schoolId);
+            setEvents(data || []);
+        } catch (error: any) {
+            console.error('Error fetching calendar events:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const firstDayOfMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), [currentDate]);
     const lastDayOfMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0), [currentDate]);
@@ -35,7 +55,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ birthdayHighlights = []
 
     const eventsByDate = useMemo(() => {
         const map = new Map<string, CalendarEvent[]>();
-        mockCalendarEvents.forEach(event => {
+        events.forEach(event => {
             const dateKey = event.date;
             if (!map.has(dateKey)) {
                 map.set(dateKey, []);
@@ -43,7 +63,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ birthdayHighlights = []
             map.get(dateKey)!.push(event);
         });
         return map;
-    }, []);
+    }, [events]);
 
     const birthdaysByDate = useMemo(() => {
         const map = new Map<string, BirthdayHighlight[]>();

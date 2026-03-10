@@ -156,7 +156,7 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
                             key={resource.id}
                             className={`bg-white rounded-xl shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer ${resource.is_crisis_resource ? 'border-red-500 border-2' : 'border-gray-100'
                                 }`}
-                            onClick={() => handleResourceClick(resource.id, resource.content_url)}
+                            onClick={() => handleResourceClick(resource)}
                         >
                             {resource.is_crisis_resource && (
                                 <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded mb-2">

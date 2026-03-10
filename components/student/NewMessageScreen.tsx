@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Student } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { SearchIcon } from '../../constants';
+import { useProfile } from '../../context/ProfileContext';
+import { useAuth } from '../../context/AuthContext';
 
 type UserListItem = {
     id: number;
@@ -33,6 +35,8 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
     const [classmates, setClassmates] = useState<UserListItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { profile } = useProfile();
+    const { user } = useAuth();
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -43,7 +47,8 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
                 const { data: teacherData } = await supabase
                     .from('users')
                     .select('id, name, avatar_url')
-                    .eq('role', 'Teacher');
+                    .eq('role', 'Teacher')
+                    .eq('school_id', student.schoolId);
 
                 if (teacherData) {
                     setTeachers(teacherData.map(t => ({
@@ -56,6 +61,7 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
                 }
 
                 // Fetch Classmates
+                // Fetch Classmates
                 if (student) {
                     // Start with students table to filter by grade/section
                     const { data: studentData } = await supabase
@@ -64,6 +70,7 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
                             grade, section,
                             users!inner (id, name, avatar_url)
                         `)
+                        .eq('school_id', student.schoolId)
                         .eq('grade', student.grade)
                         //.eq('section', student.section) // strict section matching? maybe just grade for now or both.
                         .neq('user_id', student.id); // Exclude self
@@ -198,6 +205,8 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
                     type: 'direct',
                     is_group: false,
                     creator_id: publicUserId,
+                    school_id: student.schoolId,
+                    branch_id: profile?.branch_id
                     // Name is often null for direct chats, or we can set it for easy debugging
                 })
                 .select()

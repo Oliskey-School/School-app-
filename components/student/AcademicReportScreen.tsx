@@ -17,7 +17,7 @@ const PerformanceTrendChart = ({ data }: { data: { term: string, average: number
         <div className="relative">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
                 {[0, 25, 50, 75, 100].map(val => (
-                     <g key={val}>
+                    <g key={val}>
                         <line x1={padding} y1={height - padding - val * stepY} x2={width - padding} y2={height - padding - val * stepY} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="2" />
                         <text x={padding - 5} y={height - padding - val * stepY + 3} textAnchor="end" fontSize="10" fill="#6b7280">{val}%</text>
                     </g>
@@ -27,7 +27,7 @@ const PerformanceTrendChart = ({ data }: { data: { term: string, average: number
                     <circle key={i} cx={padding + i * stepX} cy={height - padding - d.average * stepY} r="4" fill="white" stroke="#FF9800" strokeWidth="2" />
                 ))}
             </svg>
-            <div className="flex justify-between -mt-4" style={{ paddingLeft: `${padding - 10}px`, paddingRight: `${padding-10}px` }}>
+            <div className="flex justify-between -mt-4" style={{ paddingLeft: `${padding - 10}px`, paddingRight: `${padding - 10}px` }}>
                 {data.map(item => <span key={item.term} className="text-xs text-gray-500 font-medium">{item.term}</span>)}
             </div>
         </div>
@@ -73,7 +73,7 @@ const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }
                 const [s, p, b] = await Promise.all([
                     fetchStudentById(studentId),
                     fetchAcademicPerformance(studentId),
-                    fetchBehaviorNotes(studentId)
+                    (fetchBehaviorNotes as any)(studentId)
                 ]);
                 setStudent(s);
                 setPerformance(p);

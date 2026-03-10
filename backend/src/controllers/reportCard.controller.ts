@@ -16,7 +16,8 @@ export const getReportCards = async (req: AuthRequest, res: Response) => {
             else return res.json([]);
         }
 
-        const result = await ReportCardService.getReportCards(req.user.school_id, teacherId);
+        const branchId = req.user.branch_id || req.query.branchId as string;
+        const result = await ReportCardService.getReportCards(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -25,7 +26,8 @@ export const getReportCards = async (req: AuthRequest, res: Response) => {
 
 export const updateStatus = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await ReportCardService.updateStatus(req.user.school_id, req.params.id as string, req.body.status);
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await ReportCardService.updateStatus(req.user.school_id, branchId, req.params.id as string, req.body.status);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

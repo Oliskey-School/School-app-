@@ -86,7 +86,7 @@ const EditProfileScreen: React.FC = () => {
                     <div className="flex justify-center">
                         <div className="relative">
                             <img src={avatar} alt="Admin" className="w-28 h-28 rounded-full object-cover shadow-md flex-shrink-0 aspect-square" />
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-sky-500 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-sky-600">
+                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" name="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
                             </label>
@@ -113,7 +113,7 @@ const EditProfileScreen: React.FC = () => {
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                                     <UserIcon className="w-5 h-5" />
                                 </span>
-                                <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" />
+                                <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
                             </div>
                         </div>
                         <div>
@@ -122,7 +122,7 @@ const EditProfileScreen: React.FC = () => {
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                                     <MailIcon className="w-5 h-5" />
                                 </span>
-                                <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" />
+                                <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
                             </div>
                         </div>
                         <div>
@@ -131,7 +131,7 @@ const EditProfileScreen: React.FC = () => {
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                                     <PhoneIcon className="w-5 h-5" />
                                 </span>
-                                <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" />
+                                <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
                             </div>
                         </div>
                     </div>
@@ -150,8 +150,8 @@ const EditProfileScreen: React.FC = () => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-sky-500 hover:bg-sky-600'
-                            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500`}
+                        className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
                     >
                         {isLoading ? 'Saving...' : 'Save'}
                     </button>

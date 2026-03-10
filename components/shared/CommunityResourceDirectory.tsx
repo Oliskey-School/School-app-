@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { MapPin, Phone, Mail, Globe, Clock, Heart, Utensils, Briefcase, Scale, Users as UsersIcon, Brain, Home, HelpCircle } from 'lucide-react';
+import PremiumLoader from '../ui/PremiumLoader';
 
 interface CommunityResource {
     id: number;
@@ -51,18 +52,15 @@ const CommunityResourceDirectory: React.FC = () => {
     }, [selectedCategory, searchQuery, resources]);
 
     const fetchResources = async () => {
+        setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('community_resources')
-                .select('*')
-                .eq('is_active', true)
-                .order('resource_name', { ascending: true });
-
-            if (error) throw error;
+            // Use Central API
+            const data = await api.getCommunityResources();
             setResources(data || []);
             setFilteredResources(data || []);
         } catch (error: any) {
             console.error('Error fetching resources:', error);
+            toast.error('Failed to load resources');
         } finally {
             setLoading(false);
         }
@@ -134,8 +132,8 @@ const CommunityResourceDirectory: React.FC = () => {
                                 key={category.name}
                                 onClick={() => setSelectedCategory(category.name)}
                                 className={`p-4 rounded-xl transition-all ${selectedCategory === category.name
-                                        ? `${category.color} text-white shadow-lg scale-105`
-                                        : 'bg-white text-gray-700 hover:bg-gray-100 shadow-sm'
+                                    ? `${category.color} text-white shadow-lg scale-105`
+                                    : 'bg-white text-gray-700 hover:bg-gray-100 shadow-sm'
                                     }`}
                             >
                                 <Icon className="h-6 w-6 mx-auto mb-2" />

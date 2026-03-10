@@ -1,13 +1,17 @@
 import { Router } from 'express';
-import { createFee, getAllFees, getFeeById, updateFee, updateFeeStatus, deleteFee, bulkFetchFees } from '../controllers/fee.controller';
+import { createFee, getAllFees, getFeeById, updateFee, updateFeeStatus, deleteFee, bulkFetchFees, getFinancialAnalytics, recordPayment, getPaymentHistory, deletePayment } from '../controllers/fee.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authenticate);
 
+router.post('/record-payment', recordPayment);
+router.get('/history', getPaymentHistory);
+router.delete('/payments/:id', deletePayment);
 router.post('/bulk-fetch', bulkFetchFees);
 router.post('/', createFee);
+router.get('/analytics', getFinancialAnalytics);
 router.get('/', getAllFees);
 router.get('/:id', getFeeById);
 router.put('/:id', updateFee);

@@ -69,25 +69,7 @@ export default function AttendanceTrackSelector({
                 return;
             }
 
-            const studentIds = tracks.map(t => t.student_id);
-
-            // Fetch student details
-            let { data: studentList, error: studentsError } = await supabase
-                .from('students')
-                .select('*')
-                .in('id', studentIds);
-
-            if (studentsError) {
-                console.error('Error fetching students:', studentsError);
-                toast({
-                    title: 'Error Loading Students',
-                    description: studentsError.message,
-                    variant: 'destructive'
-                });
-                setStudents([]);
-                setLoading(false);
-                return;
-            }
+            let studentList = await api.getStudents(profile.schoolId, profile.branchId || undefined);
 
             // Filter by class if classId is provided
             if (classId && studentList) {
