@@ -295,7 +295,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
           <p className="text-sm text-gray-500 mb-4">{String(fetchError)}</p>
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 bg-sky-500 text-white text-sm font-semibold rounded-lg hover:bg-sky-600 transition-colors"
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
           >
             Retry Now
           </button>
@@ -398,35 +398,36 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
           <span className="absolute inset-y-0 left-0 flex items-center pl-3">
             <SearchIcon className="text-gray-600" />
           </span>
-          <input type="text" placeholder="Search by name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" aria-label="Search for a student" />
+          <input type="text" placeholder="Search by name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" aria-label="Search for a student" />
         </div>
 
         {!filter && (
           <div className="flex space-x-2">
             <button
               onClick={() => setViewMode('stage')}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'stage' ? 'bg-white text-sky-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'stage' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
             >
               By Stage
             </button>
             <button
               onClick={() => setViewMode('class')}
-              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'class' ? 'bg-white text-sky-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
+              className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'class' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:bg-gray-200'}`}
             >
               By Class
             </button>
           </div>
-        )}
-      </div>
+        )
+        }
+      </div >
 
       <main className="flex-grow px-4 pb-24 space-y-4 overflow-y-auto">
         {renderContent()}
       </main>
 
       <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
-        <button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-sky-500 text-white p-4 rounded-full shadow-lg hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button>
+        <button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button>
       </div>
-    </div>
+    </div >
   );
 };
 

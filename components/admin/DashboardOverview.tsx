@@ -131,7 +131,7 @@ const EnrollmentLineChart = ({ data, color }: { data: { year: number, count: num
 const actionTypeIcons: { [key in AuditLog['type']]: React.ReactNode } = {
     login: <LoginIcon className="h-5 w-5 text-green-500" />,
     logout: <LoginIcon className="h-5 w-5 text-gray-500 transform scale-x-[-1]" />,
-    create: <PlusIcon className="h-5 w-5 text-sky-500" />,
+    create: <PlusIcon className="h-5 w-5 text-indigo-500" />,
     update: <EditIcon className="h-5 w-5 text-amber-500" />,
     delete: <TrashIcon className="h-5 w-5 text-red-500" />,
     publish: <PublishIcon className="h-5 w-5 text-purple-500" />,
@@ -393,7 +393,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                         <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">Quick Actions</h2>
                         {/* Mobile/Tablet view */}
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-4">
-                            <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-sky-500" />
+                            <QuickActionCard label="Add User" icon={<PlusIcon />} onClick={() => navigateTo('selectUserTypeToAdd', 'Add New User', {})} color="bg-indigo-500" />
                             <QuickActionCard label="Approvals" icon={<CheckCircleIcon />} onClick={() => navigateTo('studentApprovals', 'Student Approvals')} color="bg-indigo-600" />
                             <QuickActionCard label="Onboarding" icon={<SchoolLogoIcon />} onClick={() => navigateTo('manageSchoolInfo', 'School Onboarding')} color="bg-pink-600" />
                             <QuickActionCard label="Enroll Student" icon={<UserIcon />} onClick={() => navigateTo('enrollmentPage', 'New Student Enrollment')} color="bg-emerald-600" />
@@ -445,7 +445,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                     label="PTA Meetings"
                                     icon={<AcademicCapIcon />}
                                     onClick={() => navigateTo('manageCurriculum', 'Curriculum Management')}
-                                    color="bg-sky-600"
+                                    color="bg-indigo-600"
                                 />
                                 <QuickActionCard
                                     label="External Exams"
@@ -483,7 +483,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                     label="Asset Inventory"
                                     icon={<ClipboardListIcon />}
                                     onClick={() => navigateTo('equipmentInventory', 'Equipment Inventory')}
-                                    color="bg-sky-700"
+                                    color="bg-indigo-700"
                                 />
                             </div>
                         </div>

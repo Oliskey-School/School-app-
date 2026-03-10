@@ -2187,11 +2187,49 @@ class HybridApiClient {
     async deleteFee(...args: any[]): Promise<any> { return {}; }
     async deletePayment(...args: any[]): Promise<any> { return {}; }
     async getFinancialAnalytics(...args: any[]): Promise<any> { return {}; }
-    async getBranches(...args: any[]): Promise<any[]> { return []; }
+    async getBranches(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any[]>(`/branches?schoolId=${schoolId}`);
+        }
+        const { data, error } = await supabase.from('branches').select('*').eq('school_id', schoolId).order('name');
+        if (error) throw error;
+        return data || [];
+    }
+
+    async createBranch(schoolId: string, branchData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>('/branches', {
+                method: 'POST',
+                body: JSON.stringify({ ...branchData, school_id: schoolId }),
+            });
+        }
+        const { data, error } = await supabase.from('branches').insert([{ ...branchData, school_id: schoolId }]).select().maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
+    async updateBranch(id: string, branchData: any, options: ApiOptions = {}): Promise<any> {
+        if (options.useBackend ?? this.options.useBackend) {
+            return this.fetch<any>(`/branches/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(branchData),
+            });
+        }
+        const { data, error } = await supabase.from('branches').update(branchData).eq('id', id).select().maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
+    async deleteBranch(id: string, options: ApiOptions = {}): Promise<void> {
+        if (options.useBackend ?? this.options.useBackend) {
+            await this.fetch<void>(`/branches/${id}`, { method: 'DELETE' });
+            return;
+        }
+        const { error } = await supabase.from('branches').delete().eq('id', id);
+        if (error) throw error;
+    }
+
     async recordPayment(...args: any[]): Promise<any> { return {}; }
-    async updateBranch(...args: any[]): Promise<any> { return {}; }
-    async createBranch(...args: any[]): Promise<any> { return {}; }
-    async deleteBranch(...args: any[]): Promise<any> { return {}; }
     async removeStudentFromClass(...args: any[]): Promise<any> { return {}; }
     async assignStudentToClass(...args: any[]): Promise<any> { return {}; }
     async getTeacherAttendance(...args: any[]): Promise<any[]> { return []; }

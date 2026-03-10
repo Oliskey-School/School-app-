@@ -184,7 +184,7 @@ const UserAccountsScreen: React.FC = () => {
                         placeholder="Search accounts..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
                 <div className="text-sm text-gray-500 font-medium whitespace-nowrap bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
@@ -306,7 +306,7 @@ const UserAccountsScreen: React.FC = () => {
                                         <div>
                                             <div className="text-sm font-medium text-gray-900">{account.name}</div>
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full mt-1
-                                                ${account.user_type === 'Student' ? 'bg-sky-100 text-sky-800' :
+                                                ${account.user_type === 'Student' ? 'bg-indigo-100 text-indigo-800' :
                                                     account.user_type === 'Teacher' ? 'bg-purple-100 text-purple-800' :
                                                         account.user_type === 'Parent' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>
                                                 {account.user_type}

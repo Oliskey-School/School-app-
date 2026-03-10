@@ -134,14 +134,14 @@ export const MusicNoteIcon = MusicIcon;
 // Theme Configuration
 export const THEME_CONFIG = {
   [DashboardType.Admin]: {
-    mainBg: 'bg-blue-700',
-    activeNav: 'bg-blue-100 text-blue-800',
+    mainBg: 'bg-gradient-to-br from-indigo-700 to-indigo-900',
+    activeNav: 'bg-indigo-100 text-indigo-800',
     inactiveNav: 'text-gray-500 hover:text-gray-700',
     cardBg: 'bg-white',
     textColor: 'text-gray-800',
-    iconColor: 'text-blue-700',
-    chartColor: '#1e40af',
-    cardIconBg: 'bg-blue-100',
+    iconColor: 'text-indigo-700',
+    chartColor: '#312e81',
+    cardIconBg: 'bg-indigo-100',
   },
   [DashboardType.Teacher]: {
     mainBg: 'bg-purple-700',
