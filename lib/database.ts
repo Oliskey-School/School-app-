@@ -16,9 +16,6 @@ import {
     Bus
 } from '../types';
 
-// Explicitly import from api for standard classes
-import { STANDARD_CLASSES } from './api';
-
 // Explicitly export common helpers from central utility to resolve star export conflicts
 export {
     isDemoMode,
@@ -39,7 +36,7 @@ export async function fetchClasses(schoolId: string, branchId?: string): Promise
         // Use standard API client
         const classes = await api.getClasses(schoolId, branchId);
 
-        // If api returns STANDARD_CLASSES or no results, we should handle student counts carefully
+        // If api returns no results, we should handle student counts carefully
         // but generally we want to return whatever api gives us augmented with counts if available
 
         // Direct Supabase augmentation (only for non-demo/direct access)
@@ -61,7 +58,7 @@ export async function fetchClasses(schoolId: string, branchId?: string): Promise
         }));
     } catch (error) {
         console.error('Error fetching classes:', error);
-        return STANDARD_CLASSES; // Robust fallback
+        return []; // Robust fallback
     }
 }
 

@@ -37,6 +37,8 @@ import calendarRoutes from './calendar.routes';
 import auditRoutes from './audit.routes';
 import governanceRoutes from './governance.routes';
 import healthRoutes from './health.routes';
+import payrollRoutes from './payroll.routes';
+import communityRoutes from './community.routes';
 
 const router = Router();
 
@@ -77,6 +79,8 @@ router.use('/calendar', calendarRoutes);
 router.use('/audit-logs', auditRoutes);
 router.use('/governance', governanceRoutes);
 router.use('/health-logs', healthRoutes);
+router.use('/payroll', payrollRoutes);
+router.use('/community', communityRoutes);
 
 router.use('/', inviteRoutes);
 

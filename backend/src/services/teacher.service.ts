@@ -55,6 +55,7 @@ export class TeacherService {
     }
 
     static async getAllTeachers(schoolId: string, branchId?: string) {
+        console.log(`🔍 [TeacherService] getAllTeachers - schoolId: ${schoolId}, branchId: ${branchId}`);
         let query = supabase
             .from('teachers')
             .select('*')
@@ -65,42 +66,32 @@ export class TeacherService {
         }
 
         const { data, error } = await query.order('name');
+        console.log(`🔍 [TeacherService] Database returned ${data?.length || 0} teachers. Error:`, error);
 
         if (error) throw new Error(error.message);
 
-        // DEMO MODE MOCK DATA INJECTION
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-        if (isDemoSchool && (!data || data.length === 0)) {
-            console.log('🛡️ [TeacherService] Injecting Demo Mock Teachers');
-            return [
-                { id: 't1', name: 'Robert Smith', email: 'robert@school.com', phone: '1234567890', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' },
-                { id: 't2', name: 'Sarah Wilson', email: 'sarah@school.com', phone: '0987654321', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' },
-                { id: 't3', name: 'Michael Chen', email: 'michael@school.com', phone: '5556667777', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' }
-            ];
-        }
-
-        return data;
+        return data || [];
     }
 
     static async getTeacherById(schoolId: string, branchId: string | undefined, id: string) {
         let query = supabase
             .from('teachers')
             .select(`
-                *,
-                class_teachers (
-                    class_id,
-                    subject_id,
-                    is_class_teacher,
-                    classes (id, name, grade, section, school_id, branch_id),
-                    subjects (id, name, school_id)
-                )
-            `)
+    *,
+    class_teachers(
+        class_id,
+        subject_id,
+        is_class_teacher,
+        classes(id, name, grade, section, school_id, branch_id),
+        subjects(id, name, school_id)
+    )
+        `)
             .eq('school_id', schoolId)
             .eq('id', id);
 
         if (branchId && branchId !== 'all') {
             // Be more permissive for demo data: match branch or match null
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            query = query.or(`branch_id.eq.${branchId}, branch_id.is.null`);
         }
 
         const { data, error } = await query.maybeSingle();
@@ -109,7 +100,7 @@ export class TeacherService {
 
         // DEMO MODE MOCK DATA INJECTION
         if (!data && id.toString().startsWith('t')) {
-            console.log(`🛡️ [TeacherService] Injecting Mock Data for teacher ID: ${id}`);
+            console.log(`🛡️[TeacherService] Injecting Mock Data for teacher ID: ${id} `);
             const mockTeachers: any = {
                 't1': { id: 't1', name: 'Robert Smith', email: 'robert@school.com', phone: '1234567890', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] },
                 't2': { id: 't2', name: 'Sarah Wilson', email: 'sarah@school.com', phone: '0987654321', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] },

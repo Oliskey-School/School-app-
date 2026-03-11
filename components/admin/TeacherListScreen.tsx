@@ -92,9 +92,13 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
 
     const loadTeachers = async (id: string) => { // Accept schoolId as a parameter
         try {
+            console.log('🔍 [TeacherList] Loading teachers for school:', id, 'Branch:', currentBranchId);
+            console.log('📦 [TeacherList] sessionStorage is_demo_mode:', sessionStorage.getItem('is_demo_mode'));
+            console.log('📦 [TeacherList] api.isDemoMode():', (api as any).isDemoMode?.());
+
             setLoading(true);
             const rawData = await api.getTeachers(id, currentBranchId || undefined);
-            console.log('[TeacherList] Fetched Teachers:', rawData?.length || 0);
+            console.log('[TeacherList] Fetched Teachers Result:', rawData?.length || 0, rawData);
 
             // Map raw data to Teacher interface with safe defaults
             const mappedData: Teacher[] = (rawData || []).map((t: any) => ({
@@ -175,7 +179,7 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
                     </div>
                     <div>
                         <p className="text-sm text-gray-500">Departments</p>
-                        <p className="text-xl font-bold text-gray-900">8</p>
+                        <p className="text-xl font-bold text-gray-900">{[...new Set(teachers.map(t => t.department).filter(Boolean))].length || '0'}</p>
                     </div>
                 </div>
             </div>

@@ -94,6 +94,8 @@ const LoadingScreen: React.FC = () => (
   <PremiumLoader message="Initializing Oliskey School Portal..." />
 );
 
+import PremiumErrorPage from './components/ui/PremiumErrorPage';
+
 // Basic Error Boundary for catching dashboard crashes
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
   state = { hasError: false, error: null };
@@ -104,43 +106,28 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   componentDidCatch(error: any, errorInfo: any) {
     console.error("Dashboard Crash Caught:", error, errorInfo);
   }
+  handleReset = () => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (let reg of regs) reg.unregister();
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        for (let name of names) caches.delete(name);
+      });
+    }
+    window.location.reload();
+  };
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-8 text-center bg-red-50 h-full flex flex-col items-center justify-center">
-          <h2 className="text-2xl font-bold text-red-700 mb-2">Dashboard Error</h2>
-          <p className="text-red-500 mb-4 max-w-md mx-auto">
-            {this.state.error?.message || "Critical error loading dashboard."}
-            <br />
-            <span className="text-sm font-normal">This can happen due to a connection break or a module failing to load.</span>
-          </p>
-          <div className="flex gap-4">
-            <button
-              onClick={() => {
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                  navigator.serviceWorker.getRegistrations().then(regs => {
-                    for (let reg of regs) reg.unregister();
-                  });
-                }
-                if ('caches' in window) {
-                  caches.keys().then(names => {
-                    for (let name of names) caches.delete(name);
-                  });
-                }
-                window.location.reload();
-              }}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-            >
-              Reset Connection & Reload
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-            >
-              Simple Refresh
-            </button>
-          </div>
-        </div>
+        <PremiumErrorPage 
+          title="Dashboard Error"
+          message="We encountered a critical error while loading the dashboard. This usually happens due to a connection break or a missing module."
+          error={this.state.error}
+          resetErrorBoundary={this.handleReset}
+        />
       );
     }
     return this.props.children;

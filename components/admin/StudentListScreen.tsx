@@ -416,9 +416,8 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
               By Class
             </button>
           </div>
-        )
-        }
-      </div >
+        )}
+      </div>
 
       <main className="flex-grow px-4 pb-24 space-y-4 overflow-y-auto">
         {renderContent()}
@@ -427,7 +426,7 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
       <div className="fixed bottom-24 right-6 lg:bottom-12 lg:right-12 z-40">
         <button onClick={() => navigateTo('addStudent', 'Add New Student', {})} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" aria-label="Add new student"><PlusIcon className="h-6 w-6" /></button>
       </div>
-    </div >
+    </div>
   );
 };
 

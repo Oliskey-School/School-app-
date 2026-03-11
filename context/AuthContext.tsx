@@ -144,7 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // If we are in demo mode, ignore null sessions from onAuthStateChange 
             // unless it's an explicit SIGNED_OUT event that we want to honor
-            if (!session && isDemo && event !== 'SIGNED_OUT') {
+            const storedIsDemo = sessionStorage.getItem('is_demo_mode') === 'true';
+            if (!session && storedIsDemo && event !== 'SIGNED_OUT') {
                 console.log('🛡️ [Auth] Ignoring null session in Demo Mode');
                 setLoading(false);
                 return;

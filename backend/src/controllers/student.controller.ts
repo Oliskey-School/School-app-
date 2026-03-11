@@ -77,6 +77,17 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getStudentByStudentId = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string || req.query.branch_id as string);
+        const result = await StudentService.getStudentByStudentId(req.user.school_id, branchId, req.params.studentId as string);
+        if (!result) return res.status(404).json({ message: 'Student not found' });
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const updateStudent = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);

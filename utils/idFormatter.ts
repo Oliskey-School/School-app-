@@ -38,11 +38,10 @@ export const formatSchoolId = (
     schoolCode: string = 'SCHOOL',
     branchCode: string = 'MAIN'
 ): string => {
-    // 1. If the DB has a properly formatted ID, use it directly
-    if (schoolGeneratedId) {
+    if (schoolGeneratedId && schoolGeneratedId.trim() !== '') {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(schoolGeneratedId);
         if (!isUUID) {
-            // Normalize to uppercase and underscore-separated
+            // Return raw ID avoiding PENDING overrides if the DB returned a valid non-UUID value
             return schoolGeneratedId.toUpperCase().replace(/[-\s]/g, '_');
         }
     }

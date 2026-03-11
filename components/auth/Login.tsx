@@ -333,15 +333,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
         </div>
 
-        {/* Loading Overlay */}
-        {isLoading && (
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="bg-white rounded-2xl p-6 flex flex-col items-center gap-3 shadow-2xl">
-              <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-slate-600 text-sm font-medium">Entering demo...</p>
-            </div>
-          </div>
-        )}
+
       </div>
     );
   }
@@ -469,8 +461,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 };
 
 async function getMockSessionForRole(roleName: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, email: string }> {
-  // Simulate network delay
-  await new Promise(r => setTimeout(r, 600));
+
 
   const role = roleName.toLowerCase().replace(' ', '');
   const dashboardType = mapRoleToDashboard(role);
@@ -494,7 +485,7 @@ async function getMockSessionForRole(roleName: string): Promise<{ success: boole
 
 async function checkMockCredentials(email: string, pass: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, schoolGeneratedId?: string }> {
   // 1. Simulating a DB lookup for mock users
-  await new Promise(r => setTimeout(r, 500));
+
 
   // Use the synced MOCK_USERS list for consistency
   const user = Object.values(MOCK_USERS).find(u =>

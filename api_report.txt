@@ -2,33 +2,73 @@
 ================================
 --- Backend Registered Endpoints ---
 //invite-user
+//invite/complete
+/academic/analytics
+/academic/grade
+/academic/grades
+/academic/subjects
+/ai/generated-resources
 /assignments
 /assignments/:id/submissions
 /assignments/submissions/:id/grade
 /attendance
 /attendance/bulk-fetch
 /attendance/student/:studentId
+/audit-logs
+/auth/confirm-email
 /auth/create-user
 /auth/login
+/auth/memberships
+/auth/resend-verification
 /auth/signup
+/auth/switch-school
+/auth/update-email
+/auth/update-password
+/auth/update-username
 /auth/verify
+/branches
+/branches/:id
 /buses
 /buses/:id
+/calendar
 /classes
 /classes/:id
+/community/helplines
+/community/mental-health
+/community/panic/activate
+/community/photos
+/community/surveys
+/community/surveys/:id/questions
+/community/surveys/responses
+/dashboard/audit-logs
 /dashboard/stats
+/emergency/broadcast
 /exams
 /exams/:id
 /exams/:id/results
+/external-exams/bodies
+/external-exams/registrations
+/external-exams/registrations/:bodyId
 /fees
 /fees/:id
 /fees/:id/status
+/fees/analytics
 /fees/bulk-fetch
+/fees/history
+/fees/payments/:id
+/fees/record-payment
 /forum/posts
 /forum/topics
 /forum/topics/:id/posts
+/gallery
+/governance/compliance
+/governance/validate
+/health-logs
 /lesson-plans
 /lesson-plans/:id
+/media/ivr-record
+/media/radio-schedule
+/media/sms-lesson
 /notices
 /notices/:id
 /notifications
@@ -36,30 +76,60 @@
 /notifications/me
 /parents
 /parents/:id
+/parents/appointments
 /parents/me/children
+/parents/notifications/:id/read
+/parents/volunteer-signup
+/payroll/payslips
+/payroll/transactions
+/quizzes
+/quizzes/:id
+/quizzes/:id/status
+/quizzes/submit
+/quizzes/upload
 /report-cards
 /report-cards/:id/status
+/resources
 /schools
 /schools/:id
+/schools/bulk
+/schools/bulk/status
+/schools/onboard
+/student-reports/anonymous
+/student-reports/discreet
 /students
 /students/:id
+/students/:id/assign-class
+/students/:id/remove-class
 /students/bulk-status
 /students/enroll
+/students/id/:studentId
 /students/link-guardian
 /students/me
 /students/me/performance
 /students/me/quiz-results
+/subjects
 /teachers
 /teachers/:id
+/teachers/me/attendance
 /timetable
 /transactions
+/transactions/verify/:reference
 /users
 /users/:id
+/virtual-classs
 ================================
 --- Missing Endpoints in Backend ---
-Expected but missing => /ai/generated-resources
+Expected but missing => /assignments/:id
 Expected but missing => /attendance/student/:id
-Expected but missing => /dashboard/stats${branchId && branchId !== 
+Expected but missing => /classes${schoolId 
 Expected but missing => /invite-user
-Expected but missing => /students${branchId && branchId !== 
-Expected but missing => /teachers${branchId && branchId !== 
+Expected but missing => /leave-types
+Expected but missing => /parents/me
+Expected but missing => /students/:id/academic-performance
+Expected but missing => /students/:id/behavior-notes
+Expected but missing => /students/:id/enrollments
+Expected but missing => /students/:id/link-classes
+Expected but missing => /teachers/me
+Expected but missing => /users${schoolId 
+Expected but missing => /virtual-classes

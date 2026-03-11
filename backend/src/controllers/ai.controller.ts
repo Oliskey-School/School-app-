@@ -5,9 +5,9 @@ import { supabase } from '../config/supabase';
 
 export const getGeneratedResources = async (req: AuthRequest, res: Response) => {
     try {
-        let teacherId = req.query.teacherId as string;
+        let teacherId = (req.query.teacherId || req.query.teacher_id) as string;
 
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'teacher' && !teacherId) {
             const { data: teacher } = await supabase
                 .from('teachers')
                 .select('id')

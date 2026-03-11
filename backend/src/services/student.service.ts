@@ -228,9 +228,23 @@ export class StudentService {
         }
 
         const { data, error } = await query.maybeSingle();
-
         if (error) throw new Error(error.message);
+        return data;
+    }
 
+    static async getStudentByStudentId(schoolId: string, branchId: string | undefined, studentId: string) {
+        let query = supabase
+            .from('students')
+            .select('*')
+            .eq('school_id', schoolId)
+            .or(`school_generated_id.eq.${studentId},student_id.eq.${studentId}`);
+
+        if (branchId && branchId !== 'all') {
+            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        }
+
+        const { data, error } = await query.maybeSingle();
+        if (error) throw new Error(error.message);
         return data;
     }
 

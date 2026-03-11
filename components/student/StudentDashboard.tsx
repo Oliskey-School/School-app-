@@ -436,15 +436,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     currentUser.email?.endsWith('@demo.com');
 
                 const createDemoStudent = (): Student => ({
-                    id: '00000000-0000-0000-0000-000000000001',
+                    id: currentUser.id || '00000000-0000-0000-0000-000000000001',
                     name: currentUser.user_metadata?.full_name || 'Demo Student',
                     grade: 10,
                     section: 'A',
-                    avatarUrl: 'https://i.pravatar.cc/150?img=1',
+                    avatarUrl: currentUser.user_metadata?.avatar_url || 'https://i.pravatar.cc/150?img=1',
                     email: currentUser.email,
                     department: 'Science',
                     attendanceStatus: 'Present',
                     user_id: currentUser.id,
+                    school_generated_id: currentUser.user_metadata?.school_generated_id || 'PENDING',
+                    schoolGeneratedId: currentUser.user_metadata?.school_generated_id || 'PENDING',
+                    schoolId: currentUser.user_metadata?.school_generated_id || 'PENDING',
                 } as Student);
 
                 // 1. Try to fetch Student Data via Hybrid API
@@ -461,7 +464,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                             grade: studentData.grade,
                             section: studentData.section,
                             avatarUrl: studentData.avatar_url,
-                            schoolId: studentData.school_generated_id,
+                            school_generated_id: studentData.school_generated_id,
+                            schoolGeneratedId: studentData.school_generated_id, // Compatibility
+                            schoolId: studentData.school_generated_id, // Compatibility
                         } as any;
 
                         setStudent(mappedStudent);
@@ -495,16 +500,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                                 grade: newStudent.grade,
                                 section: newStudent.section,
                                 avatarUrl: newStudent.avatar_url,
+                                school_generated_id: newStudent.school_generated_id,
+                                schoolGeneratedId: newStudent.school_generated_id,
+                                schoolId: newStudent.school_generated_id,
                             };
                             setStudent(mappedNewStudent as any);
                             await offlineStorage.save(cacheKey, mappedNewStudent);
                         } else {
                             setStudent(createDemoStudent());
                         }
+                    } else {
+                        // If no student found and not demo email, fall back to basic profile from auth
+                        console.log("📡 Using basic profile from auth for non-student row user");
+                        setStudent(createDemoStudent());
                     }
                 } catch (apiError: any) {
                     console.error("API Error fetching student profile:", apiError);
-                    if (apiError.message?.includes('permission denied') || apiError.status === 403) {
+                    if (apiError.message?.includes('permission denied') || apiError.status === 403 || apiError.message?.includes('403')) {
                         setStudent(createDemoStudent());
                     }
                 }

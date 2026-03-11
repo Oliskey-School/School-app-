@@ -30,24 +30,7 @@ const getAuthToken = async (): Promise<string | null> => {
     return sessionToken;
 };
 
-export const STANDARD_CLASSES = [
-    { id: 'std-1', name: 'SSS 3 Science', grade: 12, section: 'Science', department: 'Senior Secondary', level: 'SSS 3' },
-    { id: 'std-2', name: 'SSS 3 Arts', grade: 12, section: 'Arts', department: 'Senior Secondary', level: 'SSS 3' },
-    { id: 'std-3', name: 'SSS 2', grade: 11, section: 'A', department: 'Senior Secondary', level: 'SSS 2' },
-    { id: 'std-4', name: 'SSS 1', grade: 10, section: 'A', department: 'Senior Secondary', level: 'SSS 1' },
-    { id: 'std-5', name: 'JSS 3', grade: 9, section: 'A', department: 'Junior Secondary', level: 'JSS 3' },
-    { id: 'std-6', name: 'JSS 2', grade: 8, section: 'A', department: 'Junior Secondary', level: 'JSS 2' },
-    { id: 'std-7', name: 'JSS 1', grade: 7, section: 'A', department: 'Junior Secondary', level: 'JSS 1' },
-    { id: 'std-8', name: 'Basic 6', grade: 6, section: 'A', department: 'Primary School', level: 'Basic 6' },
-    { id: 'std-9', name: 'Basic 5', grade: 5, section: 'A', department: 'Primary School', level: 'Basic 5' },
-    { id: 'std-10', name: 'Basic 4', grade: 4, section: 'A', department: 'Primary School', level: 'Basic 4' },
-    { id: 'std-11', name: 'Basic 3', grade: 3, section: 'A', department: 'Primary School', level: 'Basic 3' },
-    { id: 'std-12', name: 'Basic 2', grade: 2, section: 'A', department: 'Primary School', level: 'Basic 2' },
-    { id: 'std-13', name: 'Basic 1', grade: 1, section: 'A', department: 'Primary School', level: 'Basic 1' },
-    { id: 'std-14', name: 'Nursery 2', grade: 0, section: 'A', department: 'Preschool / Nursery', level: 'Nursery 2' },
-    { id: 'std-15', name: 'Nursery 1', grade: -1, section: 'A', department: 'Preschool / Nursery', level: 'Nursery 1' },
-    { id: 'std-16', name: 'Pre-Nursery', grade: -2, section: 'Alpha', department: 'Preschool / Nursery', level: 'Pre-Nursery' }
-];
+
 
 class HybridApiClient {
     public supabase = supabase;
@@ -61,7 +44,8 @@ class HybridApiClient {
     }
 
     private isDemoMode(): boolean {
-        const isDemo = sessionStorage.getItem('is_demo_mode') === 'true';
+        const value = sessionStorage.getItem('is_demo_mode');
+        const isDemo = value === 'true';
         if (isDemo) console.log('🛡️ [API] Operating in Demo Mode (Backend Fallback Active)');
         return isDemo;
     }
@@ -176,19 +160,6 @@ class HybridApiClient {
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
 
-            // FINAL FALLBACK: If everything fails (likely auth/network), 
-            // return representative demo data if it's the demo school.
-            if (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1') {
-                console.warn('🛡️ [API] Using Hardcoded Demo Fallback for Dashboard Stats (Final Resilience)');
-                return {
-                    totalStudents: 116,
-                    totalTeachers: 6,
-                    totalParents: 8,
-                    totalClasses: 17,
-                    overdueFees: 1540000,
-                    unpublishedReports: 24
-                };
-            }
             throw error;
         }
     }
@@ -249,12 +220,19 @@ class HybridApiClient {
         const schoolId = typeof args[0] === 'string' ? args[0] : undefined;
         const branchId = typeof args[1] === 'string' ? args[1] : (typeof args[1] === 'undefined' ? undefined : null);
         const options: ApiOptions & { includeUntagged?: boolean, classId?: number } = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
+        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+        // Always use backend for demo school to bypass RLS
+        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
             try {
-                return await this.fetch<any[]>(`/students?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+                console.log(`🛡️ [API] Fetching students via Backend for school: ${schoolId}`);
+                const students = await this.fetch<any[]>(`/students?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branch_id=${branchId}` : ''}`);
+                if (students && Array.isArray(students)) {
+                    console.log(`✅ [API] Backend returned ${students.length} students`);
+                    return students;
+                }
             } catch (err) {
-                console.warn('[API] Students fetch failed, falling back to Supabase:', err);
+                console.warn('[API] Students backend fetch failed, falling back to Supabase:', err);
             }
         }
 
@@ -271,19 +249,10 @@ class HybridApiClient {
         }
 
         const { data, error } = await query.order('name');
-        if (this.isDemoMode() && (error || !data || data.length === 0)) {
-            console.warn('🛡️ [API] Using Hardcoded Demo Fallback for Students');
-            return [
-                { id: '1', name: 'Adebayo Oluchi', avatar_url: null, grade: 12, section: 'Science', status: 'Active', school_generated_id: 'STU-001' },
-                { id: '2', name: 'Chidi Okechukwu', avatar_url: null, grade: 12, section: 'Arts', status: 'Active', school_generated_id: 'STU-002' },
-                { id: '3', name: 'Zainab Musa', avatar_url: null, grade: 11, section: 'Science', status: 'Active', school_generated_id: 'STU-003' },
-                { id: '4', name: 'Emeka Obi', avatar_url: null, grade: 9, section: 'A', status: 'Active', school_generated_id: 'STU-004' },
-                { id: '5', name: 'Fatima Ibrahim', avatar_url: null, grade: 6, section: 'Blue', status: 'Active', school_generated_id: 'STU-005' },
-                { id: '6', name: 'Ike Ogbonna', avatar_url: null, grade: 10, section: 'A', status: 'Active', school_generated_id: 'STU-006' },
-                { id: '7', name: 'Ngozi Nwosu', avatar_url: null, grade: 1, section: 'B', status: 'Active', school_generated_id: 'STU-007' }
-            ];
+        if (error) {
+            console.error('❌ [API] Supabase Students query error:', error);
+            return [];
         }
-        if (error) throw error;
         return data || [];
     }
 
@@ -508,16 +477,51 @@ class HybridApiClient {
     // ============================================
 
     async getTeachers(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+        let isDemo = false;
+        try {
+            isDemo = this.isDemoMode();
+        } catch (e) {
+            console.warn('[API] Failed to check demo mode from sessionStorage:', e);
+        }
+
+        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
+        console.log(`%c 🔍 [API] getTeachers called for School: ${schoolId} `, 'background: #2563eb; color: #fff; font-weight: bold; padding: 2px 4px; border-radius: 4px;');
+        console.log(`🔍 [API] Params - Branch: ${branchId}, isDemo: ${isDemo}, isDemoSchool: ${isDemoSchool}`);
+
+        // [ENFORCE BACKEND] In Demo mode or for Demo School, always prioritize the Backend API to bypass RLS issues
+        if (options.useBackend || this.options.useBackend || isDemo || isDemoSchool) {
             try {
-                return await this.fetch<any[]>(`/teachers?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+                // Ensure we use the correct query param names expected by the controller
+                const queryParams = new URLSearchParams();
+                queryParams.append('school_id', schoolId);
+                if (branchId && branchId !== 'all') {
+                    queryParams.append('branch_id', branchId);
+                }
+
+                console.log(`🛡️ [API] Fetching teachers via Backend for school: ${schoolId}`);
+                const teachers = await this.fetch<any[]>(`/teachers?${queryParams.toString()}`);
+
+                if (teachers && Array.isArray(teachers)) {
+                    return teachers;
+                }
             } catch (err) {
-                console.warn('[API] Teachers fetch failed, falling back to Supabase:', err);
+                console.warn('🛡️ [API] Backend Teachers fetch failed or returned invalid data, falling back to Supabase:', err);
             }
         }
 
+        // Direct Supabase Fallback (Used if backend is down or explicitly requested)
         let query = supabase.from('teachers')
-            .select('id, name, avatar_url, email, status, school_generated_id')
+            .select(`
+                id, 
+                name, 
+                avatar_url, 
+                email, 
+                status, 
+                school_generated_id,
+                teacher_subjects(subject),
+                teacher_classes(class_name)
+            `)
             .eq('school_id', schoolId);
 
         if (branchId && branchId !== 'all') {
@@ -525,17 +529,12 @@ class HybridApiClient {
         }
 
         const { data, error } = await query.order('name');
-        if (this.isDemoMode() && (error || !data || data.length === 0)) {
-            console.warn('🛡️ [API] Using Hardcoded Demo Fallback for Teachers');
-            return [
-                { id: '1', name: 'John Smith', email: 'john.smith@demo.com', status: 'Active', school_generated_id: 'TCH-001', subjects: ['Mathematics'], department: 'Science' },
-                { id: '2', name: 'Sarah Wilson', email: 'sarah@demo.com', status: 'Active', school_generated_id: 'TCH-002', subjects: ['English'], department: 'Arts' },
-                { id: '3', name: 'David Okafor', email: 'david@demo.com', status: 'Active', school_generated_id: 'TCH-003', subjects: ['Physics'], department: 'Science' },
-                { id: '4', name: 'Mary Adamu', email: 'mary@demo.com', status: 'Active', school_generated_id: 'TCH-004', subjects: ['Chemistry'], department: 'Science' },
-                { id: '5', name: 'Oluwaseun Adewale', email: 'seun@demo.com', status: 'Active', school_generated_id: 'TCH-005', subjects: ['Geography'], department: 'Arts' }
-            ];
+
+        if (error) {
+            console.error('❌ [API] Supabase Teachers query error:', error);
+            throw error;
         }
-        if (error) throw error;
+
         return data || [];
     }
 
@@ -765,13 +764,19 @@ class HybridApiClient {
     async getClasses(...args: any[]): Promise<any[]> {
         const schoolId = typeof args[0] === 'string' ? args[0] : undefined;
         const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null) || {};
+        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+        // Always use backend for demo school to bypass RLS
+        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
             try {
-                const data = await this.fetch<any[]>('/classes');
-                if (data && data.length > 0) return data;
+                console.log(`🛡️ [API] Fetching classes via Backend`);
+                const data = await this.fetch<any[]>(`/classes?school_id=${schoolId}`);
+                if (data && Array.isArray(data)) {
+                    console.log(`✅ [API] Backend returned ${data.length} classes`);
+                    return data;
+                }
             } catch (err) {
-                console.warn('[API] Classes fetch failed, falling back to Supabase:', err);
+                console.warn('[API] Classes backend fetch failed, falling back to Supabase:', err);
             }
         }
 
@@ -779,24 +784,27 @@ class HybridApiClient {
         if (schoolId) query = query.eq('school_id', schoolId);
 
         const { data, error } = await query;
-
-        // If DB has no classes, or we're in demo mode with errors, return standard set
-        if (!data || data.length === 0) {
-            console.log(`🛡️ [API] No classes found for school ${schoolId}, returning standard defaults.`);
-            return STANDARD_CLASSES;
+        if (error) {
+            console.error('❌ [API] Supabase Classes query error:', error);
+            return [];
         }
-
-        if (error) throw error;
         return data || [];
     }
 
     async fetchClasses(schoolId?: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
+        // Always use backend for demo school to bypass RLS
+        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
             try {
-                const data = await this.fetch<any[]>(`/classes${schoolId ? `?schoolId=${schoolId}` : ''}`);
-                if (data && data.length > 0) return data;
+                console.log(`🛡️ [API] fetchClasses via Backend for school: ${schoolId}`);
+                const data = await this.fetch<any[]>(`/classes?school_id=${schoolId}`);
+                if (data && Array.isArray(data)) {
+                    console.log(`✅ [API] Backend returned ${data.length} classes (fetchClasses)`);
+                    return data;
+                }
             } catch (err) {
-                console.warn('[API] fetchClasses failed, falling back to Supabase:', err);
+                console.warn('[API] fetchClasses backend failed, falling back to Supabase:', err);
             }
         }
         let query = supabase.from('classes').select('id, name, grade, section, department, branch_id, level');
@@ -804,21 +812,17 @@ class HybridApiClient {
             query = query.eq('school_id', schoolId);
         }
         const { data, error } = await query.order('grade').order('section');
-
-        // If DB has no classes, return standard set
-        if (!data || data.length === 0) {
-            console.log(`🛡️ [API] No classes found for school ${schoolId}, returning standard defaults (fetch).`);
-            return STANDARD_CLASSES;
+        if (error) {
+            console.error('❌ [API] Supabase fetchClasses query error:', error);
+            return [];
         }
-
-        if (error) throw error;
         return data || [];
     }
 
-    async initializeStandardClasses(schoolId: string, branchId?: string | null): Promise<void> {
+    async initializeStandardClasses(schoolId: string, standardClasses: any[], branchId?: string | null): Promise<void> {
         if (!schoolId) throw new Error("School ID required for initialization");
 
-        const classesToInsert = STANDARD_CLASSES.map(cls => ({
+        const classesToInsert = standardClasses.map(cls => ({
             name: cls.name,
             grade: cls.grade,
             section: cls.section,
@@ -895,11 +899,19 @@ class HybridApiClient {
     // ============================================
 
     async getParents(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
+        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+
+        // Always use backend for demo school to bypass RLS
+        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
             try {
-                return await this.fetch<any[]>(`/parents?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+                console.log(`🛡️ [API] Fetching parents via Backend for school: ${schoolId}`);
+                const parents = await this.fetch<any[]>(`/parents?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branch_id=${branchId}` : ''}`);
+                if (parents && Array.isArray(parents)) {
+                    console.log(`✅ [API] Backend returned ${parents.length} parents`);
+                    return parents;
+                }
             } catch (err) {
-                console.warn('[API] Parents fetch failed, falling back to Supabase:', err);
+                console.warn('[API] Parents backend fetch failed, falling back to Supabase:', err);
             }
         }
         let query = supabase.from('parents').select('id, name, email, phone, avatar_url, school_generated_id').eq('school_id', schoolId);
@@ -907,16 +919,10 @@ class HybridApiClient {
             query = query.eq('branch_id', branchId);
         }
         const { data, error } = await query.order('name');
-        if (this.isDemoMode() && (error || !data || data.length === 0)) {
-            console.warn('🛡️ [API] Using Hardcoded Demo Fallback for Parents');
-            return [
-                { id: '1', name: 'Robert Johnson', email: 'parent1@demo.com', phone: '08012345678', school_generated_id: 'PAR-001' },
-                { id: '2', name: 'Alice Williams', email: 'alice@demo.com', phone: '08098765432', school_generated_id: 'PAR-002' },
-                { id: '3', name: 'Balarabe Sani', email: 'balarabe@demo.com', phone: '07011223344', school_generated_id: 'PAR-003' },
-                { id: '4', name: 'Chinelo Okeke', email: 'chinelo@demo.com', phone: '09055667788', school_generated_id: 'PAR-004' }
-            ];
+        if (error) {
+            console.error('❌ [API] Supabase Parents query error:', error);
+            return [];
         }
-        if (error) throw error;
         return data || [];
     }
 
@@ -1159,7 +1165,7 @@ class HybridApiClient {
         const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
 
         // Always route through backend - RLS blocks direct inserts
-        return this.fetch<any>('/academic-performance/grade', {
+        return this.fetch<any>('/academic/grade', {
             method: 'PUT',
             body: JSON.stringify(gradeData),
         });
@@ -1168,7 +1174,7 @@ class HybridApiClient {
     async getGrades(studentIds: (string | number)[], subject: string, term: string, ...args: any[]): Promise<any[]> {
         const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null) || {};
         if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/academic-performance/grades', {
+            return this.fetch<any[]>('/academic/grades', {
                 method: 'POST',
                 body: JSON.stringify({ studentIds, subject, term }),
             });

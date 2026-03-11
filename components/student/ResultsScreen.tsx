@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../../lib/api';
 import { Student, ReportCard, Rating } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { BookOpenIcon, CheckCircleIcon, ClipboardListIcon, SchoolLogoIcon, SUBJECT_COLORS } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 import { useAuth } from '../../context/AuthContext';
+import { Download, Printer } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface ResultsScreenProps {
     studentId: string | number;
@@ -34,14 +36,14 @@ const RatingBadge: React.FC<{ rating: Rating }> = ({ rating }) => {
     return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${colors[rating] || 'bg-gray-100 text-gray-600'}`}>{rating}</span>;
 };
 
-const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolName?: string, logoUrl?: string, motto?: string }> = ({ report, student, schoolName, logoUrl, motto }) => {
+const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolName?: string, logoUrl?: string, motto?: string, innerRef?: React.Ref<HTMLDivElement> }> = ({ report, student, schoolName, logoUrl, motto, innerRef }) => {
     const SKILL_BEHAVIOUR_DOMAINS = ['Neatness', 'Punctuality', 'Politeness', 'Respect for Others', 'Participation in Class', 'Homework Completion', 'Teamwork/Cooperation', 'Attentiveness', 'Creativity', 'Honesty/Integrity'];
     const PSYCHOMOTOR_SKILLS = ['Handwriting', 'Drawing/Art Skills', 'Craft Skills', 'Music & Dance', 'Sports Participation'];
     const hasSkills = report.skills && Object.keys(report.skills).length > 0;
     const hasPsychomotor = report.psychomotor && Object.keys(report.psychomotor).length > 0;
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div ref={innerRef} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" id="report-card-pdf">
             {/* School Header */}
             <div className="text-center p-4 bg-gradient-to-b from-orange-50 to-white border-b border-orange-200">
                 <div className="flex justify-center items-center gap-2 mb-1">
@@ -176,6 +178,8 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
     const [activeTerm, setActiveTerm] = useState<string>('');
     const [quizResults, setQuizResults] = useState<any[]>([]);
     const [showFullReport, setShowFullReport] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const reportRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -274,6 +278,35 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
         };
     }, [activeReportCard]);
 
+    const handleDownloadPDF = async () => {
+        if (!reportRef.current) return;
+        setIsDownloading(true);
+        const loadingToast = toast.loading('Generating PDF...');
+        try {
+            const html2pdf = (await import('html2pdf.js')).default;
+            const element = reportRef.current;
+            const opt = {
+                margin: 10,
+                filename: `Report_Card_${student?.name || 'Student'}_${activeTerm}.pdf`.replace(/\s+/g, '_'),
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            await html2pdf().set(opt).from(element).save();
+            toast.success('PDF downloaded successfully!', { id: loadingToast });
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            toast.error('Failed to generate PDF. Please try printing instead.', { id: loadingToast });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
     if (loading) return <div className="p-10 text-center">Loading academic records...</div>;
 
     if (performanceData.length === 0 || !isAnyResultPublished) {
@@ -292,7 +325,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
     return (
         <div className="flex flex-col h-full bg-gray-100">
-            <div className="p-4 bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
+            <div className="p-4 bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10 print:hidden">
                 <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg overflow-x-auto">
                     {availableTerms.map(term => (
                         <TermTab key={term} term={term} isActive={activeTerm === term} onClick={() => { setActiveTerm(term); setShowFullReport(false); }} />
@@ -303,14 +336,35 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
             <main className="flex-grow p-4 overflow-y-auto">
                 {/* Full Report Card View (toggle) */}
                 {formattedReportCard && showFullReport && (
-                    <div className="mb-4">
-                        <button
-                            onClick={() => setShowFullReport(false)}
-                            className="mb-3 text-sm text-orange-600 font-semibold hover:underline"
-                        >
-                            ← Back to Summary
-                        </button>
+                    <div className="mb-4 max-w-4xl mx-auto">
+                        <div className="flex flex-wrap items-center justify-between mb-4 print:hidden gap-3">
+                            <button
+                                onClick={() => setShowFullReport(false)}
+                                className="text-sm text-orange-600 font-semibold hover:underline flex items-center gap-1"
+                            >
+                                ← Back to Summary
+                            </button>
+                            
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handlePrint}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-bold transition-colors"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Print</span>
+                                </button>
+                                <button
+                                    onClick={handleDownloadPDF}
+                                    disabled={isDownloading}
+                                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-70"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    <span>{isDownloading ? 'Generating...' : 'Download PDF'}</span>
+                                </button>
+                            </div>
+                        </div>
                         <ReportCardView
+                            innerRef={reportRef}
                             report={formattedReportCard}
                             student={student}
                             schoolName={currentSchool?.name}
@@ -321,7 +375,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                 )}
 
                 {!showFullReport && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print:hidden">
                         {/* Grades Section */}
                         <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
                             <div className="flex items-center space-x-2 mb-3">

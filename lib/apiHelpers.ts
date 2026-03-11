@@ -64,11 +64,7 @@ export async function backendFetch<T>(endpoint: string): Promise<T> {
                 ] as any;
             }
             if (endpoint.includes('/teachers')) {
-                return [
-                    { id: '1', name: 'John Smith', email: 'john.smith@demo.com', status: 'Active', school_generated_id: 'TCH-001', subjects: [{ subject: 'Mathematics' }], teacher_classes: [{ class_name: 'SSS 3 Science' }] },
-                    { id: '2', name: 'Sarah Wilson', email: 'sarah@demo.com', status: 'Active', school_generated_id: 'TCH-002', subjects: [{ subject: 'English' }], teacher_classes: [{ class_name: 'SSS 3 Arts' }] },
-                    { id: '3', name: 'David Okafor', email: 'david@demo.com', status: 'Active', school_generated_id: 'TCH-003', subjects: [{ subject: 'Physics' }], teacher_classes: [{ class_name: 'SSS 2' }] }
-                ] as any;
+                return [] as any;
             }
             if (endpoint.includes('/parents')) {
                 return [

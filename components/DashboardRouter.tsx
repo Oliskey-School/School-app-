@@ -5,6 +5,8 @@ import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
 import PremiumErrorPage from './ui/PremiumErrorPage';
 
+import NotFoundPage from './ui/NotFoundPage';
+
 // Import Dashboards (Placeholder imports - these components need to exist or be lazy loaded)
 // Assuming these components are already created or I should mock them for now.
 // For the purpose of this task, I will mock them inline if they don't exist, 
@@ -145,8 +147,8 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
                     {/* The specific External Exams page requested by the user */}
                     <Route path="/external-exams" element={<ExternalExamsPage {...(props as any)} />} />
 
-                    {/* Fallback to root dashboard if path and role mismatch */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    {/* Fallback to 404 Error Page if path is not matched */}
+                    <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </div>
         </React.Suspense>

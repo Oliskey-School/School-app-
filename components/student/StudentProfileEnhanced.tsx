@@ -22,7 +22,7 @@ import { toast } from 'react-hot-toast';
 // ... (existing imports)
 
 interface StudentProfileEnhancedProps {
-    studentId?: number;
+    studentId?: string | number;
     student?: any; // Accept passed down student object to avoid re-fetching if possible
     navigateTo?: (view: string, title: string, props?: any) => void;
 }
@@ -45,52 +45,51 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
     const [focusLoading, setFocusLoading] = useState(false);
 
     useEffect(() => {
+        if (initialStudent) {
+            const normalized = {
+                ...initialStudent,
+                school_generated_id: initialStudent.school_generated_id || initialStudent.schoolGeneratedId || initialStudent.schoolId || initialStudent.admission_number,
+                admission_number: initialStudent.admission_number || initialStudent.school_generated_id || initialStudent.schoolGeneratedId || initialStudent.schoolId,
+                // Ensure grade/section are present for class display
+                grade: initialStudent.grade || '',
+                section: initialStudent.section || ''
+            };
+            setStudent(normalized);
+        }
+    }, [initialStudent]);
+
+    useEffect(() => {
         if (studentId || initialStudent?.id) {
-            fetchProfileData(studentId || initialStudent.id);
+            fetchProfileData((studentId || initialStudent.id) as any);
         }
     }, [studentId, initialStudent]);
 
-    const fetchProfileData = async (id: number) => {
+    const fetchProfileData = async (id: string | number) => {
         try {
-            // 1. Fetch Basic Student Info (if not provided)
-            let currentStudent = initialStudent;
-            if (!currentStudent) {
-                setLoading(true);
-                const { data } = await supabase.from('students').select('*').eq('id', id).single();
-                if (data) {
-                    currentStudent = {
-                        ...data,
-                        first_name: data.name.split(' ')[0],
-                        last_name: data.name.split(' ').slice(1).join(' '),
-                        class_name: `Grade ${data.grade}${data.section}`,
-                        admission_number: data.school_generated_id || `STU${data.id}`,
-                        date_of_birth: data.birthday || '2000-01-01',
-                        phone: data.phone || 'N/A',
-                        address: data.address || 'N/A',
-                        email: data.email,
-                        guardian_name: data.parent_name || 'Guardian',
-                        guardian_phone: data.parent_phone || 'N/A',
-                        average_grade: 0 // Will be updated by stats
-                    };
-                    setStudent(currentStudent);
-                }
-            } else {
-                // Always update local state if initialStudent is provided/updated
-                const formattedStudent = {
-                    ...initialStudent,
-                    first_name: initialStudent.name?.split(' ')[0] || '',
-                    last_name: initialStudent.name?.split(' ').slice(1).join(' ') || '',
-                    class_name: `Grade ${initialStudent.grade}${initialStudent.section}`,
-                    admission_number: initialStudent.schoolGeneratedId || initialStudent.schoolId || `STU${initialStudent.id}`,
-                    // Preserve existing stats if we have them to avoid flickering
-                    average_grade: student?.average_grade || 0,
-                    attendance_rate: student?.attendance_rate || 0
+            setLoading(true);
+
+            // 1. Fetch Basic Student Info if we don't have it or need fresh data
+            let currentStudent = student;
+
+            const { data: dbStudent, error: studentError } = await supabase
+                .from('students')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (studentError) throw studentError;
+
+            if (dbStudent) {
+                currentStudent = {
+                    ...dbStudent,
+                    name: dbStudent.name || `${dbStudent.first_name || ''} ${dbStudent.last_name || ''}`.trim(),
+                    school_generated_id: dbStudent.school_generated_id,
+                    admission_number: dbStudent.school_generated_id || dbStudent.admission_number || 'Pending'
                 };
-                setStudent(formattedStudent);
-                currentStudent = formattedStudent;
+                setStudent(currentStudent);
             }
 
-            if (!currentStudent) return; // Should handle not found
+            if (!currentStudent) return;
 
             // 2. Fetch Related Data in Parallel
             const [perfData, statsData, eventsData, activitiesData, docsData] = await Promise.all([
@@ -108,7 +107,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             setDocuments(docsData);
 
             // Update student object with real stats
-            setStudent(prev => ({ ...prev, average_grade: statsData.averageScore, attendance_rate: statsData.attendanceRate }));
+            setStudent(prev => ({
+                ...prev,
+                average_grade: statsData.averageScore,
+                attendance_rate: statsData.attendanceRate
+            }));
 
             // 3. Trigger AI Analysis
             generateLearningFocus(currentStudent, statsData.averageScore);
@@ -241,7 +244,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                                 <img src={student.avatarUrl || student.profile_photo} alt="Profile" className="w-full h-full object-cover" />
                                             ) : (
                                                 <span className="text-4xl lg:text-5xl font-bold tracking-tight">
-                                                    {student.first_name?.[0]}{student.last_name?.[0]}
+                                                    {student.first_name ? (
+                                                        `${student.first_name?.[0]}${student.last_name?.[0] || ''}`
+                                                    ) : (
+                                                        student.name?.[0] || 'S'
+                                                    )}
                                                 </span>
                                             )}
                                         </div>
@@ -252,7 +259,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                 {/* Name & Title */}
                                 <div className="text-center sm:text-left">
                                     <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2 tracking-tight">
-                                        {student.first_name} {student.last_name}
+                                        {student.first_name ? `${student.first_name} ${student.last_name || ''}` : (student.name || 'Student Profile')}
                                     </h1>
                                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mb-4">
                                         <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm font-semibold">
@@ -261,10 +268,10 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                         </Badge>
                                         <div
                                             className="cursor-pointer hover:opacity-80 transition-opacity"
-                                            onClick={() => copyToClipboard(customId)}
+                                            onClick={() => copyToClipboard(student.school_generated_id || student.admission_number || '')}
                                         >
                                             <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm px-4 py-1.5 text-sm flex items-center gap-2">
-                                                ID: {student.admission_number || student.school_generated_id || formatId(customId) || 'Pending'}
+                                                ID: {student.school_generated_id || student.admission_number || 'Pending'}
                                                 <Copy className="w-3 h-3 opacity-70" />
                                                 {copied && <span className="text-xs ml-1">Copied!</span>}
                                             </Badge>

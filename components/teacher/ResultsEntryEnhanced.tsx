@@ -422,7 +422,9 @@ export default function ResultsEntryEnhanced({
                                                         />
                                                     </td>
                                                     <td className="p-3 text-center">
-                                                        <span className="font-bold text-lg">{result.total}</span>
+                                                        <span className={`font-bold text-lg ${result.grade.startsWith('F') || result.grade === 'U' ? 'text-red-600' : 'text-gray-900'}`}>
+                                                            {result.total}
+                                                        </span>
                                                     </td>
                                                     <td className="p-3 text-center">
                                                         <Badge variant="outline" className={`font-bold ${result.grade.startsWith('A') ? 'bg-green-100 text-green-800' :
