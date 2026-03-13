@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AiService } from '../services/ai.service';
 import { supabase } from '../config/supabase';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getGeneratedResources = async (req: AuthRequest, res: Response) => {
     try {
@@ -21,7 +22,8 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
             return res.status(400).json({ message: "Teacher ID is required" });
         }
 
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string) || (req.body?.branch_id as string);
+        const branchId = getEffectiveBranchId(req.user, requestedBranch);
         const result = await AiService.getGeneratedResources(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
@@ -31,7 +33,7 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
 
 export const saveGeneratedResource = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await AiService.saveGeneratedResource(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {

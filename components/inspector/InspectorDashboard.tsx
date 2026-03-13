@@ -79,7 +79,7 @@ export default function InspectorDashboard({ onLogout, setIsHomePage, currentUse
                     currentUser.email?.includes('demo');
 
                 if (isDemoUser) {
-                    setInspectorId('demo-inspector-id');
+                    setInspectorId('c1d2e3f4-a5b6-7c8d-9a0d-e1f2a3b4c5d6');
                     return;
                 }
 
@@ -138,12 +138,12 @@ export default function InspectorDashboard({ onLogout, setIsHomePage, currentUse
         }
 
         try {
-            const isDemoId = inspectorId === 'demo-inspector-id';
+            const isDemoId = inspectorId === 'c1d2e3f4-a5b6-7c8d-9a0d-e1f2a3b4c5d6';
 
             if (isDemoId) {
                 const demoData = {
                     inspector: {
-                        id: 'demo-inspector-id',
+                        id: 'c1d2e3f4-a5b6-7c8d-9a0d-e1f2a3b4c5d6',
                         full_name: 'Lead Inspector (Demo)',
                         inspector_code: 'INS-DEMO-001',
                         ministry_department: 'Quality Assurance',

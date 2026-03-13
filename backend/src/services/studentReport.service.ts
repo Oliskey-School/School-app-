@@ -38,4 +38,20 @@ export class StudentReportService {
         if (error) throw new Error(error.message);
         return data;
     }
+
+    static async getReports(schoolId: string, branchId: string | undefined) {
+        let query = supabase
+            .from('anonymous_reports')
+            .select('*')
+            .eq('school_id', schoolId);
+
+        if (branchId && branchId !== 'all') {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) throw new Error(error.message);
+        return data || [];
+    }
 }

@@ -136,6 +136,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [classes, setClasses] = useState<string[]>([]);
     const [status, setStatus] = useState<'Active' | 'Inactive' | 'On Leave'>('Active');
     const [avatar, setAvatar] = useState<string | null>(null);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
 
@@ -169,18 +170,14 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     setSubjectIdMap(sMap);
                 }
 
-                // Fetch Classes (Filter by current school)
+                // Fetch Classes
                 const cData = await api.getClasses(schoolId, branchId || undefined);
-
                 if (cData) {
                     setValidClasses(cData.map((d: any) => d.name));
                     const map: Record<string, string> = {};
-                    cData.forEach((c: any) => {
-                        map[c.name] = c.id;
-                    });
+                    cData.forEach((c: any) => { map[c.name] = c.id; });
                     setClassIdMap(map);
                 }
-
             } catch (err) {
                 console.error("Error fetching reference data:", err);
             } finally {
@@ -193,25 +190,27 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     useEffect(() => {
         if (teacherToEdit) {
             setName(teacherToEdit.name);
-            setEmail(teacherToEdit.email);
-            setPhone(teacherToEdit.phone);
-            setSubjects(teacherToEdit.subjects);
+            setEmail(teacherToEdit.email || '');
+            setPhone(teacherToEdit.phone || '');
+            setSubjects(teacherToEdit.subjects || []);
             setClasses(teacherToEdit.classes || []);
-            setStatus(teacherToEdit.status);
-            setAvatar(teacherToEdit.avatarUrl);
+            setStatus(teacherToEdit.status || 'Active');
+            setAvatar(teacherToEdit.avatarUrl || null);
         }
     }, [teacherToEdit]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
+            const file = event.target.files[0];
+            setAvatarFile(file);
             const reader = new FileReader();
             reader.onloadend = () => { setAvatar(reader.result as string); };
-            reader.readAsDataURL(event.target.files[0]);
+            reader.readAsDataURL(file);
         }
     };
 
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-    const { isLimitReached, currentCount, maxLimit, isPremium } = useTenantLimit();
+    const { isLimitReached, currentCount, maxLimit } = useTenantLimit();
 
     const navigate = useNavigate();
     const navigateToSubscription = () => {
@@ -222,20 +221,40 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // CHECK USAGE LIMITS (Only for new teachers, not edits)
         if (!teacherToEdit && isLimitReached) {
             setShowUpgradeModal(true);
             return;
         }
 
         setIsLoading(true);
+        let currentTeacherId: string | null = null;
+        let authResult: any = null;
 
         try {
-            const avatarUrl = avatar || `https://i.pravatar.cc/150?u=${name.replace(' ', '')}`;
+            let avatarUrl = avatar;
+
+            // Handle Photo Upload
+            if (avatarFile) {
+                const fileExt = avatarFile.name.split('.').pop();
+                const fileName = `${Date.now()}_avatar.${fileExt}`;
+                const filePath = `avatars/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('teacher-documents')
+                    .upload(filePath, avatarFile);
+
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('teacher-documents')
+                        .getPublicUrl(filePath);
+                    avatarUrl = publicUrl;
+                }
+            }
+
+            const curriculumData = curriculumEligibility.map(c => c === 'NIGERIAN' ? 'Nigerian' : 'British');
 
             if (teacherToEdit) {
                 // UPDATE MODE
-                // 1. Update basic info
                 const { error: updateError } = await supabase
                     .from('teachers')
                     .update({
@@ -244,272 +263,200 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         phone,
                         status,
                         avatar_url: avatarUrl,
-                        branch_id: branchId
+                        branch_id: branchId,
+                        curriculum_eligibility: curriculumData
                     })
                     .eq('id', teacherToEdit.id);
 
                 if (updateError) throw updateError;
 
-                // Sync with profiles/users if user_id exists
                 if (teacherToEdit.user_id) {
-                    // Sync Public Profile
-                    const { error: profileError } = await supabase
-                        .from('profiles')
-                        .update({
-                            full_name: name,
-                            avatar_url: avatarUrl
-                        })
-                        .eq('id', teacherToEdit.user_id);
-
-                    if (profileError) console.warn('Warning: Could not sync profile:', profileError);
-
-                    // Sync Users Table
-                    const { error: userSyncError } = await supabase
-                        .from('users')
-                        .update({
-                            name: name,
-                            avatar_url: avatarUrl
-                        })
-                        .eq('id', teacherToEdit.user_id);
-
-                    if (userSyncError) console.warn('Warning: Could not sync user:', userSyncError);
+                    await supabase.from('profiles').update({ full_name: name, avatar_url: avatarUrl }).eq('id', teacherToEdit.user_id);
+                    await supabase.from('users').update({ name: name, avatar_url: avatarUrl }).eq('id', teacherToEdit.user_id);
                 }
 
-                // 2. Update Subjects (Delete all, re-insert)
+                // Sync assignments
+                console.log("🔄 Syncing assignments for teacher:", teacherToEdit.id);
+                
+                // 1. Legacy Tables (for backward compatibility/reporting)
                 await supabase.from('teacher_subjects').delete().eq('teacher_id', teacherToEdit.id);
                 if (subjects.length > 0) {
-                    const subjectInserts = subjects.map(subject => ({
-                        teacher_id: teacherToEdit.id,
-                        subject
-                    }));
-                    await supabase.from('teacher_subjects').insert(subjectInserts);
+                    const { error: tsErr } = await supabase.from('teacher_subjects').insert(
+                        subjects.map(s => ({ teacher_id: teacherToEdit.id, subject: s, school_id: schoolId }))
+                    );
+                    if (tsErr) console.error("❌ Error syncing teacher_subjects:", tsErr);
                 }
 
-                // 3. Update Classes (Delete all, re-insert)
                 await supabase.from('teacher_classes').delete().eq('teacher_id', teacherToEdit.id);
                 if (classes.length > 0) {
-                    // Legacy Table Sync (String-based)
-                    // Fixed: Do not strip SSS/JSS/Nursery prefixes.
-                    const normalizeLegacy = (s: string) => {
-                        return s.trim();
-                    };
+                    const { error: tcErr } = await supabase.from('teacher_classes').insert(
+                        classes.map(c => ({ teacher_id: teacherToEdit.id, class_name: c.trim(), school_id: schoolId }))
+                    );
+                    if (tcErr) console.error("❌ Error syncing teacher_classes:", tcErr);
+                }
 
-                    const normalizedLegacy = Array.from(new Set(classes.map(normalizeLegacy).filter(Boolean)));
-                    const classInserts = normalizedLegacy.map(className => ({
-                        teacher_id: teacherToEdit.id,
-                        class_name: className,
-                        school_id: schoolId // Ensure legacy record has correct school context
-                    }));
-                    await supabase.from('teacher_classes').insert(classInserts);
+                // 2. Modern Table (class_teachers) - Source of truth for many views
+                await supabase.from('class_teachers').delete().eq('teacher_id', teacherToEdit.id);
+                
+                // Map with robustness (trimming)
+                const classIds = classes.map(c => classIdMap[c.trim()] || Object.entries(classIdMap).find(([name]) => name.trim() === c.trim())?.[1]).filter(Boolean);
+                const subIds = subjects.map(s => subjectIdMap[s.trim()] || Object.entries(subjectIdMap).find(([name]) => name.trim() === s.trim())?.[1]).filter(Boolean);
 
-                    // 4. Update ID-based Class Assignments (class_teachers) - Critical for Teacher Dashboard
-                    await supabase.from('class_teachers').delete().eq('teacher_id', teacherToEdit.id);
+                console.log(`📍 Mapping results: Classes(${classes.length} -> ${classIds.length}), Subjects(${subjects.length} -> ${subIds.length})`);
 
-                    const classIdsToLink = classes.map(clsName => classIdMap[clsName]).filter(Boolean);
-                    const subjectIdsToLink = subjects.map(subName => subjectIdMap[subName]).filter(Boolean);
-
-                    if (classIdsToLink.length > 0) {
-                        const classTeacherInserts: any[] = [];
-
-                        // Create a mapping for every class-subject combination
-                        classIdsToLink.forEach(classId => {
-                            if (subjectIdsToLink.length > 0) {
-                                subjectIdsToLink.forEach(subjectId => {
-                                    classTeacherInserts.push({
-                                        teacher_id: teacherToEdit.id,
-                                        class_id: classId,
-                                        subject_id: subjectId,
-                                        school_id: schoolId,
-                                        academic_year: '2025-2026',
-                                        is_class_teacher: false
-                                    });
+                if (classIds.length > 0) {
+                    const ctInserts: any[] = [];
+                    classIds.forEach(cid => {
+                        if (subIds.length > 0) {
+                            subIds.forEach(sid => {
+                                ctInserts.push({ 
+                                    teacher_id: teacherToEdit.id, 
+                                    class_id: cid, 
+                                    subject_id: sid, 
+                                    school_id: schoolId, 
+                                    branch_id: branchId, 
+                                    academic_year: '2025-2026', 
+                                    is_class_teacher: false 
                                 });
-                            } else {
-                                // Fallback: just link class if no subjects selected
-                                classTeacherInserts.push({
-                                    teacher_id: teacherToEdit.id,
-                                    class_id: classId,
-                                    subject_id: null,
-                                    school_id: schoolId,
-                                    academic_year: '2025-2026',
-                                    is_class_teacher: false
-                                });
-                            }
-                        });
-
-                        const { error: ctError } = await supabase.from('class_teachers').insert(classTeacherInserts);
-                        if (ctError) console.error("Failed to sync class_teachers:", ctError);
+                            });
+                        } else {
+                            ctInserts.push({ 
+                                teacher_id: teacherToEdit.id, 
+                                class_id: cid, 
+                                subject_id: null, 
+                                school_id: schoolId, 
+                                branch_id: branchId, 
+                                academic_year: '2025-2026', 
+                                is_class_teacher: false 
+                            });
+                        }
+                    });
+                    
+                    if (ctInserts.length > 0) {
+                        const { error: ctErr } = await supabase.from('class_teachers').insert(ctInserts);
+                        if (ctErr) console.error("❌ Error syncing class_teachers:", ctErr);
+                        else console.log("✅ Successfully synced class_teachers inserts:", ctInserts.length);
                     }
                 }
-                toast.success('Teacher updated successfully!');
-
-                // NOTIFICATION: Inform the teacher about the profile update
-                if (teacherToEdit.user_id) {
-                    try {
-                        await supabase.from('notifications').insert({
-                            user_id: teacherToEdit.user_id,
-                            school_id: schoolId,
-                            title: 'Class Assignments Updated',
-                            message: `Your class assignments have been updated by the administrator. You now have access to: ${classes.join(', ')}.`,
-                            type: 'system',
-                            audience: 'teacher',
-                            is_read: false
-                        });
-                    } catch (notifyErr) {
-                        console.error('Failed to send update notification:', notifyErr);
-                    }
-                }
+                currentTeacherId = teacherToEdit.id;
             } else {
                 // CREATE MODE
                 const teacherEmail = email || `teacher${Date.now()}@school.com`;
+                if (!schoolId) throw new Error('School ID missing');
 
-                // 1. Create Login Credentials (Auth User) FIRST
-                if (!schoolId) {
-                    toast.error('Fatal: School ID missing.');
-                    setIsLoading(false);
-                    return;
-                }
+                authResult = await createUserAccount(name, 'Teacher', teacherEmail, schoolId);
+                if (authResult.error) throw new Error(authResult.error);
 
-                const authResult = await createUserAccount(
-                    name,
-                    'Teacher',
-                    teacherEmail,
-                    schoolId
-                );
-
-                if (authResult.error) {
-                    if (authResult.error.includes('already registered') || authResult.error.includes('duplicate')) {
-                        toast.error(`Teacher with email ${teacherEmail} is already registered.`);
-                    } else {
-                        toast.error('Failed to create account: ' + authResult.error);
-                    }
-                    setIsLoading(false);
-                    return;
-                }
-
-                // 2. Create User (Legacy Table)
-
-                const { data: newUserData, error: userError } = await supabase
+                const { data: uData, error: uError } = await supabase
                     .from('users')
-                    .insert([{
-                        email: teacherEmail,
-                        name: name,
-                        role: 'teacher',
-                        avatar_url: avatarUrl
-                    }])
-                    .select()
-                    .single();
+                    .insert([{ email: teacherEmail, name: name, role: 'teacher', avatar_url: avatarUrl }])
+                    .select().single();
+                if (uError) throw uError;
 
-                if (userError) throw userError;
-                const userData = newUserData;
-
-                // 3. Create Teacher Profile
-
-                // Check if teacher profile also exists (unlikely in this flow, but safe to keep logic if merging)
-                // Since this is CREATE MODE, we assume it's fresh.
-
-                const { data: newTeacherData, error: teacherError } = await supabase
+                const { data: tData, error: tError } = await supabase
                     .from('teachers')
                     .insert([{
-                        user_id: userData.id,
+                        user_id: uData.id,
                         school_id: schoolId,
                         branch_id: branchId,
                         name,
                         email: teacherEmail,
                         phone,
                         avatar_url: avatarUrl,
-                        status
+                        status,
+                        curriculum_eligibility: curriculumData
                     }])
-                    .select()
-                    .single();
-
-                if (teacherError) {
-                    console.error("Teacher Creation Failed. Rolling back user...", teacherError);
-                    await supabase.from('users').delete().eq('id', userData.id);
-                    throw teacherError;
+                    .select().single();
+                if (tError) {
+                    await supabase.from('users').delete().eq('id', uData.id);
+                    throw tError;
                 }
-                const teacherData = newTeacherData;
+                currentTeacherId = tData.id;
+                console.log("✅ Teacher created with ID:", currentTeacherId);
 
-                // 4. Add subjects (linked to Legacy ID)
+                // Initial assignments
                 if (subjects.length > 0) {
-                    const subjectInserts = subjects.map(subject => ({
-                        teacher_id: teacherData.id,
-                        subject
-                    }));
-                    await supabase.from('teacher_subjects').insert(subjectInserts);
+                    await supabase.from('teacher_subjects').insert(subjects.map(s => ({ teacher_id: currentTeacherId, subject: s, school_id: schoolId })));
                 }
-
-                // 5. Add classes (linked to Legacy ID)
                 if (classes.length > 0) {
-                    // Normalize classes to a canonical format (e.g. `10A`) before inserting
-                    const normalize = (s: string) => {
-                        return s.trim();
-                    };
-
-                    const normalized = Array.from(new Set(classes.map(normalize).filter(Boolean)));
-                    const classInserts = normalized.map(className => ({
-                        teacher_id: teacherData.id,
-                        class_name: className
-                    }));
-                    await supabase.from('teacher_classes').insert(classInserts);
-
-                    // 5b. Update ID-based Class Assignments (class_teachers)
-                    const classIdsToLink = classes.map(clsName => classIdMap[clsName]).filter(Boolean);
-                    const subjectIdsToLink = subjects.map(subName => subjectIdMap[subName]).filter(Boolean);
-
-                    if (classIdsToLink.length > 0) {
-                        const classTeacherInserts: any[] = [];
-                        classIdsToLink.forEach(classId => {
-                            if (subjectIdsToLink.length > 0) {
-                                subjectIdsToLink.forEach(subjectId => {
-                                    classTeacherInserts.push({
-                                        teacher_id: teacherData.id,
-                                        class_id: classId,
-                                        subject_id: subjectId,
-                                        school_id: schoolId,
-                                        academic_year: '2025-2026',
-                                        is_class_teacher: false
+                    await supabase.from('teacher_classes').insert(classes.map(c => ({ teacher_id: currentTeacherId, class_name: c.trim(), school_id: schoolId })));
+                    
+                    const classIds = classes.map(c => classIdMap[c.trim()] || Object.entries(classIdMap).find(([name]) => name.trim() === c.trim())?.[1]).filter(Boolean);
+                    const subIds = subjects.map(s => subjectIdMap[s.trim()] || Object.entries(subjectIdMap).find(([name]) => name.trim() === s.trim())?.[1]).filter(Boolean);
+                    
+                    if (classIds.length > 0) {
+                        const ctInserts: any[] = [];
+                        classIds.forEach(cid => {
+                            if (subIds.length > 0) {
+                                subIds.forEach(sid => {
+                                    ctInserts.push({ 
+                                        teacher_id: currentTeacherId, 
+                                        class_id: cid, 
+                                        subject_id: sid, 
+                                        school_id: schoolId, 
+                                        branch_id: branchId, 
+                                        academic_year: '2025-2026', 
+                                        is_class_teacher: false 
                                     });
                                 });
                             } else {
-                                classTeacherInserts.push({
-                                    teacher_id: teacherData.id,
-                                    class_id: classId,
-                                    subject_id: null,
-                                    school_id: schoolId,
-                                    academic_year: '2025-2026',
-                                    is_class_teacher: false
+                                ctInserts.push({ 
+                                    teacher_id: currentTeacherId, 
+                                    class_id: cid, 
+                                    subject_id: null, 
+                                    school_id: schoolId, 
+                                    branch_id: branchId, 
+                                    academic_year: '2025-2026', 
+                                    is_class_teacher: false 
                                 });
                             }
                         });
-
-                        const { error: ctError } = await supabase.from('class_teachers').insert(classTeacherInserts);
-                        if (ctError) console.error("Failed to sync class_teachers (Create):", ctError);
+                        if (ctInserts.length > 0) {
+                            const { error: ctErr } = await supabase.from('class_teachers').insert(ctInserts);
+                            if (ctErr) console.error("❌ Error creating class_teachers:", ctErr);
+                        }
                     }
                 }
-
-                // 6. (Auth was already created)
-                console.log('Teacher credentials created successfully.');
-
-
-                // Send verification email
-                const emailResult = await sendVerificationEmail(name, teacherEmail, 'School App');
-                if (!emailResult.success) {
-                    console.warn('Warning: Email verification notification failed:', emailResult.error);
-                }
-
-                // Show credentials modal instead of alert
-                setCredentials({
-                    username: authResult.username,
-                    password: authResult.password,
-                    email: teacherEmail
-                });
-                setShowCredentialsModal(true);
             }
 
-            // Don't call forceUpdate/handleBack here - let modal handle it
+            // Shared Document Uploads
+            if (currentTeacherId && uploadedDocs.length > 0) {
+                const complianceDocs: Record<string, string> = {};
+                for (const file of uploadedDocs) {
+                    try {
+                        const fileName = `${Date.now()}_${file.name}`;
+                        let folder = 'general';
+                        let dbField = '';
+                        if (file.name.toLowerCase().includes('trcn')) { folder = 'trcn'; dbField = 'trcn_certificate'; }
+                        else if (file.name.toLowerCase().includes('british') || file.name.toLowerCase().includes('qts')) { folder = 'british'; dbField = 'british_qualification'; }
+                        else { folder = 'degree'; dbField = 'degree_certificate'; }
+
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                            .from('teacher-documents')
+                            .upload(`${currentTeacherId}/${folder}/${fileName}`, file);
+
+                        if (!uploadError) {
+                            const { data: urlData } = supabase.storage.from('teacher-documents').getPublicUrl(uploadData.path);
+                            if (dbField) complianceDocs[dbField] = urlData.publicUrl;
+                        }
+                    } catch (err) { console.error("Doc upload failed:", err); }
+                }
+                if (Object.keys(complianceDocs).length > 0) {
+                    await supabase.from('teachers').update(complianceDocs).eq('id', currentTeacherId);
+                }
+            }
+
+            // Final Redirect/UI Feedback
+            if (teacherToEdit) {
+                toast.success('Teacher updated successfully!');
+                handleBack();
+            } else if (authResult) {
+                await sendVerificationEmail(name, email || '', 'School App');
+                setCredentials({ username: authResult.username, password: authResult.password, email: email || '' });
+                setShowCredentialsModal(true);
+            }
         } catch (error: any) {
-            console.error('Error saving teacher:', error);
+            console.error('❌ Error saving teacher:', error);
             toast.error('Failed to save teacher: ' + (error.message || 'Unknown error'));
         } finally {
             setIsLoading(false);
@@ -558,8 +505,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                             options={validClasses}
                         />
 
-
-                        {/* Phase 7: Curriculum & Compliance Section */}
+                        {/* Curriculum Section */}
                         <div className="pt-2 border-t border-gray-100">
                             <label className="text-sm font-medium text-gray-700 mb-2 block">Curriculum Eligibility <span className="text-red-500">*</span></label>
                             <div className="flex gap-4 mb-4">
@@ -597,13 +543,13 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                             </div>
 
                             <label className="text-sm font-medium text-gray-700 mb-2 block">Compliance Documents</label>
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer">
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => (document.getElementById('doc-upload') as HTMLInputElement)?.click()}>
                                 <UsersIcon className="mx-auto h-8 w-8 text-gray-400" />
                                 <p className="mt-1 text-sm text-gray-600">Click to upload TRCN / Certificates</p>
                                 <p className="text-xs text-gray-400 mt-1">(PDF, JPG, PNG)</p>
-                                <input type="file" multiple className="hidden" onChange={(e) => {
+                                <input id="doc-upload" type="file" multiple className="hidden" onChange={(e) => {
                                     if (e.target.files) setUploadedDocs(Array.from(e.target.files));
-                                    toast.success("Documents selected (Mock Upload)");
+                                    toast.success("Documents selected for upload");
                                 }} />
                                 {uploadedDocs.length > 0 && (
                                     <div className="mt-2 text-left space-y-1">
@@ -638,7 +584,6 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 </div>
             </form>
 
-            {/* Credentials Modal */}
             {credentials && (
                 <CredentialsModal
                     isOpen={showCredentialsModal}

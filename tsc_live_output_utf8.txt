@@ -1,0 +1,89 @@
+﻿components/admin/AcademicAnalytics.tsx(58,36): error TS2339: Property 'getAcademicAnalytics' does not exist on type 'HybridApiClient'.
+components/admin/AddExamScreen.tsx(91,44): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/AddExamScreen.tsx(92,15): error TS2339: Property 'getSubjects' does not exist on type 'HybridApiClient'.
+components/admin/AddTeacherScreen.tsx(164,41): error TS2339: Property 'getSubjects' does not exist on type 'HybridApiClient'.
+components/admin/AddTeacherScreen.tsx(173,62): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/AssignFeePage.tsx(87,38): error TS2339: Property 'createFee' does not exist on type 'HybridApiClient'.
+components/admin/AttendanceHeatmap.tsx(55,57): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/AttendanceOverviewScreen.tsx(35,64): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/BusDutyRosterScreen.tsx(134,69): error TS2554: Expected 1-2 arguments, but got 3.
+components/admin/BusDutyRosterScreen.tsx(174,87): error TS2554: Expected 2-3 arguments, but got 4.
+components/admin/BusDutyRosterScreen.tsx(212,54): error TS2554: Expected 1-2 arguments, but got 3.
+components/admin/ChangePasswordScreen.tsx(39,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/admin/ClassListScreen.tsx(26,49): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/ClassListScreen.tsx(90,104): error TS2353: Object literal may only specify known properties, and 'classId' does not exist in type 'ApiOptions & { includeUntagged?: boolean; }'.
+components/admin/CurriculumSettingsScreen.tsx(49,36): error TS2339: Property 'getCurriculumTopics' does not exist on type 'HybridApiClient'.
+components/admin/CurriculumSettingsScreen.tsx(63,38): error TS2339: Property 'syncCurriculumData' does not exist on type 'HybridApiClient'.
+components/admin/ExamCandidateRegistration.tsx(90,36): error TS2339: Property 'getExamBodies' does not exist on type 'HybridApiClient'.
+components/admin/ExamCandidateRegistration.tsx(105,23): error TS2551: Property 'createExamBody' does not exist on type 'HybridApiClient'. Did you mean 'createExam'?
+components/admin/ExamCandidateRegistration.tsx(123,36): error TS2339: Property 'getExamRegistrations' does not exist on type 'HybridApiClient'.
+components/admin/ExamCandidateRegistration.tsx(213,23): error TS2339: Property 'createExamRegistrations' does not exist on type 'HybridApiClient'.
+components/admin/FeeManagement.tsx(67,33): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/FeeManagement.tsx(76,34): error TS2339: Property 'getPaymentHistory' does not exist on type 'HybridApiClient'.
+components/admin/FeeManagement.tsx(93,32): error TS2339: Property 'createFee' does not exist on type 'HybridApiClient'.
+components/admin/FeeManagement.tsx(152,17): error TS2339: Property 'deleteFee' does not exist on type 'HybridApiClient'.
+components/admin/FeeManagement.tsx(165,17): error TS2551: Property 'deletePayment' does not exist on type 'HybridApiClient'. Did you mean 'deleteParent'?
+components/admin/FinanceDashboard.tsx(63,36): error TS2339: Property 'getFinancialAnalytics' does not exist on type 'HybridApiClient'.
+components/admin/InviteStaffScreen.tsx(59,36): error TS2339: Property 'getBranches' does not exist on type 'HybridApiClient'.
+components/admin/ManagePermissionSlipsScreen.tsx(38,47): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/admin/RecordPaymentScreen.tsx(41,23): error TS2339: Property 'recordPayment' does not exist on type 'HybridApiClient'.
+components/admin/ReportCardPreview.tsx(103,97): error TS2554: Expected 3-4 arguments, but got 5.
+components/admin/SchoolManagementScreen.tsx(65,36): error TS2339: Property 'getBranches' does not exist on type 'HybridApiClient'.
+components/admin/SchoolManagementScreen.tsx(103,27): error TS2339: Property 'updateBranch' does not exist on type 'HybridApiClient'.
+components/admin/SchoolManagementScreen.tsx(114,27): error TS2339: Property 'createBranch' does not exist on type 'HybridApiClient'.
+components/admin/SchoolManagementScreen.tsx(143,23): error TS2339: Property 'deleteBranch' does not exist on type 'HybridApiClient'.
+components/admin/StudentProfileAdminView.tsx(47,65): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/StudentProfileAdminView.tsx(155,83): error TS2353: Object literal may only specify known properties, and 'classId' does not exist in type 'ApiOptions & { includeUntagged?: boolean; }'.
+components/admin/StudentProfileAdminView.tsx(225,27): error TS2339: Property 'removeStudentFromClass' does not exist on type 'HybridApiClient'.
+components/admin/StudentProfileAdminView.tsx(229,23): error TS2551: Property 'assignStudentToClass' does not exist on type 'HybridApiClient'. Did you mean 'linkStudentToClasses'?
+components/admin/TeacherAttendanceScreen.tsx(39,46): error TS2551: Property 'getTeacherAttendance' does not exist on type 'HybridApiClient'. Did you mean 'submitTeacherAttendance'?
+components/admin/TimetableCreator.tsx(128,54): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/admin/TimetableGeneratorScreen.tsx(100,47): error TS2554: Expected 0-1 arguments, but got 2.
+components/admin/TimetableScreen.tsx(36,64): error TS2554: Expected 0-1 arguments, but got 2.
+components/auth/EmailVerificationPrompt.tsx(63,38): error TS2339: Property 'resendVerification' does not exist on type 'HybridApiClient'.
+components/auth/EmailVerificationPrompt.tsx(106,38): error TS2339: Property 'updateEmail' does not exist on type 'HybridApiClient'.
+components/parent/EditParentProfileScreen.tsx(86,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/parent/EditParentProfileScreen.tsx(108,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/parent/ParentChangePasswordScreen.tsx(56,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/parent/ParentMessagesScreen.tsx(63,41): error TS2339: Property 'getConversations' does not exist on type 'HybridApiClient'.
+components/parent/PermissionSlipScreen.tsx(33,36): error TS2339: Property 'getPermissionSlips' does not exist on type 'HybridApiClient'.
+components/parent/PermissionSlipScreen.tsx(53,23): error TS2339: Property 'updatePermissionSlipStatus' does not exist on type 'HybridApiClient'.
+components/parent/ReportCardScreen.tsx(211,43): error TS2551: Property 'getReportCardDetails' does not exist on type 'HybridApiClient'. Did you mean 'getReportCards'?
+components/parent/SchoolPoliciesScreen.tsx(22,30): error TS2339: Property 'getSchoolPolicies' does not exist on type 'HybridApiClient'.
+components/shared/BusRouteScreen.tsx(55,34): error TS2339: Property 'getBusDetails' does not exist on type 'HybridApiClient'.
+components/shared/CalendarScreen.tsx(34,36): error TS2339: Property 'getCalendarEvents' does not exist on type 'HybridApiClient'.
+components/shared/CommunityResourceDirectory.tsx(58,36): error TS2339: Property 'getCommunityResources' does not exist on type 'HybridApiClient'.
+components/shared/DonationPortal.tsx(50,36): error TS2339: Property 'getDonationCampaigns' does not exist on type 'HybridApiClient'.
+components/shared/DonationPortal.tsx(63,36): error TS2339: Property 'getTopDonors' does not exist on type 'HybridApiClient'.
+components/shared/DonationPortal.tsx(88,23): error TS2339: Property 'processDonation' does not exist on type 'HybridApiClient'.
+components/shared/EditProfileScreen.tsx(193,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/shared/EditProfileScreen.tsx(216,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/shared/TimetableScreen.tsx(177,99): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/student/AttendanceScreen.tsx(64,92): error TS2554: Expected 1-2 arguments, but got 3.
+components/student/ResultsScreen.tsx(188,83): error TS2554: Expected 1-2 arguments, but got 3.
+components/student/ResultsScreen.tsx(219,91): error TS2554: Expected 1-2 arguments, but got 3.
+components/student/StudentDashboard.tsx(230,85): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/student/SubjectsScreen.tsx(168,47): error TS2339: Property 'supabase' does not exist on type 'HybridApiClient'.
+components/student/SubjectsScreen.tsx(176,32): error TS2339: Property 'getCurriculumTopics' does not exist on type 'HybridApiClient'.
+components/teacher/EditTeacherProfileScreen.tsx(149,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/teacher/EditTeacherProfileScreen.tsx(171,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/teacher/GradeEntryScreen.tsx(102,25): error TS2554: Expected 3-4 arguments, but got 6.
+components/teacher/GradeEntryScreen.tsx(144,30): error TS2554: Expected 1-2 arguments, but got 4.
+components/teacher/LessonPlannerScreen.tsx(251,17): error TS2353: Object literal may only specify known properties, and 'teacher_id' does not exist in type 'ApiOptions'.
+components/teacher/LessonPlannerScreen.tsx(316,17): error TS2353: Object literal may only specify known properties, and 'teacher_id' does not exist in type 'ApiOptions'.
+components/teacher/LessonPlannerScreen.tsx(478,17): error TS2353: Object literal may only specify known properties, and 'teacher_id' does not exist in type 'ApiOptions'.
+components/teacher/QuizBuilderScreen.tsx(161,89): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/ResultsEntryEnhanced.tsx(135,72): error TS2554: Expected 0-1 arguments, but got 2.
+components/teacher/TeacherAttendanceScreen.tsx(110,21): error TS2554: Expected 2-3 arguments, but got 4.
+components/teacher/TeacherAttendanceScreen.tsx(188,89): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherChangePasswordScreen.tsx(56,23): error TS2339: Property 'patch' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherExamManagement.tsx(32,87): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/teacher/TeacherExamManagement.tsx(75,61): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherExamManagement.tsx(106,105): error TS2554: Expected 2-3 arguments, but got 4.
+components/teacher/TeacherExamManagement.tsx(134,96): error TS2554: Expected 1-2 arguments, but got 3.
+context/AuthContext.tsx(104,36): error TS2339: Property 'getMemberships' does not exist on type 'HybridApiClient'.
+context/AuthContext.tsx(116,38): error TS2339: Property 'switchSchool' does not exist on type 'HybridApiClient'.
+lib/database.ts(37,56): error TS2554: Expected 0-1 arguments, but got 2.
+lib/teacherAttendanceService.ts(89,32): error TS2551: Property 'getTeacherAttendance' does not exist on type 'HybridApiClient'. Did you mean 'submitTeacherAttendance'?
+services/studentService.ts(2075,70): error TS2554: Expected 1-2 arguments, but got 3.
+services/studentService.ts(2102,104): error TS2554: Expected 1-2 arguments, but got 3.

@@ -195,7 +195,9 @@ export const authenticateUser = async (
   error?: string;
   schoolGeneratedId?: string;
   token?: string; // JWT from backend
+  refreshToken?: string;
   userData?: any;
+
 }> => {
   try {
     // Determine API URL (Hardcoded for dev, should be env-aware)
@@ -217,7 +219,7 @@ export const authenticateUser = async (
     }
 
     // Success
-    const { user, token } = data;
+    const { user, token, refreshToken } = data;
 
     return {
       success: true,
@@ -225,9 +227,11 @@ export const authenticateUser = async (
       userId: user.id || user.user_id,
       email: user.email,
       token: token, // Return the JWT
+      refreshToken: refreshToken, // Return Refresh Token if available
       userData: user,
       schoolGeneratedId: user.school_generated_id
     };
+
 
   } catch (err: any) {
     console.warn('Backend auth unavailable, trying direct Supabase auth...', err.message);
@@ -269,9 +273,11 @@ export const authenticateUser = async (
         userId: authData.user.id,
         email: authData.user.email,
         token: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
         schoolGeneratedId,
         userData: { school_id: userMeta.school_id }
       };
+
     } catch (supabaseErr: any) {
       console.error('Supabase auth fallback also failed:', supabaseErr);
       return { success: false, error: err.message || 'Network error during login' };

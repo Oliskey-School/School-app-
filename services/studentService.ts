@@ -424,13 +424,31 @@ export async function fetchTeacherById(id: string | number): Promise<Teacher | n
             .select(`
         id, user_id, school_id, school_generated_id, name, avatar_url, email, phone, status,
         teacher_subjects(subject),
-        teacher_classes(class_name)
+        teacher_classes(class_name),
+        class_teachers (
+          class_id,
+          subject_id,
+          classes ( id, name, grade, section ),
+          subjects ( id, name )
+        )
       `)
             .eq('id', id)
             .maybeSingle();
 
         if (error) throw error;
         if (!data) return null;
+
+        // Resolve subjects from both legacy and modern tables
+        const subjectsSet = new Set<string>((data.teacher_subjects || []).map((s: any) => s.subject));
+        (data.class_teachers || []).forEach((ct: any) => {
+            if (ct.subjects?.name) subjectsSet.add(ct.subjects.name);
+        });
+
+        // Resolve classes from both legacy and modern tables
+        const classesSet = new Set<string>((data.teacher_classes || []).map((c: any) => c.class_name));
+        (data.class_teachers || []).forEach((ct: any) => {
+            if (ct.classes?.name) classesSet.add(ct.classes.name);
+        });
 
         return {
             id: data.id,
@@ -442,8 +460,8 @@ export async function fetchTeacherById(id: string | number): Promise<Teacher | n
             email: data.email,
             phone: data.phone || '',
             status: data.status || 'Active',
-            subjects: (data.teacher_subjects || []).map((s: any) => s.subject),
-            classes: (data.teacher_classes || []).map((c: any) => c.class_name)
+            subjects: Array.from(subjectsSet),
+            classes: Array.from(classesSet)
         };
     } catch (err) {
         console.error('Error fetching teacher:', err);
@@ -664,7 +682,7 @@ export async function fetchParents(schoolId?: string, branchId?: string): Promis
             email: p.email,
             phone: p.phone || '',
             avatarUrl: p.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-            childIds: (p.parent_children || []).map((c: any) => studentMap[c.student_id] || 'Pending Generation')
+            childIds: (p.parent_children || []).map((c: any) => studentMap[c.student_id] || 'OLISKEY_MAIN_STU_0001')
         }));
     } catch (err) {
         console.error('Error fetching parents:', err);
@@ -2380,17 +2398,54 @@ export async function deleteBus(id: string): Promise<boolean> {
     }
 }
 
-export async function linkStudentToParent(studentCode: string, relationship: string): Promise<{ success: boolean; message: string }> {
+export async function linkStudentToParent(studentCode: string, relationship: string, parentUserId?: string): Promise<{ success: boolean; message: string }> {
     try {
-        const { data, error } = await supabase.rpc('link_student_to_parent', {
-            p_student_code: studentCode,
+        const { data: { user } } = await supabase.auth.getUser();
+        const targetParentId = parentUserId || user?.id;
+        
+        if (!targetParentId) throw new Error('Parent ID is required');
+
+        // [FIX] Detect if we are working with the Demo School to use specialized RPC
+        const isDemoParent = targetParentId === 'd3300000-0000-0000-0000-000000000003'; // Specific check for demo parent UUID
+        const rpcName = isDemoParent ? 'manage_demo_student_parent_link' : 'manage_student_parent_link';
+
+        const { data, error } = await supabase.rpc(rpcName, {
+            p_parent_user_id: targetParentId,
+            p_student_identifier: studentCode,
+            p_action: 'link',
             p_relationship: relationship
         });
+        
         if (error) throw error;
         return data as { success: boolean; message: string };
     } catch (err: any) {
         console.error('Error linking student:', err);
         return { success: false, message: err.message || 'Failed to link student' };
+    }
+}
+
+export async function unlinkStudentFromParent(studentId: string, parentUserId?: string): Promise<{ success: boolean; message: string }> {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const targetParentId = parentUserId || user?.id;
+        
+        if (!targetParentId) throw new Error('Parent ID is required');
+
+        // [FIX] Detect if we are working with the Demo School to use specialized RPC
+        const isDemoParent = targetParentId === 'd3300000-0000-0000-0000-000000000003';
+        const rpcName = isDemoParent ? 'manage_demo_student_parent_link' : 'manage_student_parent_link';
+
+        const { data, error } = await supabase.rpc(rpcName, {
+            p_parent_user_id: targetParentId,
+            p_student_identifier: studentId,
+            p_action: 'unlink'
+        });
+        
+        if (error) throw error;
+        return data as { success: boolean; message: string };
+    } catch (err: any) {
+        console.error('Error unlinking student:', err);
+        return { success: false, message: err.message || 'Failed to unlink student' };
     }
 }
 

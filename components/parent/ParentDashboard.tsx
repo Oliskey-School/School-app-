@@ -471,26 +471,30 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
+    const { currentSchool, currentBranchId, user } = useAuth();
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'dashboard', title: 'Parent Dashboard' }]);
     const [activeBottomNav, setActiveBottomNav] = useState('home');
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [parentId, setParentId] = useState<string | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-    const [parentProfile, setParentProfile] = useState<{ name: string; avatarUrl: string; schoolGeneratedId?: string }>({ name: 'Parent', avatarUrl: 'https://i.pravatar.cc/150?u=parent', schoolGeneratedId: '' });
+    const [parentProfile, setParentProfile] = useState<{ name: string; avatarUrl: string; schoolGeneratedId?: string }>({ 
+        name: 'Parent', 
+        avatarUrl: 'https://i.pravatar.cc/150?u=parent', 
+        schoolGeneratedId: user?.user_metadata?.school_generated_id || 'Pending Generation' 
+    });
     const [students, setStudents] = useState<Student[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(true);
-    const { currentSchool, currentBranchId, user } = useAuth();
     const schoolId = currentSchool?.id;
     const notificationCount = useRealtimeNotifications('parent');
     const forceUpdate = () => setVersion(v => v + 1);
 
     useEffect(() => {
         const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
-                setCurrentUserId(userData ? userData.id : user?.id || '');
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (authUser) {
+                const { data: userData } = await supabase.from('users').select('id').eq('email', authUser.email).single();
+                setCurrentUserId(userData ? userData.id : authUser?.id || '');
             }
         };
         getUser();

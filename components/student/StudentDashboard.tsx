@@ -445,9 +445,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     department: 'Science',
                     attendanceStatus: 'Present',
                     user_id: currentUser.id,
-                    school_generated_id: currentUser.user_metadata?.school_generated_id || 'PENDING',
-                    schoolGeneratedId: currentUser.user_metadata?.school_generated_id || 'PENDING',
-                    schoolId: currentUser.user_metadata?.school_generated_id || 'PENDING',
+                    school_generated_id: currentUser.user_metadata?.school_generated_id || 'Pending Generation',
+                    schoolGeneratedId: currentUser.user_metadata?.school_generated_id || 'Pending Generation',
+                    schoolId: currentUser.user_metadata?.school_generated_id || 'Pending Generation',
                 } as Student);
 
                 // 1. Try to fetch Student Data via Hybrid API

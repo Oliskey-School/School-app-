@@ -15,17 +15,18 @@ export function generateCustomId(options: {
     const roleMap: Record<string, string> = {
         'admin': 'ADM',
         'teacher': 'TCH',
-        'student': 'STD',
+        'student': 'STU',
         'parent': 'PAR',
         'superadmin': 'SADM',
-        'proprietor': 'PROP',
-        'inspector': 'INSP',
-        'examofficer': 'EXAM',
-        'compliance': 'COMP'
+        'proprietor': 'PRO',
+        'inspector': 'INS',
+        'examofficer': 'EXA',
+        'compliance': 'COM',
+        'complianceofficer': 'COM'
     };
 
-    const roleCode = roleMap[options.role.toLowerCase()] || options.role.substring(0, 4);
-    const paddedNumber = options.sequenceNumber.toString().padStart(4, '0');
+    const roleCode = roleMap[options.role.toLowerCase()] || options.role.substring(0, 3).toUpperCase();
+    const paddedNumber = options.sequenceNumber.toString().padStart(5, '0');
 
     return `${sch}_${branch}_${roleCode}_${paddedNumber}`;
 }

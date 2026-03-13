@@ -302,9 +302,15 @@ export class StudentService {
     }
 
     static async getStudentProfileByUserId(schoolId: string, branchId: string | undefined, userId: string) {
-        // Handle demo IDs which are not valid UUIDs
-        if (userId.startsWith('demo-')) {
-            const role = userId.replace('demo-', '').replace('-id', '');
+        // Handle demo IDs (both old prefix and new UUID format)
+        const demoMap: Record<string, string> = {
+            '3d6f7a8b-9c0d-4e1f-8a9b-0c1d2e3f4a5b': 'student',
+            '6f90901e-4119-457d-8d73-745b17831a30': 'teacher',
+            '1a2b3c4d-5e6f-7a8b-9c0d-e1f2a3b4c5d6': 'admin'
+        };
+
+        if (userId.startsWith('demo-') || demoMap[userId]) {
+            const role = demoMap[userId] || userId.replace('demo-', '').replace('-id', '');
             let query = supabase
                 .from('students')
                 .select(`

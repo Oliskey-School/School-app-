@@ -46,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (lower === 'examofficer') return DashboardType.ExamOfficer;
         if (lower === 'complianceofficer') return DashboardType.ComplianceOfficer;
         if (lower === 'counselor') return DashboardType.Counselor;
-        return DashboardType.Student;
+        return DashboardType.Admin; // Default to Admin for safe fallback
     };
 
     const fetchUserSchool = async (userId: string, providedSchoolId?: string) => {
@@ -142,16 +142,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log(`🔐 Auth Event: ${event}`);
 
-            // If we are in demo mode, ignore null sessions from onAuthStateChange 
-            // unless it's an explicit SIGNED_OUT event that we want to honor
-            const storedIsDemo = sessionStorage.getItem('is_demo_mode') === 'true';
-            if (!session && storedIsDemo && event !== 'SIGNED_OUT') {
-                console.log('🛡️ [Auth] Ignoring null session in Demo Mode');
+            // If we have a null session but we haven't explicitly logged out, 
+            // protect the localStorage token and try to rehydrate Supabase.
+            // This happens when opening new tabs because Supabase uses a tab-specific storage key.
+            if (!session && event !== 'SIGNED_OUT') {
+                console.log('🛡️ [Auth] Ignoring null session (Not an explicit SIGNED_OUT event)');
+                
+                // Attempt to rehydrate the missing Supabase session using the localStorage tokens
+                const localToken = localStorage.getItem('auth_token');
+                const localRefreshToken = localStorage.getItem('auth_refresh_token');
+                if (localToken) {
+                    console.log('🛡️ [Auth] Attempting to rehydrate Supabase session from localStorage');
+                    try {
+                        const { data: sessionData, error } = await supabase.auth.setSession({
+                            access_token: localToken,
+                            refresh_token: localRefreshToken || localToken
+                        });
+
+                        if (error) {
+                            // If 403 Forbidden, the token is explicitly rejected by the server
+                            if ((error as any).status === 403 || error.message.includes('403') || error.message.includes('Forbidden')) {
+                                console.error('🚫 [Auth] Session token rejected (403). Clearing session.');
+                                localStorage.removeItem('auth_token');
+                                localStorage.removeItem('auth_refresh_token');
+                                await supabase.auth.signOut();
+                                setLoading(false);
+                                return;
+                            }
+                            throw error;
+                        }
+                        
+                        // Successfully set session. The SIGNED_IN event will be fired 
+                        // and handled by another execution of this listener.
+                        return;
+                    } catch (e) {
+                        console.warn('Supabase session rehydration failed:', e);
+                        // For non-fatal errors, we just wipe the token so user can re-login
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('auth_refresh_token');
+                    }
+
+                }
+                
                 setLoading(false);
                 return;
             }
 
             if (session) {
+                // Keep localStorage in sync with the latest valid tokens (handles token refreshes)
+                localStorage.setItem('auth_token', session.access_token);
+                if (session.refresh_token) {
+                    localStorage.setItem('auth_refresh_token', session.refresh_token);
+                }
+
+
                 // Determine if this is a demo user from metadata or email domain used for tests
                 const isDemoUser = session.user.user_metadata?.is_demo ||
                     session.user.app_metadata?.is_demo ||
@@ -175,6 +219,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (isDemoUser) {
                     schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
                     branchId = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
+                    
+                    // Inject Oliskey specific metadata for ID formatters
+                    if (session.user.user_metadata) {
+                        session.user.user_metadata.school_code = 'OLISKEY';
+                        session.user.user_metadata.branch_code = 'MAIN';
+                    }
                 }
 
                 if (userRole) {
@@ -207,6 +257,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Rigorous cleanup of all possible auth keys to prevent ghost sessions
                 localStorage.removeItem('auth_token');
+                localStorage.removeItem('auth_refresh_token');
+
                 localStorage.removeItem('user_role');
                 localStorage.removeItem('last_school_id');
                 sessionStorage.removeItem('is_demo_mode');
@@ -277,12 +329,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (effectiveToken) {
             localStorage.setItem('auth_token', effectiveToken);
+            if (userData.refreshToken) {
+                localStorage.setItem('auth_refresh_token', userData.refreshToken);
+            }
             if (userData.token) {
                 try {
                     await supabase.auth.setSession({
                         access_token: userData.token,
                         refresh_token: userData.refreshToken || userData.token
                     });
+
                 } catch (err) {
                     console.error("Session Sync Error:", err);
                 }

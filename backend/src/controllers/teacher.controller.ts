@@ -84,3 +84,18 @@ export const getMyHistory = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id as string) || (req.query.branchId as string));
+        const filters = {
+            date: req.query.date as string,
+            status: req.query.status as string,
+            teacher_id: (req.query.teacher_id as string) || (req.query.teacherId as string)
+        };
+        const result = await TeacherService.getTeacherAttendance(req.user.school_id, branchId, filters);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

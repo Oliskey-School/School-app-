@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle, BookOpen } from 'lucide-react';
 
 interface TeacherCurriculumBadgesProps {
-    curriculumEligibility: 'Nigerian' | 'British' | 'Both' | null;
+    curriculumEligibility: string[] | string | null;
     size?: 'sm' | 'md' | 'lg';
     showWarning?: boolean;
 }
@@ -34,23 +34,33 @@ export default function TeacherCurriculumBadges({
         );
     }
 
+    const isNigerian = Array.isArray(curriculumEligibility) 
+        ? curriculumEligibility.includes('Nigerian') 
+        : (curriculumEligibility === 'Nigerian' || curriculumEligibility === 'Both');
+    
+    const isBritish = Array.isArray(curriculumEligibility) 
+        ? curriculumEligibility.includes('British') 
+        : (curriculumEligibility === 'British' || curriculumEligibility === 'Both');
+
+    const isBoth = (isNigerian && isBritish) || curriculumEligibility === 'Both';
+
     return (
         <div className="flex items-center gap-2 flex-wrap">
-            {(curriculumEligibility === 'Nigerian' || curriculumEligibility === 'Both') && (
+            {isNigerian && (
                 <Badge className={`${sizeClasses[size]} bg-green-600 hover:bg-green-700 text-white`}>
                     <CheckCircle className="h-3 w-3 mr-1" />
                     🇳🇬 Nigerian
                 </Badge>
             )}
 
-            {(curriculumEligibility === 'British' || curriculumEligibility === 'Both') && (
+            {isBritish && (
                 <Badge className={`${sizeClasses[size]} bg-blue-600 hover:bg-blue-700 text-white`}>
                     <CheckCircle className="h-3 w-3 mr-1" />
                     🇬🇧 British
                 </Badge>
             )}
 
-            {curriculumEligibility === 'Both' && (
+            {isBoth && (
                 <Badge className={`${sizeClasses[size]} bg-purple-600 hover:bg-purple-700 text-white`}>
                     <BookOpen className="h-3 w-3 mr-1" />
                     Dual Qualified
@@ -62,10 +72,13 @@ export default function TeacherCurriculumBadges({
 
 // Validation helper to check if teacher can be assigned to a curriculum
 export function canTeacherTeachCurriculum(
-    teacherEligibility: 'Nigerian' | 'British' | 'Both' | null,
+    teacherEligibility: string[] | string | null,
     requiredCurriculum: 'Nigerian' | 'British'
 ): boolean {
     if (!teacherEligibility) return false;
+    if (Array.isArray(teacherEligibility)) {
+        return teacherEligibility.includes(requiredCurriculum);
+    }
     if (teacherEligibility === 'Both') return true;
     return teacherEligibility === requiredCurriculum;
 }
@@ -73,7 +86,7 @@ export function canTeacherTeachCurriculum(
 // Warning component to show when trying to assign incompatible teacher
 interface CurriculumMismatchWarningProps {
     teacherName: string;
-    teacherEligibility: 'Nigerian' | 'British' | 'Both' | null;
+    teacherEligibility: string[] | string | null;
     requiredCurriculum: 'Nigerian' | 'British';
 }
 

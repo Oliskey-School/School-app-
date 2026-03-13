@@ -1,0 +1,131 @@
+﻿backend/src/controllers/externalExam.controller.ts(29,71): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+backend/src/controllers/fee.controller.ts(137,41): error TS2339: Property 'getBudgets' does not exist on type 'typeof FeeService'.
+backend/src/controllers/fee.controller.ts(147,41): error TS2339: Property 'createBudget' does not exist on type 'typeof FeeService'.
+backend/src/controllers/fee.controller.ts(157,41): error TS2339: Property 'getArrears' does not exist on type 'typeof FeeService'.
+backend/src/controllers/fee.controller.ts(167,41): error TS2551: Property 'updateArrearStatus' does not exist on type 'typeof FeeService'. Did you mean 'updateFeeStatus'?
+backend/src/controllers/transaction.controller.ts(29,103): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+components/admin/AddStudentScreen.tsx(71,39): error TS2551: Property 'fetchClasses' does not exist on type 'HybridApiClient'. Did you mean 'getClasses'?
+components/admin/AddStudentScreen.tsx(195,20): error TS2554: Expected 2 arguments, but got 3.
+components/admin/AddStudentScreen.tsx(198,27): error TS2339: Property 'linkStudentToClasses' does not exist on type 'HybridApiClient'.
+components/admin/AddStudentScreen.tsx(202,31): error TS2339: Property 'linkGuardian' does not exist on type 'HybridApiClient'.
+components/admin/AddStudentScreen.tsx(214,42): error TS2339: Property 'enrollStudent' does not exist on type 'HybridApiClient'.
+components/admin/AttendanceOverviewScreen.tsx(38,49): error TS2551: Property 'getAttendanceByDate' does not exist on type 'HybridApiClient'. Did you mean 'getAttendanceByStudent'?
+components/admin/BusDutyRosterScreen.tsx(134,38): error TS2339: Property 'createBus' does not exist on type 'HybridApiClient'.
+components/admin/BusDutyRosterScreen.tsx(174,42): error TS2339: Property 'updateBus' does not exist on type 'HybridApiClient'.
+components/admin/BusDutyRosterScreen.tsx(212,27): error TS2339: Property 'deleteBus' does not exist on type 'HybridApiClient'.
+components/admin/ClassAttendanceDetailScreen.tsx(49,53): error TS2339: Property 'getAttendance' does not exist on type 'HybridApiClient'.
+components/admin/ClassListScreen.tsx(39,24): error TS2339: Property 'createClass' does not exist on type 'HybridApiClient'.
+components/admin/ClassListScreen.tsx(48,24): error TS2339: Property 'updateClass' does not exist on type 'HybridApiClient'.
+components/admin/ClassListScreen.tsx(57,23): error TS2339: Property 'deleteClass' does not exist on type 'HybridApiClient'.
+components/admin/CurriculumSettingsScreen.tsx(49,36): error TS2339: Property 'getCurriculumTopics' does not exist on type 'HybridApiClient'.
+components/admin/CurriculumSettingsScreen.tsx(63,38): error TS2339: Property 'syncCurriculumData' does not exist on type 'HybridApiClient'.
+components/admin/EnhancedEnrollmentPage.tsx(136,48): error TS2339: Property 'enrollStudent' does not exist on type 'HybridApiClient'.
+components/admin/ExamCandidateRegistration.tsx(90,36): error TS2339: Property 'getExamBodies' does not exist on type 'HybridApiClient'.
+components/admin/ExamCandidateRegistration.tsx(105,23): error TS2339: Property 'createExamBody' does not exist on type 'HybridApiClient'.
+components/admin/ExamCandidateRegistration.tsx(123,36): error TS2339: Property 'getExamRegistrations' does not exist on type 'HybridApiClient'.
+components/admin/ExamCandidateRegistration.tsx(213,23): error TS2339: Property 'createExamRegistrations' does not exist on type 'HybridApiClient'.
+components/admin/ReportCardPreview.tsx(103,43): error TS2339: Property 'getGrades' does not exist on type 'HybridApiClient'.
+components/admin/ReportCardPreview.tsx(257,75): error TS2339: Property 'phone' does not exist on type 'School'.
+components/admin/ReportCardPublishing.tsx(117,17): error TS2339: Property 'updateReportCardStatus' does not exist on type 'HybridApiClient'.
+components/admin/ReportCardPublishing.tsx(141,15): error TS2339: Property 'updateReportCardStatus' does not exist on type 'HybridApiClient'.
+components/admin/saas/SchoolManagementScreen.tsx(85,27): error TS2339: Property 'deleteSchoolsBulk' does not exist on type 'HybridApiClient'.
+components/admin/saas/SchoolManagementScreen.tsx(89,27): error TS2339: Property 'updateSchoolStatusBulk' does not exist on type 'HybridApiClient'.
+components/admin/saas/SchoolManagementScreen.tsx(102,23): error TS2339: Property 'updateSchool' does not exist on type 'HybridApiClient'.
+components/admin/StudentApprovalsScreen.tsx(59,23): error TS2339: Property 'bulkUpdateStudentStatus' does not exist on type 'HybridApiClient'.
+components/admin/StudentApprovalsScreen.tsx(74,23): error TS2339: Property 'bulkUpdateStudentStatus' does not exist on type 'HybridApiClient'.
+components/admin/StudentEnrollmentPage.tsx(77,23): error TS2339: Property 'enrollStudent' does not exist on type 'HybridApiClient'.
+components/admin/StudentProfileDashboard.tsx(80,21): error TS2554: Expected 2-3 arguments, but got 1.
+components/admin/TeacherAttendanceScreen.tsx(23,48): error TS2304: Cannot find name 'useAuth'.
+components/admin/TeacherAttendanceScreen.tsx(38,46): error TS2339: Property 'getTeacherAttendance' does not exist on type 'HybridApiClient'.
+components/admin/UnifiedGovernanceHub.tsx(47,91): error TS2339: Property 'curriculum_type' does not exist on type 'School'.
+components/admin/UserAccountsScreen.tsx(51,36): error TS2551: Property 'getUsers' does not exist on type 'HybridApiClient'. Did you mean 'getBuses'?
+components/DashboardRouter.tsx(146,61): error TS2559: Type '{ onLogout?: () => void; setIsHomePage?: (value: boolean) => void; currentUser?: any; }' has no properties in common with type 'IntrinsicAttributes'.
+components/inspector/InspectionFlowPage.tsx(30,31): error TS2304: Cannot find name 'useAuth'.
+components/inspector/InspectionFlowPage.tsx(42,13): error TS2304: Cannot find name 'toast'.
+components/inspector/InspectionFlowPage.tsx(84,13): error TS2304: Cannot find name 'toast'.
+components/parent/AIParentingTips.tsx(37,29): error TS2339: Property 'getStudentAcademicRecords' does not exist on type 'HybridApiClient'.
+components/parent/AlertsScreen.tsx(86,17): error TS2339: Property 'markNotificationRead' does not exist on type 'HybridApiClient'.
+components/parent/AppointmentScreen.tsx(145,47): error TS2339: Property 'createAppointment' does not exist on type 'HybridApiClient'.
+components/parent/FeeStatusScreen.tsx(45,53): error TS2551: Property 'getParentById' does not exist on type 'HybridApiClient'. Did you mean 'getParents'?
+components/parent/FeeStatusScreen.tsx(106,44): error TS2339: Property 'getTransactions' does not exist on type 'HybridApiClient'.
+components/parent/ParentDashboard.tsx(148,51): error TS2339: Property 'getAssignments' does not exist on type 'HybridApiClient'.
+components/parent/ParentDashboard.tsx(411,25): error TS2339: Property 'getAssignments' does not exist on type 'HybridApiClient'.
+components/parent/PermissionSlipScreen.tsx(33,36): error TS2339: Property 'getPermissionSlips' does not exist on type 'HybridApiClient'.
+components/parent/PermissionSlipScreen.tsx(53,23): error TS2339: Property 'updatePermissionSlipStatus' does not exist on type 'HybridApiClient'.
+components/parent/ReportCardScreen.tsx(211,43): error TS2551: Property 'getReportCardDetails' does not exist on type 'HybridApiClient'. Did you mean 'getReportCards'?
+components/parent/SchoolPoliciesScreen.tsx(22,30): error TS2339: Property 'getSchoolPolicies' does not exist on type 'HybridApiClient'.
+components/parent/VolunteerSignup.tsx(101,23): error TS2339: Property 'volunteerSignup' does not exist on type 'HybridApiClient'.
+components/payments/FlutterwaveWrapper.tsx(26,9): error TS2717: Subsequent property declarations must have the same type.  Property 'FlutterwaveCheckout' must be of type '(options: any) => void', but here has type 'any'.
+components/shared/CommunityResourceDirectory.tsx(58,36): error TS2339: Property 'getCommunityResources' does not exist on type 'HybridApiClient'.
+components/shared/DonationPortal.tsx(50,36): error TS2339: Property 'getDonationCampaigns' does not exist on type 'HybridApiClient'.
+components/shared/DonationPortal.tsx(63,36): error TS2339: Property 'getTopDonors' does not exist on type 'HybridApiClient'.
+components/shared/DonationPortal.tsx(88,23): error TS2339: Property 'processDonation' does not exist on type 'HybridApiClient'.
+components/shared/MentalHealthResources.tsx(47,21): error TS2339: Property 'getMentalHealthResources' does not exist on type 'HybridApiClient'.
+components/shared/MentalHealthResources.tsx(48,21): error TS2339: Property 'getCrisisHelplines' does not exist on type 'HybridApiClient'.
+components/shared/MentalHealthResources.tsx(159,77): error TS2554: Expected 1 arguments, but got 2.
+components/shared/PanicButton.tsx(41,70): error TS2339: Property 'triggerPanicAlert' does not exist on type 'HybridApiClient'.
+components/shared/SurveysAndPolls.tsx(53,36): error TS2339: Property 'getSurveys' does not exist on type 'HybridApiClient'.
+components/shared/SurveysAndPolls.tsx(64,36): error TS2339: Property 'getSurveyQuestions' does not exist on type 'HybridApiClient'.
+components/shared/SurveysAndPolls.tsx(120,23): error TS2339: Property 'submitSurveyResponse' does not exist on type 'HybridApiClient'.
+components/student/AcademicReportScreen.tsx(76,21): error TS2554: Expected 2-3 arguments, but got 1.
+components/student/AnonymousReporting.tsx(33,41): error TS2339: Property 'createAnonymousReport' does not exist on type 'HybridApiClient'.
+components/student/AssignmentsScreen.tsx(24,51): error TS2339: Property 'getAssignments' does not exist on type 'HybridApiClient'.
+components/student/DiscreetReporting.tsx(29,41): error TS2339: Property 'createDiscreetRequest' does not exist on type 'HybridApiClient'.
+components/student/ResultsScreen.tsx(188,47): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+components/student/ResultsScreen.tsx(219,55): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+components/student/StudentDashboard.tsx(230,25): error TS2339: Property 'getAssignments' does not exist on type 'HybridApiClient'.
+components/student/SubjectsScreen.tsx(176,32): error TS2339: Property 'getCurriculumTopics' does not exist on type 'HybridApiClient'.
+components/teacher/AssignmentSubmissionsScreen.tsx(106,47): error TS2339: Property 'getSubmissions' does not exist on type 'HybridApiClient'.
+components/teacher/AssignmentSubmissionsScreen.tsx(162,23): error TS2339: Property 'gradeSubmission' does not exist on type 'HybridApiClient'.
+components/teacher/AssignmentSubmissionsScreen.tsx(223,23): error TS2339: Property 'deleteAssignment' does not exist on type 'HybridApiClient'.
+components/teacher/AttendanceTrackSelector.tsx(89,25): error TS2588: Cannot assign to 'studentList' because it is a constant.
+components/teacher/AttendanceTrackSelector.tsx(94,21): error TS2588: Cannot assign to 'studentList' because it is a constant.
+components/teacher/AttendanceTrackSelector.tsx(159,23): error TS2339: Property 'saveAttendance' does not exist on type 'HybridApiClient'.
+components/teacher/CBTManagementScreen.tsx(192,23): error TS2339: Property 'createQuizWithQuestions' does not exist on type 'HybridApiClient'.
+components/teacher/CBTManagementScreen.tsx(216,23): error TS2339: Property 'updateQuizStatus' does not exist on type 'HybridApiClient'.
+components/teacher/CBTManagementScreen.tsx(225,23): error TS2339: Property 'deleteQuiz' does not exist on type 'HybridApiClient'.
+components/teacher/CollaborationForumScreen.tsx(37,36): error TS2339: Property 'getForumTopics' does not exist on type 'HybridApiClient'.
+components/teacher/CreateAssignmentScreen.tsx(166,43): error TS2339: Property 'createAssignment' does not exist on type 'HybridApiClient'.
+components/teacher/CreateForumTopicModal.tsx(31,23): error TS2339: Property 'createForumTopic' does not exist on type 'HybridApiClient'.
+components/teacher/CreateForumTopicScreen.tsx(34,23): error TS2339: Property 'createForumTopic' does not exist on type 'HybridApiClient'.
+components/teacher/ForumTopicScreen.tsx(33,30): error TS2339: Property 'getForumPosts' does not exist on type 'HybridApiClient'.
+components/teacher/ForumTopicScreen.tsx(52,17): error TS2339: Property 'createForumPost' does not exist on type 'HybridApiClient'.
+components/teacher/GradeEntryScreen.tsx(97,50): error TS2339: Property 'getGrades' does not exist on type 'HybridApiClient'.
+components/teacher/GradeEntryScreen.tsx(138,19): error TS2339: Property 'saveGrade' does not exist on type 'HybridApiClient'.
+components/teacher/HelpSupportScreen.tsx(58,23): error TS2339: Property 'createSupportTicket' does not exist on type 'HybridApiClient'.
+components/teacher/LeaveRequest.tsx(78,37): error TS2339: Property 'getLeaveTypes' does not exist on type 'HybridApiClient'.
+components/teacher/LessonContentScreen.tsx(51,35): error TS2339: Property 'createLessonPlan' does not exist on type 'HybridApiClient'.
+components/teacher/LessonPlanDetailScreen.tsx(212,86): error TS2339: Property 'createResource' does not exist on type 'HybridApiClient'.
+components/teacher/LessonPlannerScreen.tsx(196,36): error TS2339: Property 'getGeneratedResources' does not exist on type 'HybridApiClient'.
+components/teacher/LessonPlannerScreen.tsx(250,23): error TS2339: Property 'saveGeneratedResource' does not exist on type 'HybridApiClient'.
+components/teacher/LessonPlannerScreen.tsx(315,23): error TS2339: Property 'saveGeneratedResource' does not exist on type 'HybridApiClient'.
+components/teacher/LessonPlannerScreen.tsx(477,23): error TS2339: Property 'saveGeneratedResource' does not exist on type 'HybridApiClient'.
+components/teacher/MyPaymentHistory.tsx(42,36): error TS2339: Property 'getTeacherPaymentTransactions' does not exist on type 'HybridApiClient'.
+components/teacher/PayslipViewer.tsx(49,36): error TS2339: Property 'getPayslips' does not exist on type 'HybridApiClient'.
+components/teacher/QuizBuilderScreen.tsx(161,23): error TS2339: Property 'createQuizWithQuestions' does not exist on type 'HybridApiClient'.
+components/teacher/StudentProfileScreen.tsx(32,17): error TS2554: Expected 2-3 arguments, but got 1.
+components/teacher/TeacherAttendanceHistoryScreen.tsx(68,40): error TS2339: Property 'getTeacherAttendanceHistory' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherAttendanceScreen.tsx(106,50): error TS2339: Property 'getAttendance' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherAttendanceScreen.tsx(187,23): error TS2339: Property 'saveAttendance' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherExamManagement.tsx(32,36): error TS2339: Property 'getExams' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherExamManagement.tsx(75,23): error TS2339: Property 'deleteExam' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherExamManagement.tsx(106,31): error TS2339: Property 'updateExam' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherExamManagement.tsx(134,31): error TS2339: Property 'createExam' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherSalaryProfile.tsx(65,36): error TS2339: Property 'getPayslips' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherSelfAttendance.tsx(41,39): error TS2339: Property 'getTeacherAttendanceHistory' does not exist on type 'HybridApiClient'.
+components/teacher/TeacherSelfAttendance.tsx(63,23): error TS2339: Property 'submitTeacherAttendance' does not exist on type 'HybridApiClient'.
+components/teacher/VirtualClassScreen.tsx(375,43): error TS2339: Property 'createVirtualClassSession' does not exist on type 'HybridApiClient'.
+components/teacher/VirtualClassScreen.tsx(394,20): error TS2554: Expected 1 arguments, but got 2.
+components/ui/ErrorBoundary.tsx(34,14): error TS2339: Property 'onReset' does not exist on type 'ErrorBoundary'.
+components/ui/ErrorBoundary.tsx(35,12): error TS2339: Property 'onReset' does not exist on type 'ErrorBoundary'.
+hooks/useRealtimeNotifications.ts(118,29): error TS2304: Cannot find name 'branchId'.
+hooks/useRealtimeNotifications.ts(118,41): error TS2304: Cannot find name 'branchId'.
+hooks/useRealtimeNotifications.ts(118,87): error TS2304: Cannot find name 'branchId'.
+index.tsx(7,28): error TS2307: Cannot find module 'virtual:pwa-register' or its corresponding type declarations.
+lib/hooks/useMessages.ts(84,44): error TS2339: Property 'branchId' does not exist on type 'Partial<ChatMessage>'.
+lib/teacherAttendanceService.ts(89,32): error TS2339: Property 'getTeacherAttendance' does not exist on type 'HybridApiClient'.
+services/studentService.ts(2137,34): error TS2551: Property 'createBehaviorNote' does not exist on type 'HybridApiClient'. Did you mean 'getBehaviorNotes'?

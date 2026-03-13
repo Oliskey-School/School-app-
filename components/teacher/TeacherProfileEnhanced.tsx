@@ -14,7 +14,7 @@ interface TeacherProfileProps {
 
 export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProps) {
     const [teacher, setTeacher] = useState<any>(null);
-    const [curriculumEligibility, setCurriculumEligibility] = useState<'Nigerian' | 'British' | 'Both' | null>(null);
+    const [curriculumEligibility, setCurriculumEligibility] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const { toast } = useToast();
@@ -32,7 +32,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                 .single();
 
             setTeacher(data);
-            setCurriculumEligibility(data?.curriculum_eligibility);
+            setCurriculumEligibility(Array.isArray(data?.curriculum_eligibility) ? data.curriculum_eligibility : []);
         } catch (error) {
             console.error('Error fetching teacher:', error);
         } finally {
@@ -42,14 +42,15 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
 
     const handleCurriculumUpdate = async (value: 'Nigerian' | 'British' | 'Both') => {
         try {
+            const newValue = value === 'Both' ? ['Nigerian', 'British'] : [value];
             const { error } = await supabase
                 .from('teachers')
-                .update({ curriculum_eligibility: value })
+                .update({ curriculum_eligibility: newValue })
                 .eq('id', teacherId);
 
             if (error) throw error;
 
-            setCurriculumEligibility(value);
+            setCurriculumEligibility(newValue);
             toast({
                 title: 'Curriculum Updated',
                 description: `Teacher is now eligible for ${value} curriculum.`,
@@ -105,11 +106,17 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
 
     const hasNigerianQualification = !!teacher.trcn_certificate;
     const hasBritishQualification = !!teacher.british_qualification;
-    const isCompliant = curriculumEligibility && (
-        (curriculumEligibility === 'Nigerian' && hasNigerianQualification) ||
-        (curriculumEligibility === 'British' && hasBritishQualification) ||
-        (curriculumEligibility === 'Both' && hasNigerianQualification && hasBritishQualification)
-    );
+    
+    const isEligibleNigerian = curriculumEligibility.includes('Nigerian');
+    const isEligibleBritish = curriculumEligibility.includes('British');
+
+    const isCompliant = (isEligibleNigerian ? hasNigerianQualification : true) &&
+                        (isEligibleBritish ? hasBritishQualification : true) &&
+                        curriculumEligibility.length > 0;
+    
+    const displayEligibility = curriculumEligibility.length === 2 ? 'Both' : 
+                               curriculumEligibility.includes('Nigerian') ? 'Nigerian' :
+                               curriculumEligibility.includes('British') ? 'British' : null;
 
     return (
         <div className="p-6 space-y-6">
@@ -174,7 +181,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
 
                     <div className="grid grid-cols-3 gap-3">
                         <Card
-                            className={`cursor-pointer transition-all ${curriculumEligibility === 'Nigerian' ? 'border-green-500 border-2 bg-green-50' : 'hover:border-gray-400'
+                            className={`cursor-pointer transition-all ${displayEligibility === 'Nigerian' ? 'border-green-500 border-2 bg-green-50' : 'hover:border-gray-400'
                                 }`}
                             onClick={() => handleCurriculumUpdate('Nigerian')}
                         >
@@ -185,7 +192,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                         </Card>
 
                         <Card
-                            className={`cursor-pointer transition-all ${curriculumEligibility === 'British' ? 'border-blue-500 border-2 bg-blue-50' : 'hover:border-gray-400'
+                            className={`cursor-pointer transition-all ${displayEligibility === 'British' ? 'border-blue-500 border-2 bg-blue-50' : 'hover:border-gray-400'
                                 }`}
                             onClick={() => handleCurriculumUpdate('British')}
                         >
@@ -196,7 +203,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                         </Card>
 
                         <Card
-                            className={`cursor-pointer transition-all ${curriculumEligibility === 'Both' ? 'border-purple-500 border-2 bg-purple-50' : 'hover:border-gray-400'
+                            className={`cursor-pointer transition-all ${displayEligibility === 'Both' ? 'border-purple-500 border-2 bg-purple-50' : 'hover:border-gray-400'
                                 }`}
                             onClick={() => handleCurriculumUpdate('Both')}
                         >

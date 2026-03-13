@@ -1,5 +1,4 @@
 MCP_SERVER= "REMOVED"
-Claude_API= "REMOVED"
 My_claude_credit_website="https://platform.claude.com/settings/billing"
 playwright= "Remove-Item -Recurse -Force .playwright-results"
 
@@ -8,5 +7,4 @@ plan first, make sure it works End to End but tell me how it will work, when you
 
 thought very hard and implement 
 
-
-REMOVED
+make sure both in demo and in register real school potal don't allow the backend system to allow different users to be using the same ID, in my demo account when i login as an Admin i see this ID "OLISKEY_MAIN_ADM_0001" when i login into teacher the same ID again and parent, student. at least the role will change, it should be able identifiy the userschool, branch,role and number of registration. i want the ID should be working like the following instruction "behind the ID, check the users school first then theck the branch they fall into then the role they play and the time they register them, this ID logic should be the logic behind all the ID both the frontend and the backend, to get any user both the frontend and the backend i should be able to use the ID (school_branch_role_number) think very hard, plan first and implement my request

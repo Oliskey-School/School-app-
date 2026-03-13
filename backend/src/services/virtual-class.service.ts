@@ -14,4 +14,20 @@ export class VirtualClassService {
 
         return data;
     }
+
+    static async getSessions(schoolId: string, branchId: string | undefined, teacherId?: string) {
+        let query = supabaseAdmin
+            .from('virtual_class_sessions')
+            .select('*')
+            .eq('school_id', schoolId);
+
+        if (teacherId) {
+            query = query.eq('teacher_id', teacherId);
+        }
+
+        const { data, error } = await query.order('start_time', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    }
 }

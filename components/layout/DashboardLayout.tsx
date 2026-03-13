@@ -50,14 +50,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
     const formatId = (id: string | null | undefined) => {
         if (!id) return '';
-        if (id.includes('_')) return id;
+        // If it's already a full standard ID with 3 underscores, return it
+        if (id.split('_').length >= 4) return id;
 
-        // Extract school/branch codes from metadata if available
-        const schoolCode = user?.user_metadata?.school_code || 'DEMO';
+        // Force 'OLISKEY' for demo mode
+        const schoolCode = user?.user_metadata?.school_code || 'OLISKEY';
         const branchCode = user?.user_metadata?.branch_code || 'MAIN';
-        const userRole = role ? (role.charAt(0).toUpperCase() + role.slice(1)) : 'Admin';
+        
+        // Priority for role detection: 1. Auth role enum, 2. Profile role, 3. Metadata role, 4. Fallback Admin
+        const rawRole = role || profile?.role || user?.user_metadata?.role || user?.app_metadata?.role || 'Admin';
+        const userRole = (typeof rawRole === 'string') ? (rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase()) : rawRole;
 
-        return formatSchoolId(id, userRole, schoolCode, branchCode);
+        return formatSchoolId(id, userRole as string, schoolCode, branchCode);
     };
 
     const getSidebar = (isMobile = false) => {

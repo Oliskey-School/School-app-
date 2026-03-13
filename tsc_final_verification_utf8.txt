@@ -1,0 +1,4 @@
+﻿lib/api.ts(1714,15): error TS2451: Cannot redeclare block-scoped variable 'schoolId'.
+lib/api.ts(1730,13): error TS2451: Cannot redeclare block-scoped variable 'schoolId'.
+lib/api.ts(1733,13): error TS2588: Cannot assign to 'schoolId' because it is a constant.
+services/studentService.ts(2102,104): error TS2554: Expected 1-2 arguments, but got 3.

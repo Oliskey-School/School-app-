@@ -16,6 +16,8 @@ const PremiumErrorPage: React.FC<PremiumErrorPageProps> = ({
     resetErrorBoundary,
     illustration = "/error-illustration.png" // Fallback to a default if not provided
 }) => {
+    const [imageError, setImageError] = React.useState(false);
+
     const handleGoHome = () => {
         window.location.href = '/';
     };
@@ -31,15 +33,19 @@ const PremiumErrorPage: React.FC<PremiumErrorPageProps> = ({
                 {/* Visual Side */}
                 <div className="md:w-1/2 bg-gradient-to-br from-indigo-600 to-indigo-800 p-12 flex flex-col items-center justify-center text-center">
                     <div className="relative w-full aspect-square flex items-center justify-center">
-                        <img
-                            src={illustration}
-                            alt="Error Illustration"
-                            className="w-full h-full object-contain drop-shadow-2xl animate-float"
-                            onError={(e) => {
-                                // Fallback if image fails to load
-                                e.currentTarget.src = 'https://illustrations.popsy.co/blue/crashed-computer.svg';
-                            }}
-                        />
+                        {!imageError ? (
+                            <img
+                                src={illustration}
+                                alt="Error Illustration"
+                                className="w-full h-full object-contain drop-shadow-2xl animate-float"
+                                onError={() => setImageError(true)}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center text-white/40 animate-pulse">
+                                <AlertCircle className="w-32 h-32 mb-4" />
+                                <Shield className="w-16 h-16 absolute opacity-20" />
+                            </div>
+                        )}
                     </div>
                     <div className="mt-8 space-y-2">
                         <div className="inline-flex px-3 py-1 bg-white/20 rounded-full backdrop-blur-md border border-white/30 items-center space-x-2">

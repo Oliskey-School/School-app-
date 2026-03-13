@@ -79,8 +79,14 @@ class RealtimeService {
                     console.error('❌ [Realtime] Channel Error:', err);
                 }
                 if (status === 'TIMED_OUT') {
-                    console.warn('⚠️ [Realtime] Subscription timed out. Check your internet connection.');
+                    console.warn('⚠️ [Realtime] Subscription timed out. Retrying in 2s...');
+                    setTimeout(() => {
+                        if (this.userId && this.schoolId) {
+                            this.initialize(this.userId, this.schoolId, this.branchId);
+                        }
+                    }, 2000);
                 }
+
             });
     }
 
@@ -100,7 +106,7 @@ class RealtimeService {
             const knownTables: string[] = [
                 'students', 'teachers', 'parents', 'users', 'classes', 'subjects',
                 'timetable', 'conversations', 'assignments', 'grades',
-                'attendance_records', 'student_attendance', 'notices', 'messages', 'schools',
+                'attendance_records', 'student_attendance', 'teacher_attendance', 'notices', 'messages', 'schools',
                 'branches', 'notifications', 'class_teachers', 'teacher_subjects',
                 'generated_resources'
             ];

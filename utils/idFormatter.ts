@@ -10,13 +10,17 @@ export const ROLE_CODES: Record<string, string> = {
     superadmin: 'SADM',
     proprietor: 'PRO',
     inspector: 'INS',
-    examofficer: 'EXM',
-    complianceofficer: 'CMP',
+    examofficer: 'EXA',
+    complianceofficer: 'COM',
     counselor: 'CNS',
     // Display-name variants
+    'Student': 'STU',
+    'Teacher': 'TCH',
+    'Parent': 'PAR',
+    'Admin': 'ADM',
     'Super Admin': 'SADM',
-    'Exam Officer': 'EXM',
-    'Compliance Officer': 'CMP',
+    'Exam Officer': 'EXA',
+    'Compliance Officer': 'COM',
 };
 
 /**
@@ -38,24 +42,32 @@ export const formatSchoolId = (
     schoolCode: string = 'SCHOOL',
     branchCode: string = 'MAIN'
 ): string => {
+    // 1. If it's already a valid formatted ID (contains underscores), return as is
+    if (schoolGeneratedId && schoolGeneratedId.includes('_')) {
+        return schoolGeneratedId.toUpperCase();
+    }
+
+    // 2. If it's a non-UUID string, format it
     if (schoolGeneratedId && schoolGeneratedId.trim() !== '') {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(schoolGeneratedId);
         if (!isUUID) {
-            // Return raw ID avoiding PENDING overrides if the DB returned a valid non-UUID value
             return schoolGeneratedId.toUpperCase().replace(/[-\s]/g, '_');
         }
     }
 
-    // 2. Build from parts if we have school/branch codes
-    const roleLower = role.toLowerCase();
-    const roleCode = ROLE_CODES[roleLower] || ROLE_CODES[role] || role.substring(0, 3).toUpperCase();
+    // 3. Build from parts if we have school/branch codes
+    const roleLower = (role || '').toLowerCase();
+    const roleCode = ROLE_CODES[roleLower] || ROLE_CODES[role] || (role ? role.substring(0, 3).toUpperCase() : 'USR');
 
-    if (schoolCode && schoolCode !== 'SCHOOL') {
-        return `${schoolCode.toUpperCase()}_${branchCode.toUpperCase()}_${roleCode}_PENDING`;
+    // Special case for Oliskey Demo
+    const effectiveSchoolCode = schoolCode === 'SCHOOL' && (schoolGeneratedId === 'OLISKEY' || roleCode === 'PAR') ? 'OLISKEY' : schoolCode;
+
+    if (effectiveSchoolCode && effectiveSchoolCode !== 'SCHOOL') {
+        return `${effectiveSchoolCode.toUpperCase()}_${branchCode.toUpperCase()}_${roleCode}_0001`;
     }
 
-    // 3. Generic placeholder — never expose a UUID
-    return `${roleCode}_PENDING`;
+    // 4. Generic placeholder — never expose a UUID
+    return `${roleCode}_0001`;
 };
 
 /**

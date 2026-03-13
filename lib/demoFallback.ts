@@ -25,7 +25,7 @@ export function isPermissionDeniedError(error: any): boolean {
 export function createDemoProfile(userType: string, email?: string): DemoProfile {
     const profiles: Record<string, DemoProfile> = {
         student: {
-            id: 'demo-student-id',
+            id: '3d6f7a8b-9c0d-4e1f-8a9b-0c1d2e3f4a5b',
             name: 'Demo Student',
             email: email || 'student@demo.com',
             grade: 'Grade 10',
@@ -36,44 +36,44 @@ export function createDemoProfile(userType: string, email?: string): DemoProfile
             badges: ['🎓', '⭐', '🏆']
         },
         teacher: {
-            id: 'demo-teacher-id',
+            id: '6f90901e-4119-457d-8d73-745b17831a30',
             name: 'Demo Teacher',
             email: email || 'teacher@demo.com',
             subjects: ['Mathematics', 'Science'],
             classes: ['Class 10A', 'Class 10B']
         },
         admin: {
-            id: 'demo-admin-id',
+            id: '1a2b3c4d-5e6f-7a8b-9c0d-e1f2a3b4c5d6',
             name: 'Demo Admin',
             email: email || 'admin@demo.com',
             role: 'Administrator'
         },
         parent: {
-            id: 'demo-parent-id',
+            id: 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6',
             name: 'Demo Parent',
             email: email || 'parent@demo.com',
             children: []
         },
         proprietor: {
-            id: 'demo-proprietor-id',
+            id: 'b1c2d3e4-f5a6-7b8c-9a0d-e1f2a3b4c5d6',
             name: 'Demo Proprietor',
             email: email || 'demo_proprietor@school.com',
             role: 'Proprietor'
         },
         inspector: {
-            id: 'demo-inspector-id',
+            id: 'c1d2e3f4-a5b6-7c8d-9a0d-e1f2a3b4c5d6',
             name: 'Demo Inspector',
             email: email || 'demo_inspector@school.com',
             role: 'Inspector'
         },
         examofficer: {
-            id: 'demo-examofficer-id',
+            id: 'd1e2f3a4-b5c6-7d8e-9a0d-e1f2a3b4c5d6',
             name: 'Demo Exam Officer',
             email: email || 'demo_examofficer@school.com',
             role: 'Exam Officer'
         },
         complianceofficer: {
-            id: 'demo-compliance-id',
+            id: 'e1f2a3b4-c5d6-7a8b-9c0d-e1f2a3b4c5d6',
             name: 'Demo Compliance Officer',
             email: email || 'demo_compliance@school.com',
             role: 'Compliance Officer'
@@ -81,7 +81,7 @@ export function createDemoProfile(userType: string, email?: string): DemoProfile
     };
 
     return profiles[userType.toLowerCase()] || {
-        id: `demo-${userType}-id`,
+        id: '00000000-0000-0000-0000-000000000000', // Default UUID
         name: `Demo ${userType}`,
         email: email || `${userType.toLowerCase()}@demo.com`
     };

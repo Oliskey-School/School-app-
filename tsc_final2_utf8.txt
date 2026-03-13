@@ -1,0 +1,71 @@
+﻿backend/src/controllers/externalExam.controller.ts(29,71): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+backend/src/controllers/fee.controller.ts(137,41): error TS2339: Property 'getBudgets' does not exist on type 'typeof FeeService'.
+backend/src/controllers/fee.controller.ts(147,41): error TS2339: Property 'createBudget' does not exist on type 'typeof FeeService'.
+backend/src/controllers/fee.controller.ts(157,41): error TS2339: Property 'getArrears' does not exist on type 'typeof FeeService'.
+backend/src/controllers/fee.controller.ts(167,41): error TS2551: Property 'updateArrearStatus' does not exist on type 'typeof FeeService'. Did you mean 'updateFeeStatus'?
+backend/src/controllers/transaction.controller.ts(29,103): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+components/admin/AddStudentScreen.tsx(195,20): error TS2554: Expected 2 arguments, but got 3.
+components/admin/AddStudentScreen.tsx(198,84): error TS2554: Expected 2 arguments, but got 4.
+components/admin/AddStudentScreen.tsx(202,31): error TS2554: Expected 2 arguments, but got 1.
+components/admin/AddStudentScreen.tsx(214,69): error TS2554: Expected 1 arguments, but got 2.
+components/admin/CurriculumSettingsScreen.tsx(49,67): error TS2554: Expected 1 arguments, but got 2.
+components/admin/CurriculumSettingsScreen.tsx(63,69): error TS2554: Expected 1 arguments, but got 2.
+components/admin/EnhancedEnrollmentPage.tsx(139,16): error TS2554: Expected 1 arguments, but got 2.
+components/admin/ExamCandidateRegistration.tsx(123,65): error TS2554: Expected 1 arguments, but got 2.
+components/admin/ReportCardPreview.tsx(103,67): error TS2554: Expected 0-1 arguments, but got 3.
+components/admin/ReportCardPreview.tsx(257,75): error TS2339: Property 'phone' does not exist on type 'School'.
+components/admin/StudentProfileDashboard.tsx(80,21): error TS2554: Expected 2-3 arguments, but got 1.
+components/admin/TeacherAttendanceScreen.tsx(23,48): error TS2304: Cannot find name 'useAuth'.
+components/admin/TeacherAttendanceScreen.tsx(38,85): error TS2345: Argument of type '{ date: string; }' is not assignable to parameter of type 'string'.
+components/admin/UnifiedGovernanceHub.tsx(47,91): error TS2339: Property 'curriculum_type' does not exist on type 'School'.
+components/admin/UserAccountsScreen.tsx(51,55): error TS2554: Expected 1 arguments, but got 2.
+components/DashboardRouter.tsx(146,61): error TS2559: Type '{ onLogout?: () => void; setIsHomePage?: (value: boolean) => void; currentUser?: any; }' has no properties in common with type 'IntrinsicAttributes'.
+components/inspector/InspectionFlowPage.tsx(30,31): error TS2304: Cannot find name 'useAuth'.
+components/inspector/InspectionFlowPage.tsx(42,13): error TS2304: Cannot find name 'toast'.
+components/inspector/InspectionFlowPage.tsx(84,13): error TS2304: Cannot find name 'toast'.
+components/parent/FeeStatusScreen.tsx(106,80): error TS2554: Expected 1 arguments, but got 2.
+components/parent/ParentDashboard.tsx(148,82): error TS2554: Expected 0-1 arguments, but got 2.
+components/parent/ReportCardScreen.tsx(211,76): error TS2554: Expected 1 arguments, but got 3.
+components/payments/FlutterwaveWrapper.tsx(26,9): error TS2717: Subsequent property declarations must have the same type.  Property 'FlutterwaveCheckout' must be of type '(options: any) => void', but here has type 'any'.
+components/shared/CommunityResourceDirectory.tsx(58,36): error TS2554: Expected 1 arguments, but got 0.
+components/shared/DonationPortal.tsx(63,49): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+components/shared/MentalHealthResources.tsx(159,77): error TS2554: Expected 1 arguments, but got 2.
+components/student/AcademicReportScreen.tsx(76,21): error TS2554: Expected 2-3 arguments, but got 1.
+components/student/AnonymousReporting.tsx(41,16): error TS2554: Expected 1 arguments, but got 2.
+components/student/AssignmentsScreen.tsx(24,82): error TS2554: Expected 0-1 arguments, but got 2.
+components/student/DiscreetReporting.tsx(33,16): error TS2554: Expected 1 arguments, but got 2.
+components/student/ResultsScreen.tsx(188,47): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+components/student/ResultsScreen.tsx(219,55): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+components/student/StudentDashboard.tsx(230,50): error TS2554: Expected 0-1 arguments, but got 2.
+components/student/SubjectsScreen.tsx(176,68): error TS2554: Expected 1 arguments, but got 2.
+components/teacher/AttendanceTrackSelector.tsx(89,25): error TS2588: Cannot assign to 'studentList' because it is a constant.
+components/teacher/AttendanceTrackSelector.tsx(94,21): error TS2588: Cannot assign to 'studentList' because it is a constant.
+components/teacher/GradeEntryScreen.tsx(99,25): error TS2554: Expected 0-1 arguments, but got 6.
+components/teacher/GradeEntryScreen.tsx(144,12): error TS2554: Expected 1 arguments, but got 4.
+components/teacher/LessonContentScreen.tsx(51,61): error TS2554: Expected 1 arguments, but got 2.
+components/teacher/LessonPlanDetailScreen.tsx(221,16): error TS2554: Expected 1 arguments, but got 2.
+components/teacher/LessonPlannerScreen.tsx(196,78): error TS2554: Expected 1 arguments, but got 3.
+components/teacher/StudentProfileScreen.tsx(32,17): error TS2554: Expected 2-3 arguments, but got 1.
+components/teacher/TeacherAttendanceHistoryScreen.tsx(68,68): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+components/teacher/TeacherAttendanceScreen.tsx(106,92): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherAttendanceScreen.tsx(187,50): error TS2554: Expected 1 arguments, but got 2.
+components/teacher/TeacherExamManagement.tsx(32,55): error TS2554: Expected 1 arguments, but got 3.
+components/teacher/TeacherExamManagement.tsx(75,51): error TS2554: Expected 1 arguments, but got 3.
+components/teacher/TeacherExamManagement.tsx(106,60): error TS2554: Expected 2 arguments, but got 4.
+components/teacher/TeacherExamManagement.tsx(134,51): error TS2554: Expected 1 arguments, but got 3.
+components/teacher/TeacherSelfAttendance.tsx(41,67): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+components/teacher/TeacherSelfAttendance.tsx(63,23): error TS2554: Expected 1 arguments, but got 0.
+components/teacher/VirtualClassScreen.tsx(384,20): error TS2554: Expected 1 arguments, but got 2.
+components/teacher/VirtualClassScreen.tsx(394,20): error TS2554: Expected 1 arguments, but got 2.
+components/ui/ErrorBoundary.tsx(34,14): error TS2339: Property 'onReset' does not exist on type 'ErrorBoundary'.
+components/ui/ErrorBoundary.tsx(35,12): error TS2339: Property 'onReset' does not exist on type 'ErrorBoundary'.
+hooks/useRealtimeNotifications.ts(118,29): error TS2304: Cannot find name 'branchId'.
+hooks/useRealtimeNotifications.ts(118,41): error TS2304: Cannot find name 'branchId'.
+hooks/useRealtimeNotifications.ts(118,87): error TS2304: Cannot find name 'branchId'.
+index.tsx(7,28): error TS2307: Cannot find module 'virtual:pwa-register' or its corresponding type declarations.
+lib/hooks/useMessages.ts(84,44): error TS2339: Property 'branchId' does not exist on type 'Partial<ChatMessage>'.
+lib/teacherAttendanceService.ts(89,69): error TS2345: Argument of type '{ status: string; }' is not assignable to parameter of type 'string'.

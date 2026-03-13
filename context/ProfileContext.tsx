@@ -39,7 +39,7 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const { user: authUser } = useAuth();
+    const { user: authUser, role: authRole } = useAuth();
 
     /**
      * FETCH PROFILE DATA
@@ -51,39 +51,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return;
         }
 
-        // Bypass backend fetch for Demo users to avoid 406 Not Acceptable errors
-        if (userId.startsWith('d3300') || authUser?.app_metadata?.is_demo || authUser?.user_metadata?.is_demo) {
-            console.log('🛡️ [Profile] Bypassing fetch for Demo user:', userId);
-            setProfile({
-                id: userId,
-                full_name: authUser?.user_metadata?.full_name || 'Demo User',
-                name: authUser?.user_metadata?.full_name || 'Demo User',
-                email: authUser?.email || '',
-                phone: null,
-                avatar_url: null,
-                role: authUser?.user_metadata?.role || 'admin',
-                school_id: authUser?.user_metadata?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-                branch_id: authUser?.user_metadata?.branch_id || '7601cbea-e1ba-49d6-b59b-412a584cb94f',
-                school_generated_id: 'DEMO_MAIN_ADM_001',
-                username: authUser?.user_metadata?.full_name || 'demo_user',
-                is_active: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            });
-            return;
-        }
-
         try {
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle(); // Prevents 406 Not Acceptable if no rows are found
 
             if (error) {
                 console.error('Error fetching profile:', error.message);
                 setProfile(null);
-            } else {
+            } else if (data) {
                 // Map snake_case to camelCase aliases for legacy component support
                 const mappedProfile: UserProfile = {
                     ...data,
@@ -93,6 +71,44 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     avatarUrl: data.avatar_url
                 };
                 setProfile(mappedProfile);
+            } else {
+                // Fallback for mocked local-only demo users (like d3300...) or new users without profile rows
+                const userRole = authRole || authUser?.user_metadata?.role || authUser?.app_metadata?.role || 'student';
+                
+                // Map role to prefix code: Student -> STU, Teacher -> TCH, Parent -> PAR, Admin -> ADM
+                const getRoleCode = (role: string) => {
+                    const r = String(role).toLowerCase();
+                    if (r.includes('student')) return 'STU';
+                    if (r.includes('teacher')) return 'TCH';
+                    if (r.includes('parent')) return 'PAR';
+                    if (r.includes('admin')) return 'ADM';
+                    if (r.includes('proprietor')) return 'PRO';
+                    return 'USR';
+                };
+
+                const roleCode = getRoleCode(userRole);
+                
+                let demoId = authUser?.user_metadata?.school_generated_id || 
+                             authUser?.app_metadata?.school_generated_id ||
+                             authUser?.user_metadata?.custom_id ||
+                             `OLISKEY_MAIN_${roleCode}_00001`;
+                             
+                setProfile({
+                    id: userId,
+                    full_name: authUser?.user_metadata?.full_name || 'Demo User',
+                    name: authUser?.user_metadata?.full_name || 'Demo User',
+                    email: authUser?.email || '',
+                    phone: null,
+                    avatar_url: null,
+                    role: userRole,
+                    school_id: authUser?.user_metadata?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+                    branch_id: authUser?.user_metadata?.branch_id || '7601cbea-e1ba-49d6-b59b-412a584cb94f',
+                    school_generated_id: demoId,
+                    username: authUser?.user_metadata?.full_name || 'demo_user',
+                    is_active: true,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                });
             }
         } catch (err) {
             console.error('Unexpected error fetching profile:', err);

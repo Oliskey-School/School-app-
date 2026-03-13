@@ -38,6 +38,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
         setLoading(true);
         try {
             // Get attendance history (which includes today)
+            // Use current school/branch context for accurate history
             const history = await api.getTeacherAttendanceHistory(30);
             setAttendanceHistory(history || []);
 
@@ -45,9 +46,11 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
             const todayStr = new Date().toISOString().split('T')[0];
             const today = history.find(h => h.date === todayStr);
             setTodayStatus(today || null);
+            
+            console.log(`✅ [SelfAttendance] Loaded ${history.length} records. Today status:`, today?.approval_status || 'none');
         } catch (error) {
             console.error('Error loading attendance data:', error);
-            toast.error("Failed to load attendance records");
+            // toast.error("Failed to load attendance records");
         } finally {
             setLoading(false);
         }
@@ -55,14 +58,34 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
 
     useEffect(() => {
         loadAttendanceData();
-    }, []);
+    }, [user?.id]);
+
+    useEffect(() => {
+        const handleRealtimeUpdate = (event: any) => {
+            const { table } = event.detail;
+            if (table === 'teacher_attendance') {
+                console.log('🔄 [SelfAttendance] Realtime update detected, refreshing...');
+                loadAttendanceData();
+            }
+        };
+
+        window.addEventListener('realtime-update', handleRealtimeUpdate);
+        return () => window.removeEventListener('realtime-update', handleRealtimeUpdate);
+    }, [user?.id]);
 
     const handleCheckIn = async () => {
         setSubmitting(true);
         try {
-            await api.submitTeacherAttendance();
+            const result = await api.submitTeacherAttendance();
+            console.log('✅ [SelfAttendance] Check-in result:', result);
             toast.success("Attendance marked successfully!");
-            loadAttendanceData(); // Refresh
+            
+            // Critical: Manually trigger a slight delay before refresh to allow DB consistency
+            // or just refresh immediately if the result contains the data
+            await loadAttendanceData(); 
+            
+            // Dispatch global event for other components (like history screen)
+            window.dispatchEvent(new CustomEvent('realtime-update', { detail: { table: 'teacher_attendance' } }));
         } catch (error: any) {
             console.error('Check-in error:', error);
             toast.error(error.message || "Failed to mark attendance");
@@ -71,7 +94,8 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
         }
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusColor = (status?: string) => {
+        if (!status) return 'bg-gray-100 text-gray-700';
         const lowerStatus = status.toLowerCase();
         switch (lowerStatus) {
             case 'approved': return 'bg-green-100 text-green-700';
@@ -80,6 +104,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
             default: return 'bg-gray-100 text-gray-700';
         }
     };
+
 
     if (loading) {
         return (
@@ -122,8 +147,9 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                             </div>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(todayStatus.approval_status)}`}>
-                            {todayStatus.approval_status.charAt(0).toUpperCase() + todayStatus.approval_status.slice(1)}
+                            {(todayStatus.approval_status || 'Pending').charAt(0).toUpperCase() + (todayStatus.approval_status || 'Pending').slice(1)}
                         </span>
+
                     </div>
                 ) : (
                     <button
@@ -167,9 +193,10 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                                         <p className="text-xs text-gray-500">{record.status || 'Present'}</p>
                                     </div>
                                 </div>
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${getStatusColor(record.approval_status)}`}>
-                                    {record.approval_status.charAt(0).toUpperCase() + record.approval_status.slice(1)}
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(record.approval_status)}`}>
+                                    {(record.approval_status || 'Pending').charAt(0).toUpperCase() + (record.approval_status || 'Pending').slice(1)}
                                 </span>
+
                             </div>
                         ))
                     )}

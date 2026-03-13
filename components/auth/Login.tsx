@@ -102,8 +102,11 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
               slug: 'demo',
               subscriptionStatus: 'active',
               createdAt: new Date().toISOString()
-            }
+            },
+            token: mockResult.token || localStorage.getItem('auth_token'),
+            refreshToken: mockResult.refreshToken || localStorage.getItem('auth_refresh_token')
           });
+
           return;
         }
 
@@ -119,8 +122,10 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           email: result.email,
           userType: result.userType,
           token: result.token, // Pass the JWT from backend
+          refreshToken: result.refreshToken || result.token, // Ensure refresh token is passed
           schoolGeneratedId: result.schoolGeneratedId,
           school: result.userData?.school_id ? { id: result.userData.school_id } : undefined
+
         });
       }
 
@@ -146,12 +151,15 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     }
 
     // Map account to the structure needed for login
+    const userKey = roleKey.toLowerCase();
+    const mockUserData = MOCK_USERS[userKey] || MOCK_USERS['student']; // Default to student if totally lost, but keep roleKey
+
     let mockUser = {
-      id: (MOCK_USERS[roleKey] || MOCK_USERS['admin']).id, // Fallback ID
+      id: mockUserData.id,
       email: mockAccount.email,
       password: mockAccount.password,
       role: mockAccount.role,
-      metadata: (MOCK_USERS[roleKey] || MOCK_USERS['admin']).metadata
+      metadata: mockUserData.metadata
     };
 
     // Role-specific email overrides if needed for Real Auth
@@ -172,114 +180,56 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     }
 
     try {
-      console.log(`Attempting Quick Login for ${roleKey} (${mockUser.email})...`);
+      console.log(`🚀 [Demo] Attempting resilient Quick Login for ${roleKey} (${mockUser.email})...`);
 
-      // 1. Attempt REAL Supabase Auth (for valid session)
-      // We wrap this in a sub-try/catch because some network errors might throw
-      // even if the client usually returns objects.
-      let authData = null;
-      let authError = null;
+      // Use the unified authentication logic which prioritizes backend tokens
+      const result = await authenticateUser(mockUser.email, mockUser.password);
 
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: mockUser.email,
-          password: mockUser.password,
-        });
-        authData = data;
-        authError = error;
-      } catch (err: any) {
-        console.error("Supabase Auth Exception:", err);
-        authError = err;
-      }
-
-      // 2. Fallback to MOCK AUTH if Real Auth fails (400, 403, network, etc)
-      if (authError) {
-        console.warn("Real Auth failed for demo account, using mock session fallback:", authError.message || authError);
-
+      if (result.success) {
+        console.log(`✅ [Demo] Auth successful for ${roleKey}. Token present: ${!!result.token}`);
         const dashboardType = mapRoleToDashboard(mockUser.role);
-        const DEMO_SCHOOL = {
-          id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
-          name: 'Oliskey Demo School',
-          slug: 'demo',
-          subscriptionStatus: 'active',
-          createdAt: new Date().toISOString()
-        };
 
         await signIn(dashboardType, {
-          userId: mockUser.id,
-          email: mockUser.email,
+          userId: result.userId,
+          email: result.email,
           userType: dashboardType,
           isDemo: true,
-          schoolGeneratedId: mockUser.metadata?.school_generated_id,
-          school: DEMO_SCHOOL
+          schoolGeneratedId: result.schoolGeneratedId,
+          school: {
+            id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+            branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
+            name: 'Oliskey Demo School',
+            slug: 'demo',
+            subscriptionStatus: 'active',
+            createdAt: new Date().toISOString()
+          },
+          token: result.token,
+          refreshToken: result.refreshToken
         });
         return;
+      } else {
+        throw new Error(result.error || 'Authentication failed');
       }
-
-      if (authData?.session) {
-        const dashboardType = mapRoleToDashboard(mockUser.role);
-
-        // Fetch schoolGeneratedId from the relevant table based on role
-        let schoolGeneratedId = undefined;
-        try {
-          const userId = authData.user?.id;
-          let tableName = '';
-
-          // Determine which table to query based on role
-          if (dashboardType === 'student') {
-            tableName = 'students';
-          } else if (dashboardType === 'teacher') {
-            tableName = 'teachers';
-          } else if (dashboardType === 'parent') {
-            tableName = 'parents';
-          } else if (dashboardType === 'admin') {
-            tableName = 'users'; // Admins are in the users table
-          }
-
-          // Fetch the school_generated_id if we have a valid table
-          if (tableName && userId) {
-            const { data: userData, error: fetchError } = await supabase
-              .from(tableName)
-              .select('school_generated_id')
-              .eq('user_id', userId)
-              .maybeSingle();
-
-            if (!fetchError && userData) {
-              schoolGeneratedId = userData.school_generated_id || (userData as any).custom_id || (userData as any).staff_id;
-            }
-          }
-        } catch (fetchErr) {
-          console.warn('Failed to fetch schoolGeneratedId:', fetchErr);
-        }
-
-        const DEMO_SCHOOL = {
+    } catch (err: any) {
+      console.error("❌ [Demo] Quick Login Error:", err);
+      // Fallback to local mock if everything else fails for true "offline" demo
+      const dashboardType = mapRoleToDashboard(mockUser.role);
+      await signIn(dashboardType, {
+        userId: mockUser.id,
+        email: mockUser.email,
+        userType: dashboardType,
+        isDemo: true,
+        schoolGeneratedId: mockUser.metadata?.school_generated_id,
+        school: {
           id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
           branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
           name: 'Oliskey Demo School',
           slug: 'demo',
           subscriptionStatus: 'active',
           createdAt: new Date().toISOString()
-        };
-
-        await signIn(dashboardType, {
-          userId: authData.user!.id,
-          email: authData.user!.email!,
-          userType: dashboardType,
-          isDemo: true,
-          schoolGeneratedId: schoolGeneratedId,
-          school: DEMO_SCHOOL,
-          token: authData.session.access_token, // Critical for RLS
-          refreshToken: authData.session.refresh_token
-        });
-      }
-    } catch (err: any) {
-      console.error("Quick Login Error:", err);
-      if (err.message && err.message.includes('captcha')) {
-        setError("Security check failed. Please type the credentials manually.");
-      } else {
-        setError(err.message || `Failed to login as ${mockUser.role}.`);
-      }
+        },
+        token: 'mock-token' // Critical: Ensures api.ts knows we are in a demo session even if offline
+      });
     } finally {
       setIsLoading(false);
     }
@@ -483,7 +433,7 @@ async function getMockSessionForRole(roleName: string): Promise<{ success: boole
   };
 }
 
-async function checkMockCredentials(email: string, pass: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, schoolGeneratedId?: string }> {
+async function checkMockCredentials(email: string, pass: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, schoolGeneratedId?: string, token?: string, refreshToken?: string }> {
   // 1. Simulating a DB lookup for mock users
 
 
@@ -500,7 +450,9 @@ async function checkMockCredentials(email: string, pass: string): Promise<{ succ
       role: user.role,
       dashboardType: mapRoleToDashboard(user.role),
       userId: user.id,
-      schoolGeneratedId: user.metadata?.school_generated_id
+      schoolGeneratedId: user.metadata?.school_generated_id,
+      token: localStorage.getItem('auth_token') || undefined,
+      refreshToken: localStorage.getItem('auth_refresh_token') || undefined
     };
   }
 

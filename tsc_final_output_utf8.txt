@@ -1,0 +1,18 @@
+﻿components/admin/FeeManagement.tsx(67,33): error TS2554: Expected 0-1 arguments, but got 2.
+components/shared/TimetableScreen.tsx(177,99): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/student/ResultsScreen.tsx(188,83): error TS2554: Expected 1-2 arguments, but got 3.
+components/student/ResultsScreen.tsx(219,91): error TS2554: Expected 1-2 arguments, but got 3.
+components/student/StudentDashboard.tsx(230,85): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/teacher/GradeEntryScreen.tsx(144,30): error TS2554: Expected 1-2 arguments, but got 4.
+components/teacher/LessonPlannerScreen.tsx(251,17): error TS2353: Object literal may only specify known properties, and 'teacher_id' does not exist in type 'ApiOptions'.
+components/teacher/LessonPlannerScreen.tsx(316,17): error TS2353: Object literal may only specify known properties, and 'teacher_id' does not exist in type 'ApiOptions'.
+components/teacher/LessonPlannerScreen.tsx(478,17): error TS2353: Object literal may only specify known properties, and 'teacher_id' does not exist in type 'ApiOptions'.
+components/teacher/QuizBuilderScreen.tsx(161,89): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherAttendanceScreen.tsx(110,21): error TS2554: Expected 2-3 arguments, but got 4.
+components/teacher/TeacherAttendanceScreen.tsx(188,89): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherExamManagement.tsx(32,87): error TS2559: Type 'string' has no properties in common with type 'ApiOptions'.
+components/teacher/TeacherExamManagement.tsx(75,61): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherExamManagement.tsx(106,105): error TS2554: Expected 2-3 arguments, but got 4.
+components/teacher/TeacherExamManagement.tsx(134,96): error TS2554: Expected 1-2 arguments, but got 3.
+services/studentService.ts(2075,70): error TS2554: Expected 1-2 arguments, but got 3.
+services/studentService.ts(2102,104): error TS2554: Expected 1-2 arguments, but got 3.

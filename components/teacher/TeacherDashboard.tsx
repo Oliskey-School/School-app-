@@ -222,7 +222,22 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
             });
           } else {
             // 3. Only create if absolutely no record exists for this email/school
+            // [GUARD] Skip direct Supabase insert if in Demo Mode to avoid 401s on unstable sessions
+            if (sessionStorage.getItem('is_demo_mode') === 'true') {
+              console.log("🛡️ [Demo] Skipping teacher profile creation (Demo Guard Active)");
+              setTeacherId('6f90901e-4119-457d-8d73-745b17831a30');
+              setTeacherProfile({
+                name: user?.user_metadata?.name || 'Demo Teacher',
+                avatarUrl: '',
+                schoolId: schoolId,
+                schoolGeneratedId: user?.user_metadata?.school_generated_id || 'Pending Generation',
+                notification_preferences: {}
+              });
+              return;
+            }
+
             console.log("⚠️ No teacher record found. Creating new profile for School:", schoolId);
+
             const { data: newTeacher } = await supabase
               .from('teachers')
               .insert({
@@ -249,7 +264,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       }
     } catch (err) {
       console.error("Profile Fetch Error:", err);
-      setTeacherId('demo-teacher-id');
+      setTeacherId('6f90901e-4119-457d-8d73-745b17831a30');
       setTeacherProfile({
         name: 'Demo Teacher',
         avatarUrl: '',
@@ -261,7 +276,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   useEffect(() => {
     fetchProfile();
     let profileSubscription: any = null;
-    if (teacherId && teacherId !== 'demo-teacher-id') {
+    if (teacherId && teacherId !== '6f90901e-4119-457d-8d73-745b17831a30') {
       profileSubscription = supabase
         .channel(`public:teachers:id=eq.${teacherId}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'teachers', filter: `id=eq.${teacherId}` }, () => fetchProfile())

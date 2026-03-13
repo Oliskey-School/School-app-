@@ -36,9 +36,28 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
             const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0];
             const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
 
+            let resolvedTeacherId = teacherId;
+            if (!resolvedTeacherId) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: t } = await supabase
+                        .from('teachers')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .maybeSingle();
+                    if (t) resolvedTeacherId = t.id;
+                }
+            }
+
+            if (!resolvedTeacherId) {
+                console.warn('Could not resolve teacherId for calendar fetch');
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('teacher_attendance')
                 .select('date, approval_status, status')
+                .eq('teacher_id', resolvedTeacherId)
                 .gte('date', startDate)
                 .lte('date', endDate);
 
@@ -78,6 +97,28 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
         fetchHistory();
         fetchCalendarData();
     }, [teacherId, currentDate]);
+
+    useEffect(() => {
+        const handleRealtimeUpdate = (event: any) => {
+            const { table } = event.detail;
+            if (table === 'teacher_attendance') {
+                console.log('🔄 [History] Realtime update detected, refreshing...');
+                const fetchHistory = async () => {
+                    try {
+                        const data = await api.getTeacherAttendanceHistory(100);
+                        setHistory(data || []);
+                    } catch (err: any) {
+                        console.error("Error fetching history:", err);
+                    }
+                };
+                fetchHistory();
+                fetchCalendarData();
+            }
+        };
+
+        window.addEventListener('realtime-update', handleRealtimeUpdate);
+        return () => window.removeEventListener('realtime-update', handleRealtimeUpdate);
+    }, []);
 
     const goToPreviousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     const goToNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
@@ -136,7 +177,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                     </div>
 
                     <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => <div key={day}>{day}</div>)}
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => <div key={`day-header-${i}`}>{day}</div>)}
                     </div>
 
                     {calendarLoading ? (

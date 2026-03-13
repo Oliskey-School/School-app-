@@ -2,13 +2,13 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { VirtualClassService } from '../services/virtual-class.service';
 import { supabase } from '../config/supabase';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const createVirtualClassSession = async (req: AuthRequest, res: Response) => {
     try {
         const sessionData = {
             ...req.body,
-            school_id: req.user.school_id,
-            branch_id: req.user.branch_id || req.body.branch_id
+            school_id: req.user.school_id
         };
 
         if (req.user.role === 'teacher') {
@@ -40,6 +40,19 @@ export const createVirtualClassSession = async (req: AuthRequest, res: Response)
 
         const session = await VirtualClassService.createSession(sessionData);
         res.status(201).json(session);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getVirtualClassSessions = async (req: AuthRequest, res: Response) => {
+    try {
+        const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, requestedBranch);
+        const teacherId = req.query.teacher_id as string || req.query.teacherId as string;
+        
+        const sessions = await VirtualClassService.getSessions(req.user.school_id, branchId, teacherId);
+        res.json(sessions);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

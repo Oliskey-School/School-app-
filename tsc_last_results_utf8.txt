@@ -1,0 +1,27 @@
+﻿components/teacher/QuizBuilderScreen.tsx(161,89): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherAttendanceScreen.tsx(188,89): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherExamManagement.tsx(32,87): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ApiOptions'.
+components/teacher/TeacherExamManagement.tsx(75,61): error TS2554: Expected 1-2 arguments, but got 3.
+components/teacher/TeacherExamManagement.tsx(106,105): error TS2554: Expected 2-3 arguments, but got 4.
+components/teacher/TeacherExamManagement.tsx(134,96): error TS2554: Expected 1-2 arguments, but got 3.
+lib/api.ts(876,11): error TS2393: Duplicate function implementation.
+lib/api.ts(892,11): error TS2393: Duplicate function implementation.
+lib/api.ts(950,11): error TS2393: Duplicate function implementation.
+lib/api.ts(959,11): error TS2393: Duplicate function implementation.
+lib/api.ts(1060,11): error TS2393: Duplicate function implementation.
+lib/api.ts(1812,85): error TS2552: Cannot find name 'section'. Did you mean 'Selection'?
+lib/api.ts(1812,107): error TS2552: Cannot find name 'section'. Did you mean 'Selection'?
+lib/api.ts(1812,124): error TS2304: Cannot find name 'branchId'.
+lib/api.ts(1812,136): error TS2304: Cannot find name 'branchId'.
+lib/api.ts(1812,170): error TS2304: Cannot find name 'branchId'.
+lib/api.ts(1825,13): error TS2304: Cannot find name 'branchId'.
+lib/api.ts(1825,25): error TS2304: Cannot find name 'branchId'.
+lib/api.ts(1826,43): error TS2304: Cannot find name 'branchId'.
+lib/api.ts(1836,45): error TS2552: Cannot find name 'section'. Did you mean 'Selection'?
+lib/api.ts(1836,78): error TS2552: Cannot find name 'section'. Did you mean 'Selection'?
+lib/api.ts(2072,11): error TS2393: Duplicate function implementation.
+lib/api.ts(2073,11): error TS2393: Duplicate function implementation.
+lib/api.ts(2074,11): error TS2393: Duplicate function implementation.
+lib/api.ts(2075,11): error TS2393: Duplicate function implementation.
+lib/api.ts(2076,11): error TS2393: Duplicate function implementation.
+services/studentService.ts(2102,104): error TS2554: Expected 1-2 arguments, but got 3.
