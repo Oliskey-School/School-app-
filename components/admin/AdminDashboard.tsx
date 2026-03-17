@@ -129,6 +129,12 @@ const AdminActionsScreen = lazy(() => import('../admin/AdminActionsScreen'));
 const SchoolManagementScreen = lazy(() => import('../admin/SchoolManagementScreen'));
 const ClassFormScreen = lazy(() => import('../admin/ClassFormScreen'));
 const RecordPaymentScreen = lazy(() => import('../admin/RecordPaymentScreen'));
+const HostelManagementScreen = lazy(() => import('../admin/HostelManagementScreen'));
+const TransportManagementScreen = lazy(() => import('../admin/TransportManagementScreen'));
+const CustomReportBuilder = lazy(() => import('../admin/CustomReportBuilder'));
+const BackupRestoreScreen = lazy(() => import('../admin/BackupRestoreScreen'));
+const SessionManagementScreen = lazy(() => import('../admin/SessionManagementScreen'));
+const BehaviorLogScreen = lazy(() => import('../admin/BehaviorLogScreen'));
 
 type ViewStackItem = {
     view: string;
@@ -330,6 +336,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         schoolManagement: SchoolManagementScreen,
         classForm: ClassFormScreen,
         recordPayment: RecordPaymentScreen,
+        hostelManagement: HostelManagementScreen,
+        transportManagement: TransportManagementScreen,
+        customReportBuilder: CustomReportBuilder,
+        backupRestore: BackupRestoreScreen,
+        sessionManagement: SessionManagementScreen,
+        behaviorLog: BehaviorLogScreen,
     };
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);

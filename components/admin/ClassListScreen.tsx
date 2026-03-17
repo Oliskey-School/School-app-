@@ -17,6 +17,21 @@ interface ClassListScreenProps {
     currentBranchId?: string | null;
 }
 
+const DEFAULT_STANDARD_CLASSES = [
+    { name: 'Primary 1', grade: 1, section: 'A', level: 'Primary' },
+    { name: 'Primary 2', grade: 2, section: 'A', level: 'Primary' },
+    { name: 'Primary 3', grade: 3, section: 'A', level: 'Primary' },
+    { name: 'Primary 4', grade: 4, section: 'A', level: 'Primary' },
+    { name: 'Primary 5', grade: 5, section: 'A', level: 'Primary' },
+    { name: 'Primary 6', grade: 6, section: 'A', level: 'Primary' },
+    { name: 'JSS 1', grade: 7, section: 'A', level: 'Secondary' },
+    { name: 'JSS 2', grade: 8, section: 'A', level: 'Secondary' },
+    { name: 'JSS 3', grade: 9, section: 'A', level: 'Secondary' },
+    { name: 'SSS 1', grade: 10, section: 'A', level: 'Secondary' },
+    { name: 'SSS 2', grade: 11, section: 'A', level: 'Secondary' },
+    { name: 'SSS 3', grade: 12, section: 'A', level: 'Secondary' },
+];
+
 
 const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId, currentBranchId }) => {
     const queryKey = ['classes', schoolId, currentBranchId];
@@ -65,7 +80,7 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
         queryKey,
         mutationFn: async () => {
             if (!schoolId) throw new Error("School ID is required");
-            await api.initializeStandardClasses(schoolId, currentBranchId);
+            await api.initializeStandardClasses(schoolId, DEFAULT_STANDARD_CLASSES, currentBranchId);
             return true;
         },
         updateFn: (old) => old, // Will be invalidated anyway

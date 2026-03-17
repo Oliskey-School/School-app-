@@ -17,6 +17,7 @@ interface AuthContextType {
     signOut: () => Promise<void>;
     switchSchool: (schoolId: string) => Promise<void>;
     switchDemoRole: (roleKey: string) => Promise<void>;
+    userProfile: User | null;
 }
 
 
@@ -413,6 +414,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signOut,
         switchSchool,
         switchDemoRole,
+        userProfile: user,
     }), [session, user, role, currentSchool, currentBranchId, loading, isDemo, memberships]);
 
     return (

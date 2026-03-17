@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './supabase';
+import { autoOptimize } from './mediaOptimizer';
 
 export interface UploadOptions {
     file: File;
@@ -61,9 +62,12 @@ export function validateFile(file: File, expectedType?: string): { valid: boolea
  * Upload a file to Supabase Storage
  */
 export async function uploadFile(options: UploadOptions): Promise<UploadResult> {
-    const { file, bucket = DEFAULT_BUCKET, path, onProgress } = options;
+    const { file: originalFile, bucket = DEFAULT_BUCKET, path, onProgress } = options;
 
     try {
+        // Optimize media (images) automatically
+        const file = await autoOptimize(originalFile);
+
         // Validate file
         const validation = validateFile(file);
         if (!validation.valid) {
@@ -240,21 +244,24 @@ export async function uploadImage(
         throw new Error('File must be an image');
     }
 
+    // Optimize image
+    const optimizedFile = await autoOptimize(file);
+
     // Validate file size (2MB limit for images)
     const maxSize = 2 * 1024 * 1024; // 2MB
-    if (file.size > maxSize) {
+    if (optimizedFile.size > maxSize) {
         throw new Error('Image size must be less than 2MB');
     }
 
     // Generate unique filename
-    const fileExt = file.name.split('.').pop();
+    const fileExt = optimizedFile.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = folder ? `${folder}/${fileName}` : fileName;
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(filePath, file, {
+        .upload(filePath, optimizedFile, {
             cacheControl: '3600',
             upsert: false
         });

@@ -44,7 +44,7 @@ import DonutChart from '../ui/DonutChart';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { fetchAuditLogs } from '../../lib/database';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
-import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -484,6 +484,56 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                     icon={<ClipboardListIcon />}
                                     onClick={() => navigateTo('equipmentInventory', 'Equipment Inventory')}
                                     color="bg-indigo-700"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Boarding & Transport Section */}
+                        <div className="mt-8">
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🏠 Boarding & Transport</h2>
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                                <QuickActionCard
+                                    label="Hostel Management"
+                                    icon={<Building2 />}
+                                    onClick={() => navigateTo('hostelManagement', 'Hostel & Boarding')}
+                                    color="bg-violet-600"
+                                />
+                                <QuickActionCard
+                                    label="Transport Mgmt"
+                                    icon={<Bus />}
+                                    onClick={() => navigateTo('transportManagement', 'Transport Management')}
+                                    color="bg-orange-600"
+                                />
+                                <QuickActionCard
+                                    label="Behavior Tracking"
+                                    icon={<Star />}
+                                    onClick={() => navigateTo('behaviorLog', 'Behavior & Progress')}
+                                    color="bg-amber-600"
+                                />
+                            </div>
+                        </div>
+
+                        {/* System & Data Section */}
+                        <div className="mt-8">
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">⚙️ System & Data</h2>
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                                <QuickActionCard
+                                    label="Custom Reports"
+                                    icon={<BarChart3 />}
+                                    onClick={() => navigateTo('customReportBuilder', 'Custom Report Builder')}
+                                    color="bg-cyan-700"
+                                />
+                                <QuickActionCard
+                                    label="Backup & Restore"
+                                    icon={<Database />}
+                                    onClick={() => navigateTo('backupRestore', 'Data Backup & Restore')}
+                                    color="bg-emerald-700"
+                                />
+                                <QuickActionCard
+                                    label="Active Sessions"
+                                    icon={<Monitor />}
+                                    onClick={() => navigateTo('sessionManagement', 'Session Management')}
+                                    color="bg-slate-700"
                                 />
                             </div>
                         </div>

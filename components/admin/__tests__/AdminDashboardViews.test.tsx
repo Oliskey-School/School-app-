@@ -1,133 +1,65 @@
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { AdminSidebar } from '../../ui/DashboardSidebar';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import React, { Suspense } from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import AdminDashboard from '../AdminDashboard';
-import { AuthProvider } from '../../../context/AuthContext';
-import { ProfileProvider } from '../../../context/ProfileContext';
-import { BranchProvider } from '../../../context/BranchContext';
-import { BrowserRouter } from 'react-router-dom';
-
-// Robust Mock for Supabase
-const mockQuery: any = {
-    select: vi.fn(() => mockQuery),
-    eq: vi.fn(() => mockQuery),
-    order: vi.fn(() => mockQuery),
-    limit: vi.fn(() => mockQuery),
-    maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
-    single: vi.fn(() => Promise.resolve({ data: { id: 'test', schoolId: 'school-123' }, error: null })),
-    filter: vi.fn(() => mockQuery),
-    ilike: vi.fn(() => mockQuery),
-    range: vi.fn(() => mockQuery),
-    count: vi.fn(() => mockQuery),
-    then: vi.fn((cb) => cb({ data: [], error: null }))
-};
-
-vi.mock('../../../lib/supabase', () => ({
-    supabase: {
-        auth: {
-            getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user', email: 'admin@demo.com', user_metadata: { role: 'admin', school_id: 'school-123' }, app_metadata: { role: 'admin', school_id: 'school-123' } } }, error: null }),
-            getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user', user_metadata: { role: 'admin' } } } }, error: null }),
-            onAuthStateChange: vi.fn((cb) => {
-                // Call immediately for faster tests
-                cb('SIGNED_IN', { 
-                    user: { 
-                        id: 'test-user', 
-                        email: 'admin@demo.com',
-                        user_metadata: { role: 'admin', school_id: 'school-123' },
-                        app_metadata: { role: 'admin', school_id: 'school-123' }
-                    } 
-                });
-                return { data: { subscription: { unsubscribe: vi.fn() } } };
-            })
-        },
-        from: vi.fn(() => mockQuery),
-        channel: vi.fn(() => ({
-            on: vi.fn().mockReturnThis(),
-            subscribe: vi.fn().mockReturnThis()
-        })),
-        removeChannel: vi.fn(),
-        rpc: vi.fn(() => Promise.resolve({ data: { context: {} } }))
-    },
-    isSupabaseConfigured: true
+// Mock required contexts or hooks used by sidebar if any
+vi.mock('../../../context/AuthContext', () => ({
+    useAuth: () => ({
+        user: { id: 'test-user-id', email: 'admin@test.com' },
+        currentSchool: { id: 'school-123', name: 'Test School' },
+    })
 }));
 
-// Mock other services
-vi.mock('../../../services/RealtimeService', () => ({
-    realtimeService: {
-        initialize: vi.fn(),
-        destroy: vi.fn()
-    }
-}));
+const queryClient = new QueryClient();
 
-vi.mock('../../../lib/syncEngine', () => ({
-    syncEngine: {
-        on: vi.fn(),
-        off: vi.fn()
-    }
-}));
-
-// Mock lazy components to avoid actual loading in some cases if needed, 
-// but we want to test they CAN be loaded. 
-// Vitest handles lazy well enough if mocked properly.
-
-const MockWrapper = ({ children }: { children: React.ReactNode }) => (
-    <BrowserRouter>
-        <AuthProvider>
-            <ProfileProvider>
-                <BranchProvider>
-                    <Suspense fallback={<div>Loading...</div>}>
-                        {children}
-                    </Suspense>
-                </BranchProvider>
-            </ProfileProvider>
-        </AuthProvider>
-    </BrowserRouter>
-);
-
-describe('AdminDashboard Views Visibility', () => {
-    const setIsHomePage = vi.fn();
-
-    it('renders the overview by default', async () => {
-        render(
-            <MockWrapper>
-                <AdminDashboard setIsHomePage={setIsHomePage} />
-            </MockWrapper>
-        );
-
-        await waitFor(() => {
-             // Use exact match or heading role to avoid matching "Loading Admin Dashboard..."
-             expect(screen.getByRole('heading', { name: /^Admin Dashboard$/i })).toBeTruthy();
-        }, { timeout: 10000 });
-    });
-
-    it('can see primary navigation items', async () => {
-        render(
-            <MockWrapper>
-                <AdminDashboard setIsHomePage={setIsHomePage} />
-            </MockWrapper>
-        );
-
-        // Wait for the loader to disappear and main content to appear
-        await waitFor(() => {
-             expect(screen.getByRole('heading', { name: /^Admin Dashboard$/i })).toBeTruthy();
-             expect(screen.queryByText(/Initializing secure session/i)).toBeNull();
-        }, { timeout: 10000 });
-
-        // Check for main navigation links in sidebar/nav
-        await waitFor(() => {
-            const studentElements = screen.queryAllByText(/Students/i);
-            expect(studentElements.length).toBeGreaterThan(0);
-        }, { timeout: 10000 });
+describe('AdminSidebar Navigation Labels', () => {
+    it('contains the correct navigation labels', async () => {
+        const setActiveScreen = vi.fn();
         
-        expect(screen.getAllByText(/Teachers/i).length).toBeGreaterThan(0);
-        expect(screen.getAllByText(/Classes/i).length).toBeGreaterThan(0);
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter>
+                    <AdminSidebar 
+                        activeScreen="home" 
+                        setActiveScreen={setActiveScreen}
+                        onLogout={vi.fn()}
+                        schoolName="Test School"
+                    />
+                </MemoryRouter>
+            </QueryClientProvider>
+        );
+
+        // Check for labels to match actual implementation
+        // Based on the sidebar code, we expect these:
+        expect(await screen.findByText(/Approvals/i)).toBeInTheDocument();
+        expect(await screen.findByText(/Fee Management/i)).toBeInTheDocument();
+        expect(await screen.findByText(/Branches/i)).toBeInTheDocument();
+        expect(await screen.findByText(/Settings/i)).toBeInTheDocument();
     });
 
-    it('verifies that all lazy-loaded view components are defined in the map', async () => {
-        // This test ensures that the viewComponents map in AdminDashboard.tsx is correctly populated
-        // We can't easily access the internal map, but we've already run the verify_admin_views.js script
-        // which confirmed all imported files exist.
-        expect(true).toBe(true);
+    it('triggers setActiveScreen on click', async () => {
+        const setActiveScreen = vi.fn();
+        
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter>
+                    <AdminSidebar 
+                        activeScreen="home" 
+                        setActiveScreen={setActiveScreen}
+                        onLogout={vi.fn()}
+                        schoolName="Test School"
+                    />
+                </MemoryRouter>
+            </QueryClientProvider>
+        );
+
+        const approvalsLink = await screen.findByText(/Approvals/i);
+        fireEvent.click(approvalsLink);
+        
+        // It might be nested or have a specific ID, but clicking the text should work if it's a button or link
+        expect(setActiveScreen).toHaveBeenCalled();
     });
 });

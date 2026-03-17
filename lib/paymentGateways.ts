@@ -25,6 +25,11 @@ interface PaymentConfig {
         description?: string;
         logo?: string;
     };
+    // Step 2 Additions:
+    subaccount?: string; // For Paystack split payments
+    split_group?: string; // For Flutterwave split payments
+    is_bnpl?: boolean; // Enable Buy Now Pay Later installments
+    student_code?: string; // For USSD referencing
 }
 
 // Helper to load scripts dynamically
@@ -61,7 +66,19 @@ export const initializePaystackPayment = async (config: PaymentConfig) => {
             amount: Math.round(config.amount * 100), // Paystack takes amount in kobo/cents
             currency: config.currency,
             ref: config.reference,
-            metadata: config.metadata,
+            subaccount: config.subaccount, // SPLIT PAYMENTS SUPPORT
+            metadata: {
+                ...config.metadata,
+                is_bnpl: config.is_bnpl,
+                student_code: config.student_code,
+                custom_fields: [
+                    {
+                        display_name: "Student Code",
+                        variable_name: "student_code",
+                        value: config.student_code
+                    }
+                ]
+            },
             callback: (response: any) => {
                 if (config.onSuccess) {
                     config.onSuccess(response);
@@ -103,15 +120,20 @@ export const initializeFlutterwavePayment = async (config: PaymentConfig) => {
             tx_ref: config.reference,
             amount: config.amount,
             currency: config.currency,
-            payment_options: "card, account, ussd, qr",
+            payment_options: config.is_bnpl ? "card, account, ussd, barter" : "card, account, ussd, qr",
             redirect_url: config.callback_url, // Flutterwave handles redirect automatically if provided
-            meta: config.metadata,
+            subaccounts: config.split_group ? [{ id: config.split_group }] : undefined, // SPLIT PAYMENTS
+            meta: {
+                ...config.metadata,
+                student_code: config.student_code,
+                moniepoint_ussd: `*5573*1*${config.student_code}#` // USSD REFERENCING
+            },
             customer: config.customer || {
                 email: config.email,
             },
             customizations: config.customizations || {
                 title: "School Management System",
-                description: "Subscription Payment",
+                description: config.is_bnpl ? "Buy Now Pay Later Installment" : "School Fee Payment",
                 logo: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
             },
             callback: (data: any) => {

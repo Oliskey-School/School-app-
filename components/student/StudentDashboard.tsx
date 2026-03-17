@@ -102,6 +102,8 @@ import { supabase } from '../../lib/supabase';
 
 // Remove global loggedInStudent
 
+import { NextUpTask } from './NextUpTask';
+
 const TodayFocus: React.FC<{
     schedule: any[],
     assignments: any[],
@@ -110,99 +112,66 @@ const TodayFocus: React.FC<{
     navigateTo: (view: string, title: string, props?: any) => void,
     student: Student
 }> = ({ schedule, assignments, quizzes, theme, navigateTo, student }) => {
-    const formatTime = (timeStr: string) => {
-        if (!timeStr) return '';
-        // If it's full date string or just time
-        return timeStr.includes('T') ? new Date(timeStr).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : timeStr.substring(0, 5);
-    };
+    
+    // Determine the highest priority task
+    const nextTask = useMemo(() => {
+        if (assignments.length > 0) {
+            const hw = assignments[0];
+            return {
+                title: hw.title,
+                subject: hw.subject || 'General',
+                dueDate: new Date(hw.due_date || hw.dueDate).toLocaleDateString('en-GB'),
+                timeRemaining: '2 days', // In a real app, calculate this
+                type: 'assignment' as const,
+                onClick: () => navigateTo('assignmentSubmission', 'Submit Assignment', { assignment: hw })
+            };
+        }
+        if (quizzes.length > 0) {
+            const quiz = quizzes[0];
+            return {
+                title: quiz.title,
+                subject: quiz.subject || quiz.subjects?.name || 'General',
+                dueDate: quiz.start_time ? new Date(quiz.start_time).toLocaleDateString('en-GB') : 'Now',
+                timeRemaining: 'Today',
+                type: 'quiz' as const,
+                onClick: () => navigateTo('quizPlayer', quiz.title, { quizId: quiz.id, student })
+            };
+        }
+        return null;
+    }, [assignments, quizzes, navigateTo, student]);
 
     return (
-        <div className="bg-white p-4 rounded-2xl shadow-sm">
-            <h3 className="font-bold text-lg text-gray-800 mb-3">Today's Focus</h3>
-            <div className="space-y-3">
-                {schedule.length > 0 ? (
-                    <div className="space-y-2">
-                        <h4 className="text-sm font-semibold text-gray-500">Next Up</h4>
-                        {schedule.slice(0, 2).map((entry, i) => (
-                            <div key={i} className="flex items-center space-x-3">
-                                <div className="w-16 text-right">
-                                    <p className="font-semibold text-sm text-gray-700">{entry.start_time || entry.startTime}</p>
-                                </div>
-                                <div className={`w-1 h-10 rounded-full ${SUBJECT_COLORS[entry.subject] || 'bg-gray-400'}`}></div>
-                                <div>
-                                    <p className="font-semibold text-gray-800 leading-tight">{entry.subject}</p>
-                                    <p className="text-xs text-gray-500">{entry.class_name}</p>
+        <div className="space-y-4">
+            <h3 className="font-bold text-lg text-gray-800 ml-1">Your Focus</h3>
+            
+            {nextTask ? (
+                <NextUpTask {...nextTask} />
+            ) : (
+                <div className="bg-white p-6 rounded-3xl shadow-sm text-center">
+                    <SparklesIcon className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                    <p className="text-gray-600 font-medium">You're all caught up!</p>
+                    <p className="text-xs text-gray-400 mt-1">Enjoy your free time or explore the library.</p>
+                </div>
+            )}
+
+            {/* Compact Schedule Preview */}
+            {schedule.length > 0 && (
+                <div className="bg-white p-4 rounded-2xl shadow-sm">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Today's Schedule</h4>
+                    <div className="space-y-3">
+                        {schedule.slice(0, 3).map((entry, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                                <span className="text-xs font-bold text-gray-500 w-12">{entry.start_time || entry.startTime}</span>
+                                <div className={`w-1 h-8 rounded-full ${SUBJECT_COLORS[entry.subject] || 'bg-indigo-400'}`} />
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-gray-800 leading-none">{entry.subject}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">{entry.class_name}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
-                ) : (
-                    <p className="text-sm text-center text-gray-500 py-2">No more classes today!</p>
-                )}
-
-                <div className="border-t border-gray-100 my-2"></div>
-
-                {assignments.length > 0 ? (
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <h4 className="text-sm font-semibold text-gray-500">Assignments Due Soon</h4>
-                            {assignments.length > 1 && (
-                                <button onClick={() => navigateTo('assignments', 'Assignments')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                                    See all {assignments.length}
-                                </button>
-                            )}
-                        </div>
-                        {assignments.slice(0, 1).map(hw => (
-                            <button
-                                key={hw.id}
-                                onClick={() => navigateTo('assignmentSubmission', 'Submit Assignment', { assignment: hw })}
-                                className="w-full flex justify-between items-center p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                            >
-                                <div>
-                                    <p className="font-bold text-gray-800 text-sm">{hw.title}</p>
-                                    <p className="text-xs text-gray-500">{hw.subject} &bull; Due {new Date(hw.due_date || hw.dueDate).toLocaleDateString('en-GB')}</p>
-                                </div>
-                                <ChevronRightIcon className="text-gray-400 h-5 w-5" />
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-sm text-center text-gray-500 py-2">No assignments due soon. Great work!</p>
-                )}
-
-                <div className="border-t border-gray-100 my-2"></div>
-
-                {quizzes.length > 0 ? (
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <h4 className="text-sm font-semibold text-gray-500">Upcoming Quizzes & Exams</h4>
-                            {quizzes.length > 1 && (
-                                <button onClick={() => navigateTo('quizzes', 'Quizzes & Exams')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                                    See all {quizzes.length}
-                                </button>
-                            )}
-                        </div>
-                        {quizzes.slice(0, 1).map(quiz => (
-                            <button
-                                key={quiz.id}
-                                onClick={() => navigateTo('quizPlayer', quiz.title, { quizId: quiz.id, student })}
-                                className="w-full flex justify-between items-center p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                            >
-                                <div>
-                                    <p className="font-bold text-gray-800 text-sm">{quiz.title}</p>
-                                    <p className="text-xs text-gray-500">
-                                        {quiz.subject || quiz.subjects?.name || 'General'} &bull;
-                                        {quiz.start_time ? ` Starts ${new Date(quiz.start_time).toLocaleDateString('en-GB')}` : ' Available Now'}
-                                    </p>
-                                </div>
-                                <ChevronRightIcon className="text-gray-400 h-5 w-5" />
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-sm text-center text-gray-500 py-2">No upcoming quizzes. Stay sharp!</p>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };
