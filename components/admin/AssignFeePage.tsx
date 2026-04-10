@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
-import { Fee } from '../../types';
 import { api } from '../../lib/api';
+import { Fee } from '../../types';
+
 import { CheckCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import { PaymentPlanModal } from './PaymentPlanModal';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
+import SearchableStudentSelect from '../shared/SearchableStudentSelect';
 
 const AssignFeeSchema = Yup.object().shape({
     title: Yup.string().required('Title is required'),
@@ -181,15 +182,17 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="md:col-span-2">
                                                     <label className="block text-sm font-semibold text-gray-700 mb-2">Student</label>
-                                                    <Field
-                                                        as="select"
-                                                        name="studentId"
-                                                        className={`w-full border rounded-xl p-3 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition-all ${errors.studentId && touched.studentId ? 'border-red-500' : 'border-gray-200'}`}
-                                                    >
-                                                        <option value="">Select Student</option>
-                                                        {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade})</option>)}
+                                                    <Field name="studentId">
+                                                        {({ field, form }: any) => (
+                                                            <SearchableStudentSelect
+                                                                students={students}
+                                                                value={field.value}
+                                                                onChange={(val) => form.setFieldValue('studentId', val)}
+                                                                error={errors.studentId}
+                                                                touched={touched.studentId}
+                                                            />
+                                                        )}
                                                     </Field>
-                                                    {errors.studentId && touched.studentId && <div className="text-red-500 text-xs mt-1">{String(errors.studentId)}</div>}
                                                 </div>
 
                                                 <div className="md:col-span-2">

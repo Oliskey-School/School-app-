@@ -1,2583 +1,2309 @@
-/**
- * Hybrid API Client
- * 
- * This client provides two modes of operation:
- * 1. Direct Supabase calls (faster, realtime support)
- * 2. Express backend API calls (more control, server-side logic)
- */
+import { InspectionTemplate } from '../types/inspector';
 
-import { supabase, isSupabaseConfigured } from './supabase';
-
-// Backend API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-interface ApiOptions {
-    useBackend?: boolean;
-    headers?: Record<string, string>;
-    [key: string]: any;
-}
-
+// Backend API base URL — uses Vite proxy /api in dev, direct URL otherwise
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+    (typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname.includes('host.docker.internal'))
+        ? '/api'
+        : ((import.meta.env as any).DEV ? '/api' : 'http://localhost:5000/api'));
 
 const getAuthToken = async (): Promise<string | null> => {
-    try {
-        // Always try to use the real Supabase session token first
-        // We use a small delay if session is missing to allow AuthContext rehydration to finish
-        let { data } = await supabase.auth.getSession();
-        let sessionToken = data.session?.access_token || null;
-
-        if (!sessionToken) {
-            // Small retry delay for initialization robustness
-            await new Promise(resolve => setTimeout(resolve, 100));
-            const retry = await supabase.auth.getSession();
-            sessionToken = retry.data.session?.access_token || null;
-        }
-
-
-        if (sessionToken) {
-            // console.log('🛡️ [API] Token retrieved from Supabase session');
-            return sessionToken;
-        }
-
-        // Fallback: If Supabase session is missing (e.g., during initialization/demo mode sync),
-        // try to recover the token from localStorage where AuthContext saves it.
-        sessionToken = localStorage.getItem('auth_token');
-        
-        if (sessionToken) {
-            // console.log('🛡️ [API] Fallback: Token retrieved from localStorage');
-            
-            // Proactively try to sync this back to Supabase if possible
-            // but don't await it to avoid blocking the API call
-            const refreshToken = localStorage.getItem('auth_refresh_token');
-            if (refreshToken) {
-                supabase.auth.setSession({
-                    access_token: sessionToken,
-                    refresh_token: refreshToken
-                }).catch(e => console.warn('[API] Silent session sync failed:', e));
-            }
-            
-            return sessionToken;
-        }
-
-        // Final Fallback for Demo Mode: If we are in demo mode, provide a stable placeholder
-        // token so that downstream calls don't warn about missing tokens, and fetch()
-        // can recognize it to avoid making doomed backend calls.
-        if (sessionStorage.getItem('is_demo_mode') === 'true') {
-            return 'mock-token';
-        }
-
-        console.warn('⚠️ [API] No auth token found in Supabase session or localStorage');
-        return null;
-    } catch (err) {
-        console.error('❌ [API] Error getting auth token:', err);
-        const fallback = localStorage.getItem('auth_token') || (sessionStorage.getItem('is_demo_mode') === 'true' ? 'mock-token' : null);
-        if (fallback) console.log('🛡️ [API] Emergency fallback: Token retrieved');
-        return fallback;
-    }
+    // Priority 1: Check localStorage for our custom backend JWT
+    const localToken = localStorage.getItem('auth_token');
+    if (localToken) return localToken;
+    return null;
 };
 
+/**
+ * Express API Client
+ * Pure Express/Prisma backend client.
+ */
+class ExpressApiClient {
+    private baseUrl: string = API_BASE_URL;
+    private cache = new Map<string, { data: any; timestamp: number }>();
+    private CACHE_TTL = 30000; // 30 seconds
 
+    constructor() {}
 
-class HybridApiClient {
-    public supabase = supabase;
-    private baseUrl: string;
-    private options: ApiOptions;
-
-
-    constructor(baseUrl: string = API_BASE_URL, options: ApiOptions = { useBackend: false }) {
-        this.baseUrl = baseUrl;
-        this.options = options;
-    }
-
-    private isDemoMode(): boolean {
-        const value = sessionStorage.getItem('is_demo_mode');
-        const isDemo = value === 'true';
-        // Only log once per session to avoid noise
-        // if (isDemo) console.log('🛡️ [API] Operating in Demo Mode (Backend Fallback Active)');
-        return isDemo;
+    invalidateCache(): void {
+        this.cache.clear();
     }
 
     /**
-     * [MASTER PROMPT RULE]: Global Query Scope (The Bouncer)
-     * Injects mandatory school_id and branch_id filters.
+     * Core Fetch Engine
      */
-    getScopedQuery(table: string, schoolId: string, branchId?: string | null) {
-        if (!schoolId) {
-            throw new Error("SecurityException: Mandatory Tenant ID (school_id) is missing.");
-        }
-
-        let query = supabase.from(table).select('*');
-
-        // Automatic school isolation
-        query = query.eq('school_id', schoolId);
-
-        // Automatic branch isolation
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        return query;
-    }
-
-    setOptions(options: ApiOptions) {
-        this.options = { ...this.options, ...options };
-    }
-
-    private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        console.log(`🌐 [API Request] ${endpoint}`);
+    async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const token = await getAuthToken();
+        const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
-            ...(options.headers as Record<string, string>),
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            ...((options.headers as any) || {}),
         };
 
-        if (token && token !== 'mock-token') {
-            headers['Authorization'] = `Bearer ${token}`;
-        } else if (token === 'mock-token') {
-            // Recognize mock token and skip backend call to avoid noisy 401 errors
-            console.log(`🛡️ [API] Demo Mode: Skipping backend call for ${endpoint}`);
-            throw new Error('Demo Mode: Backend call skipped');
-        } else {
-            console.warn(`⚠️ [API] Sending request to ${endpoint} WITHOUT token!`);
+        // Auto-remove Content-Type for FormData
+        if (options.body instanceof FormData) {
+            delete headers['Content-Type'];
         }
 
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            ...options,
-            headers,
-        });
+        const response = await fetch(url, { ...options, headers });
 
         if (!response.ok) {
-            const error = await response.json();
-            console.error(`âŒ [API Error] ${endpoint}:`, error);
-            throw new Error(error.message || 'API request failed');
+            const error = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+            throw new Error(error.message || `Error ${response.status}: ${response.statusText}`);
         }
-
         return response.json();
     }
 
+    async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+        return this.fetch<T>(endpoint, { method: 'GET', ...options });
+    }
+
+    async post<T>(endpoint: string, body: any, options?: RequestInit): Promise<T> {
+        return this.fetch<T>(endpoint, {
+            method: 'POST',
+            body: body instanceof FormData ? body : JSON.stringify(body),
+            ...options
+        });
+    }
+
+    async put<T>(endpoint: string, body: any, options?: RequestInit): Promise<T> {
+        return this.fetch<T>(endpoint, {
+            method: 'PUT',
+            body: body instanceof FormData ? body : JSON.stringify(body),
+            ...options
+        });
+    }
+
+    async patch<T>(endpoint: string, body: any, options?: RequestInit): Promise<T> {
+        return this.fetch<T>(endpoint, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+            ...options
+        });
+    }
+
+    async delete<T>(endpoint: string, options?: RequestInit): Promise<T> {
+        return this.fetch<T>(endpoint, { method: 'DELETE', ...options });
+    }
+
     // ============================================
-    // DASHBOARD & ANALYTICS
+    // AUTH & PROFILE
     // ============================================
+    async getMe(): Promise<any> {
+        return this.get('/auth/me');
+    }
 
-    async getDashboardStats(schoolId: string, branchId?: string): Promise<any> {
-        if (!schoolId) return null;
+    async signup(data: any): Promise<any> {
+        return this.post('/auth/signup', data);
+    }
 
-        if (this.options.useBackend) {
-            try {
-                const stats = await this.fetch<any>(`/dashboard/stats?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
-                if (stats && (stats.totalStudents > 0 || stats.totalTeachers > 0)) {
-                    return stats;
-                }
-            } catch (err) {
-                console.warn('Backend stats fetch failed, falling back to RPC:', err);
-            }
-        }
+    async login(credentials: any): Promise<any> {
+        const result = await this.post<any>('/auth/login', credentials);
+        if (result.token) localStorage.setItem('auth_token', result.token);
+        return result;
+    }
 
+    async demoLogin(role: string): Promise<any> {
+        const result = await this.post<any>('/auth/demo/login', { role });
+        if (result.token) localStorage.setItem('auth_token', result.token);
+        return result;
+    }
+
+    async googleLogin(email: string, name: string): Promise<any> {
+        const result = await this.post<any>('/auth/google-login', { email, name });
+        if (result.token) localStorage.setItem('auth_token', result.token);
+        return result;
+    }
+
+    async logout(): Promise<void> {
+        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('is_demo_mode');
+    }
+
+    async getMemberships(userId: string): Promise<any[]> {
+        return this.get(`/auth/memberships/${userId}`);
+    }
+
+    async switchSchool(userId: string, schoolId: string): Promise<any> {
+        return this.post('/auth/switch-school', { userId, schoolId });
+    }
+
+    async updateProfile(id: string, data: any): Promise<any> {
+        return this.put(`/profiles/${id}`, data);
+    }
+
+    async resendVerification(email: string, name?: string, schoolName?: string): Promise<any> {
+        return this.post('/auth/resend-verification', { email, name, school_name: schoolName });
+    }
+
+    async verifyToken(token: string, type: string = 'signup'): Promise<any> {
+        return this.post('/auth/verify-token', { token, type });
+    }
+
+    async updateEmail(data: { userId: string; newEmail: string }): Promise<any> {
+        return this.post('/auth/update-email', data);
+    }
+
+    async getUsers(schoolId?: string, branchId?: string, role?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('school_id', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branch_id', branchId);
+        if (role) queryParams.append('role', role);
+        return this.get(`/users?${queryParams.toString()}`);
+    }
+
+    async updateUser(userId: string, data: any): Promise<any> {
+        return this.put(`/users/${userId}`, data);
+    }
+
+    async deleteUser(userId: string): Promise<any> {
+        return this.delete(`/users/${userId}`);
+    }
+
+    async resetUserPassword(userId: string): Promise<any> {
+        return this.post('/auth/admin/reset-password', { userId });
+    }
+
+    // ============================================
+    // DASHBOARD & STATS
+    // ============================================
+    async getDashboardStats(schoolId?: string, branchId?: string): Promise<any> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
         try {
-            // Normalize branchId: 'all' or empty string should be null
-            const normalizedBranchId = (branchId === 'all' || !branchId) ? null : branchId;
-
-            // [FIX] Use specialized Demo RPC for Demo School to bypass RLS/Auth mismatch
-            const rpcName = (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1') ? 'get_demo_stats' : 'get_dashboard_stats';
-
-            // Use the Security Definer RPC for all counts to ensure robustness against RLS
-            const { data, error } = await supabase.rpc(rpcName, {
-                p_school_id: schoolId,
-                p_branch_id: normalizedBranchId
-            });
-
-            if (error) {
-                console.error(`❌ [API] RPC ${rpcName} failed:`, error);
-                // If RPC fails, try backend
-                return await this.fetch<any>(`/dashboard/stats?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
-            }
-
-            // [FIX] Consistency check for Demo School: Count parents from the parents table 
-            // if the RPC returned something different than what the page shows.
-            let totalParents = data.totalParents || 0;
-            if (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1') {
-                const { count } = await supabase.from('parents').select('*', { count: 'exact', head: true }).eq('school_id', schoolId);
-                if (count !== null) totalParents = count;
-            }
-
+            const result = await this.get<any>(`/dashboard/stats${query}`);
             return {
-                totalStudents: data.totalStudents || 0,
-                studentTrend: data.studentTrend || 0,
-                totalTeachers: data.totalTeachers || 0,
-                teacherTrend: data.teacherTrend || 0,
-                totalParents: totalParents,
-                parentTrend: data.parentTrend || 0,
-                totalClasses: data.totalClasses || 0,
-                classTrend: data.classTrend || 0,
-                overdueFees: data.overdueFees || 0,
-                unpublishedReports: data.unpublishedReports || 0
+                totalStudents: Number(result.totalStudents ?? result.total_students) || 0,
+                totalTeachers: Number(result.totalTeachers ?? result.total_teachers) || 0,
+                totalParents: Number(result.totalParents ?? result.total_parents) || 0,
+                totalClasses: Number(result.totalClasses ?? result.total_classes) || 0,
+                studentTrend: Number(result.studentTrend ?? result.student_trend) || 0,
+                teacherTrend: Number(result.teacherTrend ?? result.teacher_trend) || 0,
+                parentTrend: Number(result.parentTrend ?? result.parent_trend) || 0,
+                classTrend: Number(result.classTrend ?? result.class_trend) || 0,
+                overdueFees: Number(result.overdueFees ?? result.overdue_fees) || 0,
+                unpublishedReports: Number(result.unpublishedReports ?? result.unpublished_reports) || 0,
+                pendingApprovalsCount: Number(result.pendingApprovals ?? result.pending_approvals) || 0,
+                attendancePercentage: Number(result.attendanceRate ?? result.attendance_rate) || 0,
+                timetablePreview: result.timetablePreview ?? [],
+                recentActivity: result.recentActivity ?? [],
+                latestHealthLog: result.latestHealthLog ?? null,
+                enrollmentData: result.enrollmentData || result.enrollment || [],
+                performance: result.performance || [],
+                fees: result.fees || { paid: 0, overdue: 0, unpaid: 0, total: 0 },
+                workload: result.workload || [],
+                attendance: result.attendance || [],
             };
-        } catch (error) {
-            console.error('Error fetching dashboard stats:', error);
-
-            throw error;
+        } catch (err) {
+            console.error('[API] getDashboardStats error:', err);
+            return {
+                totalStudents: 0, totalTeachers: 0, totalParents: 0, totalClasses: 0,
+                studentTrend: 0, teacherTrend: 0, parentTrend: 0, classTrend: 0,
+                overdueFees: 0, unpublishedReports: 0, pendingApprovalsCount: 0,
+                attendancePercentage: 0, timetablePreview: [], recentActivity: [],
+                latestHealthLog: null, enrollmentData: [], performance: [],
+                fees: { paid: 0, overdue: 0, unpaid: 0, total: 0 }, workload: [], attendance: [],
+            };
         }
     }
 
-    async getTeacherDashboardStats(teacherId: string, schoolId: string, branchId?: string | null): Promise<any> {
-        if (!teacherId || !schoolId) return null;
+    async getTeacherDashboardStats(teacherIdOrFilters: string | any, schoolId?: string, branchId?: string | null): Promise<any> {
+        let actualTeacherId = typeof teacherIdOrFilters === 'string' ? teacherIdOrFilters : teacherIdOrFilters.teacherId;
+        let actualSchoolId = typeof teacherIdOrFilters === 'string' ? schoolId : teacherIdOrFilters.schoolId;
+        let actualBranchId = typeof teacherIdOrFilters === 'string' ? branchId : teacherIdOrFilters.branchId;
 
-        let result: any = {};
-        if (this.isDemoMode() || this.options.useBackend) {
-            try {
-                const url = `/dashboard/stats?teacherId=${teacherId}&schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`;
-                result = await this.fetch<any>(url);
-            } catch (err) {
-                console.warn('Backend teacher stats fetch failed, falling back to direct:', err);
-            }
+        const url = `/dashboard/stats?teacherId=${actualTeacherId}&schoolId=${actualSchoolId}${actualBranchId && actualBranchId !== 'all' ? `&branchId=${actualBranchId}` : ''}`;
+        try {
+            const result = await this.get<any>(url);
+            return {
+                totalStudents: Number(result.totalStudents ?? result.total_students) || 0,
+                totalClasses: Number(result.totalClasses ?? result.total_classes) || 0,
+                attendanceRate: Number(result.attendanceRate ?? result.attendance_rate) || 0,
+                avgStudentScore: Number(result.avgStudentScore ?? result.avg_student_score) || 0
+            };
+        } catch (err) {
+            return { totalStudents: 0, totalClasses: 0, attendanceRate: 0, avgStudentScore: 0 };
         }
+    }
 
-        if (!result || Object.keys(result).length === 0) {
-            // Direct implementation (Syncing with useTeacherStats logic)
-            try {
-                // First resolve real teacher id if it's the auth user id
-                const { data: teacherRow } = await supabase
-                    .from('teachers')
-                    .select('id')
-                    .or(`id.eq.${teacherId},user_id.eq.${teacherId}`)
-                    .maybeSingle();
-
-                const resolvedId = teacherRow ? teacherRow.id : teacherId;
-
-                const { data, error } = await supabase.rpc('get_teacher_analytics', {
-                    p_teacher_id: resolvedId,
-                    p_school_id: schoolId,
-                    p_branch_id: branchId && branchId !== 'all' ? branchId : null
-                });
-
-                if (error) throw error;
-                result = data && data.length > 0 ? data[0] : {};
-            } catch (err) {
-                console.error('Error in getTeacherDashboardStats direct:', err);
-                return null;
-            }
+    // ============================================
+    // SCHOOLS & BRANCHES
+    // ============================================
+    async getBranches(schoolId: string): Promise<any[]> {
+        try {
+            return await this.get(`/branches?schoolId=${schoolId}`);
+        } catch (err) {
+            console.warn('[API] getBranches failed:', err);
+            return [];
         }
+    }
 
-        // Ensure statistics are always numeric and correctly mapped (handle both snake_case from DB and camelCase from potential backend)
-        return {
-            totalStudents: Number(result.totalStudents ?? result.total_students) || 0,
-            totalClasses: Number(result.totalClasses ?? result.total_classes) || 0,
-            attendanceRate: Number(result.attendanceRate ?? result.attendance_rate) || 0,
-            avgStudentScore: Number(result.avgStudentScore ?? result.avg_student_score) || 0
-        };
+    async createBranch(schoolId: string, data: any): Promise<any> {
+        return this.post('/branches', { ...data, school_id: schoolId });
+    }
+
+    async updateBranch(branchId: string, data: any): Promise<any> {
+        return this.put(`/branches/${branchId}`, data);
+    }
+
+    async deleteBranch(id: string): Promise<void> {
+        await this.delete(`/branches/${id}`);
+    }
+
+    async getSchoolInfo(schoolId: string): Promise<any> {
+        return this.get(`/schools/${schoolId}`);
+    }
+
+    async getSchool(schoolId: string): Promise<any> {
+        return this.getSchoolInfo(schoolId);
+    }
+
+    async getUserCount(schoolId: string, filters: { role?: string; neqRole?: string } = {}): Promise<number> {
+        // Since we don't have a specific count endpoint, we fetch users and count
+        const users = await this.getUsers(schoolId);
+        let filtered = users;
+        if (filters.role) filtered = filtered.filter(u => u.role === filters.role);
+        if (filters.neqRole) filtered = filtered.filter(u => u.role !== filters.neqRole);
+        return filtered.length;
+    }
+
+    async updateSchoolInfo(schoolId: string, data: any): Promise<any> {
+        return this.put(`/schools/${schoolId}`, data);
     }
 
     // ============================================
     // STUDENTS
     // ============================================
+    async getStudents(schoolIdOrFilters?: string | { classId?: string; grade?: number; section?: string; schoolId?: string; branchId?: string }, branchId?: string, ...args: any[]): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        let filters: any = {};
 
-    async getStudents(...args: any[]): Promise<any[]> {
-        const schoolId = typeof args[0] === 'string' ? args[0] : undefined;
-        const branchId = typeof args[1] === 'string' ? args[1] : (typeof args[1] === 'undefined' ? undefined : null);
-        const options: ApiOptions & { includeUntagged?: boolean, classId?: number } = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-        // Always use backend for demo school to bypass RLS
-        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
-            try {
-                // [FIX] For Demo School, use a specialized RPC to bypass RLS/Auth issues when backend is skipped
-                if (isDemoSchool && !options.useBackend && !this.options.useBackend) {
-                    console.log('🛡️ [API] Demo School: Using get_demo_students RPC');
-                    const { data: demoStudents, error: rpcError } = await supabase.rpc('get_demo_students', {
-                        p_school_id: schoolId,
-                        p_branch_id: (branchId && branchId !== 'all') ? branchId : null
-                    });
-                    
-                    if (!rpcError && demoStudents) {
-                        return Array.isArray(demoStudents) ? demoStudents : [];
-                    }
-                    console.warn('🛡️ [API] get_demo_students RPC failed, trying fetch:', rpcError);
-                }
-
-                console.log(`🛡️ [API] Fetching students via Backend for school: ${schoolId}`);
-                const students = await this.fetch<any[]>(`/students?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branch_id=${branchId}` : ''}`);
-                if (students && Array.isArray(students)) {
-                    console.log(`✅ [API] Backend returned ${students.length} students`);
-                    return students;
-                }
-            } catch (err) {
-                console.warn('[API] Students backend fetch failed, falling back to Supabase:', err);
-            }
+        if (typeof schoolIdOrFilters === 'string') {
+            if (schoolIdOrFilters) queryParams.append('schoolId', schoolIdOrFilters);
+            if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+            filters = args[0] || {};
+        } else {
+            filters = schoolIdOrFilters || {};
+            if (filters.schoolId) queryParams.append('schoolId', filters.schoolId);
+            if (filters.branchId && filters.branchId !== 'all') queryParams.append('branchId', filters.branchId);
         }
-
-        let query = supabase.from('students')
-            .select('id, name, avatar_url, grade, section, status, school_generated_id, school_id')
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            if (options.includeUntagged) {
-                query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
-            } else {
-                query = query.eq('branch_id', branchId);
-            }
-        }
-
-        const { data, error } = await query.order('name');
-        if (error) {
-            console.error('❌ [API] Supabase Students query error:', error);
-            return [];
-        }
-        return data || [];
-    }
-
-    async getStudentById(id: string | number, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>(`/students/${id}`);
-        }
-        const { data, error } = await supabase.from('students').select('*').eq('id', id).maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-
-    async getMyStudentProfile(options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>('/students/me');
-        }
-        // Direct Supabase fallback (client resolved)
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-
-        const { data, error } = await supabase
-            .from('students')
-            .select(`
-                *,
-                academic_performance (*),
-                behavior_records (*),
-                report_cards (*)
-            `)
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-        if (error) throw error;
-        return data;
-    }
-
-    async getMyTeacherProfile(options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>('/teachers/me');
-        }
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-        const { data, error } = await supabase.from('teachers').select('*').eq('user_id', user.id).maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-
-    async getMyParentProfile(options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>('/parents/me');
-        }
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-        const { data, error } = await supabase.from('parents').select('*, children:students(*)').eq('user_id', user.id).maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-
-    async enrollStudent(enrollmentData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/students/enroll', {
-                method: 'POST',
-                body: JSON.stringify(enrollmentData),
-            });
-        }
-
-        // Security check: Must have schoolId
-        if (!enrollmentData.school_id) {
-            throw new Error("SecurityException: Mandatory School ID is missing.");
-        }
-
-        // 1. Parent Linking Logic (Mocking backend logic in client for direct Supabase mode)
-        let parentId = enrollmentData.parent_id; // Use existing if provided
-
-        if (!parentId && enrollmentData.parentEmail) {
-            // Check if parent exists by email in the same school
-            const { data: existingParent } = await supabase
-                .from('parents')
-                .select('id')
-                .eq('email', enrollmentData.parentEmail)
-                .eq('school_id', enrollmentData.school_id)
-                .maybeSingle();
-
-            if (existingParent) {
-                console.log('ðŸ”— [API] Linked student to existing parent:', enrollmentData.parentEmail);
-                parentId = existingParent.id;
-            } else {
-                // Create new parent record
-                console.log('ðŸ†• [API] Creating new parent record for:', enrollmentData.parentEmail);
-                const { data: newParent, error: parentError } = await supabase
-                    .from('parents')
-                    .insert([{
-                        name: enrollmentData.parentName,
-                        email: enrollmentData.parentEmail,
-                        phone: enrollmentData.parentPhone,
-                        address: enrollmentData.parentAddress,
-                        school_id: enrollmentData.school_id,
-                        branch_id: enrollmentData.branch_id
-                    }])
-                    .select('id')
-                    .maybeSingle();
-
-                if (parentError) {
-                    console.error('âŒ [API] Parent creation failed:', parentError);
-                    throw parentError;
-                }
-                parentId = newParent.id;
-            }
-        }
-
-        // 2. Map payload to student table schema
-        const studentPayload = {
-            school_id: enrollmentData.school_id,
-            branch_id: enrollmentData.branch_id,
-            first_name: enrollmentData.firstName,
-            last_name: enrollmentData.lastName,
-            name: `${enrollmentData.firstName} ${enrollmentData.lastName}`,
-            date_of_birth: enrollmentData.dateOfBirth,
-            gender: enrollmentData.gender,
-            parent_id: parentId,
-            address: enrollmentData.parentAddress,
-            curriculum: enrollmentData.curriculumType,
-            status: 'Active', // Default to active for new enrollments
-            // Any other metadata
-        };
-
-        const { data, error } = await supabase.from('students').insert([studentPayload]).select().maybeSingle();
-        if (error) {
-            console.error('âŒ [API] Student enrollment failed:', error);
-            throw error;
-        }
-        return data;
-    }
-
-    async linkGuardian(guardianData: { studentId: string, guardianName: string, guardianEmail: string, guardianPhone?: string, branchId?: string }, options: ApiOptions = {}): Promise<any> {
-        // We always route this to the backend to bypass RLS policies during creation
-        return this.fetch<any>('/students/link-guardian', {
-            method: 'POST',
-            body: JSON.stringify(guardianData),
-        });
-    }
-
-    async linkStudentToClasses(studentId: string, classIds: string[], schoolId: string, branchId?: string): Promise<boolean> {
-        if (this.options.useBackend) {
-            await this.fetch<any>(`/students/${studentId}/link-classes`, {
-                method: 'POST',
-                body: JSON.stringify({ classIds, schoolId, branchId }),
-            });
-            return true;
-        }
+        
+        if (filters.classId) queryParams.append('classId', filters.classId);
+        if (filters.grade) queryParams.append('grade', filters.grade.toString());
+        if (filters.section) queryParams.append('section', filters.section);
 
         try {
-            // 1. Remove existing enrollments
-            await supabase.from('student_enrollments').delete().eq('student_id', studentId);
-
-            // 2. Add new enrollments
-            if (classIds.length > 0) {
-                const inserts = classIds.map((id, index) => ({
-                    student_id: studentId,
-                    class_id: id,
-                    school_id: schoolId,
-                    branch_id: branchId || null,
-                    is_primary: index === 0 // First one is primary
-                }));
-
-                const { error } = await supabase.from('student_enrollments').insert(inserts);
-                if (error) throw error;
-
-                // 3. Update the student table with the primary class_id for backward compatibility
-                const primaryClassId = classIds[0];
-                const { data: classData } = await supabase.from('classes').select('grade, section').eq('id', primaryClassId).maybeSingle();
-
-                if (classData) {
-                    await supabase.from('students').update({
-                        class_id: primaryClassId,
-                        grade: classData.grade,
-                        section: classData.section
-                    }).eq('id', studentId);
-                }
-            }
-            return true;
+            return await this.get(`/students?${queryParams.toString()}`);
         } catch (err) {
-            console.error('Error in linkStudentToClasses:', err);
-            throw err;
+            console.warn('[API] getStudents failed:', err);
+            return [];
         }
     }
 
-    async updateStudent(id: string | number, studentData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>(`/students/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(studentData),
-            });
-        }
-        const { data, error } = await supabase.from('students').update(studentData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async getStudentById(id: string): Promise<any> {
+        return this.get(`/students/${id}`);
     }
 
-    async bulkUpdateStudentStatus(ids: string[], status: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>('/students/bulk-status', {
-                method: 'PUT',
-                body: JSON.stringify({ ids, status }),
-            });
-        }
-        const { data, error } = await supabase.from('students').update({ status }).in('id', ids).select();
-        if (error) throw error;
-        return data || [];
+    async getStudent(id: string): Promise<any> {
+        return this.getSubstituteStudent(id);
     }
 
-    async deleteStudent(id: string | number, options: ApiOptions = {}): Promise<void> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            await this.fetch<any>(`/students/${id}`, { method: 'DELETE' });
-            return;
+    async getSubstituteStudent(id: string): Promise<any> {
+        return this.getStudentById(id);
+    }
+
+    async createStudent(data: any): Promise<any> {
+        return this.post('/students', data);
+    }
+
+    async generateStudentQRCode(studentId: string | number): Promise<string> {
+        const result = await this.post<{ qrCode: string }>(`/students/${studentId}/qr-code`, {});
+        return result.qrCode;
+    }
+
+    async updateStudent(id: string, data: any, ...args: any[]): Promise<any> {
+        return this.put(`/students/${id}`, data);
+    }
+
+    async deleteStudent(id: string): Promise<void> {
+        await this.delete(`/students/${id}`);
+    }
+
+    async enrollStudent(data: any): Promise<any> {
+        return this.post('/students/enroll', data);
+    }
+
+    async approveStudent(id: string, branchId?: string): Promise<any> {
+        return this.post(`/students/${id}/approve`, { branchId });
+    }
+
+    async getPendingStudentApprovals(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/students/pending-approvals?${queryParams.toString()}`);
+    }
+
+    async bulkUpdateStudentStatus(ids: string[], status: string, branchId?: string): Promise<any> {
+        return this.post('/students/bulk-status-update', { ids, status, branchId });
+    }
+
+    async getStudentsByClass(grade: number, section: string, schoolId?: string, branchId?: string | null): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        queryParams.append('grade', grade.toString());
+        queryParams.append('section', section);
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/students/by-class?${queryParams.toString()}`);
+    }
+
+    async getStudentsByClassId(classId: string): Promise<any[]> {
+        return this.get(`/students/class/${classId}`);
+    }
+
+    async getStudentByEmail(email: string): Promise<any> {
+        return this.get(`/students/email/${email}`);
+    }
+
+    async getStudentDashboard(): Promise<any> {
+        return this.get('/students/me/dashboard');
+    }
+
+    async getStudentPerformance(studentId: string | number): Promise<any[]> {
+        try {
+            return await this.get(`/students/me/performance`);
+        } catch (err) {
+            return [];
         }
-        const { error } = await supabase.from('students').delete().eq('id', id);
-        if (error) throw error;
+    }
+
+    async linkStudentToClasses(studentId: string, classIds: string[]): Promise<any> {
+        return this.post(`/students/${studentId}/classes`, { classIds });
     }
 
     // ============================================
     // TEACHERS
     // ============================================
-
-    async getTeachers(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
-        let isDemo = false;
+    async getTeachers(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
         try {
-            isDemo = this.isDemoMode();
-        } catch (e) {
-            console.warn('[API] Failed to check demo mode from sessionStorage:', e);
+            return await this.get(`/teachers?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
-
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-        console.log(`%c 🔍 [API] getTeachers called for School: ${schoolId} `, 'background: #2563eb; color: #fff; font-weight: bold; padding: 2px 4px; border-radius: 4px;');
-        console.log(`🔍 [API] Params - Branch: ${branchId}, isDemo: ${isDemo}, isDemoSchool: ${isDemoSchool}`);
-
-        // [ENFORCE BACKEND] In Demo mode or for Demo School, always prioritize the Backend API to bypass RLS issues
-        if (options.useBackend || this.options.useBackend || isDemo || isDemoSchool) {
-            try {
-                // [FIX] For Demo School, use a specialized RPC to bypass RLS/Auth issues when backend is skipped
-                if (isDemoSchool && !options.useBackend && !this.options.useBackend) {
-                    console.log('🛡️ [API] Demo School: Using get_demo_teachers RPC');
-                    const { data: demoTeachers, error: rpcError } = await supabase.rpc('get_demo_teachers', {
-                        p_school_id: schoolId,
-                        p_branch_id: (branchId && branchId !== 'all') ? branchId : null
-                    });
-                    
-                    if (!rpcError && demoTeachers) {
-                        return Array.isArray(demoTeachers) ? demoTeachers : [];
-                    }
-                    console.warn('🛡️ [API] get_demo_teachers RPC failed, trying fetch:', rpcError);
-                }
-
-                // Ensure we use the correct query param names expected by the controller
-                const queryParams = new URLSearchParams();
-                queryParams.append('school_id', schoolId);
-                if (branchId && branchId !== 'all') {
-                    queryParams.append('branch_id', branchId);
-                }
-
-                console.log(`🛡️ [API] Fetching teachers via Backend for school: ${schoolId}`);
-                const teachers = await this.fetch<any[]>(`/teachers?${queryParams.toString()}`);
-
-                if (teachers && Array.isArray(teachers)) {
-                    return teachers;
-                }
-            } catch (err) {
-                console.warn('🛡️ [API] Backend Teachers fetch failed or returned invalid data, falling back to Supabase:', err);
-            }
-        }
-
-        // Direct Supabase Fallback (Used if backend is down or explicitly requested)
-        let query = supabase.from('teachers')
-            .select(`
-                id, 
-                name, 
-                avatar_url, 
-                email, 
-                status, 
-                school_generated_id,
-                teacher_subjects(subject),
-                teacher_classes(class_name)
-            `)
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query.order('name');
-
-        if (error) {
-            console.error('❌ [API] Supabase Teachers query error:', error);
-            throw error;
-        }
-
-        return data || [];
     }
 
-    async getTeacherById(id: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            try {
-                const data = await this.fetch<any>(`/teachers/${id}`);
-                if (data && (Object.keys(data).length > 2)) return data; // Heuristic: check for more than just basic fields
-            } catch (err) {
-                console.warn('Backend teacher fetch failed, falling back to Supabase:', err);
-            }
-        }
-        const { data, error } = await supabase
-            .from('teachers')
-            .select(`
-                *,
-                class_teachers (
-                    class_id,
-                    subject_id,
-                    classes ( id, name, grade, section, school_id ),
-                    subjects ( id, name )
-                )
-            `)
-            .eq('id', id)
-            .maybeSingle();
-        if (error) throw error;
-        return data;
+    async getTeacherById(id: string): Promise<any> {
+        return this.get(`/teachers/${id}`);
     }
 
-    async createTeacher(teacherData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>('/teachers', {
-                method: 'POST',
-                body: JSON.stringify(teacherData),
-            });
-        }
-        const { data, error } = await supabase.from('teachers').insert([teacherData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async getMyTeacherProfile(): Promise<any> {
+        return this.get('/teachers/me');
     }
 
-    async updateTeacher(id: string, teacherData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>(`/teachers/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(teacherData),
-            });
-        }
-        const { data, error } = await supabase.from('teachers').update(teacherData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async createTeacher(data: any): Promise<any> {
+        return this.post('/teachers', data);
     }
 
-    async deleteTeacher(id: string, options: ApiOptions = {}): Promise<void> {
-        if (options.useBackend ?? this.options.useBackend) {
-            await this.fetch<void>(`/teachers/${id}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase.from('teachers').delete().eq('id', id);
-        if (error) throw error;
+    async updateTeacher(id: string, data: any): Promise<any> {
+        return this.put(`/teachers/${id}`, data);
     }
 
-    // ============================================
-    // FEES
-    // ============================================
-
-    async getFees(...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-        const schoolId = typeof args[0] === 'string' ? args[0] : undefined;
-        const branchId = typeof args[1] === 'string' ? args[1] : undefined;
-
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/fees');
-        }
-        const { data, error } = await supabase.from('student_fees').select('id, amount, paid_amount, due_date, status, student_id, students(name, grade, section)').order('due_date');
-        if (error) throw error;
-        return data || [];
+    async deleteTeacher(id: string): Promise<any> {
+        return this.delete(`/teachers/${id}`);
     }
 
-    async updateFeeStatus(feeId: string | number, status: string, amountPaid?: number, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/fees/${feeId}/status`, {
-                method: 'PUT',
-                body: JSON.stringify({ status, amountPaid }),
-            });
-        }
-        const { data, error } = await supabase.from('student_fees').update({ status, paid_amount: amountPaid }).eq('id', feeId).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async getTeacherClasses(teacherId: string): Promise<any[]> {
+        return this.get(`/teachers/${teacherId}/classes`);
     }
 
-    async bulkFetchFees(studentIds: string[], statusList?: string[], options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/fees/bulk-fetch', {
-                method: 'POST',
-                body: JSON.stringify({ studentIds, statusList }),
-            });
-        }
-        let query = supabase.from('student_fees').select('*').in('student_id', studentIds);
-        if (statusList && statusList.length > 0) {
-            query = query.in('status', statusList);
-        }
-        const { data, error } = await query.order('due_date', { ascending: true });
-        if (error) throw error;
-        return data || [];
-    }
-
-    // ============================================
-    // TIMETABLE
-    // ============================================
-
-    async getTimetable(schoolId: string, className?: string, teacherId?: string, ...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-        const branchId = typeof args[0] === 'string' ? args[0] : undefined;
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/timetable?schoolId=${schoolId}${className ? `&className=${className}` : ''}${teacherId ? `&teacherId=${teacherId}` : ''}`);
-        }
-        let query = supabase.from('timetable').select('*')
-            .eq('school_id', schoolId)
-            .eq('status', 'Published');
-        if (className) query = query.ilike('class_name', `%${className}%`);
-        if (teacherId) query = query.eq('teacher_id', teacherId);
-        const { data, error } = await query.order('start_time', { ascending: true });
-        if (error) throw error;
-        return data || [];
-    }
-
-    // ============================================
-    // PAYROLL & HR
-    // ============================================
-
-    async getLeaveTypes(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/leave-types?school_id=${schoolId}`);
-        }
-        const { data, error } = await supabase.from('leave_types').select('*').eq('school_id', schoolId).eq('is_active', true);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getPayslips(teacherId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/payroll/payslips?teacher_id=${teacherId}`);
-        }
-        const { data, error } = await supabase
-            .from('payslips')
-            .select('*, payslip_items(*)')
-            .eq('teacher_id', teacherId)
-            .order('period_start', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getTeacherPaymentTransactions(teacherId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/payroll/transactions?teacher_id=${teacherId}`);
-        }
-        const { data, error } = await supabase
-            .from('payment_transactions')
-            .select('*, payslips(period_start, period_end)')
-            .eq('payslip_id.teacher_id', teacherId) // This join might need standard query approach
-            .order('payment_date', { ascending: false });
-
-        // If the above nested filter fails in some supabase versions, we fetch payslips first or use a RPC
-        if (error) {
-            // Alternative: use inner join syntax if supported or separate fetch
-            const { data: altData, error: altError } = await supabase
-                .from('payment_transactions')
-                .select('*, payslips!inner(period_start, period_end, teacher_id)')
-                .eq('payslips.teacher_id', teacherId)
-                .order('payment_date', { ascending: false });
-
-            if (altError) throw altError;
-            return altData || [];
-        }
-        return data || [];
-    }
-
-    async createSupportTicket(ticketData: { school_id: string, user_id: string, title: string, description: string, category: string, priority: string }): Promise<any> {
-        const { data, error } = await supabase.from('support_tickets').insert([ticketData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-
-    // ============================================
-    // TEACHER ATTENDANCE (STAFF)
-    // ============================================
-
-    async submitTeacherAttendance(options: ApiOptions = {}): Promise<any> {
-        // ALWAYS route through backend for business logic and notifications
-        const schoolId = localStorage.getItem('school_id');
-        const branchId = localStorage.getItem('branch_id');
-        const userId = (await supabase.auth.getUser()).data.user?.id;
-
+    async getTeacherAttendanceHistory(limit: number = 30): Promise<any[]> {
         try {
-            const queryParams = new URLSearchParams();
-            if (schoolId) queryParams.append('school_id', schoolId);
-            if (branchId && branchId !== 'all') queryParams.append('branch_id', branchId);
-
-            const queryString = queryParams.toString();
-            const endpoint = `/teachers/me/attendance${queryString ? `?${queryString}` : ''}`;
-
-            return await this.fetch<any>(endpoint, {
-                method: 'POST',
-                body: JSON.stringify({}),
-            });
-        } catch (err: any) {
-            console.error('❌ [API] submitTeacherAttendance backend call failed:', err.message);
-
-            // EMREGENY FALLBACK: Try direct Supabase insert if we have context
-            if (this.isDemoMode() || sessionStorage.getItem('is_demo_mode') === 'true') {
-                try {
-                    console.log('🛡️ [Demo] Attempting direct Supabase attendance insert...');
-                    
-                    // 1. Resolve teacher record
-                    let teacherId = '2e8f37b9-bae9-461a-b31e-9a757a261ce0'; // Sarah Jones fallback
-                    if (userId) {
-                        const { data: t } = await this.supabase
-                            .from('teachers')
-                            .select('id')
-                            .eq('user_id', userId)
-                            .maybeSingle();
-                        if (t) teacherId = t.id;
-                    }
-
-                    // 2. Insert record
-                    const now = new Date();
-                    const record = {
-                        teacher_id: teacherId,
-                        school_id: schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-                        branch_id: (branchId && branchId !== 'all') ? branchId : null,
-                        date: now.toISOString().split('T')[0],
-                        check_in: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
-                        status: 'present',
-                        approval_status: 'pending'
-                    };
-
-                    const { data, error } = await this.supabase
-                        .from('teacher_attendance')
-                        .insert(record)
-                        .select()
-                        .single();
-
-                    if (error) throw error;
-                    
-                    return { success: true, message: 'Attendance marked (Supabase Fallback)', data };
-                } catch (fallbackErr: any) {
-                    console.error('❌ [API] Emergency Supabase fallback failed:', fallbackErr.message);
-                }
-                
-                console.warn('🛡️ [Demo] Both backend and Supabase fallback failed, using pure mock success');
-                return { success: true, message: 'Attendance submitted (Pure Mock)' };
-            }
-            throw err;
+            return await this.get(`/teachers/me/attendance?limit=${limit}`);
+        } catch (err) {
+            return [];
         }
     }
 
+    async submitMyAttendance(data?: any): Promise<any> {
+        return this.post('/teachers/me/attendance', data || {});
+    }
 
-    async getTeacherAttendanceHistory(limit: number = 30, options: ApiOptions = {}): Promise<any[]> {
-        const schoolId = localStorage.getItem('school_id');
-        const branchId = localStorage.getItem('branch_id');
-        const userId = (await supabase.auth.getUser()).data.user?.id;
+    async submitTeacherAttendance(data?: any): Promise<any> {
+        return this.submitMyAttendance(data);
+    }
 
+
+    async getTeacherAttendanceApprovals(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/teachers/attendance-approvals?${queryParams.toString()}`);
+    }
+
+    async approveTeacherAttendance(attendanceId: string, status: string): Promise<any> {
+        return this.put(`/teachers/attendance/${attendanceId}/approve`, { status });
+    }
+
+    async getTeacherAttendance(schoolId: string, filters: any = {}): Promise<any[]> {
+        const queryParams = new URLSearchParams({ ...filters, schoolId });
         try {
-            const queryParams = new URLSearchParams();
-            queryParams.append('limit', limit.toString());
-            if (schoolId) queryParams.append('school_id', schoolId);
-            if (branchId && branchId !== 'all') queryParams.append('branch_id', branchId);
-
-            return await this.fetch<any[]>(`/teachers/me/attendance?${queryParams.toString()}`);
-        } catch (err: any) {
-            console.error('❌ [API] getTeacherAttendanceHistory backend call failed:', err.message);
-
-            // Fallback for Demo Mode or connection issues: Fetch directly from Supabase
-            if (this.isDemoMode() || sessionStorage.getItem('is_demo_mode') === 'true' || err.message.includes('Teacher record not found') || err.message.includes('API request failed')) {
-                try {
-                    console.log('🛡️ [Demo] Attempting direct Supabase attendance fetch...');
-                    
-                    let teacherId = null;
-                    if (userId) {
-                        const { data: t } = await supabase
-                            .from('teachers')
-                            .select('id')
-                            .eq('user_id', userId)
-                            .maybeSingle();
-                        if (t) teacherId = t.id;
-                    }
-
-                    // Fallback to Sarah Jones ONLY if still not found and in demo mode
-                    if (!teacherId && (this.isDemoMode() || sessionStorage.getItem('is_demo_mode') === 'true')) {
-                        teacherId = '2e8f37b9-bae9-461a-b31e-9a757a261ce0'; 
-                    }
-
-                    if (teacherId) {
-                        const { data, error } = await supabase
-                            .from('teacher_attendance')
-                            .select('*')
-                            .eq('teacher_id', teacherId)
-                            .order('date', { ascending: false })
-                            .limit(limit);
-
-                        if (error) throw error;
-                        
-                        // If we found real data in DB, return it!
-                        if (data && data.length > 0) {
-                            console.log(`✅ [Demo] Found ${data.length} real attendance records.`);
-                            return data;
-                        }
-                    }
-                } catch (fallbackErr) {
-                    console.warn('🛡️ [Demo] Supabase history fetch failed:', fallbackErr);
-                }
-
-                // Only return mock data if we're in Demo mode and found NOTHING in DB
-                if (this.isDemoMode() || sessionStorage.getItem('is_demo_mode') === 'true') {
-                    console.log('🛡️ [Demo] No data found in DB, returning mock data.');
-                    return [
-                        { id: 'mock-2', teacher_id: '2e8f37b9-bae9-461a-b31e-9a757a261ce0', date: new Date(Date.now() - 86400000).toISOString().split('T')[0], status: 'present', approval_status: 'approved', check_in: '07:55', check_out: '16:05' }
-                    ];
-                }
-            }
-            throw err;
+            return await this.get(`/teachers/attendance?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
     }
 
 
-    // ============================================
-    // STUDENT PERFORMANCE
-    // ============================================
-
-    async getStudentPerformance(studentId: string | number, ...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>('/students/me/performance');
-        }
-        const { data, error } = await supabase.from('academic_performance').select('*').eq('student_id', studentId);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getQuizResults(studentId: string | number, ...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>('/students/me/quiz-results');
-        }
-        const { data, error } = await supabase.from('quiz_submissions').select('*, quizzes(title, subject)').eq('student_id', studentId).order('submitted_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
+    async getTeacherPerformance(teacherId: string, schoolId: string): Promise<any> {
+        return this.get(`/teachers/${teacherId}/performance?schoolId=${schoolId}`);
     }
 
     // ============================================
     // CLASSES
     // ============================================
-
-    async getClasses(...args: any[]): Promise<any[]> {
-        const schoolId = typeof args[0] === 'string' ? args[0] : undefined;
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null) || {};
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-        // Always use backend for demo school to bypass RLS
-        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
-            try {
-                // [FIX] For Demo School, use a specialized RPC to bypass RLS/Auth issues when backend is skipped
-                if (isDemoSchool && !options.useBackend && !this.options.useBackend) {
-                    console.log('🛡️ [API] Demo School: Using get_demo_classes RPC');
-                    const { data: demoClasses, error: rpcError } = await supabase.rpc('get_demo_classes', {
-                        p_school_id: schoolId
-                    });
-                    
-                    if (!rpcError && demoClasses) {
-                        return Array.isArray(demoClasses) ? demoClasses : [];
-                    }
-                    console.warn('🛡️ [API] get_demo_classes RPC failed, trying fetch:', rpcError);
-                }
-
-                console.log(`🛡️ [API] Fetching classes via Backend`);
-                const data = await this.fetch<any[]>(`/classes?school_id=${schoolId}`);
-                if (data && Array.isArray(data)) {
-                    console.log(`✅ [API] Backend returned ${data.length} classes`);
-                    return data;
-                }
-            } catch (err) {
-                console.warn('[API] Classes backend fetch failed, falling back to Supabase:', err);
-            }
-        }
-
-        let query = supabase.from('classes').select('id, name, grade').order('grade');
-        if (schoolId) query = query.eq('school_id', schoolId);
-
-        const { data, error } = await query;
-        if (error) {
-            console.error('❌ [API] Supabase Classes query error:', error);
+    async getClasses(schoolId?: string, branchId?: string, ...args: any[]): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/classes?${queryParams.toString()}`);
+        } catch (err) {
             return [];
         }
-        return data || [];
     }
 
-    async fetchClasses(schoolId?: string, options: ApiOptions = {}): Promise<any[]> {
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+    async createClass(data: any): Promise<any> {
+        return this.post('/classes', data);
+    }
 
-        // Always use backend for demo school to bypass RLS
-        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
-            try {
-                // [FIX] For Demo School, use a specialized RPC to bypass RLS/Auth issues when backend is skipped
-                if (isDemoSchool && !options.useBackend && !this.options.useBackend && schoolId) {
-                    console.log('🛡️ [API] Demo School: Using get_demo_classes RPC (fetchClasses)');
-                    const { data: demoClasses, error: rpcError } = await supabase.rpc('get_demo_classes', {
-                        p_school_id: schoolId
-                    });
-                    
-                    if (!rpcError && demoClasses) {
-                        return Array.isArray(demoClasses) ? demoClasses : [];
-                    }
-                    console.warn('🛡️ [API] get_demo_classes RPC failed, trying fetch:', rpcError);
-                }
+    async updateClass(id: string, data: any): Promise<any> {
+        return this.put(`/classes/${id}`, data);
+    }
 
-                console.log(`🛡️ [API] fetchClasses via Backend for school: ${schoolId}`);
-                const data = await this.fetch<any[]>(`/classes?school_id=${schoolId}`);
-                if (data && Array.isArray(data)) {
-                    console.log(`✅ [API] Backend returned ${data.length} classes (fetchClasses)`);
-                    return data;
-                }
-            } catch (err) {
-                console.warn('[API] fetchClasses backend failed, falling back to Supabase:', err);
-            }
-        }
-        let query = supabase.from('classes').select('id, name, grade, section, department, branch_id, level');
-        if (schoolId) {
-            query = query.eq('school_id', schoolId);
-        }
-        const { data, error } = await query.order('grade').order('section');
-        if (error) {
-            console.error('❌ [API] Supabase fetchClasses query error:', error);
+    async deleteClass(id: string): Promise<any> {
+        return this.delete(`/classes/${id}`);
+    }
+
+    async getClassById(id: string): Promise<any> {
+        return this.get(`/classes/${id}`);
+    }
+
+    async initializeStandardClasses(schoolId: string, classes: any[], branchId?: string | null): Promise<any> {
+        return this.post('/classes/initialize', { schoolId, classes, branch_id: branchId });
+    }
+
+    // ============================================
+    // SCHOOLS & INFRASTRUCTURE
+    // ============================================
+    async getParents(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/parents?${queryParams.toString()}`);
+        } catch (err) {
             return [];
         }
-        return data || [];
     }
 
-    async initializeStandardClasses(schoolId: string, standardClasses: any[], branchId?: string | null): Promise<void> {
-        if (!schoolId) throw new Error("School ID required for initialization");
-
-        const classesToInsert = standardClasses.map(cls => ({
-            name: cls.name,
-            grade: cls.grade,
-            section: cls.section,
-            department: cls.department,
-            level: cls.level,
-            school_id: schoolId,
-            branch_id: branchId || null
-        }));
-
-        const { error } = await supabase.from('classes').insert(classesToInsert);
-        if (error) throw error;
-        console.log(`✅ [API] Successfully initialized ${classesToInsert.length} standard classes for school ${schoolId}`);
+    async getParentById(id: string): Promise<any> {
+        return this.get(`/parents/${id}`);
     }
 
-    async createClass(classData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/classes', {
-                method: 'POST',
-                body: JSON.stringify(classData),
-            });
-        }
-        const { data, error } = await supabase.from('classes').insert([classData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async createParent(data: any): Promise<any> {
+        return this.post('/parents', data);
     }
 
-    async updateClass(id: string, classData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/classes/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(classData),
-            });
-        }
-        const { data, error } = await supabase.from('classes').update(classData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async updateParent(id: string, data: any): Promise<any> {
+        return this.put(`/parents/${id}`, data);
     }
 
-    async deleteClass(id: string, options: ApiOptions = {}): Promise<void> {
-        if (options.useBackend ?? this.options.useBackend) {
-            await this.fetch<void>(`/classes/${id}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase.from('classes').delete().eq('id', id);
-        if (error) throw error;
+    async deleteParent(id: string): Promise<void> {
+        await this.delete(`/parents/${id}`);
     }
 
-    async fetchStudentEnrollments(studentId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/students/${studentId}/enrollments`);
-        }
-        const { data, error } = await supabase
-            .from('student_enrollments')
-            .select(`
-                id,
-                class_id,
-                is_primary,
-                status,
-                classes (
-                    id, 
-                    name, 
-                    grade, 
-                    section
-                )
-            `)
-            .eq('student_id', studentId);
+    async getMyChildren(): Promise<any[]> {
+        return this.get('/parents/me/children');
+    }
 
-        if (error) throw error;
-        return data || [];
+    async getParentsByClass(classId: string): Promise<any[]> {
+        return this.get(`/parents/by-class/${classId}`);
+    }
+
+    async linkParentToChild(parentId: string, studentId: string, schoolId: string): Promise<any> {
+        return this.post('/parents/link-child', { parentId, studentId, schoolId });
+    }
+
+    async linkStudentToParent(parentId: string, studentIdOrCode: string, relationshipOrSchoolId: string, schoolId?: string): Promise<any> {
+        return this.post('/parents/link-child', { 
+            parentId, 
+            studentId: studentIdOrCode, 
+            relationship: relationshipOrSchoolId,
+            schoolId: schoolId || (typeof relationshipOrSchoolId === 'string' && relationshipOrSchoolId.length > 20 ? relationshipOrSchoolId : undefined)
+        });
+    }
+
+    async unlinkStudentFromParent(parentId: string, studentId: string): Promise<any> {
+        return this.post('/parents/unlink-child', { parentId, studentId });
+    }
+
+    async getChildrenForParent(parentId: string): Promise<any[]> {
+        return this.get(`/parents/${parentId}/children`);
     }
 
     // ============================================
-    // PARENTS
+    // NOTIFICATIONS & NOTICES
     // ============================================
-
-    async getParents(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-        // Always use backend for demo school to bypass RLS
-        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
-            try {
-                console.log(`🛡️ [API] Fetching parents via Backend for school: ${schoolId}`);
-                const parents = await this.fetch<any[]>(`/parents?school_id=${schoolId}${branchId && branchId !== 'all' ? `&branch_id=${branchId}` : ''}`);
-                if (parents && Array.isArray(parents)) {
-                    console.log(`✅ [API] Backend returned ${parents.length} parents`);
-                    return parents;
-                }
-            } catch (err) {
-                console.warn('[API] Parents backend fetch failed, falling back to Supabase:', err);
-            }
-        }
-        let query = supabase.from('parents').select('id, name, email, phone, avatar_url, school_generated_id').eq('school_id', schoolId);
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-        const { data, error } = await query.order('name');
-        if (error) {
-            console.error('❌ [API] Supabase Parents query error:', error);
+    async getNotifications(filters: { schoolId: string, branchId?: string }): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (filters.schoolId) queryParams.append('schoolId', filters.schoolId);
+        if (filters.branchId && filters.branchId !== 'all') queryParams.append('branchId', filters.branchId);
+        try {
+            return await this.get(`/notifications?${queryParams.toString()}`);
+        } catch (err) {
             return [];
         }
-        return data || [];
     }
 
-    async getParentById(id: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>(`/parents/${id}`);
+    async getMyNotifications(schoolId?: string): Promise<any[]> {
+        try {
+            return await this.get('/notifications/me');
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('parents').select('*').eq('id', id).maybeSingle();
-        if (error) throw error;
-        return data;
     }
 
-    async createParent(parentData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/parents', {
-                method: 'POST',
-                body: JSON.stringify(parentData),
-            });
+    async createNotification(data: any): Promise<any> {
+        return this.post('/notifications', data);
+    }
+
+    async sendNotification(data: { userId: string | number; title: string; body: string; urgency?: string; channel?: string }): Promise<any> {
+        return this.post('/notifications/send', data);
+    }
+
+    async markNotificationsRead(ids: (string | number)[]): Promise<any> {
+        return this.put('/notifications/mark-read', { ids });
+    }
+
+    async updateNotification(id: string | number, data: any): Promise<any> {
+        return this.put(`/notifications/${id}`, data);
+    }
+
+    async deleteNotification(id: string | number): Promise<void> {
+        await this.delete(`/notifications/${id}`);
+    }
+
+    async getNotices(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/notices?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('parents').insert([parentData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
     }
 
-    async deleteParent(id: string, options: ApiOptions = {}): Promise<void> {
-        if (options.useBackend ?? this.options.useBackend) {
-            await this.fetch<void>(`/parents/${id}`, { method: 'DELETE' });
-            return;
+    async createNotice(data: any): Promise<any> {
+        return this.post('/notices', data);
+    }
+
+    async updateNotice(id: string, data: any): Promise<any> {
+        return this.put(`/notices/${id}`, data);
+    }
+
+    async deleteNotice(id: string): Promise<void> {
+        return this.delete(`/notices/${id}`);
+    }
+
+    async createAuditLog(data: any): Promise<any> {
+        return this.post('/audit-logs', data);
+    }
+
+    async getParentsByStudentId(studentId: string | number): Promise<any[]> {
+        try {
+            return await this.get<any[]>(`/students/${studentId}/parents`);
+        } catch (error) {
+            console.error('Error fetching parents for student:', error);
+            return [];
         }
-        const { error } = await supabase.from('parents').delete().eq('id', id);
-        if (error) throw error;
     }
 
-    async getMyChildren(options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/parents/me/children');
+    async getStudentsByIds(ids: (string | number)[]): Promise<any[]> {
+        if (!ids || ids.length === 0) return [];
+        try {
+            return await this.get<any[]>(`/students?ids=${ids.join(',')}`);
+        } catch (error) {
+            console.error('Error fetching students by IDs:', error);
+            return [];
         }
-        // Direct Supabase fallback (complex join logic simplified for client)
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return [];
-
-        const { data: relations } = await supabase
-            .from('student_parent_links')
-            .select('student_user_id')
-            .eq('parent_user_id', user.id);
-
-        const studentUserIds = relations?.map(r => r.student_user_id) || [];
-
-        const { data: students, error } = await supabase
-            .from('students')
-            .select(`
-                *,
-                academic_performance (*),
-                behavior_records (*),
-                report_cards (*)
-            `)
-            .in('user_id', studentUserIds);
-
-        if (error) throw error;
-        return students || [];
     }
 
-    async createAppointment(appointmentData: any, ...args: any[]): Promise<any> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        // Always route through backend for RLS compliance
-        return this.fetch<any>('/parents/appointments', {
-            method: 'POST',
-            body: JSON.stringify(appointmentData),
-        });
-    }
-
-    async volunteerSignup(signupData: any, options: ApiOptions = {}): Promise<any> {
-        // Always route through backend for RLS compliance
-        return this.fetch<any>('/parents/volunteer-signup', {
-            method: 'POST',
-            body: JSON.stringify(signupData),
-        });
-    }
-
-    async markNotificationRead(notificationId: string | number, ...args: any[]): Promise<any> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        // Always route through backend for RLS compliance
-        return this.fetch<any>(`/parents/notifications/${notificationId}/read`, {
-            method: 'PUT',
-        });
+    async getBusDetails(schoolId: string): Promise<any> {
+        try {
+            return await this.get(`/bus?school_id=${schoolId}`);
+        } catch (error) {
+            console.error('Error fetching bus details:', error);
+            return null;
+        }
     }
 
     // ============================================
-    // NOTICES
+    // FINANCE
     // ============================================
+    async getFees(schoolIdOrFilters?: string | { studentId?: string | number; schoolId?: string; branchId?: string }, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        let filters: any = {};
 
-    async getNotices(schoolId: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/notices?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
-        }
-
-        let query = supabase
-            .from('notices')
-            .select('id, title, content, timestamp, category, is_pinned, audience, branch_id')
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query.order('timestamp', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async createNotice(noticeData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/notices', {
-                method: 'POST',
-                body: JSON.stringify(noticeData),
-            });
-        }
-        const { data, error } = await supabase.from('notices').insert([noticeData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-
-    // ============================================
-    // ATTENDANCE
-    // ============================================
-
-    async saveAttendance(...args: any[]): Promise<any> {
-        const records = Array.isArray(args[0]) ? args[0] : (Array.isArray(args[2]) ? args[2] : []);
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && !a.quiz) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>('/attendance', {
-                method: 'POST',
-                body: JSON.stringify({ records }),
-            });
-        }
-        const { data, error } = await supabase.from('student_attendance').upsert(records, { onConflict: 'student_id,date' }).select();
-        if (error) throw error;
-        return data;
-    }
-
-    async getAttendance(classId: string, ...args: any[]): Promise<any[]> {
-        const date = typeof args[0] === 'string' ? args[0] : undefined;
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/attendance?classId=${classId}&date=${date}`);
-        }
-        const { data, error } = await supabase.from('student_attendance').select('*').eq('class_id', classId).eq('date', date);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getBehaviorNotes(studentId: string | number, ...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/students/${studentId}/behavior-notes`);
-        }
-        const { data, error } = await supabase
-            .from('behavior_notes')
-            .select('*')
-            .eq('student_id', studentId)
-            .order('date', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async createBehaviorNote(...args: any[]): Promise<any> {
-        const noteData = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && (a.student_id || a.studentId)) || {};
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && !a.student_id && !a.studentId) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>(`/students/${noteData.student_id}/behavior-notes`, {
-                method: 'POST',
-                body: JSON.stringify(noteData),
-            });
-        }
-        const { data, error } = await supabase.from('behavior_notes')
-            .insert([{
-                ...noteData
-            }])
-            .select()
-            .maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-
-    async getAttendanceByDate(schoolId: string, date: string, ...args: any[]): Promise<any[]> {
-        const branchId = typeof args[0] === 'string' ? args[0] : undefined;
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            // Updated to match backend query structure
-            return this.fetch<any[]>(`/attendance?date=${date}&schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
-        }
-
-        let query = supabase.from('student_attendance').select('*')
-            .eq('school_id', schoolId)
-            .eq('date', date);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        return data || [];
-    }
-
-    async bulkFetchAttendance(studentIds: string[], options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/attendance/bulk-fetch', {
-                method: 'POST',
-                body: JSON.stringify({ studentIds }),
-            });
-        }
-        const { data, error } = await supabase.from('student_attendance').select('student_id, status').in('student_id', studentIds);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getAttendanceByStudent(studentId: string | number, ...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null) || {};
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/attendance/student/${studentId}`);
-        }
-        const { data, error } = await supabase.from('student_attendance').select('*').eq('student_id', studentId);
-        if (error) throw error;
-        return data || [];
-    }
-
-    // ============================================
-    // ACADEMIC PERFORMANCE
-    // ============================================
-
-    async saveGrade(gradeData: any, ...args: any[]): Promise<any> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        // Always route through backend - RLS blocks direct inserts
-        return this.fetch<any>('/academic/grade', {
-            method: 'PUT',
-            body: JSON.stringify(gradeData),
-        });
-    }
-
-    async getGrades(studentIds: (string | number)[], subject: string, term: string, ...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null) || {};
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/academic/grades', {
-                method: 'POST',
-                body: JSON.stringify({ studentIds, subject, term }),
-            });
-        }
-        const { data, error } = await supabase.from('academic_performance').select('student_id, score').eq('subject', subject).eq('term', term).in('student_id', studentIds);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getStudentAcademicRecords(studentId: string, ...args: any[]): Promise<any[]> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/students/${studentId}/academic-performance`);
-        }
-        const { data, error } = await supabase
-            .from('academic_performance')
-            .select('*')
-            .eq('student_id', studentId)
-            .order('term', { ascending: false });
-        if (error) throw error;
-
-        // Map to AcademicRecord interface if needed
-        return (data || []).map((r: any) => ({
-            subject: r.subject,
-            score: r.score,
-            term: r.term,
-            teacherRemark: r.teacher_remark
-        }));
-    }
-
-    // ============================================
-    // REPORT CARDS
-    // ============================================
-
-    async getReportCards(schoolId: string, branchId?: string | null, options: ApiOptions & { includeUntagged?: boolean } = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/report-cards?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
-        }
-        let query = supabase
-            .from('report_cards')
-            .select('*')
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            if (options.includeUntagged) {
-                query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
-            } else {
-                query = query.eq('branch_id', branchId);
-            }
-        }
-
-        const { data, error } = await query
-            .order('session', { ascending: false })
-            .order('term', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async updateReportCardStatus(id: string | number, status: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/report-cards/${id}/status`, {
-                method: 'PUT',
-                body: JSON.stringify({ status }),
-            });
-        }
-        const updateData: any = {
-            status,
-            // Keep is_published boolean in sync for backward compatibility
-            is_published: status === 'Published',
-        };
-        if (status === 'Published') {
-            updateData.published_at = new Date().toISOString();
+        if (typeof schoolIdOrFilters === 'string') {
+            if (schoolIdOrFilters) queryParams.append('schoolId', schoolIdOrFilters);
+            if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
         } else {
-            updateData.published_at = null;
+            filters = schoolIdOrFilters || {};
+            if (filters.schoolId) queryParams.append('schoolId', filters.schoolId);
+            if (filters.branchId && filters.branchId !== 'all') queryParams.append('branchId', filters.branchId);
+            if (filters.studentId) queryParams.append('studentId', filters.studentId.toString());
         }
-        const { data, error } = await supabase.from('report_cards').update(updateData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+
+        try {
+            return await this.get(`/fees?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createFee(dataOrSchoolId: any, branchIdOrData?: any, data?: any): Promise<any> {
+        if (typeof dataOrSchoolId === 'string') {
+            const payload = data || (typeof branchIdOrData === 'object' ? branchIdOrData : {});
+            return this.post('/fees', { 
+                ...payload, 
+                schoolId: dataOrSchoolId, 
+                branchId: typeof branchIdOrData === 'string' ? branchIdOrData : undefined 
+            });
+        }
+        return this.post('/fees', dataOrSchoolId);
+    }
+
+    async updateFee(id: string, data: any): Promise<any> {
+        return this.put(`/fees/${id}`, data);
+    }
+
+    async deleteFee(id: string): Promise<void> {
+        await this.delete(`/fees/${id}`);
+    }
+
+    async recordPayment(data: any): Promise<any> {
+        return this.post('/fees/payments', data);
+    }
+
+    async getPaymentHistory(schoolIdOrFilters?: string | { studentId?: string | number; schoolId?: string; branchId?: string }, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        let filters: any = {};
+
+        if (typeof schoolIdOrFilters === 'string') {
+            if (schoolIdOrFilters) queryParams.append('schoolId', schoolIdOrFilters);
+            if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        } else {
+            filters = schoolIdOrFilters || {};
+            if (filters.schoolId) queryParams.append('schoolId', filters.schoolId);
+            if (filters.branchId && filters.branchId !== 'all') queryParams.append('branchId', filters.branchId);
+            if (filters.studentId) queryParams.append('studentId', filters.studentId.toString());
+        }
+
+        try {
+            return await this.get(`/fees/payment-history?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async getStudentFees(studentId: string): Promise<any[]> {
+        try {
+            return await this.get(`/fees/student/${studentId}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async assignFeeToStudent(data: any): Promise<any> {
+        return this.post('/fees/assign', data);
+    }
+
+    async getPayslips(teacherId: string): Promise<any[]> {
+        return this.get(`/payroll/payslips/${teacherId}`);
+    }
+
+    async getPayrollData(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/payroll?${queryParams.toString()}`);
+    }
+
+    async getBudgets(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/payroll/budgets?${queryParams.toString()}`);
+    }
+
+    // ============================================
+    // ACADEMICS & CURRICULUM
+    // ============================================
+    async getAcademicTerms(schoolId: string): Promise<any[]> {
+        return this.get(`/academic/terms?schoolId=${schoolId}`);
+    }
+
+    async getReportCard(studentId: string | number, term: string, session: string, branchId?: string | null): Promise<any> {
+        return this.get(`/academic/get-report?studentId=${studentId}&term=${term}&session=${session}${branchId ? `&branchId=${branchId}` : ''}`);
+    }
+
+    async getReportCardDetails(studentId: string | number, term: string, session: string, branchId?: string | null): Promise<any> {
+        return this.getReportCard(studentId, term, session, branchId);
+    }
+
+    async upsertReportCard(studentId: string, data: any, schoolId?: string, branchId?: string | null): Promise<any> {
+        return this.post('/academic/upsert-report-card', { studentId, schoolId, branchId, ...data });
+    }
+
+    async getStudentReportCards(studentId: string): Promise<any[]> {
+        return this.get(`/students/${studentId}/report-cards`);
+    }
+
+    async getReportCards(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/report-cards?${queryParams.toString()}`);
+    }
+
+    async publishReportCards(schoolId: string, term: string, session: string): Promise<any> {
+        return this.post('/report-cards/publish', { schoolId, term, session });
+    }
+
+    async updateReportCardStatus(reportCardId: string | number, status: string): Promise<any> {
+        return this.put(`/report-cards/${reportCardId}/status`, { status });
+    }
+
+    async getStudentAcademicRecords(studentId: string): Promise<any[]> {
+        return this.get(`/students/${studentId}/academic-records`);
+    }
+
+    async getBehaviorNotesByStudent(studentId: string): Promise<any[]> {
+        return this.get(`/students/${studentId}/behavior-notes`);
+    }
+
+    async getCurricula(schoolId?: string): Promise<any[]> {
+        try {
+            return await this.get('/academic/curricula' + (schoolId ? `?schoolId=${schoolId}` : ''));
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async getAcademicTracks(filters?: any): Promise<any[]> {
+        const queryParams = new URLSearchParams(filters);
+        try {
+            const result = await this.get<any>(`/academic/tracks?${queryParams.toString()}`);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async getCurriculumTopics(subjectId: string, term: string): Promise<any[]> {
+        try {
+            return await this.get(`/academic/topics?subjectId=${subjectId}&term=${term}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async syncCurriculumData(subjectId: string, source: string): Promise<any> {
+        return this.post('/academic/sync', { subjectId, source });
+    }
+
+    async getSubjects(schoolId?: string, branchId?: string, curriculumId?: string | number): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (curriculumId) queryParams.append('curriculumId', curriculumId.toString());
+        try {
+            return await this.get(`/subjects?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async getClassSubjects(gradeOrId: number | string, section?: string): Promise<any[]> {
+        if (typeof gradeOrId === 'string' && !section) {
+            return this.get(`/classes/${gradeOrId}/subjects`);
+        }
+        return this.get(`/classes/by-grade/${gradeOrId}/${section}/subjects`);
+    }
+
+    async createSubject(data: any): Promise<any> {
+        return this.post('/subjects', data);
+    }
+
+    async updateSubject(id: string, data: any): Promise<any> {
+        return this.put(`/subjects/${id}`, data);
+    }
+
+    async deleteSubject(id: string): Promise<void> {
+        await this.delete(`/subjects/${id}`);
+    }
+
+    async getGrades(studentId: string): Promise<any[]> {
+        return this.get(`/students/${studentId}/grades`);
     }
 
     // ============================================
     // ASSIGNMENTS
     // ============================================
-
-    async getAssignments(schoolId: string, ...args: any[]): Promise<any[]> {
-        const filters: { classId?: string; className?: string; teacherId?: string; branchId?: string | null } = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && !a.useBackend) || {};
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && (a.useBackend !== undefined || Object.keys(a).length === 0)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            let url = `/assignments?schoolId=${schoolId}`;
-            if (filters?.classId) url += `&classId=${filters.classId}`;
-            if (filters?.className) url += `&className=${encodeURIComponent(filters.className)}`;
-            if (filters?.teacherId) url += `&teacherId=${filters.teacherId}`;
-            if (filters?.branchId && filters.branchId !== 'all') url += `&branchId=${filters.branchId}`;
-            return this.fetch<any[]>(url);
+    async getAssignments(schoolId?: string, filters: any = {}): Promise<any[]> {
+        const queryParams = new URLSearchParams(schoolId ? { ...filters, schoolId } : filters);
+        try {
+            return await this.get(`/assignments?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
-
-        // Direct Supabase fallback
-        let query = supabase.from('assignments').select('*').eq('school_id', schoolId);
-        if (filters?.classId) query = query.eq('class_id', filters.classId);
-        if (filters?.className) query = query.eq('class_name', filters.className);
-        if (filters?.teacherId) query = query.eq('teacher_id', filters.teacherId);
-        if (filters?.branchId && filters.branchId !== 'all') query = query.eq('branch_id', filters.branchId);
-
-        const { data, error } = await query.order('due_date', { ascending: false });
-        if (error) throw error;
-        return data || [];
     }
 
-    async createAssignment(assignmentData: any, options: ApiOptions = {}): Promise<any> {
-        // Try backend first if preferred or in demo mode
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            try {
-                return await this.fetch<any>('/assignments', {
-                    method: 'POST',
-                    body: JSON.stringify(assignmentData),
-                });
-            } catch (err) {
-                console.warn('Backend assignment creation failed, falling back to direct:', err);
-                // Fall through to direct Supabase
-            }
-        }
-
-        // Direct Supabase implementation
-        const { data, error } = await supabase
-            .from('assignments')
-            .insert([{
-                title: assignmentData.title,
-                description: assignmentData.description,
-                class_name: assignmentData.className || assignmentData.class_name,
-                class_id: assignmentData.classId || assignmentData.class_id,
-                subject: assignmentData.subject,
-                due_date: assignmentData.dueDate || assignmentData.due_date,
-                teacher_id: assignmentData.teacherId || assignmentData.teacher_id,
-                school_id: assignmentData.schoolId || assignmentData.school_id,
-                branch_id: assignmentData.branchId || assignmentData.branch_id,
-                total_students: assignmentData.totalStudents || 0,
-                submissions_count: 0,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-
-        if (error) throw error;
-        return data;
+    async createAssignment(data: any): Promise<any> {
+        return this.post('/assignments', data);
     }
 
-    async deleteAssignment(id: string, options: ApiOptions = {}): Promise<void> {
-        if (options.useBackend ?? this.options.useBackend) {
-            await this.fetch<void>(`/assignments/${id}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase.from('assignments').delete().eq('id', id);
-        if (error) throw error;
+    async updateAssignment(id: string, data: any): Promise<any> {
+        return this.put(`/assignments/${id}`, data);
     }
 
-    async getSubmissions(assignmentId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/assignments/${assignmentId}/submissions`);
-        }
-        const { data, error } = await supabase.from('assignment_submissions').select('*, students(name, avatar_url)').eq('assignment_id', assignmentId);
-        if (error) throw error;
-        return data || [];
+    async deleteAssignment(id: string): Promise<void> {
+        await this.delete(`/assignments/${id}`);
     }
 
-    async gradeSubmission(submissionId: string, gradeData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/assignments/submissions/${submissionId}/grade`, {
-                method: 'PUT',
-                body: JSON.stringify(gradeData),
-            });
-        }
-        const { data, error } = await supabase.from('assignment_submissions').update(gradeData).eq('id', submissionId).select().maybeSingle();
-        if (error) throw error;
-        return data;
-    }
-
-    async submitAssignment(assignmentId: string | number, submissionData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/assignments/${assignmentId}/submissions`, {
-                method: 'POST',
-                body: JSON.stringify(submissionData),
-            });
-        }
-        const { data, error } = await supabase.from('assignment_submissions').insert([{ ...submissionData, assignment_id: assignmentId }]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async getAssignmentSubmissions(assignmentId: string): Promise<any[]> {
+        return this.get(`/assignments/${assignmentId}/submissions`);
     }
 
     // ============================================
-    // EXAMS & CBT
+    // EXAMS
     // ============================================
-
-    async getExams(schoolId: string, ...args: any[]): Promise<any[]> {
-        const branchId = typeof args[0] === 'string' ? args[0] : undefined;
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/exams?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+    async getExams(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/exams?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
-
-        let query = supabase.from('exams').select('*').eq('school_id', schoolId);
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query.order('date', { ascending: false });
-        if (error) throw error;
-        return data || [];
     }
 
-    async createExam(schoolId: string, ...args: any[]): Promise<any> {
-        const examData = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && !a.useBackend) || {};
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && (a.useBackend !== undefined || Object.keys(a).length === 0)) || {};
-
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/exams', {
-                method: 'POST',
-                body: JSON.stringify(examData),
-            });
-        }
-        const { data, error } = await supabase.from('exams').insert([examData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async createExam(data: any): Promise<any> {
+        return this.post('/exams', data);
     }
 
-    async updateExam(id: string | number, ...args: any[]): Promise<any> {
-        const examData = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && !a.useBackend) || {};
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && (a.useBackend !== undefined || Object.keys(a).length === 0)) || {};
-
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/exams/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(examData),
-            });
-        }
-        const { data, error } = await supabase.from('exams').update(examData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async updateExam(id: string, data: any): Promise<any> {
+        return this.put(`/exams/${id}`, data);
     }
 
-    async deleteExam(id: string | number, ...args: any[]): Promise<void> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-        // Many components pass (id, schoolId, branchId)
-
-        if (options.useBackend ?? this.options.useBackend) {
-            await this.fetch<void>(`/exams/${id}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase.from('exams').delete().eq('id', id);
-        if (error) throw error;
+    async deleteExam(id: string): Promise<void> {
+        await this.delete(`/exams/${id}`);
     }
 
-    async getExamResults(examId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/exams/${examId}/results`);
+    async getExamResults(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/exams/results?${queryParams.toString()}`);
+    }
+
+    async getCBTExams(teacherId?: string): Promise<any[]> {
+        return this.get(`/quizzes/exams${teacherId ? `?teacherId=${teacherId}` : ''}`);
+    }
+
+    async getQuizSubmissions(quizId: string): Promise<any[]> {
+        return this.get(`/quizzes/${quizId}/submissions`);
+    }
+
+    async getQuizResults(studentId: string | number): Promise<any[]> {
+        try {
+            return await this.get('/students/me/quiz-results');
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('exam_results').select('*, students(name)').eq('exam_id', examId);
-        if (error) throw error;
-        return data || [];
+    }
+
+    async getQuizzes(schoolId?: string): Promise<any[]> {
+        return this.get(`/quizzes${schoolId ? `?schoolId=${schoolId}` : ''}`);
     }
 
     // ============================================
-    // RESOURCES
+    // ATTENDANCE
     // ============================================
-
-    async createResource(resourceData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/resources', {
-                method: 'POST',
-                body: JSON.stringify(resourceData),
-            });
-        }
-        const { data, error } = await supabase.from('resources').insert([resourceData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async getAttendanceByClass(classId: string, date: string): Promise<any[]> {
+        return this.get(`/attendance?classId=${classId}&date=${date}`);
     }
 
-    // ============================================
-    // LESSON PLANS
-    // ============================================
-
-    async getLessonPlans(schoolId: string, teacherId?: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/lesson-plans?schoolId=${schoolId}${teacherId ? `&teacherId=${teacherId}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
-        }
-
-        let query = supabase.from('lesson_notes').select('*').eq('school_id', schoolId);
-        if (teacherId) query = query.eq('teacher_id', teacherId);
-        if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
-
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
+    async getAttendance(classId: string, date: string): Promise<any[]> {
+        return this.getAttendanceByClass(classId, date);
     }
 
-    async createLessonPlan(planData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/lesson-plans', {
-                method: 'POST',
-                body: JSON.stringify(planData),
-            });
-        }
-        const { data, error } = await supabase.from('lesson_notes').insert([planData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async getAttendanceByDate(schoolId: string, date: string): Promise<any[]> {
+        return this.get(`/attendance?schoolId=${schoolId}&date=${date}`);
     }
 
-    // ============================================
-    // GENERATED RESOURCES (AI)
-    // ============================================
-
-    async getGeneratedResources(teacherId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/ai/generated-resources?teacherId=${teacherId}`);
-        }
-        const { data, error } = await supabase
-            .from('generated_resources')
-            .select('*')
-            .eq('teacher_id', teacherId)
-            .order('updated_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
+    async saveAttendance(data: any): Promise<any> {
+        return this.post('/attendance', { records: data });
     }
 
-    async saveGeneratedResource(resourceData: any, ...args: any[]): Promise<any> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/ai/generated-resources', {
-                method: 'POST',
-                body: JSON.stringify(resourceData),
-            });
+    async getStudentAttendance(studentId: string): Promise<any[]> {
+        try {
+            return await this.get(`/attendance/student/${studentId}`);
+        } catch (err) {
+            return [];
         }
+    }
 
-        // Find existing to decide update or insert
-        const { data: existing } = await supabase
-            .from('generated_resources')
-            .select('id')
-            .eq('teacher_id', resourceData.teacher_id)
-            .eq('subject', resourceData.subject)
-            .eq('class_name', resourceData.class_name)
-            .maybeSingle();
+    async getAttendanceByStudent(studentId: string): Promise<any[]> {
+        return this.getStudentAttendance(studentId);
+    }
 
-        if (existing) {
-            const { data, error } = await supabase
-                .from('generated_resources')
-                .update({ ...resourceData, updated_at: new Date().toISOString() })
-                .eq('id', existing.id)
-                .select()
-                .maybeSingle();
-            if (error) throw error;
-            return data;
-        } else {
-            const { data, error } = await supabase
-                .from('generated_resources')
-                .insert([resourceData])
-                .select()
-                .maybeSingle();
-            if (error) throw error;
-            return data;
+    async scanQRCodeForAttendance(qrCode: string, location?: string): Promise<any> {
+        return this.post('/attendance/scan-qr', { qrCode, location });
+    }
+
+    async bulkMarkAttendance(classId: string, date: string, attendanceData: any[]): Promise<any> {
+        return this.post('/attendance/bulk', { classId, date, attendanceData });
+    }
+
+    async getDropoutAlerts(options: any = {}): Promise<any[]> {
+        const queryParams = new URLSearchParams(options);
+        try {
+            return await this.get(`/attendance/dropout-alerts?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
+    }
+
+    async resolveDropoutAlert(alertId: string, notes: string): Promise<any> {
+        return this.put(`/attendance/dropout-alerts/${alertId}/resolve`, { notes });
     }
 
     // ============================================
-    // FORUM
+    // TIMETABLE
     // ============================================
-
-    async getForumTopics(schoolId: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/forum/topics?schoolId=${schoolId}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+    async getTimetable(branchId?: string, className?: string, teacherId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (className) queryParams.append('className', className);
+        if (teacherId) queryParams.append('teacherId', teacherId);
+        
+        try {
+            return await this.get(`/timetables?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
-
-        let query = supabase.from('forum_topics').select('*').eq('school_id', schoolId);
-        if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
-
-        const { data, error } = await query.order('last_activity', { ascending: false });
-        if (error) throw error;
-        return data || [];
     }
 
-    async createForumTopic(topicData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/forum/topics', {
-                method: 'POST',
-                body: JSON.stringify(topicData),
-            });
-        }
-        const { data, error } = await supabase.from('forum_topics').insert([topicData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async createTimetable(data: any): Promise<any> {
+        return this.post('/timetables', data);
     }
 
-    async getForumPosts(topicId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/forum/topics/${topicId}/posts`);
-        }
-        const { data, error } = await supabase.from('forum_posts').select('*').eq('topic_id', topicId).order('created_at', { ascending: true });
-        if (error) throw error;
-        return data || [];
+    async updateTimetable(id: string, data: any): Promise<any> {
+        return this.put(`/timetables/${id}`, data);
     }
 
-    async createForumPost(postData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/forum/posts', {
-                method: 'POST',
-                body: JSON.stringify(postData),
-            });
-        }
-        const { data, error } = await supabase.from('forum_posts').insert([postData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async deleteTimetable(id: string): Promise<any> {
+        return this.delete(`/timetables/${id}`);
+    }
+
+    async deleteTimetableByClass(classId: string): Promise<any> {
+        return this.delete(`/timetables/class/${classId}`);
+    }
+
+    async checkTimetableConflict(data: { teacherId: string, day: string, startTime: string, endTime: string, excludeClassId?: string }): Promise<any> {
+        return this.post('/timetables/check-conflict', data);
     }
 
     // ============================================
-    // TRANSACTIONS
+    // LESSON PLANS & NOTES
     // ============================================
-
-    async getTransactions(schoolId: string, feeId?: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/transactions?schoolId=${schoolId}${feeId ? `&feeId=${feeId}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
-        }
-
-        // Note: transactions table only supports school_id and transaction_type/category filtering.
-        // fee_id, branch_id, and status columns do not exist on this table.
-        let query = supabase.from('transactions').select('*').eq('school_id', schoolId);
-        if (feeId) query = query.eq('category', feeId); // fallback: treat feeId as a category filter
-
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
+    async getLessonPlans(filters: any): Promise<any[]> {
+        const queryParams = new URLSearchParams(filters);
+        return this.get(`/lesson-plans?${queryParams.toString()}`);
     }
 
-    async createTransaction(transactionData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/transactions', {
-                method: 'POST',
-                body: JSON.stringify(transactionData),
-            });
-        }
-        const { data, error } = await supabase.from('transactions').insert([transactionData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async createLessonPlan(data: any): Promise<any> {
+        return this.post('/lesson-plans', data);
+    }
+
+    async updateLessonPlan(id: string, data: any): Promise<any> {
+        return this.put(`/lesson-plans/${id}`, data);
+    }
+
+    async deleteLessonPlan(id: string): Promise<void> {
+        await this.delete(`/lesson-plans/${id}`);
+    }
+
+    async getLessonNotes(classId: string, schoolId: string): Promise<any[]> {
+        return this.get(`/lesson-plans?classId=${classId}&schoolId=${schoolId}`);
     }
 
     // ============================================
-    // BUSES
+    // TRANSPORT
     // ============================================
-
-    async getBuses(schoolId?: string, branchId?: string | null, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/buses?${schoolId ? `schoolId=${schoolId}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+    async getTransportRoutes(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/transport/routes?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
-
-        let query = supabase.from('transport_buses').select('*');
-        if (schoolId) query = query.eq('school_id', schoolId);
-        if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
-
-        const { data, error } = await query.order('name');
-        if (error) throw error;
-        return data || [];
     }
 
-    async createBus(busData: any, ...args: any[]): Promise<any> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null) || {};
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/buses', {
-                method: 'POST',
-                body: JSON.stringify(busData),
-            });
-        }
-        const { data, error } = await supabase.from('transport_buses').insert([busData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async createTransportRoute(data: any): Promise<any> {
+        return this.post('/transport/routes', data);
     }
 
-    async updateBus(id: string | number, ...args: any[]): Promise<any> {
-        const busData = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && !a.useBackend) || {};
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && (a.useBackend !== undefined || Object.keys(a).length === 0)) || {};
-
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/buses/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(busData),
-            });
-        }
-        const { data, error } = await supabase.from('transport_buses').update(busData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async updateTransportRoute(id: string, data: any): Promise<any> {
+        return this.put(`/transport/routes/${id}`, data);
     }
 
-    async deleteBus(id: string | number, ...args: any[]): Promise<void> {
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend) {
-            await this.fetch<void>(`/buses/${id}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase.from('transport_buses').delete().eq('id', id);
-        if (error) throw error;
+    async deleteTransportRoute(id: string): Promise<void> {
+        await this.delete(`/transport/routes/${id}`);
     }
 
-    // ============================================
-    // USERS & SCHOOLS
-    // ============================================
-
-    async getUsers(schoolId?: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/users${schoolId ? `?schoolId=${schoolId}` : ''}`);
+    // Bus Management
+    async getBuses(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        try {
+            return await this.get(`/buses${query}`);
+        } catch (err) {
+            return [];
         }
-
-        let query = supabase.from('profiles').select('*');
-        if (schoolId) query = query.eq('school_id', schoolId);
-
-        const { data, error } = await query.order('full_name');
-        if (error) throw error;
-        return data || [];
     }
 
-    async getUserById(id: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/users/${id}`);
-        }
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
-        if (error) throw error;
-        return data;
+    async createBus(data: any): Promise<any> {
+        return this.post('/buses', data);
     }
 
-    async createUser(userData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/users', {
-                method: 'POST',
-                body: JSON.stringify(userData),
-            });
-        }
-        const { data, error } = await supabase.from('profiles').insert([userData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async updateBus(id: string, data: any): Promise<any> {
+        return this.put(`/buses/${id}`, data);
     }
 
-    async updateUser(id: string, userData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/users/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(userData),
-            });
-        }
-        const { data, error } = await supabase.from('profiles').update(userData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async deleteBus(id: string): Promise<void> {
+        await this.delete(`/buses/${id}`);
     }
 
-    async getSchools(options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>('/schools');
+    // Stops & Assignments
+    async getTransportStops(routeId?: string): Promise<any[]> {
+        const url = routeId ? `/transport/stops?routeId=${routeId}` : '/transport/stops';
+        try {
+            const result = await this.get<any>(url);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('schools').select('*');
-        if (error) throw error;
-        return data || [];
     }
 
-    async getSchoolById(id: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/schools/${id}`);
-        }
-        const { data, error } = await supabase.from('schools').select('*').eq('id', id).maybeSingle();
-        if (error) throw error;
-        return data;
+    async createTransportStop(data: any): Promise<any> {
+        return this.post('/transport/stops', data);
     }
 
-    async createSchool(schoolData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/schools', {
-                method: 'POST',
-                body: JSON.stringify(schoolData),
-            });
+    async deleteTransportStop(id: string): Promise<void> {
+        await this.delete(`/transport/stops/${id}`);
+    }
+    async getAssets(): Promise<any[]> {
+        try {
+            const result = await this.get<any>('/infrastructure/assets');
+            return result.data || result || [];
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('schools').insert([schoolData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
     }
 
-    async updateSchool(id: string, schoolData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/schools/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(schoolData),
-            });
-        }
-        const { data, error } = await supabase.from('schools').update(schoolData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async createAsset(data: any): Promise<any> {
+        return this.post('/infrastructure/assets', data);
     }
 
-    async updateSchoolStatusBulk(ids: string[], status: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/schools/bulk/status', {
-                method: 'PUT',
-                body: JSON.stringify({ ids, status }),
-            });
-        }
-        // Direct DB fallback (will likely hit RLS, but included for Hybrid symmetry)
-        const { data, error } = await supabase.from('schools').update({ status }).in('id', ids).select();
-        if (error) throw error;
-        return data;
+    async updateAsset(id: string, data: any): Promise<any> {
+        return this.put(`/infrastructure/assets/${id}`, data);
     }
 
-    async deleteSchoolsBulk(ids: string[], options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/schools/bulk', {
-                method: 'DELETE',
-                body: JSON.stringify({ ids }),
-            });
-        }
-        const { data, error } = await supabase.from('schools').delete().in('id', ids).select();
-        if (error) throw error;
-        return data;
+    async deleteAsset(id: string): Promise<any> {
+        return this.delete(`/infrastructure/assets/${id}`);
     }
 
-    async inviteUser(inviteData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/invite-user', {
-                method: 'POST',
-                body: JSON.stringify(inviteData),
-            });
+    // Equipment Aliases (Same as Assets)
+    async getEquipment(schoolId?: string): Promise<any[]> {
+        return this.getAssets();
+    }
+
+    async createEquipment(data: any): Promise<any> {
+        return this.createAsset(data);
+    }
+
+    async updateEquipment(id: string, data: any): Promise<any> {
+        return this.updateAsset(id, data);
+    }
+
+    async deleteEquipment(id: string): Promise<any> {
+        return this.deleteAsset(id);
+    }
+
+    async getFacilities(): Promise<any[]> {
+        try {
+            const result = await this.get<any>('/infrastructure/facilities');
+            return result.data || result || [];
+        } catch (err) {
+            return [];
         }
-        throw new Error('Invitations require backend mode');
+    }
+
+    async createFacility(data: any): Promise<any> {
+        return this.post('/infrastructure/facilities', data);
+    }
+
+    async updateFacility(id: string, data: any): Promise<any> {
+        return this.put(`/infrastructure/facilities/${id}`, data);
+    }
+
+    async deleteFacility(id: string): Promise<any> {
+        return this.delete(`/infrastructure/facilities/${id}`);
+    }
+
+    async getVisitorLogs(): Promise<any[]> {
+        const result = await this.get<any>('/infrastructure/visitor-logs');
+        return result.data || result || [];
+    }
+
+    async createVisitorLog(data: any): Promise<any> {
+        return this.post('/infrastructure/visitor-logs', data);
+    }
+
+    async updateVisitorLog(id: string, data: any): Promise<any> {
+        return this.put(`/infrastructure/visitor-logs/${id}`, data);
+    }
+
+    async deleteVisitorLog(id: string): Promise<any> {
+        return this.delete(`/infrastructure/visitor-logs/${id}`);
+    }
+
+    async getSchoolDocuments(schoolId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('school_id', schoolId);
+        try {
+            const result = await this.get<any>(`/infrastructure/documents?${queryParams.toString()}`);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async getTransportAssignments(schoolId?: string): Promise<any[]> {
+        const url = schoolId ? `/transport/assignments?schoolId=${schoolId}` : '/transport/assignments';
+        try {
+            const result = await this.get<any>(url);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createTransportAssignment(data: any): Promise<any> {
+        return this.post('/transport/assignments', data);
+    }
+
+    async deleteTransportAssignment(id: string): Promise<void> {
+        await this.delete(`/transport/assignments/${id}`);
     }
 
     // ============================================
-    // NOTIFICATIONS
+    // HOSTELS
     // ============================================
-
-    async createNotification(notificationData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/notifications', {
-                method: 'POST',
-                body: JSON.stringify(notificationData),
-            });
+    async getHostels(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            const result = await this.get<any>(`/hostels?${queryParams.toString()}`);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('notifications').insert([notificationData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    }
+
+    async createHostel(data: any): Promise<any> {
+        return this.post('/hostels', data);
+    }
+
+    async updateHostel(id: string, data: any): Promise<any> {
+        return this.put(`/hostels/${id}`, data);
+    }
+
+    async deleteHostel(id: string): Promise<any> {
+        return this.delete(`/hostels/${id}`);
     }
 
     // ============================================
-    // QUIZZES & ASSIGNMENTS
+    // LEARNING RESOURCES
     // ============================================
-
-    async createQuizWithQuestions(...args: any[]): Promise<any> {
-        const schoolId = typeof args[0] === 'string' ? args[0] : undefined;
-        const branchId = typeof args[1] === 'string' ? args[1] : undefined;
-        const payload = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && a.quiz) || {};
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a) && !a.quiz && (a.useBackend !== undefined || Object.keys(a).length === 0)) || {};
-
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/quizzes/upload', {
-                method: 'POST',
-                body: JSON.stringify(payload),
-            });
+    async getLearningResources(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            const result = await this.get<any>(`/resources?${queryParams.toString()}`);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
         }
-
-        // Direct Supabase fallback
-        const { quiz, questions } = payload;
-
-        // Get school_id from auth if not provided
-        let effectiveSchoolId = schoolId || quiz.school_id;
-        if (!effectiveSchoolId) {
-            const { data: { user } } = await supabase.auth.getUser();
-            effectiveSchoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
-        }
-
-        // 1. Insert the quiz
-        const { data: quizData, error: quizError } = await supabase
-            .from('quizzes')
-            .insert({
-                title: quiz.title,
-                description: quiz.description,
-                status: quiz.status || 'draft',
-                class_id: quiz.class_id,
-                subject_id: quiz.subject_id,
-                subject: quiz.subject, // Include subject text
-                branch_id: branchId || quiz.branch_id || null, // Include branch_id
-                duration_minutes: quiz.duration_minutes,
-                total_marks: quiz.total_marks,
-                teacher_id: quiz.teacher_id,
-                school_id: effectiveSchoolId,
-                is_published: quiz.is_published || false,
-                is_active: true,
-            })
-            .select()
-            .maybeSingle();
-
-        if (quizError) throw quizError;
-
-        // 2. Insert questions linked to the quiz via exam_id
-        if (questions.length > 0) {
-            const questionsToInsert = questions.map((q, index) => ({
-                exam_id: quizData.id,
-                question_text: q.question_text,
-                question_type: q.question_type || 'multiple_choice',
-                options: Array.isArray(q.options) ? q.options : [q.option_a, q.option_b, q.option_c, q.option_d].filter(Boolean),
-                correct_answer: q.correct_answer || q.correct_option,
-                points: q.marks ? Math.round(q.marks) : 1,
-            }));
-
-            const { error: questionsError } = await supabase
-                .from('cbt_questions')
-                .insert(questionsToInsert);
-
-            if (questionsError) throw questionsError;
-        }
-
-        return quizData;
     }
 
-    async updateQuizStatus(id: string, isPublished: boolean, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/quizzes/${id}/status`, {
-                method: 'PUT',
-                body: JSON.stringify({ is_published: isPublished }),
-            });
-        }
-        // Direct Supabase fallback
-        const { data, error } = await supabase
-            .from('quizzes')
-            .update({ is_published: isPublished, status: isPublished ? 'published' : 'draft' })
-            .eq('id', id)
-            .select()
-            .maybeSingle();
-        if (error) throw error;
-        return data;
+
+    async createLearningResource(data: any): Promise<any> {
+        return this.post('/resources', data);
     }
 
-    async deleteQuiz(id: string, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/quizzes/${id}`, {
-                method: 'DELETE',
-            });
-        }
-        // Direct Supabase fallback: delete questions first, then the quiz
-        await supabase.from('cbt_questions').delete().eq('exam_id', id);
-        const { error } = await supabase.from('quizzes').delete().eq('id', id);
-        if (error) throw error;
-        return { success: true };
+    async deleteLearningResource(id: string): Promise<void> {
+        await this.delete(`/resources/${id}`);
     }
 
-    async submitQuizResult(submissionData: any, options: ApiOptions = {}): Promise<any> {
-        console.log("Submit Quiz Result called with:", submissionData);
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/quizzes/submit', {
-                method: 'POST',
-                body: JSON.stringify(submissionData),
-            });
-        }
 
-        console.log("Direct Supabase insert into quiz_submissions...");
-        // Direct Supabase insert
-        const submission = {
-            quiz_id: submissionData.quiz_id || submissionData.exam_id,
-            student_id: submissionData.student_id,
-            school_id: submissionData.school_id,
-            branch_id: submissionData.branch_id,
-            score: submissionData.score,
-            total_questions: submissionData.total_questions,
-            answers: submissionData.answers,
-            focus_violations: submissionData.focus_violations,
-            status: submissionData.status || 'graded',
-            submitted_at: submissionData.submitted_at || new Date().toISOString(),
+    async getHostelRooms(hostelId?: string): Promise<any[]> {
+        const url = hostelId ? `/hostels/rooms?hostelId=${hostelId}` : '/hostels/rooms';
+        try {
+            const result = await this.get<any>(url);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createHostelRoom(data: any): Promise<any> {
+        return this.post('/hostels/rooms', data);
+    }
+
+    async deleteHostelRoom(id: string): Promise<any> {
+        return this.delete(`/hostels/rooms/${id}`);
+    }
+
+    async getHostelAllocations(schoolId?: string): Promise<any[]> {
+        const url = schoolId ? `/hostels/allocations?schoolId=${schoolId}` : '/hostels/allocations';
+        try {
+            const result = await this.get<any>(url);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createHostelAllocation(data: any): Promise<any> {
+        return this.post('/hostels/allocations', data);
+    }
+
+    async deleteHostelAllocation(id: string): Promise<any> {
+        return this.delete(`/hostels/allocations/${id}`);
+    }
+
+    async getHostelVisitorLogs(schoolId?: string): Promise<any[]> {
+        const url = schoolId ? `/hostels/visitors?schoolId=${schoolId}` : '/hostels/visitors';
+        try {
+            const result = await this.get<any>(url);
+            return result.data || result || [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createHostelVisitorLog(data: any): Promise<any> {
+        return this.post('/hostels/visitor-logs', data);
+    }
+
+    async deleteHostelVisitorLog(id: string): Promise<any> {
+        return this.delete(`/hostels/visitor-logs/${id}`);
+    }
+
+    // Health logs moved to Health & Safety section below
+
+
+    // ============================================
+    // CHAT & MESSAGING
+    // ============================================
+    async getChatContacts(schoolId: string, studentId?: string): Promise<any> {
+        return this.get(`/chat/contacts?schoolId=${schoolId}${studentId ? `&studentId=${studentId}` : ''}`);
+    }
+
+    async getOrCreateDirectChat(targetUserId: string, schoolId: string): Promise<any> {
+        return this.post('/chat/rooms/direct', { targetUserId, schoolId });
+    }
+
+    async getChatRooms(): Promise<any[]> {
+        return this.get('/chat/rooms');
+    }
+
+    async getConversations(userId?: string, schoolId?: string, branchId?: string): Promise<any[]> {
+        // userId is derived from token on backend, but we keep it for signature compatibility
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/chat/rooms?${queryParams.toString()}`);
+    }
+
+    async getChatRoomMessages(roomId: string | number): Promise<any[]> {
+        return this.get(`/chat/rooms/${roomId}/messages`);
+    }
+
+    async getMessages(roomId: string | number): Promise<any[]> {
+        return this.getChatRoomMessages(roomId);
+    }
+
+    async sendChatMessage(roomId: string, content: string, type: string = 'text'): Promise<any> {
+        return this.post(`/chat/rooms/${roomId}/messages`, { content, type });
+    }
+
+    async sendMessage(data: any): Promise<any> {
+        const roomId = data.conversation_id || data.roomId;
+        const payload = {
+            content: data.content,
+            type: data.type || 'text',
+            mediaUrl: data.media_url || data.mediaUrl
         };
-        const { data, error } = await supabase.from('quiz_submissions').insert([submission]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+        return this.post(`/chat/rooms/${roomId}/messages`, payload);
     }
 
-    async getQuizzesByClass(schoolId: string, grade: string, ...args: any[]): Promise<any[]> {
-        const section = typeof args[0] === 'string' ? args[0] : undefined;
-        const branchId = typeof args[1] === 'string' ? args[1] : undefined;
-        const options: ApiOptions = args.find(a => typeof a === 'object' && a !== null && !Array.isArray(a)) || {};
-
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/quizzes?schoolId=${schoolId}&grade=${grade}${section ? `&section=${section}` : ''}${branchId && branchId !== 'all' ? `&branchId=${branchId}` : ''}`);
+    // ============================================
+    // EVENTS & CALENDAR
+    // ============================================
+    async getEvents(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/calendar/events?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
+    }
 
+    async createEvent(data: any): Promise<any> {
+        return this.post('/calendar/events', data);
+    }
 
-        let query = supabase
-            .from('quizzes')
-            .select(`
-                *,
-                classes ( id, grade, section ),
-                subjects ( name )
-            `)
-            .eq('school_id', schoolId)
-            .eq('is_published', true);
+    async updateEvent(id: string, data: any): Promise<any> {
+        return this.put(`/calendar/events/${id}`, data);
+    }
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+    async getCalendarEvents(schoolId: string): Promise<any[]> {
+        return this.get(`/calendar/events?schoolId=${schoolId}`);
+    }
+
+    // ============================================
+    // FORUM & COMMUNITY
+    // ============================================
+    async getForumPosts(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/forum/posts?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
+    }
 
-        const { data, error } = await query;
-        if (error) throw error;
+    async createForumPost(data: any): Promise<any> {
+        return this.post('/forum/posts', data);
+    }
 
-        // Filter for this class/grade
-        return (data || []).filter((q: any) => {
-            if (q.classes) {
-                return String(q.classes.grade) === String(grade) &&
-                    (!q.classes.section || !section || q.classes.section === section);
+    async getCommunityResources(...args: any[]): Promise<any[]> {
+        return [];
+    }
+
+    async getDonationCampaigns(...args: any[]): Promise<any[]> {
+        return [];
+    }
+
+    async getTopDonors(...args: any[]): Promise<any[]> {
+        return [];
+    }
+
+    async processDonation(...args: any[]): Promise<any> {
+        return {};
+    }
+
+    // ============================================
+    // GALLERY & MEDIA
+    // ============================================
+    async getGalleryPhotos(): Promise<any[]> {
+        try {
+            return await this.get('/gallery');
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async addGalleryPhoto(data: any): Promise<any> {
+        return this.post('/gallery', data);
+    }
+
+    async uploadFile(fileOrBucket: File | string, pathOrFile?: string | File, file?: File): Promise<{ publicUrl: string } | { url: string }> {
+        const formData = new FormData();
+        if (fileOrBucket instanceof File) {
+            formData.append('file', fileOrBucket);
+            formData.append('category', 'general');
+            return this.post('/media/upload', formData);
+        } else {
+            const actualFile = file || (pathOrFile instanceof File ? pathOrFile : null);
+            if (actualFile) {
+                formData.append('bucket', fileOrBucket);
+                if (typeof pathOrFile === 'string') formData.append('path', pathOrFile);
+                formData.append('file', actualFile);
             }
-            if (q.grade) {
-                return String(q.grade) === String(grade);
-            }
-            return true;
-        });
+            const result = await this.post<{ publicUrl: string }>('/media/upload', formData);
+            return result;
+        }
     }
 
-    async createAnonymousReport(reportData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/student-reports/anonymous', {
-                method: 'POST',
-                body: JSON.stringify(reportData),
-            });
+    // ============================================
+    // GAMES & EDUCATIONAL
+    // ============================================
+    async getGames(): Promise<any[]> {
+        try {
+            return await this.get('/games');
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('anonymous_reports').insert([reportData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
     }
 
-    async createDiscreetRequest(requestData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/student-reports/discreet', {
-                method: 'POST',
-                body: JSON.stringify(requestData),
-            });
+    // ============================================
+    // BEHAVIOR & DISCIPLINE
+    // ============================================
+    async getBehaviorNotesBySchool(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/behavior/notes?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('menstrual_support_requests').insert([requestData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    }
+
+    async getBehaviorNotes(idOrSchoolId: string, branchId?: string): Promise<any[]> {
+        // Simple heuristic: if branchId is provided, it's school-level. 
+        // If only one arg and it looks like a schoolId (longer or specifically from school context), use school.
+        // Actually, let's just use the specific ones in services and keep an alias here.
+        if (branchId) return this.getBehaviorNotesBySchool(idOrSchoolId, branchId);
+        return this.getBehaviorNotesByStudent(idOrSchoolId);
+    }
+
+    async createBehaviorNote(data: any): Promise<any> {
+        return this.post('/behavior/notes', data);
+    }
+
+    // ============================================
+    // AUDIT LOGS
+    // ============================================
+    async getAuditLogs(schoolId?: string, limit: number = 50, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ limit: limit.toString() });
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/audit/logs?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    // ============================================
+    // LEAVE MANAGEMENT
+    // ============================================
+    async getLeaveRequests(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/teachers/leave-requests?${queryParams.toString()}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createLeaveRequest(data: any): Promise<any> {
+        return this.post('/teachers/leave-requests', data);
+    }
+
+    async approveLeaveRequest(id: string, status: string): Promise<any> {
+        return this.put(`/teachers/leave-requests/${id}`, { status });
     }
 
     // ============================================
     // VIRTUAL CLASSES
     // ============================================
-
-    async createVirtualClassSession(sessionData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/virtual-classes', {
-                method: 'POST',
-                body: JSON.stringify(sessionData),
-            });
+    async getVirtualClasses(schoolId: string): Promise<any[]> {
+        try {
+            return await this.get(`/virtual-classes?schoolId=${schoolId}`);
+        } catch (err) {
+            return [];
         }
-        const { data, error } = await supabase.from('virtual_class_sessions').insert([sessionData]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    }
+
+    async createVirtualClass(data: any): Promise<any> {
+        return this.post('/virtual-classes', data);
+    }
+
+    // EMERGENCY & SAFETY moved to HEALTH & SAFETY section at the end of the file
+
+    // ============================================
+    // SCHOOL SETTINGS & POLICIES
+    // ============================================
+    async getSchoolPolicies(...args: any[]): Promise<any[]> {
+        return [];
+    }
+
+    async getAcademicSettings(schoolId: string): Promise<any> {
+        try {
+            return await this.get(`/schools/${schoolId}/academic-settings`);
+        } catch (err) {
+            return {};
+        }
+    }
+
+    async updateAcademicSettings(schoolId: string, data: any): Promise<any> {
+        return this.put(`/schools/${schoolId}/academic-settings`, data);
+    }
+
+    async updateSchool(schoolId: string, data: any): Promise<any> {
+        return this.put(`/schools/${schoolId}`, data);
+    }
+
+    async getSchoolById(schoolId: string): Promise<any> {
+        return this.get(`/schools/${schoolId}`);
     }
 
     // ============================================
-    // HEALTH
+    // SCHOLARSHIPS
+    // ============================================
+    async getScholarships(schoolId: string): Promise<any[]> {
+        try {
+            return await this.get(`/scholarships?schoolId=${schoolId}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createScholarship(data: any): Promise<any> {
+        return this.post('/scholarships', data);
+    }
+
+    // ============================================
+    // SAVINGS PLANS
+    // ============================================
+    async getSavingsPlans(): Promise<any[]> {
+        return this.get('/parents/savings/plans');
+    }
+
+    async createSavingsPlan(data: any): Promise<any> {
+        return this.post('/parents/savings/plans', data);
+    }
+
+    async depositToSavingsPlan(planId: string, amount: number): Promise<any> {
+        return this.post('/parents/savings/plans/deposit', { planId, amount });
+    }
+
+    // ============================================
+    // SUPPORT
+    // ============================================
+    async createSupportTicket(ticketData: any): Promise<any> {
+        return this.post('/support/tickets', ticketData);
+    }
+
+    // ============================================
+    // PD (PROFESSIONAL DEVELOPMENT)
+    // ============================================
+    async getPDCourses(schoolId: string): Promise<any[]> {
+        try {
+            return await this.get(`/pd/courses?schoolId=${schoolId}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    // ============================================
+    // MEDIA & UPLOAD
+    // ============================================
+    async uploadFileWithCategory(file: File, category: string = 'general'): Promise<{ url: string }> {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', category);
+        return this.post('/media/upload', formData);
+    }
+
+    async uploadAvatar(file: File): Promise<{ url: string }> {
+        return this.uploadFileWithCategory(file, 'avatar');
+    }
+
+    // ============================================
+    // INSPECTOR DASHBOARD
+    // ============================================
+    async getInspectionTemplate(type: string): Promise<InspectionTemplate> {
+        return this.get<InspectionTemplate>(`/inspections/templates/${type}`);
+    }
+
+    async submitInspectionFull(payload: any): Promise<any> {
+        return this.post<any>('/inspections/submit', payload);
+    }
+
+    async getInspections(schoolId: string): Promise<any[]> {
+        return this.get(`/inspections/school/${schoolId}`);
+    }
+
+    // ============================================
+    // UTILS
+    // ============================================
+    clearCache(): void {
+        this.cache.clear();
+    }
+
+    async checkBackendHealth(): Promise<{ backend: boolean }> {
+        try {
+            const resp = await fetch(`${this.baseUrl}/health`);
+            return { backend: resp.ok };
+        } catch {
+            return { backend: false };
+        }
+    }
+
+    // ============================================
+    // STUDENT PORTAL
     // ============================================
 
-    async checkBackendHealth(): Promise<{ supabase: boolean; backend: boolean }> {
-        let backendOk = false;
-        try {
-            const response = await fetch(this.baseUrl.replace('/api', '') + '/');
-            backendOk = response.ok;
-        } catch {
-            backendOk = false;
-        }
+    async getMyStudentProfile(): Promise<any> {
+        return this.fetch('/students/me');
+    }
+
+    async getStudentProfile(id: string): Promise<any> {
+        return this.fetch(`/students/${id}`);
+    }
+
+    async getMyDashboardOverview(): Promise<any> {
+        return this.fetch('/students/me/dashboard');
+    }
+
+    async getMySubjects(): Promise<any[]> {
+        return this.fetch('/students/me/subjects');
+    }
+
+    async getStudentCurriculumTopics(subjectId: string, term: string): Promise<any[]> {
+        return this.fetch(`/students/curriculum/${subjectId}/topics?term=${term}`);
+    }
+
+    async getMyPerformance(): Promise<any> {
+        return this.fetch('/students/me/performance');
+    }
+
+    async getMyReportCards(): Promise<any[]> {
+        return this.fetch('/students/me/report-cards');
+    }
+
+    async getMyQuizResults(): Promise<any[]> {
+        return this.fetch('/students/me/quiz-results');
+    }
+
+    async getQuizDetails(id: string): Promise<any> {
+        return this.fetch(`/quizzes/${id}`);
+    }
+
+    async getQuizQuestions(id: string): Promise<any[]> {
+        return this.fetch(`/quizzes/${id}/questions`);
+    }
+
+    async getMyFees(): Promise<any[]> {
+        return this.fetch('/students/me/fees');
+    }
+
+    async getMyAttendance(): Promise<any[]> {
+        return this.fetch('/students/me/attendance');
+    }
+
+    async getMySubmissions(): Promise<any[]> {
+        return this.fetch('/students/me/submissions');
+    }
+
+    async getAssignmentSubmission(id: string): Promise<any> {
+        return this.fetch(`/assignments/submissions/${id}`);
+    }
+
+    async getMyExtracurriculars(): Promise<any[]> {
+        return this.fetch('/students/me/extracurriculars');
+    }
+
+    async getExtracurriculars(): Promise<any[]> {
+        return this.fetch('/extracurriculars');
+    }
+
+    async getExtracurricularEvents(schoolId: string): Promise<any[]> {
+        return this.fetch(`/extracurriculars/events?school_id=${schoolId}`);
+    }
+
+    async getLeaderboard(gameId: string = 'global'): Promise<any[]> {
+        return this.fetch(`/games/leaderboard/${gameId}`);
+    }
+
+    async getResourceById(id: string): Promise<any> {
+        return this.fetch(`/resources/${id}`);
+    }
+
+    async getRelatedResources(subject: string, excludeId: string): Promise<any[]> {
+        return this.fetch(`/resources/related?subject=${subject}&exclude=${excludeId}`);
+    }
+
+    async getMyStudentStats(): Promise<any> {
+        return this.fetch('/students/me/stats');
+    }
+
+    async getMyAchievements(): Promise<any> {
+        return this.fetch('/students/me/achievements');
+    }
+
+    // ============================================
+    // ADMIN / CONTENT MANAGEMENT
+    // ============================================
+    async getPolicies(): Promise<any[]> {
+        const result = await this.get<any>('/academic-policies/policies');
+        return result.data || [];
+    }
+
+    async createPolicy(data: any): Promise<any> {
+        return this.post('/academic-policies/policies', data);
+    }
+
+    async deletePolicy(id: string): Promise<any> {
+        return this.delete(`/academic-policies/policies/${id}`);
+    }
+
+    async getPermissionSlips(): Promise<any[]> {
+        const result = await this.get<any>('/academic-policies/permission-slips');
+        return result.data || [];
+    }
+
+    async createPermissionSlip(data: any): Promise<any> {
+        return this.post('/academic-policies/permission-slips', data);
+    }
+
+    async updatePermissionSlip(id: string, data: any): Promise<any> {
+        return this.patch(`/academic-policies/permission-slips/${id}`, data);
+    }
+
+
+    async bulkCreatePermissionSlips(slips: any[]): Promise<any> {
+        return this.post('/academic-policies/permission-slips/bulk', { slips });
+    }
+
+    async deletePermissionSlip(id: string): Promise<any> {
+        return this.delete(`/academic-policies/permission-slips/${id}`);
+    }
+
+    async getVolunteeringOpportunities(): Promise<any[]> {
+        const result = await this.get<any>('/community/volunteering');
+        return result.data || [];
+    }
+
+    async createVolunteeringOpportunity(data: any): Promise<any> {
+        return this.post('/community/volunteering', data);
+    }
+
+    async deleteVolunteeringOpportunity(id: string): Promise<any> {
+        return this.delete(`/community/volunteering/opportunities/${id}`);
+    }
+
+
+    async createDocument(data: any): Promise<any> {
+        return this.post('/infrastructure/documents', data);
+    }
+
+    async createSchoolDocument(data: any): Promise<any> {
+        return this.createDocument(data);
+    }
+
+    async getPTAMeetings(): Promise<any[]> {
+        const result = await this.get<any>('/community/pta-meetings');
+        return result.data || [];
+    }
+
+    async createPTAMeeting(data: any): Promise<any> {
+        return this.post('/community/pta-meetings', data);
+    }
+
+    async deletePTAMeeting(id: string): Promise<any> {
+        return this.delete(`/community/pta-meetings/${id}`);
+    }
+
+    // ============================================
+    // PILOT ONBOARDING
+    // ============================================
+
+    async getPilotOnboarding(): Promise<any> {
+        return this.get('/schools/pilot-onboarding');
+    }
+
+    async savePilotProgress(payload: {
+        name?: string;
+        lga?: string;
+        curriculum_type?: string;
+        infrastructure_config?: { facilities: string[] };
+        onboarding_step?: number;
+        is_onboarded?: boolean;
+    }): Promise<any> {
+        return this.put('/schools/pilot-onboarding', payload);
+    }
+
+    // ============================================
+    // EMERGENCY BROADCAST
+    // ============================================
+
+    async sendEmergencyBroadcast(payload: {
+        title: string;
+        message: string;
+        urgency: 'high' | 'emergency';
+        targetAudience: string[];
+    }): Promise<any> {
+        return this.post('/emergency/broadcast', payload);
+    }
+
+    async getEmergencyHistory(limit = 20): Promise<any[]> {
+        return this.get(`/emergency/history?limit=${limit}`);
+    }
+
+    // ============================================
+    // BACKUP & RESTORE
+    // ============================================
+    async getBackups(): Promise<any[]> {
+        const result = await this.get<any>('/infrastructure/backups');
+        return result.data || result || [];
+    }
+
+    async createBackup(): Promise<any> {
+        return this.post('/infrastructure/backups', {});
+    }
+
+    async restoreBackup(id: string): Promise<any> {
+        return this.post(`/infrastructure/backups/${id}/restore`, {});
+    }
+
+    async deleteBackup(id: string): Promise<any> {
+        return this.delete(`/infrastructure/backups/${id}`);
+    }
+
+    // ============================================
+    // SAVED REPORTS
+    // ============================================
+    async getSavedReports(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/reports/saved${query}`);
+    }
+
+    async createSavedReport(data: any, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.post(`/admin-hub/reports/saved${query}`, data);
+    }
+
+    async deleteSavedReport(id: string, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.delete(`/admin-hub/reports/saved/${id}${query}`);
+    }
+
+    // ============================================
+    // SESSIONS
+    // ============================================
+    async getSessions(): Promise<any[]> {
+        return this.get('/admin-hub/sessions');
+    }
+
+    async revokeSession(sessionId: string): Promise<any> {
+        return this.delete(`/admin-hub/sessions/${sessionId}`);
+    }
+
+    async revokeAllSessions(): Promise<any> {
+        return this.delete('/admin-hub/sessions/revoke/all');
+    }
+
+    // ============================================
+    // DATA PRIVACY (NDPR)
+    // ============================================
+    async getDataRequests(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/data-requests${query}`);
+    }
+
+    async createDataRequest(data: any, schoolId?: string, branchId?: string): Promise<any> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this.post(`/admin-hub/data-requests${query}`, data);
+    }
+
+    async updateDataRequestStatus(id: string, status: string): Promise<any> {
+        return this.patch(`/admin-hub/data-requests/${id}`, { status });
+    }
+
+    // ============================================
+    // INVOICES
+    // ============================================
+    async getInvoices(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this.get(`/admin-hub/invoices${query}`);
+    }
+
+    async createInvoice(data: any, schoolId?: string, branchId?: string): Promise<any> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this.post(`/admin-hub/invoices${query}`, data);
+    }
+
+    async updateInvoiceStatus(id: string, status: string): Promise<any> {
+        return this.patch(`/admin-hub/invoices/${id}`, { status });
+    }
+
+    // ============================================
+    // CONFIG & ANALYTICS
+    // ============================================
+    async getLateArrivalConfig(schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/config${query}`);
+    }
+
+    async updateLateArrivalConfig(data: any, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.patch(`/admin-hub/config${query}`, data);
+    }
+
+    async getEnrollmentTrends(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/analytics/enrollment-trends${query}`);
+    }
+
+    // ============================================
+    // PARENTAL CONSENT
+    // ============================================
+    async getConsents(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/consents${query}`);
+    }
+
+    async updateConsentStatus(id: string, status: string): Promise<any> {
+        return this.patch(`/admin-hub/consents/${id}`, { status });
+    }
+
+    // ============================================
+    // NOTIFICATION SETTINGS
+    // ============================================
+    async getNotificationSettings(): Promise<any> {
+        return this.get('/admin-hub/notifications/settings');
+    }
+
+    async updateNotificationSettings(data: any): Promise<any> {
+        return this.patch('/admin-hub/notifications/settings', data);
+    }
+
+    // ============================================
+    // KANBAN BOARD
+    // ============================================
+    async getKanbanBoard(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/kanban${query}`);
+    }
+
+    async createKanbanTask(data: any): Promise<any> {
+        return this.post('/admin-hub/kanban/tasks', data);
+    }
+
+    async moveKanbanTask(taskId: string, targetColumnId: string): Promise<any> {
+        return this.patch(`/admin-hub/kanban/tasks/${taskId}`, { targetColumnId });
+    }
+
+    async deleteKanbanTask(taskId: string): Promise<any> {
+        return this.delete(`/admin-hub/kanban/tasks/${taskId}`);
+    }
+
+    // ============================================
+    // HEALTH & SAFETY
+    // ============================================
+    async getHealthLogs(schoolId?: string, studentId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (studentId) queryParams.append('studentId', studentId);
+        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+        return this.get(`/admin-hub/health-logs${query}`);
+    }
+
+    async createHealthLog(data: any, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.post(`/admin-hub/health-logs${query}`, data);
+    }
+
+    async getEmergencyAlerts(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/safety/alerts${query}`);
+    }
+
+    async createEmergencyAlert(data: any, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.post(`/admin-hub/safety/alerts${query}`, data);
+    }
+
+    async getHealthIncidents(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/safety/incidents${query}`);
+    }
+
+    async createHealthIncident(data: any, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.post(`/admin-hub/safety/incidents${query}`, data);
+    }
+
+    async getEmergencyDrills(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/safety/drills${query}`);
+    }
+
+    async createEmergencyDrill(data: any, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.post(`/admin-hub/safety/drills${query}`, data);
+    }
+
+    async getSafeguardingPolicies(schoolId?: string): Promise<any[]> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.get(`/admin-hub/safety/policies${query}`);
+    }
+
+    async createSafeguardingPolicy(data: any, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.post(`/admin-hub/safety/policies${query}`, data);
+    }
+
+    async updateHealthLog(id: string, data: any): Promise<any> {
+        return this.patch(`/admin-hub/health-logs/${id}`, data);
+    }
+
+    async updateEmergencyAlert(id: string, data: any): Promise<any> {
+        return this.patch(`/admin-hub/safety/alerts/${id}`, data);
+    }
+
+    async updateHealthIncident(id: string, data: any): Promise<any> {
+        return this.patch(`/admin-hub/safety/incidents/${id}`, data);
+    }
+
+    async updateSafeguardingPolicy(id: string, data: any): Promise<any> {
+        return this.patch(`/admin-hub/safety/policies/${id}`, data);
+    }
+
+    // ============================================
+    // GOVERNANCE & COMPLIANCE
+    // ============================================
+    async getGovernanceStats(schoolId: string): Promise<any> {
+        return this.get(`/admin-hub/governance/stats?schoolId=${schoolId}`);
+    }
+
+    async getComplianceMetrics(schoolId: string): Promise<any> {
+        return this.get(`/admin-hub/governance/compliance-metrics?schoolId=${schoolId}`);
+    }
+
+    async getValidationAuditCount(schoolId: string): Promise<any> {
+        return this.get(`/admin-hub/governance/audit-count?schoolId=${schoolId}`);
+    }
+
+    get functions() {
         return {
-            supabase: isSupabaseConfigured,
-            backend: backendOk
+            invoke: async (functionName: string, options?: { body: any, headers?: any }): Promise<{ data: any; error: any }> => {
+                try {
+                    const data = await this.post(`/functions/${functionName}`, options?.body || {});
+                    return { data, error: null };
+                } catch (error: any) {
+                    return { data: null, error };
+                }
+            }
         };
     }
 
-    // ============================================
-    // COMMUNITY & WELLBEING
-    // ============================================
-
-    async getSurveys(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/community/surveys?schoolId=${schoolId}`);
-        }
-        const today = new Date().toISOString().split('T')[0];
-        const { data, error } = await supabase
-            .from('surveys')
-            .select('*')
-            .eq('school_id', schoolId)
-            .eq('is_active', true)
-            .lte('start_date', today)
-            .gte('end_date', today);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getSurveyQuestions(surveyId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/community/surveys/${surveyId}/questions`);
-        }
-        const { data, error } = await supabase
-            .from('survey_questions')
-            .select('*')
-            .eq('survey_id', surveyId)
-            .order('question_order', { ascending: true });
-        if (error) throw error;
-        return data || [];
-    }
-
-    async submitSurveyResponse(responses: any[], options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>('/community/surveys/responses', {
-                method: 'POST',
-                body: JSON.stringify(responses),
-            });
-        }
-        const { data, error } = await supabase
-            .from('survey_responses')
-            .insert(responses)
-            .select();
-        if (error) throw error;
-
-        // Optionally update response count on survey (should be done via trigger ideally)
-        return data;
-    }
-
-    async getMentalHealthResources(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/community/mental-health?schoolId=${schoolId}`);
-        }
-        const { data, error } = await supabase
-            .from('mental_health_resources')
-            .select('*')
-            .eq('school_id', schoolId)
-            .eq('is_active', true);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async getCrisisHelplines(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/community/helplines?schoolId=${schoolId}`);
-        }
-        const { data, error } = await supabase
-            .from('crisis_helplines')
-            .select('*')
-            .eq('school_id', schoolId)
-            .eq('is_active', true);
-        if (error) throw error;
-        return data || [];
-    }
-
-    async triggerPanicAlert(alertData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any>('/community/panic/activate', {
-                method: 'POST',
-                body: JSON.stringify(alertData),
-            });
-        }
-        // Insert into both emergency_alerts and panic_activations for backwards compatibility
-        const { data: alert, error: alertError } = await supabase
-            .from('emergency_alerts')
-            .insert([{
-                school_id: alertData.schoolId,
-                user_id: alertData.userId,
-                type: alertData.type,
-                location: alertData.location,
-                status: 'Active'
-            }])
-            .select()
-            .single();
-
-        if (alertError) throw alertError;
-
-        const { error: activationError } = await supabase
-            .from('panic_activations')
-            .insert([{
-                school_id: alertData.schoolId,
-                user_id: alertData.userId,
-                latitude: alertData.location?.lat,
-                longitude: alertData.location?.lng,
-                alert_type: alertData.type,
-                status: 'Active'
-            }]);
-
-        if (activationError) throw activationError;
-
-        return alert;
-    }
-
-    async getPhotos(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend ?? this.isDemoMode()) {
-            return this.fetch<any[]>(`/community/photos?schoolId=${schoolId}`);
-        }
-        const { data, error } = await supabase
-            .from('photos')
-            .select('*')
-            .eq('school_id', schoolId)
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
-    }
-
-    // ============================================
-    // MISSING API METHODS FOR TS COMPATIBILITY
-    // ============================================
-
-    async getAcademicAnalytics(...args: any[]): Promise<any> { return {}; }
-    async getSubjects(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-        // Always use backend for demo school to bypass RLS
-        if (options.useBackend || this.options.useBackend || this.isDemoMode() || isDemoSchool) {
-            try {
-                // [FIX] For Demo School, use a specialized RPC to bypass RLS/Auth issues when backend is skipped
-                if (isDemoSchool && !options.useBackend && !this.options.useBackend) {
-                    console.log('🛡️ [API] Demo School: Using get_demo_subjects RPC');
-                    const { data: demoSubjects, error: rpcError } = await supabase.rpc('get_demo_subjects', {
-                        p_school_id: schoolId,
-                        p_branch_id: (branchId && branchId !== 'all') ? branchId : null
-                    });
-                    
-                    if (!rpcError && demoSubjects) {
-                        return Array.isArray(demoSubjects) ? demoSubjects : [];
-                    }
-                    console.warn('🛡️ [API] get_demo_subjects RPC failed, trying fetch:', rpcError);
+    get auth() {
+        return {
+            signUp: async (data: any) => {
+                try {
+                    const res = await this.post('/auth/signup', data);
+                    return { data: res, error: null };
+                } catch (error: any) {
+                    return { data: null, error };
                 }
-
-                console.log(`🛡️ [API] Fetching subjects via Backend`);
-                let url = `/subjects?school_id=${schoolId}`;
-                if (branchId && branchId !== 'all') url += `&branch_id=${branchId}`;
-                
-                const data = await this.fetch<any[]>(url);
-                if (data && Array.isArray(data)) {
-                    console.log(`✅ [API] Backend returned ${data.length} subjects`);
-                    return data;
+            },
+            signInWithPassword: async (data: any) => {
+                try {
+                    const res = await this.login(data);
+                    return { data: res, error: null };
+                } catch (error: any) {
+                    return { data: null, error };
                 }
-            } catch (err) {
-                console.warn('[API] Subjects backend fetch failed, falling back to Supabase:', err);
+            },
+            signOut: async () => {
+                await this.logout();
+                return { error: null };
+            },
+            getUser: async () => {
+                try {
+                    const user = await this.getMe();
+                    return { data: { user }, error: null };
+                } catch (error: any) {
+                    return { data: { user: null }, error };
+                }
             }
-        }
-
-        let query = supabase.from('subjects').select('*');
-        if (schoolId) query = query.eq('school_id', schoolId);
-        if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
-
-        const { data, error } = await query.order('name');
-        if (error) {
-            console.error('❌ [API] Supabase Subjects query error:', error);
-            return [];
-        }
-        return data || [];
+        };
     }
 
-    async fetchSubjects(schoolId: string, branchId?: string, options: ApiOptions = {}): Promise<any[]> {
-        // Alias for getSubjects to maintain consistency with fetchClasses
-        return this.getSubjects(schoolId, branchId, options);
-    }
-    async createFee(...args: any[]): Promise<any> { return {}; }
-    async getCurriculumTopics(...args: any[]): Promise<any[]> { return []; }
-    async syncCurriculumData(...args: any[]): Promise<any> { return {}; }
-    async getExamBodies(...args: any[]): Promise<any[]> { return []; }
-    async createExamBody(...args: any[]): Promise<any> { return {}; }
-    async getExamRegistrations(...args: any[]): Promise<any[]> { return []; }
-    async createExamRegistrations(...args: any[]): Promise<any> { return {}; }
-    async getPaymentHistory(...args: any[]): Promise<any[]> { return []; }
-    async deleteFee(...args: any[]): Promise<any> { return {}; }
-    async deletePayment(...args: any[]): Promise<any> { return {}; }
-    async getFinancialAnalytics(...args: any[]): Promise<any> { return {}; }
-    async getBranches(schoolId: string, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any[]>(`/branches?schoolId=${schoolId}`);
+    async rpc(name: string, params: any = {}) {
+        try {
+            const data = await this.post(`/rpc/${name}`, params);
+            return { data, error: null };
+        } catch (error: any) {
+            return { data: null, error };
         }
-        const { data, error } = await supabase.from('branches').select('*').eq('school_id', schoolId).order('name');
-        if (error) throw error;
-        return data || [];
     }
 
-    async createBranch(schoolId: string, branchData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>('/branches', {
-                method: 'POST',
-                body: JSON.stringify({ ...branchData, school_id: schoolId }),
-            });
-        }
-        const { data, error } = await supabase.from('branches').insert([{ ...branchData, school_id: schoolId }]).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    // ============================================
+    // ANALYTICS
+    // ============================================
+    async getAcademicAnalytics(schoolId: string, branchId?: string, term?: string, classId?: string | number): Promise<any> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        if (term) queryParams.append('term', term);
+        if (classId) queryParams.append('classId', String(classId));
+        return this.get(`/academic/analytics?${queryParams.toString()}`);
     }
 
-    async updateBranch(id: string, branchData: any, options: ApiOptions = {}): Promise<any> {
-        if (options.useBackend ?? this.options.useBackend) {
-            return this.fetch<any>(`/branches/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify(branchData),
-            });
-        }
-        const { data, error } = await supabase.from('branches').update(branchData).eq('id', id).select().maybeSingle();
-        if (error) throw error;
-        return data;
+    async getSaaSAnalyticsOverview(): Promise<any> {
+        return this.get('/saas-analytics/overview');
     }
 
-    async deleteBranch(id: string, options: ApiOptions = {}): Promise<void> {
-        if (options.useBackend ?? this.options.useBackend) {
-            await this.fetch<void>(`/branches/${id}`, { method: 'DELETE' });
-            return;
-        }
-        const { error } = await supabase.from('branches').delete().eq('id', id);
-        if (error) throw error;
+    async getSaaSAnalyticsCharts(): Promise<any> {
+        return this.get('/saas-analytics/charts');
     }
 
-    async recordPayment(...args: any[]): Promise<any> { return {}; }
-    async removeStudentFromClass(...args: any[]): Promise<any> { return {}; }
-    async assignStudentToClass(...args: any[]): Promise<any> { return {}; }
-    async getTeacherAttendance(schoolId: string, filters: { date?: string; status?: string; teacher_id?: string } = {}, options: ApiOptions = {}): Promise<any[]> {
-        if (options.useBackend ?? this.options.useBackend) {
-            const queryParams = new URLSearchParams();
-            if (filters.date) queryParams.append('date', filters.date);
-            if (filters.status) queryParams.append('status', filters.status);
-            if (filters.teacher_id) queryParams.append('teacher_id', filters.teacher_id);
-            if (schoolId) queryParams.append('school_id', schoolId);
+    /**
+     * REST-backed Compatibility Shim for Supabase-style query builder
+     */
+    from(table: string) {
+        const endpoint = `/${table.replace(/_/g, '-')}`;
+        const queryParams = new URLSearchParams();
+        
+        const builder = {
+            select: (columns: string = '*') => {
+                if (columns !== '*') queryParams.append('columns', columns);
+                return builder;
+            },
+            eq: (column: string, value: any) => {
+                queryParams.append(column, String(value));
+                return builder;
+            },
+            ilike: (column: string, pattern: string) => {
+                queryParams.append(column, `ilike:${pattern}`);
+                return builder;
+            },
+            not: (column: string, op: string, value: any) => {
+                queryParams.append(column, `not:${op}:${value}`);
+                return builder;
+            },
+            or: (pattern: string) => {
+                queryParams.append('or', pattern);
+                return builder;
+            },
+            order: (column: string, { ascending = true } = {}) => {
+                queryParams.append('order', `${column}:${ascending ? 'asc' : 'desc'}`);
+                return builder;
+            },
+            limit: (count: number) => {
+                queryParams.append('limit', String(count));
+                return builder;
+            },
+            single: () => {
+                queryParams.append('single', 'true');
+                return builder;
+            },
+            maybeSingle: () => {
+                queryParams.append('single', 'true');
+                queryParams.append('maybe', 'true');
+                return builder;
+            },
+            
+            // Execution Methods
+            then: async (onfulfilled?: (value: { data: any; error: any }) => any) => {
+                try {
+                    const url = `${endpoint}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+                    const data = await this.get(url);
+                    const result = { data, error: null };
+                    return onfulfilled ? onfulfilled(result) : result;
+                } catch (error: any) {
+                    const result = { data: null, error };
+                    return onfulfilled ? onfulfilled(result) : result;
+                }
+            },
 
-            return this.fetch<any[]>(`/teachers/attendance?${queryParams.toString()}`);
-        }
+            // Mutations
+            insert: async (data: any) => {
+                try {
+                    const res = await this.post(endpoint, data);
+                    return { data: res, error: null };
+                } catch (error: any) {
+                    return { data: null, error };
+                }
+            },
+            update: async (data: any) => {
+                try {
+                    // Update usually requires filters in the chain. 
+                    // For simplicity, we assume .eq('id', ...) was called and extracted to queryParams
+                    const id = queryParams.get('id');
+                    const url = id ? `${endpoint}/${id}` : endpoint;
+                    const res = await this.put(url, data);
+                    return { data: res, error: null };
+                } catch (error: any) {
+                    return { data: null, error };
+                }
+            },
+            upsert: async (data: any) => {
+                try {
+                    const res = await this.post(`${endpoint}/upsert`, data);
+                    return { data: res, error: null };
+                } catch (error: any) {
+                    return { data: null, error };
+                }
+            },
+            delete: async () => {
+                try {
+                    const id = queryParams.get('id');
+                    const url = id ? `${endpoint}/${id}` : endpoint;
+                    const res = await this.delete(url);
+                    return { data: res, error: null };
+                } catch (error: any) {
+                    return { data: null, error };
+                }
+            }
+        };
 
-        let query = supabase.from('teacher_attendance').select(`
-            *,
-            teachers (
-                id,
-                name,
-                avatar_url,
-                email
-            )
-        `);
-
-        if (schoolId) query = query.eq('school_id', schoolId);
-        if (filters.date) query = query.eq('date', filters.date);
-        if (filters.status) query = query.eq('approval_status', filters.status);
-        if (filters.teacher_id) query = query.eq('teacher_id', filters.teacher_id);
-
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw error;
-        return data || [];
+        return builder as any;
     }
-    async resendVerification(...args: any[]): Promise<any> { return {}; }
-    async updateEmail(...args: any[]): Promise<any> { return {}; }
-    async getConversations(...args: any[]): Promise<any[]> { return []; }
-    async getPermissionSlips(...args: any[]): Promise<any[]> { return []; }
-    async updatePermissionSlipStatus(...args: any[]): Promise<any> { return {}; }
-    async getReportCardDetails(...args: any[]): Promise<any> { return {}; }
-    async getSchoolPolicies(...args: any[]): Promise<any[]> { return []; }
-    async getBusDetails(...args: any[]): Promise<any> { return {}; }
-    async getCalendarEvents(...args: any[]): Promise<any[]> { return []; }
-    async getCommunityResources(...args: any[]): Promise<any[]> { return []; }
-    async getDonationCampaigns(...args: any[]): Promise<any[]> { return []; }
-    async getTopDonors(...args: any[]): Promise<any[]> { return []; }
-    async processDonation(...args: any[]): Promise<any> { return {}; }
-    async patch(...args: any[]): Promise<any> { return {}; }
-    async getMemberships(...args: any[]): Promise<any[]> { return []; }
-    async switchSchool(...args: any[]): Promise<any> { return {}; }
-    async getQuizzes(...args: any[]): Promise<any[]> { return []; }
 }
 
-
-
-
-
-export const api = new HybridApiClient();
+// Export the client as both named and default exports for full compatibility
+export const api = new ExpressApiClient();
+export const HybridApiClient = ExpressApiClient;
 export default api;

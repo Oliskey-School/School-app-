@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, BellIcon } from '../../constants';
 
@@ -19,44 +19,31 @@ const MusicalNoteIcon = ({ className }: { className?: string }) => (
 );
 
 const SchoolInfoScreen: React.FC = () => {
+    const { currentSchool, refreshCurrentSchool } = useAuth();
     const [info, setInfo] = useState({
-        name: 'Excellence Academy',
-        anthem: '',
-        pledge: '',
-        logo_url: '',
-        hero_image_url: ''
+        name: currentSchool?.name || 'Excellence Academy',
+        anthem: (currentSchool as any)?.settings?.anthem || '',
+        pledge: (currentSchool as any)?.settings?.pledge || '',
+        logo_url: currentSchool?.logoUrl || '',
+        hero_image_url: (currentSchool as any)?.settings?.hero_image_url || ''
     });
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    const { currentSchool } = useAuth();
     const schoolId = currentSchool?.id;
 
     useEffect(() => {
-        if (schoolId) {
-            fetchSchoolInfo();
+        if (currentSchool) {
+            setInfo({
+                name: currentSchool.name,
+                anthem: (currentSchool as any).settings?.anthem || '',
+                pledge: (currentSchool as any).settings?.pledge || '',
+                logo_url: currentSchool.logoUrl || (currentSchool as any).logo_url || '',
+                hero_image_url: (currentSchool as any).settings?.hero_image_url || ''
+            });
         }
-    }, [schoolId]);
-
-    const fetchSchoolInfo = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('school_info')
-                .select('*')
-                .eq('school_id', schoolId)
-                .maybeSingle();
-
-            if (error) throw error;
-            if (data) {
-                setInfo(data);
-            }
-        } catch (err) {
-            console.error('Error fetching info:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [currentSchool]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -65,14 +52,18 @@ const SchoolInfoScreen: React.FC = () => {
         setStatusMessage(null);
 
         try {
-            const { error } = await supabase
-                .from('school_info')
-                .upsert({
-                    school_id: schoolId,
-                    ...info
-                }, { onConflict: 'school_id' });
+            await api.updateSchool(schoolId, {
+                name: info.name,
+                logo_url: info.logo_url,
+                settings: {
+                    ...((currentSchool as any).settings || {}),
+                    anthem: info.anthem,
+                    pledge: info.pledge,
+                    hero_image_url: info.hero_image_url
+                }
+            });
 
-            if (error) throw error;
+            await refreshCurrentSchool();
             setStatusMessage({ type: 'success', text: 'School information updated!' });
         } catch (err) {
             console.error('Error saving:', err);
@@ -208,3 +199,4 @@ const SchoolInfoScreen: React.FC = () => {
 };
 
 export default SchoolInfoScreen;
+

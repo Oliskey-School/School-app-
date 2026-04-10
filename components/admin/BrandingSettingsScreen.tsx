@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { SchoolLogoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 const BrandingSettingsScreen: React.FC = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, refreshCurrentSchool } = useAuth();
     const [logo, setLogo] = useState<string | null>(null);
+    const [logoFile, setLogoFile] = useState<File | null>(null);
     const [primaryColor, setPrimaryColor] = useState('#4f46e5');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -23,18 +24,23 @@ const BrandingSettingsScreen: React.FC = () => {
 
         setIsLoading(true);
         try {
-            const { error } = await supabase
-                .from('schools')
-                .update({
-                    logo_url: logo,
-                    settings: {
-                        ...((currentSchool as any).settings || {}),
-                        primaryColor: primaryColor
-                    }
-                })
-                .eq('id', currentSchool.id);
+            let finalLogoUrl = logo;
 
-            if (error) throw error;
+            // If a new file was uploaded, upload it first
+            if (logoFile) {
+                const uploadResult = await api.uploadAvatar(logoFile);
+                finalLogoUrl = uploadResult.url;
+            }
+
+            await api.updateSchool(currentSchool.id, {
+                logo_url: finalLogoUrl,
+                settings: {
+                    ...((currentSchool as any).settings || {}),
+                    primaryColor: primaryColor
+                }
+            });
+
+            await refreshCurrentSchool();
             toast.success('Branding settings saved successfully');
         } catch (error: any) {
             toast.error(`Failed to save: ${error.message}`);
@@ -45,7 +51,9 @@ const BrandingSettingsScreen: React.FC = () => {
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setLogo(URL.createObjectURL(e.target.files[0]));
+            const file = e.target.files[0];
+            setLogoFile(file);
+            setLogo(URL.createObjectURL(file));
         }
     };
 
@@ -83,3 +91,4 @@ const BrandingSettingsScreen: React.FC = () => {
     );
 };
 export default BrandingSettingsScreen;
+
