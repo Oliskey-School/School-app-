@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { MessageSquareIcon, PlusIcon, SearchIcon } from '../../constants';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface Thread {
     id: number;
@@ -21,11 +22,7 @@ const TeacherForum: React.FC = () => {
     const [selectedCategory, setSelectedCategory] = useState<number>(0);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             const data = await api.getForumData();
@@ -38,7 +35,13 @@ const TeacherForum: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    useAutoSync(['forum_threads', 'forum_categories'], fetchData);
 
     const filteredThreads = selectedCategory === 0
         ? threads

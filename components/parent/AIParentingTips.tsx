@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { api } from '../../lib/api';
 import ReactMarkdown from 'react-markdown';
@@ -23,96 +24,97 @@ const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }
     const [academicData, setAcademicData] = useState(student.academicPerformance || []);
     const [behaviorData, setBehaviorData] = useState(student.behaviorNotes || []);
 
-    useEffect(() => {
-        const generateTips = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                // Fetch missing data if necessary
-                let currentAcademic = academicData;
-                let currentBehavior = behaviorData;
+    const generateTips = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            // Fetch missing data if necessary
+            let currentAcademic = academicData;
+            let currentBehavior = behaviorData;
 
-                if (currentAcademic.length === 0 || currentBehavior.length === 0) {
-                    const [records, notes] = await Promise.all([
-                        api.getStudentAcademicRecords(student.id),
-                        api.getBehaviorNotes(student.id)
-                    ]);
-                    currentAcademic = records || [];
-                    currentBehavior = notes || [];
-                    setAcademicData(currentAcademic);
-                    setBehaviorData(currentBehavior);
-                }
-
-                const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
-
-                const academicSummary = currentAcademic
-                    ?.slice(-4) // get latest 4 records
-                    .map(p => `${p.subject}: ${p.score}%`)
-                    .join(', ');
-
-                const behaviorSummary = currentBehavior
-                    ?.map(n => `${n.type} note - ${n.title}: ${n.note}`)
-                    .join('; ');
-
-                const prompt = `
-                    Based on the following data for a student named ${student.name}, generate personalized parenting tips.
-                    The tips should be constructive, encouraging, and actionable for a parent.
-
-                    Student Data:
-                    - Academic Performance (Recent): ${academicSummary || 'No recent academic data.'}
-                    - Behavioral Notes: ${behaviorSummary || 'No behavioral notes.'}
-
-                    Provide tips in three categories: 'Strengths to Encourage', 'Areas for Support', and 'Conversation Starters'.
-                    Each category should have 2-3 brief, distinct tips as a list of strings.
-                `;
-
-                const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: prompt,
-                    config: {
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: Type.OBJECT,
-                            properties: {
-                                tips: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: {
-                                            category: { type: Type.STRING },
-                                            content: {
-                                                type: Type.ARRAY,
-                                                items: { type: Type.STRING }
-                                            }
-                                        },
-                                        required: ["category", "content"]
-                                    }
-                                }
-                            },
-                            required: ["tips"]
-                        }
-                    }
-                });
-
-                const jsonResponse = JSON.parse(response.text.trim());
-                if (jsonResponse.tips) {
-                    setTips(jsonResponse.tips);
-                } else {
-                    throw new Error("Invalid response format from AI.");
-                }
-
-            } catch (err) {
-                console.error("Error generating parenting tips:", err);
-                setError("Sorry, we couldn't generate tips at this moment. Please try again later.");
-                // Use toast for visibility if the user is still on the screen
-                // toast.error("Could not generate tips. Please try again.");
-            } finally {
-                setIsLoading(false);
+            if (currentAcademic.length === 0 || currentBehavior.length === 0) {
+                const [records, notes] = await Promise.all([
+                    api.getStudentAcademicRecords(student.id),
+                    api.getBehaviorNotes(student.id)
+                ]);
+                currentAcademic = records || [];
+                currentBehavior = notes || [];
+                setAcademicData(currentAcademic);
+                setBehaviorData(currentBehavior);
             }
-        };
 
+            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+
+            const academicSummary = currentAcademic
+                ?.slice(-4) // get latest 4 records
+                .map(p => `${p.subject}: ${p.score}%`)
+                .join(', ');
+
+            const behaviorSummary = currentBehavior
+                ?.map(n => `${n.type} note - ${n.title}: ${n.note}`)
+                .join('; ');
+
+            const prompt = `
+                Based on the following data for a student named ${student.name}, generate personalized parenting tips.
+                The tips should be constructive, encouraging, and actionable for a parent.
+
+                Student Data:
+                - Academic Performance (Recent): ${academicSummary || 'No recent academic data.'}
+                - Behavioral Notes: ${behaviorSummary || 'No behavioral notes.'}
+
+                Provide tips in three categories: 'Strengths to Encourage', 'Areas for Support', and 'Conversation Starters'.
+                Each category should have 2-3 brief, distinct tips as a list of strings.
+            `;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            tips: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        category: { type: Type.STRING },
+                                        content: {
+                                            type: Type.ARRAY,
+                                            items: { type: Type.STRING }
+                                        }
+                                    },
+                                    required: ["category", "content"]
+                                }
+                            }
+                        },
+                        required: ["tips"]
+                    }
+                }
+            });
+
+            const jsonResponse = JSON.parse(response.text.trim());
+            if (jsonResponse.tips) {
+                setTips(jsonResponse.tips);
+            } else {
+                throw new Error("Invalid response format from AI.");
+            }
+
+        } catch (err) {
+            console.error("Error generating parenting tips:", err);
+            setError("Sorry, we couldn't generate tips at this moment. Please try again later.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [student.id, academicData, behaviorData]);
+
+    // Real-time synchronization
+    useAutoSync(['academic_performance', 'behavior_notes'], generateTips);
+
+    useEffect(() => {
         generateTips();
-    }, [student]);
+    }, [generateTips]);
 
     const categoryIcons: { [key: string]: React.ReactNode } = {
         'Strengths to Encourage': <CheckCircleIcon className="h-6 w-6 text-green-500" />,

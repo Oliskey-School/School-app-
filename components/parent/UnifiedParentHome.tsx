@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     CheckCircle2, BookOpen, Wallet, Bell, BarChart3, 
@@ -33,29 +34,35 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
     const [loading, setLoading] = useState(true);
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
 
-    useEffect(() => {
-        const load = async () => {
-            if (!user || (!currentSchool && !schoolId) || students.length === 0) {
-                if (students.length === 0) setLoading(false);
-                return;
-            }
-            
-            setLoading(true);
-            try {
-                // Fetch data for ALL children to allow quick switching
-                const overviewPromises = students.map(s => 
-                    api.getChildOverview(s.id)
-                );
-                const results = await Promise.all(overviewPromises);
-                setChildren(results);
-            } catch (err) {
-                console.error("Error loading unified overview:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        load();
+    const load = useCallback(async () => {
+        if (!user || (!currentSchool && !schoolId) || students.length === 0) {
+            if (students.length === 0) setLoading(false);
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            // Fetch data for ALL children to allow quick switching
+            const overviewPromises = students.map(s => 
+                api.getChildOverview(s.id)
+            );
+            const results = await Promise.all(overviewPromises);
+            setChildren(results);
+        } catch (err) {
+            console.error("Error loading unified overview:", err);
+        } finally {
+            setLoading(false);
+        }
     }, [user, currentSchool, schoolId, students]);
+
+    // Real-time synchronization
+    // Note: We sync on 'students' because child overview depends on a variety of data (attendance, grades, etc)
+    // but the unified home specifically manages the "child context"
+    useAutoSync(['students', 'attendance', 'assignments', 'grades'], load);
+
+    useEffect(() => {
+        load();
+    }, [load]);
 
     if (loading) return <div>Loading portal...</div>;
     if (children.length === 0) return (

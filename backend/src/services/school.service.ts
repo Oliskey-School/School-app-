@@ -36,8 +36,8 @@ export class SchoolService {
             data: result.data
         };
 
-        if (result.data?.id) {
-            SocketService.emitToSchool(result.data.id, 'school:updated', { action: 'onboard' });
+        if (result.data?.schoolId) {
+            SocketService.emitToSchool(result.data.schoolId, 'school:updated', { action: 'onboard' });
         }
         return response;
     }

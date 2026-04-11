@@ -1,5 +1,6 @@
 
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { getCurriculum } from '../../curriculumData';
 import { CurriculumSubject, CurriculumSubjectCategory, Department } from '../../types';
 import { BookOpenIcon } from '../../constants';
@@ -34,36 +35,39 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
 
   const { currentSchool } = useAuth();
 
-  useEffect(() => {
-    const loadSubjects = async () => {
-      if (!currentSchool) return;
-      setLoading(true);
-      try {
-        // Try to find subjects in the DB matching this level
-        const { data, error } = await api
-          .from('subjects')
-          .select('*')
-          .eq('school_id', currentSchool.id)
-          .eq('grade_level_category', level)
-          .eq('is_active', true);
+  const loadSubjects = useCallback(async () => {
+    if (!currentSchool) return;
+    setLoading(true);
+    try {
+      // Try to find subjects in the DB matching this level
+      const { data, error } = await api
+        .from('subjects')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .eq('grade_level_category', level)
+        .eq('is_active', true);
 
-        if (data && data.length > 0) {
-          setDbSubjects(data.map((s: any) => ({
-            name: s.name,
-            category: (s.category as CurriculumSubjectCategory) || 'Core'
-          })));
-        } else {
-          setDbSubjects([]);
-        }
-      } catch (err) {
-        console.error('Error fetching curriculum subjects:', err);
-      } finally {
-        setLoading(false);
+      if (data && data.length > 0) {
+        setDbSubjects(data.map((s: any) => ({
+          name: s.name,
+          category: (s.category as CurriculumSubjectCategory) || 'Core'
+        })));
+      } else {
+        setDbSubjects([]);
       }
-    };
-
-    loadSubjects();
+    } catch (err) {
+      console.error('Error fetching curriculum subjects:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [level, currentSchool]);
+
+  // Real-time synchronization
+  useAutoSync(['subjects'], loadSubjects);
+
+  useEffect(() => {
+    loadSubjects();
+  }, [loadSubjects]);
 
   const subjects = useMemo(() => {
     if (dbSubjects.length > 0) return dbSubjects;

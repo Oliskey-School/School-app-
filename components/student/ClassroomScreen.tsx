@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { Student, Teacher, Notice } from '../../types';
 import { api } from '../../lib/api';
 import { SUBJECT_COLORS, BookOpenIcon, ClipboardListIcon, MegaphoneIcon, UsersIcon } from '../../constants';
@@ -19,44 +20,47 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
   const [announcements, setAnnouncements] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        // 1. Get student profile from current profile context
-        const currentStudent = profile as unknown as Student;
-        setStudent(currentStudent);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 1. Get student profile from current profile context
+      const currentStudent = profile as unknown as Student;
+      setStudent(currentStudent);
 
-        if (currentStudent && currentStudent.grade) {
-          // 2. Fetch Classmates using normalized api client
-          const peers = await api.getStudentsByClass(currentStudent.grade, currentStudent.section, currentStudent.schoolId);
-          setClassmates(peers.filter(p => p.id !== currentStudent.id));
+      if (currentStudent && currentStudent.grade) {
+        // 2. Fetch Classmates using normalized api client
+        const peers = await api.getStudentsByClass(currentStudent.grade, currentStudent.section, currentStudent.schoolId);
+        setClassmates(peers.filter(p => p.id !== currentStudent.id));
 
-          // 3. Fetch Notices using normalized api client
-          const allNotices = await api.getNotices(currentStudent.schoolId);
-          const classAnnouncements = allNotices.filter(
-            n => (n.audience.includes('all') || n.audience.includes('students')) &&
-              (!n.className || n.className === `Grade ${currentStudent.grade}${currentStudent.section}`)
-          ).slice(0, 2);
-          setAnnouncements(classAnnouncements);
-          
-          // 4. Fetch Teachers to find the one for this subject
-          const allTeachers = await api.getTeachers(currentStudent.schoolId);
-          const subjectTeacher = allTeachers.find(t => t.subjects?.includes(subjectName));
-          setTeacher(subjectTeacher || null);
-        }
-
-      } catch (err) {
-        console.error("Error loading classroom data:", err);
-      } finally {
-        setLoading(false);
+        // 3. Fetch Notices using normalized api client
+        const allNotices = await api.getNotices(currentStudent.schoolId);
+        const classAnnouncements = allNotices.filter(
+          n => (n.audience.includes('all') || n.audience.includes('students')) &&
+            (!n.className || n.className === `Grade ${currentStudent.grade}${currentStudent.section}`)
+        ).slice(0, 2);
+        setAnnouncements(classAnnouncements);
+        
+        // 4. Fetch Teachers to find the one for this subject
+        const allTeachers = await api.getTeachers(currentStudent.schoolId);
+        const subjectTeacher = allTeachers.find(t => t.subjects?.includes(subjectName));
+        setTeacher(subjectTeacher || null);
       }
-    };
 
+    } catch (err) {
+      console.error("Error loading classroom data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [profile, subjectName]);
+
+  // Real-time synchronization
+  useAutoSync(['notices', 'students'], loadData);
+
+  useEffect(() => {
     if (profile) {
       loadData();
     }
-  }, [profile, subjectName]);
+  }, [profile, loadData]);
 
   const colorClass = SUBJECT_COLORS[subjectName] || 'bg-gray-200 text-gray-800';
   const [bgColor, textColor] = colorClass.split(' ');

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import { DashboardType, Student, StudentAttendance, AttendanceStatus, StudentAssignment } from '../../types';
 import {
@@ -146,55 +146,53 @@ const ChildStatCard: React.FC<{ data: any, navigateTo: (view: string, title: str
 const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { student: Student; navigateTo: (view: string, title: string, props?: any) => void; schoolId?: string; currentBranchId?: string | null }) => {
     const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    
+    const fetchAcademics = useCallback(async () => {
+        try {
+            setLoading(true);
+            // 1. Fetch Assignments
+            const assignmentsData = await api.getAssignments(schoolId || '', {
+                classId: student.current_class_id || undefined
+            });
+
+            if (assignmentsData) {
+                const merged: StudentAssignment[] = (assignmentsData || []).map((a: any) => {
+                    const submission = a.AssignmentSubmission?.find((s: any) => s.student_id === student.id);
+                    return {
+                        id: a.id,
+                        title: a.title,
+                        description: a.description,
+                        className: a.class_name,
+                        subject: a.subject,
+                        dueDate: a.due_date,
+                        totalStudents: a.total_students || 0,
+                        submissionsCount: a.submissions_count || 0,
+                        submission: submission ? {
+                            id: submission.id,
+                            assignmentId: a.id,
+                            student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
+                            submittedAt: submission.submitted_at,
+                            isLate: false,
+                            status: submission.grade ? 'Graded' : 'Ungraded',
+                            grade: submission.grade
+                        } : undefined
+                    };
+                });
+                setAssignments(merged);
+            }
+        } catch (err) {
+            console.error("Error fetching academics:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [student, schoolId]);
+
+    // Real-time synchronization
+    useAutoSync(['assignments', 'assignment_submissions'], fetchAcademics);
 
     useEffect(() => {
-        const fetchAcademics = async () => {
-            try {
-                setLoading(true);
-                // 1. Fetch Assignments
-                const assignmentsData = await api.getAssignments(schoolId || '', {
-                    classId: student.current_class_id || undefined
-                });
-
-                if (assignmentsData) {
-                    const merged: StudentAssignment[] = (assignmentsData || []).map((a: any) => {
-                        const submission = a.AssignmentSubmission?.find((s: any) => s.student_id === student.id);
-                        return {
-                            id: a.id,
-                            title: a.title,
-                            description: a.description,
-                            className: a.class_name,
-                            subject: a.subject,
-                            dueDate: a.due_date,
-                            totalStudents: a.total_students || 0,
-                            submissionsCount: a.submissions_count || 0,
-                            submission: submission ? {
-                                id: submission.id,
-                                assignmentId: a.id,
-                                student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
-                                submittedAt: submission.submitted_at,
-                                isLate: false,
-                                status: submission.grade ? 'Graded' : 'Ungraded',
-                                grade: submission.grade
-                            } : undefined
-                        };
-                    });
-                    setAssignments(merged);
-                }
-            } catch (err) {
-                console.error("Error fetching academics:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchAcademics();
-    }, [student, schoolId, currentBranchId, refreshTrigger]);
-
-    useAutoSync(['assignments', 'assignment_submissions'], () => {
-        console.log('🔄 [AcademicsTab] Auto-sync triggered');
-        setRefreshTrigger(prev => prev + 1);
-    });
+    }, [fetchAcademics]);
 
     const academicRecords = student.academicPerformance || [];
 
@@ -304,32 +302,30 @@ const BehaviorTab = ({ student }: { student: Student }) => {
 const AttendanceTab = ({ student }: { student: Student }) => {
     const [attendance, setAttendance] = useState<StudentAttendance[]>([]);
     const [loading, setLoading] = useState(true);
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    
+    const fetchAttendance = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await api.getAttendanceByStudent(student.id);
+            if (data) setAttendance(data.map((a: any) => ({
+                id: a.id,
+                studentId: a.student_id,
+                date: a.date,
+                status: a.status
+            })));
+        } catch (err) {
+            console.error("Error fetching attendance:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [student.id]);
+
+    // Real-time synchronization
+    useAutoSync(['student_attendance'], fetchAttendance);
 
     useEffect(() => {
-        const fetchAttendance = async () => {
-            setLoading(true);
-            try {
-                const data = await api.getAttendanceByStudent(student.id);
-                if (data) setAttendance(data.map((a: any) => ({
-                    id: a.id,
-                    studentId: a.student_id,
-                    date: a.date,
-                    status: a.status
-                })));
-            } catch (err) {
-                console.error("Error fetching attendance:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchAttendance();
-    }, [student.id, refreshTrigger]);
-
-    useAutoSync(['student_attendance'], () => {
-        console.log('🔄 [AttendanceTab] Auto-sync triggered');
-        setRefreshTrigger(prev => prev + 1);
-    });
+    }, [fetchAttendance]);
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const attendanceMap = useMemo(() => {
@@ -460,71 +456,72 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     const forceUpdate = () => setVersion(v => v + 1);
 
     // 4. Consolidated Initial Data Load
-    useEffect(() => {
-        const initData = async () => {
-            if (!schoolId) return;
+    const initData = useCallback(async () => {
+        if (!schoolId) return;
 
-            // Start multiple parallel flows
-            const flows = [];
+        // Start multiple parallel flows
+        const flows = [];
 
-            // Flow A: Auth User Info (from AuthContext — no Supabase needed)
-            flows.push((async () => {
-                if (user?.id) {
-                    setCurrentUserId(user.id);
-                }
-            })());
+        // Flow A: Auth User Info (from AuthContext — no Supabase needed)
+        flows.push((async () => {
+            if (user?.id) {
+                setCurrentUserId(user.id);
+            }
+        })());
 
-            // Flow B: Parent Profile & Children
-            flows.push((async () => {
-                if (profileFetched) return;
-                
-                try {
-                    setLoadingProfile(true);
-                    const profile = await api.getMyParentProfile();
-                    if (profile) {
-                        setParentId(profile.id);
-                        setParentProfile({
-                            name: profile.name || profile.full_name || 'Parent',
-                            avatarUrl: profile.avatar_url || 'https://i.pravatar.cc/150?u=parent',
-                            schoolGeneratedId: profile.school_generated_id
-                        });
+        // Flow B: Parent Profile & Children
+        flows.push((async () => {
+            try {
+                setLoadingProfile(true);
+                const profile = await api.getMyParentProfile();
+                if (profile) {
+                    setParentId(profile.id);
+                    setParentProfile({
+                        name: profile.name || profile.full_name || 'Parent',
+                        avatarUrl: profile.avatar_url || 'https://i.pravatar.cc/150?u=parent',
+                        schoolGeneratedId: profile.school_generated_id
+                    });
 
-                        // Fetch children now that we have parentId
-                        const childrenData = await api.getMyChildren();
-                        if (childrenData) {
-                            setStudents(childrenData.map((s: any) => ({
-                                id: s.id,
-                                name: s.name || s.full_name || '',
-                                email: s.email || '',
-                                avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
-                                grade: s.grade,
-                                section: s.section,
-                                attendanceStatus: s.attendance_status || 'Present',
-                                birthday: s.birthday,
-                                schoolGeneratedId: s.school_generated_id,
-                                academicPerformance: (s.academic_performance || []).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
-                                behaviorNotes: (s.behavior_notes || []).map((b: any) => ({ id: b.id, date: b.date, type: b.category, title: b.category, note: b.note || '', by: b.reporter_name || 'Teacher' })),
-                                reportCards: (s.report_cards || []).filter((r: any) => r.status === 'Published').map((r: any) => ({ term: r.term, session: r.session, status: r.status }))
-                            } as any)));
-                        }
-                    } else {
-                        setProfileError(true);
+                    // Fetch children now that we have parentId
+                    const childrenData = await api.getMyChildren();
+                    if (childrenData) {
+                        setStudents(childrenData.map((s: any) => ({
+                            id: s.id,
+                            name: s.name || s.full_name || '',
+                            email: s.email || '',
+                            avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
+                            grade: s.grade,
+                            section: s.section,
+                            attendanceStatus: s.attendance_status || 'Present',
+                            birthday: s.birthday,
+                            schoolGeneratedId: s.school_generated_id,
+                            academicPerformance: (s.academic_performance || []).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
+                            behaviorNotes: (s.behavior_notes || []).map((b: any) => ({ id: b.id, date: b.date, type: b.category, title: b.category, note: b.note || '', by: b.reporter_name || 'Teacher' })),
+                            reportCards: (s.report_cards || []).filter((r: any) => r.status === 'Published').map((r: any) => ({ term: r.term, session: r.session, status: r.status }))
+                        } as any)));
                     }
-                } catch (err) {
-                    console.error("Error in Parent Portal data load:", err);
+                } else {
                     setProfileError(true);
-                } finally {
-                    setLoadingProfile(false);
-                    setLoadingStudents(false);
-                    setProfileFetched(true);
                 }
-            })());
+            } catch (err) {
+                console.error("Error in Parent Portal data load:", err);
+                // setProfileError(true); // Don't block entirely on transient errors
+            } finally {
+                setLoadingProfile(false);
+                setLoadingStudents(false);
+                setProfileFetched(true);
+            }
+        })());
 
-            await Promise.all(flows);
-        };
+        await Promise.all(flows);
+    }, [schoolId, user?.id]);
 
+    // Real-time synchronization for core parent data
+    useAutoSync(['parents', 'students', 'parent_student_links'], initData);
+
+    useEffect(() => {
         if (schoolId) initData();
-    }, [schoolId, user?.id, version]);
+    }, [schoolId, initData]);
 
     useEffect(() => { const currentView = viewStack[viewStack.length - 1]; setIsHomePage(currentView.view === 'dashboard' && !isSearchOpen); }, [viewStack, isSearchOpen, setIsHomePage]);
 

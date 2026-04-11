@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { SchoolLogoIcon, DocumentTextIcon } from '../../constants';
 import { Student, ReportCard, Rating } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -198,42 +199,45 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
     const [activeReport, setActiveReport] = useState<ReportCard | null>(null);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const fetchDetails = async () => {
-            if (!activeTerm || !student.id) return;
+    const fetchDetails = useCallback(async () => {
+        if (!activeTerm || !student.id) return;
 
-            // Find session from summary
-            const summary = publishedReportsSummary.find(r => r.term === activeTerm);
-            if (!summary) return;
+        // Find session from summary
+        const summary = publishedReportsSummary.find(r => r.term === activeTerm);
+        if (!summary) return;
 
-            setLoading(true);
-            try {
-                const details = await api.getReportCardDetails(student.id, activeTerm, summary.session);
-                if (details) {
-                    // Map database fields to interface if necessary
-                    const formattedReport: ReportCard = {
-                        ...details,
-                        academicRecords: details.academic_records || details.academicRecords || [],
-                        skills: details.skills || {},
-                        psychomotor: details.psychomotor || {},
-                        attendance: details.attendance || { total: 0, present: 0, absent: 0, late: 0 },
-                        teacherComment: details.teacher_comment || details.teacherComment || '',
-                        principalComment: details.principal_comment || details.principalComment || '',
-                        status: details.status,
-                        position: details.position,
-                        totalStudents: details.total_students || details.totalStudents
-                    };
-                    setActiveReport(formattedReport);
-                }
-            } catch (err) {
-                console.error("Error fetching report details:", err);
-            } finally {
-                setLoading(false);
+        setLoading(true);
+        try {
+            const details = await api.getReportCardDetails(student.id, activeTerm, summary.session);
+            if (details) {
+                // Map database fields to interface if necessary
+                const formattedReport: ReportCard = {
+                    ...details,
+                    academicRecords: details.academic_records || details.academicRecords || [],
+                    skills: details.skills || {},
+                    psychomotor: details.psychomotor || {},
+                    attendance: details.attendance || { total: 0, present: 0, absent: 0, late: 0 },
+                    teacherComment: details.teacher_comment || details.teacherComment || '',
+                    principalComment: details.principal_comment || details.principalComment || '',
+                    status: details.status,
+                    position: details.position,
+                    totalStudents: details.total_students || details.totalStudents
+                };
+                setActiveReport(formattedReport);
             }
-        };
-
-        fetchDetails();
+        } catch (err) {
+            console.error("Error fetching report details:", err);
+        } finally {
+            setLoading(false);
+        }
     }, [activeTerm, student.id, publishedReportsSummary]);
+
+    // Real-time synchronization
+    useAutoSync(['report_cards', 'academic_records'], fetchDetails);
+
+    useEffect(() => {
+        fetchDetails();
+    }, [fetchDetails]);
 
     const handlePrint = () => {
         window.print();

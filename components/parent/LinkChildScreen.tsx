@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { linkStudentToParent, unlinkStudentFromParent } from '../../services/studentService';
 import { ChevronLeftIcon, ShieldCheckIcon, TrashIcon } from '../../constants';
@@ -22,7 +23,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
     const [showUnlinkModal, setShowUnlinkModal] = useState(false);
     const [childToUnlink, setChildToUnlink] = useState<any>(null);
 
-    const loadLinkedChildren = async () => {
+    const loadLinkedChildren = useCallback(async () => {
         if (!userProfile?.id) return;
         setFetchingChildren(true);
         try {
@@ -49,11 +50,14 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
         } finally {
             setFetchingChildren(false);
         }
-    };
+    }, [userProfile?.id]);
+
+    // Real-time synchronization
+    useAutoSync(['student_parent_links', 'students'], loadLinkedChildren);
 
     useEffect(() => {
         loadLinkedChildren();
-    }, [userProfile?.id]);
+    }, [loadLinkedChildren]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,7 +68,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
 
         setLoading(true);
         try {
-            const result = await linkStudentToParent(studentCode.trim(), relationship);
+            const result = await linkStudentToParent(studentCode.trim(), relationship, userProfile?.id);
             if (result.success) {
                 toast.success(result.message);
                 setStudentCode('');
@@ -79,19 +83,19 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
         } finally {
             setLoading(false);
         }
-    };
+        };
 
-    const handleUnlinkClick = (child: any) => {
+        const handleUnlinkClick = (child: any) => {
         setChildToUnlink(child);
         setShowUnlinkModal(true);
-    };
+        };
 
-    const confirmUnlink = async () => {
-        if (!childToUnlink) return;
-        
+        const confirmUnlink = async () => {
+        if (!childToUnlink || !userProfile?.id) return;
+
         setLoading(true);
         try {
-            const result = await unlinkStudentFromParent(childToUnlink.id);
+            const result = await unlinkStudentFromParent(childToUnlink.id, userProfile.id);
             if (result.success) {
                 toast.success(result.message);
                 loadLinkedChildren();
@@ -107,8 +111,7 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
             setShowUnlinkModal(false);
             setChildToUnlink(null);
         }
-    };
-
+        };
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <div className="hidden md:flex p-4 bg-white shadow-sm items-center">

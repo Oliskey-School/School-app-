@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { ChevronRightIcon, ReportIcon } from '../../constants';
@@ -14,28 +15,32 @@ const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({
   const [children, setChildren] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchChildren = async () => {
-      try {
-        const data = await api.getMyChildren();
-        if (data) {
-          const mappedStudents = data.map((s: any) => ({
-            id: s.id,
-            name: s.name || s.full_name || 'Unknown Student',
-            avatarUrl: s.avatar_url,
-            grade: s.grade || s.class?.name || '',
-            section: s.section || ''
-          } as Student));
-          setChildren(mappedStudents);
-        }
-      } catch (err) {
-        console.error("Error fetching children for report:", err);
-      } finally {
-        setLoading(false);
+  const fetchChildren = useCallback(async () => {
+    try {
+      const data = await api.getMyChildren();
+      if (data) {
+        const mappedStudents = data.map((s: any) => ({
+          id: s.id,
+          name: s.name || s.full_name || 'Unknown Student',
+          avatarUrl: s.avatar_url,
+          grade: s.grade || s.class?.name || '',
+          section: s.section || ''
+        } as Student));
+        setChildren(mappedStudents);
       }
-    };
+    } catch (err) {
+      console.error("Error fetching children for report:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Real-time synchronization
+  useAutoSync(['student_parent_links', 'students'], fetchChildren);
+
+  useEffect(() => {
     fetchChildren();
-  }, [parentId]);
+  }, [fetchChildren]);
 
   if (loading) return <div className="p-8 text-center">Loading children...</div>;
 

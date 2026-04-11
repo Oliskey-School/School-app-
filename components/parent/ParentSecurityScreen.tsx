@@ -1,16 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ShieldCheckIcon, ChevronRightIcon, LoginIcon } from '../../constants';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { api } from '../../lib/api';
 
 interface ParentSecurityScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
 }
 
 const ParentSecurityScreen: React.FC<ParentSecurityScreenProps> = ({ navigateTo }) => {
+    const [loginHistory, setLoginHistory] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const loginHistory = [
-        { device: 'Chrome on Windows', location: 'Lagos, NG', time: '2 hours ago', isCurrent: true },
-        { device: 'App on Android', location: 'Lagos, NG', time: '1 day ago', isCurrent: false },
-    ];
+    const loadHistory = useCallback(async () => {
+        const data = await api.getLoginHistory();
+        setLoginHistory(data);
+        setLoading(false);
+    }, []);
+
+    // Real-time synchronization
+    useAutoSync(['login_history'], loadHistory);
+
+    useEffect(() => {
+        loadHistory();
+    }, [loadHistory]);
+
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading security details...</div>;
 
     return (
         <div className="p-4 space-y-5 bg-gray-50">
@@ -32,7 +46,7 @@ const ParentSecurityScreen: React.FC<ParentSecurityScreenProps> = ({ navigateTo 
             <div className="bg-white p-4 rounded-xl shadow-sm">
                 <h3 className="font-bold text-gray-800 mb-3">Login History</h3>
                 <ul className="space-y-3">
-                    {loginHistory.map((item, index) => (
+                    {loginHistory.length > 0 ? loginHistory.map((item, index) => (
                         <li key={index} className="flex items-center space-x-4">
                             <LoginIcon className="text-gray-400 h-6 w-6" />
                             <div className="flex-grow">
@@ -41,7 +55,11 @@ const ParentSecurityScreen: React.FC<ParentSecurityScreenProps> = ({ navigateTo 
                             </div>
                             {item.isCurrent && <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">Active</span>}
                         </li>
-                    ))}
+                    )) : (
+                        <li className="text-center py-4 text-gray-500 text-sm italic">
+                            No recent login history found.
+                        </li>
+                    )}
                 </ul>
             </div>
         </div>

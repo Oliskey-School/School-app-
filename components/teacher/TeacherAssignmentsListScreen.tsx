@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Assignment } from '../../types';
 import { ChevronRightIcon, PlusIcon, CheckCircleIcon, ClipboardListIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -18,9 +18,8 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
 
     const [rawAssignments, setRawAssignments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [version, setVersion] = useState(0);
 
-    const fetchAssignments = async () => {
+    const fetchAssignments = useCallback(async () => {
         if (!teacherId) return;
         setLoading(true);
         try {
@@ -35,15 +34,13 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
         } finally {
             setLoading(false);
         }
-    };
+    }, [teacherId, branchId]);
 
     useEffect(() => {
         fetchAssignments();
-    }, [teacherId, branchId, version]);
+    }, [fetchAssignments]);
 
-    useAutoSync(['assignments'], () => {
-        setVersion(v => v + 1);
-    });
+    useAutoSync(['assignments'], fetchAssignments);
 
     // Map raw data to TypeScript interface
     const assignments: Assignment[] = useMemo(() => {

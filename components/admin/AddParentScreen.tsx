@@ -55,29 +55,13 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 setEmergencyContact(parentToEdit.emergency_contact || ''); // ✅ NEW
 
                 try {
-                    const { data: links } = await api
-                        .from('student_parent_links')
-                        .select('student_user_id')
-                        .eq('parent_user_id', parentToEdit.user_id);
+                    const students = await api.getChildrenForParent(parentToEdit.id);
 
-                    if (links && links.length > 0) {
-                        // Fetch the readable IDs for these students
-                        const studentUserIds = links.map(l => l.student_user_id);
-                        const { data: students } = await api
-                            .from('students')
-                            .select('school_generated_id, admission_number')
-                            .in('user_id', studentUserIds);
-
-                        if (students && students.length > 0) {
-                            // Prefer school_generated_id, fallback to admission_number
-                            const readableIds = students.map(s => s.school_generated_id || s.admission_number).filter(Boolean);
-                            setChildIds(readableIds.join(', '));
-                        } else {
-                            // Fallback to UUIDs if lookup fails (shouldn't happen)
-                            setChildIds(studentUserIds.join(', '));
-                        }
+                    if (students && students.length > 0) {
+                        // Prefer school_generated_id, fallback to admission_number
+                        const readableIds = students.map(s => s.school_generated_id || s.admission_number).filter(Boolean);
+                        setChildIds(readableIds.join(', '));
                     } else {
-                        // Fallback to prop if DB fetch empty (or just empty)
                         setChildIds((parentToEdit.childIds || []).join(', '));
                     }
                 } catch (err) {

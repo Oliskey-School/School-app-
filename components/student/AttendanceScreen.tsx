@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { StudentAttendance, AttendanceStatus } from '../../types';
 import { api } from '../../lib/api';
 import { ChevronLeftIcon, ChevronRightIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
@@ -55,32 +56,35 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
     const [attendanceData, setAttendanceData] = useState<StudentAttendance[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchAttendance = async () => {
-            if (!currentSchool?.id) return;
-            setLoading(true);
-            try {
-                const data = await api.getMyAttendance();
+    const fetchAttendance = useCallback(async () => {
+        if (!currentSchool?.id) return;
+        setLoading(true);
+        try {
+            const data = await api.getMyAttendance();
 
-                if (data) {
-                    const formatted: StudentAttendance[] = data.map((d: any) => ({
-                        id: d.id,
-                        studentId: d.student_id,
-                        date: new Date(d.date).toISOString().split('T')[0],
-                        status: d.status as AttendanceStatus,
-                        remarks: d.remark
-                    }));
-                    setAttendanceData(formatted);
-                }
-            } catch (err) {
-                console.error('Error fetching attendance:', err);
-            } finally {
-                setLoading(false);
+            if (data) {
+                const formatted: StudentAttendance[] = data.map((d: any) => ({
+                    id: d.id,
+                    studentId: d.student_id,
+                    date: new Date(d.date).toISOString().split('T')[0],
+                    status: d.status as AttendanceStatus,
+                    remarks: d.remark
+                }));
+                setAttendanceData(formatted);
             }
-        };
-
-        fetchAttendance();
+        } catch (err) {
+            console.error('Error fetching attendance:', err);
+        } finally {
+            setLoading(false);
+        }
     }, [currentSchool?.id]);
+
+    // Real-time synchronization
+    useAutoSync(['attendance'], fetchAttendance);
+
+    useEffect(() => {
+        fetchAttendance();
+    }, [fetchAttendance]);
 
     const studentData = useMemo(() => attendanceData, [attendanceData]);
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
@@ -29,13 +30,7 @@ const VolunteerSignup: React.FC = () => {
     const [totalHours, setTotalHours] = useState(0);
     const [badges, setBadges] = useState<any[]>([]);
 
-    useEffect(() => {
-        fetchOpportunities();
-        fetchMySignups();
-        fetchVolunteerStats();
-    }, []);
-
-    const fetchOpportunities = async () => {
+    const fetchOpportunities = useCallback(async () => {
         try {
             const data = await api.getVolunteeringOpportunities();
             // Filter for open and upcoming only
@@ -49,18 +44,18 @@ const VolunteerSignup: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchMySignups = async () => {
+    const fetchMySignups = useCallback(async () => {
         try {
             const data = await api.getMyVolunteerSignups();
             setMySignups(data || []);
         } catch (error: any) {
             console.error('Error fetching signups:', error);
         }
-    };
+    }, []);
 
-    const fetchVolunteerStats = async () => {
+    const fetchVolunteerStats = useCallback(async () => {
         try {
             // Use signup count as a proxy for hours/badges since those tables don't exist yet
             setTotalHours(0);
@@ -68,7 +63,20 @@ const VolunteerSignup: React.FC = () => {
         } catch (error: any) {
             console.error('Error fetching stats:', error);
         }
-    };
+    }, []);
+
+    const loadAll = useCallback(() => {
+        fetchOpportunities();
+        fetchMySignups();
+        fetchVolunteerStats();
+    }, [fetchOpportunities, fetchMySignups, fetchVolunteerStats]);
+
+    // Real-time synchronization
+    useAutoSync(['volunteering_opportunities', 'volunteers'], loadAll);
+
+    useEffect(() => {
+        loadAll();
+    }, [loadAll]);
 
     const handleSignup = async (opportunityId: number) => {
         try {

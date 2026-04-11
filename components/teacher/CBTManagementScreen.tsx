@@ -7,6 +7,8 @@ import { CBTExam, Subject } from '../../types';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useProfile } from '../../context/ProfileContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { useCallback } from 'react';
 
 
 interface CBTManagementScreenProps {
@@ -72,6 +74,19 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const loadInitialData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const backendExams = await api.getCBTExams(activeTeacherId || undefined);
+            setExams(backendExams);
+        } catch (err: any) {
+            console.error("Error loading data:", err);
+            setErrorMsg(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [activeTeacherId]);
+
     useEffect(() => {
         loadInitialData();
 
@@ -84,22 +99,9 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, []);
+    }, [loadInitialData]);
 
-    const loadInitialData = async () => {
-        setLoading(true);
-        try {
-            // 1. Fetch Exams using backend API
-            const backendExams = await api.getCBTExams(activeTeacherId || undefined);
-            setExams(backendExams);
-
-        } catch (err: any) {
-            console.error("Error loading data:", err);
-            setErrorMsg(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    useAutoSync(['quizzes', 'questions'], loadInitialData);
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];

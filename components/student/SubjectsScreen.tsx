@@ -1,5 +1,6 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { Student, Teacher } from '../../types';
 import { fetchClassSubjects } from '../../lib/database';
 import { SUBJECT_COLORS, BookOpenIcon, ChevronRightIcon, ChevronLeftIcon, GlobeIcon, ClockIcon } from '../../constants';
@@ -92,43 +93,46 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
   const [topics, setTopics] = useState<any[]>([]);
   const [isLoadingTopics, setIsLoadingTopics] = useState(false);
 
-  useEffect(() => {
-    const loadSubjects = async () => {
-      if (!student) return;
+  const loadSubjects = useCallback(async () => {
+    if (!student) return;
 
-      const cacheKey = `subjects_${student.id}`;
+    const cacheKey = `subjects_${student.id}`;
 
-      // 1. Cache First
-      const cachedSubjects = await offlineStorage.load<any[]>(cacheKey);
-      if (cachedSubjects && cachedSubjects.length > 0) {
-        setSubjects(cachedSubjects);
-        setLoading(false);
+    // 1. Cache First
+    const cachedSubjects = await offlineStorage.load<any[]>(cacheKey);
+    if (cachedSubjects && cachedSubjects.length > 0) {
+      setSubjects(cachedSubjects);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const fetchedSubjects = await api.getMySubjects();
+      
+      if (fetchedSubjects && fetchedSubjects.length > 0) {
+        setSubjects(fetchedSubjects);
+        await offlineStorage.save(cacheKey, fetchedSubjects);
       } else {
-        setLoading(true);
+        setSubjects([]);
       }
-
-      try {
-        const fetchedSubjects = await api.getMySubjects();
-        
-        if (fetchedSubjects && fetchedSubjects.length > 0) {
-          setSubjects(fetchedSubjects);
-          await offlineStorage.save(cacheKey, fetchedSubjects);
-        } else {
-          setSubjects([]);
-        }
-      } catch (error) {
-        console.error('Error loading subjects:', error);
-        if (!cachedSubjects) {
-          const defaultNames = getDefaultSubjectsForGrade(student.grade, student.department);
-          setSubjects(defaultNames.map(name => ({ id: name, name: name })));
-        }
-      } finally {
-        setLoading(false);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+      if (!cachedSubjects) {
+        const defaultNames = getDefaultSubjectsForGrade(student.grade, student.department);
+        setSubjects(defaultNames.map(name => ({ id: name, name: name })));
       }
-    };
-
-    loadSubjects();
+    } finally {
+      setLoading(false);
+    }
   }, [student]);
+
+  // Real-time synchronization
+  useAutoSync(['subjects', 'curriculum'], loadSubjects);
+
+  useEffect(() => {
+    loadSubjects();
+  }, [loadSubjects]);
 
   const loadTopics = async (subjectId: string, term: number) => {
     setIsLoadingTopics(true);

@@ -48,9 +48,11 @@ router.get('/me/dashboard', authenticate, getMyDashboardOverview);
 router.get('/me/attendance', authenticate, getMyAttendance);
 router.get('/me/subjects', authenticate, getMySubjects);
 router.get('/me/activities', authenticate, getMyActivities);
+router.get('/me/extracurriculars', authenticate, getMyActivities);
 
 router.get('/:id/performance', authenticate, getStudentPerformance);
 router.get('/:id/academic-performance', authenticate, getStudentPerformance);
+router.get('/:id/academic-records', authenticate, getStudentPerformance);
 router.get('/:id/behavior-notes', authenticate, getStudentBehaviorNotes);
 
 router.post('/enroll', authenticate, requirePlanCapacity('student'), enforceTenant(studentSchema), enrollStudent);

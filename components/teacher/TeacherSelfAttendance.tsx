@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, CalendarIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface TeacherAttendance {
     id: string;
@@ -61,10 +62,8 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
         loadAttendanceData();
     }, [user?.id]);
 
-    useEffect(() => {
-        loadAttendanceData();
-    }, [user?.id]);
-
+    // Real-time synchronization
+    useAutoSync(['staff_attendance'], loadAttendanceData);
 
     const handleCheckIn = async () => {
         setSubmitting(true);
@@ -73,12 +72,7 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
             console.log('✅ [SelfAttendance] Check-in result:', result);
             toast.success("Attendance marked successfully!");
             
-            // Critical: Manually trigger a slight delay before refresh to allow DB consistency
-            // or just refresh immediately if the result contains the data
-            await loadAttendanceData(); 
-            
-            // Dispatch global event for other components (like history screen)
-            window.dispatchEvent(new CustomEvent('realtime-update', { detail: { table: 'teacher_attendance' } }));
+            // No need for manual reload or dispatch; useAutoSync handles it
         } catch (error: any) {
             console.error('Check-in error:', error);
             toast.error(error.message || "Failed to mark attendance");

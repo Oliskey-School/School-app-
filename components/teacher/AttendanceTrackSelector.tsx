@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -6,6 +6,7 @@ import { useToast } from '../../hooks/use-toast';
 import { api } from '../../lib/api';
 import { BookOpen, AlertCircle, Save, CheckCircle } from 'lucide-react';
 import { useProfile } from '../../context/ProfileContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 
 interface AttendanceTrackSelectorProps {
@@ -27,11 +28,7 @@ export default function AttendanceTrackSelector({
     const { toast } = useToast();
     const { profile } = useProfile();
 
-    useEffect(() => {
-        fetchStudents();
-    }, [classId, selectedCurriculum]);
-
-    const fetchStudents = async () => {
+    const fetchStudents = useCallback(async () => {
         setLoading(true);
         try {
             // Get all curricula from API
@@ -104,7 +101,13 @@ export default function AttendanceTrackSelector({
         } finally {
             setLoading(false);
         }
-    };
+    }, [classId, selectedCurriculum, profile.schoolId, profile.branchId]);
+
+    useEffect(() => {
+        fetchStudents();
+    }, [fetchStudents]);
+
+    useAutoSync(['enrollments', 'academic_tracks', 'students'], fetchStudents);
 
     const handleCurriculumSwitch = (curriculum: 'Nigerian' | 'British') => {
         if (Object.keys(attendance).some(key => attendance[key] !== 'Present')) {

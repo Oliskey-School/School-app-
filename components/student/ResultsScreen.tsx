@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student, ReportCard, Rating } from '../../types';
 import { BookOpenIcon, CheckCircleIcon, ClipboardListIcon, SchoolLogoIcon, SUBJECT_COLORS } from '../../constants';
@@ -179,50 +180,53 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
     const [isDownloading, setIsDownloading] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
 
+    const fetchData = useCallback(async () => {
+        if (!studentId || !currentSchool?.id) return;
+
+        try {
+            // Using Unified API for student records
+            const [grades, reports] = await Promise.all([
+                api.getMyPerformance(),
+                api.getMyReportCards()
+            ]);
+
+            if (grades) {
+                setPerformanceData(grades);
+                const terms = Array.from(new Set(grades.map((d: any) => d.term)));
+                if (terms.length > 0 && !activeTerm) {
+                    setActiveTerm(terms[terms.length - 1] as string);
+                } else if (terms.length === 0) {
+                    setActiveTerm('First Term');
+                }
+            }
+
+            if (reports) {
+                setReportCards(reports);
+            }
+        } catch (err) {
+            console.error('Error fetching results via Unified API:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [studentId, currentSchool?.id, activeTerm]);
+
+    const fetchQuizResults = useCallback(async () => {
+        try {
+            const data = await api.getMyQuizResults();
+            setQuizResults(data);
+        } catch (err) {
+            console.error("Error fetching quiz results:", err);
+        }
+    }, []);
+
+    // Real-time synchronization
+    useAutoSync(['grades', 'report_cards'], fetchData);
+    useAutoSync(['quiz_submissions'], fetchQuizResults);
+
     useEffect(() => {
-        const fetchData = async () => {
-            if (!studentId) return;
-
-            try {
-                if (!currentSchool?.id) return;
-                // Using Unified API for student records
-                const [grades, reports] = await Promise.all([
-                    api.getMyPerformance(),
-                    api.getMyReportCards()
-                ]);
-
-                if (grades) {
-                    setPerformanceData(grades);
-                    const terms = Array.from(new Set(grades.map((d: any) => d.term)));
-                    if (terms.length > 0 && !activeTerm) {
-                        setActiveTerm(terms[terms.length - 1] as string);
-                    } else if (terms.length === 0) {
-                        setActiveTerm('First Term');
-                    }
-                }
-
-                if (reports) {
-                    setReportCards(reports);
-                }
-            } catch (err) {
-                console.error('Error fetching results via Unified API:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        const fetchQuizResults = async () => {
-            try {
-                const data = await api.getMyQuizResults();
-                setQuizResults(data);
-            } catch (err) {
-                console.error("Error fetching quiz results:", err);
-            }
-        };
-
         fetchData();
         fetchQuizResults();
-    }, [studentId, currentSchool?.id]);
+    }, [fetchData, fetchQuizResults]);
 
     const termGrades = useMemo(() => {
         return performanceData.filter(d => d.term === activeTerm);
@@ -358,7 +362,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                             report={formattedReportCard}
                             student={student}
                             schoolName={currentSchool?.name}
-                            logoUrl={currentSchool?.logo_url}
+                            logoUrl={currentSchool?.logoUrl}
                             motto={currentSchool?.motto}
                         />
                     </div>

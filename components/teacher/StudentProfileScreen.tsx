@@ -56,6 +56,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                 title: newNoteTitle,
                 note: newNote,
                 type: newNoteType,
+                category: 'General', // Added missing category
                 date: new Date().toISOString().split('T')[0],
                 teacherName: user?.user_metadata?.full_name || 'Teacher',
             });

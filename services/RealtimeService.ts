@@ -28,6 +28,11 @@ class RealtimeService {
         if (!this.schoolId) return;
 
         try {
+            // Guard: Check if we have an auth token before polling
+            if (typeof window !== 'undefined' && !localStorage.getItem('auth_token')) {
+                return;
+            }
+
             // Check for new notifications via centralized API with school context
             const notifications = await api.getMyNotifications(this.schoolId);
             

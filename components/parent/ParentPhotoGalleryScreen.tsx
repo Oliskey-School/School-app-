@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { ChevronRightIcon, XCircleIcon, ChevronLeftIcon, PhotoIcon } from '../../constants';
 import { api } from '../../lib/api';
 import { Photo } from '../../types';
@@ -16,7 +17,7 @@ const ParentPhotoGalleryScreen: React.FC<ParentPhotoGalleryScreenProps> = ({ sch
         loadPhotos();
     }, [schoolId]);
 
-    const loadPhotos = async () => {
+    const loadPhotos = useCallback(async () => {
         if (!schoolId) {
             setLoading(false);
             return;
@@ -30,7 +31,14 @@ const ParentPhotoGalleryScreen: React.FC<ParentPhotoGalleryScreenProps> = ({ sch
         } finally {
             setLoading(false);
         }
-    };
+    }, [schoolId]);
+
+    // Real-time synchronization
+    useAutoSync(['photos'], loadPhotos);
+
+    useEffect(() => {
+        loadPhotos();
+    }, [loadPhotos]);
 
     const handleOpenPhoto = useCallback((index: number) => {
         setSelectedPhotoIndex(index);

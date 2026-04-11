@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { User, Mail, Phone, MapPin, Calendar, Award, TrendingUp, BookOpen, Download, FileText, Users, LogOut, Settings, Camera, ChevronRight, Bell, Shield, Book } from 'lucide-react'; // Using Lucide icons for consistency with Professional profile
 import { api } from '../../lib/api';
 import { Student } from '../../types';
@@ -16,25 +17,10 @@ export default function StudentProfileStandard({ studentId, student: initialStud
     const [student, setStudent] = useState<any>(initialStudent || null);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (!initialStudent && studentId) {
-            fetchStudentData();
-        } else if (initialStudent) {
-            // Ensure defaults
-            setStudent({
-                ...initialStudent,
-                attendance_rate: initialStudent.attendance || 95,
-                average_grade: initialStudent.performance || 88,
-                class_name: `Grade ${initialStudent.grade}${initialStudent.section}`,
-                admission_number: initialStudent.schoolGeneratedId || 'Pending Generation'
-            });
-        }
-    }, [studentId, initialStudent]);
-
-    const fetchStudentData = async () => {
+    const fetchStudentData = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await api.getStudentProfile(studentId.toString());
+            const data = await api.getStudentProfile((studentId || 'me').toString());
 
             if (data) {
                 setStudent({
@@ -57,7 +43,25 @@ export default function StudentProfileStandard({ studentId, student: initialStud
         } finally {
             setLoading(false);
         }
-    };
+    }, [studentId]);
+
+    // Real-time synchronization
+    useAutoSync(['students'], fetchStudentData);
+
+    useEffect(() => {
+        if (!initialStudent && studentId) {
+            fetchStudentData();
+        } else if (initialStudent) {
+            // Ensure defaults
+            setStudent({
+                ...initialStudent,
+                attendance_rate: initialStudent.attendance || 95,
+                average_grade: initialStudent.performance || 88,
+                class_name: `Grade ${initialStudent.grade}${initialStudent.section}`,
+                admission_number: initialStudent.schoolGeneratedId || 'Pending Generation'
+            });
+        }
+    }, [studentId, initialStudent, fetchStudentData]);
 
     if (loading && !student) {
         return (

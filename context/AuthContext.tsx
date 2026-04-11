@@ -22,6 +22,7 @@ interface AuthContextType {
     refreshUser: () => Promise<void>;
     refreshCurrentSchool: () => Promise<void>;
     isAuthenticated: boolean;
+    switchDashboardRole: (role: DashboardType) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -71,7 +72,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const userData = JSON.parse(cachedUser);
                 React.startTransition(() => {
                     setUser(userData);
-                    setRole(getDashboardTypeFromUserType(userData.role));
+                    
+                    // Priority: Session (tab-specific) > Default role
+                    const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
+                    if (savedRole) {
+                        setRole(savedRole);
+                    } else {
+                        setRole(getDashboardTypeFromUserType(userData.role));
+                    }
+
                     if (userData.school) {
                         setCurrentSchool(userData.school);
                         setCurrentBranchId(userData.branch_id || userData.school.branch_id);
@@ -109,8 +118,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 React.startTransition(() => {
                     setUser(userData);
-                    const dashboardRole = getDashboardTypeFromUserType(userData.role);
+                    
+                    // Priority: Session (tab-specific) > Default role
+                    const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
+                    const dashboardRole = savedRole || getDashboardTypeFromUserType(userData.role);
                     setRole(dashboardRole);
+                    if (savedRole) {
+                        sessionStorage.setItem('active_dashboard_role', savedRole);
+                    }
                     
                     if (userData.school) {
                         setCurrentSchool(userData.school);
@@ -203,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         React.startTransition(() => {
             setUser(userObj);
             setRole(dashboard);
+            sessionStorage.setItem('active_dashboard_role', dashboard);
             setIsDemo(isDemoAccount);
             
             if (isDemoAccount) {
@@ -218,7 +234,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (userData.school) {
                 setCurrentSchool(userData.school);
                 setCurrentBranchId(userData.branch_id || userData.school?.branch_id);
+                // Also update userObj with school info for caching
+                userObj.school = userData.school;
             }
+
+            // Cache the enriched user profile for instant reload
+            localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
 
             setSession({ access_token: userData.token, user: userObj });
             
@@ -240,6 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('is_demo_mode');
         sessionStorage.removeItem('school');
         sessionStorage.removeItem('demo_school_id');
+        sessionStorage.removeItem('active_dashboard_role');
 
         React.startTransition(() => {
             setUser(null);
@@ -368,6 +390,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         },
         isAuthenticated: !!user,
+        switchDashboardRole: (newRole: DashboardType) => {
+            React.startTransition(() => {
+                setRole(newRole);
+                sessionStorage.setItem('active_dashboard_role', newRole);
+            });
+        }
     }), [session, user, role, currentSchool, currentBranchId, loading, isDemo, memberships, initializeAuth]);
 
     return (

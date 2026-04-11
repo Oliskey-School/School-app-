@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { Student, AcademicRecord, BehaviorNote } from '../../types';
 import { fetchStudentById, fetchAcademicPerformance, fetchBehaviorNotes } from '../../lib/database';
 import { BookOpenIcon, ClipboardListIcon, TrendingUpIcon, SUBJECT_COLORS } from '../../constants';
@@ -66,26 +67,30 @@ const AcademicReportScreen: React.FC<AcademicReportScreenProps> = ({ studentId }
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            try {
-                const [s, p, b] = await Promise.all([
-                    fetchStudentById(studentId),
-                    fetchAcademicPerformance(studentId),
-                    (fetchBehaviorNotes as any)(studentId)
-                ]);
-                setStudent(s);
-                setPerformance(p);
-                setBehaviorNotes(b);
-            } catch (err) {
-                console.error("Error loading academic report:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadData();
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [s, p, b] = await Promise.all([
+                fetchStudentById(studentId),
+                fetchAcademicPerformance(studentId),
+                (fetchBehaviorNotes as any)(studentId)
+            ]);
+            setStudent(s);
+            setPerformance(p);
+            setBehaviorNotes(b);
+        } catch (err) {
+            console.error("Error loading academic report:", err);
+        } finally {
+            setLoading(false);
+        }
     }, [studentId]);
+
+    // Real-time synchronization
+    useAutoSync(['students', 'grades', 'behavior_notes'], loadData);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const performanceByTerm = useMemo(() => {
         if (!performance || performance.length === 0) return [];

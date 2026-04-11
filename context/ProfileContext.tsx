@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useAutoSync } from '../hooks/useAutoSync';
 import { useAuth } from './AuthContext';
 
 /**
@@ -72,14 +73,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsLoading(false);
     }, [authUser, authLoading]);
 
-    const refreshProfile = async () => {
+    const refreshProfile = useCallback(async () => {
         setIsLoading(true);
         try {
             await refreshUser();
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [refreshUser]);
+
+    // Real-time synchronization for profile data
+    useAutoSync(['users'], refreshProfile);
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
         if (!profile?.id) return { error: 'No profile loaded' };

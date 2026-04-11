@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { Fee } from '../../types';
 import { FeeCard } from '../payments/FeeCard';
@@ -36,35 +36,36 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
     const [feesWithPlans, setFeesWithPlans] = useState<Set<string>>(new Set());
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    useEffect(() => {
-        const init = async () => {
-            // 1. Get Parent Profile
-            if (parentId && schoolId) {
-                try {
-                    const parentProfile = await api.getParentById(parentId);
-                    if (parentProfile) {
-                        setParentName(parentProfile.name || 'Parent');
-                        setParentPhone(parentProfile.phone || '0000000000');
-                        setUserEmail(parentProfile.email || '');
-                    }
-
-                    // 2. Fetch Children using Hybrid API
-                    const kidsData = await api.getMyChildren();
-                    if (kidsData && kidsData.length > 0) {
-                        setStudents(kidsData);
-                        setSelectedStudent(kidsData[0]);
-                    } else {
-                        toast('No children found linked to your account.');
-                    }
-                } catch (error) {
-                    console.error("Error initializing FeeStatusScreen:", error);
-                    toast.error("Failed to load profile data.");
+    const init = useCallback(async () => {
+        // 1. Get Parent Profile
+        if (parentId && schoolId) {
+            try {
+                const parentProfile = await api.getParentById(parentId);
+                if (parentProfile) {
+                    setParentName(parentProfile.name || 'Parent');
+                    setParentPhone(parentProfile.phone || '0000000000');
+                    setUserEmail(parentProfile.email || '');
                 }
+
+                // 2. Fetch Children using Hybrid API
+                const kidsData = await api.getMyChildren();
+                if (kidsData && kidsData.length > 0) {
+                    setStudents(kidsData);
+                    if (!selectedStudent) setSelectedStudent(kidsData[0]);
+                } else {
+                    toast('No children found linked to your account.');
+                }
+            } catch (error) {
+                console.error("Error initializing FeeStatusScreen:", error);
+                toast.error("Failed to load profile data.");
             }
-            setLoading(false);
-        };
+        }
+        setLoading(false);
+    }, [parentId, schoolId, selectedStudent]);
+
+    useEffect(() => {
         init();
-    }, [parentId, currentUserId, schoolId]);
+    }, [init]);
 
     useEffect(() => {
         if (selectedStudent) {
@@ -74,11 +75,10 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
 
     // Auto-sync
     useAutoSync(['student_fees', 'payments', 'student_fee_installments'], () => {
-        console.log('🔄 [FeeStatusScreen] Auto-sync triggered');
-        setRefreshTrigger(prev => prev + 1);
+        if (selectedStudent) loadFees(selectedStudent.id);
     });
 
-    const loadFees = async (studentId: string) => {
+    const loadFees = useCallback(async (studentId: string) => {
         setLoading(true);
         try {
             const rawFees = await api.getStudentFees(studentId);
@@ -111,7 +111,13 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (selectedStudent) {
+            loadFees(selectedStudent.id);
+        }
+    }, [selectedStudent, loadFees]);
 
     const handleDownloadReceipt = async (fee: Fee) => {
         try {

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar as CalendarIcon, MapPin, Check, X, HelpCircle, Download } from 'lucide-react';
 import { CalendarService, SchoolEvent } from '../../lib/calendar-service';
@@ -16,15 +17,19 @@ export const SmartCalendar: React.FC = () => {
     const [events, setEvents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (currentSchool) loadEvents();
-    }, [currentSchool]);
-
-    const loadEvents = async () => {
+    const loadEvents = useCallback(async () => {
+        if (!currentSchool?.id) return;
         const data = await CalendarService.getEvents(currentSchool.id);
         setEvents(data);
         setLoading(false);
-    };
+    }, [currentSchool?.id]);
+
+    // Real-time synchronization
+    useAutoSync(['events', 'rsvps'], loadEvents);
+
+    useEffect(() => {
+        if (currentSchool) loadEvents();
+    }, [currentSchool, loadEvents]);
 
     const handleRSVP = async (eventId: string, status: 'yes' | 'no' | 'maybe') => {
         if (!user) return;

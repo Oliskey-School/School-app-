@@ -29,30 +29,83 @@ export class ParentService {
         }));
     }
 
-    static async linkChild(schoolId: string, branchId: string | undefined, parentId: string, studentId: string) {
+    static async linkChild(schoolId: string, branchId: string | undefined, parentId: string, studentIdOrCode: string) {
+        // 1. Resolve Parent ID (could be Parent.id or User.id)
+        const parent = await prisma.parent.findFirst({
+            where: {
+                OR: [
+                    { id: parentId },
+                    { user_id: parentId }
+                ],
+                school_id: schoolId
+            }
+        });
+        if (!parent) throw new Error('Parent profile not found');
+        const resolvedParentId = parent.id;
+
+        // 2. Resolve student ID if it's a school_generated_id
+        let studentId = studentIdOrCode;
+        if (!studentIdOrCode.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            const student = await prisma.student.findFirst({
+                where: {
+                    school_id: schoolId,
+                    school_generated_id: studentIdOrCode
+                },
+                select: { id: true }
+            });
+            if (!student) throw new Error(`Student with ID ${studentIdOrCode} not found`);
+            studentId = student.id;
+        }
+
         const result = await (prisma.parentChild.create as any)({
             data: {
-                parent_id: parentId,
+                parent_id: resolvedParentId,
                 student_id: studentId,
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : null
             }
         });
 
-        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'link_child', parentId, studentId });
+        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'link_child', parentId: resolvedParentId, studentId });
         return result;
     }
 
-    static async unlinkChild(schoolId: string, branchId: string | undefined, parentId: string, studentId: string) {
+    static async unlinkChild(schoolId: string, branchId: string | undefined, parentId: string, studentIdOrCode: string) {
+        // 1. Resolve Parent ID (could be Parent.id or User.id)
+        const parent = await prisma.parent.findFirst({
+            where: {
+                OR: [
+                    { id: parentId },
+                    { user_id: parentId }
+                ],
+                school_id: schoolId
+            }
+        });
+        if (!parent) throw new Error('Parent profile not found');
+        const resolvedParentId = parent.id;
+
+        // 2. Resolve student ID if it's a school_generated_id
+        let studentId = studentIdOrCode;
+        if (!studentIdOrCode.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            const student = await prisma.student.findFirst({
+                where: {
+                    school_id: schoolId,
+                    school_generated_id: studentIdOrCode
+                },
+                select: { id: true }
+            });
+            if (student) studentId = student.id;
+        }
+
         const result = await (prisma.parentChild.deleteMany as any)({
             where: {
-                parent_id: parentId,
+                parent_id: resolvedParentId,
                 student_id: studentId,
                 school_id: schoolId
             }
         });
 
-        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'unlink_child', parentId, studentId });
+        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'unlink_child', parentId: resolvedParentId, studentId });
         return result;
     }
 
@@ -285,17 +338,26 @@ export class ParentService {
         };
     }
 
-    static async updateParent(schoolId: string, branchId: string | undefined, id: string, updates: any) {
+    static async updateParent(schoolId: string, branchId: string | undefined, id: string, updates: any) {  
+        const { childIds, branch_id, school_id, user_id, ...parentData } = updates;
+
         return await prisma.$transaction(async (tx) => {
+            const data: any = { ...parentData };
+            
+            // Use relation for branch if branch_id is provided
+            if (branch_id) {
+                data.branch = { connect: { id: branch_id } };
+            }
+
             const updatedParent = await (tx.parent.update as any)({
                 where: { id: id },
-                data: updates
+                data: data
             });
 
-            if (updates.school_generated_id !== undefined || updates.full_name !== undefined) {
+            if (parentData.school_generated_id !== undefined || parentData.full_name !== undefined) {
                 const userData: any = {};
-                if (updates.school_generated_id !== undefined) userData.school_generated_id = updates.school_generated_id;
-                if (updates.full_name !== undefined) userData.full_name = updates.full_name;
+                if (parentData.school_generated_id !== undefined) userData.school_generated_id = parentData.school_generated_id;
+                if (parentData.full_name !== undefined) userData.full_name = parentData.full_name;
 
                 if (updatedParent.user_id) {
                     await tx.user.update({
@@ -305,18 +367,76 @@ export class ParentService {
                 }
             }
 
+            // Handle children updates if provided
+            if (childIds !== undefined && Array.isArray(childIds)) {
+                // 1. Delete existing links
+                await (tx.parentChild.deleteMany as any)({
+                    where: { parent_id: id }
+                });
+
+                // 2. Create new links if not empty
+                if (childIds.length > 0) {
+                    const students = await tx.student.findMany({
+                        where: {
+                            school_id: schoolId,
+                            OR: [
+                                { id: { in: childIds } },
+                                { school_generated_id: { in: childIds } }
+                            ]
+                        },
+                        select: { id: true }
+                    });
+
+                    if (students.length > 0) {
+                        const relations = students.map(s => ({
+                            parent_id: id,
+                            student_id: s.id,
+                            school_id: schoolId,
+                            branch_id: branchId && branchId !== 'all' ? branchId : null
+                        }));
+
+                        await (tx.parentChild.createMany as any)({
+                            data: relations,
+                            skipDuplicates: true
+                        });
+                    }
+                }
+            }
+
             SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'update', parentId: id });
             return updatedParent;
         });
     }
-
     static async getParentProfile(schoolId: string, branchId: string | undefined, userId: string) {
-        return await (prisma.parent.findUnique as any)({
+        let parent = await (prisma.parent.findUnique as any)({
             where: { user_id: userId },
             include: {
                 user: true
             }
         });
+
+        // Self-Healing: If user is a PARENT but has no Parent record, create one
+        if (!parent) {
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (user && user.role === Role.PARENT) {
+                console.log(`🛠️ [ParentService] Self-healing: Creating missing parent record for user ${userId}`);
+                parent = await (prisma.parent.create as any)({
+                    data: {
+                        user_id: userId,
+                        school_id: user.school_id,
+                        branch_id: user.branch_id,
+                        full_name: user.full_name,
+                        email: user.email,
+                        updated_at: new Date()
+                    },
+                    include: {
+                        user: true
+                    }
+                });
+            }
+        }
+
+        return parent;
     }
 
     static async deleteParent(schoolId: string, branchId: string | undefined, id: string) {

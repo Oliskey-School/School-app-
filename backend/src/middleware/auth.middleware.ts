@@ -37,6 +37,11 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 return res.status(403).json({ message: 'Demo tokens can only access the demo school' });
             }
 
+            // Fetch demo school details to ensure name updates persist
+            const demoSchool = await prisma.school.findUnique({
+                where: { id: DEMO_SCHOOL_ID }
+            });
+
             req.user = {
                 id: decoded.id,
                 email: decoded.email,
@@ -45,7 +50,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 branch_id: decoded.branch_id,
                 school_generated_id: decoded.school_generated_id,
                 full_name: decoded.full_name,
-                is_demo: true
+                is_demo: true,
+                school: demoSchool // Add school object
             };
             console.log(`🛡️ [Auth] Demo token validated — identity: ${req.user.role} (${req.user.email})`);
             return next();
@@ -75,7 +81,9 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             school_id: user.school_id,
             branch_id: user.branch_id,
             school_generated_id: user.school_generated_id,
-            full_name: user.full_name
+            full_name: user.full_name,
+            school: user.school, // Add school object
+            branch: user.branch  // Add branch object
         };
 
         next();

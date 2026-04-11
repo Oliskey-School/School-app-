@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
-
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
-
 import { toast } from 'react-hot-toast';
 
 const getScoreIndicatorStyle = (scoreStr: string): string => {
@@ -38,7 +36,6 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
     const [students, setStudents] = useState<Student[]>([]);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [loading, setLoading] = useState(true);
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const debounceTimeoutRef = useRef<number | null>(null);
 
     // Parse Class Name
@@ -52,69 +49,58 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
         };
     }, [exam.className]);
 
-    // Fetch Students
-    useEffect(() => {
-        if (!gradeSection) {
-            setLoading(false);
-            return;
-        }
+    const fetchData = useCallback(async () => {
+        if (!gradeSection || !currentSchool?.id) return;
+        setLoading(true);
+        try {
+            // 1. Fetch Students using backend API
+            const studentsData = await api.getStudentsByClass(
+                parseInt(gradeSection.grade.toString(), 10),
+                gradeSection.section,
+                currentSchool.id
+            );
 
-        const fetchData = async () => {
-            if (!currentSchool?.id) return;
-            setLoading(true);
-            try {
-                // 1. Fetch Students using backend API
-                const studentsData = await api.getStudentsByClass(
+            const loadedStudents = studentsData.map((s: any) => ({
+                ...s,
+                avatarUrl: s.avatar_url,
+                schoolGeneratedId: s.school_generated_id
+            }));
+            setStudents(loadedStudents);
+
+            // 2. Fetch Existing Grades for this subject
+            const studentIds = loadedStudents.map(s => s.id);
+            if (studentIds.length > 0) {
+                const gradesData = await api.getGrades(
+                    studentIds,
+                    exam.subject,
+                    'First Term',
                     currentSchool.id,
-                    gradeSection.grade.toString(),
-                    gradeSection.section
+                    currentSchool.branch_id,
+                    { useBackend: true }
                 );
 
-                const loadedStudents = studentsData.map((s: any) => ({
-                    ...s,
-                    avatarUrl: s.avatar_url,
-                    schoolGeneratedId: s.school_generated_id
-                }));
-                setStudents(loadedStudents);
-
-                // 2. Fetch Existing Grades for this subject
-                const studentIds = loadedStudents.map(s => s.id);
-                if (studentIds.length > 0) {
-                    const gradesData = await api.getGrades(
-                        studentIds,
-                        exam.subject,
-                        'First Term',
-                        currentSchool.id,
-                        currentSchool.branch_id,
-                        { useBackend: true }
-                    );
-
-                    if (gradesData) {
-                        const scoreMap: { [key: number]: string } = {};
-                        gradesData.forEach((g: any) => {
-                            scoreMap[g.student_id] = g.score.toString();
-                        });
-                        setScores(scoreMap);
-                    }
+                if (gradesData) {
+                    const scoreMap: { [key: number]: string } = {};
+                    gradesData.forEach((g: any) => {
+                        scoreMap[g.student_id] = g.score.toString();
+                    });
+                    setScores(scoreMap);
                 }
-
-            } catch (err) {
-                console.error("Error loading grade entry data:", err);
-            } finally {
-                setLoading(false);
             }
-        };
 
+        } catch (err) {
+            console.error("Error loading grade entry data:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [gradeSection, currentSchool?.id, currentSchool?.branch_id, exam.subject]);
+
+    useEffect(() => {
         fetchData();
-    }, [gradeSection, exam.subject, refreshTrigger]);
+    }, [fetchData]);
 
     // Auto-sync
-    useAutoSync(['students', 'academic_records'], () => {
-        if (gradeSection) {
-            console.log('🔄 [GradeEntry] Auto-sync triggered');
-            setRefreshTrigger(prev => prev + 1);
-        }
-    });
+    useAutoSync(['students', 'academic_records'], fetchData);
 
 
     const saveGrade = async (studentId: string | number, value: string) => {

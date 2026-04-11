@@ -1,6 +1,6 @@
 
-
-import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
@@ -19,6 +19,8 @@ import { syncEngine } from '../../lib/syncEngine';
 import { toast } from 'react-hot-toast';
 import { offlineStorage } from '../../lib/offlineStorage';
 import { useOnlineStatus, OfflineIndicator } from '../shared/OfflineIndicator';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { useAuth } from '../../context/AuthContext';
 
 // Lazy load all view components
 import IncomingClassModal from './IncomingClassModal'; // Import non-lazy for speed/critical alert
@@ -184,47 +186,34 @@ const Overview: React.FC<{
     const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const data = await api.getMyDashboardOverview();
+    const fetchData = useCallback(async () => {
+        try {
+            setLoading(true);
+            const data = await api.getMyDashboardOverview();
 
-                if (data) {
-                    setTodaySchedule(data.timetable || []);
-                    setUpcomingAssignments(data.assignments || []);
-                    setUpcomingQuizzes(data.quizzes || []);
-                }
-            } catch (err) {
-                console.error('Error fetching dashboard overview:', err);
-                setTodaySchedule([]);
-                setUpcomingAssignments([]);
-                setUpcomingQuizzes([]);
-            } finally {
-                setLoading(false);
+            if (data) {
+                setTodaySchedule(data.timetable || []);
+                setUpcomingAssignments(data.assignments || []);
+                setUpcomingQuizzes(data.quizzes || []);
             }
-        };
+        } catch (err) {
+            console.error('Error fetching dashboard overview:', err);
+            setTodaySchedule([]);
+            setUpcomingAssignments([]);
+            setUpcomingQuizzes([]);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
+    // Real-time synchronization
+    useAutoSync(['assignments', 'quizzes', 'timetable'], fetchData);
+
+    useEffect(() => {
         if (student) {
             fetchData();
-
-            // Real-time Service Integration
-            if (currentUser?.id && schoolId) {
-                realtimeService.initialize(currentUser.id, schoolId);
-
-                const handleRealtimeUpdate = (event: any) => {
-                    console.log('📢 StudentDashboard: Real-time update received', event);
-                    fetchData();
-                    forceUpdate();
-                };
-
-                window.addEventListener('realtime-update' as any, handleRealtimeUpdate);
-                return () => {
-                    window.removeEventListener('realtime-update' as any, handleRealtimeUpdate);
-                };
-            }
         }
-    }, [student]);
+    }, [student, fetchData]);
 
     const quickAccessItems = [
         { label: 'Subjects', icon: <BookOpenIcon />, action: () => navigateTo('subjects', 'My Subjects') },
@@ -296,11 +285,6 @@ interface StudentDashboardProps {
     currentUser?: any;
 }
 
-import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
-import { useAuth } from '../../context/AuthContext';
-
-// ... (top level)
-
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const [scrolled, setScrolled] = useState(false);
     const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Student Dashboard', props: {} }]);
@@ -323,68 +307,72 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     const forceUpdate = () => setVersion(v => v + 1);
 
-    useEffect(() => {
-        const fetchStudentAndNotifications = async () => {
-            if (isFetchingRef.current) return;
-            if (!currentUser?.id) {
+    const fetchStudentAndNotifications = useCallback(async () => {
+        if (isFetchingRef.current) return;
+        if (!currentUser?.id) {
+            setLoadingStudent(false);
+            return;
+        }
+
+        isFetchingRef.current = true;
+        const cacheKey = `student_profile_${currentUser.id}`;
+
+        try {
+            const cachedStudent = await offlineStorage.load<Student>(cacheKey);
+
+            if (cachedStudent) {
+                setStudent(cachedStudent);
                 setLoadingStudent(false);
+                if (isOnline) setIsRevalidating(true);
+            } else {
+                setLoadingStudent(true);
+            }
+
+            if (!isOnline && cachedStudent) {
+                setIsRevalidating(false);
                 return;
             }
 
-            isFetchingRef.current = true;
-            const cacheKey = `student_profile_${currentUser.id}`;
+            // Strictly use Hybrid API
+            console.log("Fetching student profile via Hybrid API for user:", currentUser?.id);
+            const studentData = await api.getMyStudentProfile();
 
-            try {
-                const cachedStudent = await offlineStorage.load<Student>(cacheKey);
+            if (studentData) {
+                const mappedStudent: Student = {
+                    ...studentData,
+                    id: studentData.id,
+                    name: studentData.name || studentData.full_name || '',
+                    grade: studentData.grade,
+                    section: studentData.section,
+                    avatarUrl: studentData.avatar_url || studentData.avatarUrl,
+                    school_generated_id: studentData.school_generated_id,
+                    schoolGeneratedId: studentData.school_generated_id,
+                    schoolId: studentData.school_id || studentData.schoolId,
+                } as any;
 
-                if (cachedStudent) {
-                    setStudent(cachedStudent);
-                    setLoadingStudent(false);
-                    if (isOnline) setIsRevalidating(true);
-                } else {
-                    setLoadingStudent(true);
-                }
-
-                if (!isOnline && cachedStudent) {
-                    setIsRevalidating(false);
-                    return;
-                }
-
-                // Strictly use Hybrid API
-                console.log("Fetching student profile via Hybrid API for user:", currentUser?.id);
-                const studentData = await api.getMyStudentProfile();
-
-                if (studentData) {
-                    const mappedStudent: Student = {
-                        ...studentData,
-                        id: studentData.id,
-                        name: studentData.name || studentData.full_name || '',
-                        grade: studentData.grade,
-                        section: studentData.section,
-                        avatarUrl: studentData.avatar_url || studentData.avatarUrl,
-                        school_generated_id: studentData.school_generated_id,
-                        schoolGeneratedId: studentData.school_generated_id,
-                        schoolId: studentData.school_id || studentData.schoolId,
-                    } as any;
-
-                    setStudent(mappedStudent);
-                    await offlineStorage.save(cacheKey, mappedStudent);
-                } else {
-                    console.warn("No student profile found for this user.");
-                    setStudent(null);
-                }
-
-            } catch (e) {
-                console.error('Error loading dashboard profile:', e);
-                if (!student) setStudent(null);
-            } finally {
-                setLoadingStudent(false);
-                setIsRevalidating(false);
-                isFetchingRef.current = false;
+                setStudent(mappedStudent);
+                await offlineStorage.save(cacheKey, mappedStudent);
+            } else {
+                console.warn("No student profile found for this user.");
+                setStudent(null);
             }
-        };
+
+        } catch (e) {
+            console.error('Error loading dashboard profile:', e);
+            if (!student) setStudent(null);
+        } finally {
+            setLoadingStudent(false);
+            setIsRevalidating(false);
+            isFetchingRef.current = false;
+        }
+    }, [currentUser?.id, isOnline, student]);
+
+    // Real-time synchronization for student profile
+    useAutoSync(['students'], fetchStudentAndNotifications);
+
+    useEffect(() => {
         fetchStudentAndNotifications();
-    }, [currentUser?.id, isOnline]); // Use currentUser?.id instead of whole object to prevent unnecessary re-fetches
+    }, [fetchStudentAndNotifications]);
 
     useEffect(() => {
         const currentView = viewStack[viewStack.length - 1];
@@ -484,6 +472,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         navigateTo('notifications', 'Notifications', {});
     };
 
+    const commonProps = {
+        navigateTo,
+        handleBack,
+        forceUpdate,
+        currentUserId: currentUser?.id,
+        schoolId,
+        currentBranchId
+    };
+
     const viewComponents = React.useMemo(() => ({
         overview: (props: any) => <Overview {...props} schoolId={schoolId || ''} currentBranchId={currentBranchId} currentUser={currentUser} forceUpdate={forceUpdate} />,
         studyBuddy: StudyBuddy,
@@ -577,7 +574,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         schoolUtilities: SchoolUtilitiesScreen,
         cbtList: StudentCBTListScreen,
         cbtPlayer: (props: any) => <StudentCBTPlayerScreen {...props} handleBack={handleBack} />,
-    }), [student]);
+    }), [student, currentUser, schoolId, currentBranchId, forceUpdate, onLogout, handleBack, commonProps]);
 
     // Optimistic UI: Only show full loading spinner if we are loading AND have no student data
     if (loadingStudent && !student) {
@@ -614,14 +611,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     const currentNavigation = viewStack[viewStack.length - 1] || { view: 'home', title: 'Home' };
     const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
-    const commonProps = {
-        navigateTo,
-        handleBack,
-        forceUpdate,
-        currentUserId: currentUser?.id,
-        schoolId,
-        currentBranchId
-    };
 
     const isFullScreen = ['chat', 'mathSprintGame', 'geoGuesserGame', 'codeChallengeGame', 'gamePlayer', 'peekabooLetters', 'mathBattleArena', 'cbtExamGame', 'cbtPlayer', 'countingShapesTap', 'simonSays', 'alphabetFishing', 'beanBagToss', 'redLightGreenLight', 'spellingSparkle', 'vocabularyAdventure', 'virtualScienceLab', 'debateDash', 'geometryJeopardy', 'sharkTank', 'physicsLab', 'stockMarket', 'cbtExamGame', 'vocabularyPictionary', 'simpleMachineHunt', 'historicalHotSeat'].includes(currentNavigation.view);
 

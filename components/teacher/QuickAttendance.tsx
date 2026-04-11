@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Clock, Users, Send } from 'lucide-react';
 import { getCachedRoster, submitBulkAttendance, AttendanceStatus } from '../../lib/attendance-service';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { useCallback } from 'react';
 
 export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
     const { currentSchool } = useAuth();
@@ -10,15 +12,18 @@ export const QuickAttendance: React.FC<{ classId: string }> = ({ classId }) => {
     const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
     const [showSuccess, setShowSuccess] = useState(false);
 
-    useEffect(() => {
-        const load = async () => {
-            const roster = await getCachedRoster(classId);
-            setStudents(roster);
-            // Default ALL to present
-            setAttendance(Object.fromEntries(roster.map((s: any) => [s.id, 'present'])));
-        };
-        load();
+    const load = useCallback(async () => {
+        const roster = await getCachedRoster(classId);
+        setStudents(roster);
+        // Default ALL to present
+        setAttendance(Object.fromEntries(roster.map((s: any) => [s.id, 'present'])));
     }, [classId]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    useAutoSync(['students', 'enrollments'], load);
 
     const toggleStatus = (studentId: string) => {
         setAttendance(prev => {

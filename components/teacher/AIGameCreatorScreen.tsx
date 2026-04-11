@@ -25,6 +25,7 @@ const GeneratingScreen: React.FC = () => (
 const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, handleBack, forceUpdate, teacherId }) => {
     const [step, setStep] = useState<'setup' | 'review'>('setup');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     // Setup state
     const [subject, setSubject] = useState('');

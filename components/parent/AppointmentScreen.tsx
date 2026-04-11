@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { Teacher, AppointmentSlot, Student } from '../../types';
@@ -40,48 +41,51 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [loadingTeachers, setLoadingTeachers] = useState(true);
 
+    const fetchTeachers = useCallback(async () => {
+        // 1. Get School ID from Students prop
+        const studentSchoolId = students.length > 0 ? students[0].schoolId : currentSchool?.id;
+        const branchId = students.length > 0 ? students[0].branchId : currentBranchId;
+
+        if (!studentSchoolId) {
+            console.warn("No school ID found for teacher fetch");
+            setLoadingTeachers(false);
+            return;
+        }
+
+        try {
+            // Use Central API
+            const data = await api.getTeachers(studentSchoolId, branchId);
+
+            if (data) {
+                const mappedTeachers = data
+                    .filter((t: any) => t.user_id && t.status === 'Active')
+                    .map((t: any) => ({
+                        id: t.id,
+                        user_id: t.user_id,
+                        name: t.name,
+                        avatarUrl: t.avatar_url,
+                        subjects: t.subjects || [],
+                        classes: t.classes || [],
+                        status: t.status,
+                        email: t.email || '',
+                        phone: t.phone || ''
+                    } as Teacher));
+                setTeachers(mappedTeachers);
+            }
+        } catch (err) {
+            console.error("Error fetching teachers:", err);
+            toast.error("Failed to load teachers");
+        } finally {
+            setLoadingTeachers(false);
+        }
+    }, [students, currentSchool?.id, currentBranchId]);
+
+    // Real-time synchronization
+    useAutoSync(['teachers', 'appointments'], fetchTeachers);
+
     useEffect(() => {
-        const fetchTeachers = async () => {
-            // 1. Get School ID from Students prop
-            const studentSchoolId = students.length > 0 ? students[0].schoolId : currentSchool?.id;
-            const branchId = students.length > 0 ? students[0].branchId : currentBranchId;
-
-            if (!studentSchoolId) {
-                console.warn("No school ID found for teacher fetch");
-                setLoadingTeachers(false);
-                return;
-            }
-
-            try {
-                // Use Central API
-                const data = await api.getTeachers(studentSchoolId, branchId);
-
-                if (data) {
-                    const mappedTeachers = data
-                        .filter((t: any) => t.user_id && t.status === 'Active')
-                        .map((t: any) => ({
-                            id: t.id,
-                            user_id: t.user_id,
-                            name: t.name,
-                            avatarUrl: t.avatar_url,
-                            subjects: t.subjects || [],
-                            classes: t.classes || [],
-                            status: t.status,
-                            email: t.email || '',
-                            phone: t.phone || ''
-                        } as Teacher));
-                    setTeachers(mappedTeachers);
-                }
-            } catch (err) {
-                console.error("Error fetching teachers:", err);
-                toast.error("Failed to load teachers");
-            } finally {
-                setLoadingTeachers(false);
-            }
-        };
-
         fetchTeachers();
-    }, [students, currentSchool?.id]);
+    }, [fetchTeachers]);
 
     const activeTeachers = teachers;
 

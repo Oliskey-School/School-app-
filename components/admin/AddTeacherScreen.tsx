@@ -12,6 +12,7 @@ import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 import UpgradeModal from '../shared/UpgradeModal';
 
@@ -194,13 +195,29 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
     useEffect(() => {
         if (teacherToEdit) {
-            setName(teacherToEdit.name);
+            setName(teacherToEdit.name || (teacherToEdit as any).full_name || '');
             setEmail(teacherToEdit.email || '');
             setPhone(teacherToEdit.phone || '');
-            setSubjects(teacherToEdit.subjects || []);
-            setClasses(teacherToEdit.classes || []);
+            
+            // Handle subjects - try multiple fields and ensure strings
+            const rawSubjects = teacherToEdit.subjects || (teacherToEdit as any).subject_specialty || (teacherToEdit as any).teacher_subjects || [];
+            setSubjects(rawSubjects.map((s: any) => {
+                if (typeof s === 'string') return s;
+                return s.subject || s.name || 'Unknown';
+            }));
+
+            // Handle classes - normalize to names/strings
+            const rawClasses = teacherToEdit.classes || (teacherToEdit as any).assigned_classes || [];
+            setClasses(rawClasses.map((c: any) => 
+                typeof c === 'string' ? c : (c.class?.name || c.name || 'Unknown Class')
+            ));
+
             setStatus(teacherToEdit.status || 'Active');
-            setAvatar(teacherToEdit.avatarUrl || null);
+            setAvatar(teacherToEdit.avatarUrl || (teacherToEdit as any).avatar_url || null);
+            
+            if ((teacherToEdit as any).curriculum_eligibility) {
+                setCurriculumEligibility((teacherToEdit as any).curriculum_eligibility.map((c: string) => c.toUpperCase()));
+            }
         }
     }, [teacherToEdit]);
 
@@ -280,7 +297,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 avatar_url: avatarUrl,
                 branch_id: branchId,
                 curriculum_eligibility: curriculumData,
-                subjects: subjects.map(s => subjectIdMap[s]).filter(Boolean),
+                subject_specialty: subjects.map(s => subjectIdMap[s]).filter(Boolean),
                 classes: classes.map(c => classIdMap[c]).filter(Boolean),
                 ...complianceDocs
             };

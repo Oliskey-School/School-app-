@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { CalendarIcon, ClipboardListIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
@@ -14,11 +15,7 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
     const [currentSlipIndex, setCurrentSlipIndex] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchSlips();
-    }, [students, schoolId]);
-
-    const fetchSlips = async () => {
+    const fetchSlips = useCallback(async () => {
         if (!students || students.length === 0) {
             setSlips([]);
             setLoading(false);
@@ -44,7 +41,14 @@ const PermissionSlipScreen: React.FC<PermissionSlipScreenProps> = ({ students = 
         } finally {
             setLoading(false);
         }
-    };
+    }, [students, schoolId]);
+
+    // Real-time synchronization
+    useAutoSync(['permission_slips'], fetchSlips);
+
+    useEffect(() => {
+        fetchSlips();
+    }, [fetchSlips]);
 
     const handleResponse = async (status: 'Approved' | 'Rejected') => {
         if (!currentSlip) return;

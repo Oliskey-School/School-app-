@@ -1,0 +1,422 @@
+[
+  {
+    "key": "overview",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "analytics",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "reports",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "classList",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "studentList",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "addStudent",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "teacherList",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "teacherPerformance",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "timetable",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "timetableGenerator",
+    "frontend": false,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "timetableEditor",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "timetableCreator",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "aiTimetableCreator",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "teacherAttendance",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "teacherAttendanceApproval",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "feeManagement",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "feeDetails",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "examManagement",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "addExam",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "reportCardPublishing",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "userRoles",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "auditLog",
+    "frontend": true,
+    "api": false,
+    "db": false
+  },
+  {
+    "key": "profileSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "communicationHub",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "studentProfileAdminView",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "editProfile",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "notificationsSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "securitySettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "changePassword",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "onlineStore",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "schoolReports",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "studentListForReport",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "viewStudentReport",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "systemSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "academicSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "financialSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "communicationSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "brandingSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "personalSecuritySettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "teacherDetailAdminView",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "TeacherDetailAdminView",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "teacherAttendanceDetail",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "attendanceOverview",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "classAttendanceDetail",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "adminSelectTermForReport",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "adminReportCardInput",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "healthLog",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "busDutyRoster",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "selectUserTypeToAdd",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "addTeacher",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "AddTeacherScreen",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "addParent",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "parentList",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "parentDetailAdminView",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "managePolicies",
+    "frontend": true,
+    "api": false,
+    "db": false
+  },
+  {
+    "key": "manageVolunteering",
+    "frontend": true,
+    "api": false,
+    "db": false
+  },
+  {
+    "key": "managePermissionSlips",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "manageLearningResources",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "managePTAMeetings",
+    "frontend": true,
+    "api": false,
+    "db": false
+  },
+  {
+    "key": "manageSchoolInfo",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "manageCurriculum",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "enrollmentPage",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "exams",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "userAccounts",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "permissionSlips",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "mentalHealthResources",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "accessibilitySettings",
+    "frontend": true,
+    "api": false,
+    "db": false
+  },
+  {
+    "key": "smsLessonManager",
+    "frontend": true,
+    "api": false,
+    "db": false
+  },
+  {
+    "key": "ussdWorkflow",
+    "frontend": true,
+    "api": false,
+    "db": false
+  },
+  {
+    "key": "radioContentScheduler",
+    "frontend": true,
+    "api": false,
+    "db": false
+  }
+]

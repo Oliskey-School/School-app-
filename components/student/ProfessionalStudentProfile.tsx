@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { User, Mail, Phone, MapPin, Calendar, Award, TrendingUp, BookOpen, Download, FileText, Users } from 'lucide-react';
 import { api } from '../../lib/api';
 
@@ -10,14 +11,10 @@ export default function ProfessionalStudentProfile({ studentId }: StudentProfile
     const [student, setStudent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchStudentData();
-    }, [studentId]);
-
-    const fetchStudentData = async () => {
+    const fetchStudentData = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await api.getStudentProfile(studentId || 'me');
+            const data = await api.getStudentProfile((studentId || 'me').toString());
             
             if (data) {
                 setStudent({
@@ -41,7 +38,14 @@ export default function ProfessionalStudentProfile({ studentId }: StudentProfile
         } finally {
             setLoading(false);
         }
-    };
+    }, [studentId]);
+
+    // Real-time synchronization
+    useAutoSync(['students'], fetchStudentData);
+
+    useEffect(() => {
+        fetchStudentData();
+    }, [fetchStudentData]);
 
     if (loading) {
         return (

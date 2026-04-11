@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MailIcon, BellIcon, NotificationIcon } from '../../constants';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
 
 const SettingToggle = ({ icon, label, description, enabled, onToggle }: { icon: React.ReactNode, label: string, description: string, enabled: boolean, onToggle: () => void }) => (
     <div className="flex justify-between items-center p-4 bg-white rounded-lg shadow-sm">
@@ -29,8 +32,32 @@ const ParentNotificationSettingsScreen: React.FC = () => {
         weeklySummary: false
     });
 
-    const toggleSetting = (key: keyof typeof settings) => {
-        setSettings(prev => ({...prev, [key]: !prev[key]}));
+    const loadSettings = useCallback(async () => {
+        try {
+            const data = await api.getNotificationSettings();
+            if (data) setSettings(data);
+        } catch (err) {
+            console.error('Error loading notification settings:', err);
+        }
+    }, []);
+
+    // Real-time synchronization
+    useAutoSync(['notification_settings'], loadSettings);
+
+    useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
+
+    const toggleSetting = async (key: keyof typeof settings) => {
+        const newSettings = {...settings, [key]: !settings[key]};
+        setSettings(newSettings);
+        try {
+            await api.updateNotificationSettings(newSettings);
+            toast.success('Settings updated');
+        } catch (err) {
+            toast.error('Failed to update settings');
+            setSettings(settings); // Rollback
+        }
     };
 
     return (

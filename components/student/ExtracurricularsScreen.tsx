@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { Activity, ActivityCategory, ExtracurricularEvent } from '../../types';
 import { ACTIVITY_CATEGORY_CONFIG, ChevronLeftIcon, ChevronRightIcon, StarIcon, TrophyIcon, UsersIcon, SparklesIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -17,70 +18,70 @@ const ExtracurricularsScreen: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchExtracurricularData = async () => {
-            if (!user?.id) return;
-            setLoading(true);
-            try {
-                // 1. Fetch joinable activities
-                const allActivities = await api.getExtracurriculars();
-                setActivities(allActivities);
+    const fetchExtracurricularData = useCallback(async () => {
+        if (!user?.id) return;
+        setLoading(true);
+        try {
+            // 1. Fetch joinable activities
+            const allActivities = await api.getExtracurriculars();
+            setActivities(allActivities);
 
-                // 2. Fetch user's signed-up activities
-                const myActivities = await api.getMyExtracurriculars();
-                setSignedUpActivities(new Set(myActivities.map((p: any) => p.activity_id)));
+            // 2. Fetch user's signed-up activities
+            const myActivities = await api.getMyExtracurriculars();
+            setSignedUpActivities(new Set(myActivities.map((p: any) => p.activity_id.toString())));
 
-                // 3. Fetch real calendar events
-                const events = await api.getExtracurricularEvents(
-                    new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toISOString(),
-                    new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0).toISOString()
-                );
+            // 3. Fetch real calendar events
+            const events = await api.getExtracurricularEvents(user.school_id || '');
 
-                if (events) {
-                    const mappedEvents = events.reduce((acc: any, event: any) => {
-                        const dateKey = event.date.split('T')[0];
-                        (acc[dateKey] = acc[dateKey] || []).push({
-                            id: event.id,
-                            title: event.title,
-                            date: dateKey,
-                            category: event.category || 'Club',
-                            description: event.description
-                        });
-                        return acc;
-                    }, {} as { [key: string]: ExtracurricularEvent[] });
-                    setEventsByDate(mappedEvents);
-                }
-            } catch (error) {
-                console.error("Error fetching extracurriculars:", error);
-                toast.error("Failed to load extracurricular data.");
-            } finally {
-                setLoading(false);
+            if (events) {
+                const mappedEvents = events.reduce((acc: any, event: any) => {
+                    const dateKey = event.date.split('T')[0];
+                    (acc[dateKey] = acc[dateKey] || []).push({
+                        id: event.id,
+                        title: event.title,
+                        date: dateKey,
+                        category: event.category || 'Club',
+                        description: event.description
+                    });
+                    return acc;
+                }, {} as { [key: string]: ExtracurricularEvent[] });
+                setEventsByDate(mappedEvents);
             }
-        };
+        } catch (error) {
+            console.error("Error fetching extracurriculars:", error);
+            toast.error("Failed to load extracurricular data.");
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id, user?.school_id]);
 
+    // Real-time synchronization
+    useAutoSync(['extracurriculars', 'events'], fetchExtracurricularData);
+
+    useEffect(() => {
         fetchExtracurricularData();
-    }, [user?.id, currentDate.getMonth()]); // Refetch when month changes
+    }, [fetchExtracurricularData]);
 
     const handleSignUpToggle = async (activityId: number) => {
         if (!user?.id) return;
 
-        const isCurrentlySignedUp = signedUpActivities.has(activityId);
+        const isCurrentlySignedUp = signedUpActivities.has(activityId.toString());
 
         // Optimistic UI update
         setSignedUpActivities(prev => {
             const newSet = new Set(prev);
-            isCurrentlySignedUp ? newSet.delete(activityId) : newSet.add(activityId);
+            isCurrentlySignedUp ? newSet.delete(activityId.toString()) : newSet.add(activityId.toString());
             return newSet;
         });
 
         try {
             if (isCurrentlySignedUp) {
                 // Leave
-                await api.leaveExtracurricular(activityId);
+                await api.leaveExtracurricular(activityId.toString());
                 toast.success("Successfully left the activity.");
             } else {
                 // Join
-                await api.joinExtracurricular(activityId);
+                await api.joinExtracurricular(activityId.toString());
                 toast.success("Successfully signed up for the activity!");
             }
         } catch (error) {
@@ -89,7 +90,7 @@ const ExtracurricularsScreen: React.FC = () => {
             // Revert optimistic update
             setSignedUpActivities(prev => {
                 const newSet = new Set(prev);
-                isCurrentlySignedUp ? newSet.add(activityId) : newSet.delete(activityId);
+                isCurrentlySignedUp ? newSet.add(activityId.toString()) : newSet.delete(activityId.toString());
                 return newSet;
             });
         }

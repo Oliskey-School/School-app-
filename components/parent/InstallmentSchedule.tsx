@@ -3,7 +3,8 @@
  * Shows payment plan details and allows parents to pay individual installments
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { getPaymentPlan, Installment, PaymentPlan } from '../../lib/payment-plans';
 import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
@@ -17,11 +18,7 @@ export const InstallmentSchedule: React.FC<InstallmentScheduleProps> = ({ feeId,
     const [installments, setInstallments] = useState<Installment[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        loadPlan();
-    }, [feeId]);
-
-    const loadPlan = async () => {
+    const loadPlan = useCallback(async () => {
         setLoading(true);
         const data = await getPaymentPlan(feeId);
         if (data) {
@@ -29,7 +26,14 @@ export const InstallmentSchedule: React.FC<InstallmentScheduleProps> = ({ feeId,
             setInstallments(data.installments);
         }
         setLoading(false);
-    };
+    }, [feeId]);
+
+    // Real-time synchronization
+    useAutoSync(['student_fee_installments', 'payments'], loadPlan);
+
+    useEffect(() => {
+        loadPlan();
+    }, [loadPlan]);
 
     if (loading) {
         return <div className="text-center py-4 text-gray-500">Loading payment plan...</div>;

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import {
@@ -50,26 +51,29 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchTodayUpdate = async () => {
-            try {
-                setLoading(true);
-                const data = await api.getParentTodayUpdate();
-                setChildren(data.children);
-                setFeedItems(data.feedItems);
-            } catch (err: any) {
-                console.error('Failed to fetch today update:', err);
-                setError(err.message);
-                // Fallback to empty states if API fails
-                setChildren([]);
-                setFeedItems([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchTodayUpdate();
+    const fetchTodayUpdate = useCallback(async () => {
+        try {
+            setLoading(true);
+            const data = await api.getParentTodayUpdate();
+            setChildren(data.children);
+            setFeedItems(data.feedItems);
+        } catch (err: any) {
+            console.error('Failed to fetch today update:', err);
+            setError(err.message);
+            // Fallback to empty states if API fails
+            setChildren([]);
+            setFeedItems([]);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // Real-time synchronization
+    useAutoSync(['students', 'attendance', 'assignments', 'finances'], fetchTodayUpdate);
+
+    useEffect(() => {
+        fetchTodayUpdate();
+    }, [fetchTodayUpdate]);
 
     if (loading) {
         return <div className="p-8 text-center bg-white rounded-xl shadow-sm border border-slate-100">

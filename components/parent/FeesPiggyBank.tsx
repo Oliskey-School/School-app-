@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion } from 'framer-motion';
 import { PiggyBank, Target, Calendar, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { SavingsService, SavingsPlan } from '../../lib/savings-service';
@@ -14,14 +15,18 @@ export const FeesPiggyBank: React.FC<{ studentId: string }> = ({ studentId }) =>
         frequency: 'weekly' as 'weekly' | 'monthly'
     });
 
-    useEffect(() => {
-        if (user) loadPlans();
-    }, [user]);
-
-    const loadPlans = async () => {
+    const loadPlans = useCallback(async () => {
+        if (!user) return;
         const data = await SavingsService.getParentPlans(user.id);
         setParentsPlans(data.filter(p => p.student_id === studentId));
-    };
+    }, [user, studentId]);
+
+    // Real-time synchronization
+    useAutoSync(['savings_plans', 'payments'], loadPlans);
+
+    useEffect(() => {
+        loadPlans();
+    }, [loadPlans]);
 
     const handleCreate = async () => {
         if (!currentSchool || !user) return;

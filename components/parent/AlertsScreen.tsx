@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
@@ -32,39 +33,36 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchNotifications = useCallback(async () => {
+    if (!profile?.id || !currentSchool?.id) return;
+    setLoading(true);
+    try {
+      const data = await api.getParentNotifications();
+
+      setNotifications((data || []).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        summary: n.message,
+        category: n.category || 'System',
+        timestamp: n.created_at,
+        isRead: n.is_read || false,
+        audience: n.audience || [],
+        studentId: n.student_id,
+        relatedId: n.related_id
+      })));
+    } catch (err) {
+      console.error("Error fetching alerts:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.id, currentSchool?.id]);
+
+  // Real-time synchronization
+  useAutoSync(['notifications'], fetchNotifications);
+
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!profile?.id || !currentSchool?.id) return;
-      setLoading(true);
-      try {
-        const data = await api.getParentNotifications();
-
-        setNotifications((data || []).map((n: any) => ({
-          id: n.id,
-          title: n.title,
-          summary: n.message,
-          category: n.category || 'System',
-          timestamp: n.created_at,
-          isRead: n.is_read || false,
-          audience: n.audience || [],
-          studentId: n.student_id,
-          relatedId: n.related_id
-        })));
-      } catch (err) {
-        console.error("Error fetching alerts:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchNotifications();
-
-    const pollInterval = setInterval(() => {
-      fetchNotifications();
-    }, 30000);
-
-    return () => clearInterval(pollInterval);
-  }, [profile?.id]);
+  }, [fetchNotifications]);
 
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read

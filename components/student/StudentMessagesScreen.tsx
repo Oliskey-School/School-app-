@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { ChatRoom, ChatUser, Student } from '../../types';
 import { api } from '../../lib/api';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
@@ -45,48 +46,51 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    useEffect(() => {
-        if (!studentId) return;
+    const fetchConversations = useCallback(async () => {
+        setLoading(true);
+        try {
+            const convs = await api.getChatRooms();
 
-        const fetchConversations = async () => {
-            setLoading(true);
-            try {
-                const convs = await api.getChatRooms();
+            const formattedRooms = convs?.map((c: any) => {
+                const otherPart = c.participants?.find((p: any) => p.user?.id !== studentId)?.user;
+                const displayUser = otherPart || c.participants?.[0]?.user;
 
-                const formattedRooms = convs?.map((c: any) => {
-                    const otherPart = c.participants?.find((p: any) => p.user?.id !== studentId)?.user;
-                    const displayUser = otherPart || c.participants?.[0]?.user;
+                return {
+                    id: c.id,
+                    displayName: c.name || displayUser?.name || 'Unknown',
+                    displayAvatar: c.name ? null : (displayUser?.avatarUrl || ''),
+                    lastMessage: {
+                        content: c.messages?.[0]?.content || 'No messages yet',
+                        created_at: c.messages?.[0]?.createdAt || c.createdAt,
+                        sender_id: c.messages?.[0]?.senderId,
+                        id: c.messages?.[0]?.id
+                    },
+                    unreadCount: 0,
+                    updated_at: c.lastMessageAt || c.createdAt,
+                    is_group: c.type === 'group',
+                    lastReadMessageId: 0,
+                    participants: c.participants || [],
+                    creatorId: c.creatorId,
+                    type: c.type
+                };
+            }) || [];
 
-                    return {
-                        id: c.id,
-                        displayName: c.name || displayUser?.name || 'Unknown',
-                        displayAvatar: c.name ? null : (displayUser?.avatarUrl || ''),
-                        lastMessage: {
-                            content: c.messages?.[0]?.content || 'No messages yet',
-                            created_at: c.messages?.[0]?.createdAt || c.createdAt,
-                            sender_id: c.messages?.[0]?.senderId,
-                            id: c.messages?.[0]?.id
-                        },
-                        unreadCount: 0,
-                        updated_at: c.lastMessageAt || c.createdAt,
-                        is_group: c.type === 'group',
-                        lastReadMessageId: 0,
-                        participants: c.participants || [],
-                        creatorId: c.creatorId,
-                        type: c.type
-                    };
-                }) || [];
-
-                setRooms(formattedRooms);
-            } catch (err) {
-                console.error("Error fetching conversations:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchConversations();
+            setRooms(formattedRooms);
+        } catch (err) {
+            console.error("Error fetching conversations:", err);
+        } finally {
+            setLoading(false);
+        }
     }, [studentId]);
+
+    // Real-time synchronization
+    useAutoSync(['chat_rooms'], fetchConversations);
+
+    useEffect(() => {
+        if (studentId) {
+            fetchConversations();
+        }
+    }, [studentId, fetchConversations]);
 
     const filteredConversations = useMemo(() => {
         return rooms

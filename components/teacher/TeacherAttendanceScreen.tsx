@@ -12,6 +12,7 @@ import { DashboardType, Student, AttendanceStatus, ClassInfo } from '../../types
 import { getFormattedClassName } from '../../constants';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 
 const AttendanceStatusButtons = ({ status, onStatusChange }: { status: AttendanceStatus, onStatusChange: (newStatus: AttendanceStatus) => void }) => {
@@ -54,74 +55,75 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     const now = new Date();
     const [selectedDate, setSelectedDate] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
 
-    // Fetch students and attendance for selected date
-    useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            try {
-                // 1. Fetch Students in Class using API
-                const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
-                const effectiveBranchId = currentBranchId || profile?.branchId;
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // 1. Fetch Students in Class using API
+            const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
+            const effectiveBranchId = currentBranchId || profile?.branchId;
 
-                if (!effectiveSchoolId) {
-                    console.error('[Attendance] No school ID found in classInfo or profile');
-                    setIsLoading(false);
-                    return;
-                }
-
-                const classStudents = await api.getStudents(
-                    effectiveSchoolId,
-                    effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : undefined,
-                    {
-                        classId: classInfo.id,
-                        grade: classInfo.grade,
-                        section: classInfo.section
-                    }
-                );
-
-                if (!classStudents || classStudents.length === 0) {
-                    setStudents([]);
-                    return;
-                }
-
-                // 2. Fetch Existing Attendance for Selected Date using api client
-                const attendanceData = await api.getAttendance(
-                    classInfo.id,
-                    selectedDate
-                );
-
-                // Map API data to UI model
-                const studentsWithAttendance = classStudents.map((s: any) => {
-                    const record = attendanceData?.find((a: any) => a.student_id === s.id);
-
-                    // Normalize DB status (likely lowercase) to UI (PascalCase)
-                    let displayStatus = 'Present';
-                    if (record?.status) {
-                        displayStatus = record.status.charAt(0).toUpperCase() + record.status.slice(1).toLowerCase();
-                    }
-
-                    return {
-                        id: s.id,
-                        name: s.full_name || s.name || 'Unknown',
-                        grade: s.grade,
-                        section: s.section,
-                        avatarUrl: s.avatar_url,
-                        attendanceStatus: displayStatus as AttendanceStatus,
-                    } as unknown as Student;
-                });
-
-                setStudents(studentsWithAttendance);
-
-            } catch (err) {
-                console.error("Error fetching attendance data:", err);
-                toast.error("Failed to load attendance data.");
-            } finally {
+            if (!effectiveSchoolId) {
+                console.error('[Attendance] No school ID found in classInfo or profile');
                 setIsLoading(false);
+                return;
             }
-        };
 
+            const classStudents = await api.getStudents(
+                effectiveSchoolId,
+                effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : undefined,
+                {
+                    classId: classInfo.id,
+                    grade: classInfo.grade,
+                    section: classInfo.section
+                }
+            );
+
+            if (!classStudents || classStudents.length === 0) {
+                setStudents([]);
+                return;
+            }
+
+            // 2. Fetch Existing Attendance for Selected Date using api client
+            const attendanceData = await api.getAttendance(
+                classInfo.id,
+                selectedDate
+            );
+
+            // Map API data to UI model
+            const studentsWithAttendance = classStudents.map((s: any) => {
+                const record = attendanceData?.find((a: any) => a.student_id === s.id);
+
+                // Normalize DB status (likely lowercase) to UI (PascalCase)
+                let displayStatus = 'Present';
+                if (record?.status) {
+                    displayStatus = record.status.charAt(0).toUpperCase() + record.status.slice(1).toLowerCase();
+                }
+
+                return {
+                    id: s.id,
+                    name: s.full_name || s.name || 'Unknown',
+                    grade: s.grade,
+                    section: s.section,
+                    avatarUrl: s.avatar_url,
+                    attendanceStatus: displayStatus as AttendanceStatus,
+                } as unknown as Student;
+            });
+
+            setStudents(studentsWithAttendance);
+
+        } catch (err) {
+            console.error("Error fetching attendance data:", err);
+            toast.error("Failed to load attendance data.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [classInfo, selectedDate, profile?.schoolId, profile?.branchId, currentBranchId]);
+
+    useEffect(() => {
         fetchData();
-    }, [classInfo, selectedDate]);
+    }, [fetchData]);
+
+    useAutoSync(['attendance', 'students'], fetchData);
 
 
     const handleStatusChange = useCallback((studentId: string | number, status: AttendanceStatus) => {

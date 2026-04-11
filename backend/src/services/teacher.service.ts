@@ -1,11 +1,13 @@
 import prisma from '../config/database';
+import bcrypt from 'bcryptjs';
 import { IdGeneratorService } from './idGenerator.service';
 import { Role } from '@prisma/client';
 import { SocketService } from './socket.service';
 
 export class TeacherService {
     static async createTeacher(schoolId: string, branchId: string | undefined, data: any) {
-        const { name, email, phone, subjects, classes, avatar_url } = data;
+        const { name, email, phone, subject_specialty, subjects, classes, avatar_url } = data;
+        const effectiveSubjects = subject_specialty || subjects || [];
 
         // 1. Generate standard school ID
         let schoolGeneratedId: string | null = null;
@@ -74,7 +76,9 @@ export class TeacherService {
                     school_id: schoolId,
                     branch_id: branchId || null,
                     school_generated_id: schoolGeneratedId,
-                    status: 'Active'
+                    status: 'Active',
+                    curriculum_eligibility: data.curriculum_eligibility || ['Nigerian'],
+                    subject_specialty: effectiveSubjects
                 },
                 update: {
                     full_name: name,
@@ -84,7 +88,9 @@ export class TeacherService {
                     school_id: schoolId,
                     branch_id: branchId || null,
                     school_generated_id: schoolGeneratedId,
-                    status: 'Active'
+                    status: 'Active',
+                    curriculum_eligibility: data.curriculum_eligibility,
+                    subject_specialty: effectiveSubjects
                 }
             });
 

@@ -1,6 +1,8 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { api } from '../../lib/api';
 import { mockComplaints } from '../../data';
 import { Complaint, ComplaintStatus } from '../../types';
 import { CameraIcon, ChevronRightIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../../constants';
@@ -38,16 +40,15 @@ const SubmitNewTab: React.FC<{ onSubmitted: () => void }> = ({ onSubmitted }) =>
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!category || !comment) {
             toast.error('Please select a category and provide a comment.');
             return;
         }
 
-        const newComplaint: Complaint = {
-            id: `COMP-${Date.now()}`,
-            category: category as Complaint['category'],
+        const newComplaint = {
+            category: category,
             rating,
             comment,
             imageUrl: image || undefined,
@@ -60,8 +61,13 @@ const SubmitNewTab: React.FC<{ onSubmitted: () => void }> = ({ onSubmitted }) =>
                 }
             ]
         };
-        mockComplaints.unshift(newComplaint);
-        onSubmitted();
+        
+        try {
+            await api.createComplaint(newComplaint);
+            onSubmitted();
+        } catch (err) {
+            toast.error('Failed to submit feedback');
+        }
     };
 
     return (
@@ -132,7 +138,23 @@ const StatusTimeline: React.FC<{ complaint: Complaint }> = ({ complaint }) => {
 }
 
 const TrackStatusTab: React.FC = () => {
-    const [openId, setOpenId] = useState<string | null>(mockComplaints[0]?.id || null);
+    const [complaints, setComplaints] = useState<Complaint[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [openId, setOpenId] = useState<string | null>(null);
+
+    const loadComplaints = useCallback(async () => {
+        const data = await api.getComplaints();
+        setComplaints(data);
+        setLoading(false);
+        if (data.length > 0 && !openId) setOpenId(data[0].id);
+    }, [openId]);
+
+    // Real-time synchronization
+    useAutoSync(['complaints'], loadComplaints);
+
+    useEffect(() => {
+        loadComplaints();
+    }, [loadComplaints]);
 
     const statusColors = {
         Submitted: 'bg-blue-100 text-blue-800',
@@ -141,25 +163,31 @@ const TrackStatusTab: React.FC = () => {
         Closed: 'bg-gray-100 text-gray-800',
     };
 
+    if (loading) return <div className="p-8 text-center text-gray-500">Loading feedback history...</div>;
+
     return (
         <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {mockComplaints.map(c => {
-                    const latestStatus = c.timeline[c.timeline.length - 1].status;
+                {complaints.length > 0 ? complaints.map(c => {
+                    const latestStatus = c.timeline[c.timeline.length - 1]?.status || 'Submitted';
                     const isOpen = openId === c.id;
                     return (
                         <div key={c.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                             <button onClick={() => setOpenId(isOpen ? null : c.id)} className="w-full flex justify-between items-center p-4 text-left">
                                 <div>
                                     <h4 className="font-bold text-gray-800">{c.category}</h4>
-                                    <span className={`mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[latestStatus]}`}>{latestStatus}</span>
+                                    <span className={`mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[latestStatus as keyof typeof statusColors]}`}>{latestStatus}</span>
                                 </div>
                                 <ChevronRightIcon className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                             </button>
                             {isOpen && <StatusTimeline complaint={c} />}
                         </div>
                     )
-                })}
+                }) : (
+                    <div className="col-span-full py-12 text-center text-gray-500">
+                        No feedback history found.
+                    </div>
+                )}
             </div>
         </div>
     );

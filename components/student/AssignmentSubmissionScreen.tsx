@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { StudentAssignment, Submission } from '../../types';
 import { SUBJECT_COLORS, ClockIcon, PaperclipIcon, XCircleIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
@@ -39,22 +40,27 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
   const { currentSchool, user, currentBranchId } = useAuth(); // Need school_id, branch_id and user_id for insert
 
   // Load existing submission
-  React.useEffect(() => {
-    const loadSubmission = async () => {
-      try {
-        const data = await api.getAssignmentSubmission(assignment.id);
-        if (data) {
-          setExistingSubmission(data);
-          setTextAnswer(data.submission_text || '');
-        }
-      } catch (err) {
-        console.error("Error loading submission:", err);
-      } finally {
-        setLoading(false);
+  const loadSubmission = React.useCallback(async () => {
+    try {
+      const data = await api.getAssignmentSubmission(assignment.id);
+      if (data) {
+        setExistingSubmission(data);
+        setTextAnswer(data.submission_text || '');
       }
-    };
-    loadSubmission();
+    } catch (err) {
+      console.error("Error loading submission:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [assignment.id]);
+
+  // Real-time synchronization
+  // Note: We sync with 'submissions' to detect when this specific submission is graded or updated
+  useAutoSync(['submissions'], loadSubmission);
+
+  React.useEffect(() => {
+    loadSubmission();
+  }, [loadSubmission]);
 
   const isSubmitted = !!existingSubmission;
 

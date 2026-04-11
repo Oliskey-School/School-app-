@@ -1,8 +1,9 @@
-
-import React from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { StudentAssignment } from '../../types';
 import { SUBJECT_COLORS, DocumentTextIcon, PaperclipIcon } from '../../constants';
 import { FileDocIcon, FilePdfIcon, FileImageIcon } from '../../constants';
+import { api } from '../../lib/api';
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -24,7 +25,46 @@ interface AssignmentFeedbackScreenProps {
   assignment: StudentAssignment;
 }
 
-const AssignmentFeedbackScreen: React.FC<AssignmentFeedbackScreenProps> = ({ assignment }) => {
+const AssignmentFeedbackScreen: React.FC<AssignmentFeedbackScreenProps> = ({ assignment: initialAssignment }) => {
+  const [assignment, setAssignment] = useState<StudentAssignment>(initialAssignment);
+  const [loading, setLoading] = useState(false);
+  
+  const fetchAssignmentDetails = useCallback(async () => {
+    try {
+      const data = await api.getAssignment(initialAssignment.id);
+      if (data) {
+        // Fetch submission too
+        const sub = await api.getAssignmentSubmission(initialAssignment.id);
+        setAssignment({
+          ...data,
+          submission: sub ? {
+            id: sub.id,
+            assignmentId: sub.assignment_id,
+            student: { id: sub.student_id, name: 'You', avatarUrl: '' },
+            submittedAt: sub.submitted_at,
+            isLate: sub.is_late,
+            files: sub.files || [],
+            status: sub.status,
+            grade: sub.grade,
+            feedback: sub.feedback,
+            textSubmission: sub.submission_text
+          } : null
+        });
+      }
+    } catch (err) {
+        console.error("Error fetching assignment feedback:", err);
+    }
+  }, [initialAssignment.id]);
+
+  // Real-time synchronization
+  useAutoSync(['assignments', 'submissions'], fetchAssignmentDetails);
+
+  useEffect(() => {
+    if (initialAssignment.id) {
+        fetchAssignmentDetails();
+    }
+  }, [fetchAssignmentDetails]);
+
   const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
   const submission = assignment.submission;
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { ReceiptIcon } from '../../constants';
 
@@ -12,21 +13,24 @@ const StudentFinanceScreen: React.FC<StudentFinanceScreenProps> = ({ studentId }
     const [fees, setFees] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchFees = async () => {
-            setLoading(true);
-            try {
-                const data = await api.getMyFees();
-                setFees(data || []);
-            } catch (err) {
-                console.error('Error fetching fees:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchFees = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await api.getMyFees();
+            setFees(data || []);
+        } catch (err) {
+            console.error('Error fetching fees:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
+    // Real-time synchronization
+    useAutoSync(['fees'], fetchFees);
+
+    useEffect(() => {
         fetchFees();
-    }, [studentId]);
+    }, [fetchFees]);
 
     const totalDue = fees.reduce((sum, fee) => sum + (fee.amount || 0), 0);
     // Assuming 'paid' status or tracking paid_amount. For simple schema, let's assume 'status'='Paid' means fully paid.

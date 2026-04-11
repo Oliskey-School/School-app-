@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { Submission, Assignment, Student } from '../../types';
 import { CheckCircleIcon, ClockIcon, MailIcon, TrashIcon } from '../../constants';
-import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { fetchStudentsByClassId } from '../../lib/database';
-
 
 interface AssignmentSubmissionsScreenProps {
     assignment: Assignment;
@@ -76,7 +75,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
     const [allClassStudents, setAllClassStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             // 1. Fetch Students in the class using new enrollment logic
@@ -130,13 +129,13 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
         } finally {
             setLoading(false);
         }
-    };
+    }, [assignment.id, assignment.classId, assignment.className, schoolId]);
 
     useEffect(() => {
         fetchData();
-    }, [assignment.id, assignment.className, forceUpdate]);
+    }, [fetchData, forceUpdate]);
 
-    useRealtimeRefresh(['assignment_submissions'], fetchData);
+    useAutoSync(['assignment_submissions'], fetchData);
 
 
     const { submittedStudents, notSubmittedStudents } = useMemo(() => {

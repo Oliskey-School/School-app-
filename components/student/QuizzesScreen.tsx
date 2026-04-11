@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { SUBJECT_COLORS, HelpIcon, ChevronRightIcon, ClockIcon, ExamIcon, ClipboardListIcon, CheckCircleIcon } from '../../constants';
@@ -16,17 +17,13 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchContent();
-  }, [activeCategory, student]);
-
-  const fetchContent = async () => {
+  const fetchContent = useCallback(async () => {
     if (!student) return;
     setLoading(true);
 
     try {
       const [quizzesData, submissions] = await Promise.all([
-        api.getQuizzes(student.grade, student.section),
+        api.getQuizzes(),
         api.getMyQuizResults()
       ]);
 
@@ -58,7 +55,14 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeCategory, student]);
+
+  // Real-time synchronization
+  useAutoSync(['quizzes', 'quiz_submissions'], fetchContent);
+
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
 
   const handleStart = (item: any) => {
     if (item.type === 'cbt') {

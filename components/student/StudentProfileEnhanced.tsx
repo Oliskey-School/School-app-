@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -58,13 +59,73 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
         }
     }, [initialStudent]);
 
-    useEffect(() => {
-        if (studentId || initialStudent?.id) {
-            fetchProfileData((studentId || initialStudent.id) as any);
+    const generateLearningFocus = useCallback(async (studentData: any, averageScore: number) => {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+            console.log("AI Focus skipped: Gemini API Key not configured.");
+            return;
         }
-    }, [studentId, initialStudent]);
 
-    const fetchProfileData = async (id: string | number) => {
+        setFocusLoading(true);
+        try {
+            const ai = getAIClient(apiKey);
+
+            const prompt = `Analyze this student's performance and suggest 2 key learning focus areas for today.
+            Student: ${studentData.first_name}
+            Grade: ${studentData.class_name || '10'}
+            Performance: Average ${averageScore}%
+            
+            Return JSON with:
+            - title (string) e.g. "Quadratic Equations"
+            - subject (string) e.g. "Math"
+            - reason (string) e.g. "Score: 65%" or "Upcoming Test"
+            - color (string) one of: pink, teal, violet, orange
+            
+            Limit to 2 items.`;
+
+            const response = await ai.models.generateContent({
+                model: AI_MODEL_NAME,
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            focus_areas: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        title: { type: Type.STRING },
+                                        subject: { type: Type.STRING },
+                                        reason: { type: Type.STRING },
+                                        color: { type: Type.STRING }
+                                    },
+                                    required: ["title", "subject", "reason", "color"]
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const data = JSON.parse(response.text);
+            if (data.focus_areas) {
+                setLearningFocus(data.focus_areas);
+            }
+        } catch (e: any) {
+            // Suppress API key errors or JSON parse errors to avoid console noise for the user
+            if (e?.message?.includes('API key') || e instanceof SyntaxError) {
+                console.log("AI Focus unavailable (API Key/Network)");
+            } else {
+                console.error("AI Focus Error:", e);
+            }
+        } finally {
+            setFocusLoading(false);
+        }
+    }, []);
+
+    const fetchProfileData = useCallback(async (id: string | number) => {
         try {
             setLoading(true);
 
@@ -117,68 +178,20 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
         } finally {
             setLoading(false);
         }
-    };
+    }, [student, generateLearningFocus]);
 
-    const generateLearningFocus = async (studentData: any, averageScore: number) => {
-        setFocusLoading(true);
-        try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-            const ai = getAIClient(apiKey);
-
-            const prompt = `Analyze this student's performance and suggest 2 key learning focus areas for today.
-            Student: ${studentData.first_name}
-            Grade: ${studentData.class_name || '10'}
-            Performance: Average ${averageScore}%
-            
-            Return JSON with:
-            - title (string) e.g. "Quadratic Equations"
-            - subject (string) e.g. "Math"
-            - reason (string) e.g. "Score: 65%" or "Upcoming Test"
-            - color (string) one of: pink, teal, violet, orange
-            
-            Limit to 2 items.`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            focus_areas: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        title: { type: Type.STRING },
-                                        subject: { type: Type.STRING },
-                                        reason: { type: Type.STRING },
-                                        color: { type: Type.STRING }
-                                    },
-                                    required: ["title", "subject", "reason", "color"]
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            const data = JSON.parse(response.text);
-            if (data.focus_areas) {
-                setLearningFocus(data.focus_areas);
-            }
-        } catch (e: any) {
-            // Suppress API key errors or JSON parse errors to avoid console noise for the user
-            if (e?.message?.includes('API key') || e instanceof SyntaxError) {
-                console.log("AI Focus unavailable (API Key/Network)");
-            } else {
-                console.error("AI Focus Error:", e);
-            }
-        } finally {
-            setFocusLoading(false);
+    // Real-time synchronization
+    useAutoSync(['students', 'grades', 'events', 'activities', 'documents'], () => {
+        if (studentId || initialStudent?.id) {
+            fetchProfileData((studentId || initialStudent.id) as any);
         }
-    };
+    });
+
+    useEffect(() => {
+        if (studentId || initialStudent?.id) {
+            fetchProfileData((studentId || initialStudent.id) as any);
+        }
+    }, [studentId, initialStudent?.id, fetchProfileData]);
 
     // ... Helper functions for colors ...
     const getGradeColor = (score: number) => {

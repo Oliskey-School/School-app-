@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { api } from '../../lib/api';
 import TeacherCurriculumBadges from '../shared/TeacherCurriculumBadges';
 import { User, FileText, BookOpen, CheckCircle, Upload, AlertCircle } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface TeacherProfileProps {
     teacherId: string;
@@ -19,11 +20,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
     const [uploading, setUploading] = useState(false);
     const { toast } = useToast();
 
-    useEffect(() => {
-        fetchTeacher();
-    }, [teacherId]);
-
-    const fetchTeacher = async () => {
+    const fetchTeacher = useCallback(async () => {
         try {
             const data = await api.getTeacherById(teacherId);
             setTeacher(data);
@@ -33,7 +30,13 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
         } finally {
             setLoading(false);
         }
-    };
+    }, [teacherId]);
+
+    useEffect(() => {
+        fetchTeacher();
+    }, [fetchTeacher]);
+
+    useAutoSync(['teachers'], fetchTeacher);
 
     const handleCurriculumUpdate = async (value: 'Nigerian' | 'British' | 'Both') => {
         try {
@@ -57,7 +60,8 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
     const handleDocumentUpload = async (field: string, file: File) => {
         setUploading(true);
         try {
-            const { publicUrl } = await api.uploadFile('teacher-documents', `${teacherId}/${field}`, file);
+            const res = await api.uploadFile('teacher-documents', `${teacherId}/${field}`, file);
+            const publicUrl = ('publicUrl' in res) ? res.publicUrl : res.url;
 
             await api.updateTeacher(teacherId, { [field]: publicUrl });
 

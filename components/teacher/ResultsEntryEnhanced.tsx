@@ -10,6 +10,7 @@ import { CurriculumMismatchWarning } from '../shared/TeacherCurriculumBadges';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { useCallback } from 'react';
 
 interface ResultsEntryProps {
     teacherId: string;
@@ -39,21 +40,8 @@ export default function ResultsEntryEnhanced({
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [exam, setExam] = useState<any>(null);
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const { toast } = useToast();
-
-    useEffect(() => {
-        fetchExamDetails();
-        fetchStudents();
-    }, [examId, selectedCurriculum, refreshTrigger]);
-
-    // Auto-sync
-    useAutoSync(['exam_results'], () => {
-        console.log('🔄 [ResultsEntryEnhanced] Auto-sync triggered');
-        setRefreshTrigger(prev => prev + 1);
-    });
-
-    const fetchExamDetails = async () => {
+    const fetchExamDetails = useCallback(async () => {
         try {
             const data = await api.getExam(examId);
             setExam(data);
@@ -70,9 +58,9 @@ export default function ResultsEntryEnhanced({
         } catch (error) {
             console.error('Error fetching exam details:', error);
         }
-    };
+    }, [examId]);
 
-    const fetchStudents = async () => {
+    const fetchStudents = useCallback(async () => {
         setLoading(true);
         try {
             // Get curricula to find the one matching selectedCurriculum
@@ -121,7 +109,15 @@ export default function ResultsEntryEnhanced({
         } finally {
             setLoading(false);
         }
-    };
+    }, [schoolId, currentBranchId, classId, examId, selectedCurriculum, toast]);
+
+    useEffect(() => {
+        fetchExamDetails();
+        fetchStudents();
+    }, [fetchExamDetails, fetchStudents]);
+
+    // Auto-sync
+    useAutoSync(['exam_results', 'students'], fetchStudents);
 
     const calculateGrade = (total: number, curriculum: 'Nigerian' | 'British'): string => {
         if (curriculum === 'Nigerian') {

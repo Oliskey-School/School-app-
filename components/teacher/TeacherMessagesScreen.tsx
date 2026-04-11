@@ -6,7 +6,7 @@ import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
 import { THEME_CONFIG } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
-
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 const formatTimestamp = (isoDate: string): string => {
     if (!isoDate) return '';
@@ -106,14 +106,9 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
 
     useEffect(() => {
         fetchConversations();
-
-        // Realtime updates handled by backend polling fallback
-        const interval = setInterval(fetchConversations, 10000); // Polling as fallback
-
-        return () => {
-            clearInterval(interval);
-        };
     }, [fetchConversations]);
+
+    useAutoSync(['conversations', 'messages'], fetchConversations);
 
 
     // Map for UI consistency

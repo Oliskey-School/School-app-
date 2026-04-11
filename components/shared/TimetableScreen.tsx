@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { SUBJECT_COLORS, CalendarIcon, ChevronLeftIcon, RefreshIcon } from '../../constants';
 import { getGradeDisplayName } from '../../lib/schoolSystem';
 import { TimetableEntry } from '../../types';
@@ -136,7 +137,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         }
     }, [students, context.userType]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         const studentIdContext = context.userType === 'parent' && selectedStudent ? selectedStudent.id : context.userId;
         const cacheKey = `timetable_${studentIdContext}_${context.userType}`;
 
@@ -157,9 +158,9 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
 
             // 2. Identify Target Class/Teacher
             if (context.userType === 'student') {
-                const student = await api.getMyStudentProfile();
-                if (student) {
-                    targetClassName = getGradeDisplayName(student.grade);
+                const studentProfile = await api.getMyStudentProfile();
+                if (studentProfile) {
+                    targetClassName = getGradeDisplayName(studentProfile.grade);
                 }
             } else if (context.userType === 'parent' && selectedStudent) {
                 targetClassName = getGradeDisplayName(selectedStudent.grade);
@@ -168,11 +169,11 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             }
 
             // 3. Fetch Timetable Data via Central API
-            const data = await api.getTimetable({ 
-                schoolId: schoolId || '', 
-                className: targetClassName, 
-                teacherId: targetTeacherId 
-            });
+            const data = await api.getTimetable(
+                currentBranchId || undefined,
+                targetClassName,
+                targetTeacherId
+            );
 
             if (data && data.length > 0) {
                 // 4. Transform Data
@@ -217,11 +218,14 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         } finally {
             setLoading(false);
         }
-    };
+    }, [context.userId, context.userType, schoolId, currentBranchId, selectedStudent?.id, className]);
+
+    // Real-time synchronization
+    useAutoSync(['timetables'], fetchData);
 
     useEffect(() => {
         fetchData();
-    }, [context.userId, context.userType, schoolId, currentBranchId, selectedStudent?.id]);
+    }, [fetchData]);
 
     if (loading) {
         return (

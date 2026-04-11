@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { PTAMeeting } from '../../types';
 import { CalendarIcon, ClockIcon, UsersIcon, CheckCircleIcon } from '../../constants';
@@ -8,15 +9,10 @@ const PTAMeetingScreen: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isRegistered, setIsRegistered] = useState(false);
 
-    useEffect(() => {
-        fetchUpcomingMeeting();
-    }, []);
-
-    const fetchUpcomingMeeting = async () => {
+    const fetchUpcomingMeeting = useCallback(async () => {
         try {
             // Fetch meetings via unified API
             const data = await api.getParentPTAMeetings();
-
 
             if (data && data.length > 0) {
                 const m = data[0];
@@ -29,7 +25,6 @@ const PTAMeetingScreen: React.FC = () => {
                     isPast: m.is_past
                 });
             } else {
-                // Properly handle "No Data" state instead of hardcoded demo
                 setMeeting(null);
             }
         } catch (err) {
@@ -38,7 +33,14 @@ const PTAMeetingScreen: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    // Real-time synchronization
+    useAutoSync(['pta_meetings'], fetchUpcomingMeeting);
+
+    useEffect(() => {
+        fetchUpcomingMeeting();
+    }, [fetchUpcomingMeeting]);
 
     if (loading) {
         return (

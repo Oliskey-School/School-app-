@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { PhoneIcon, BusVehicleIcon, ClockIcon, UsersIcon } from '../../constants';
 import { Conversation } from '../../types';
@@ -51,71 +52,64 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
     // Determine user ID
     const myId = currentUserId || parentId;
 
-    useEffect(() => {
+    const fetchConversations = useCallback(async () => {
         if (myId === undefined || myId === null) return;
+        try {
+            const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+            const branchId = profile?.branch_id;
 
-        const fetchConversations = async () => {
-            try {
-                const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
-                const branchId = profile?.branch_id;
+            const convs = await api.getConversations(myId, schoolId, branchId);
 
-                const convs = await api.getConversations(myId, schoolId, branchId);
-
-                if (convs.length === 0) {
-                    setRooms([]);
-                    setLoading(false);
-                    return;
-                }
-
-                // Format for UI
-                const formattedRooms = convs.map(c => {
-                    // Find other participant for DM name/avatar
-                    const otherPart = c.participants?.find((p: any) => p.user?.id !== myId)?.user;
-                    // Or if self-chat or fallback
-                    const displayUser = otherPart || c.participants?.[0]?.user;
-
-                    // Get last read ID from the data returned by api.getConversations
-                    const lastReadId = c.last_read_message_id || 0;
-
-                    return {
-                        id: c.id,
-                        displayName: c.name || displayUser?.name || 'Unknown',
-                        displayAvatar: c.name ? null : (displayUser?.avatar_url || ''),
-                        lastMessage: {
-                            content: c.last_message_text || 'No messages yet',
-                            created_at: c.last_message_at || c.created_at,
-                            sender_id: 0,
-                            id: 0
-                        },
-                        unreadCount: 0,
-                        updated_at: c.last_message_at || c.created_at,
-                        is_group: c.type === 'group',
-                        lastReadMessageId: lastReadId,
-                        participants: c.participants || [],
-                        creatorId: c.creator_id,
-                        type: c.type
-                    };
-                });
-
-                setRooms(formattedRooms);
-            } catch (err) {
-                console.error("Error fetching conversations:", err);
-            } finally {
+            if (convs.length === 0) {
+                setRooms([]);
                 setLoading(false);
+                return;
             }
-        };
 
+            // Format for UI
+            const formattedRooms = convs.map(c => {
+                // Find other participant for DM name/avatar
+                const otherPart = c.participants?.find((p: any) => p.user?.id !== myId)?.user;
+                // Or if self-chat or fallback
+                const displayUser = otherPart || c.participants?.[0]?.user;
+
+                // Get last read ID from the data returned by api.getConversations
+                const lastReadId = c.last_read_message_id || 0;
+
+                return {
+                    id: c.id,
+                    displayName: c.name || displayUser?.name || 'Unknown',
+                    displayAvatar: c.name ? null : (displayUser?.avatar_url || ''),
+                    lastMessage: {
+                        content: c.last_message_text || 'No messages yet',
+                        created_at: c.last_message_at || c.created_at,
+                        sender_id: 0,
+                        id: 0
+                    },
+                    unreadCount: 0,
+                    updated_at: c.last_message_at || c.created_at,
+                    is_group: c.type === 'group',
+                    lastReadMessageId: lastReadId,
+                    participants: c.participants || [],
+                    creatorId: c.creator_id,
+                    type: c.type
+                };
+            });
+
+            setRooms(formattedRooms);
+        } catch (err) {
+            console.error("Error fetching conversations:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [myId, user?.user_metadata?.school_id, user?.app_metadata?.school_id, profile?.branch_id]);
+
+    // Real-time synchronization
+    useAutoSync(['conversations', 'messages'], fetchConversations);
+
+    useEffect(() => {
         fetchConversations();
-
-        // Replace Supabase Realtime with standard polling (every 30 seconds)
-        const pollInterval = window.setInterval(() => {
-            fetchConversations();
-        }, 30000);
-
-        return () => {
-            clearInterval(pollInterval);
-        };
-    }, [myId]);
+    }, [fetchConversations]);
 
     const filteredConversations = useMemo(() => {
         return rooms

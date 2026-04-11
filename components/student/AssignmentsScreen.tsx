@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { Assignment, Submission, StudentAssignment } from '../../types';
 import api from '../../lib/api';
 import { CheckCircleIcon, ClockIcon, ExclamationCircleIcon, DocumentTextIcon, SUBJECT_COLORS } from '../../constants';
@@ -16,58 +17,61 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
     const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchAssignmentsAndSubmissions = async () => {
-            try {
-                // 1. Fetch Assignments (scoped by backend)
-                const assignmentsData = await api.getAssignments(schoolId || '', {
-                    classId: undefined, 
-                });
+    const fetchAssignmentsAndSubmissions = useCallback(async () => {
+        try {
+            // 1. Fetch Assignments (scoped by backend)
+            const assignmentsData = await api.getAssignments(schoolId || '', {
+                classId: undefined, 
+            });
 
-                // 2. Fetch Student Submissions via Unified API
-                const submissionsData = await api.getMySubmissions();
+            // 2. Fetch Student Submissions via Unified API
+            const submissionsData = await api.getMySubmissions();
 
-                const studentSubmissionsMap = new Map<string, Submission>();
-                if (submissionsData) {
-                    submissionsData.forEach((s: any) => {
-                        studentSubmissionsMap.set(s.assignment_id, {
-                            id: s.id,
-                            assignmentId: s.assignment_id,
-                            student: { id: studentId.toString(), name: 'You', avatarUrl: '' },
-                            submittedAt: s.submitted_at || new Date().toISOString(),
-                            isLate: s.is_late || false,
-                            files: s.files ? [{ name: 'Submission', size: 0 }] : [],
-                            status: s.status || 'Ungraded',
-                            grade: s.grade,
-                            feedback: s.feedback
-                        });
+            const studentSubmissionsMap = new Map<string, Submission>();
+            if (submissionsData) {
+                submissionsData.forEach((s: any) => {
+                    studentSubmissionsMap.set(s.assignment_id, {
+                        id: s.id,
+                        assignmentId: s.assignment_id,
+                        student: { id: studentId.toString(), name: 'You', avatarUrl: '' },
+                        submittedAt: s.submitted_at || new Date().toISOString(),
+                        isLate: s.is_late || false,
+                        files: s.files ? [{ name: 'Submission', size: 0 }] : [],
+                        status: s.status || 'Ungraded',
+                        grade: s.grade,
+                        feedback: s.feedback
                     });
-                }
-
-                if (assignmentsData) {
-                    const mapped: StudentAssignment[] = assignmentsData.map((a: any) => ({
-                        id: a.id,
-                        title: a.title,
-                        subject: a.subject,
-                        description: a.description,
-                        dueDate: a.due_date,
-                        className: a.class_name || 'General',
-                        totalStudents: a.total_students || 0,
-                        submissionsCount: a.submissions_count || 0,
-                        submission: studentSubmissionsMap.get(a.id)
-                    }));
-                    setAssignments(mapped);
-                }
-
-            } catch (err) {
-                console.error('Error fetching assignments:', err);
-            } finally {
-                setLoading(false);
+                });
             }
-        };
 
-        fetchAssignmentsAndSubmissions();
+            if (assignmentsData) {
+                const mapped: StudentAssignment[] = assignmentsData.map((a: any) => ({
+                    id: a.id,
+                    title: a.title,
+                    subject: a.subject,
+                    description: a.description,
+                    dueDate: a.due_date,
+                    className: a.class_name || 'General',
+                    totalStudents: a.total_students || 0,
+                    submissionsCount: a.submissions_count || 0,
+                    submission: studentSubmissionsMap.get(a.id)
+                }));
+                setAssignments(mapped);
+            }
+
+        } catch (err) {
+            console.error('Error fetching assignments:', err);
+        } finally {
+            setLoading(false);
+        }
     }, [studentId, schoolId]);
+
+    // Real-time synchronization
+    useAutoSync(['assignments', 'submissions'], fetchAssignmentsAndSubmissions);
+
+    useEffect(() => {
+        fetchAssignmentsAndSubmissions();
+    }, [fetchAssignmentsAndSubmissions]);
 
     const filteredAssignments = useMemo(() => {
         return assignments

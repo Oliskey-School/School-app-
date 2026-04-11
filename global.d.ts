@@ -22,5 +22,6 @@ declare global {
         readonly VITE_PAYSTACK_PUBLIC_KEY: string;
         readonly VITE_FLUTTERWAVE_PUBLIC_KEY: string;
         readonly VITE_FIREBASE_VAPID_KEY: string;
+        readonly VITE_GEMINI_API_KEY: string;
     }
 }

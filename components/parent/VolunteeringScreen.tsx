@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { HelpingHandIcon } from '../../constants';
@@ -17,31 +18,33 @@ const VolunteeringScreen: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [signedUpEvents, setSignedUpEvents] = useState<Set<number>>(new Set());
 
-    useEffect(() => {
-        const fetchOpportunities = async () => {
-            try {
-                const data = await api.getVolunteeringOpportunities();
+    const fetchOpportunities = useCallback(async () => {
+        try {
+            const data = await api.getVolunteeringOpportunities();
 
-
-                if (data) {
-                    setOpportunities(data.map((item: any) => ({
-                        id: item.id,
-                        title: item.title,
-                        description: item.description,
-                        date: item.date,
-                        spotsAvailable: item.slots_total || 10,
-                        spotsFilled: item.slots_filled || 0
-                    })));
-                }
-            } catch (err) {
-                console.error('Error fetching volunteering opportunities:', err);
-            } finally {
-                setLoading(false);
+            if (data) {
+                setOpportunities(data.map((item: any) => ({
+                    id: item.id,
+                    title: item.title,
+                    description: item.description,
+                    date: item.date,
+                    spotsAvailable: item.slots_total || 10,
+                    spotsFilled: item.slots_filled || 0
+                })));
             }
-        };
-
-        fetchOpportunities();
+        } catch (err) {
+            console.error('Error fetching volunteering opportunities:', err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // Real-time synchronization
+    useAutoSync(['volunteering_opportunities', 'volunteers'], fetchOpportunities);
+
+    useEffect(() => {
+        fetchOpportunities();
+    }, [fetchOpportunities]);
 
     const handleSignUpToggle = (id: number) => {
         const newSet = new Set(signedUpEvents);

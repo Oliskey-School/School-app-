@@ -414,10 +414,59 @@ export class StudentService {
     }
 
     static async getStudentProfileByUserId(schoolId: string, branchId: string | undefined, userId: string) {
-        return await prisma.student.findFirst({
+        let student = await prisma.student.findFirst({
             where: { user_id: userId, school_id: schoolId },
             include: { user: true }
         });
+
+        // Self-Healing: If user is a STUDENT but has no Student record, create one
+        if (!student) {
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (user && user.role === Role.STUDENT) {
+                console.log(`🛠️ [StudentService] Self-healing: Creating missing student record for user ${userId}`);
+                
+                // For demo/self-healing, we provide minimal defaults if missing
+                student = await (prisma.student.create as any)({
+                    data: {
+                        user_id: userId,
+                        school_id: user.school_id,
+                        branch_id: user.branch_id || branchId || null,
+                        full_name: user.full_name,
+                        email: user.email,
+                        status: 'Active',
+                        grade: 1, // Default grade
+                        section: 'A', // Default section
+                        updated_at: new Date()
+                    },
+                    include: {
+                        user: true
+                    }
+                });
+
+                // Also ensure a default enrollment exists so dashboard overview works
+                if (student) {
+                    const defaultClass = await prisma.class.findFirst({
+                        where: { school_id: user.school_id }
+                    });
+
+                    if (defaultClass) {
+                        await (prisma.studentEnrollment.create as any)({
+                            data: {
+                                student_id: student.id,
+                                class_id: defaultClass.id,
+                                school_id: user.school_id,
+                                branch_id: user.branch_id || null,
+                                status: 'Active',
+                                is_primary: true,
+                                enrollment_date: new Date()
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        return student;
     }
 
     static async getStudentByStudentId(schoolId: string, branchId: string | undefined, studentId: string) {

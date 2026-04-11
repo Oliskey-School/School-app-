@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { LearningResource } from '../../types';
 import { DocumentTextIcon, PlayIcon, SearchIcon, ElearningIcon, ChevronRightIcon } from '../../constants';
@@ -82,14 +83,9 @@ const LearningResourcesScreen: React.FC = () => {
     const [selectedSubject, setSelectedSubject] = useState<string>('All');
     const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        fetchResources();
-    }, []);
-
-    const fetchResources = async () => {
+    const fetchResources = useCallback(async () => {
         try {
             const data = await api.getLearningResources();
-
 
             if (data) {
                 // Map DB columns to Typescript interface if needed (snake_case -> camelCase)
@@ -109,7 +105,14 @@ const LearningResourcesScreen: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    // Real-time synchronization
+    useAutoSync(['learning_resources'], fetchResources);
+
+    useEffect(() => {
+        fetchResources();
+    }, [fetchResources]);
 
     const subjects = useMemo(() =>
         ['All', ...Array.from(new Set(resources.map(r => r.subject)))]

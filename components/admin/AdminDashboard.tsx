@@ -143,6 +143,30 @@ const DataExportScreen = lazy(() => import('../admin/DataExportScreen'));
 const NotificationDigestSettings = lazy(() => import('../shared/NotificationDigestSettings'));
 const ProjectBoardScreen = lazy(() => import('../shared/ProjectBoardScreen'));
 const EnrollmentTrendsWidget = lazy(() => import('../admin/EnrollmentTrendsWidget'));
+const ArrearsTracker = lazy(() => import('../admin/ArrearsTracker'));
+const AwardPoints = lazy(() => import('../admin/AwardPoints'));
+const ComplianceOfficerDashboard = lazy(() => import('../admin/ComplianceOfficerDashboard'));
+const CounselorDashboard = lazy(() => import('../admin/CounselorDashboard'));
+const CustomGamesListScreen = lazy(() => import('../admin/CustomGamesListScreen'));
+const IDVerificationPanel = lazy(() => import('../admin/IDVerificationPanel'));
+const LeaveApproval = lazy(() => import('../admin/LeaveApproval'));
+const LeaveBalance = lazy(() => import('../admin/LeaveBalance'));
+const PaymentHistory = lazy(() => import('../admin/PaymentHistory'));
+const PaymentPlanModal = lazy(() => import('../admin/PaymentPlanModal'));
+const PaymentRecording = lazy(() => import('../admin/PaymentRecording'));
+const PayrollDashboard = lazy(() => import('../admin/PayrollDashboard'));
+const PayslipGenerator = lazy(() => import('../admin/PayslipGenerator'));
+const ReportCardPreview = lazy(() => import('../admin/ReportCardPreview'));
+const ResourceUploadModal = lazy(() => import('../admin/ResourceUploadModal'));
+const SalaryConfiguration = lazy(() => import('../admin/SalaryConfiguration'));
+const SchoolInfoScreen = lazy(() => import('../admin/SchoolInfoScreen'));
+const StudentApprovalScreen = lazy(() => import('../admin/StudentApprovalScreen'));
+const StudentDetailReport = lazy(() => import('../admin/StudentDetailReport'));
+const StudentProfileDashboard = lazy(() => import('../admin/StudentProfileDashboard'));
+const SuperAdminDashboard = lazy(() => import('../admin/SuperAdminDashboard'));
+const TimetableScreen = lazy(() => import('../admin/TimetableScreen'));
+const UserSeeder = lazy(() => import('../admin/UserSeeder'));
+const VisitorLog = lazy(() => import('../admin/VisitorLog'));
 
 type ViewStackItem = {
     view: string;
@@ -384,6 +408,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         notificationDigest: NotificationDigestSettings,
         projectBoard: ProjectBoardScreen,
         enrollmentTrends: EnrollmentTrendsWidget,
+        arrearsTracker: ArrearsTracker,
+        awardPoints: AwardPoints,
+        complianceOfficerDashboard: ComplianceOfficerDashboard,
+        counselorDashboard: CounselorDashboard,
+        customGamesList: CustomGamesListScreen,
+        idVerification: IDVerificationPanel,
+        leaveApproval: LeaveApproval,
+        leaveBalance: LeaveBalance,
+        paymentHistory: PaymentHistory,
+        paymentPlanModal: PaymentPlanModal,
+        paymentRecording: PaymentRecording,
+        payrollDashboard: PayrollDashboard,
+        payslipGenerator: PayslipGenerator,
+        reportCardPreview: ReportCardPreview,
+        resourceUpload: ResourceUploadModal,
+        salaryConfiguration: SalaryConfiguration,
+        schoolInfo: SchoolInfoScreen,
+        studentApproval: StudentApprovalScreen,
+        studentDetailReport: StudentDetailReport,
+        studentProfileDashboard: StudentProfileDashboard,
+        superAdmin: SuperAdminDashboard,
+        timetableScreen: TimetableScreen,
+        userSeeder: UserSeeder,
+        visitorLog: VisitorLog,
     };
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -403,6 +451,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             }
         };
         getUser();
+
+        // Expose navigation for automated audits
+        if ((window as any).__AUDIT_MODE__) {
+            (window as any).ADMIN_NAVIGATE = navigateTo;
+            (window as any).ADMIN_COMPONENTS = Object.keys(viewComponents);
+        }
     }, [user]);
 
     const navigateTo = (view: string, title: string, props: any = {}) => {
@@ -538,6 +592,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             <Suspense fallback={<PremiumLoader message="Searching school database..." />}>
                 {isSearchOpen && <GlobalSearchScreen dashboardType={DashboardType.Admin} navigateTo={navigateTo} onClose={() => setIsSearchOpen(false)} />}
             </Suspense>
+
+            {/* Audit Trigger Menu (Hidden by default, triggered by script) */}
+            <div id="audit-trigger-panel" style={{ display: 'none' }}>
+                {Object.keys(viewComponents).map(key => (
+                    <button 
+                        key={key} 
+                        id={`audit-trigger-${key}`}
+                        onClick={() => navigateTo(key, `Audit: ${key}`)}
+                    >
+                        {key}
+                    </button>
+                ))}
+            </div>
+            <button 
+                id="toggle-audit-panel" 
+                style={{ position: 'fixed', bottom: '10px', right: '10px', opacity: 0, zIndex: -1 }}
+                onClick={() => {
+                    const panel = document.getElementById('audit-trigger-panel');
+                    if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                }}
+            >
+                Audit
+            </button>
         </DashboardLayout>
     );
 };

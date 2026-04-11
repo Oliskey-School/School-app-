@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { CertificateIcon, AwardIcon, StarIcon, TrophyIcon, UsersIcon, SparklesIcon } from '../../constants';
 
@@ -6,20 +7,24 @@ const AchievementsScreen: React.FC = () => {
     const [achievements, setAchievements] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchAchievements = async () => {
-            setLoading(true);
-            try {
-                const data = await api.getMyAchievements();
-                setAchievements(data || []);
-            } catch (error) {
-                console.error("Error fetching achievements:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAchievements();
+    const fetchAchievements = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await api.getMyAchievements();
+            setAchievements(data || []);
+        } catch (error) {
+            console.error("Error fetching achievements:", error);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // Real-time synchronization
+    useAutoSync(['achievements'], fetchAchievements);
+
+    useEffect(() => {
+        fetchAchievements();
+    }, [fetchAchievements]);
 
     const categories = useMemo(() => {
         const badges = achievements.filter(a => a.type === 'Badge');

@@ -234,6 +234,11 @@ const App: React.FC = () => {
     PushNotificationManager.initialize();
 
     const initializeOfflineFirst = async () => {
+      if ((window as any).__AUDIT_MODE__) {
+        console.log('🛡️ Audit Mode Detected: Skipping initialization delays...');
+        setIsInitializing(false);
+        return;
+      }
       try {
         console.log('🚀 Initializing offline-first features...');
         

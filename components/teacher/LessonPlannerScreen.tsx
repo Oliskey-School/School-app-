@@ -9,7 +9,7 @@ import { GeneratedResources, SchemeWeek, SavedScheme, HistoryEntry, GeneratedHis
 import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, CheckCircleIcon, getFormattedClassName } from '../../constants';
 import { fetchSubjects } from '../../lib/database';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
-import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 
 const HistoryIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h - 6 w - 6 ${className || ''} `.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 8l0 4l2 2" /><path d="M3.05 11a9 9 0 1 1 .5 4m-3.55 -4a9 9 0 0 1 12.5 -5" /><path d="M3 4v4h4" /></svg>;
@@ -225,7 +225,7 @@ const LessonPlannerScreen: React.FC<{
         fetchHistory();
     }, [fetchHistory]);
 
-    useRealtimeRefresh(['generated_resources'], fetchHistory);
+    useAutoSync(['generated_resources'], fetchHistory);
 
 
 

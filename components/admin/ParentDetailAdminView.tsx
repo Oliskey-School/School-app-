@@ -47,11 +47,11 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
 
     const handleLinkStudent = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!studentIdToLink.trim() || !parent.user_id) return;
+        if (!studentIdToLink.trim() || !parent.id) return;
 
         setIsLinking(true);
         try {
-            const result = await linkStudentToParent(studentIdToLink.trim(), 'Guardian', parent.user_id);
+            const result = await linkStudentToParent(studentIdToLink.trim(), 'Guardian', parent.id);
             if (result.success) {
                 toast.success(result.message);
                 setStudentIdToLink('');
@@ -73,11 +73,11 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
     };
 
     const confirmUnlink = async () => {
-        if (!childToUnlink || !parent.user_id) return;
+        if (!childToUnlink || !parent.id) return;
 
         setLoading(true);
         try {
-            const result = await unlinkStudentFromParent(childToUnlink.id, parent.user_id);
+            const result = await unlinkStudentFromParent(childToUnlink.id, parent.id);
             if (result.success) {
                 toast.success(result.message);
                 loadChildren();
@@ -95,32 +95,30 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
     };
 
     const confirmDelete = async () => {
+        setLoading(true);
         try {
-            // Delete from database first (Scoped)
-            const { error: deleteParentError } = await api
-                .from('parents')
-                .delete()
-                .eq('id', parent.id)
-                .eq('school_id', parent.schoolId); // ADDED SCOPE
+            // Delete parent (this may or may not delete the user account depending on backend logic)
+            await api.deleteParent(parent.id);
 
-            if (deleteParentError) throw deleteParentError;
-
-            // Delete associated user account if exists
+            // If the user account still exists and we have the ID, we can attempt to delete it too
+            // though usually deleteParent should handle cleanup or we should delete the User instead.
             if (parent.user_id) {
-                const { error: deleteUserError } = await api
-                    .from('users')
-                    .delete()
-                    .eq('id', parent.user_id)
-
-                if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
+                try {
+                    await api.deleteUser(parent.user_id);
+                } catch (userErr) {
+                    console.warn('Note: User account could not be deleted separately (it might have been cascaded):', userErr);
+                }
             }
 
-            toast.success(`${parent.name} has been successfully deleted from the database.`);
+            toast.success(`${parent.name} has been successfully deleted.`);
             forceUpdate();
             handleBack();
         } catch (error: any) {
             console.error('Error deleting parent:', error);
             toast.error('Failed to delete parent: ' + (error.message || 'Unknown error'));
+        } finally {
+            setLoading(false);
+            setShowDeleteModal(false);
         }
     };
 

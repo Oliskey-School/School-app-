@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
 import { SchoolPolicy } from '../../types';
 import { DocumentTextIcon, ShieldCheckIcon } from '../../constants';
@@ -11,11 +12,7 @@ const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId })
   const [policies, setPolicies] = useState<SchoolPolicy[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPolicies();
-  }, [schoolId]);
-
-  const fetchPolicies = async () => {
+  const fetchPolicies = useCallback(async () => {
     setLoading(true);
     try {
       // Use Central API
@@ -32,7 +29,14 @@ const SchoolPoliciesScreen: React.FC<SchoolPoliciesScreenProps> = ({ schoolId })
     } finally {
       setLoading(false);
     }
-  };
+  }, [schoolId]);
+
+  // Real-time synchronization
+  useAutoSync(['school_policies'], fetchPolicies);
+
+  useEffect(() => {
+    fetchPolicies();
+  }, [fetchPolicies]);
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
