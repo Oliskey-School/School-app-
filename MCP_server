@@ -8,3 +8,73 @@ plan first, make sure it works End to End but tell me how it will work, when you
 thought very hard and implement 
 
 make sure both in demo and in register real school potal don't allow the backend system to allow different users to be using the same ID, in my demo account when i login as an Admin i see this ID "OLISKEY_MAIN_ADM_0001" when i login into teacher the same ID again and parent, student. at least the role will change, it should be able identifiy the userschool, branch,role and number of registration. i want the ID should be working like the following instruction "behind the ID, check the users school first then theck the branch they fall into then the role they play and the time they register them, this ID logic should be the logic behind all the ID both the frontend and the backend, to get any user both the frontend and the backend i should be able to use the ID (school_branch_role_number) think very hard, plan first and implement my request
+
+
+
+
+next prompt 
+("the parent is not visible yet, that is why i'm having zero total parent and fix this error @beautifulMention 
+
+"api.ts:65  GET http://localhost:5000/api/parents/me 404 (Not Found)
+fetch @ api.ts:65
+await in fetch
+getMyParentProfile @ api.ts:698
+(anonymous) @ ParentDashboard.tsx:488
+initData @ ParentDashboard.tsx:526
+(anonymous) @ ParentDashboard.tsx:531
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533Understand this error
+ParentDashboard.tsx:519 Error in Parent Portal data load: Error: Parent profile not found
+    at HybridApiClient.fetch (api.ts:72:19)
+    at async ParentDashboard.tsx:488:37
+    at async Promise.all (:3000/index 1)
+    at async initData (ParentDashboard.tsx:528:13)
+(anonymous) @ ParentDashboard.tsx:519
+await in (anonymous)
+initData @ ParentDashboard.tsx:526
+(anonymous) @ ParentDashboard.tsx:531
+commitHookEffectListMount @ react-dom.development.js:23189
+commitPassiveMountOnFiber @ react-dom.development.js:24965
+commitPassiveMountEffects_complete @ react-dom.development.js:24930
+commitPassiveMountEffects_begin @ react-dom.development.js:24917
+commitPassiveMountEffects @ react-dom.development.js:24905
+flushPassiveEffectsImpl @ react-dom.development.js:27078
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @ scheduler.development.js:533Understand this error
+api.ts:65  GET http://localhost:5000/api/parents/me 404 (Not Found)
+fetch @ api.ts:65
+await in fetch
+getMyParentProfile @ api.ts:698
+(anonymous) @ ParentDashboard.tsx:488
+initData @ ParentDashboard.tsx:526
+(anonymous) @ ParentDashboard.tsx:531
+commitHookEffectListMount @ react-dom.development.js:23189
+invokePassiveEffectMountInDEV @ react-dom.development.js:25193
+invokeEffectsInDev @ react-dom.development.js:27390
+commitDoubleInvokeEffectsInDEV @ react-dom.development.js:27369
+flushPassiveEffectsImpl @ react-dom.development.js:27095
+flushPassiveEffects @ react-dom.development.js:27023
+(anonymous) @ react-dom.development.js:26808
+workLoop @ scheduler.development.js:266
+flushWork @ scheduler.development.js:239
+performWorkUntilDeadline @  scheduler.development.js:533Understand this error
+ParentDashboard.tsx:519 Error in Parent Portal data load: Error: Parent profile not found
+    at HybridApiClient.fetch (api.ts:72:19)
+    at async ParentDashboard.tsx:488:37
+    at async Promise.all (:3000/index 1)
+    at async initData (ParentDashboard.tsx:528:13)"")
+
+
+    ![alt text](download.jpg)

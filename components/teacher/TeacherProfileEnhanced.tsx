@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { api } from '../../lib/api';
 import TeacherCurriculumBadges from '../shared/TeacherCurriculumBadges';
 import { User, FileText, BookOpen, CheckCircle, Upload, AlertCircle } from 'lucide-react';
 
@@ -25,12 +25,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
 
     const fetchTeacher = async () => {
         try {
-            const { data } = await supabase
-                .from('teachers')
-                .select('*')
-                .eq('id', teacherId)
-                .single();
-
+            const data = await api.getTeacherById(teacherId);
             setTeacher(data);
             setCurriculumEligibility(Array.isArray(data?.curriculum_eligibility) ? data.curriculum_eligibility : []);
         } catch (error) {
@@ -43,12 +38,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
     const handleCurriculumUpdate = async (value: 'Nigerian' | 'British' | 'Both') => {
         try {
             const newValue = value === 'Both' ? ['Nigerian', 'British'] : [value];
-            const { error } = await supabase
-                .from('teachers')
-                .update({ curriculum_eligibility: newValue })
-                .eq('id', teacherId);
-
-            if (error) throw error;
+            await api.updateTeacher(teacherId, { curriculum_eligibility: newValue });
 
             setCurriculumEligibility(newValue);
             toast({
@@ -67,21 +57,9 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
     const handleDocumentUpload = async (field: string, file: File) => {
         setUploading(true);
         try {
-            const fileName = `${Date.now()}_${file.name}`;
-            const { data, error } = await supabase.storage
-                .from('teacher-documents')
-                .upload(`${teacherId}/${field}/${fileName}`, file);
+            const { publicUrl } = await api.uploadFile('teacher-documents', `${teacherId}/${field}`, file);
 
-            if (error) throw error;
-
-            const { data: urlData } = supabase.storage
-                .from('teacher-documents')
-                .getPublicUrl(data.path);
-
-            await supabase
-                .from('teachers')
-                .update({ [field]: urlData.publicUrl })
-                .eq('id', teacherId);
+            await api.updateTeacher(teacherId, { [field]: publicUrl });
 
             toast({
                 title: 'Document Uploaded',
@@ -306,3 +284,4 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
         </div>
     );
 }
+

@@ -17,15 +17,21 @@ const tenantContext = {
 // 2. Student Schema
 export const studentSchema = yup.object().shape({
     ...tenantContext,
-    name: yup.string().min(2, 'Name too short').max(100, 'Name too long').required(),
-    firstName: yup.string().required(),
-    lastName: yup.string().required(),
-    grade: yup.number().integer().min(0).max(12).required(),
-    section: yup.string().max(10).required(),
-    gender: yup.string().oneOf(['male', 'female', 'other']),
+    name: yup.string().min(2, 'Name too short').max(100, 'Name too long').nullable(),
+    firstName: yup.string().required('First name is required'),
+    lastName: yup.string().required('Last name is required'),
+    grade: yup.number().integer().min(-3).max(12).nullable(),
+    section: yup.string().max(10).nullable(),
+    gender: yup.string().transform(v => v?.toLowerCase()).oneOf(['male', 'female', 'other']).nullable(),
     email: yup.string().email('Invalid email address').nullable(),
+    dateOfBirth: yup.string().nullable(),
+    parentName: yup.string().nullable(),
+    parentEmail: yup.string().email('Invalid parent email').nullable(),
+    parentPhone: yup.string().nullable(),
+    parentAddress: yup.string().nullable(),
+    curriculumType: yup.string().nullable(),
     enrollment_date: yup.date().default(() => new Date()),
-    status: yup.string().oneOf(['active', 'inactive', 'graduated', 'withdrawn']).default('active'),
+    status: yup.string().transform(v => v?.toLowerCase()).oneOf(['active', 'inactive', 'graduated', 'withdrawn', 'pending']).default('active'),
 });
 
 // 3. Teacher Schema

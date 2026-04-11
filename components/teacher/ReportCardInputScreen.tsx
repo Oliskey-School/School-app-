@@ -1,17 +1,14 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import { Student, Teacher, Rating, ReportCard, ReportCardAcademicRecord } from '../../types';
 import { SchoolLogoIcon, PlusIcon, AIIcon, LockIcon, getFormattedClassName, ChevronLeftIcon, XIcon } from '../../constants';
-import { mockTeachers, mockStudents } from '../../data';
-import { getSubjectsForStudent } from '../../data';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
-import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 interface ReportCardInputScreenProps {
     student: Student;
@@ -80,15 +77,19 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     useEffect(() => {
         const fetchUser = async () => {
             if (!authUser) return;
-            const { data: teacher } = await supabase.from('teachers').select('*').eq('email', authUser.email).single();
-            if (!teacher) return;
+            try {
+                const teacher = await api.getMyTeacherProfile();
+                if (!teacher) return;
 
-            if (!loadingPermissions) {
-                setCurrentUserTeacher({
-                    ...teacher,
-                    subjects: teacherSubjects.map(s => s.name),
-                    classes: teacherClasses.map(c => getFormattedClassName(c.grade, c.section))
-                } as any);
+                if (!loadingPermissions) {
+                    setCurrentUserTeacher({
+                        ...teacher,
+                        subjects: teacherSubjects.map(s => s.name),
+                        classes: teacherClasses.map(c => getFormattedClassName(c.grade, c.section))
+                    } as any);
+                }
+            } catch (err) {
+                console.error("Error fetching teacher profile:", err);
             }
         };
         fetchUser();
@@ -139,29 +140,21 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     }, [student.id, term, refreshTrigger]);
 
     // Auto-sync
-    useAutoSync(['report_cards'], () => {
-        console.log('🔄 [ReportCardInput] Auto-sync triggered');
-        setRefreshTrigger(prev => prev + 1);
-    });
-
-    useRealtimeRefresh(['report_card_records', 'report_cards'], () => setRefreshTrigger(prev => prev + 1));
+    useAutoSync(['report_card_records', 'report_cards'], () => setRefreshTrigger(prev => prev + 1));
 
 
     const loadData = async () => {
         setLoading(true);
         try {
-            // Dynamic imports to ensure methods update
-            const { fetchReportCard, fetchStudentSubjects } = await import('../../lib/database');
-
             // 1. Fetch Existing Report
             // Hardcoded session for now, ideally passed in props or current session
             const currentSession = "2023/2024";
-            const report = await fetchReportCard(student.id, term, currentSession);
+            const report = await api.getReportCard(student.id, term, currentSession);
             setExistingReport(report);
 
             // 2. Fetch Expected Subjects
             // Fetch subjects for this student (based on class/registered)
-            const subjects = await fetchStudentSubjects(student.id);
+            const subjects = await api.getStudentSubjects(student.id);
             const expectedSubjects = subjects.map((s: any) => s.name);
 
             // 3. Merge Data
@@ -277,7 +270,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
         setGeneratingRemarkIndex(index);
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient((import.meta.env as any).VITE_GEMINI_API_KEY || '');
             const prompt = `Generate a short, constructive remark for a student's report card.
             Subject: ${record.subject}
             Test 1 Score (out of 20): ${record.test1}
@@ -308,8 +301,6 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             return;
         }
 
-        const { upsertReportCard } = await import('../../lib/database');
-
         const newReportCard: ReportCard = {
             term,
             session: session, // Use session from props
@@ -335,7 +326,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             principalComment,
         };
 
-        const success = await upsertReportCard(student.id, newReportCard, student.schoolId || '');
+        const success = await api.upsertReportCard(student.id, newReportCard, student.schoolId || '');
 
         if (success) {
             toast.success(`Report card has been ${status === 'Draft' ? 'saved as a draft' : 'submitted for review'}.`);

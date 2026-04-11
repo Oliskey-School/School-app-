@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../lib/api';
-import { supabase } from '../../lib/supabase';
+
 import { ChevronRightIcon, getFormattedClassName } from '../../constants';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface ClassAttendanceSummary {
     grade: number;
@@ -22,10 +23,16 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
     const [attendanceData, setAttendanceData] = useState<ClassAttendanceSummary[]>([]);
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, percentage: 0 });
+    const [totalStudents, setTotalStudents] = useState(0);
 
     useEffect(() => {
         if (schoolId) fetchAttendanceData();
     }, [selectedDate, schoolId, currentBranchId]);
+
+    useAutoSync(['attendance', 'students', 'classes'], () => {
+        console.log('🔄 [AttendanceOverview] Real-time auto-sync triggered');
+        fetchAttendanceData();
+    });
 
     const fetchAttendanceData = async () => {
         if (!schoolId) return;
@@ -34,20 +41,28 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
             // 1. Fetch all classes scoped to the current school and branch
             const classesData = await api.getClasses(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
 
-            // 2. Fetch attendance for the selected date using Hybrid API
+            // 2. Fetch attendance for the selected date using enhanced API method
+            // The method expects only schoolId and date; branch filtering happens on backend or via student matching.
             const attendanceRecords = await api.getAttendanceByDate(schoolId, selectedDate);
 
             // 3. Fetch all students to match with classes, scoped by branch
-            const allStudents = await api.getStudents(schoolId, currentBranchId || undefined);
+            const allStudents = await api.getStudents(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
 
             const processedData: ClassAttendanceSummary[] = [];
 
             if (classesData && allStudents) {
                 for (const cls of classesData) {
-                    const classStudents = allStudents.filter((s: any) => s.grade === cls.grade && s.section === cls.section);
+                    // Match students to this class by grade/section/branch
+                    const classStudents = allStudents.filter((s: any) => 
+                        s.grade === cls.grade && 
+                        s.section === cls.section
+                    );
+                    
                     const studentIds = classStudents.map((s: any) => s.id);
 
+                    // Filter attendance records that belong to students in this specific class
                     const classRecords = (attendanceRecords || []).filter((r: any) => studentIds.includes(r.student_id));
+                    
                     const presentCount = classRecords.filter((r: any) => {
                         const s = (r.status || '').toLowerCase();
                         return s === 'present' || s === 'late';
@@ -65,11 +80,15 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
 
             setAttendanceData(processedData);
 
-            // Calc stats
-            const totalP = (attendanceRecords || []).filter((r: any) => (r.status || '').toLowerCase() === 'present').length;
-            const totalA = (attendanceRecords || []).filter((r: any) => (r.status || '').toLowerCase() === 'absent').length;
-            const totalL = (attendanceRecords || []).filter((r: any) => (r.status || '').toLowerCase() === 'late').length;
-            const totalRecorded = (attendanceRecords || []).length;
+            // Calculate global stats for the selected date/branch
+            // We filter attendanceRecords to only those in allStudents to ensure branch consistency
+            const validStudentIds = new Set(allStudents.map((s: any) => s.id));
+            const filteredRecords = (attendanceRecords || []).filter((r: any) => validStudentIds.has(r.student_id));
+
+            const totalP = filteredRecords.filter((r: any) => (r.status || '').toLowerCase() === 'present').length;
+            const totalA = filteredRecords.filter((r: any) => (r.status || '').toLowerCase() === 'absent').length;
+            const totalL = filteredRecords.filter((r: any) => (r.status || '').toLowerCase() === 'late').length;
+            const totalRecorded = filteredRecords.length;
 
             setStats({
                 present: totalP,
@@ -77,6 +96,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
                 late: totalL,
                 percentage: totalRecorded > 0 ? Math.round(((totalP + totalL) / totalRecorded) * 100) : 0
             });
+            setTotalStudents(allStudents.length);
 
         } catch (error) {
             console.error('Error fetching attendance overview:', error);
@@ -100,7 +120,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
                 </div>
                 <div className="text-right">
                     <p className="text-xs text-gray-500">Daily Average</p>
-                    <p className="text-xl font-bold text-indigo-600">{stats.percentage}%</p>
+                    <p className="text-xl font-bold text-indigo-600">{stats.percentage}% {stats.percentage > 0 && <span className="text-[10px] text-gray-400 font-normal">({stats.present + stats.late} of {totalStudents})</span>}</p>
                 </div>
             </div>
 
@@ -111,7 +131,7 @@ const AttendanceOverviewScreen: React.FC<AttendanceOverviewScreenProps> = ({ nav
                         {attendanceData.map((item, idx) => (
                             <button
                                 key={`${item.grade}-${item.section}`}
-                                onClick={() => navigateTo('classAttendanceDetail', getFormattedClassName(item.grade, item.section), { classInfo: item })}
+                                onClick={() => navigateTo('classAttendanceDetail', getFormattedClassName(item.grade, item.section), { classInfo: item, date: selectedDate })}
                                 className="w-full bg-white rounded-xl shadow-sm p-4 text-left hover:ring-2 hover:ring-indigo-300 transition-all"
                             >
                                 <div className="flex justify-between items-center">

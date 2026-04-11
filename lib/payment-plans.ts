@@ -3,7 +3,7 @@
  * Handles installment-based fee payments
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 
 export interface PaymentPlan {
     id: number;
@@ -46,7 +46,7 @@ export async function createPaymentPlan(params: CreatePaymentPlanParams): Promis
         const { feeId, studentId, totalAmount, installmentCount, frequency, startDate, customDueDates } = params;
 
         // 1. Create payment plan
-        const { data: plan, error: planError } = await supabase
+        const { data: plan, error: planError } = await api
             .from('payment_plans')
             .insert([{
                 fee_id: feeId,
@@ -75,19 +75,19 @@ export async function createPaymentPlan(params: CreatePaymentPlanParams): Promis
         );
 
         // 3. Insert installments
-        const { error: installmentsError } = await supabase
+        const { error: installmentsError } = await api
             .from('installments')
             .insert(installments);
 
         if (installmentsError) {
             console.error('Error creating installments:', installmentsError);
             // Rollback plan creation
-            await supabase.from('payment_plans').delete().eq('id', plan.id);
+            await api.from('payment_plans').delete().eq('id', plan.id);
             return null;
         }
 
         // 4. Update fee to indicate it has a payment plan
-        const { error: feeUpdateError } = await supabase
+        const { error: feeUpdateError } = await api
             .from('student_fees')
             .update({
                 has_payment_plan: true,
@@ -178,7 +178,7 @@ function calculateDueDate(startDate: Date, frequency: string, installmentIndex: 
 export async function getPaymentPlan(feeId: string): Promise<{ plan: PaymentPlan; installments: Installment[] } | null> {
     try {
         // Get plan
-        const { data: plan, error: planError } = await supabase
+        const { data: plan, error: planError } = await api
             .from('payment_plans')
             .select('*')
             .eq('fee_id', feeId)
@@ -189,7 +189,7 @@ export async function getPaymentPlan(feeId: string): Promise<{ plan: PaymentPlan
         }
 
         // Get installments
-        const { data: installments, error: installmentsError } = await supabase
+        const { data: installments, error: installmentsError } = await api
             .from('installments')
             .select('*')
             .eq('payment_plan_id', plan.id)
@@ -214,7 +214,7 @@ export async function getPaymentPlan(feeId: string): Promise<{ plan: PaymentPlan
  * Check if fee has payment plan
  */
 export async function hasPaymentPlan(feeId: string): Promise<boolean> {
-    const { data } = await supabase
+    const { data } = await api
         .from('payment_plans')
         .select('id')
         .eq('fee_id', feeId)
@@ -232,7 +232,7 @@ export async function getUpcomingInstallments(studentId: string, daysAhead: numb
         const futureDate = new Date();
         futureDate.setDate(today.getDate() + daysAhead);
 
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('installments')
             .select(`
                 *,
@@ -260,7 +260,7 @@ export async function getUpcomingInstallments(studentId: string, daysAhead: numb
  * Cancel payment plan
  */
 export async function cancelPaymentPlan(planId: number): Promise<boolean> {
-    const { error } = await supabase
+    const { error } = await api
         .from('payment_plans')
         .update({ status: 'cancelled' })
         .eq('id', planId);
@@ -278,7 +278,7 @@ export async function processInstallmentPayment(
 ): Promise<boolean> {
     try {
         // Get current installment
-        const { data: installment } = await supabase
+        const { data: installment } = await api
             .from('installments')
             .select('paid_amount, amount')
             .eq('id', installmentId)
@@ -289,7 +289,7 @@ export async function processInstallmentPayment(
         const newPaidAmount = (installment.paid_amount || 0) + amount;
 
         // Update installment
-        const { error } = await supabase
+        const { error } = await api
             .from('installments')
             .update({
                 paid_amount: newPaidAmount,
@@ -338,3 +338,4 @@ function normalizeInstallment(data: any): Installment {
         transactionId: data.transaction_id
     };
 }
+

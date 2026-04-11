@@ -31,6 +31,14 @@ vi.mock('../../../components/layout/DashboardLayout', () => ({
     )
 }));
 
+// Mock API
+vi.mock('../../../lib/api', () => ({
+    api: {
+        getMyChildren: vi.fn().mockResolvedValue([]),
+        getMyParentProfile: vi.fn().mockResolvedValue({ id: 'parent-123', name: 'Test Parent' })
+    }
+}));
+
 describe('ParentDashboard Visibility (Minimal)', () => {
     it('renders the parent dashboard shell', async () => {
         render(

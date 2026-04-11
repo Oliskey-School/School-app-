@@ -3,6 +3,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StarIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface PeekabooLettersGameProps {
@@ -64,6 +65,17 @@ const PeekabooLettersGame: React.FC<PeekabooLettersGameProps> = ({ onBack }) => 
         unlockBadge('early-bird'); // Example badge
         const utterance = new SpeechSynthesisUtterance("Great job! You found all the letters!");
         window.speechSynthesis.speak(utterance);
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'peekaboo-letters',
+            game_name: 'Peekaboo Letters',
+            score: score,
+            metadata: {
+                totalLetters: LETTERS.length,
+                complete: true
+            }
+        }).catch(err => console.error("Failed to save peekaboo score:", err));
     };
 
     const handleRestart = () => {

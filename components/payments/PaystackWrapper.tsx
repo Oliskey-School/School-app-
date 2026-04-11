@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import { Fee } from '../../types';
 import { initializeTransaction, verifyTransaction } from '../../lib/payments';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface PaystackButtonProps {
     fee: Fee;
@@ -49,7 +49,7 @@ export const PaystackButton: React.FC<PaystackButtonProps> = ({ fee, email, onSu
             // Send payment confirmation notification
             try {
                 // Fetch the transaction that was just verified
-                const { data: transaction } = await supabase
+                const { data: transaction } = await api
                     .from('transactions')
                     .select('id')
                     .eq('reference', reference.reference)

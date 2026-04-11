@@ -3,7 +3,8 @@ import { Search, User, ChevronDown, Check, X } from 'lucide-react';
 
 interface Student {
     id: string;
-    name: string;
+    full_name?: string;
+    name?: string;
     grade?: string | number;
     section?: string;
     [key: string]: any;
@@ -34,7 +35,7 @@ const SearchableStudentSelect: React.FC<SearchableStudentSelectProps> = ({
     const selectedStudent = students.find(s => s.id === value);
 
     const filteredStudents = students.filter(s => {
-        const fullName = (s.name || '').toLowerCase();
+        const fullName = (s.full_name || s.name || '').toLowerCase();
         const gradeStr = (s.grade?.toString() || '').toLowerCase();
         const sectionStr = (s.section || '').toLowerCase();
         const classStr = `${gradeStr}${sectionStr}`;
@@ -78,7 +79,7 @@ const SearchableStudentSelect: React.FC<SearchableStudentSelectProps> = ({
                     </div>
                     {selectedStudent ? (
                         <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-semibold text-gray-900 truncate">{selectedStudent.name}</span>
+                            <span className="text-sm font-semibold text-gray-900 truncate">{selectedStudent.full_name || selectedStudent.name}</span>
                             <span className="text-xs text-gray-500">Class: {selectedStudent.grade}{selectedStudent.section || ''}</span>
                         </div>
                     ) : (
@@ -115,24 +116,38 @@ const SearchableStudentSelect: React.FC<SearchableStudentSelectProps> = ({
                         </div>
                     </div>
 
-                    <div className="max-h-[300px] overflow-y-auto">
+                    <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
                         {filteredStudents.length > 0 ? (
-                            filteredStudents.map((s) => (
-                                <div
-                                    key={s.id}
-                                    onClick={() => handleSelect(s.id)}
-                                    className="px-4 py-3 hover:bg-indigo-50 cursor-pointer flex items-center justify-between transition-colors group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 group-hover:bg-white group-hover:text-indigo-600 transition-colors">
-                                            {s.name ? s.name[0].toUpperCase() : '?'}
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-gray-900">{s.name}</span>
-                                            <span className="text-xs text-gray-500">Class {s.grade}{s.section || ''}</span>
-                                        </div>
+                            Object.entries(
+                                filteredStudents.reduce((acc, student) => {
+                                    const className = student.grade ? `Class ${student.grade}${student.section || ''}` : 'No Class Assigned';
+                                    if (!acc[className]) acc[className] = [];
+                                    acc[className].push(student);
+                                    return acc;
+                                }, {} as Record<string, Student[]>)
+                            ).sort().map(([className, studentsInClass]) => (
+                                <div key={className}>
+                                    <div className="px-4 py-2 bg-gray-50/80 text-[10px] font-bold text-gray-400 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-sm border-b border-gray-100">
+                                        {className}
                                     </div>
-                                    {value === s.id && <Check className="w-5 h-5 text-indigo-600" />}
+                                    {studentsInClass.map((s) => (
+                                        <div
+                                            key={s.id}
+                                            onClick={() => handleSelect(s.id)}
+                                            className={`px-4 py-3 hover:bg-indigo-50 cursor-pointer flex items-center justify-between transition-colors group ${value === s.id ? 'bg-indigo-50/50' : ''}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-full bg-indigo-100/50 flex items-center justify-center font-bold text-indigo-600 group-hover:bg-white transition-colors">
+                                                    {(s.full_name || s.name) ? (s.full_name || s.name)![0].toUpperCase() : '?'}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{s.full_name || s.name}</span>
+                                                    <span className="text-[10px] text-gray-500 font-medium">{className}</span>
+                                                </div>
+                                            </div>
+                                            {value === s.id && <Check className="w-4 h-4 text-indigo-600" />}
+                                        </div>
+                                    ))}
                                 </div>
                             ))
                         ) : (

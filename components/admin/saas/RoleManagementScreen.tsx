@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     Users,
@@ -47,7 +47,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
     const fetchPermissions = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('role_permissions')
                 .select('*')
                 .order('role_name', { ascending: true })
@@ -71,7 +71,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('role_permissions')
                 .insert({
                     role_name: selectedRole,
@@ -97,7 +97,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
 
     const handleTogglePermission = async (permissionId: number, currentAllowed: boolean) => {
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('role_permissions')
                 .update({ allowed: !currentAllowed })
                 .eq('id', permissionId);
@@ -114,7 +114,7 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
         if (!confirm('Are you sure you want to delete this permission?')) return;
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('role_permissions')
                 .delete()
                 .eq('id', permissionId);
@@ -362,3 +362,4 @@ export const RoleManagementScreen: React.FC<RoleManagementScreenProps> = ({ navi
 };
 
 export default RoleManagementScreen;
+

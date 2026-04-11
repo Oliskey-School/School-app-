@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { useAuth } from '../../context/AuthContext';
 import {
     CalendarIcon,
@@ -114,29 +113,21 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
     const fetchTimetableStatuses = async () => {
         setIsLoadingStatuses(true);
         try {
-            const { data, error } = await supabase
-                .from('timetable')
-                .select('class_id, status, classes(name)')
-                .eq('school_id', schoolId);
-
-            if (error) throw error;
+            const data = await api.getTimetable();
 
             const statusMap: { [key: string]: string | null } = {};
             // Group by class and determine overall status
             data?.forEach((row: any) => {
-                // Handle potential array return for joined relation
-                const className = Array.isArray(row.classes) ? row.classes[0]?.name : row.classes?.name;
+                const className = row.class_name;
 
                 if (className) {
                     const current = statusMap[className];
-                    // If any entry is Published, it's Published.
                     if (current !== 'Published') {
                         statusMap[className] = row.status || 'Draft';
                     }
                 }
             });
             setTimetableStatuses(statusMap);
-
         } catch (err) {
             console.error(err);
         } finally {
@@ -145,12 +136,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
     };
 
     const fetchTimetableForClass = async (className: string, id: string) => {
-        // Get class ID first
-        const { data: cls } = await supabase.from('classes').select('id').eq('name', className).eq('school_id', id).single();
-        if (!cls) throw new Error("Class not found");
-
-        const { data, error } = await supabase.from('timetable').select('*').eq('class_id', cls.id);
-        if (error) throw error;
+        const data = await api.getTimetable(undefined, className);
         return data || [];
     };
 
@@ -171,13 +157,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
         init();
 
         // Subscribe to timetable changes
-        const channel = supabase.channel('dashboard_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'timetable' }, () => {
-                fetchTimetableStatuses();
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
+        return () => { };
 
     }, [schoolId]);
 
@@ -338,11 +318,12 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                                                             e.stopPropagation();
                                                             if (window.confirm(`Delete timetable for ${cls.name}?`)) {
                                                                 const deleteTimetable = async () => {
-                                                                    const { error } = await supabase.from('timetable').delete().eq('class_id', cls.id);
-                                                                    if (error) toast.error("Failed to delete");
-                                                                    else {
+                                                                    try {
+                                                                        await api.deleteTimetableByClass(cls.id);
                                                                         toast.success("Deleted");
                                                                         fetchTimetableStatuses();
+                                                                    } catch (err) {
+                                                                        toast.error("Failed to delete");
                                                                     }
                                                                 };
                                                                 deleteTimetable();
@@ -385,4 +366,3 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
 export default TimetableGeneratorScreen;
 
 // Simple icon wrapper if needed for specific icons not in constants
-

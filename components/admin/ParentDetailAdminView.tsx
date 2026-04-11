@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Parent } from '../../types';
 import { PhoneIcon, EditIcon, TrashIcon, StudentsIcon, MailIcon, ChevronLeftIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
 import { linkStudentToParent, unlinkStudentFromParent, fetchChildrenForParent } from '../../services/studentService';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { UserPlus, X } from 'lucide-react';
 
 interface ParentDetailAdminViewProps {
@@ -38,6 +39,11 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
     React.useEffect(() => {
         loadChildren();
     }, [parent.id]);
+
+    useAutoSync(['students', 'parents'], () => {
+        console.log('🔄 [ParentDetail] Real-time auto-sync triggered');
+        loadChildren();
+    });
 
     const handleLinkStudent = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -91,7 +97,7 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
     const confirmDelete = async () => {
         try {
             // Delete from database first (Scoped)
-            const { error: deleteParentError } = await supabase
+            const { error: deleteParentError } = await api
                 .from('parents')
                 .delete()
                 .eq('id', parent.id)
@@ -101,7 +107,7 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
 
             // Delete associated user account if exists
             if (parent.user_id) {
-                const { error: deleteUserError } = await supabase
+                const { error: deleteUserError } = await api
                     .from('users')
                     .delete()
                     .eq('id', parent.user_id)
@@ -184,24 +190,27 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
 
                         {/* Children List */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                            {children.length > 0 ? children.map(child => (
-                                <div key={child.id} className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-transparent hover:border-gray-200 transition-all group">
-                                    <div className="flex items-center space-x-3">
-                                        <img src={child.avatarUrl || 'https://i.pravatar.cc/150'} alt={child.name} className="w-12 h-12 rounded-xl object-cover border border-white shadow-sm" />
-                                        <div>
-                                            <p className="font-bold text-gray-800">{child.name}</p>
-                                            <p className="text-xs text-gray-500 font-medium">Grade {child.grade}{child.section}</p>
+                            {children.length > 0 ? children.map(child => {
+                                if (!child) return null;
+                                return (
+                                    <div key={child.id} className="bg-gray-50 p-4 rounded-xl flex items-center justify-between border border-transparent hover:border-gray-200 transition-all group">
+                                        <div className="flex items-center space-x-3">
+                                            <img src={child.avatarUrl || 'https://i.pravatar.cc/150'} alt={child.name} className="w-12 h-12 rounded-xl object-cover border border-white shadow-sm" />
+                                            <div>
+                                                <p className="font-bold text-gray-800">{child.name}</p>
+                                                <p className="text-xs text-gray-500 font-medium">Grade {child.grade}{child.section}</p>
+                                            </div>
                                         </div>
+                                        <button 
+                                            onClick={() => handleUnlinkClick(child)}
+                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all"
+                                            title="Remove link"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
                                     </div>
-                                    <button 
-                                        onClick={() => handleUnlinkClick(child)}
-                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-all"
-                                        title="Remove link"
-                                    >
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            )) : (
+                                );
+                            }) : (
                                 <div className="col-span-full py-12 flex flex-col items-center justify-center text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                                     <StudentsIcon className="w-12 h-12 text-gray-300 mb-2" />
                                     <p className="text-sm text-gray-500 font-medium">No children linked to this parent yet.</p>
@@ -252,3 +261,4 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
 };
 
 export default ParentDetailAdminView;
+

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MailIcon, BellIcon, NotificationIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const SettingToggle = ({ icon, label, description, enabled, onToggle }: { icon: React.ReactNode, label: string, description: string, enabled: boolean, onToggle: () => void }) => (
     <div className="flex justify-between items-center p-4 bg-white rounded-lg shadow-sm">
@@ -38,7 +38,7 @@ const NotificationsSettingsScreen: React.FC = () => {
     useEffect(() => {
         const fetchSettings = async () => {
             if (profile.id) {
-                const { data, error } = await supabase
+                const { data, error } = await api
                     .from('users')
                     .select('notification_preferences')
                     .eq('id', profile.id)
@@ -57,7 +57,7 @@ const NotificationsSettingsScreen: React.FC = () => {
         setSettings(newSettings); // Optimistic update
 
         if (profile.id) {
-            const { error } = await supabase
+            const { error } = await api
                 .from('users')
                 .update({ notification_preferences: newSettings })
                 .eq('id', profile.id);
@@ -99,3 +99,4 @@ const NotificationsSettingsScreen: React.FC = () => {
 };
 
 export default NotificationsSettingsScreen;
+

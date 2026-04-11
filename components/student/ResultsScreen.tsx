@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../../lib/api';
 import { Student, ReportCard, Rating } from '../../types';
-import { supabase } from '../../lib/supabase';
 import { BookOpenIcon, CheckCircleIcon, ClipboardListIcon, SchoolLogoIcon, SUBJECT_COLORS } from '../../constants';
 import DonutChart from '../ui/DonutChart';
 import { useAuth } from '../../context/AuthContext';
@@ -171,7 +170,6 @@ const ReportCardView: React.FC<{ report: ReportCard, student?: Student, schoolNa
 
 const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoolId }) => {
     const { currentSchool } = useAuth();
-    // State for fetched data
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [reportCards, setReportCards] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -187,14 +185,10 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
             try {
                 if (!currentSchool?.id) return;
-                // Using Hybrid API for student records
+                // Using Unified API for student records
                 const [grades, reports] = await Promise.all([
-                    api.getStudentPerformance(studentId as any, currentSchool.id, currentSchool.branch_id),
-                    supabase.from('report_cards')
-                        .select('*')
-                        .eq('student_id', studentId)
-                        .eq('school_id', currentSchool.id)
-                        .eq('branch_id', currentSchool.branch_id || null)
+                    api.getMyPerformance(),
+                    api.getMyReportCards()
                 ]);
 
                 if (grades) {
@@ -207,11 +201,11 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                     }
                 }
 
-                if (reports.data) {
-                    setReportCards(reports.data);
+                if (reports) {
+                    setReportCards(reports);
                 }
             } catch (err) {
-                console.error('Error fetching results via Hybrid API:', err);
+                console.error('Error fetching results via Unified API:', err);
             } finally {
                 setLoading(false);
             }
@@ -219,8 +213,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
         const fetchQuizResults = async () => {
             try {
-                if (!currentSchool?.id) return;
-                const data = await api.getQuizResults(studentId as any, currentSchool.id, currentSchool.branch_id);
+                const data = await api.getMyQuizResults();
                 setQuizResults(data);
             } catch (err) {
                 console.error("Error fetching quiz results:", err);
@@ -229,9 +222,8 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
         fetchData();
         fetchQuizResults();
-    }, [studentId]);
+    }, [studentId, currentSchool?.id]);
 
-    // Derived data for active term
     const termGrades = useMemo(() => {
         return performanceData.filter(d => d.term === activeTerm);
     }, [performanceData, activeTerm]);
@@ -251,7 +243,6 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
         return reportCards.some(r => r.is_published);
     }, [reportCards]);
 
-    // Build a ReportCard object from DB row for the formal view
     const formattedReportCard = useMemo((): ReportCard | null => {
         if (!activeReportCard) return null;
         return {
@@ -334,7 +325,6 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto">
-                {/* Full Report Card View (toggle) */}
                 {formattedReportCard && showFullReport && (
                     <div className="mb-4 max-w-4xl mx-auto">
                         <div className="flex flex-wrap items-center justify-between mb-4 print:hidden gap-3">
@@ -368,7 +358,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                             report={formattedReportCard}
                             student={student}
                             schoolName={currentSchool?.name}
-                            logoUrl={currentSchool?.logoUrl}
+                            logoUrl={currentSchool?.logo_url}
                             motto={currentSchool?.motto}
                         />
                     </div>
@@ -376,7 +366,6 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
 
                 {!showFullReport && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print:hidden">
-                        {/* Grades Section */}
                         <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
                             <div className="flex items-center space-x-2 mb-3">
                                 <BookOpenIcon className="h-5 w-5 text-orange-600" />
@@ -391,7 +380,6 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                 )) : <p className="text-gray-500 text-sm">No grades recorded for this term.</p>}
                             </div>
 
-                            {/* Result Summary (Report Card Highlights) */}
                             {activeReportCard && (
                                 <div className="mt-6 p-4 bg-orange-50 border border-orange-100 rounded-xl">
                                     <h4 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
@@ -401,11 +389,11 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                     <div className="grid grid-cols-2 gap-4 mb-4">
                                         <div className="bg-white p-3 rounded-lg shadow-sm">
                                             <p className="text-xs text-gray-500 font-medium uppercase">Average Score</p>
-                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.grade_average}%</p>
+                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.average_score || activeReportCard.grade_average}%</p>
                                         </div>
                                         <div className="bg-white p-3 rounded-lg shadow-sm">
                                             <p className="text-xs text-gray-500 font-medium uppercase">Overall Grade</p>
-                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade}</p>
+                                            <p className="text-xl font-bold text-gray-800">{activeReportCard.overall_grade || '—'}</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -433,7 +421,6 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                 </div>
                             )}
 
-                            {/* Quiz Results Section */}
                             <div className="mt-6">
                                 <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
                                     <span className="p-1 bg-purple-100 rounded text-purple-600">📝</span>
@@ -443,11 +430,11 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                     {quizResults.length > 0 ? quizResults.map((result: any) => (
                                         <div key={result.id} className="flex justify-between items-center bg-white border border-gray-100 p-3 rounded-lg hover:shadow-sm transition-shadow">
                                             <div>
-                                                <div className="font-semibold text-sm text-gray-800">{result.quizzes?.title || 'Quiz'}</div>
+                                                <div className="font-semibold text-sm text-gray-800">{result.quiz?.title || 'Quiz'}</div>
                                                 <div className="text-xs text-gray-500">{new Date(result.submitted_at).toLocaleDateString()}</div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded text-gray-600">{result.quizzes?.subject}</span>
+                                                <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded text-gray-600">{result.quiz?.subject_id}</span>
                                                 <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${result.score >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                     {result.score}%
                                                 </span>
@@ -459,7 +446,6 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                         </div>
 
                         <div className="lg:col-span-1 space-y-4">
-                            {/* Attendance Section */}
                             <div className="bg-white p-4 rounded-xl shadow-sm">
                                 <div className="flex items-center space-x-2 mb-3">
                                     <CheckCircleIcon className="h-5 w-5 text-orange-600" />
@@ -478,7 +464,6 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
                                 </div>
                             </div>
 
-                            {/* Behavior Notes Section */}
                             <div className="bg-white p-4 rounded-xl shadow-sm">
                                 <div className="flex items-center space-x-2 mb-3">
                                     <ClipboardListIcon className="h-5 w-5 text-orange-600" />

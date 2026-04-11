@@ -1,9 +1,8 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { PinIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
-import { Notice, AnnouncementCategory } from '../../types';
 import { api } from '../../lib/api';
+import { Notice, AnnouncementCategory } from '../../types';
 
 interface NoticeboardScreenProps {
   userType: 'parent' | 'student' | 'teacher' | 'admin';
@@ -25,14 +24,14 @@ const NoticeCard: React.FC<{ notice: Notice }> = ({ notice }) => {
   return (
     <div className={`rounded-xl shadow-sm border ${styles.border} overflow-hidden`}>
       <div className={`${styles.bg} p-4`}>
-        {notice.videoUrl ? (
-          <video src={notice.videoUrl} controls className="w-full h-40 object-cover rounded-lg mb-3 bg-black"></video>
-        ) : notice.imageUrl && (
-          <img src={notice.imageUrl} alt={notice.title} className="w-full h-32 object-cover rounded-lg mb-3" />
+        {notice.video_url ? (
+          <video src={notice.video_url} controls className="w-full h-40 object-cover rounded-lg mb-3 bg-black"></video>
+        ) : notice.image_url && (
+          <img src={notice.image_url} alt={notice.title} className="w-full h-32 object-cover rounded-lg mb-3" />
         )}
         <div className="flex justify-between items-start">
           <h3 className={`font-bold text-lg ${styles.text}`}>{notice.title}</h3>
-          {notice.isPinned && (
+          {notice.is_pinned && (
             <div className="flex-shrink-0 ml-2">
               <PinIcon className={`w-5 h-5 -rotate-45 ${styles.text}`} />
             </div>
@@ -44,7 +43,7 @@ const NoticeCard: React.FC<{ notice: Notice }> = ({ notice }) => {
       </div>
       <div className="p-4 bg-white">
         <p className="text-gray-800">{notice.content}</p>
-        {notice.videoUrl && !notice.content && (
+        {notice.video_url && !notice.content && (
           <p className="text-gray-800">Please watch the video announcement above.</p>
         )}
       </div>
@@ -59,25 +58,6 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType, schoolI
 
   useEffect(() => {
     loadNotices();
-
-    // Realtime subscription - Scoped to school
-    const channelName = schoolId ? `public:notices:school:${schoolId}` : 'public:notices';
-    const subscription = supabase
-      .channel(channelName)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notices',
-        filter: schoolId ? `school_id=eq.${schoolId}` : undefined
-      }, () => {
-        console.log('Notice change detected');
-        loadNotices();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
   }, [schoolId]);
 
   const loadNotices = async () => {
@@ -102,8 +82,8 @@ const NoticeboardScreen: React.FC<NoticeboardScreenProps> = ({ userType, schoolI
       )
       .sort((a, b) => {
         // Pinned items first, then by date
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
   }, [userType, notices]);

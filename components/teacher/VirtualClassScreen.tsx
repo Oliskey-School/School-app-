@@ -1,6 +1,4 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -11,10 +9,8 @@ import {
     MessagesIcon,
     ChevronDownIcon,
 } from '../../constants';
-import { fetchStudentsByClass, fetchTeachers } from '../../lib/database';
 
-import { api } from '../../lib/api';
-import { useAutoSync } from '../../hooks/useAutoSync';
+import api from '../../lib/api';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { getFormattedClassName } from '../../constants';
 import { parseClassName } from '../../utils/classUtils';
@@ -167,10 +163,9 @@ const ClassSelectionScreen: React.FC<{
         setLoading(classesLoading);
     }, [rawClasses, classesLoading]);
 
-    // Auto-sync for classes
-    useAutoSync(['classes', 'class_teachers'], () => {
-        setRefreshTrigger(prev => prev + 1);
-    });
+    useEffect(() => {
+        if (selectedClass) setSubject(selectedClass.subject);
+    }, [selectedClass]);
 
     useEffect(() => {
         if (selectedClass) setSubject(selectedClass.subject);
@@ -301,10 +296,10 @@ const VirtualClassScreen: React.FC = () => {
         if (activeSession) {
             const loadStudents = async () => {
                 try {
-                    const students = await fetchStudentsByClass(activeSession.classDetails.rawGrade, activeSession.classDetails.rawSection);
+                    const students = await api.getStudentsByClass(activeSession.classDetails.rawGrade, activeSession.classDetails.rawSection);
                     setParticipants(students.map((s, i) => ({
-                        name: s.name,
-                        avatarUrl: s.avatarUrl,
+                        name: s.full_name || s.name,
+                        avatarUrl: s.avatar_url || s.avatarUrl,
                         isMuted: true,
                         isCameraOff: true,
                         isSpeaking: false,
@@ -369,29 +364,24 @@ const VirtualClassScreen: React.FC = () => {
         setActiveSession({ classDetails: cls, subject, topic, duration });
         if (user) {
             try {
-                const { data: profile } = await supabase.from('users').select('school_id').eq('id', user.id).single();
-                const schoolId = profile?.school_id;
-                if (!schoolId) return;
                 const session = await api.createVirtualClassSession({
                     teacher_id: user.id,
                     class_id: cls.id,
-                    school_id: schoolId,
                     subject: subject,
                     topic: topic,
                     status: 'active',
                     start_time: new Date().toISOString(),
                     meeting_link: 'internal_jitsi'
-                }, { useBackend: true });
+                });
 
                 await api.createNotification({
-                    school_id: schoolId,
                     title: `🎬 Live Class: ${subject}`,
                     message: `Your ${subject} class is starting now. Click to join!`,
                     category: 'System',
                     audience: [`Grade ${cls.rawGrade}`],
                     related_id: session.id,
                     is_read: false
-                } as any);
+                });
                 toast.success('Class session started live!');
             } catch (e: any) { toast.error('Failed to start session: ' + e.message); }
         }

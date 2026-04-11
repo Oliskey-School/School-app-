@@ -3,7 +3,7 @@
  * Logs student behavioral incidents and progress milestones.
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { notifyStudentsAndParents } from './notifications';
 
 export interface BehaviorIncident {
@@ -20,7 +20,7 @@ export interface BehaviorIncident {
  */
 export async function logBehavior(incident: BehaviorIncident): Promise<boolean> {
     try {
-        const { error } = await supabase
+        const { error } = await api
             .from('behavior_notes')
             .insert({
                 student_id: incident.studentId,
@@ -49,3 +49,4 @@ export async function logBehavior(incident: BehaviorIncident): Promise<boolean> 
         return false;
     }
 }
+

@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { HealthLogEntry, Student } from '../../types';
 import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon } from '../../constants';
 // import { getFormattedClassName } from '../../constants'; // unused or keep if needed
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 // --- TYPES & HELPERS ---
 const AILMENT_COLORS: { [key: string]: string } = {
@@ -55,92 +56,58 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
     const [studentSearchQuery, setStudentSearchQuery] = useState('');
     const [isStudentListOpen, setIsStudentListOpen] = useState(false);
 
-    useEffect(() => {
-        const loadStudents = async () => {
-            if (!schoolId) return;
-            try {
-                const data = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
-                if (data) {
-                    setStudents((data || []).map((s: any) => ({
-                        id: s.id,
-                        name: s.name,
-                        avatarUrl: s.avatar_url || s.avatarUrl || 'https://i.pravatar.cc/150',
-                        grade: s.grade,
-                        section: s.section
-                    })) as any);
-                }
-            } catch (error) {
-                console.error('Error fetching students:', error);
+    const loadStudents = async () => {
+        if (!schoolId) return;
+        try {
+            const data = await api.getStudents(schoolId, currentBranchId || undefined);
+            if (data) {
+                setStudents((data || []).map((s: any) => ({
+                    id: s.id,
+                    name: s.full_name || s.name || 'Unknown student',
+                    avatarUrl: s.avatar_url || s.avatarUrl || 'https://i.pravatar.cc/150',
+                    grade: s.grade,
+                    section: s.section
+                })) as any);
             }
-        };
+        } catch (error) {
+            console.error('Error fetching students:', error);
+        }
+    };
 
-        const fetchLogs = async () => {
-            if (!schoolId) return;
-            let logQuery = supabase
-                .from('health_logs')
-                .select(`
-                    id,
-                    studentId:student_id,
-                    loggedDate:logged_date,
-                    reason:log_type,
-                    notes:description,
-                    recordedBy:logged_by,
-                    medicationAdministered:medication_administered,
-                    parentNotified:parent_notified,
-                    students (
-                        name,
-                        avatarUrl:avatar_url
-                    )
-                `)
-                .eq('school_id', schoolId);
-
-            if (currentBranchId && currentBranchId !== 'all') {
-                logQuery = logQuery.eq('branch_id', currentBranchId);
-            }
-
-            const { data, error } = await logQuery.order('logged_date', { ascending: false });
-
-            if (error) {
-                console.error('Error fetching health logs:', error);
-                return;
-            }
-
+    const fetchLogs = async () => {
+        if (!schoolId) return;
+        try {
+            const data = await api.getHealthLogs(schoolId, currentBranchId || undefined);
             if (data) {
                 const formattedLogs: HealthLogEntry[] = data.map((log: any) => ({
                     id: log.id,
-                    studentId: log.studentId,
-                    studentName: log.students?.name || 'Unknown',
-                    studentAvatar: log.students?.avatarUrl || '',
-                    date: log.loggedDate,
+                    studentId: log.student_id,
+                    studentName: log.student?.full_name || 'Unknown',
+                    studentAvatar: log.student?.avatar_url || '',
+                    date: log.logged_date,
                     time: '',
-                    reason: log.reason,
-                    notes: log.notes,
-                    medicationAdministered: log.medicationAdministered,
-                    parentNotified: log.parentNotified,
-                    recordedBy: log.recordedBy
+                    reason: log.log_type,
+                    notes: log.description || log.notes || '',
+                    medicationAdministered: log.medication_administered,
+                    parentNotified: log.parent_notified,
+                    recordedBy: log.logged_by || 'Staff'
                 }));
                 setLogs(formattedLogs);
             }
-        };
+        } catch (error) {
+            console.error('Error fetching health logs:', error);
+        }
+    };
 
+    useEffect(() => {
         loadStudents();
         fetchLogs();
-
-        const channel = supabase.channel('health_logs_realtime')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'health_logs',
-                filter: `school_id=eq.${schoolId}`
-            }, () => {
-                fetchLogs();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [schoolId, currentBranchId]);
+
+    useAutoSync(['health_logs', 'students'], () => {
+        console.log('🔄 [HealthLog] Real-time auto-sync triggered');
+        fetchLogs();
+    });
 
     // Compute filtered logs based on time filter and search
     const filteredLogs = useMemo(() => {
@@ -166,8 +133,9 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
 
         // Apply search filter
         if (searchTerm) {
+            const lowerSearch = searchTerm.toLowerCase();
             filtered = filtered.filter(log =>
-                log.studentName.toLowerCase().includes(searchTerm.toLowerCase())
+                (log.studentName?.toLowerCase() || '').includes(lowerSearch)
             );
         }
 
@@ -195,20 +163,37 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
         }
 
         try {
-            const { error } = await supabase.from('health_logs').insert({
-                student_id: selectedStudent, // UUID string
-                school_id: schoolId,
-                branch_id: currentBranchId,
-                logged_date: new Date().toISOString().split('T')[0],
+            await api.createHealthLog({
+                student_id: selectedStudent,
                 log_type: reason,
-                description: notes,
+                description: notes, // Backend maps this to 'notes'
                 medication_administered: medication ? { name: medication, dosage } : null,
                 parent_notified: parentNotified,
-                logged_by: currentUserId || user?.id || null
+                logged_by: currentUserId || user?.id || null,
+                logged_date: new Date().toISOString()
             });
 
-            if (error) throw error;
             toast.success("Health log recorded successfully.");
+            
+            // Re-fetch logs to show the new entry
+            const data = await api.getHealthLogs(schoolId!, currentBranchId || undefined);
+            if (data) {
+                const formattedLogs: HealthLogEntry[] = data.map((log: any) => ({
+                    id: log.id,
+                    studentId: log.student_id,
+                    studentName: log.student?.full_name || 'Unknown',
+                    studentAvatar: log.student?.avatar_url || '',
+                    date: log.logged_date,
+                    time: '',
+                    reason: log.log_type,
+                    notes: log.notes || '',
+                    medicationAdministered: log.medication_administered,
+                    parentNotified: log.parent_notified,
+                    recordedBy: log.logged_by || 'Staff'
+                }));
+                setLogs(formattedLogs);
+            }
+
             setView('list');
 
             // Reset form
@@ -219,6 +204,27 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
             setMedication('');
             setDosage('');
             setParentNotified(false);
+
+            // Re-fetch logs
+            if (schoolId) {
+                const data = await api.getHealthLogs(schoolId, currentBranchId || undefined);
+                if (data) {
+                    const formattedLogs: HealthLogEntry[] = data.map((log: any) => ({
+                        id: log.id,
+                        studentId: log.student_id,
+                        studentName: log.student?.full_name || 'Unknown',
+                        studentAvatar: log.student?.avatar_url || '',
+                        date: log.logged_date,
+                        time: '',
+                        reason: log.log_type,
+                        notes: log.description,
+                        medicationAdministered: log.medication_administered,
+                        parentNotified: log.parent_notified,
+                        recordedBy: log.logged_by
+                    }));
+                    setLogs(formattedLogs);
+                }
+            }
 
         } catch (error) {
             console.error("Error adding health log:", error);
@@ -273,11 +279,14 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
 
                                         {isStudentListOpen && (
                                             <div className="absolute z-[60] mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-2xl max-h-64 overflow-y-auto overflow-x-hidden animate-slide-in-up">
-                                                {students
-                                                    .filter(s =>
-                                                        s.name.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-                                                        `Grade ${s.grade}${s.section}`.toLowerCase().includes(studentSearchQuery.toLowerCase())
-                                                    )
+                                                {(students || [])
+                                                    .filter(s => {
+                                                        if (!s) return false;
+                                                        const name = (s.full_name || s.name || '').toLowerCase();
+                                                        const search = (studentSearchQuery || '').toLowerCase();
+                                                        return name.includes(search) ||
+                                                           `Grade ${s.grade || ''}${s.section || ''}`.toLowerCase().includes(search);
+                                                    })
                                                     .map(s => (
                                                         <button
                                                             key={s.id}

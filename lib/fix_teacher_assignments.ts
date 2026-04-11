@@ -1,5 +1,5 @@
 
-import { supabase } from './supabase';
+import { api } from './api';
 
 /**
  * Migration script to consolidate teacher assignment records for Bisola Odupitan.
@@ -60,3 +60,4 @@ export async function fixTeacherAssignments() {
         return { success: false, error: err };
     }
 }
+

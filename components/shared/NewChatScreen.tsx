@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { SearchIcon, ChevronLeftIcon, UserIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { ChatUser } from '../../types';
 
 interface NewChatScreenProps {
@@ -15,40 +15,37 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ currentUserId, onBack, on
     const [searchTerm, setSearchTerm] = useState('');
     const [users, setUsers] = useState<ChatUser[]>([]);
     const [loading, setLoading] = useState(false);
-    const [currentUser, setCurrentUser] = useState<ChatUser | null>(null);
+    const [currentUser, setCurrentUser] = useState<any | null>(null);
 
     useEffect(() => {
         // Fetch current user details
         const fetchCurrentUser = async () => {
-            const { data } = await supabase.from('users').select('*').eq('id', currentUserId).single();
-            if (data) setCurrentUser(data);
+            try {
+                const userData = await api.getMe();
+                if (userData) setCurrentUser(userData);
+            } catch (err) {
+                console.error("Error fetching me:", err);
+            }
         };
         fetchCurrentUser();
-    }, [currentUserId]);
+    }, []);
 
     useEffect(() => {
         const fetchUsers = async () => {
             setLoading(true);
             try {
-                // Fetch all users that aren't the current user initially for the main list
-                // We'll handle "Message yourself" separately
-                let query = supabase.from('users').select('id, name, avatar_url, role');
-
-                if (searchTerm) {
-                    query = query.ilike('name', `%${searchTerm}%`);
-                }
-
-                const { data, error } = await query.neq('id', currentUserId).limit(50); // Limit for performance
-
-                if (error) throw error;
+                // Fetch users using the new API
+                const data = await api.getUsers(undefined, undefined, undefined, searchTerm);
 
                 // Map to ChatUser type
-                const mappedUsers: ChatUser[] = (data || []).map((u: any) => ({
-                    id: u.id,
-                    name: u.name,
-                    avatarUrl: u.avatar_url,
-                    role: u.role
-                }));
+                const mappedUsers: ChatUser[] = (data || [])
+                    .filter((u: any) => u.id !== currentUserId)
+                    .map((u: any) => ({
+                        id: u.id,
+                        name: u.full_name || u.name,
+                        avatarUrl: u.avatar_url,
+                        role: u.role
+                    }));
 
                 setUsers(mappedUsers);
             } catch (err) {
@@ -68,123 +65,20 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ currentUserId, onBack, on
     const startChat = async (targetUserId: string) => {
         try {
             setLoading(true);
+            
+            const schoolId = currentUser?.schoolId || currentUser?.school_id;
+            if (!schoolId) {
+                toast.error("School information missing");
+                return;
+            }
 
-            // 1. Check if a direct chat room already exists
-            // This logic is a bit complex in SQL: find a room where both users are participants and room type is 'direct'
-
-            // Logic:
-            // Get all room_ids for current user
-            // Get all room_ids for target user
-            // Find intersection where type is 'direct'
-            // Keep it simple: use an RPC function ideally, or client-side filter
-
-            // Optimized approach:
-            // Get direct rooms for current user
-            // Check if target user is in any of those rooms
-
-            let roomId: string | null = null;
-
-            // Special handling for Self Chat
-            const isSelfChat = targetUserId === currentUserId;
-
-            if (isSelfChat) {
-                const { data: myRooms } = await supabase
-                    .from('chat_participants')
-                    .select('room_id, chat_rooms!inner(type)')
-                    .eq('user_id', currentUserId)
-                    .eq('chat_rooms.type', 'direct');
-
-                // For self chat, we need a room with ONLY 1 participant (me)
-                // Or we check if I'm the only one in it. 
-                // Simple hack: check if we have a room where I am the only participant?
-                // Let's iterate found rooms and count participants.
-
-                if (myRooms) {
-                    for (const room of myRooms) {
-                        const { count } = await supabase
-                            .from('chat_participants')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('room_id', room.room_id);
-
-                        if (count === 1) {
-                            roomId = room.room_id;
-                            break;
-                        }
-                    }
-                }
-
+            // Use the centralized method to find or create a direct chat
+            const room = await api.getOrCreateDirectChat(targetUserId, schoolId);
+            
+            if (room && room.id) {
+                onChatCreated(room.id);
             } else {
-                // Check common room for (me, target)
-                // This query finds rooms containing BOTH users
-                const { data: commonRooms } = await supabase.rpc('get_direct_chat_room', {
-                    user_id_1: currentUserId,
-                    user_id_2: targetUserId
-                });
-
-                // Note: RPC 'get_direct_chat_room' might not exist yet. I should create it or use raw query.
-                // Let's use raw query for safety if RPC fails or logic manual.
-
-                // Manual client side check (efficient enough for small datasets, but better via SQL)
-                // Fetch my direct rooms
-                const { data: myRooms } = await supabase
-                    .from('chat_participants')
-                    .select('room_id, chat_rooms!inner(type)')
-                    .eq('user_id', currentUserId)
-                    .eq('chat_rooms.type', 'direct');
-
-                if (myRooms) {
-                    const myRoomIds = myRooms.map((r: any) => r.room_id);
-                    if (myRoomIds.length > 0) {
-                        // Check if target is in any of these
-                        const { data: targetMatch } = await supabase
-                            .from('chat_participants')
-                            .select('room_id')
-                            .eq('user_id', targetUserId)
-                            .in('room_id', myRoomIds)
-                            .limit(1)
-                            .single();
-
-                        if (targetMatch) {
-                            roomId = targetMatch.room_id;
-                        }
-                    }
-                }
-            }
-
-            // 2. If no room exists, create one
-            if (!roomId) {
-                const { data: newRoom, error: roomError } = await supabase
-                    .from('chat_rooms')
-                    .insert({
-                        type: 'direct',
-                        creator_id: currentUserId,
-                        is_group: false
-                    })
-                    .select()
-                    .single();
-
-                if (roomError) throw roomError;
-                roomId = newRoom.id;
-
-                // Add participants
-                const participants = [
-                    { room_id: roomId, user_id: currentUserId, role: 'member' }
-                ];
-
-                if (!isSelfChat) {
-                    participants.push({ room_id: roomId, user_id: targetUserId, role: 'member' });
-                }
-
-                const { error: partError } = await supabase
-                    .from('chat_participants')
-                    .insert(participants);
-
-                if (partError) throw partError;
-            }
-
-            // 3. Callback with roomId
-            if (roomId) {
-                onChatCreated(roomId);
+                throw new Error("Failed to get room ID");
             }
 
         } catch (err) {

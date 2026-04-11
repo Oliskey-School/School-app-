@@ -3,9 +3,9 @@ import React from 'react';
 /**
  * PremiumLoader - A high-end loading component with smooth CSS animations.
  */
-const PremiumLoader: React.FC<{ message?: string }> = ({ message = 'Loading professional workspace...' }) => {
+const PremiumLoader: React.FC<{ message?: string; fullScreen?: boolean }> = ({ message = 'Loading professional workspace...', fullScreen = false }) => {
     return (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white">
+        <div className={`flex flex-col items-center justify-center bg-white ${fullScreen ? 'fixed inset-0 z-[9999]' : 'w-full h-full flex-1 min-h-[60vh] z-50 rounded-2xl my-auto'}`}>
             <div className="relative">
                 {/* Main Spinning Ring */}
                 <div className="w-24 h-24 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>

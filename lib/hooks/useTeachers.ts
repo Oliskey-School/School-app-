@@ -1,29 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../supabase';
+import api from '../api';
 import { useOptimisticMutation } from '../../hooks/useOptimisticMutation';
 import { Teacher } from '../../types';
-
-const transformSupabaseTeacher = (t: any): Teacher => ({
-    id: t.id,
-    name: t.name,
-    email: t.email,
-    phone: t.phone,
-    subjects: t.teacher_subjects?.map((ts: any) => ts.subject) || [],
-    classes: t.teacher_classes?.map((tc: any) => tc.class_name) || [],
-    dateOfJoining: t.date_of_joining,
-    qualification: t.qualification,
-    experience: t.experience,
-    address: t.address,
-    gender: t.gender,
-    dateOfBirth: t.date_of_birth,
-    bloodGroup: t.blood_group,
-    emergencyContact: t.emergency_contact,
-    salary: t.salary,
-    avatarUrl: t.avatar_url,
-    status: t.status || 'Active',
-    schoolId: t.school_id,
-    schoolGeneratedId: t.school_generated_id,
-});
 
 export interface UseTeachersResult {
     teachers: Teacher[];
@@ -37,34 +15,20 @@ export interface UseTeachersResult {
 export function useTeachers(filters?: { schoolId?: string; status?: string; subject?: string }): UseTeachersResult {
     const queryKey = ['teachers', filters];
 
-    const { data: teachers = [], isLoading, isError, error } = useQuery({
+    const { data: teachers = [], isLoading, error } = useQuery({
         queryKey,
         queryFn: async () => {
-            let query = supabase
-                .from('teachers')
-                .select('id, name, email, phone, avatar_url, status, school_id, school_generated_id, date_of_joining, qualification, experience, address, gender, date_of_birth, blood_group, emergency_contact, salary, teacher_subjects(subject), teacher_classes(class_name)');
+            let data = await api.getTeachers(filters?.schoolId);
 
-            if (filters?.schoolId) {
-                query = query.eq('school_id', filters.schoolId);
-            }
             if (filters?.status && filters.status !== 'All') {
-                query = query.eq('status', filters.status);
+                data = data.filter(t => t.status === filters.status);
             }
-            // Note: Filtering by subject would require a database function or view for optimal performance
-            // if we are checking against the `teacher_subjects` join table.
-            // A simple client-side filter is applied below for now.
-
-            const { data, error: fetchError } = await query.order('name', { ascending: true });
-
-            if (fetchError) throw fetchError;
-            
-            let transformed = (data || []).map(transformSupabaseTeacher);
 
             if (filters?.subject && filters.subject !== 'All') {
-                transformed = transformed.filter(t => t.subjects.includes(filters.subject!));
+                data = data.filter(t => t.subjects?.includes(filters.subject));
             }
 
-            return transformed;
+            return data;
         },
         enabled: !!filters?.schoolId,
     });
@@ -72,9 +36,7 @@ export function useTeachers(filters?: { schoolId?: string; status?: string; subj
     const createTeacherMutation = useOptimisticMutation({
         queryKey,
         mutationFn: async (newTeacher: Partial<Teacher>) => {
-            const { data, error } = await supabase.from('teachers').insert([newTeacher]).select().single();
-            if (error) throw error;
-            return transformSupabaseTeacher(data);
+            return api.createTeacher(newTeacher);
         },
         updateFn: (oldData, newTeacher) => [...(oldData || []), { ...newTeacher, id: 'temp-' + Date.now() }],
         onSuccessMessage: 'Teacher created successfully!',
@@ -83,10 +45,7 @@ export function useTeachers(filters?: { schoolId?: string; status?: string; subj
     const updateTeacherMutation = useOptimisticMutation({
         queryKey,
         mutationFn: async (updatedTeacher: Partial<Teacher> & { id: string }) => {
-            const { id, ...updates } = updatedTeacher;
-            const { data, error } = await supabase.from('teachers').update(updates).eq('id', id).select().single();
-            if (error) throw error;
-            return transformSupabaseTeacher(data);
+            return api.updateTeacher(updatedTeacher.id, updatedTeacher);
         },
         updateFn: (oldData, updatedTeacher) => (oldData || []).map((t: Teacher) => t.id === updatedTeacher.id ? { ...t, ...updatedTeacher } : t),
         onSuccessMessage: 'Teacher updated successfully!',
@@ -95,8 +54,7 @@ export function useTeachers(filters?: { schoolId?: string; status?: string; subj
     const deleteTeacherMutation = useOptimisticMutation({
         queryKey,
         mutationFn: async (id: string) => {
-            const { error } = await supabase.from('teachers').delete().eq('id', id);
-            if (error) throw error;
+            await api.deleteTeacher(id);
             return id;
         },
         updateFn: (oldData, id) => (oldData || []).filter((t: Teacher) => t.id !== id),

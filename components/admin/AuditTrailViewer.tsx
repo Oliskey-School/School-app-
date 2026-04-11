@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Search, Filter, Download, AlertCircle, CheckCircle, Eye } from 'lucide-react';
@@ -53,7 +53,7 @@ const AuditTrailViewer: React.FC = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('audit_trails')
                 .select('*')
                 .eq('school_id', currentSchool.id)
@@ -418,3 +418,4 @@ const AuditTrailViewer: React.FC = () => {
 };
 
 export default AuditTrailViewer;
+

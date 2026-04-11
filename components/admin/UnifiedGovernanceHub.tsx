@@ -1,7 +1,7 @@
 import React from 'react';
 import { Shield, Sparkles, TrendingUp, Globe, Target, Layers, ArrowRight, Award, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const UnifiedGovernanceHub: React.FC = () => {
     const { currentSchool } = useAuth();
@@ -11,18 +11,18 @@ const UnifiedGovernanceHub: React.FC = () => {
         const fetchGovernanceStats = async () => {
             if (!currentSchool) return;
             
-            // Get counts from various tables to show "governance strength"
-            const tables = ['students', 'teachers', 'school_policies', 'inspections'];
-            const results = await Promise.all(tables.map(t => 
-                supabase.from(t).select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id)
-            ));
-
-            setStats({
-                students: results[0].count || 0,
-                teachers: results[1].count || 0,
-                policies: results[2].count || 0,
-                inspections: results[3].count || 0,
-            });
+            try {
+                const results = await api.getGovernanceStats(currentSchool.id);
+                setStats(results);
+            } catch (error) {
+                console.error('Error fetching governance stats:', error);
+                setStats({
+                    students: 0,
+                    teachers: 0,
+                    policies: 0,
+                    inspections: 0,
+                });
+            }
         };
 
         fetchGovernanceStats();
@@ -159,3 +159,4 @@ const UnifiedGovernanceHub: React.FC = () => {
 };
 
 export default UnifiedGovernanceHub;
+

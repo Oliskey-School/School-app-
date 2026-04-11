@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
 import { Student, ClassInfo } from '../../types';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, CalculatorIcon, CheckCircleIcon, ExclamationIcon } from '../../constants';
 import CenteredLoader from '../ui/CenteredLoader';
-import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 
 
@@ -25,8 +25,8 @@ interface GradebookEntry {
 }
 
 const getGrade = (score: number): string => {
-    if (score >= 75) return 'A';
-    if (score >= 65) return 'B';
+    if (score >= 70) return 'A';
+    if (score >= 60) return 'B';
     if (score >= 50) return 'C';
     if (score >= 45) return 'D';
     return 'F';
@@ -65,16 +65,10 @@ const ClassGradebookScreen: React.FC<{
         const fetchPeriods = async () => {
             if (!currentSchool?.id) return;
             try {
-                const { data, error } = await supabase
-                    .from('academic_terms')
-                    .select('*')
-                    .eq('school_id', currentSchool.id)
-                    .order('start_date', { ascending: false });
-
-                if (error) throw error;
+                const data = await api.getAcademicTerms(currentSchool.id);
 
                 if (data && data.length > 0) {
-                    const uniqueSessions = Array.from(new Set(data.map(t => t.academic_year)));
+                    const uniqueSessions = Array.from(new Set(data.map((t: any) => t.academic_year as string)));
                     setSessions(uniqueSessions);
                     setTerms(data);
 
@@ -120,35 +114,16 @@ const ClassGradebookScreen: React.FC<{
 
         const fetchClasses = async () => {
             try {
-                const { fetchTeacherById } = await import('../../lib/database');
-                // Assuming teacherId is passed correctly. If not, we might need auth user fallback.
-                // But component prop says teacherId.
-                const teacher = await fetchTeacherById(teacherId); // You might need to add fetchTeacherById if not exported, or fetchTeachers().find
-                // Actually fetchTeachers() returns all. fetchTeacherById(id) exists in `lib/database.ts` (Line 49 is fetchStudentById, fetchTeacherById is likely there too).
-                // I'll check/assume it exists or use fetchTeachers logic.
-                // Wait, I saw fetchTeacherById in `ReportCardInputScreen` logic? No, it fetched user by email.
-                // I'll use fetchTeacherByEmail logic if teacherId is not reliable?
-                // But teacherId IS reliable if passed from Dashboard.
-                // I'll assume fetchTeacherById exists (Line 300 area).
-
-                if (teacher) {
-                    const realClasses = (teacher.classes || []).flatMap((clsStr: string) =>
-                        (teacher.subjects || []).map((subj: string) => {
-                            // Parse Grade/Section from "JSS 1A" or "Grade 10A"
-                            const gradeMatch = clsStr.match(/\d+/);
-                            const grade = gradeMatch ? parseInt(gradeMatch[0]) : 0;
-                            const section = clsStr.replace(/.*?\d+/, '').trim() || 'A'; // "A" from "10A"
-
-                            return {
-                                id: `${clsStr}-${subj}`,
-                                name: clsStr,
-                                grade: grade,
-                                section: section,
-                                subject: subj,
-                                studentCount: 0
-                            };
-                        })
-                    );
+                const teacher = await api.getMyTeacherProfile();
+                if (teacher && teacher.classes) {
+                    const realClasses = teacher.classes.map((tc: any) => ({
+                        id: tc.class.id,
+                        name: tc.class.name,
+                        grade: tc.class.grade,
+                        section: tc.class.section,
+                        subject: tc.subject || teacher.subject_specialty || 'General',
+                        studentCount: tc.class._count?.enrollments || 0
+                    }));
                     setClasses(realClasses);
                     if (realClasses.length > 0) {
                         setSelectedClass(realClasses[0].id);
@@ -166,8 +141,6 @@ const ClassGradebookScreen: React.FC<{
         if (!selectedClass || !selectedSubject) return;
         setLoading(true);
         try {
-            // Dynamically import to get latest logic
-            const { fetchStudentsByClass, fetchReportCard } = await import('../../lib/database');
 
             const clsObj = classes.find(c => c.id === selectedClass);
             if (!clsObj) {
@@ -180,7 +153,7 @@ const ClassGradebookScreen: React.FC<{
             const subject = clsObj.subject;
 
             // 1. Fetch Students
-            const studentData = await fetchStudentsByClass(grade, section, schoolId, currentBranchId);
+            const studentData = await api.getStudentsByClass(grade, section, schoolId, currentBranchId);
 
             if (studentData.length === 0) {
                 setStudents([]);
@@ -192,9 +165,11 @@ const ClassGradebookScreen: React.FC<{
             const merged: GradebookEntry[] = [];
 
             for (const s of studentData) {
-                const rc = await fetchReportCard(s.id, currentTerm, currentSession, currentBranchId);
+                const rc = await api.getReportCard(s.id, currentTerm?.id || currentTerm?.name, currentSession, currentBranchId);
+                // The backend now stores academic records in rc.academic_records
+                const academicRecords = rc?.academic_records || [];
                 // Find record for this subject
-                const scoreRecord = rc?.academicRecords?.find(r => r.subject === selectedSubject);
+                const scoreRecord = academicRecords.find((r: any) => r.subject === selectedSubject);
 
                 const test1 = scoreRecord?.test1 || 0;
                 const test2 = scoreRecord?.test2 || 0;
@@ -231,7 +206,7 @@ const ClassGradebookScreen: React.FC<{
         loadData();
     }, [selectedClass, selectedSubject, classes]);
 
-    useRealtimeRefresh(['report_card_records', 'report_cards'], loadData);
+    useAutoSync(['report_card_records', 'report_cards'], loadData);
 
 
 
@@ -283,15 +258,13 @@ const ClassGradebookScreen: React.FC<{
 
         setSaving(true);
         try {
-            const { upsertReportCard } = await import('../../lib/database');
             // Using dynamic session/term from state
             let successCount = 0;
 
-            for (const entry of entriesToSave) {
-                const { fetchReportCard } = await import('../../lib/database');
-                const existingRC = await fetchReportCard(entry.studentId, currentTerm, currentSession, currentBranchId);
+            for (const entry of students.filter(s => s.isDirty || status === 'Submitted')) {
+                const rc = await api.getReportCard(entry.studentId, currentTerm?.id || currentTerm?.name, currentSession, currentBranchId);
 
-                let academicRecords = existingRC?.academicRecords || [];
+                let academicRecords = rc?.academic_records || [];
 
                 // Update or Add current subject/record
                 const recordIndex = academicRecords.findIndex(r => r.subject === selectedSubject);
@@ -312,18 +285,19 @@ const ClassGradebookScreen: React.FC<{
                 }
 
                 const reportCardToSave = {
-                    term: currentTerm,
+                    term_id: currentTerm?.id,
+                    term: currentTerm?.name,
                     session: currentSession,
                     status: status,
-                    attendance: existingRC?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
-                    skills: existingRC?.skills || {},
-                    psychomotor: existingRC?.psychomotor || {},
-                    teacherComment: existingRC?.teacherComment || '',
-                    principalComment: existingRC?.principalComment || '',
+                    attendance: rc?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
+                    skills: rc?.skills || {},
+                    psychomotor: rc?.psychomotor || {},
+                    teacherComment: rc?.teacherComment || '',
+                    principalComment: rc?.principalComment || '',
                     academicRecords
                 };
 
-                const success = await upsertReportCard(entry.studentId, reportCardToSave as any, entry.schoolId, currentBranchId);
+                const success = await api.upsertReportCard(entry.studentId, reportCardToSave, entry.schoolId, currentBranchId);
                 if (success) {
                     successCount++;
                 } else {
@@ -334,9 +308,9 @@ const ClassGradebookScreen: React.FC<{
             // Mark all as clean
             setStudents(students.map(s => ({ ...s, isDirty: false })));
             if (status === 'Submitted') {
-                toast.success(`Submitted grades for ${successCount} of ${entriesToSave.length} students!`);
+                toast.success(`Successfully submitted grades for ${successCount} students!`);
             } else {
-                toast.success(`Saved draft for ${successCount} of ${entriesToSave.length} students.`);
+                toast.success(`Successfully saved draft for ${successCount} students.`);
             }
 
         } catch (error) {

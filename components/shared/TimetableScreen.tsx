@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { SUBJECT_COLORS, CalendarIcon, ChevronLeftIcon, RefreshIcon } from '../../constants';
 import { getGradeDisplayName } from '../../lib/schoolSystem';
 import { TimetableEntry } from '../../types';
-import { supabase } from '../../lib/supabase';
 import { offlineStorage } from '../../lib/offlineStorage';
 import { api } from '../../lib/api';
 
@@ -147,7 +146,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             setTimetable(cachedData.timetable || {});
             setTeacherAssignments(cachedData.teacherAssignments || {});
             setClassName(cachedData.className || '');
-            setLoading(false); // Instant load!
+            setLoading(false);
         } else {
             setLoading(true);
         }
@@ -158,12 +157,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
 
             // 2. Identify Target Class/Teacher
             if (context.userType === 'student') {
-                const { data: student } = await supabase
-                    .from('students')
-                    .select('grade, section')
-                    .eq('id', context.userId)
-                    .maybeSingle();
-
+                const student = await api.getMyStudentProfile();
                 if (student) {
                     targetClassName = getGradeDisplayName(student.grade);
                 }
@@ -174,16 +168,16 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             }
 
             // 3. Fetch Timetable Data via Central API
-            const data = await api.getTimetable(schoolId || '', targetClassName, targetTeacherId, currentBranchId);
+            const data = await api.getTimetable({ 
+                schoolId: schoolId || '', 
+                className: targetClassName, 
+                teacherId: targetTeacherId 
+            });
 
             if (data && data.length > 0) {
                 // 4. Transform Data
                 const newTimetable: { [key: string]: string | null } = {};
                 const newTeachers: { [key: string]: string | null } = {};
-
-                const teacherIds = [...new Set(data.map((d: any) => d.teacher_id).filter(Boolean))];
-                const { data: teachersData } = await supabase.from('teachers').select('id, name').in('id', teacherIds);
-                const teacherMap = new Map((teachersData || []).map((t: any) => [t.id, t.name]));
 
                 const getPeriodName = (start: string) => {
                     const timeShort = start.substring(0, 5);
@@ -196,9 +190,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                     if (pName) {
                         const key = `${entry.day}-${pName}`;
                         newTimetable[key] = entry.subject;
-                        if (entry.teacher_id) {
-                            newTeachers[key] = teacherMap.get(entry.teacher_id) || null;
-                        }
+                        newTeachers[key] = entry.teacher?.name || entry.teacher_name || null;
                     }
                 });
 
@@ -216,19 +208,12 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                 });
 
             } else if (!cachedData) {
-                // NO Data and NO Cache? Fallback to empty
                 setTimetable({});
                 setTeacherAssignments({});
             }
 
         } catch (err) {
-            console.warn('Error fetching timetable (using cache/fallback):', err);
-            if (!cachedData) {
-                // Fallback Demo Data if completely empty and error occurred
-                const demoTimetable: any = { 'Monday-Period 1': 'Mathematics', 'Monday-Period 2': 'English' };
-                setTimetable(demoTimetable);
-                setClassName('Grade 10A');
-            }
+            console.warn('Error fetching timetable:', err);
         } finally {
             setLoading(false);
         }
@@ -236,27 +221,6 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
 
     useEffect(() => {
         fetchData();
-
-        // Real-time subscription for timetable changes
-        const channel = supabase
-            .channel('timetable-changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'timetable'
-                },
-                () => {
-                    console.log('🔄 [Timetable] Real-time update detected, refreshing...');
-                    fetchData();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [context.userId, context.userType, schoolId, currentBranchId, selectedStudent?.id]);
 
     if (loading) {

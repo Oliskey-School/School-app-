@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StudentAttendance, AttendanceStatus } from '../../types';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { ChevronLeftIcon, ChevronRightIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
@@ -61,15 +60,15 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
             if (!currentSchool?.id) return;
             setLoading(true);
             try {
-                const data = await api.getAttendanceByStudent(studentId, currentSchool.id, currentSchool.branch_id);
+                const data = await api.getMyAttendance();
 
                 if (data) {
                     const formatted: StudentAttendance[] = data.map((d: any) => ({
                         id: d.id,
                         studentId: d.student_id,
-                        date: d.date,
-                        status: d.status,
-                        remarks: d.remarks
+                        date: new Date(d.date).toISOString().split('T')[0],
+                        status: d.status as AttendanceStatus,
+                        remarks: d.remark
                     }));
                     setAttendanceData(formatted);
                 }
@@ -81,17 +80,7 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
         };
 
         fetchAttendance();
-        // Realtime Subscription
-        const channel = supabase.channel(`student_attendance_${studentId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_attendance', filter: `student_id=eq.${studentId}` }, () => {
-                fetchAttendance();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [studentId]);
+    }, [currentSchool?.id]);
 
     const studentData = useMemo(() => attendanceData, [attendanceData]);
 
@@ -143,9 +132,8 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
 
         const trendData = Object.entries(monthlyTrends)
             .map(([month, data]) => ({ month, percentage: Math.round((data.present / data.total) * 100) }))
-            // This is a simplistic sort, a better one would handle year changes
             .sort((a, b) => new Date(`1 ${a.month} 2024`) > new Date(`1 ${b.month} 2024`) ? 1 : -1)
-            .slice(-4); // Get last 4 months
+            .slice(-4); 
 
         return { percentage, trendData };
 
@@ -155,12 +143,11 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
 
     return (
         <div className="p-4 space-y-5 bg-gray-50">
-            {/* Calendar */}
             <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex justify-between items-center mb-4">
                     <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-100" aria-label="Previous month"><ChevronLeftIcon className="h-5 w-5 text-gray-600" /></button>
                     <h3 className="font-bold text-lg text-gray-800">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
-                    <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100" aria-label="Next month"><ChevronRightIcon /></button>
+                    <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100" aria-label="Next month"><ChevronRightIcon className="h-5 w-5 text-gray-600" /></button>
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 mb-2">
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => <div key={day}>{day}</div>)}
@@ -181,14 +168,12 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
                 </div>
             </div>
 
-            {/* Monthly Stats */}
             <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-lg text-green-600">{monthlyStats.present}</p><p className="text-xs text-gray-500">Present</p></div>
                 <div className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-lg text-red-600">{monthlyStats.absent}</p><p className="text-xs text-gray-500">Absent</p></div>
                 <div className="bg-white p-3 rounded-xl shadow-sm"><p className="font-bold text-lg text-blue-600">{monthlyStats.late}</p><p className="text-xs text-gray-500">Late</p></div>
             </div>
 
-            {/* Term Trend */}
             <div className="bg-white rounded-xl shadow-sm p-4">
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold text-gray-800">Term Attendance Trend</h3>

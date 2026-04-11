@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { AtomIcon, ZapIcon, AlertTriangleIcon, ActivityIcon, RefreshCwIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface PhysicsLabGameProps {
     onBack: () => void;
@@ -47,6 +48,18 @@ const PhysicsLabGame: React.FC<PhysicsLabGameProps> = ({ onBack }) => {
         confetti({ particleCount: 300, spread: 100 });
         setGameState('COMPLETED');
         setShowReport(false);
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'physics-lab',
+            game_name: 'Physics Lab: Nuclear Fission',
+            score: energy,
+            metadata: {
+                temperature: Math.floor(temperature),
+                reportAnswers: { q1: reportData.q1, q2: reportData.q2 },
+                bonusXP
+            }
+        }).catch(err => console.error("Failed to save physics lab score:", err));
     };
 
     // Refs for animation loop

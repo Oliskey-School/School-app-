@@ -1,89 +1,75 @@
-import { useEffect, useState } from 'react';
-import { supabase } from './supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { useEffect, useState, useRef } from 'react';
+import { api } from './api';
 
 /**
- * A custom hook to fetch data from a table and subscribe to real-time changes.
+ * A custom hook to fetch data from a table and "subscribe" to changes via polling.
+ * replaced legacy Supabase Realtime with a polling mechanism.
+ * 
  * @param tableName The name of the table to listen to (e.g., 'students', 'classes')
  * @param selectQuery The columns to select (default: '*')
  * @param orderBy The column to order by (optional)
  * @param ascending Order direction (default: true)
+ * @param pollInterval Polling interval in ms (default: 30000 - 30 seconds)
  */
 export function useRealtime<T>(
     tableName: string,
     selectQuery: string = '*',
     orderBy?: string,
-    ascending: boolean = true
+    ascending: boolean = true,
+    pollInterval: number = 30000
 ) {
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const fetchData = async (isInitial = false) => {
+        try {
+            if (isInitial) setLoading(true);
+            
+            let query = api.from(tableName).select(selectQuery);
+
+            if (orderBy) {
+                query = query.order(orderBy, { ascending });
+            }
+
+            const { data: latestData, error: fetchError } = await query;
+
+            if (fetchError) {
+                throw fetchError;
+            }
+
+            setData(latestData as T[]);
+            setError(null);
+        } catch (err: any) {
+            console.error(`[useRealtime] Error fetching ${tableName}:`, err);
+            setError(err.message || 'Failed to fetch data');
+        } finally {
+            if (isInitial) setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        let channel: RealtimeChannel;
+        // Initial fetch
+        fetchData(true);
 
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                let query = supabase.from(tableName).select(selectQuery);
-
-                if (orderBy) {
-                    query = query.order(orderBy, { ascending });
-                }
-
-                const { data: initialData, error: fetchError } = await query;
-
-                if (fetchError) {
-                    throw fetchError;
-                }
-
-                setData(initialData as T[]);
-            } catch (err: any) {
-                console.error(`Error fetching ${tableName}:`, err);
-                setError(err.message || 'Failed to fetch data');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        const setupSubscription = () => {
-            channel = supabase
-                .channel(`public:${tableName}`)
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: tableName },
-                    (payload) => {
-                        // console.log('Realtime update:', payload);
-
-                        // Handle different event types
-                        if (payload.eventType === 'INSERT') {
-                            setData((prev) => [...prev, payload.new as T]);
-                        } else if (payload.eventType === 'UPDATE') {
-                            setData((prev) =>
-                                prev.map((item: any) =>
-                                    item.id === payload.new.id ? payload.new : item
-                                ) as T[]
-                            );
-                        } else if (payload.eventType === 'DELETE') {
-                            setData((prev) =>
-                                prev.filter((item: any) => item.id !== payload.old.id)
-                            );
-                        }
-                    }
-                )
-                .subscribe();
-        };
-
-        fetchData().then(() => {
-            setupSubscription();
-        });
+        // Setup polling
+        pollTimerRef.current = setInterval(() => {
+            fetchData();
+        }, pollInterval);
 
         return () => {
-            if (channel) {
-                supabase.removeChannel(channel);
+            if (pollTimerRef.current) {
+                clearInterval(pollTimerRef.current);
             }
         };
-    }, [tableName, selectQuery, orderBy, ascending]);
+    }, [tableName, selectQuery, orderBy, ascending, pollInterval]);
 
-    return { data, loading, error };
+    return { 
+        data, 
+        loading, 
+        error,
+        refresh: () => fetchData(true)
+    };
 }
+

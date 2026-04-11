@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { UserGroupIcon, SearchIcon, DownloadIcon, PlusIcon, XIcon, FolderIcon, DocumentTextIcon } from '../../constants';
 
 interface ExamBody {
@@ -99,7 +99,7 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
         if (!newBodyName || !newBodyCode) return toast.error('Please fill all fields');
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
             const activeSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
 
             await api.createExamBody(activeSchoolId, {
@@ -200,7 +200,7 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
         setRegistering(true);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
             const activeSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
 
             const registrations = candidateIds.map(sId => ({

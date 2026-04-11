@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, GraduationCap, ArrowRight, ChevronRight, Hash } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface School {
     id: string;
@@ -28,7 +28,7 @@ const SchoolSelector: React.FC<SchoolSelectorProps> = ({ onSchoolSelected }) => 
                 return;
             }
             setIsSearching(true);
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('schools')
                 .select('*')
                 .ilike('name', `%${searchTerm}%`)
@@ -49,7 +49,7 @@ const SchoolSelector: React.FC<SchoolSelectorProps> = ({ onSchoolSelected }) => 
         if (!schoolCode) return;
 
         setIsSearching(true);
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('schools')
             .select('*')
             .eq('code', schoolCode.toUpperCase())

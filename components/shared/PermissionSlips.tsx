@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { DocumentTextIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
@@ -42,23 +42,8 @@ const PermissionSlips: React.FC = () => {
     const fetchSlips = async () => {
         try {
             setLoading(true);
-            let query = supabase.from('permission_slips').select('*, students(full_name)');
-
-            if (isParent) {
-                // Fetch slips for parent's children
-                const { data: children } = await supabase
-                    .from('students')
-                    .select('id')
-                    .eq('parent_id', profile.id);
-
-                if (children && children.length > 0) {
-                    query = query.in('student_id', children.map(c => c.id));
-                }
-            }
-
-            const { data, error } = await query.order('requested_date', { ascending: false });
-            if (error) throw error;
-
+            const data = await api.getPermissionSlips();
+            
             const formatted = (data || []).map((s: any) => ({
                 ...s,
                 student_name: s.students?.full_name || 'Unknown'
@@ -73,23 +58,21 @@ const PermissionSlips: React.FC = () => {
     };
 
     const fetchStudents = async () => {
-        const { data } = await supabase.from('students').select('id, full_name').order('full_name');
+        const data = await api.getStudents();
         setStudents(data || []);
     };
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
             if (!user) return;
 
-            const { error } = await supabase.from('permission_slips').insert({
+            await api.createPermissionSlip({
                 ...formData,
                 requested_by: user.id,
                 status: 'Pending'
             });
-
-            if (error) throw error;
 
             toast.success('Permission slip created successfully!');
             setShowCreate(false);
@@ -110,16 +93,11 @@ const PermissionSlips: React.FC = () => {
 
     const handleSign = async (slipId: number) => {
         try {
-            const { error } = await supabase
-                .from('permission_slips')
-                .update({
-                    status: 'Parent Approved',
-                    parent_signed_at: new Date().toISOString(),
-                    parent_signature_url: 'DIGITAL_SIGNATURE'
-                })
-                .eq('id', slipId);
-
-            if (error) throw error;
+            await api.updatePermissionSlip(slipId.toString(), {
+                status: 'Parent Approved',
+                parent_signed_at: new Date().toISOString(),
+                parent_signature_url: 'DIGITAL_SIGNATURE'
+            });
             toast.success('Permission slip signed!');
             fetchSlips();
         } catch (error: any) {

@@ -1,33 +1,53 @@
-import { supabase as supabaseAdmin } from '../config/supabase';
+import prisma from '../config/database';
 
 export class VirtualClassService {
     static async createSession(sessionData: any) {
-        const { data, error } = await supabaseAdmin
-            .from('virtual_class_sessions')
-            .insert([sessionData])
-            .select()
-            .single();
-
-        if (error) {
-            throw error;
-        }
-
-        return data;
+        return prisma.virtualClassSession.create({
+            data: sessionData
+        });
     }
 
     static async getSessions(schoolId: string, branchId: string | undefined, teacherId?: string) {
-        let query = supabaseAdmin
-            .from('virtual_class_sessions')
-            .select('*')
-            .eq('school_id', schoolId);
+        const where: any = { school_id: schoolId };
 
         if (teacherId) {
-            query = query.eq('teacher_id', teacherId);
+            where.teacher_id = teacherId;
         }
 
-        const { data, error } = await query.order('start_time', { ascending: false });
+        if (branchId && branchId !== 'all') {
+            where.branch_id = branchId;
+        }
 
-        if (error) throw error;
-        return data || [];
+        return prisma.virtualClassSession.findMany({
+            where,
+            include: {
+                teacher: {
+                    select: {
+                        full_name: true,
+                        id: true
+                    }
+                }
+            },
+            orderBy: { start_time: 'desc' }
+        });
+    }
+
+    static async recordAttendance(sessionId: string, studentId: string) {
+        return prisma.virtualClassAttendance.upsert({
+            where: {
+                session_id_student_id: {
+                    session_id: sessionId,
+                    student_id: studentId
+                }
+            },
+            update: {
+                joined_at: new Date()
+            },
+            create: {
+                session_id: sessionId,
+                student_id: studentId,
+                joined_at: new Date()
+            }
+        });
     }
 }

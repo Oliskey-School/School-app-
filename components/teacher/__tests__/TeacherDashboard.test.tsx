@@ -7,7 +7,7 @@ import { renderWithProviders } from '../../../test-utils';
 
 // --- Mocks ---
 // Specific mocks for this test if needed, otherwise global mocks from setupTests.ts are used.
-// Note: setupTests.ts already mocks supabase and realtimeService globally now.
+// Note: setupTests.ts already mocks api and realtimeService globally now.
 
 // Mock child components to isolate Dashboard shell testing
 vi.mock('../TeacherOverview', () => ({ default: () => <div>Overview Content</div> }));

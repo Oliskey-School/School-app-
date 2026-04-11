@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRightIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -32,17 +32,13 @@ const FinancialSettingsScreen: React.FC = () => {
     if (!currentSchool?.id) return;
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('schools')
-        .update({
-          settings: {
-            ...(currentSchool.settings || {}),
-            financial: { currency }
-          }
-        })
-        .eq('id', currentSchool.id);
+      await api.updateSchool(currentSchool.id, {
+        settings: {
+          ...(currentSchool.settings || {}),
+          financial: { currency }
+        }
+      });
 
-      if (error) throw error;
       toast.success('Financial settings saved');
     } catch (error: any) {
       toast.error(`Error: ${error.message}`);

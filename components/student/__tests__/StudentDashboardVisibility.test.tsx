@@ -31,6 +31,8 @@ vi.mock('../../../lib/api', () => ({
             section: 'A',
             school_generated_id: 'STU001'
         }),
+        getMyTeacherProfile: vi.fn().mockResolvedValue(null),
+        getMyChildren: vi.fn().mockResolvedValue([]),
         getTimetable: vi.fn().mockResolvedValue([]),
         getAssignments: vi.fn().mockResolvedValue([]),
         getQuizzesByClass: vi.fn().mockResolvedValue([])
@@ -71,7 +73,7 @@ describe('StudentDashboard Visibility (Minimal)', () => {
         await waitFor(() => {
              // Debug: if this fails, we can see what's actually there
              // console.log(screen.debug());
-             expect(screen.queryByText(/Today's Focus/i)).toBeInTheDocument();
+             expect(screen.queryByText(/Your Focus/i)).toBeInTheDocument();
         }, { timeout: 10000 });
 
         expect(screen.getByText(/AI Tools/i)).toBeInTheDocument();

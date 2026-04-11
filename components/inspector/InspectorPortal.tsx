@@ -4,7 +4,7 @@ import SchoolSearchScreen from './SchoolSearchScreen';
 import InspectionChecklistScreen from './InspectionChecklistScreen';
 import DigitalSignaturePad from './DigitalSignaturePad';
 import InspectionReportPDF from './InspectionReportPDF';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface InspectorPortalProps {
     inspectorId: string;
@@ -50,7 +50,7 @@ export default function InspectorPortal({ inspectorId, onLogout }: InspectorPort
         setLoading(true);
         try {
             // Fetch full school data
-            const { data: school } = await supabase
+            const { data: school } = await api
                 .from('schools')
                 .select('*')
                 .eq('id', schoolId)
@@ -71,7 +71,7 @@ export default function InspectorPortal({ inspectorId, onLogout }: InspectorPort
         setLoading(true);
         try {
             // Create new inspection record
-            const { data: inspection, error } = await supabase
+            const { data: inspection, error } = await api
                 .from('inspections')
                 .insert({
                     school_id: schoolId,
@@ -109,7 +109,7 @@ export default function InspectorPortal({ inspectorId, onLogout }: InspectorPort
         setLoading(true);
         try {
             // Update inspection with signature
-            await supabase
+            await api
                 .from('inspections')
                 .update({
                     digitally_signed: true,
@@ -118,7 +118,7 @@ export default function InspectorPortal({ inspectorId, onLogout }: InspectorPort
                 .eq('id', inspectionId);
 
             // Update inspector's signature if not already set
-            await supabase
+            await api
                 .from('inspectors')
                 .update({
                     digital_signature: signatureDataUrl,
@@ -218,7 +218,7 @@ function ReportViewer({
         setLoading(true);
         try {
             // Fetch inspection
-            const { data: inspectionData } = await supabase
+            const { data: inspectionData } = await api
                 .from('inspections')
                 .select('*, schools(*)')
                 .eq('id', inspectionId)
@@ -230,7 +230,7 @@ function ReportViewer({
             }
 
             // Fetch inspector
-            const { data: inspectorData } = await supabase
+            const { data: inspectorData } = await api
                 .from('inspectors')
                 .select('*')
                 .eq('id', inspectorId)
@@ -241,7 +241,7 @@ function ReportViewer({
             }
 
             // Fetch checklist responses
-            const { data: responses } = await supabase
+            const { data: responses } = await api
                 .from('inspection_responses')
                 .select('*, inspection_checklist_templates(*)')
                 .eq('inspection_id', inspectionId);

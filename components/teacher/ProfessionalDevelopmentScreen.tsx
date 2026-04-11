@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { PDResource } from '../../types';
 import { BriefcaseIcon, AIIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const ResourceCard: React.FC<{ resource: PDResource }> = ({ resource }) => {
     const typeStyles = {
@@ -32,15 +32,14 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
     // Initial Fetch of Resources
     useEffect(() => {
         const fetchResources = async () => {
-            const { data, error } = await supabase
-                .from('pd_resources')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (data) {
-                setResources(data as PDResource[]);
+            try {
+                const data = await api.getPDResources();
+                if (data) setResources(data as PDResource[]);
+            } catch (err) {
+                console.error('Error fetching PD resources:', err);
+            } finally {
+                setLoadingResources(false);
             }
-            setLoadingResources(false);
         };
         fetchResources();
     }, []);
@@ -125,3 +124,4 @@ const ProfessionalDevelopmentScreen: React.FC = () => {
 };
 
 export default ProfessionalDevelopmentScreen;
+

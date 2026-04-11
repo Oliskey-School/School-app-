@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { api } from './api';
 
 /**
  * Secure AI call through Supabase Edge Function
@@ -13,19 +13,12 @@ export async function callAI(
     } = {}
 ): Promise<string> {
     try {
-        const { data, error } = await supabase.functions.invoke('ai-assistant', {
-            body: {
-                prompt,
-                model: options.model,
-                systemPrompt: options.systemPrompt,
-                maxTokens: options.maxTokens || 1000,
-            },
+        const data = await api.post<any>('/ai/assistant', {
+            prompt,
+            model: options.model,
+            systemPrompt: options.systemPrompt,
+            maxTokens: options.maxTokens || 1000,
         });
-
-        if (error) {
-            console.error('AI Function Error:', error);
-            throw new Error(error.message || 'AI request failed');
-        }
 
         if (!data || !data.response) {
             throw new Error('No response from AI');
@@ -97,3 +90,4 @@ export async function generateParentingTips(studentData: {
 
     return callAI(prompt, { systemPrompt, maxTokens: 500 });
 }
+

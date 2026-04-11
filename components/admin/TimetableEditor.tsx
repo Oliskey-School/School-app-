@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { XCircleIcon, SparklesIcon, BriefcaseIcon, CheckCircleIcon, PlusIcon, EditIcon, CalendarIcon, SaveIcon, CloudUploadIcon, RefreshIcon, ChevronLeftIcon } from '../../constants';
 import { SUBJECT_COLORS } from '../../constants';
 import { TimetableEntry } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { notifyClass } from '../../lib/database';
 
 // --- TYPES ---
@@ -349,33 +349,21 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
     const [userSchoolId, setUserSchoolId] = useState<string | null>(null);
 
-    // Fetch teachers and user school_id
+    // Fetch teachers and user context
     useEffect(() => {
         const fetchContext = async () => {
-            // Get user's school_id
-            const { data: { user } } = await supabase.auth.getUser();
-            let currentSchoolId: string | null = null;
+            // Get user context
+            const user = await api.getMe();
             if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('school_id')
-                    .eq('id', user.id)
-                    .single();
-                if (profile) {
-                    setUserSchoolId(profile.school_id);
-                    currentSchoolId = profile.school_id;
-                }
+                setUserSchoolId(user.school_id);
             }
 
-            if (!currentSchoolId) return;
+            if (!user?.school_id) return;
 
             // Get teachers
-            const { data } = await supabase
-                .from('teachers')
-                .select('id, name, employment_type, available_days, subject_specialization, school_id')
-                .eq('school_id', currentSchoolId);
+            const data = await api.getTeachers(user.school_id);
             if (data) {
-                setTeachers(data.map((t: any) => t.name));
+                setTeachers(data.map((t: any) => t.name || t.full_name));
                 (window as any).__teacherData = data;
             }
         };
@@ -434,12 +422,12 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     setToastMessage(`⚠️ Multi-Class Conflict: ${assignedTeacherName} is assigned in another class at this time!`);
                 } else {
                     // DB check
-                    const { data: conflictData } = await supabase.rpc('check_teacher_conflict', {
-                        p_teacher_id: teacher.id,
-                        p_day: day,
-                        p_start_time: PERIODS[periodIndex].start,
-                        p_end_time: PERIODS[periodIndex].end,
-                        p_exclude_class_name: selectedClass
+                    const conflictData = await api.checkTimetableConflict({
+                        teacherId: teacher.id,
+                        day: day,
+                        startTime: PERIODS[periodIndex].start,
+                        endTime: PERIODS[periodIndex].end,
+                        excludeClassId: selectedClass
                     });
 
                     if (conflictData?.conflict) {
@@ -534,18 +522,17 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             schoolId = teacher.school_id || userSchoolId;
 
                             // BACKEND CHECK
-                            const { data: conflictData, error: conflictErr } = await supabase.rpc('check_teacher_conflict', {
-                                p_teacher_id: teacher.id,
-                                p_day: day,
-                                p_start_time: PERIODS[i].start,
-                                p_end_time: PERIODS[i].end,
-                                p_exclude_class_name: className
-                            });
+                             const conflictData = await api.checkTimetableConflict({
+                                 teacherId: teacher.id,
+                                 day: day,
+                                 startTime: PERIODS[i].start,
+                                 endTime: PERIODS[i].end,
+                                 excludeClassId: className
+                             });
 
-                            if (conflictErr) console.error('Error checking conflict:', conflictErr);
-                            else if (conflictData?.conflict) {
-                                if (statusToSave === 'Published') throw new Error(`Conflict for ${className}: ${conflictData.message}`);
-                            }
+                             if (conflictData?.conflict) {
+                                 if (statusToSave === 'Published') throw new Error(`Conflict for ${className}: ${conflictData.message}`);
+                             }
                         }
                     }
 
@@ -570,17 +557,13 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         // Database interaction (Batch insert via RPC or basic upsert loop)
         // Corrected table name from 'timetable_entries' to 'timetable'
 
-        const { error: deleteError } = await supabase
-            .from('timetable')
-            .delete()
-            .eq('class_name', className) // Delete ALL for this class (dangerous? should filter by term?)
-            .eq('school_id', userSchoolId);
-
-        if (deleteError) throw deleteError;
+        // Database interaction
+        await api.deleteTimetableByClass(className);
 
         if (entries.length > 0) {
-            const { error: insertError } = await supabase.from('timetable').insert(entries);
-            if (insertError) throw insertError;
+            for (const entry of entries) {
+                await api.createTimetable(entry);
+            }
         }
 
         return true;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import {
     DocumentTextIcon,
     ChartBarIcon,
@@ -11,6 +11,7 @@ import {
 import { formatCurrency } from '../../lib/payroll';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface PayrollStats {
     totalTeachers: number;
@@ -46,6 +47,11 @@ const PayrollDashboard: React.FC = () => {
         fetchDashboardData();
     }, [currentSchool, currentBranchId]);
 
+    useAutoSync(['payslips', 'teacher_salaries', 'arrears'], () => {
+        console.log('🔄 [PayrollDashboard] Real-time auto-sync triggered');
+        fetchDashboardData();
+    });
+
     const fetchDashboardData = async () => {
         if (!currentSchool) return;
         try {
@@ -61,7 +67,7 @@ const PayrollDashboard: React.FC = () => {
                 .split('T')[0];
 
             // Fetch total teachers with active salary
-            let teacherSalaryQuery = supabase
+            let teacherSalaryQuery = api
                 .from('teacher_salaries')
                 .select(`
                     base_salary,
@@ -85,7 +91,7 @@ const PayrollDashboard: React.FC = () => {
             const totalPayroll = teachers?.reduce((sum, t) => sum + Number(t.base_salary), 0) || 0;
 
             // Fetch pending payslips
-            let pendingQuery = supabase
+            let pendingQuery = api
                 .from('payslips')
                 .select('id')
                 .eq('status', 'Draft')
@@ -100,7 +106,7 @@ const PayrollDashboard: React.FC = () => {
             if (pendingError) throw pendingError;
 
             // Fetch paid this month
-            let paidQuery = supabase
+            let paidQuery = api
                 .from('payslips')
                 .select('net_salary')
                 .eq('status', 'Paid')
@@ -117,7 +123,7 @@ const PayrollDashboard: React.FC = () => {
             const paidThisMonth = paidData?.reduce((sum, p) => sum + Number(p.net_salary), 0) || 0;
 
             // Fetch outstanding arrears
-            const { data: arrearsData, error: arrearsError } = await supabase
+            const { data: arrearsData, error: arrearsError } = await api
                 .from('arrears')
                 .select(`
                     amount_owed, 
@@ -137,7 +143,7 @@ const PayrollDashboard: React.FC = () => {
             ) || 0;
 
             // Fetch recent payslips
-            const { data: recentData, error: recentError } = await supabase
+            const { data: recentData, error: recentError } = await api
                 .from('payslips')
                 .select(`
           id,
@@ -376,3 +382,4 @@ const PayrollDashboard: React.FC = () => {
 };
 
 export default PayrollDashboard;
+

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { TrashIcon, PlusIcon, DocumentTextIcon, LinkIcon, SearchIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ManagePoliciesScreen: React.FC = () => {
     const { currentSchool } = useAuth();
@@ -28,12 +29,7 @@ const ManagePoliciesScreen: React.FC = () => {
     const fetchPolicies = async () => {
         try {
             if (!schoolId) return;
-            const { data, error } = await supabase
-                .from('school_policies')
-                .select('*')
-                .eq('school_id', schoolId)
-                .order('created_at', { ascending: false });
-            if (error) throw error;
+            const data = await api.getPolicies();
             setPolicies(data || []);
         } catch (err) {
             console.error('Error fetching policies:', err);
@@ -52,11 +48,7 @@ const ManagePoliciesScreen: React.FC = () => {
                 toast.error("School context missing.");
                 return;
             }
-            const { error } = await supabase
-                .from('school_policies')
-                .insert([{ ...newPolicy, school_id: schoolId }]);
-
-            if (error) throw error;
+            await api.createPolicy({ ...newPolicy, school_id: schoolId });
 
             setNewItem({ title: '', description: '', url: '' });
             fetchPolicies();
@@ -72,17 +64,11 @@ const ManagePoliciesScreen: React.FC = () => {
     // Helper to clear form
     const setNewItem = (item: typeof newPolicy) => setNewPolicy(item);
 
-    const handleDelete = async (id: number) => {
+    const handleDelete = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this policy?')) return;
         try {
             if (!schoolId) return;
-            const { error } = await supabase
-                .from('school_policies')
-                .delete()
-                .eq('id', id)
-                .eq('school_id', schoolId);
-
-            if (error) throw error;
+            await api.deletePolicy(id);
             fetchPolicies();
             setStatusMessage({ type: 'success', text: 'Policy deleted successfully.' });
         } catch (err) {
@@ -101,18 +87,8 @@ const ManagePoliciesScreen: React.FC = () => {
         return url.startsWith('http') ? url : `https://${url}`;
     };
 
-    useEffect(() => {
-        if (!schoolId) return;
-        const channel = supabase.channel('policies_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'school_policies', filter: `school_id=eq.${schoolId}` }, () => {
-                fetchPolicies();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [schoolId]);
+    // Realtime removed - using state-based management for now to avoid complexity during migration
+    // Real-time can be re-enabled later using our custom WebSockets server if needed.
 
     return (
         <div className="flex flex-col h-full bg-gray-50 p-6 space-y-6 overflow-y-auto">
@@ -162,20 +138,32 @@ const ManagePoliciesScreen: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <textarea
-                                    placeholder="Brief summary..."
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all h-28 resize-none"
-                                    value={newPolicy.description}
-                                    onChange={e => setNewItem({ ...newPolicy, description: e.target.value })}
-                                />
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-200"
-                            >
-                                {isSubmitting ? 'Publishing...' : 'Publish Policy'}
-                            </button>
+                                    <textarea
+                                        placeholder="Brief summary..."
+                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all h-32 resize-none text-gray-700"
+                                        value={newPolicy.description}
+                                        onChange={e => setNewItem({ ...newPolicy, description: e.target.value })}
+                                    />
+                                </div>
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-100 flex items-center justify-center space-x-2"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span>Publishing...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <PlusIcon className="w-5 h-5" />
+                                            <span>Publish Policy</span>
+                                        </>
+                                    )}
+                                </motion.button>
                         </form>
                     </div>
                 </div>
@@ -198,43 +186,89 @@ const ManagePoliciesScreen: React.FC = () => {
                         </div>
 
                         {loading ? (
-                            <div className="flex-grow flex justify-center items-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                            <div className="flex-grow flex flex-col justify-center items-center py-20">
+                                <div className="relative">
+                                    <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <p className="mt-4 text-gray-400 font-medium animate-pulse">Loading policies...</p>
                             </div>
                         ) : filteredPolicies.length === 0 ? (
-                            <div className="flex-grow flex flex-col justify-center items-center text-gray-400 py-12">
-                                <DocumentTextIcon className="w-12 h-12 mb-3 opacity-20" />
-                                <p>No policies found matching your search.</p>
-                            </div>
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex-grow flex flex-col justify-center items-center text-center py-12 px-6"
+                            >
+                                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                                    <DocumentTextIcon className="w-10 h-10 text-gray-300" />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-700">No policies found</h3>
+                                <p className="text-gray-500 max-w-xs mt-2 text-sm">
+                                    {searchTerm ? `We couldn't find any results for "${searchTerm}". Try a different search term.` : "Start by adding your first school policy using the form on the left."}
+                                </p>
+                                {searchTerm && (
+                                    <button 
+                                        onClick={() => setSearchTerm('')}
+                                        className="mt-4 text-indigo-600 font-semibold text-sm hover:underline"
+                                    >
+                                        Clear search
+                                    </button>
+                                )}
+                            </motion.div>
                         ) : (
                             <div className="space-y-4">
-                                {filteredPolicies.map(policy => (
-                                    <div key={policy.id} className="group flex items-start justify-between p-4 bg-gray-50 rounded-xl hover:bg-white hover:shadow-md transition-all border border-gray-100 border-l-4 border-l-transparent hover:border-l-indigo-500">
-                                        <div className="flex items-start space-x-4">
-                                            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-100 transition-colors">
-                                                <DocumentTextIcon className="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-gray-800 text-lg group-hover:text-indigo-700 transition-colors">{policy.title}</h3>
-                                                <p className="text-gray-600 mt-1 text-sm leading-relaxed">{policy.description}</p>
-                                                {policy.url && (
-                                                    <a href={ensureProtocol(policy.url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-xs font-semibold text-indigo-600 mt-2 hover:underline bg-indigo-50 px-2 py-1 rounded">
-                                                        <LinkIcon className="w-3 h-3 mr-1" />
-                                                        View Document
-                                                    </a>
-                                                )}
-                                                <p className="text-xs text-gray-400 mt-2">Added: {new Date(policy.created_at).toLocaleDateString()}</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => handleDelete(policy.id)}
-                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                                            title="Delete Policy"
+                                <AnimatePresence mode="popLayout">
+                                    {filteredPolicies.map((policy, index) => (
+                                        <motion.div
+                                            key={policy.id}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            transition={{ delay: index * 0.05 }}
+                                            layout
+                                            className="group flex items-start justify-between p-5 bg-white border border-gray-100 rounded-2xl hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 relative overflow-hidden"
                                         >
-                                            <TrashIcon className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                ))}
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
+                                            
+                                            <div className="flex items-start space-x-5">
+                                                <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                                                    <DocumentTextIcon className="w-6 h-6" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-indigo-700 transition-colors truncate">{policy.title}</h3>
+                                                    <p className="text-gray-500 mt-1 text-sm leading-relaxed line-clamp-2">{policy.description}</p>
+                                                    <div className="flex flex-wrap items-center gap-4 mt-4">
+                                                        {policy.url && (
+                                                            <a 
+                                                                href={ensureProtocol(policy.url)} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer" 
+                                                                className="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-white hover:bg-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 transition-all"
+                                                            >
+                                                                <LinkIcon className="w-3.5 h-3.5 mr-1.5" />
+                                                                View Document
+                                                            </a>
+                                                        )}
+                                                        <div className="flex items-center text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                                                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2" />
+                                                            Added {new Date(policy.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <button
+                                                onClick={() => handleDelete(policy.id)}
+                                                className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 border border-transparent hover:border-red-100"
+                                                title="Delete Policy"
+                                            >
+                                                <TrashIcon className="w-5 h-5" />
+                                            </button>
+                                        </motion.div>
+                                    ))}
+                                </AnimatePresence>
                             </div>
                         )}
                     </div>
@@ -245,3 +279,4 @@ const ManagePoliciesScreen: React.FC = () => {
 };
 
 export default ManagePoliciesScreen;
+

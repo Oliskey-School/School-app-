@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const PersonalSecuritySettingsScreen: React.FC<{ navigateTo: (view: string, title: string, props?: any) => void; }> = ({ navigateTo }) => {
     const { profile } = useProfile();
@@ -9,7 +9,7 @@ const PersonalSecuritySettingsScreen: React.FC<{ navigateTo: (view: string, titl
     useEffect(() => {
         const fetchSettings = async () => {
             if (profile.id) {
-                const { data, error } = await supabase
+                const { data, error } = await api
                     .from('users')
                     .select('two_factor_enabled')
                     .eq('id', profile.id)
@@ -27,7 +27,7 @@ const PersonalSecuritySettingsScreen: React.FC<{ navigateTo: (view: string, titl
         setTwoFactor(!twoFactor);
 
         if (profile.id) {
-            const { error } = await supabase
+            const { error } = await api
                 .from('users')
                 .update({ two_factor_enabled: !twoFactor })
                 .eq('id', profile.id);
@@ -62,3 +62,4 @@ const PersonalSecuritySettingsScreen: React.FC<{ navigateTo: (view: string, titl
     );
 };
 export default PersonalSecuritySettingsScreen;
+

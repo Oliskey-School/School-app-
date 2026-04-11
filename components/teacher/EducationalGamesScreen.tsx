@@ -1,20 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { educationalGamesData, EducationalGame } from '../../data/gamesData';
 import { ChevronRightIcon, GameControllerIcon, PlusIcon } from '../../constants';
+import { api } from '../../lib/api';
+import CenteredLoader from '../ui/CenteredLoader';
 
-const GameCard: React.FC<{ game: EducationalGame }> = ({ game }) => (
+const GameCard: React.FC<{ game: any }> = ({ game }) => (
     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <h4 className="font-bold text-purple-800">{game.gameName}</h4>
-        <p className="text-xs font-semibold text-gray-500 mt-1">{game.subject}</p>
-        <p className="text-sm text-gray-700 mt-2"><strong>How to Play:</strong> {game.howToPlay}</p>
-        <p className="text-sm text-gray-700 mt-2"><strong>Learning Goal:</strong> {game.learningGoal}</p>
+        <h4 className="font-bold text-purple-800">{game.title || game.gameName}</h4>
+        <p className="text-xs font-semibold text-gray-500 mt-1">{game.subject || (game.metadata?.subject)}</p>
+        <p className="text-sm text-gray-700 mt-2"><strong>How to Play:</strong> {game.description || game.howToPlay}</p>
+        {game.learningGoal && <p className="text-sm text-gray-700 mt-2"><strong>Learning Goal:</strong> {game.learningGoal}</p>}
         <div className="mt-3 text-right">
-            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">{game.mode}</span>
+            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">{game.game_type || game.mode || 'Quiz'}</span>
         </div>
     </div>
 );
 
-const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaultOpen?: boolean }> = ({ level, games, defaultOpen = false }) => {
+const LevelAccordion: React.FC<{ level: string; games: any[]; defaultOpen?: boolean }> = ({ level, games, defaultOpen = false }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
@@ -33,7 +35,7 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
             {isOpen && (
                 <div className="px-4 pb-4 pt-0 space-y-3 bg-gray-50/50">
                     {games.map((game, index) => (
-                        <GameCard key={index} game={game} />
+                        <GameCard key={game.id || index} game={game} />
                     ))}
                 </div>
             )}
@@ -46,20 +48,52 @@ interface EducationalGamesScreenProps {
 }
 
 const EducationalGamesScreen: React.FC<EducationalGamesScreenProps> = ({ navigateTo }) => {
-    const gamesByLevel = useMemo(() => {
-        return educationalGamesData.reduce((acc, game) => {
-            (acc[game.level] = acc[game.level] || []).push(game);
-            return acc;
-        }, {} as Record<string, EducationalGame[]>);
+    const [dbGames, setDbGames] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchGames = async () => {
+            try {
+                const data = await api.getGames();
+                setDbGames(data || []);
+            } catch (err) {
+                console.error('Error fetching games:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchGames();
     }, []);
 
-    const levels: EducationalGame['level'][] = [
+    const mergedGames = useMemo(() => {
+        // Merge DB games with static library data
+        // For DB games, we map 'level' from config if available
+        const formattedDbGames = dbGames.map(g => ({
+            ...g,
+            level: g.config?.level || 'Junior Secondary (12-14 years)', // Default or extracted
+            subject: g.metadata?.subject || 'General'
+        }));
+
+        return [...formattedDbGames, ...educationalGamesData];
+    }, [dbGames]);
+
+    const gamesByLevel = useMemo(() => {
+        return mergedGames.reduce((acc, game) => {
+            const level = game.level;
+            (acc[level] = acc[level] || []).push(game);
+            return acc;
+        }, {} as Record<string, any[]>);
+    }, [mergedGames]);
+
+    const levels = [
         'Pre-Primary (3-5 years)',
         'Lower Primary (6-8 years)',
         'Upper Primary (9-11 years)',
         'Junior Secondary (12-14 years)',
         'Senior Secondary (15-18 years)'
     ];
+
+    if (loading) return <CenteredLoader message="Loading games..." />;
 
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">

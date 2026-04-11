@@ -1,7 +1,6 @@
-import { supabase } from './supabase';
 
 /**
- * Check if the app is running in demo mode (no real Supabase session)
+ * Check if the app is running in demo mode (no real session)
  */
 export function isDemoMode(): boolean {
     return sessionStorage.getItem('is_demo_mode') === 'true';
@@ -94,6 +93,18 @@ export async function backendFetch<T>(endpoint: string): Promise<T> {
                     revenue: 12500000,
                     attendanceRate: 94.5
                 } as any;
+            }
+            if (endpoint.includes('/branches')) {
+                return [
+                    {
+                        id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
+                        school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+                        name: 'Main Campus (Demo)',
+                        is_main: true,
+                        curriculum_type: 'nigerian',
+                        location: 'Lagos, Nigeria'
+                    }
+                ] as any;
             }
         }
         throw err;

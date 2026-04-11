@@ -3,7 +3,7 @@ import {
     CheckCircle, XCircle, AlertCircle, Camera, Upload,
     ChevronDown, ChevronUp, Save, Send, FileText, Award
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface InspectionChecklistScreenProps {
     inspectionId: string;
@@ -57,7 +57,7 @@ export default function InspectionChecklistScreen({
         setLoading(true);
         try {
             // Load all active checklist templates
-            const { data: templates } = await supabase
+            const { data: templates } = await api
                 .from('inspection_checklist_templates')
                 .select('*')
                 .eq('active', true)
@@ -65,7 +65,7 @@ export default function InspectionChecklistScreen({
 
             if (templates) {
                 // Load existing responses if this is a resumed inspection
-                const { data: existingResponses } = await supabase
+                const { data: existingResponses } = await api
                     .from('inspection_responses')
                     .select('*')
                     .eq('inspection_id', inspectionId);
@@ -159,7 +159,7 @@ export default function InspectionChecklistScreen({
         setSaving(true);
         try {
             // Delete existing responses for this inspection
-            await supabase
+            await api
                 .from('inspection_responses')
                 .delete()
                 .eq('inspection_id', inspectionId);
@@ -182,11 +182,11 @@ export default function InspectionChecklistScreen({
             });
 
             if (responses.length > 0) {
-                await supabase.from('inspection_responses').insert(responses);
+                await api.from('inspection_responses').insert(responses);
             }
 
             // Update inspection record
-            await supabase
+            await api
                 .from('inspections')
                 .update({
                     total_score: totalScore,
@@ -231,7 +231,7 @@ export default function InspectionChecklistScreen({
         else if (percentage >= 50) overallRating = 'Requires Improvement';
 
         // Update inspection to completed
-        await supabase
+        await api
             .from('inspections')
             .update({
                 status: 'Completed',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { ReceiptIcon } from '../../constants';
 
 interface StudentFinanceScreenProps {
@@ -13,16 +13,10 @@ const StudentFinanceScreen: React.FC<StudentFinanceScreenProps> = ({ studentId }
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!studentId) return;
-
         const fetchFees = async () => {
+            setLoading(true);
             try {
-                const { data, error } = await supabase
-                    .from('student_fees')
-                    .select('*')
-                    .eq('student_id', studentId);
-
-                if (error) throw error;
+                const data = await api.getMyFees();
                 setFees(data || []);
             } catch (err) {
                 console.error('Error fetching fees:', err);
@@ -32,17 +26,6 @@ const StudentFinanceScreen: React.FC<StudentFinanceScreenProps> = ({ studentId }
         };
 
         fetchFees();
-
-        // Realtime Subscription
-        const channel = supabase.channel(`student_fees_${studentId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees', filter: `student_id=eq.${studentId}` }, () => {
-                fetchFees();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [studentId]);
 
     const totalDue = fees.reduce((sum, fee) => sum + (fee.amount || 0), 0);

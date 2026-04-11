@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { api } from '../api';
 import { StudentAttendance } from '../../types';
 
 export interface UseAttendanceResult {
@@ -8,32 +8,29 @@ export interface UseAttendanceResult {
     error: Error | null;
     refetch: () => Promise<void>;
     createAttendanceRecord: (record: Partial<StudentAttendance>) => Promise<StudentAttendance | null>;
-    updateAttendanceRecord: (id: number, updates: Partial<StudentAttendance>) => Promise<StudentAttendance | null>;
-    deleteAttendanceRecord: (id: number) => Promise<boolean>;
+    updateAttendanceRecord: (id: string | number, updates: Partial<StudentAttendance>) => Promise<StudentAttendance | null>;
+    deleteAttendanceRecord: (id: string | number) => Promise<boolean>;
 }
 
-export function useAttendance(filters?: { studentId?: number; date?: string }): UseAttendanceResult {
+export function useAttendance(filters?: { studentId?: string | number; date?: string }): UseAttendanceResult {
     const [attendanceRecords, setAttendanceRecords] = useState<StudentAttendance[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
+    const transformAttendance = (a: any): StudentAttendance => ({
+        id: a.id,
+        studentId: a.student_id,
+        date: a.date,
+        status: a.status
+    });
+
     const fetchAttendance = useCallback(async () => {
         try {
             setLoading(true);
-            let query = supabase.from('student_attendance').select('*');
+            const studentId = filters?.studentId ? String(filters.studentId) : '';
+            const data = await api.getAttendanceByStudent(studentId);
 
-            if (filters?.studentId) {
-                query = query.eq('student_id', filters.studentId);
-            }
-            if (filters?.date) {
-                query = query.eq('date', filters.date);
-            }
-
-            const { data, error: fetchError } = await query.order('date', { ascending: false });
-
-            if (fetchError) throw fetchError;
-
-            const transformedRecords: StudentAttendance[] = (data || []).map(transformSupabaseAttendance);
+            const transformedRecords: StudentAttendance[] = (data || []).map(transformAttendance);
 
             setAttendanceRecords(transformedRecords);
             setError(null);
@@ -48,39 +45,18 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
 
     useEffect(() => {
         fetchAttendance();
-
-        const channel = supabase
-            .channel('student-attendance-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'student_attendance' },
-                (payload) => {
-                    console.log('Attendance change detected:', payload);
-                    fetchAttendance();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [fetchAttendance]);
 
     const createAttendanceRecord = async (recordData: Partial<StudentAttendance>): Promise<StudentAttendance | null> => {
         try {
-            const { data, error: insertError } = await supabase
-                .from('student_attendance')
-                .insert([{
-                    student_id: recordData.studentId,
-                    date: recordData.date,
-                    status: recordData.status,
-                }])
-                .select()
-                .single();
+            const { data, error: apiError } = await api.from('attendance').insert({
+                student_id: recordData.studentId,
+                date: recordData.date,
+                status: recordData.status,
+            });
 
-            if (insertError) throw insertError;
-
-            return transformSupabaseAttendance(data);
+            if (apiError) throw apiError;
+            return transformAttendance(data);
         } catch (err) {
             console.error('Error creating attendance record:', err);
             setError(err as Error);
@@ -88,22 +64,18 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
         }
     };
 
-    const updateAttendanceRecord = async (id: number, updates: Partial<StudentAttendance>): Promise<StudentAttendance | null> => {
+    const updateAttendanceRecord = async (id: string | number, updates: Partial<StudentAttendance>): Promise<StudentAttendance | null> => {
         try {
-            const { data, error: updateError } = await supabase
-                .from('student_attendance')
+            const { data, error: apiError } = await api.from('attendance')
+                .eq('id', String(id))
                 .update({
                     student_id: updates.studentId,
                     date: updates.date,
                     status: updates.status,
-                })
-                .eq('id', id)
-                .select()
-                .single();
+                });
 
-            if (updateError) throw updateError;
-
-            return transformSupabaseAttendance(data);
+            if (apiError) throw apiError;
+            return transformAttendance(data);
         } catch (err) {
             console.error('Error updating attendance record:', err);
             setError(err as Error);
@@ -111,15 +83,13 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
         }
     };
 
-    const deleteAttendanceRecord = async (id: number): Promise<boolean> => {
+    const deleteAttendanceRecord = async (id: string | number): Promise<boolean> => {
         try {
-            const { error: deleteError } = await supabase
-                .from('student_attendance')
-                .delete()
-                .eq('id', id);
+            const { error: apiError } = await api.from('attendance')
+                .eq('id', String(id))
+                .delete();
 
-            if (deleteError) throw deleteError;
-
+            if (apiError) throw apiError;
             return true;
         } catch (err) {
             console.error('Error deleting attendance record:', err);
@@ -138,10 +108,3 @@ export function useAttendance(filters?: { studentId?: number; date?: string }): 
         deleteAttendanceRecord,
     };
 }
-
-const transformSupabaseAttendance = (a: any): StudentAttendance => ({
-    id: a.id,
-    studentId: a.student_id,
-    date: a.date,
-    status: a.status,
-});

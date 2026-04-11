@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import {
     AdminIcon,
     ClipboardListIcon,
@@ -12,6 +13,7 @@ import {
     DocumentTextIcon,
     ClockIcon
 } from '../../constants';
+import { api } from '../../lib/api';
 
 interface ComplianceOfficerDashboardProps {
     onLogout?: () => void;
@@ -37,13 +39,30 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
         }
     }, [setIsHomePage, currentSchool]);
 
+    useAutoSync(['school_documents', 'inspections'], () => {
+        console.log('🔄 [ComplianceOfficerDashboard] Real-time auto-sync triggered');
+        fetchStats();
+    });
+
     const fetchStats = async () => {
         try {
             setLoading(true);
             const schoolId = currentSchool?.id;
+            
+            // Demo mode check
+            if (currentUser?.email?.includes('demo') || !schoolId) {
+                setComplianceStats({
+                    activeAudits: 2,
+                    completedAudits: 5,
+                    criticalIssues: 1,
+                    resolvedIssues: 3
+                });
+                setLoading(false);
+                return;
+            }
 
             // Fetch Document status (as audits/issues placeholder)
-            let docsQuery = supabase
+            let docsQuery = api
                 .from('school_documents')
                 .select('verification_status')
                 .eq('school_id', schoolId);
@@ -55,7 +74,7 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
             const { data: docs } = await docsQuery;
 
             // Fetch Inspections
-            let inspectionsQuery = supabase
+            let inspectionsQuery = api
                 .from('inspections')
                 .select('status')
                 .eq('school_id', schoolId);
@@ -159,3 +178,4 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
 };
 
 export default ComplianceOfficerDashboard;
+

@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Assignment } from '../../types';
 import { ChevronRightIcon, PlusIcon, CheckCircleIcon, ClipboardListIcon } from '../../constants';
-import { useRealtimeAssignments } from '../../lib/hooks/useRealtimeAssignments';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import CenteredLoader from '../ui/CenteredLoader';
 
 interface TeacherAssignmentsListScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
@@ -14,12 +16,34 @@ interface TeacherAssignmentsListScreenProps {
 const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> = ({ navigateTo, handleBack, forceUpdate, teacherId, branchId }) => {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-    // Use real-time hook - automatically subscribes and updates
-    const { data: rawAssignments, loading, isSubscribed } = useRealtimeAssignments(
-        teacherId ? String(teacherId) : undefined,
-        undefined, // schoolId (handled by hook/RLS)
-        branchId || undefined
-    );
+    const [rawAssignments, setRawAssignments] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [version, setVersion] = useState(0);
+
+    const fetchAssignments = async () => {
+        if (!teacherId) return;
+        setLoading(true);
+        try {
+            // schoolId is handled by backend auth/session or optional filter
+            const data = await api.getAssignments(undefined, {
+                teacherId: String(teacherId),
+                branchId: branchId || undefined
+            });
+            setRawAssignments(data || []);
+        } catch (err) {
+            console.error('Error fetching assignments:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAssignments();
+    }, [teacherId, branchId, version]);
+
+    useAutoSync(['assignments'], () => {
+        setVersion(v => v + 1);
+    });
 
     // Map raw data to TypeScript interface
     const assignments: Assignment[] = useMemo(() => {
@@ -64,22 +88,16 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
 
     return (
         <div className="flex flex-col h-full bg-gray-100 relative">
-            {/* Real-time Connection Indicator */}
             <div className="absolute top-2 right-2 z-10 flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm">
-                {isSubscribed ? (
-                    <>
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-green-700 font-medium">Live</span>
-                    </>
-                ) : (
-                    <>
-                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                        <span className="text-xs text-yellow-700 font-medium">Connecting...</span>
-                    </>
-                )}
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-green-700 font-medium">Live</span>
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto pb-24">
+                {loading && rawAssignments.length === 0 ? (
+                    <CenteredLoader message="Loading assignments..." />
+                ) : (
+                    <>
                 {/* Empty State */}
                 {!loading && assignments.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -120,6 +138,8 @@ const TeacherAssignmentsListScreen: React.FC<TeacherAssignmentsListScreenProps> 
                         );
                     })}
                 </div>
+                    </>
+                )}
             </main>
             {successMessage && (
                 <div className="fixed bottom-24 right-6 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 animate-slide-in-up">

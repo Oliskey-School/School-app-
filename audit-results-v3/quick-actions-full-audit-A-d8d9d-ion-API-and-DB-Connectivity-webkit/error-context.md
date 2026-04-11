@@ -1,0 +1,410 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e11]: O
+          - generic "Oliskey Comprehensive School" [ref=e12]
+        - navigation [ref=e13]:
+          - generic [ref=e14]:
+            - button "Home" [ref=e15] [cursor=pointer]:
+              - img [ref=e16]
+              - generic [ref=e21]: Home
+            - button "Branches" [ref=e22] [cursor=pointer]:
+              - img [ref=e23]
+              - generic [ref=e26]: Branches
+            - button "Approvals" [ref=e27] [cursor=pointer]:
+              - img [ref=e28]
+              - generic [ref=e32]: Approvals
+            - button "Fee Management" [ref=e33] [cursor=pointer]:
+              - img [ref=e34]
+              - generic [ref=e38]: Fee Management
+            - button "Messages" [ref=e39] [cursor=pointer]:
+              - img [ref=e40]
+              - generic [ref=e43]: Messages
+            - button "Analytics" [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+              - generic [ref=e49]: Analytics
+            - button "Settings" [ref=e50] [cursor=pointer]:
+              - img [ref=e51]
+              - generic [ref=e55]: Settings
+        - button "Logout" [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+          - generic [ref=e62]: Logout
+    - generic [ref=e63]:
+      - banner [ref=e64]:
+        - generic [ref=e65]:
+          - heading "Admin Dashboard" [level=1] [ref=e68]
+          - generic [ref=e69]:
+            - button "Main Campus" [ref=e72] [cursor=pointer]:
+              - generic [ref=e73]:
+                - img [ref=e75]
+                - generic [ref=e79]: Main Campus
+                - img [ref=e80]
+            - button "Open user menu" [ref=e82] [cursor=pointer]:
+              - img [ref=e84]
+      - main [ref=e89]:
+        - generic [ref=e91]:
+          - generic [ref=e93]:
+            - button "Dismiss for 3 days" [ref=e95] [cursor=pointer]:
+              - img [ref=e96]
+            - generic [ref=e99]:
+              - img [ref=e101]
+              - generic [ref=e103]:
+                - heading "Email Confirmation Required" [level=3] [ref=e105]
+                - paragraph [ref=e106]:
+                  - text: Your email admin@demo.com is not yet confirmed.
+                  - button "Edit Email" [ref=e107] [cursor=pointer]
+                  - text: Please confirm your email to prevent data loss and ensure full account security.
+              - button "Resend Verification" [ref=e109] [cursor=pointer]:
+                - img [ref=e110]
+                - generic [ref=e113]: Resend Verification
+          - generic [ref=e115]:
+            - generic [ref=e116]:
+              - generic [ref=e117]:
+                - heading "Welcome, Admin!" [level=2] [ref=e118]
+                - paragraph [ref=e119]: Here's your school's command center.
+                - generic [ref=e120]:
+                  - button "Total Students 25 +25 last 30 days" [ref=e121] [cursor=pointer]:
+                    - img [ref=e122]
+                    - generic [ref=e126]:
+                      - generic [ref=e127]:
+                        - paragraph [ref=e128]: Total Students
+                        - img [ref=e130]
+                      - paragraph [ref=e134]: "25"
+                      - generic [ref=e135]:
+                        - img [ref=e136]
+                        - generic [ref=e140]: "+25"
+                        - generic [ref=e141]: last 30 days
+                  - button "Total Teachers 4 +4 last 30 days" [ref=e142] [cursor=pointer]:
+                    - img [ref=e143]
+                    - generic [ref=e148]:
+                      - generic [ref=e149]:
+                        - paragraph [ref=e150]: Total Teachers
+                        - img [ref=e152]
+                      - paragraph [ref=e157]: "4"
+                      - generic [ref=e158]:
+                        - img [ref=e159]
+                        - generic [ref=e163]: "+4"
+                        - generic [ref=e164]: last 30 days
+                  - button "Total Parents 5 +5 last 30 days" [ref=e165] [cursor=pointer]:
+                    - img [ref=e166]
+                    - generic [ref=e172]:
+                      - generic [ref=e173]:
+                        - paragraph [ref=e174]: Total Parents
+                        - img [ref=e176]
+                      - paragraph [ref=e182]: "5"
+                      - generic [ref=e183]:
+                        - img [ref=e184]
+                        - generic [ref=e188]: "+5"
+                        - generic [ref=e189]: last 30 days
+                  - button "Total Classes 4 +4 last 30 days" [ref=e190] [cursor=pointer]:
+                    - img [ref=e191]
+                    - generic [ref=e197]:
+                      - generic [ref=e198]:
+                        - paragraph [ref=e199]: Total Classes
+                        - img [ref=e201]
+                      - paragraph [ref=e207]: "4"
+                      - generic [ref=e208]:
+                        - img [ref=e209]
+                        - generic [ref=e213]: "+4"
+                        - generic [ref=e214]: last 30 days
+              - generic [ref=e215]:
+                - heading "Quick Actions" [level=2] [ref=e216]
+                - generic [ref=e217]:
+                  - button "Add User" [ref=e218] [cursor=pointer]:
+                    - img [ref=e220]
+                    - paragraph [ref=e222]: Add User
+                  - button "Approvals" [ref=e223] [cursor=pointer]:
+                    - img [ref=e225]
+                    - paragraph [ref=e229]: Approvals
+                  - button "Onboarding" [ref=e230] [cursor=pointer]:
+                    - img [ref=e232]
+                    - paragraph [ref=e236]: Onboarding
+                  - button "Enroll Student" [ref=e237] [cursor=pointer]:
+                    - img [ref=e239]
+                    - paragraph [ref=e243]: Enroll Student
+                  - button "Register Exams" [ref=e244] [cursor=pointer]:
+                    - img [ref=e246]
+                    - paragraph [ref=e250]: Register Exams
+                  - button "Publish Reports" [ref=e251] [cursor=pointer]:
+                    - img [ref=e253]
+                    - paragraph [ref=e258]: Publish Reports
+                  - button "Timetable" [ref=e259] [cursor=pointer]:
+                    - img [ref=e261]
+                    - paragraph [ref=e265]: Timetable
+                  - button "Announce" [ref=e266] [cursor=pointer]:
+                    - img [ref=e268]
+                    - paragraph [ref=e271]: Announce
+                  - button "Bus Roster" [ref=e272] [cursor=pointer]:
+                    - img [ref=e274]
+                    - paragraph [ref=e280]: Bus Roster
+                  - button "Health Log" [ref=e281] [cursor=pointer]:
+                    - img [ref=e283]
+                    - paragraph [ref=e286]: Health Log
+                  - button "Attendance" [ref=e287] [cursor=pointer]:
+                    - img [ref=e289]
+                    - paragraph [ref=e293]: Attendance
+                  - button "User Accounts" [ref=e294] [cursor=pointer]:
+                    - img [ref=e296]
+                    - paragraph [ref=e302]: User Accounts
+                  - button "Compliance" [ref=e303] [cursor=pointer]:
+                    - img [ref=e305]
+                    - paragraph [ref=e307]: Compliance
+                  - button "Track Attendance" [ref=e308] [cursor=pointer]:
+                    - img [ref=e310]
+                    - paragraph [ref=e312]: Track Attendance
+                  - button "Enter Results" [ref=e313] [cursor=pointer]:
+                    - img [ref=e315]
+                    - paragraph [ref=e318]: Enter Results
+                  - button "Launch Hub" [ref=e319] [cursor=pointer]:
+                    - img [ref=e321]
+                    - paragraph [ref=e326]: Launch Hub
+                  - button "Emergency" [ref=e327] [cursor=pointer]:
+                    - img [ref=e329]
+                    - paragraph [ref=e331]: Emergency
+                - generic [ref=e332]:
+                  - heading "Content Management" [level=2] [ref=e333]
+                  - generic [ref=e334]:
+                    - button "School Policies" [ref=e335] [cursor=pointer]:
+                      - img [ref=e337]
+                      - paragraph [ref=e341]: School Policies
+                    - button "Volunteering" [ref=e342] [cursor=pointer]:
+                      - img [ref=e344]
+                      - paragraph [ref=e349]: Volunteering
+                    - button "Permission Slips" [ref=e350] [cursor=pointer]:
+                      - img [ref=e352]
+                      - paragraph [ref=e356]: Permission Slips
+                    - button "Learning Resources" [ref=e357] [cursor=pointer]:
+                      - img [ref=e359]
+                      - paragraph [ref=e362]: Learning Resources
+                    - button "PTA Meetings" [ref=e363] [cursor=pointer]:
+                      - img [ref=e365]
+                      - paragraph [ref=e368]: PTA Meetings
+                    - button "External Exams" [ref=e369] [cursor=pointer]:
+                      - img [ref=e371]
+                      - paragraph [ref=e373]: External Exams
+                    - button "Enrollment" [ref=e374] [cursor=pointer]:
+                      - img [ref=e376]
+                      - paragraph [ref=e384]: Enrollment
+                    - button "Curriculum" [ref=e385] [cursor=pointer]:
+                      - img [ref=e387]
+                      - paragraph [ref=e391]: Curriculum
+                - generic [ref=e392]:
+                  - heading "Infrastructure & Facilities" [level=2] [ref=e393]
+                  - generic [ref=e394]:
+                    - button "Facility Register" [ref=e395] [cursor=pointer]:
+                      - img [ref=e397]
+                      - paragraph [ref=e401]: Facility Register
+                    - button "Asset Inventory" [ref=e402] [cursor=pointer]:
+                      - img [ref=e404]
+                      - paragraph [ref=e408]: Asset Inventory
+                - generic [ref=e409]:
+                  - heading "🏠 Boarding & Transport" [level=2] [ref=e410]
+                  - generic [ref=e411]:
+                    - button "Hostel Management" [ref=e412] [cursor=pointer]:
+                      - img [ref=e414]
+                      - paragraph [ref=e418]: Hostel Management
+                    - button "Transport Mgmt" [ref=e419] [cursor=pointer]:
+                      - img [ref=e421]
+                      - paragraph [ref=e425]: Transport Mgmt
+                    - button "Behavior Tracking" [ref=e426] [cursor=pointer]:
+                      - img [ref=e428]
+                      - paragraph [ref=e430]: Behavior Tracking
+                - generic [ref=e431]:
+                  - heading "⚙️ System & Data" [level=2] [ref=e432]
+                  - generic [ref=e433]:
+                    - button "Custom Reports" [ref=e434] [cursor=pointer]:
+                      - img [ref=e436]
+                      - paragraph [ref=e438]: Custom Reports
+                    - button "Backup & Restore" [ref=e439] [cursor=pointer]:
+                      - img [ref=e441]
+                      - paragraph [ref=e445]: Backup & Restore
+                    - button "Active Sessions" [ref=e446] [cursor=pointer]:
+                      - img [ref=e448]
+                      - paragraph [ref=e450]: Active Sessions
+                    - button "Auto Invoices" [ref=e451] [cursor=pointer]:
+                      - img [ref=e453]
+                      - paragraph [ref=e456]: Auto Invoices
+                    - button "Late Arrivals" [ref=e457] [cursor=pointer]:
+                      - img [ref=e459]
+                      - paragraph [ref=e462]: Late Arrivals
+                    - button "Enrollment Trends" [ref=e463] [cursor=pointer]:
+                      - img [ref=e465]
+                      - paragraph [ref=e468]: Enrollment Trends
+                - generic [ref=e469]:
+                  - heading "🔒 Compliance & Privacy" [level=2] [ref=e470]
+                  - generic [ref=e471]:
+                    - button "Consent Forms" [ref=e472] [cursor=pointer]:
+                      - img [ref=e474]
+                      - paragraph [ref=e478]: Consent Forms
+                    - button "Data Export" [ref=e479] [cursor=pointer]:
+                      - img [ref=e481]
+                      - paragraph [ref=e484]: Data Export
+                    - button "Notification Settings" [ref=e485] [cursor=pointer]:
+                      - img [ref=e487]
+                      - paragraph [ref=e492]: Notification Settings
+                    - button "Project Boards" [ref=e493] [cursor=pointer]:
+                      - img [ref=e495]
+                      - paragraph [ref=e500]: Project Boards
+                - generic [ref=e501]:
+                  - heading "🛡️ Safety & Wellbeing" [level=2] [ref=e502]
+                  - generic [ref=e503]:
+                    - button "Emergency Alerts" [ref=e504] [cursor=pointer]:
+                      - img [ref=e506]
+                      - paragraph [ref=e508]: Emergency Alerts
+                    - button "Health & Incidents" [ref=e509] [cursor=pointer]:
+                      - img [ref=e511]
+                      - paragraph [ref=e513]: Health & Incidents
+                    - button "Emergency Drills" [ref=e514] [cursor=pointer]:
+                      - img [ref=e516]
+                      - paragraph [ref=e518]: Emergency Drills
+                    - button "Safeguarding" [ref=e519] [cursor=pointer]:
+                      - img [ref=e521]
+                      - paragraph [ref=e524]: Safeguarding
+                - generic [ref=e525]:
+                  - heading "🏛️ Governance & Ministry" [level=2] [ref=e526]
+                  - generic [ref=e527]:
+                    - button "Quality Assurance" [ref=e528] [cursor=pointer]:
+                      - img [ref=e530]
+                      - paragraph [ref=e532]: Quality Assurance
+                    - button "Ministry Reports" [ref=e533] [cursor=pointer]:
+                      - img [ref=e535]
+                      - paragraph [ref=e538]: Ministry Reports
+                    - button "Live Compliance" [ref=e539] [cursor=pointer]:
+                      - img [ref=e541]
+                      - paragraph [ref=e543]: Live Compliance
+                    - button "Governance Hub" [ref=e544] [cursor=pointer]:
+                      - img [ref=e546]
+                      - paragraph [ref=e548]: Governance Hub
+                    - button "System Validation" [ref=e549] [cursor=pointer]:
+                      - img [ref=e551]
+                      - paragraph [ref=e553]: System Validation
+                - generic [ref=e554]:
+                  - button "Add New User Student Teacher Parent" [ref=e555] [cursor=pointer]:
+                    - generic [ref=e556]:
+                      - img [ref=e558]
+                      - heading "Add New User" [level=4] [ref=e560]
+                    - generic [ref=e561]:
+                      - generic [ref=e562]:
+                        - img [ref=e564]
+                        - paragraph [ref=e568]: Student
+                      - generic [ref=e569]:
+                        - img [ref=e571]
+                        - paragraph [ref=e576]: Teacher
+                      - generic [ref=e577]:
+                        - img [ref=e579]
+                        - paragraph [ref=e585]: Parent
+                  - generic [ref=e586]:
+                    - generic [ref=e587]:
+                      - img [ref=e589]
+                      - heading "Publish Reports" [level=4] [ref=e594]
+                    - generic [ref=e595]:
+                      - paragraph [ref=e596]: "2"
+                      - paragraph [ref=e597]: reports are pending review
+                    - button "View Reports" [ref=e598] [cursor=pointer]
+                  - generic [ref=e599]:
+                    - generic [ref=e600]:
+                      - img [ref=e602]
+                      - heading "Today's Timetable" [level=4] [ref=e606]
+                    - paragraph [ref=e608]: No classes scheduled for today.
+                    - button "Manage Timetable" [ref=e609] [cursor=pointer]
+                  - button "Send Announcement Reach parents, teachers, and students instantly." [ref=e610] [cursor=pointer]:
+                    - generic [ref=e611]:
+                      - img [ref=e613]
+                      - heading "Send Announcement" [level=4] [ref=e616]
+                    - generic [ref=e618]:
+                      - img [ref=e619]
+                      - paragraph [ref=e622]: Reach parents, teachers, and students instantly.
+                  - generic [ref=e623]:
+                    - generic [ref=e624]:
+                      - img [ref=e626]
+                      - heading "Bus Roster" [level=4] [ref=e632]
+                    - generic [ref=e633]:
+                      - paragraph [ref=e634]: 0/0
+                      - paragraph [ref=e635]: routes assigned for today
+                    - button "View Roster" [ref=e636] [cursor=pointer]
+                  - generic [ref=e637]:
+                    - generic [ref=e638]:
+                      - img [ref=e640]
+                      - heading "Recent Health Log" [level=4] [ref=e643]
+                    - paragraph [ref=e645]: No recent health logs
+                    - button "View Full Log" [ref=e646] [cursor=pointer]
+            - generic [ref=e647]:
+              - generic [ref=e648]:
+                - heading "School Health" [level=2] [ref=e649]
+                - generic [ref=e650]:
+                  - generic [ref=e651]:
+                    - paragraph [ref=e652]: Today's Attendance
+                    - paragraph [ref=e653]: 100%
+                  - img [ref=e654]
+                - generic [ref=e657]:
+                  - paragraph [ref=e658]: Enrollment Trend
+                  - generic [ref=e659]:
+                    - img [ref=e660]
+                    - generic [ref=e662]: "2026"
+              - generic [ref=e663]:
+                - heading "Action Required" [level=2] [ref=e664]
+                - generic [ref=e665]:
+                  - button "2 Reports to Publish Action required" [ref=e666] [cursor=pointer]:
+                    - img [ref=e668]
+                    - generic [ref=e673]:
+                      - paragraph [ref=e674]: 2 Reports to Publish
+                      - paragraph [ref=e675]: Action required
+                    - img [ref=e676]
+                  - button "800 Overdue Fee Payments Action required" [ref=e679] [cursor=pointer]:
+                    - img [ref=e681]
+                    - generic [ref=e685]:
+                      - paragraph [ref=e686]: 800 Overdue Fee Payments
+                      - paragraph [ref=e687]: Action required
+                    - img [ref=e688]
+              - generic [ref=e691]:
+                - heading "Recent Activity" [level=2] [ref=e692]
+                - generic [ref=e693]:
+                  - generic [ref=e694]:
+                    - img [ref=e697]
+                    - generic [ref=e701]:
+                      - paragraph [ref=e702]: John Smith Login
+                      - paragraph [ref=e703]: 7h ago
+                  - generic [ref=e704]:
+                    - img [ref=e707]
+                    - generic [ref=e711]:
+                      - paragraph [ref=e712]: Demo Proprietor Login
+                      - paragraph [ref=e713]: 7h ago
+                  - generic [ref=e714]:
+                    - img [ref=e717]
+                    - generic [ref=e721]:
+                      - paragraph [ref=e722]: Parent Name 1 Login
+                      - paragraph [ref=e723]: 7h ago
+                  - generic [ref=e724]:
+                    - img [ref=e727]
+                    - generic [ref=e731]:
+                      - paragraph [ref=e732]: Parent Name 1 Login
+                      - paragraph [ref=e733]: 7h ago
+                  - generic [ref=e734]:
+                    - img [ref=e737]
+                    - generic [ref=e741]:
+                      - paragraph [ref=e742]: System Admin Login
+                      - paragraph [ref=e743]: 7h ago
+                  - button "View Full Log" [ref=e744] [cursor=pointer]
+  - button "Open AI Assistant" [ref=e745] [cursor=pointer]:
+    - img [ref=e746]
+  - generic [ref=e750]:
+    - generic [ref=e751]:
+      - generic [ref=e752]:
+        - img [ref=e754]
+        - generic [ref=e756]:
+          - heading "Install School App" [level=3] [ref=e757]
+          - paragraph [ref=e758]: Install for quick access and offline use. Works even without internet!
+        - button "Close install prompt" [ref=e759] [cursor=pointer]:
+          - img [ref=e760]
+      - generic [ref=e762]:
+        - button "Install Now" [ref=e763] [cursor=pointer]
+        - button "Not Now" [ref=e764] [cursor=pointer]
+    - generic [ref=e765]:
+      - img [ref=e766]
+      - generic [ref=e768]: Fast, reliable, and works offline
+```

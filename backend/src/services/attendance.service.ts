@@ -1,87 +1,94 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class AttendanceService {
     static async getAttendance(schoolId: string, branchId: string | undefined, classId: string, date: string) {
-        let query = supabase
-            .from('student_attendance')
-            .select(`*, students (id, name, avatar_url)`)
-            .eq('school_id', schoolId)
-            .eq('class_id', classId)
-            .eq('date', date);
+        // date is expected as YYYY-MM-DD
+        const dateObj = new Date(date);
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw new Error(error.message);
-
-        // DEMO MOCK
-        if (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' && (!data || data.length === 0)) {
-            return [
-                { id: 'm1', student_id: 's1', status: 'Present', date, students: { id: 's1', name: 'John Doe', avatar_url: null } },
-                { id: 'm2', student_id: 's2', status: 'Absent', date, students: { id: 's2', name: 'Jane Smith', avatar_url: null } },
-                { id: 'm3', student_id: 's3', status: 'Present', date, students: { id: 's3', name: 'Bob Johnson', avatar_url: null } }
-            ];
-        }
-
-        return data || [];
+        return await prisma.attendance.findMany({
+            where: {
+                class_id: classId,
+                date: dateObj,
+                student: {
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                }
+            },
+            include: {
+                student: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        avatar_url: true
+                    }
+                }
+            }
+        });
     }
 
     static async saveAttendance(schoolId: string, branchId: string | undefined, records: any[]) {
         // records: { student_id, class_id, date, status, notes }
-        const formattedRecords = records.map(r => {
-            const formatted: any = {
-                ...r,
-                school_id: schoolId
-            };
-            if (branchId && branchId !== 'all') {
-                formatted.branch_id = branchId;
+        return await prisma.$transaction(async (tx) => {
+            const results = [];
+            for (const record of records) {
+                const dateObj = new Date(record.date);
+                const result = await tx.attendance.upsert({
+                    where: {
+                        student_id_class_id_date: {
+                            student_id: record.student_id,
+                            class_id: record.class_id,
+                            date: dateObj
+                        }
+                    },
+                    create: {
+                        student_id: record.student_id,
+                        class_id: record.class_id,
+                        date: dateObj,
+                        status: record.status,
+                        remark: record.notes
+                    },
+                    update: {
+                        status: record.status,
+                        remark: record.notes
+                    }
+                });
+                results.push(result);
             }
-            return formatted;
+            SocketService.emitToSchool(schoolId, 'attendance:updated', { 
+                classId: records.length > 0 ? records[0].class_id : undefined,
+                date: records.length > 0 ? records[0].date : undefined
+            });
+            return results;
         });
-
-        const { data, error } = await supabase
-            .from('student_attendance')
-            .upsert(formattedRecords, { onConflict: 'student_id,date' })
-            .select();
-
-        if (error) throw new Error(error.message);
-        return data;
     }
 
     static async getAttendanceByStudent(schoolId: string, branchId: string | undefined, studentId: string) {
-        let query = supabase
-            .from('student_attendance')
-            .select('*')
-            .eq('school_id', schoolId)
-            .eq('student_id', studentId);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query.order('date', { ascending: false });
-
-        if (error) throw new Error(error.message);
-        return data || [];
+        return await prisma.attendance.findMany({
+            where: {
+                student_id: studentId,
+                student: {
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                }
+            },
+            orderBy: { date: 'desc' }
+        });
     }
 
     static async getAttendanceByStudentIds(schoolId: string, branchId: string | undefined, studentIds: string[]) {
-        let query = supabase
-            .from('student_attendance')
-            .select('student_id, status')
-            .eq('school_id', schoolId)
-            .in('student_id', studentIds);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw new Error(error.message);
-        return data || [];
+        return await prisma.attendance.findMany({
+            where: {
+                student_id: { in: studentIds },
+                student: {
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                }
+            },
+            select: {
+                student_id: true,
+                status: true
+            }
+        });
     }
 }

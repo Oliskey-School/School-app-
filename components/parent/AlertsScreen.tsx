@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
@@ -38,18 +37,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
       if (!profile?.id || !currentSchool?.id) return;
       setLoading(true);
       try {
-        let query = supabase
-          .from('notifications')
-          .select('*')
-          .eq('school_id', currentSchool.id)
-          .or(`user_id.eq.${profile.id},audience.cs.{parent},audience.cs.{all}`)
-          .order('created_at', { ascending: false });
-
-        if (currentBranchId && currentBranchId !== 'all') {
-            query = query.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        }
-
-        const { data, error } = await query;
+        const data = await api.getParentNotifications();
 
         setNotifications((data || []).map((n: any) => ({
           id: n.id,
@@ -71,13 +59,11 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
 
     fetchNotifications();
 
-    const channel = supabase.channel('parent-alerts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchNotifications();
-      })
-      .subscribe();
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
 
-    return () => { supabase.removeChannel(channel); };
+    return () => clearInterval(pollInterval);
   }, [profile?.id]);
 
   const handleNotificationClick = async (notification: Notification) => {

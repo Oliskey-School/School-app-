@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Clock, AlertCircle, CheckCircle, Flag, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface Question {
@@ -177,6 +178,20 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
         if (percentage >= 50) {
             addXP(50);
         }
+
+        // PERSIST TO DATABASE (POSTGRESQL)
+        api.submitGameScore({
+            game_id: 'cbt-exam',
+            game_name: 'CBT Exam Master',
+            score: percentage,
+            metadata: {
+                subject: selectedSubject,
+                difficulty,
+                questionsCount: totalQuestions,
+                correctCount: rawScore,
+                timeSpentSeconds
+            }
+        }).catch(err => console.error("Failed to save CBT score:", err));
     };
 
     // ... render logic

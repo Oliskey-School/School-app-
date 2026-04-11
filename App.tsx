@@ -1,100 +1,36 @@
 import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
-import DashboardRouter from './components/DashboardRouter';
 import { DashboardType } from './types';
-import Login from './components/auth/Login';
-import Signup from './components/auth/Signup';
-import CreateSchoolSignup from './components/auth/CreateSchoolSignup';
-import AuthCallback from './components/auth/AuthCallback';
-import InviteAcceptScreen from './components/auth/InviteAcceptScreen';
-import VerificationGuard from './components/auth/VerificationGuard';
-import AIChatScreen from './components/shared/AIChatScreen';
-import AIChatWidget from './components/shared/AIChatWidget';
-import { requestNotificationPermission, showNotification } from './components/shared/notifications';
-import { ProfileProvider } from './context/ProfileContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { requestNotificationPermission } from './components/shared/notifications';
 import { realtimeService } from './services/RealtimeService';
-import { registerServiceWorker } from './lib/pwa';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
-import { PWAInstallPrompt } from './components/shared/PWAInstallPrompt';
 import { Toaster } from 'react-hot-toast';
 import PremiumLoader from './components/ui/PremiumLoader';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { syncEngine } from './lib/syncEngine';
-import { networkManager } from './lib/networkManager';
-import { registerServiceWorker as registerOfflineSW, requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { runMigrations, initialDataHydration, isInitialHydrationComplete } from './lib/migrationManager';
 import { cacheCleanupScheduler } from './lib/cacheManager';
 import { mobileSyncManager } from './lib/mobile/MobileSync';
 import { PushNotificationManager } from './lib/mobile/PushConfig';
-import MobileNavigationHandler from './components/shared/MobileNavigationHandler';
-import { ContextualMarquee } from './components/shared/ContextualMarquee';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
 import { useBranch } from './context/BranchContext';
+import { useAuth } from './context/AuthContext';
+import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
+import { syncEngine } from './lib/syncEngine';
 
-const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
-const SuperAdminDashboard = lazy(() => import('./components/admin/SuperAdminDashboard'));
-const TeacherDashboard = lazy(() => import('./components/teacher/TeacherDashboard'));
-const ParentDashboard = lazy(() => import('./components/parent/ParentDashboard'));
-const StudentDashboard = lazy(() => import('./components/student/StudentDashboard'));
-const ProprietorDashboard = lazy(() => import('./components/proprietor/ProprietorDashboard'));
-const InspectorDashboard = lazy(() => import('./components/inspector/InspectorDashboard'));
-const ExamOfficerDashboard = lazy(() => import('./components/admin/ExamOfficerDashboard'));
-const ComplianceOfficerDashboard = lazy(() => import('./components/admin/ComplianceOfficerDashboard'));
-const CounselorDashboard = lazy(() => import('./components/admin/CounselorDashboard'));
-
-// A simple checkmark icon for the success animation
-const CheckCircleIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l2 2l4 -4" /></svg>;
-const AlertTriangleIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${className || ''}`.trim()} viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg>;
-
-const SuccessScreen: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full bg-green-500 animate-fade-in">
-    <div className="w-24 h-24 bg-white/30 rounded-full flex items-center justify-center">
-      <CheckCircleIcon className="w-20 h-20 text-white animate-checkmark-pop" />
-    </div>
-    <p className="mt-4 text-2xl font-bold text-white">Login Successful!</p>
-  </div>
-);
-
-const ConfigErrorScreen: React.FC = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-red-100">
-      <div className="bg-red-50 p-6 flex flex-col items-center text-center border-b border-red-100">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-          <AlertTriangleIcon className="w-8 h-8 text-red-600" />
-        </div>
-        <h2 className="text-xl font-bold text-red-700">Configuration Error</h2>
-        <p className="text-sm text-red-600 mt-2">The application is missing critical configuration.</p>
-      </div>
-      <div className="p-6 space-y-4">
-        <p className="text-gray-600 text-sm text-center">
-          Please ensure the following environment variables are set in your <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">.env</code> file:
-        </p>
-        <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-300 overflow-x-auto">
-          <div className="flex justify-between">
-            <span className="text-blue-400">VITE_SUPABASE_URL</span>
-            <span className="text-red-400">Missing</span>
-          </div>
-          <div className="flex justify-between mt-2">
-            <span className="text-blue-400">VITE_SUPABASE_ANON_KEY</span>
-            <span className="text-red-400">Missing</span>
-          </div>
-        </div>
-        <button
-          onClick={() => window.location.reload()}
-          className="w-full py-3 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition shadow-lg active:scale-95"
-        >
-          Reload Application
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-const LoadingScreen: React.FC = () => (
-  <PremiumLoader message="Initializing Oliskey School Portal..." />
-);
-
-import PremiumErrorPage from './components/ui/PremiumErrorPage';
+// Lazy load all major components
+const DashboardRouter = lazy(() => import('./components/DashboardRouter'));
+const Login = lazy(() => import('./components/auth/Login'));
+const Signup = lazy(() => import('./components/auth/Signup'));
+const CreateSchoolSignup = lazy(() => import('./components/auth/CreateSchoolSignup'));
+const AuthCallback = lazy(() => import('./components/auth/AuthCallback'));
+const VerifyEmail = lazy(() => import('./components/auth/VerifyEmail'));
+const VerifyEmailScreen = lazy(() => import('./components/auth/VerifyEmailScreen'));
+const InviteAcceptScreen = lazy(() => import('./components/auth/InviteAcceptScreen'));
+const VerificationGuard = lazy(() => import('./components/auth/VerificationGuard'));
+const AIChatScreen = lazy(() => import('./components/shared/AIChatScreen'));
+const AIChatWidget = lazy(() => import('./components/shared/AIChatWidget'));
+const MobileNavigationHandler = lazy(() => import('./components/shared/MobileNavigationHandler'));
+const ContextualMarquee = lazy(() => import('./components/shared/ContextualMarquee'));
+const PWAInstallPrompt = lazy(() => import('./components/shared/PWAInstallPrompt'));
+const PremiumErrorPage = lazy(() => import('./components/ui/PremiumErrorPage'));
 
 // Basic Error Boundary for catching dashboard crashes
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
@@ -134,8 +70,15 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
+// Simple Loading Component
+const LoadingScreen: React.FC = () => (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+    </div>
+);
+
 const AuthenticatedApp: React.FC = () => {
-  const { user, role, signOut, loading } = useAuth();
+  const { user, role, signOut, loading, isDemo } = useAuth();
   const { currentBranch } = useBranch();
   useRealtimeSync(); // Initialize Global Realtime Sync
 
@@ -169,8 +112,8 @@ const AuthenticatedApp: React.FC = () => {
       let schoolId = user.user_metadata?.school_id || (user as any).school_id || user.app_metadata?.school_id;
 
       // Fix for demo users who might not have school_id in metadata
-      const isDemo = user.email?.includes('demo') || user.user_metadata?.is_demo;
-      if (!schoolId && isDemo) {
+      const isDemoAccount = user.email?.includes('demo') || user.user_metadata?.is_demo;
+      if (!schoolId && isDemoAccount) {
         schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1'; // Oliskey Demo School ID
       }
 
@@ -201,7 +144,7 @@ const AuthenticatedApp: React.FC = () => {
   }, [user, role]);
 
   const handleLogout = async () => {
-    const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo;
+    // isDemo is now available from useAuth scope
     await signOut();
     setIsHomePage(true);
     setIsChatOpen(false);
@@ -227,18 +170,38 @@ const AuthenticatedApp: React.FC = () => {
     return <InviteAcceptScreen />;
   }
 
+  // isDemo is now destructured from useAuth above
+  
+  // Handle email verification routes (Muted as requested)
+  /*
+  const hash = window.location.hash;
+  const isVerifyEmail = hash.includes('/auth/verify');
+  const isVerifyEmailScreen = hash.includes('/auth/verify-email');
+  
+  if (isVerifyEmail && !isDemo) {
+    if (hash.includes('token=') || window.location.search.includes('token=')) {
+        return <VerifyEmail />;
+    }
+    return <VerifyEmailScreen />;
+  }
+
+  if (isVerifyEmailScreen && !isDemo) {
+    return <VerifyEmailScreen />;
+  }
+  */
+
   if (showAuthConfirm) {
     return <AuthCallback />;
   }
 
   if (!user || !role) {
     if (authView === 'signup') {
-      return <Signup onNavigateToLogin={() => setAuthView('login')} />;
+      return <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />;
     }
     if (authView === 'create-school') {
-      return <CreateSchoolSignup onNavigateToLogin={() => setAuthView('login')} />;
+      return <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />;
     }
-    return <Login onNavigateToSignup={() => setAuthView('signup')} onNavigateToCreateSchool={() => setAuthView('create-school')} />;
+    return <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />;
   }
 
   if (isChatOpen) {
@@ -264,9 +227,7 @@ const App: React.FC = () => {
   const [initProgress, setInitProgress] = useState(0);
   const [initMessage, setInitMessage] = useState('Initializing...');
 
-  if (!isSupabaseConfigured) {
-    return <ConfigErrorScreen />;
-  }
+  // Removed isSupabaseConfigured guard as we are now custom
 
   useEffect(() => {
     mobileSyncManager.initialize();
@@ -275,43 +236,50 @@ const App: React.FC = () => {
     const initializeOfflineFirst = async () => {
       try {
         console.log('🚀 Initializing offline-first features...');
-        setInitMessage('Setting up database...');
-        setInitProgress(20);
-        await runMigrations();
-        setInitMessage('Registering Service Worker...');
-        setInitProgress(40);
-        registerOfflineSW().then(() => {
-          console.log('✅ Service Worker registered (background)');
-        }).catch(err => {
-          console.warn('⚠️ Service Worker registration skipped or failed:', err);
-        });
-        requestBackgroundSync().catch(err => {
-          console.warn('⚠️ Background sync request failed:', err);
-        });
+        
+        // Parallelize non-dependent initialization with timeouts to prevent hanging
+        const withTimeout = (promise: Promise<any>, ms: number, label: string) => {
+          return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms))
+          ]);
+        };
+
+        const initTasks = [
+          withTimeout(runMigrations(), 15000, 'Migrations')
+            .then(() => setInitProgress(40))
+            .catch(err => console.warn(`⚠️ Offline migrations took longer than expected. Continuing...`)),
+          withTimeout(requestBackgroundSync(), 15000, 'BackgroundSync')
+            .catch(err => console.log(`ℹ️ Background sync synchronization still pending. Continuing UI load.`))
+        ];
+
+        setInitMessage('Setting up environment...');
+        await Promise.allSettled(initTasks);
+        
         setInitMessage('Starting cache cleanup...');
         setInitProgress(60);
         cacheCleanupScheduler.start();
-        setInitMessage('Checking for initial data...');
-        setInitProgress(80);
+        
+        // Don't block the main UI for initial hydration if we already have a session
+        // or if it's the very first time. Let it run in background or after login.
         if (!isInitialHydrationComplete()) {
-          await initialDataHydration((progress, message) => {
-            setInitProgress(80 + (progress * 0.2));
-            setInitMessage(message);
-          });
+           console.log('🌊 Initial hydration will run in background');
+           initialDataHydration().catch(err => console.error('Background hydration failed:', err));
         }
+
         setInitMessage('Ready!');
         setInitProgress(100);
-        console.log('✅ Offline-first initialization complete');
+        
+        // Reduced timeout for snappier feel
         setTimeout(() => {
           setIsInitializing(false);
-        }, 800);
+        }, 200);
       } catch (error) {
-        console.error('❌ Offline-first initialization failed:', error);
+        console.error('❌ Initialization failed:', error);
         setIsInitializing(false);
       }
     };
 
-    registerServiceWorker();
     initializeOfflineFirst();
 
     const handleBackgroundSync = () => {
@@ -335,11 +303,13 @@ const App: React.FC = () => {
       />
       <OfflineIndicator />
       {isInitializing ? (
-        <PremiumLoader message={initMessage} />
+        <PremiumLoader message={initMessage} fullScreen={true} />
       ) : (
         <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
           <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
-            <AuthenticatedApp />
+            <Suspense fallback={<LoadingScreen />}>
+              <AuthenticatedApp />
+            </Suspense>
             <PWAInstallPrompt />
           </div>
         </div>

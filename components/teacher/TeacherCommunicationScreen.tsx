@@ -4,8 +4,8 @@ import { AnnouncementCategory, Notice } from '../../types';
 // import { mockClasses, mockNotices } from '../../data'; // REMOVED
 import { CameraIcon, StopIcon, XCircleIcon, VideoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 const formatTime = (seconds: number) => {
@@ -40,11 +40,15 @@ const TeacherCommunicationScreen: React.FC = () => {
     useEffect(() => {
         const fetchMeta = async () => {
             if (!user) return;
-            // Get Teacher
-            const { data: teacher } = await supabase.from('teachers').select('id, name, school_id').eq('user_id', user.id).single();
-            if (teacher) {
-                setTeacherName(teacher.name);
-                setSchoolId(teacher.school_id);
+            // Get Teacher via backend API
+            try {
+                const teacher = await api.getMyTeacherProfile();
+                if (teacher) {
+                    setTeacherName(teacher.name || teacher.full_name || '');
+                    setSchoolId(teacher.school_id || '');
+                }
+            } catch (err) {
+                console.error('Error fetching teacher profile:', err);
             }
 
             // Group Classes from Hook

@@ -3,10 +3,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SearchIcon, MailIcon, PhoneIcon, PlusIcon, StudentsIcon } from '../../constants';
 import { Parent } from '../../types';
 import { fetchParents } from '../../lib/database';
-import { supabase } from '../../lib/supabase';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface ParentListScreenProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -27,7 +27,7 @@ const ParentCard: React.FC<{ parent: Parent, onSelect: (parent: Parent) => void 
         <p className="text-xs text-gray-500 mb-1 font-mono">{formatSchoolId(parent.schoolGeneratedId || parent.id, 'Parent')}</p>
         <div className="flex items-center space-x-1 text-sm text-gray-500 mt-1">
           <StudentsIcon className="w-4 h-4" />
-          <span>Children: {(parent.childIds || []).join(', ')}</span>
+          <span>Children: {parent.childrenNames?.length ? parent.childrenNames.join(', ') : (parent.childIds?.length ? parent.childIds.join(', ') : 'None')}</span>
         </div>
       </div>
     </div>
@@ -86,19 +86,17 @@ const ParentListScreen: React.FC<ParentListScreenProps> = ({ navigateTo, current
 
     fetchParentsData();
 
-    // Realtime Subscription
-    const schoolIdForFilter = propSchoolId || profile?.schoolId || user?.user_metadata?.school_id;
-    const subscription = supabase
-      .channel('public:parents')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parents', filter: schoolIdForFilter ? `school_id=eq.${schoolIdForFilter}` : undefined }, () => {
-        fetchParentsData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    fetchParentsData();
   }, [currentBranchId, profile?.schoolId, user?.id, propSchoolId]);
+
+  // Unified Backend-driven Auto Sync
+  useAutoSync(['parents'], () => {
+    console.log('🔄 [ParentList] Auto-sync triggered');
+    const schoolId = propSchoolId || profile?.schoolId || profile?.school_id || user?.user_metadata?.school_id;
+    if (schoolId) {
+      fetchParents(schoolId, currentBranchId || undefined).then(setParents);
+    }
+  });
 
   const filteredParents = useMemo(() =>
     parents.filter(parent => {

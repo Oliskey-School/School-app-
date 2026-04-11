@@ -2,15 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { ChartBarIcon, ReceiptIcon, BriefcaseIcon, TrendingUpIcon, UsersIcon, RefreshIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { fetchAnalyticsMetrics } from '../../lib/database';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 const SimpleBarChart = ({ data, colors }: { data: { label: string, value: number, a11yLabel: string }[], colors: string[] }) => {
     const maxValue = Math.max(...data.map(d => d.value)) || 100;
     return (
         <div className="space-y-3">
             {data.map((item, index) => (
-                <div key={item.label} className="flex items-center space-x-2">
+                <div key={`${item.label}-${index}`} className="flex items-center space-x-2">
                     <div className="w-16 text-xs font-medium text-gray-500 text-right">{item.label}</div>
                     <div className="flex-1 bg-gray-200 rounded-full h-4">
                         <div
@@ -31,7 +32,7 @@ const SimpleVerticalBarChart = ({ data, colors }: { data: { label: string, value
     return (
         <div className="flex justify-around items-end h-40 pt-4 border-b border-l border-gray-200">
             {data.map((item, index) => (
-                <div key={item.label} className="flex flex-col items-center w-1/5">
+                <div key={`${item.label}-${index}`} className="flex flex-col items-center w-1/5">
                     <div className="flex-grow flex items-end w-1/2">
                         <div
                             className={`${colors[index % colors.length]} w-full rounded-t-sm transition-all duration-500`}
@@ -153,6 +154,11 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
         }
     }, [schoolId, currentBranchId]);
 
+    useAutoSync(['analytics', 'students', 'fees', 'teachers', 'attendance', 'exams'], () => {
+        console.log('🔄 [Analytics] Real-time auto-sync triggered');
+        loadData();
+    });
+
     return (
         <div className="flex flex-col h-full bg-gray-50 relative">
             <div className="absolute top-4 right-4 z-10">
@@ -242,3 +248,4 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ schoolId, currentBran
 };
 
 export default AnalyticsScreen;
+

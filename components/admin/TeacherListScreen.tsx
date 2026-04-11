@@ -3,6 +3,7 @@ import { SearchIcon, PlusIcon, FilterIcon, UsersIcon, AcademicCapIcon, Clipboard
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { toast } from 'react-hot-toast';
 
@@ -90,6 +91,14 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
         }
     }, [propSchoolId, profile?.schoolId, profile?.school_id, user?.user_metadata?.school_id, currentBranchId]); // Add all dependencies
 
+    useAutoSync(['teachers'], () => {
+        const effectiveSchoolId = propSchoolId || profile?.schoolId || profile?.school_id || user?.user_metadata?.school_id;
+        if (effectiveSchoolId) {
+            console.log('🔄 [TeacherList] Real-time auto-sync triggered');
+            loadTeachers(effectiveSchoolId);
+        }
+    });
+
     const loadTeachers = async (id: string) => { // Accept schoolId as a parameter
         try {
             console.log('🔍 [TeacherList] Loading teachers for school:', id, 'Branch:', currentBranchId);
@@ -103,16 +112,18 @@ const TeacherListScreen: React.FC<TeacherListScreenProps> = ({ navigateTo, curre
             // Map raw data to Teacher interface with safe defaults
             const mappedData: Teacher[] = (rawData || []).map((t: any) => ({
                 id: t.id,
-                name: t.name || 'Unknown Teacher',
-                avatarUrl: t.avatarUrl || t.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.name || t.id}`,
+                name: t.full_name || t.name || 'Unknown Teacher',
+                avatarUrl: t.avatar_url || t.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.full_name || t.name || t.id}`,
                 email: t.email || '',
                 status: t.status === 'Inactive' ? 'Inactive' : 'Active',
-                schoolGeneratedId: t.schoolGeneratedId || t.school_generated_id,
+                schoolGeneratedId: t.school_generated_id || t.schoolGeneratedId,
                 subjects: Array.isArray(t.subjects) ? t.subjects :
                     (Array.isArray(t.teacher_subjects) ? t.teacher_subjects.map((s: any) => s.subject) : []),
                 department: t.department,
                 joinDate: t.joinDate || t.created_at,
-                classes: t.classes || []
+                classes: Array.isArray(t.classes) ? t.classes.map((c: any) => 
+                    typeof c === 'string' ? c : (c?.class?.name || c?.name || 'Unknown Class')
+                ) : []
             }));
 
             setTeachers(mappedData);

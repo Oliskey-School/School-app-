@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -34,13 +34,7 @@ const HelpSupportScreen: React.FC = () => {
         if (!user) return;
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('support_tickets')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const data = await api.getSupportTickets();
             setTickets(data || []);
         } catch (error) {
             console.error('Error fetching tickets:', error);

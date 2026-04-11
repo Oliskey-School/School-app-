@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     Calendar,
@@ -59,7 +59,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
             setLoading(true);
 
             // Fetch subscriptions with school and plan details
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('subscriptions')
                 .select(`
                     *,
@@ -125,7 +125,7 @@ export const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({ 
         if (!confirm('Are you sure you want to cancel this subscription?')) return;
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('subscriptions')
                 .update({
                     status: 'canceled',
@@ -405,3 +405,4 @@ const StatCard: React.FC<{ title: string; value: number; icon: React.ReactNode; 
 );
 
 export default SubscriptionManagement;
+

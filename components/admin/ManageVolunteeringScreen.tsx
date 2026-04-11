@@ -1,6 +1,6 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { TrashIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CalendarIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +22,7 @@ const ManageVolunteeringScreen: React.FC = () => {
 
     // Deletion State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [opportunityToDelete, setOpportunityToDelete] = useState<number | null>(null);
+    const [opportunityToDelete, setOpportunityToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         fetchOpportunities();
@@ -31,13 +31,7 @@ const ManageVolunteeringScreen: React.FC = () => {
     const fetchOpportunities = async () => {
         try {
             if (!schoolId) return;
-            const { data, error } = await supabase
-                .from('volunteering_opportunities')
-                .select('*')
-                .eq('school_id', schoolId)
-                .order('date', { ascending: true });
-
-            if (error) throw error;
+            const data = await api.getVolunteeringOpportunities();
             setOpportunities(data || []);
         } catch (err) {
             console.error('Error fetching opportunities:', err);
@@ -54,11 +48,7 @@ const ManageVolunteeringScreen: React.FC = () => {
                 toast.error("School context missing.");
                 return;
             }
-            const { error } = await supabase
-                .from('volunteering_opportunities')
-                .insert([{ ...newItem, school_id: schoolId }]);
-
-            if (error) throw error;
+            await api.createVolunteeringOpportunity({ ...newItem, school_id: schoolId });
 
             setNewItem({
                 title: '',
@@ -78,7 +68,7 @@ const ManageVolunteeringScreen: React.FC = () => {
         }
     };
 
-    const confirmDelete = (id: number) => {
+    const confirmDelete = (id: string) => {
         setOpportunityToDelete(id);
         setShowDeleteModal(true);
     };
@@ -91,8 +81,7 @@ const ManageVolunteeringScreen: React.FC = () => {
 
         try {
             if (!schoolId) return;
-            const { error } = await supabase.from('volunteering_opportunities').delete().eq('id', id).eq('school_id', schoolId);
-            if (error) throw error;
+            await api.deleteVolunteeringOpportunity(id);
             fetchOpportunities();
             toast.success('Opportunity deleted.');
         } catch (err) {
@@ -258,3 +247,4 @@ const ManageVolunteeringScreen: React.FC = () => {
 };
 
 export default ManageVolunteeringScreen;
+

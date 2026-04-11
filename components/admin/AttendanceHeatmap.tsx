@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
+
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Download, Filter, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -63,7 +63,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({ schoolId }) => {
         try {
             setLoading(true);
 
-            let query = supabase
+            let query = api
                 .from('attendance_heatmaps')
                 .select(`
                     *,
@@ -77,7 +77,7 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({ schoolId }) => {
                 query = query.eq('class_id', selectedClass);
             }
 
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('student_attendance')
                 .select(`
                     date,

@@ -3,7 +3,7 @@
  * Handles salary calculations, tax computation, and payslip generation
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 
 // ==================== TYPES ====================
 
@@ -15,6 +15,7 @@ export interface TeacherSalary {
     payment_frequency: string;
     effective_date: string;
     is_active: boolean;
+    components?: SalaryComponent[];
 }
 
 export interface SalaryComponent {
@@ -63,6 +64,24 @@ const TAX_BRACKETS = [
 
 const PENSION_RATE = 0.08; // 8% of gross salary
 const TAX_FREE_ALLOWANCE = 200000; // Annual tax-free allowance
+
+/**
+ * Format currency value
+ */
+export function formatCurrency(amount: number, currency: string = 'NGN'): string {
+    try {
+        return new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: currency || 'NGN',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(amount);
+    } catch (e) {
+        // Fallback for invalid currency or environment issues
+        const symbol = currency === 'USD' ? '$' : '₦';
+        return `${symbol}${amount.toLocaleString()}`;
+    }
+}
 
 // ==================== CALCULATION FUNCTIONS ====================
 
@@ -192,43 +211,27 @@ export function calculateNetSalary(
  * Get teacher's active salary configuration
  */
 export async function getTeacherSalary(teacherId: string): Promise<TeacherSalary | null> {
-    const { data, error } = await supabase
-        .from('teacher_salaries')
-        .select('*')
-        .eq('teacher_id', teacherId)
-        .eq('is_active', true)
-        .order('effective_date', { ascending: false })
-        .limit(1)
-        .single();
-
-    if (error) {
+    try {
+        return await api.getTeacherSalary(teacherId);
+    } catch (error) {
         console.error('Error fetching teacher salary:', error);
         return null;
     }
-
-    return data;
 }
 
 /**
  * Get salary components for a teacher
+ * (Already included in getTeacherSalary in the backend)
  */
 export async function getSalaryComponents(salaryId: string): Promise<SalaryComponent[]> {
-    const { data, error } = await supabase
-        .from('salary_components')
-        .select('*')
-        .eq('teacher_salary_id', salaryId)
-        .eq('is_recurring', true);
-
-    if (error) {
-        console.error('Error fetching salary components:', error);
-        return [];
-    }
-
-    return data || [];
+    // In our new backend, components are usually included in the salary object.
+    // This is kept for compatibility if needed.
+    return []; 
 }
 
 /**
  * Generate payslip for a teacher for a given period
+ * (Calculates locally based on salary config)
  */
 export async function generatePayslip(
     teacherId: string,
@@ -236,42 +239,26 @@ export async function generatePayslip(
     periodEnd: string
 ): Promise<{ payslip: Payslip; items: PayslipItem[] } | null> {
     try {
-        // Get teacher salary config
         const salary = await getTeacherSalary(teacherId);
-        if (!salary) {
-            throw new Error('No active salary configuration found');
-        }
+        if (!salary) return null;
 
-        // Get salary components
-        const components = await getSalaryComponents(salary.id);
+        const components = salary.components || [];
 
-        // Calculate gross salary
         const { gross, allowances, bonuses } = calculateGrossSalary(
             salary.base_salary,
             components
         );
 
-        // Calculate deductions
         const { total: totalDeductions, tax, pension, other } = calculateDeductions(
             gross,
             components
         );
 
-        // Calculate net salary
         const net = calculateNetSalary(gross, totalDeductions);
 
-        // Build payslip items
         const items: PayslipItem[] = [];
+        items.push({ item_type: 'Earning', item_name: 'Base Salary', amount: salary.base_salary, is_taxable: true });
 
-        // Add base salary
-        items.push({
-            item_type: 'Earning',
-            item_name: 'Base Salary',
-            amount: salary.base_salary,
-            is_taxable: true
-        });
-
-        // Add allowances and bonuses
         for (const component of components) {
             if (component.component_type === 'Allowance' || component.component_type === 'Bonus') {
                 items.push({
@@ -283,20 +270,8 @@ export async function generatePayslip(
             }
         }
 
-        // Add deductions
-        items.push({
-            item_type: 'Deduction',
-            item_name: 'Income Tax (PAYE)',
-            amount: tax,
-            is_taxable: false
-        });
-
-        items.push({
-            item_type: 'Deduction',
-            item_name: 'Pension (8%)',
-            amount: pension,
-            is_taxable: false
-        });
+        items.push({ item_type: 'Deduction', item_name: 'Income Tax (PAYE)', amount: tax, is_taxable: false });
+        items.push({ item_type: 'Deduction', item_name: 'Pension (8%)', amount: pension, is_taxable: false });
 
         for (const component of components) {
             if (component.component_type === 'Deduction') {
@@ -309,7 +284,6 @@ export async function generatePayslip(
             }
         }
 
-        // Create payslip object
         const payslip: Payslip = {
             teacher_id: teacherId,
             period_start: periodStart,
@@ -326,69 +300,36 @@ export async function generatePayslip(
 
         return { payslip, items };
     } catch (error) {
-        console.error('Error generating payslip:', error);
+        console.error('Error in local payslip calculation:', error);
         return null;
     }
 }
 
 /**
- * Save payslip to database
+ * Generate and save payslip to database
  */
-export async function savePayslip(
-    payslip: Payslip,
-    items: PayslipItem[]
+export async function generateAndSavePayslip(
+    teacherId: string,
+    periodStart: string,
+    periodEnd: string
 ): Promise<string | null> {
     try {
-        // Generate payslip number
-        const payslipNumber = `PAY-${Date.now()}-${payslip.teacher_id}`;
+        const result = await generatePayslip(teacherId, periodStart, periodEnd);
+        if (!result) return null;
 
-        // Insert payslip
-        const { data: payslipData, error: payslipError } = await supabase
-            .from('payslips')
-            .insert({
-                ...payslip,
-                payslip_number: payslipNumber
-            })
-            .select()
-            .single();
+        const saved = await api.generatePayslip({
+            teacherId,
+            periodStart,
+            periodEnd,
+            ...result.payslip,
+            items: result.items
+        });
 
-        if (payslipError) throw payslipError;
-
-        // Insert payslip items
-        const itemsToInsert = items.map(item => ({
-            payslip_id: payslipData.id,
-            ...item
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('payslip_items')
-            .insert(itemsToInsert);
-
-        if (itemsError) throw itemsError;
-
-        return payslipData.id;
+        return saved.id;
     } catch (error) {
-        console.error('Error saving payslip:', error);
+        console.error('Error generating/saving payslip:', error);
         return null;
     }
-}
-
-/**
- * Format currency
- */
-export function formatCurrency(amount: number, currency: string = 'NGN'): string {
-    const symbols: Record<string, string> = {
-        NGN: '₦',
-        USD: '$',
-        GBP: '£',
-        EUR: '€'
-    };
-
-    const symbol = symbols[currency] || currency;
-    return `${symbol}${amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}`;
 }
 
 /**
@@ -398,19 +339,13 @@ export async function getTeacherPayslips(
     teacherId: string,
     limit: number = 12
 ): Promise<Payslip[]> {
-    const { data, error } = await supabase
-        .from('payslips')
-        .select('*')
-        .eq('teacher_id', teacherId)
-        .order('period_start', { ascending: false })
-        .limit(limit);
-
-    if (error) {
+    try {
+        const payslips = await api.getTeacherPayslips(teacherId);
+        return payslips || [];
+    } catch (error) {
         console.error('Error fetching payslips:', error);
         return [];
     }
-
-    return data || [];
 }
 
 /**
@@ -420,19 +355,12 @@ export async function approvePayslip(
     payslipId: string,
     approvedBy: string
 ): Promise<boolean> {
-    const { error } = await supabase
-        .from('payslips')
-        .update({
-            status: 'Approved',
-            approved_by: approvedBy,
-            approved_at: new Date().toISOString()
-        })
-        .eq('id', payslipId);
-
-    if (error) {
+    try {
+        await api.approvePayslip(payslipId);
+        return true;
+    } catch (error) {
         console.error('Error approving payslip:', error);
         return false;
     }
-
-    return true;
 }
+

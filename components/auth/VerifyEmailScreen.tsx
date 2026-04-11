@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Mail, RefreshCw, LogOut } from 'lucide-react';
+import { api } from '../../lib/api';
 
 /**
  * Verify Email Screen
@@ -14,29 +15,25 @@ export const VerifyEmailScreen: React.FC = () => {
     const [resendSuccess, setResendSuccess] = React.useState(false);
     const [error, setError] = React.useState('');
 
-    const handleResendEmail = async () => {
-        if (!user?.email) return;
+     const handleResendEmail = async () => {
+         if (!user?.email) return;
 
-        try {
-            setIsResending(true);
-            setError('');
+         try {
+             setIsResending(true);
+             setError('');
 
-            const { supabase } = await import('../../lib/supabase');
-            const { error: resendError } = await supabase.auth.resend({
-                type: 'signup',
-                email: user.email
-            });
+             const { error: resendError } = await api.resendVerification(user.email);
 
-            if (resendError) throw resendError;
+             if (resendError) throw resendError;
 
-            setResendSuccess(true);
-            setTimeout(() => setResendSuccess(false), 5000);
-        } catch (err: any) {
-            setError(err.message || 'Failed to resend email. Please try again.');
-        } finally {
-            setIsResending(false);
-        }
-    };
+             setResendSuccess(true);
+             setTimeout(() => setResendSuccess(false), 5000);
+         } catch (err: any) {
+             setError(err.message || 'Failed to resend email. Please try again.');
+         } finally {
+             setIsResending(false);
+         }
+     };
 
     const handleLogout = async () => {
         await signOut();

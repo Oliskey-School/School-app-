@@ -26,6 +26,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProfileProvider } from './context/ProfileContext';
 import { BranchProvider } from './context/BranchContext';
+import { SocketProvider } from './context/SocketContext';
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
@@ -35,7 +36,9 @@ root.render(
         <AuthProvider>
           <ProfileProvider>
             <BranchProvider>
-              <App />
+              <SocketProvider>
+                <App />
+              </SocketProvider>
             </BranchProvider>
           </ProfileProvider>
         </AuthProvider>

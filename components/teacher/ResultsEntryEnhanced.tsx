@@ -5,7 +5,6 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { useToast } from '../../hooks/use-toast';
-import { supabase } from '../../lib/supabase';
 import { BookOpen, AlertCircle, Save, TrendingUp } from 'lucide-react';
 import { CurriculumMismatchWarning } from '../shared/TeacherCurriculumBadges';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -55,27 +54,32 @@ export default function ResultsEntryEnhanced({
     });
 
     const fetchExamDetails = async () => {
-        const { data } = await supabase
-            .from('exams')
-            .select('*, curricula:curriculum_id(name)')
-            .eq('id', examId)
-            .single();
-
-        setExam(data);
-        if (data?.curricula?.name) {
-            setSelectedCurriculum(data.curricula.name as 'Nigerian' | 'British');
+        try {
+            const data = await api.getExam(examId);
+            setExam(data);
+            
+            // If curricula name is not joined, fetch it
+            if (data?.curriculum_id && !data.curricula?.name) {
+                const curriculum = await api.getCurriculum(data.curriculum_id);
+                if (curriculum?.name) {
+                    setSelectedCurriculum(curriculum.name as 'Nigerian' | 'British');
+                }
+            } else if (data?.curricula?.name) {
+                setSelectedCurriculum(data.curricula.name as 'Nigerian' | 'British');
+            }
+        } catch (error) {
+            console.error('Error fetching exam details:', error);
         }
     };
 
     const fetchStudents = async () => {
         setLoading(true);
         try {
-            // Get curriculum ID for the selected curriculum
-            const { data: curriculum } = await supabase
-                .from('curricula')
-                .select('id')
-                .ilike('name', `%${selectedCurriculum}%`)
-                .single();
+            // Get curricula to find the one matching selectedCurriculum
+            const curricula = await api.getCurricula(schoolId || '');
+            const curriculum = curricula.find((c: any) => 
+                c.name.toLowerCase().includes(selectedCurriculum.toLowerCase())
+            );
 
             if (!curriculum) {
                 console.warn('Curriculum not found:', selectedCurriculum);
@@ -84,78 +88,20 @@ export default function ResultsEntryEnhanced({
                 return;
             }
 
-            // Fetch students enrolled in this curriculum
-            const { data: tracks, error: tracksError } = await supabase
-                .from('academic_tracks')
-                .select('student_id')
-                .eq('curriculum_id', curriculum.id)
-                .eq('status', 'Active');
+            // Fetch students using the new API method with curriculumId and classId
+            const studentsData = await api.getStudents(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined, {
+                classId,
+                curriculumId: curriculum.id
+            });
 
-            if (tracksError) {
-                console.error('Error fetching tracks:', tracksError);
-                setStudents([]);
-                setLoading(false);
-                return;
-            }
-
-            if (!tracks || tracks.length === 0) {
-                console.log('No students enrolled in this curriculum');
-                setStudents([]);
-                setLoading(false);
-                return;
-            }
-
-            const studentIds = tracks.map(t => t.student_id);
-
-            // Fetch student details
-            let { data: students, error: studentsError } = await supabase
-                .from('students')
-                .select('*')
-                .in('id', studentIds);
-
-            if (studentsError) {
-                console.error('Error fetching students:', studentsError);
-                toast({
-                    title: 'Error Loading Students',
-                    description: studentsError.message,
-                    variant: 'destructive'
-                });
-                setStudents([]);
-                setLoading(false);
-                return;
-            }
-
-            // Filter by class if classId is provided
-            if (classId && students) {
-                // First try filtering by class_id if it exists
-                const classFiltered = students.filter(s => s.class_id === classId);
-
-                // If no results with class_id, try getting class info and filtering by grade/section
-                if (classFiltered.length === 0 && schoolId) {
-                    const classesData = await api.getClasses(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
-                    const classInfo = classesData.find((c: any) => c.id === classId);
-
-                    if (classInfo) {
-                        students = students.filter(s =>
-                            s.grade === classInfo.grade && s.section === classInfo.section
-                        );
-                    }
-                } else {
-                    students = classFiltered;
-                }
-            }
-
-            setStudents(students || []);
-            console.log(`Loaded ${students?.length || 0} students for ${selectedCurriculum} curriculum`);
+            setStudents(studentsData || []);
+            console.log(`Loaded ${studentsData?.length || 0} students for ${selectedCurriculum} curriculum`);
 
             // Fetch existing results
-            const { data: existingResults } = await supabase
-                .from('exam_results')
-                .select('*')
-                .eq('exam_id', examId);
+            const existingResults = await api.getExamResults(examId, classId);
 
             const resultsMap: { [key: string]: any } = {};
-            existingResults?.forEach(result => {
+            existingResults?.forEach((result: any) => {
                 resultsMap[result.student_id] = {
                     ca: result.ca_score?.toString() || '',
                     exam: result.exam_score?.toString() || '',
@@ -255,13 +201,7 @@ export default function ResultsEntryEnhanced({
                 grade: result.grade,
             }));
 
-            const { error } = await supabase
-                .from('exam_results')
-                .upsert(resultRecords, {
-                    onConflict: 'student_id,exam_id'
-                });
-
-            if (error) throw error;
+            await api.upsertExamResults(resultRecords);
 
             toast({
                 title: 'Results Saved',

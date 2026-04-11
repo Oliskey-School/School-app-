@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "postgres": {
+      "command": "node",
+      "args": ["mcp/server.mjs"],
+      "env": {
+        "DATABASE_URL": "postgresql://postgres:password123@localhost:5432/school_app"
+      }
+    },
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=ikowlorheeyrsbgvlhvg"

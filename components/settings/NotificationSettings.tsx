@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { requestNotificationPermission, areNotificationsEnabled, getNotificationPermission } from '../../lib/push-notifications';
 
 interface NotificationPreferences {
@@ -28,10 +28,10 @@ export function NotificationSettings() {
 
     const loadPreferences = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
             if (!user) return;
 
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('profiles')
                 .select('notification_preferences')
                 .eq('id', user.id)
@@ -52,10 +52,10 @@ export function NotificationSettings() {
     const savePreferences = async () => {
         setSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
             if (!user) return;
 
-            const { error } = await supabase
+            const { error } = await api
                 .from('profiles')
                 .update({ notification_preferences: preferences })
                 .eq('id', user.id);

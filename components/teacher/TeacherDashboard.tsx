@@ -1,15 +1,12 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
 import PremiumLoader from '../ui/PremiumLoader';
-import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useAuth } from '../../context/AuthContext';
-import { realtimeService } from '../../services/RealtimeService';
-import { syncEngine } from '../../lib/syncEngine';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 // Lazy load only the Global Search Screen as it's an overlay
 const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
@@ -52,7 +49,7 @@ import TeacherSelectClassForAttendance from '../teacher/TeacherUnifiedAttendance
 import TeacherMarkAttendanceScreen from '../teacher/TeacherAttendanceScreen';
 import TeacherSelfAttendance from '../teacher/TeacherSelfAttendance';
 import LessonPlannerScreen from '../teacher/LessonPlannerScreen';
-import LessonPlanDetailScreen from '../teacher/LessonPlanDetailScreen';
+import LessonPlanDetailScreen, { AIActivitySuggester } from '../teacher/LessonPlanDetailScreen';
 import DetailedLessonNoteScreen from '../teacher/DetailedLessonNoteScreen';
 import SelectTermForReportScreen from '../teacher/SelectTermForReportScreen';
 import ProfessionalDevelopmentScreen from '../teacher/ProfessionalDevelopmentScreen';
@@ -75,6 +72,8 @@ import LeaveRequest from '../teacher/LeaveRequest';
 import PayslipViewer from '../teacher/PayslipViewer';
 import TeacherSalaryProfile from '../teacher/TeacherSalaryProfile';
 import MyPaymentHistory from '../teacher/MyPaymentHistory';
+import { QuickAttendance } from './QuickAttendance';
+import { GradebookGrid } from './GradebookGrid';
 
 // Lazy load AddStudentScreen for teachers
 const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
@@ -96,53 +95,38 @@ interface TeacherDashboardProps {
 }
 
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
-  const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
-  const [activeBottomNav, setActiveBottomNav] = useState('home');
-  const [version, setVersion] = useState(0);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [teacherId, setTeacherId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { currentSchool, currentBranchId, user } = useAuth();
-  const schoolId = currentSchool?.id;
+   const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
+   const [activeBottomNav, setActiveBottomNav] = useState('home');
+   const [version, setVersion] = useState(0);
+   const [isSearchOpen, setIsSearchOpen] = useState(false);
+   const [teacherId, setTeacherId] = useState<string | null>(null);
+   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+   const { currentSchool, currentBranchId, user } = useAuth();
+   const schoolId = currentSchool?.id;
+   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const effectiveSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined);
 
   // Fetch Integer User ID for Chat
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
+    const getUserData = async () => {
+      try {
+        const userData = await api.getMe();
         if (userData) {
           setCurrentUserId(userData.id);
         } else {
           setCurrentUserId((currentUser as any)?.id || '');
         }
+      } catch (err) {
+        console.error("Error fetching user data:", err);
+        setCurrentUserId((currentUser as any)?.id || '');
       }
     };
-    getUser();
+    getUserData();
   }, [currentUser]);
 
-  // Real-time Service Integration
-  useEffect(() => {
-    const userId = user?.id;
-    let activeSchoolId = schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
-
-    const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo;
-    if (!activeSchoolId && isDemo) {
-      activeSchoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-    }
-
-    if (userId && activeSchoolId) {
-      realtimeService.initialize(userId, activeSchoolId);
-      const handleUpdate = () => forceUpdate();
-      (syncEngine as any).on('realtime-update', handleUpdate);
-      return () => {
-        (syncEngine as any).off('realtime-update', handleUpdate);
-        realtimeService.destroy();
-      };
-    }
-  }, [user?.id, schoolId]);
+  // Real-time Service Integration is now handled via useAutoSync in individual components
+  // and globally via the SyncEngine which is initialized in App.tsx/AuthContext
 
   // Profile State
   const [teacherProfile, setTeacherProfile] = useState<{
@@ -150,11 +134,16 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     avatarUrl: string;
     schoolGeneratedId?: string;
     schoolId?: string;
+    subject?: string;
     notification_preferences?: any;
   }>({
     name: 'Teacher',
-    avatarUrl: ''
+    avatarUrl: '',
+    subject: ''
   });
+
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState(false);
 
   const fetchProfile = async (optimisticData?: { name: string; avatarUrl: string }) => {
     if (optimisticData) {
@@ -163,127 +152,55 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     }
 
     try {
-      if (!schoolId) return;
+      setLoadingProfile(true);
+      setProfileError(false);
+      
+      if (!schoolId) {
+          setLoadingProfile(false);
+          return;
+      }
+      
       const data = await api.getMyTeacherProfile();
 
       if (data) {
         setTeacherId(data.id);
         setTeacherProfile({
-          name: data.name || 'Teacher',
-          avatarUrl: data.avatar_url || '',
-          schoolGeneratedId: data.school_generated_id,
-          schoolId: data.school_id,
+          name: data.full_name || data.name || 'Teacher',
+          avatarUrl: data.avatar_url || data.avatarUrl || '',
+          schoolGeneratedId: data.school_generated_id || data.schoolGeneratedId,
+          schoolId: data.school_id || data.schoolId,
+          subject: data.subject || '',
           notification_preferences: data.notification_preferences
         } as any);
       } else {
-        // Auto-Healing/Linking Logic
-        const emailToQuery = (user?.email || currentUser?.email || '').toLowerCase();
-        if (emailToQuery && schoolId) {
-          // 1. First check if a teacher with this email already exists in this school
-          const { data: existingTeacher } = await supabase
-            .from('teachers')
-            .select('*')
-            .eq('school_id', schoolId)
-            .ilike('email', emailToQuery)
-            .maybeSingle();
-
-          if (existingTeacher) {
-            // 2. If record exists but is not linked to current UUID, link it
-            if (!existingTeacher.user_id && user?.id) {
-              console.log("🔗 Linking existing teacher profile to user_id:", user.id);
-              const { data: updatedTeacher } = await supabase
-                .from('teachers')
-                .update({ user_id: user.id })
-                .eq('id', existingTeacher.id)
-                .select()
-                .single();
-
-              if (updatedTeacher) {
-                setTeacherId(updatedTeacher.id);
-                setTeacherProfile({
-                  name: updatedTeacher.name,
-                  avatarUrl: updatedTeacher.avatar_url || '',
-                  schoolId: updatedTeacher.school_id,
-                  schoolGeneratedId: updatedTeacher.school_generated_id,
-                  notification_preferences: updatedTeacher.notification_preferences
-                });
-                return;
-              }
-            }
-
-            // Just use existing record
-            setTeacherId(existingTeacher.id);
-            setTeacherProfile({
-              name: existingTeacher.name,
-              avatarUrl: existingTeacher.avatar_url || '',
-              schoolId: existingTeacher.school_id,
-              schoolGeneratedId: existingTeacher.school_generated_id,
-              notification_preferences: existingTeacher.notification_preferences
-            });
-          } else {
-            // 3. Only create if absolutely no record exists for this email/school
-            // [GUARD] Skip direct Supabase insert if in Demo Mode to avoid 401s on unstable sessions
-            if (sessionStorage.getItem('is_demo_mode') === 'true') {
-              console.log("🛡️ [Demo] Skipping teacher profile creation (Demo Guard Active)");
-              setTeacherId('6f90901e-4119-457d-8d73-745b17831a30');
-              setTeacherProfile({
-                name: user?.user_metadata?.name || 'Demo Teacher',
-                avatarUrl: '',
-                schoolId: schoolId,
-                schoolGeneratedId: user?.user_metadata?.school_generated_id || 'Pending Generation',
-                notification_preferences: {}
-              });
-              return;
-            }
-
-            console.log("⚠️ No teacher record found. Creating new profile for School:", schoolId);
-
-            const { data: newTeacher } = await supabase
-              .from('teachers')
-              .insert({
-                email: emailToQuery,
-                school_id: schoolId,
-                name: user?.user_metadata?.name || 'New Teacher',
-                status: 'Active',
-                user_id: user?.id || undefined
-              })
-              .select().single();
-
-            if (newTeacher) {
-              setTeacherId(newTeacher.id);
-              setTeacherProfile({
-                name: newTeacher.name,
-                avatarUrl: newTeacher.avatar_url || '',
-                schoolId: newTeacher.school_id,
-                schoolGeneratedId: newTeacher.school_generated_id,
-                notification_preferences: newTeacher.notification_preferences
-              });
-            }
-          }
-        }
+        console.warn("No teacher profile found via API.");
+        setProfileError(true);
       }
     } catch (err) {
       console.error("Profile Fetch Error:", err);
-      setTeacherId('6f90901e-4119-457d-8d73-745b17831a30');
-      setTeacherProfile({
-        name: 'Demo Teacher',
-        avatarUrl: '',
-        notification_preferences: {}
-      });
+      setProfileError(true);
+    } finally {
+      setLoadingProfile(false);
     }
   };
 
   useEffect(() => {
     fetchProfile();
-    let profileSubscription: any = null;
-    if (teacherId && teacherId !== '6f90901e-4119-457d-8d73-745b17831a30') {
-      profileSubscription = supabase
-        .channel(`public:teachers:id=eq.${teacherId}`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'teachers', filter: `id=eq.${teacherId}` }, () => fetchProfile())
-        .subscribe();
-    }
-    return () => { if (profileSubscription) supabase.removeChannel(profileSubscription); };
-  }, [currentUser, teacherId]);
+  }, [currentUser]);
+
+   // Reduce auto-sync frequency for teacher profile updates
+   useAutoSync(['teachers'], () => {
+     // Debounce profile refresh to prevent excessive re-renders
+     if (syncTimeoutRef.current) {
+       clearTimeout(syncTimeoutRef.current);
+     }
+     
+     syncTimeoutRef.current = setTimeout(() => {
+       // Refresh profile if any teacher record changes (simple strategy for me/profile)
+       fetchProfile();
+       syncTimeoutRef.current = null;
+     }, 2000); // 2 second debounce
+   });
 
   const forceUpdate = () => setVersion(v => v + 1);
 
@@ -293,34 +210,42 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
   }, [viewStack, isSearchOpen, setIsHomePage]);
 
   const navigateTo = (view: string, title: string, props: any = {}) => {
-    if (view === 'overview') {
-      setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
-    } else {
-      setViewStack((prev) => [...prev, { view, title, props }]);
-    }
+    React.startTransition(() => {
+      if (view === 'overview') {
+        setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props }]);
+      } else {
+        setViewStack((prev) => [...prev, { view, title, props }]);
+      }
+    });
   };
 
   const handleBack = () => {
     if (viewStack.length > 1) {
-      setViewStack((prev) => prev.slice(0, -1));
+      React.startTransition(() => {
+        setViewStack((prev) => prev.slice(0, -1));
+      });
     }
   };
 
   const handleBottomNavClick = (screen: string) => {
-    setActiveBottomNav(screen);
-    switch (screen) {
-      case 'home': setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]); break;
-      case 'lessonNotes': setViewStack([{ view: 'lessonNotesUpload', title: 'Lesson Notes', props: {} }]); break;
-      case 'reports': setViewStack([{ view: 'reports', title: 'Student Reports', props: {} }]); break;
-      case 'forum': setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]); break;
-      case 'messages': setViewStack([{ view: 'messages', title: 'Messages', props: {} }]); break;
-      case 'settings': setViewStack([{ view: 'settings', title: 'Settings', props: {} }]); break;
-      default: setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
-    }
+    React.startTransition(() => {
+      setActiveBottomNav(screen);
+      switch (screen) {
+        case 'home': setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]); break;
+        case 'lessonNotes': setViewStack([{ view: 'lessonNotesUpload', title: 'Lesson Notes', props: {} }]); break;
+        case 'reports': setViewStack([{ view: 'reports', title: 'Student Reports', props: {} }]); break;
+        case 'forum': setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]); break;
+        case 'messages': setViewStack([{ view: 'messages', title: 'Messages', props: {} }]); break;
+        case 'settings': setViewStack([{ view: 'settings', title: 'Settings', props: {} }]); break;
+        default: setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]);
+      }
+    });
   };
 
   const viewComponents = {
     overview: TeacherOverview,
+    quickAttendance: QuickAttendance,
+    bulkGradebook: GradebookGrid,
     classDetail: ClassDetailScreen,
     studentProfile: StudentProfileScreen,
     examManagement: TeacherExamManagement,
@@ -358,6 +283,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     teacherChangePassword: TeacherChangePasswordScreen,
     lessonPlanner: LessonPlannerScreen,
     lessonPlanDetail: LessonPlanDetailScreen,
+    suggestActivity: (props: any) => <AIActivitySuggester {...props} subject={props.subject || commonProps.teacherProfile.subject || ''} handleBack={handleBack} />,
     lessonContent: LessonContentScreen,
     assignmentView: AssignmentViewScreen,
     detailedLessonNote: DetailedLessonNoteScreen,
@@ -399,6 +325,33 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     schoolId: effectiveSchoolId,
     currentBranchId
   };
+
+  if (loadingProfile && !teacherId) {
+    return <PremiumLoader message="Fetching teacher profile..." />;
+  }
+
+  if (profileError && !teacherId) {
+    return (
+        <div className="flex flex-col items-center justify-center h-screen p-6 text-center bg-gray-50">
+            <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">👨‍🏫</span>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Teacher Profile Not Found</h2>
+                <p className="text-gray-600 mb-6">
+                    We couldn't find a teacher record linked to your account.
+                    Please contact the school administrator to set up your profile.
+                </p>
+                <button
+                    onClick={() => onLogout?.()}
+                    className="w-full py-3 px-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                >
+                    Back to Login
+                </button>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <DashboardLayout

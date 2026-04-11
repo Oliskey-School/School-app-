@@ -255,6 +255,10 @@ export const SUBJECT_COLORS: { [key: string]: string } = {
 };
 
 export const gradeColors: { [key: number]: string } = {
+  '-3': 'bg-pink-100 text-pink-800',
+  '-2': 'bg-rose-100 text-rose-800',
+  '-1': 'bg-fuchsia-100 text-fuchsia-800',
+  0: 'bg-purple-100 text-purple-800',
   1: 'bg-red-100 text-red-800',
   2: 'bg-orange-100 text-orange-800',
   3: 'bg-amber-100 text-amber-800',
@@ -268,6 +272,25 @@ export const gradeColors: { [key: number]: string } = {
   11: 'bg-blue-100 text-blue-800',
   12: 'bg-indigo-100 text-indigo-800',
 };
+
+export const DEFAULT_STANDARD_CLASSES = [
+  { name: 'Creche', grade: -3, section: 'A', level: 'Pre-Primary' },
+  { name: 'Pre-Nursery', grade: -2, section: 'A', level: 'Pre-Primary' },
+  { name: 'Nursery 1', grade: -1, section: 'A', level: 'Pre-Primary' },
+  { name: 'Nursery 2', grade: 0, section: 'A', level: 'Pre-Primary' },
+  { name: 'Primary 1', grade: 1, section: 'A', level: 'Primary' },
+  { name: 'Primary 2', grade: 2, section: 'A', level: 'Primary' },
+  { name: 'Primary 3', grade: 3, section: 'A', level: 'Primary' },
+  { name: 'Primary 4', grade: 4, section: 'A', level: 'Primary' },
+  { name: 'Primary 5', grade: 5, section: 'A', level: 'Primary' },
+  { name: 'Primary 6', grade: 6, section: 'A', level: 'Primary' },
+  { name: 'JSS 1', grade: 7, section: 'A', level: 'Secondary' },
+  { name: 'JSS 2', grade: 8, section: 'A', level: 'Secondary' },
+  { name: 'JSS 3', grade: 9, section: 'A', level: 'Secondary' },
+  { name: 'SSS 1', grade: 10, section: 'A', level: 'Secondary' },
+  { name: 'SSS 2', grade: 11, section: 'A', level: 'Secondary' },
+  { name: 'SSS 3', grade: 12, section: 'A', level: 'Secondary' },
+];
 
 export const getFormattedClassName = (grade: number, section?: string | null | undefined, includeGradeWord: boolean = true, subject?: string) => {
   let suffix = '';

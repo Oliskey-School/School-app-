@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { ClockIcon, CheckCircleIcon, CalendarIcon } from '../../constants';
 
 interface LeaveBalance {
@@ -29,7 +29,7 @@ const LeaveBalanceTracker: React.FC<LeaveBalanceTrackerProps> = ({ teacherId, co
             setLoading(true);
 
             // Get leave balances
-            const { data: balanceData, error: balanceError } = await supabase
+            const { data: balanceData, error: balanceError } = await api
                 .from('leave_balances')
                 .select(`
           *,

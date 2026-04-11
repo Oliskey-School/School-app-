@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -16,8 +16,10 @@ import {
     DollarSign,
     Route,
     UserPlus,
-    ChevronRight
+    ChevronRight,
+    RefreshCw
 } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 type TabType = 'routes' | 'stops' | 'assignments';
 
@@ -43,7 +45,7 @@ interface TransportStop {
     stop_order: number;
     pickup_time: string;
     dropoff_time: string;
-    transport_routes?: { route_name: string };
+    route?: { route_name: string };
 }
 
 interface TransportAssignment {
@@ -53,9 +55,9 @@ interface TransportAssignment {
     stop_id: string;
     academic_year: string;
     status: string;
-    students?: { name: string; class_name?: string };
-    transport_routes?: { route_name: string; bus_number: string };
-    transport_stops?: { stop_name: string };
+    student?: { full_name: string; class_name?: string };
+    route?: { route_name: string; bus_number: string };
+    stop?: { stop_name: string };
 }
 
 const StatsCard = ({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) => (
@@ -81,91 +83,66 @@ const TransportManagementScreen = () => {
     const [formData, setFormData] = useState<any>({});
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Demo data
-    const demoRoutes: TransportRoute[] = [
-        { id: '1', school_id: '', route_name: 'Lekki – Victoria Island', bus_number: 'BUS-001', driver_name: 'Mr. Chukwu', driver_phone: '+234 801 234 5678', capacity: 40, morning_departure: '06:30', afternoon_departure: '15:00', status: 'active', monthly_fee: 15000, assigned_count: 32 },
-        { id: '2', school_id: '', route_name: 'Ikeja – Maryland', bus_number: 'BUS-002', driver_name: 'Mr. Bello', driver_phone: '+234 803 456 7890', capacity: 35, morning_departure: '06:15', afternoon_departure: '15:00', status: 'active', monthly_fee: 12000, assigned_count: 28 },
-        { id: '3', school_id: '', route_name: 'Surulere – Yaba', bus_number: 'BUS-003', driver_name: 'Mr. Okafor', driver_phone: '+234 805 678 9012', capacity: 30, morning_departure: '06:45', afternoon_departure: '15:15', status: 'active', monthly_fee: 10000, assigned_count: 22 },
-        { id: '4', school_id: '', route_name: 'Ajah – Sangotedo', bus_number: 'BUS-004', driver_name: 'Mr. Adamu', driver_phone: '+234 807 890 1234', capacity: 40, morning_departure: '06:00', afternoon_departure: '15:00', status: 'maintenance', monthly_fee: 18000, assigned_count: 0 },
-    ];
-    const demoStops: TransportStop[] = [
-        { id: '1', route_id: '1', stop_name: 'Lekki Phase 1 Gate', stop_order: 1, pickup_time: '06:30', dropoff_time: '15:45', transport_routes: { route_name: 'Lekki – Victoria Island' } },
-        { id: '2', route_id: '1', stop_name: 'Chevron Roundabout', stop_order: 2, pickup_time: '06:40', dropoff_time: '15:35', transport_routes: { route_name: 'Lekki – Victoria Island' } },
-        { id: '3', route_id: '1', stop_name: 'Admiralty Way Junction', stop_order: 3, pickup_time: '06:50', dropoff_time: '15:25', transport_routes: { route_name: 'Lekki – Victoria Island' } },
-        { id: '4', route_id: '2', stop_name: 'Ikeja City Mall', stop_order: 1, pickup_time: '06:15', dropoff_time: '16:00', transport_routes: { route_name: 'Ikeja – Maryland' } },
-        { id: '5', route_id: '2', stop_name: 'Maryland Mall', stop_order: 2, pickup_time: '06:30', dropoff_time: '15:45', transport_routes: { route_name: 'Ikeja – Maryland' } },
-        { id: '6', route_id: '3', stop_name: 'Surulere Stadium', stop_order: 1, pickup_time: '06:45', dropoff_time: '15:50', transport_routes: { route_name: 'Surulere – Yaba' } },
-    ];
-    const demoAssignments: TransportAssignment[] = [
-        { id: '1', route_id: '1', student_id: '1', stop_id: '1', academic_year: '2025/2026', status: 'active', students: { name: 'Femi Adeyemi', class_name: 'JSS 2A' }, transport_routes: { route_name: 'Lekki – VI', bus_number: 'BUS-001' }, transport_stops: { stop_name: 'Lekki Phase 1 Gate' } },
-        { id: '2', route_id: '1', student_id: '2', stop_id: '2', academic_year: '2025/2026', status: 'active', students: { name: 'Chioma Okeke', class_name: 'SS 1B' }, transport_routes: { route_name: 'Lekki – VI', bus_number: 'BUS-001' }, transport_stops: { stop_name: 'Chevron Roundabout' } },
-        { id: '3', route_id: '2', student_id: '3', stop_id: '4', academic_year: '2025/2026', status: 'active', students: { name: 'Abubakar Musa', class_name: 'JSS 3A' }, transport_routes: { route_name: 'Ikeja – Maryland', bus_number: 'BUS-002' }, transport_stops: { stop_name: 'Ikeja City Mall' } },
-    ];
-
     useEffect(() => { fetchData(); }, [activeTab, currentSchool]);
 
+    useAutoSync(['transport_routes', 'transport_stops', 'transport_assignments'], () => {
+        console.log('🔄 [TransportManagement] Real-time auto-sync triggered');
+        fetchData();
+    });
+
     const fetchData = async () => {
-        if (!currentSchool) {
-            setRoutes(demoRoutes);
-            setStops(demoStops);
-            setAssignments(demoAssignments);
-            setLoading(false);
-            return;
-        }
+        if (!currentSchool) return;
         try {
             setLoading(true);
             if (activeTab === 'routes') {
-                const { data, error } = await supabase.from('transport_routes').select('*').eq('school_id', currentSchool.id).order('route_name');
-                if (!error && data) setRoutes(data); else setRoutes(demoRoutes);
+                const data = await api.getTransportRoutes(currentSchool.id);
+                setRoutes(data);
             } else if (activeTab === 'stops') {
-                const { data, error } = await supabase.from('transport_stops').select('*, transport_routes(route_name)').order('stop_order');
-                if (!error && data) setStops(data); else setStops(demoStops);
+                const data = await api.getTransportStops();
+                setStops(data);
             } else if (activeTab === 'assignments') {
-                const { data, error } = await supabase.from('transport_assignments').select('*, students(name), transport_routes(route_name, bus_number), transport_stops(stop_name)').order('academic_year', { ascending: false });
-                if (!error && data) setAssignments(data); else setAssignments(demoAssignments);
+                const data = await api.getTransportAssignments(currentSchool.id);
+                setAssignments(data);
             }
         } catch (err) {
             console.error('Error fetching transport data:', err);
-            setRoutes(demoRoutes); setStops(demoStops); setAssignments(demoAssignments);
+            toast.error('Failed to load transport data');
         } finally { setLoading(false); }
     };
 
     const handleSave = async () => {
-        if (!currentSchool) { toast.success('Demo mode: Record saved locally'); setIsAdding(false); setFormData({}); return; }
+        if (!currentSchool) return;
         try {
             setLoading(true);
-            let table = '';
             const data = { ...formData, school_id: currentSchool.id };
             if (activeTab === 'routes') {
                 if (!formData.route_name) { toast.error('Route name is required'); setLoading(false); return; }
-                table = 'transport_routes';
+                await api.createTransportRoute(data);
             } else if (activeTab === 'stops') {
                 if (!formData.stop_name || !formData.route_id) { toast.error('Stop name and route are required'); setLoading(false); return; }
-                table = 'transport_stops';
+                await api.createTransportStop(data);
             } else if (activeTab === 'assignments') {
                 if (!formData.route_id || !formData.student_id) { toast.error('Route and student are required'); setLoading(false); return; }
-                table = 'transport_assignments';
+                await api.createTransportAssignment(data);
             }
-            const { error } = await supabase.from(table).insert(data);
-            if (error) throw error;
             toast.success('Record saved successfully');
             setIsAdding(false); setFormData({}); fetchData();
         } catch (err: any) { toast.error(err.message || 'Failed to save'); } finally { setLoading(false); }
     };
 
-    const handleDelete = async (table: string, id: string) => {
+    const handleDelete = async (type: 'routes' | 'stops' | 'assignments', id: string) => {
         if (!window.confirm('Are you sure?')) return;
-        if (!currentSchool) { toast.success('Demo: Deleted'); return; }
         try {
-            const { error } = await supabase.from(table).delete().eq('id', id);
-            if (error) throw error;
+            if (type === 'routes') await api.deleteTransportRoute(id);
+            else if (type === 'stops') await api.deleteTransportStop(id);
+            else if (type === 'assignments') await api.deleteTransportAssignment(id);
             toast.success('Deleted'); fetchData();
         } catch (err: any) { toast.error(err.message || 'Failed to delete'); }
     };
 
-    const totalStudentsOnBus = routes.reduce((sum, r) => sum + (r.assigned_count || 0), 0);
+    const totalStudentsOnBus = assignments.length;
     const totalCapacity = routes.filter(r => r.status === 'active').reduce((sum, r) => sum + r.capacity, 0);
-    const activeRoutes = routes.filter(r => r.status === 'active').length;
+    const activeRoutesCount = routes.filter(r => r.status === 'active').length;
 
     const tabs = [
         { key: 'routes' as TabType, icon: Route, label: 'Routes' },
@@ -196,7 +173,7 @@ const TransportManagementScreen = () => {
             </header>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatsCard icon={Route} label="Active Routes" value={activeRoutes} color="bg-indigo-50 text-indigo-600" />
+                <StatsCard icon={Route} label="Active Routes" value={activeRoutesCount} color="bg-indigo-50 text-indigo-600" />
                 <StatsCard icon={Bus} label="Total Buses" value={routes.length} color="bg-blue-50 text-blue-600" />
                 <StatsCard icon={Users} label="Students on Bus" value={totalStudentsOnBus} color="bg-emerald-50 text-emerald-600" />
                 <StatsCard icon={MapPin} label="Total Stops" value={stops.length} color="bg-amber-50 text-amber-600" />
@@ -265,7 +242,7 @@ const TransportManagementScreen = () => {
                                                 </div>
                                                 <span className="text-xs font-bold text-gray-500 ml-3 whitespace-nowrap">{route.assigned_count || 0}/{route.capacity}</span>
                                             </div>
-                                            <button onClick={() => handleDelete('transport_routes', route.id)} className="w-full py-2 text-sm font-bold text-red-500 bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100">Delete Route</button>
+                                            <button onClick={() => handleDelete('routes', route.id)} className="w-full py-2 text-sm font-bold text-red-500 bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100">Delete Route</button>
                                         </div>
                                     ))}
                                 </div>
@@ -300,12 +277,12 @@ const TransportManagementScreen = () => {
                                         ) : stops.map(stop => (
                                             <tr key={stop.id} className="hover:bg-gray-50/30 transition-colors">
                                                 <td className="px-6 py-5"><div className="flex items-center space-x-3"><div className="p-2 bg-amber-50 rounded-xl"><MapPin className="w-4 h-4 text-amber-600" /></div><span className="font-bold text-gray-800">{stop.stop_name}</span></div></td>
-                                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{stop.transport_routes?.route_name || '—'}</td>
+                                                <td className="px-6 py-5 text-sm font-medium text-gray-600">{stop.route?.route_name || '—'}</td>
                                                 <td className="px-6 py-5"><span className="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">#{stop.stop_order}</span></td>
                                                 <td className="px-6 py-5 text-sm font-bold text-gray-700">{stop.pickup_time || '—'}</td>
                                                 <td className="px-6 py-5 text-sm font-bold text-gray-700">{stop.dropoff_time || '—'}</td>
                                                 <td className="px-6 py-5">
-                                                    <button onClick={() => handleDelete('transport_stops', stop.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDelete('stops', stop.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -334,14 +311,14 @@ const TransportManagementScreen = () => {
                                     <div key={a.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4 hover:shadow-md transition-shadow">
                                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full"><Users className="w-5 h-5" /></div>
                                         <div className="flex-grow">
-                                            <h3 className="font-bold text-gray-900">{a.students?.name || 'Unknown'}</h3>
+                                            <h3 className="font-bold text-gray-900">{a.student?.full_name || 'Unknown'}</h3>
                                             <div className="flex items-center space-x-3 mt-1 text-sm text-gray-500">
-                                                <span className="flex items-center space-x-1"><Bus className="w-3 h-3" /><span>{a.transport_routes?.route_name}</span></span>
-                                                <span className="flex items-center space-x-1"><MapPin className="w-3 h-3" /><span>{a.transport_stops?.stop_name}</span></span>
+                                                <span className="flex items-center space-x-1"><Bus className="w-3 h-3" /><span>{a.route?.route_name}</span></span>
+                                                <span className="flex items-center space-x-1"><MapPin className="w-3 h-3" /><span>{a.stop?.stop_name}</span></span>
                                             </div>
                                         </div>
                                         <span className={`text-xs font-bold px-3 py-1 rounded-full ${a.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{a.status}</span>
-                                        <button onClick={() => handleDelete('transport_assignments', a.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                        <button onClick={() => handleDelete('assignments', a.id)} className="p-2 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 ))}
                             </div>
@@ -445,3 +422,4 @@ const TransportManagementScreen = () => {
 };
 
 export default TransportManagementScreen;
+

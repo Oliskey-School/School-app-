@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { UserIcon, CheckCircleIcon, ClockIcon, CameraIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface Visitor {
-    id: number;
+    id: string; // Changed to string (UUID)
     visitor_name: string;
-    visitor_phone: string;
+    contact_phone: string; // Changed from visitor_phone
     purpose: string;
     host_name: string;
-    check_in_time: string;
-    check_out_time: string | null;
+    check_in: string; // Changed from check_in_time
+    check_out: string | null; // Changed from check_out_time
     qr_code: string;
     verification_status: string;
     photo_url: string | null;
@@ -24,7 +25,7 @@ const VisitorLog: React.FC = () => {
     const [showCheckIn, setShowCheckIn] = useState(false);
     const [formData, setFormData] = useState({
         visitor_name: '',
-        visitor_phone: '',
+        contact_phone: '',
         visitor_email: '',
         purpose: '',
         host_name: '',
@@ -38,14 +39,7 @@ const VisitorLog: React.FC = () => {
         try {
             if (!schoolId) return;
             setLoading(true);
-            const { data, error } = await supabase
-                .from('visitor_logs')
-                .select('*')
-                .eq('school_id', schoolId)
-                .order('check_in_time', { ascending: false })
-                .limit(50);
-
-            if (error) throw error;
+            const data = await api.getVisitorLogs();
             setVisitors(data || []);
         } catch (error: any) {
             console.error('Error:', error);
@@ -61,6 +55,11 @@ const VisitorLog: React.FC = () => {
         }
     }, [schoolId]);
 
+    useAutoSync(['visitor_logs'], () => {
+        console.log('🔄 [VisitorLog] Real-time auto-sync triggered');
+        fetchVisitors();
+    });
+
     const generateQRCode = () => {
         return `VIS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     };
@@ -70,20 +69,19 @@ const VisitorLog: React.FC = () => {
         try {
             const qrCode = generateQRCode();
 
-            const { error } = await supabase.from('visitor_logs').insert({
+            await api.createVisitorLog({
                 ...formData,
                 school_id: schoolId,
                 qr_code: qrCode,
-                verification_status: 'Verified'
+                verification_status: 'Verified',
+                check_in: new Date().toISOString()
             });
-
-            if (error) throw error;
 
             toast.success('Visitor checked in successfully!');
             setShowCheckIn(false);
             setFormData({
                 visitor_name: '',
-                visitor_phone: '',
+                contact_phone: '',
                 visitor_email: '',
                 purpose: '',
                 host_name: '',
@@ -97,15 +95,11 @@ const VisitorLog: React.FC = () => {
         }
     };
 
-    const handleCheckOut = async (visitorId: number) => {
+    const handleCheckOut = async (visitorId: string) => {
         try {
-            const { error } = await supabase
-                .from('visitor_logs')
-                .update({ check_out_time: new Date().toISOString() })
-                .eq('id', visitorId)
-                .eq('school_id', schoolId);
-
-            if (error) throw error;
+            await api.updateVisitorLog(visitorId, {
+                check_out: new Date().toISOString()
+            });
             toast.success('Visitor checked out');
             fetchVisitors();
         } catch (error: any) {
@@ -113,9 +107,9 @@ const VisitorLog: React.FC = () => {
         }
     };
 
-    const activeVisitors = visitors.filter(v => !v.check_out_time);
+    const activeVisitors = visitors.filter(v => !v.check_out);
     const todayVisitors = visitors.filter(v =>
-        new Date(v.check_in_time).toDateString() === new Date().toDateString()
+        new Date(v.check_in).toDateString() === new Date().toDateString()
     );
 
     return (
@@ -172,7 +166,7 @@ const VisitorLog: React.FC = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-2 mb-2">
                                             <h4 className="font-bold text-gray-900">{visitor.visitor_name}</h4>
-                                            {!visitor.check_out_time && (
+                                            {!visitor.check_out && (
                                                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
                                                     On Premises
                                                 </span>
@@ -191,16 +185,16 @@ const VisitorLog: React.FC = () => {
                                             <strong>Host:</strong> {visitor.host_name}
                                         </p>
                                         <p className="text-sm text-gray-600">
-                                            <strong>Phone:</strong> {visitor.visitor_phone}
+                                            <strong>Phone:</strong> {visitor.contact_phone}
                                         </p>
                                         <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                                            <span>In: {new Date(visitor.check_in_time).toLocaleString()}</span>
-                                            {visitor.check_out_time && (
-                                                <span>Out: {new Date(visitor.check_out_time).toLocaleString()}</span>
+                                            <span>In: {new Date(visitor.check_in).toLocaleString()}</span>
+                                            {visitor.check_out && (
+                                                <span>Out: {new Date(visitor.check_out).toLocaleString()}</span>
                                             )}
                                         </div>
                                     </div>
-                                    {!visitor.check_out_time && (
+                                    {!visitor.check_out && (
                                         <button
                                             onClick={() => handleCheckOut(visitor.id)}
                                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
@@ -241,8 +235,8 @@ const VisitorLog: React.FC = () => {
                                     <input
                                         type="tel"
                                         required
-                                        value={formData.visitor_phone}
-                                        onChange={(e) => setFormData({ ...formData, visitor_phone: e.target.value })}
+                                        value={formData.contact_phone}
+                                        onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                     />
                                 </div>
@@ -353,3 +347,4 @@ const VisitorLog: React.FC = () => {
 };
 
 export default VisitorLog;
+

@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { TrendingUpIcon, TrendingDownIcon, DollarSignIcon, PieChartIcon, BriefcaseIcon, RefreshCwIcon, CalendarIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface StockMarketGameProps {
     onBack: () => void;
@@ -104,6 +105,20 @@ const StockMarketGame: React.FC<StockMarketGameProps> = ({ onBack }) => {
             addXP(100);
             confetti({ particleCount: 50 });
         }
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'stock-market',
+            game_name: 'Stock Market Simulator',
+            score: Math.floor(finalValue),
+            metadata: {
+                initialCash: INITIAL_CASH,
+                finalNetWorth: finalValue,
+                profit: profit,
+                daysPlayed: day,
+                portfolio: portfolio
+            }
+        }).catch(err => console.error("Failed to save stock score:", err));
     };
 
     const buyStock = () => {

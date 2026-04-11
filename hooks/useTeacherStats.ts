@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useTeacherClasses } from './useTeacherClasses';
 import { ClassInfo } from '../types';
+import { useAutoSync } from './useAutoSync';
 
 interface TeacherStats {
     totalStudents: number;
@@ -62,27 +62,11 @@ export const useTeacherStats = (
         if (!classesLoading) {
             fetchStats();
         }
-
-        // Subscribe to changes that affect teacher stats
-        const channel = supabase.channel(`teacher-stats-${teacherId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
-                forceUpdate();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'class_teachers' }, () => {
-                forceUpdate();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_attendance' }, () => {
-                forceUpdate();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'exam_results' }, () => {
-                forceUpdate();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [teacherId, schoolId, classes, classesLoading, version]);
+
+    useAutoSync(['students', 'class_teachers', 'teacher_attendance', 'exam_results'], () => {
+        forceUpdate();
+    });
 
     return { stats, loading };
 };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Beaker, ShieldCheck, FileSearch, Play, CheckCircle, AlertCircle, RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const ValidationConsole: React.FC = () => {
     const { currentSchool } = useAuth();
@@ -29,18 +29,17 @@ const ValidationConsole: React.FC = () => {
         try {
             // Real backend checks where applicable
             if (id === 'SCEN-001' && currentSchool) {
-                // Check if school has curriculum set
-                const { data } = await supabase.from('schools').select('curriculum_type').eq('id', currentSchool.id).single();
-                const result = data?.curriculum_type ? `Success: ${data.curriculum_type} track isolated.` : 'Warning: No track set.';
+                // Check if school has curriculum set from the context directly (already fetched in AuthContext)
+                const result = currentSchool.curriculum_type ? `Success: ${currentSchool.curriculum_type} track isolated.` : 'Warning: No track set.';
                 
                 setTimeout(() => {
                     setTestResults(prev => prev.map(t => t.id === id ? { ...t, status: 'pass', result } : t));
                     setRunningTest(null);
                     toast.success(`Scenario ${id} Passed!`, { id: 'test-toast' });
                 }, 1500);
-            } else if (id === 'SCEN-003') {
-                // Check for audit logs
-                const { count } = await supabase.from('audit_logs').select('*', { count: 'exact', head: true });
+            } else if (id === 'SCEN-003' && currentSchool) {
+                // Check for validation audit logs via backend
+                const { count } = await api.getValidationAuditCount(currentSchool.id);
                 const result = `Verified: ${count || 0} immutable entries found.`;
                 
                 setTimeout(() => {
@@ -175,3 +174,4 @@ const ValidationConsole: React.FC = () => {
 };
 
 export default ValidationConsole;
+

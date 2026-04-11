@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Radio, Upload, Calendar, Volume2, MapPin, Users } from 'lucide-react';
 
@@ -76,7 +76,7 @@ const RadioContentScheduler: React.FC = () => {
 
     const fetchContent = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('radio_content')
                 .select('*')
                 .order('created_at', { ascending: false });
@@ -98,7 +98,7 @@ const RadioContentScheduler: React.FC = () => {
 
     const fetchBroadcasts = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('radio_broadcasts')
                 .select(`
           *,
@@ -122,7 +122,7 @@ const RadioContentScheduler: React.FC = () => {
 
     const fetchPartners = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('radio_partners')
                 .select('*')
                 .eq('partnership_status', 'Active')
@@ -147,7 +147,7 @@ const RadioContentScheduler: React.FC = () => {
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('radio_content')
                 .insert({
                     content_title: contentTitle,
@@ -180,7 +180,7 @@ const RadioContentScheduler: React.FC = () => {
         try {
             const partner = partners.find(p => p.id === selectedPartnerId);
 
-            const { error } = await supabase
+            const { error } = await api
                 .from('radio_broadcasts')
                 .insert({
                     content_id: selectedContentId,
@@ -568,3 +568,4 @@ const RadioContentScheduler: React.FC = () => {
 };
 
 export default RadioContentScheduler;
+

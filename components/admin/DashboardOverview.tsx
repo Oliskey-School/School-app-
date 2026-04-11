@@ -41,10 +41,8 @@ import {
 // Mock data removed
 import { AuditLog, RoleName } from '../../types';
 import DonutChart from '../ui/DonutChart';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { fetchAuditLogs } from '../../lib/database';
 import { EmergencyBroadcastModal } from './EmergencyBroadcastModal';
-import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star } from 'lucide-react';
+import { AlertTriangle, Activity, Flame, ShieldCheck, Shield, FileText, Rocket, Beaker, Calendar, TrendingUp, Building2, Bus, BarChart3, Database, Monitor, Star, Receipt, Clock, FileCheck, Download, BellRing, LayoutGrid } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -121,7 +119,7 @@ const EnrollmentLineChart = ({ data, color }: { data: { year: number, count: num
                 <polyline fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points} />
             </svg>
             <div className="flex justify-between px-4 -mt-6">
-                {data.map(item => <span key={item.year} className="text-xs text-gray-500 font-medium">{item.year}</span>)}
+                {data.map((item, idx) => <span key={`${item.year}-${idx}`} className="text-xs text-gray-500 font-medium">{item.year}</span>)}
             </div>
         </div>
     );
@@ -337,8 +335,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const classTrend = stats?.classTrend || 0;
     const overdueFees = stats?.overdueFees || 0;
     const unpublishedReports = stats?.unpublishedReports || 0;
-    const pendingApprovalsCount = stats?.pendingApprovalsCount || 0;
-    const attendancePercentage = stats?.attendancePercentage || 0;
+    const pendingApprovalsCount = stats?.pendingApprovals || stats?.pendingApprovalsCount || 0;
+    const attendancePercentage = stats?.attendanceRate || stats?.attendancePercentage || 0;
     const timetablePreview = stats?.timetablePreview || [];
     const latestHealthLog = stats?.latestHealthLog ? {
         studentName: stats.latestHealthLog.studentName || stats.latestHealthLog.student_name,
@@ -355,19 +353,16 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         },
         action: log.action,
         timestamp: log.created_at,
-        type: log.action.toLowerCase() as any
+        type: (log.action_type || log.action.toLowerCase()) as any
     }));
 
     // Bus Roster derived stats
     const busRosterTotal = buses.length;
     const busRosterAssigned = buses.filter((b: any) => (b.driverName || b.driver_name) && b.status === 'active').length;
 
-    // Placeholder enrollment data (should ideally come from backend)
-    const enrollmentData = [
-        { year: 2021, count: Math.max(0, totalStudents - 50) },
-        { year: 2022, count: Math.max(0, totalStudents - 30) },
-        { year: 2023, count: Math.max(0, totalStudents - 10) },
-        { year: 2024, count: totalStudents }
+    const enrollmentData = stats?.enrollmentData || [
+        { year: new Date().getFullYear(), count: 0 },
+        { year: new Date().getFullYear(), count: totalStudents }
     ];
 
     if (isLoadingStats && !stats) return <PremiumLoader message="Loading dashboard statistics..." />;
@@ -385,7 +380,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={`+${studentTrend}`} trendColor="text-blue-200" />
                             <StatCard label="Total Teachers" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={`+${teacherTrend}`} trendColor="text-purple-200" />
                             <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={`+${parentTrend}`} trendColor="text-orange-200" />
-                            <StatCard label="Total Classes" value={totalClasses} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={`+${classTrend}`} trendColor="text-indigo-200" />
+                            <StatCard label="Academic Levels" value={16} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={`+${classTrend}`} trendColor="text-indigo-200" />
                         </div>
                     </div>
 
@@ -444,13 +439,13 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                 <QuickActionCard
                                     label="PTA Meetings"
                                     icon={<AcademicCapIcon />}
-                                    onClick={() => navigateTo('manageCurriculum', 'Curriculum Management')}
+                                    onClick={() => navigateTo('managePTAMeetings', 'PTA Meetings')}
                                     color="bg-indigo-600"
                                 />
                                 <QuickActionCard
                                     label="External Exams"
                                     icon={<Beaker />}
-                                    onClick={() => navigate('/external-exams')}
+                                    onClick={() => navigateTo('exams', 'External Exams')}
                                     color="bg-indigo-600 shadow-lg shadow-indigo-100 ring-2 ring-indigo-50"
                                 />
                                 <QuickActionCard
@@ -534,6 +529,55 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                                     icon={<Monitor />}
                                     onClick={() => navigateTo('sessionManagement', 'Session Management')}
                                     color="bg-slate-700"
+                                />
+                                <QuickActionCard
+                                    label="Auto Invoices"
+                                    icon={<Receipt />}
+                                    onClick={() => navigateTo('autoInvoice', 'Auto Invoice Generator')}
+                                    color="bg-teal-700"
+                                />
+                                <QuickActionCard
+                                    label="Late Arrivals"
+                                    icon={<Clock />}
+                                    onClick={() => navigateTo('lateArrivalConfig', 'Late Arrival Config')}
+                                    color="bg-rose-600"
+                                />
+                                <QuickActionCard
+                                    label="Enrollment Trends"
+                                    icon={<TrendingUp />}
+                                    onClick={() => navigateTo('enrollmentTrends', 'Enrollment Trends')}
+                                    color="bg-indigo-600"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Compliance & Privacy Section */}
+                        <div className="mt-8">
+                            <h2 className="text-xl font-bold text-gray-700 mb-3 px-1">🔒 Compliance & Privacy</h2>
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                                <QuickActionCard
+                                    label="Consent Forms"
+                                    icon={<FileCheck />}
+                                    onClick={() => navigateTo('consentForms', 'Parental Consent (NDPR)')}
+                                    color="bg-green-700"
+                                />
+                                <QuickActionCard
+                                    label="Data Export"
+                                    icon={<Download />}
+                                    onClick={() => navigateTo('dataExport', 'Data Export & Deletion')}
+                                    color="bg-gray-700"
+                                />
+                                <QuickActionCard
+                                    label="Notification Settings"
+                                    icon={<BellRing />}
+                                    onClick={() => navigateTo('notificationDigest', 'Notification Digest')}
+                                    color="bg-purple-600"
+                                />
+                                <QuickActionCard
+                                    label="Project Boards"
+                                    icon={<LayoutGrid />}
+                                    onClick={() => navigateTo('projectBoard', 'Kanban Project Boards')}
+                                    color="bg-sky-600"
                                 />
                             </div>
                         </div>

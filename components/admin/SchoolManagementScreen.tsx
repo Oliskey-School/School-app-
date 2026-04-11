@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { Building2, Plus, MapPin, Phone, Trash2, Edit2, CheckCircle2, Building, Globe, UserPlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import PremiumLoader from '../ui/PremiumLoader';
-import api from '../../lib/api';
 
 interface Branch {
     id: string;
@@ -22,7 +21,7 @@ interface SchoolManagementScreenProps {
 }
 
 const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigateTo }) => {
-    const { currentSchool, user } = useAuth();
+    const { currentSchool } = useAuth();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddingBranch, setIsAddingBranch] = useState(false);
@@ -39,23 +38,10 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
 
     useEffect(() => {
         if (!currentSchool?.id) return;
-
         fetchBranches();
-
-        // Add Real-time Subscription
-        const channel = supabase.channel(`branches:${currentSchool.id}`)
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'branches', filter: `school_id=eq.${currentSchool.id}` },
-                () => {
-                    fetchBranches();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        
+        // Removed legacy Supabase Real-time Subscription as we now use direct re-fetching
+        // after actions to ensure consistency with the Express backend.
     }, [currentSchool?.id]);
 
     const fetchBranches = async () => {
@@ -103,20 +89,14 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                 await api.updateBranch(editingBranch.id, payload);
                 toast.success('Branch updated successfully');
             } else {
-                // Main logic via backend doesn't exist out of box to update all others,
-                // but since the backend updates only this branch, we should do the main replacement locally 
-                // OR let the backend handle it if we updated the backend to do so. 
-                // For simplicity, we stick to updating is_main directly first if checked:
-                if (payload.is_main) {
-                    await supabase.from('branches').update({ is_main: false }).eq('school_id', currentSchool.id);
-                }
-
+                // The backend SchoolService.createBranch now automatically handles 
+                // setting is_main=false for other branches if this one is true.
                 await api.createBranch(currentSchool.id, payload);
                 toast.success('New branch added');
             }
 
             resetForm();
-            // Realtime will auto-fetch, but fetch anyway
+            // Re-fetch to show latest state
             fetchBranches();
         } catch (error: any) {
             toast.error('Operation failed: ' + error.message);
@@ -139,10 +119,8 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this branch?')) return;
         try {
-            if (!currentSchool?.id) return;
             await api.deleteBranch(id);
             toast.success('Branch deleted');
-            // Realtime will auto-fetch
             fetchBranches();
         } catch (error: any) {
             toast.error('Delete failed: ' + error.message);
@@ -179,7 +157,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Branch Name</label>
                             <div className="relative group">
-                                <Building className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600" />
+                                <Building className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
                                     name="name"
                                     required
@@ -194,7 +172,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Location/City</label>
                             <div className="relative group">
-                                <MapPin className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600" />
+                                <MapPin className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
                                     name="location"
                                     value={formData.location}
@@ -208,7 +186,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Contact Phone</label>
                             <div className="relative group">
-                                <Phone className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600" />
+                                <Phone className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input
                                     name="phone"
                                     value={formData.phone}
@@ -222,7 +200,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Curriculum Focus</label>
                             <div className="relative group">
-                                <Globe className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600" />
+                                <Globe className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <select
                                     name="curriculum_type"
                                     value={formData.curriculum_type}

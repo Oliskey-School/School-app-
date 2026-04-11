@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../lib/api';
 import { CheckCircleIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface TeacherAttendance {
     id: string;
@@ -36,39 +35,19 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
             const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0];
             const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
 
-            let resolvedTeacherId = teacherId;
-            if (!resolvedTeacherId) {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data: t } = await supabase
-                        .from('teachers')
-                        .select('id')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-                    if (t) resolvedTeacherId = t.id;
-                }
-            }
-
-            if (!resolvedTeacherId) {
-                console.warn('Could not resolve teacherId for calendar fetch');
-                return;
-            }
-
-            const { data, error } = await supabase
-                .from('teacher_attendance')
-                .select('date, approval_status, status')
-                .eq('teacher_id', resolvedTeacherId)
-                .gte('date', startDate)
-                .lte('date', endDate);
-
-            if (error) throw error;
+            // Use unified API client for teacher attendance
+            const data = await api.getTeacherAttendance('', {
+                startDate,
+                endDate,
+                teacher_id: teacherId || undefined
+            });
 
             const map = new Map<string, string>();
             data?.forEach((record: any) => {
-                // Map status or approval_status to 'Present', 'Absent', 'Leave'
                 let displayStatus = 'Present';
-                if (record.status === 'Absent' || record.approval_status === 'rejected') displayStatus = 'Absent';
-                else if (record.status === 'Leave' || record.status === 'On Leave') displayStatus = 'Leave';
+                if (record.approval_status === 'rejected') displayStatus = 'Absent';
+                else if (record.approval_status === 'pending') displayStatus = 'Pending';
+                else if (record.status === 'Leave' || record.status === 'On Leave' || record.status === 'excused') displayStatus = 'Leave';
 
                 map.set(record.date, displayStatus);
             });
@@ -127,6 +106,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
         Present: 'bg-green-400 text-white',
         Absent: 'bg-red-400 text-white',
         Leave: 'bg-amber-400 text-white',
+        Pending: 'bg-yellow-400 text-white',
     };
 
     const stats = React.useMemo(() => {
@@ -189,8 +169,7 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                             {Array.from({ length: startingDayIndex }).map((_, index) => <div key={`empty-${index}`} />)}
                             {Array.from({ length: daysInMonth }).map((_, index) => {
                                 const day = index + 1;
-                                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-                                const dateString = date.toISOString().split('T')[0];
+                                const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                                 const status = attendanceMap.get(dateString);
                                 return (
                                     <div key={day} className={`aspect-square flex items-center justify-center rounded-full text-sm font-black transition-all ${status ? attendanceColors[status] : 'text-gray-300 hover:bg-gray-50'}`}>
@@ -204,6 +183,9 @@ const TeacherAttendanceHistoryScreen: React.FC<TeacherAttendanceHistoryScreenPro
                     <div className="flex justify-center flex-wrap gap-4 mt-8 pb-2">
                         <span className="flex items-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
                             <div className="w-2.5 h-2.5 rounded-full bg-green-400 mr-2 shadow-sm"></div>Present
+                        </span>
+                        <span className="flex items-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 mr-2 shadow-sm"></div>Pending
                         </span>
                         <span className="flex items-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
                             <div className="w-2.5 h-2.5 rounded-full bg-red-400 mr-2 shadow-sm"></div>Absent
@@ -315,3 +297,4 @@ const Badge = ({ status }: { status: string }) => {
 };
 
 export default TeacherAttendanceHistoryScreen;
+

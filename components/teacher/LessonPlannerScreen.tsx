@@ -4,7 +4,7 @@ import { api } from '../../lib/api';
 import { getAIClient, AI_MODEL_NAME, AI_GENERATION_CONFIG, SchemaType as Type } from '../../lib/ai';
 import { toast } from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
-import { supabase } from '../../lib/supabase';
+
 import { GeneratedResources, SchemeWeek, SavedScheme, HistoryEntry, GeneratedHistoryEntry, Subject } from '../../types';
 import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, CheckCircleIcon, getFormattedClassName } from '../../constants';
 import { fetchSubjects } from '../../lib/database';

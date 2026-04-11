@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, FileTextIcon, UploadIcon, GlobeIcon, BuildingLibraryIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { uploadFile } from '../../lib/storage';
@@ -36,6 +37,7 @@ const REQUIRED_DOCS = [
 ];
 
 const SchoolOnboardingScreen: React.FC = () => {
+    const { currentSchool } = useAuth();
     const [profile, setProfile] = useState<SchoolProfile>({
         name: '', address: '', state: 'Lagos',
         email: '', phone: '', logo_url: '',
@@ -54,7 +56,7 @@ const SchoolOnboardingScreen: React.FC = () => {
     const fetchSchoolData = async () => {
         try {
             // Fetch School Profile
-            const { data: schoolData, error: schoolError } = await supabase.from('schools').select('*').maybeSingle();
+            const schoolData = await api.getSchoolInfo(currentSchool?.id || '');
 
             if (schoolData) {
                 setProfile({
@@ -71,7 +73,7 @@ const SchoolOnboardingScreen: React.FC = () => {
 
             // Fetch Documents
             if (schoolData?.id) {
-                const { data: docs } = await supabase.from('school_documents').select('*').eq('school_id', schoolData.id);
+                const docs = await api.getSchoolDocuments();
                 if (docs) {
                     setDocuments(docs.map(d => ({
                         ...d,
@@ -90,8 +92,7 @@ const SchoolOnboardingScreen: React.FC = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            const { data, error } = await supabase.from('schools').upsert({
-                id: profile.id,
+            const data = await api.updateSchoolInfo(profile.id!, {
                 name: profile.name,
                 address: profile.address,
                 state: profile.state,
@@ -99,9 +100,8 @@ const SchoolOnboardingScreen: React.FC = () => {
                 phone: profile.phone,
                 logo_url: profile.logo_url,
                 curricula_config: profile.curricula
-            }).select().single();
+            });
 
-            if (error) throw error;
             if (data) setProfile(prev => ({ ...prev, id: data.id }));
             toast.success("School Profile Saved!");
         } catch (error: any) {
@@ -126,14 +126,12 @@ const SchoolOnboardingScreen: React.FC = () => {
             if (!result.success || !result.url) throw new Error(result.error);
 
             // Save document record
-            const { error: dbError } = await supabase.from('school_documents').upsert({
+            await api.createSchoolDocument({
                 school_id: profile.id as string,
                 document_type: type as any,
                 file_url: result.url,
                 verification_status: 'pending'
-            }, { onConflict: 'school_id,document_type' });
-
-            if (dbError) throw dbError;
+            });
 
             toast.success(`${type} uploaded successfully!`);
             fetchSchoolData(); // Refresh docs
@@ -147,11 +145,9 @@ const SchoolOnboardingScreen: React.FC = () => {
     const handleSaveCurriculum = async () => {
         setSaving(true);
         try {
-            const { error } = await supabase.from('schools').update({
+            await api.updateSchoolInfo(profile.id!, {
                 curricula_config: profile.curricula
-            }).eq('id', profile.id);
-
-            if (error) throw error;
+            });
             toast.success("Curriculum Settings Updated!");
         } catch (error: any) {
             toast.error(error.message);
@@ -376,3 +372,4 @@ const SchoolOnboardingScreen: React.FC = () => {
 };
 
 export default SchoolOnboardingScreen;
+

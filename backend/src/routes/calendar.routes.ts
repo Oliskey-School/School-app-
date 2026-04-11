@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { getCalendarEvents } from '../controllers/calendar.controller';
+import { getCalendarEvents, createCalendarEvent, rsvpToEvent } from '../controllers/calendar.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { requireTenant } from '../middleware/tenant.middleware';
 
 const router = Router();
 
 router.use(authenticate);
-router.use(requireTenant);
 
 router.get('/', getCalendarEvents);
+router.post('/', createCalendarEvent);
+router.post('/rsvp', rsvpToEvent);
 
 export default router;

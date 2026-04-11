@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheckIcon, ClockIcon as HistoryIcon, LockIcon, LoginIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 const SecuritySettingsScreen: React.FC = () => {
@@ -25,7 +25,7 @@ const SecuritySettingsScreen: React.FC = () => {
 
         const fetchLoginHistory = async () => {
             if (!currentSchool?.id) return;
-            let query = supabase
+            let query = api
                 .from('audit_logs')
                 .select('*')
                 .eq('school_id', currentSchool.id)
@@ -69,7 +69,7 @@ const SecuritySettingsScreen: React.FC = () => {
         }
         setIsLoading(true);
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('schools')
                 .update({
                     settings: {

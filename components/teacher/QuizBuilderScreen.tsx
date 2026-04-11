@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
 import { Question } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useBranch } from '../../context/BranchContext';
-import api from '../../lib/api';
+
 
 interface QuizBuilderScreenProps {
     teacherId?: number; // Kept for compatibility but ignored for logic
@@ -351,3 +351,5 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
 };
 
 export default QuizBuilderScreen;
+
+

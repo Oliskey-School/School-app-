@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
     SearchIcon,
@@ -44,14 +44,7 @@ const CourseCatalog: React.FC<CourseCatalogProps> = ({ navigateTo }) => {
     const fetchCourses = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('pd_courses')
-                .select('*')
-                .eq('is_published', true)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
+            const data = await api.getCourses();
             const formatted: Course[] = (data || []).map((c: any) => ({
                 id: c.id,
                 title: c.title,
@@ -61,9 +54,8 @@ const CourseCatalog: React.FC<CourseCatalogProps> = ({ navigateTo }) => {
                 duration_hours: c.duration_hours,
                 instructor: c.instructor,
                 thumbnail_url: c.thumbnail_url,
-                is_enrolled: false
+                is_enrolled: c.is_enrolled || false
             }));
-
             setCourses(formatted);
         } catch (error: any) {
             console.error('Error fetching courses:', error);
@@ -98,34 +90,7 @@ const CourseCatalog: React.FC<CourseCatalogProps> = ({ navigateTo }) => {
 
     const handleEnroll = async (courseId: number) => {
         try {
-            // Get teacher ID from current user
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                toast.error('Please log in');
-                return;
-            }
-
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', user.email)
-                .single();
-
-            if (!teacherData) {
-                toast.error('Teacher profile not found');
-                return;
-            }
-
-            const { error } = await supabase
-                .from('teacher_course_enrollments')
-                .insert({
-                    teacher_id: teacherData.id,
-                    course_id: courseId,
-                    status: 'In Progress'
-                });
-
-            if (error) throw error;
-
+            await api.enrollInCourse(String(courseId));
             toast.success('Enrolled in course successfully!');
             fetchCourses();
         } catch (error: any) {
@@ -237,3 +202,4 @@ const CourseCatalog: React.FC<CourseCatalogProps> = ({ navigateTo }) => {
 };
 
 export default CourseCatalog;
+

@@ -1,0 +1,87 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e11]: O
+          - generic "Oliskey Comprehensive School" [ref=e12]
+        - navigation [ref=e13]:
+          - generic [ref=e14]:
+            - button "Home" [ref=e15] [cursor=pointer]:
+              - img [ref=e16]
+              - generic [ref=e21]: Home
+            - button "Branches" [ref=e22] [cursor=pointer]:
+              - img [ref=e23]
+              - generic [ref=e30]: Branches
+            - button "Approvals" [ref=e31] [cursor=pointer]:
+              - img [ref=e32]
+              - generic [ref=e36]: Approvals
+            - button "Fee Management" [ref=e37] [cursor=pointer]:
+              - img [ref=e38]
+              - generic [ref=e45]: Fee Management
+            - button "Messages" [ref=e46] [cursor=pointer]:
+              - img [ref=e47]
+              - generic [ref=e52]: Messages
+            - button "Analytics" [ref=e53] [cursor=pointer]:
+              - img [ref=e54]
+              - generic [ref=e58]: Analytics
+            - button "Settings" [ref=e59] [cursor=pointer]:
+              - img [ref=e60]
+              - generic [ref=e64]: Settings
+        - button "Logout" [ref=e66] [cursor=pointer]:
+          - img [ref=e67]
+          - generic [ref=e71]: Logout
+    - generic [ref=e72]:
+      - banner [ref=e73]:
+        - generic [ref=e74]:
+          - heading "Admin Dashboard" [level=1] [ref=e77]
+          - generic [ref=e78]:
+            - button "Main Campus" [ref=e81] [cursor=pointer]:
+              - generic [ref=e82]:
+                - img [ref=e84]
+                - generic [ref=e90]: Main Campus
+                - img [ref=e91]
+            - button "Open user menu" [ref=e93] [cursor=pointer]:
+              - img [ref=e95]
+      - main [ref=e100]:
+        - generic [ref=e102]:
+          - generic [ref=e104]:
+            - button "Dismiss for 3 days" [ref=e106] [cursor=pointer]:
+              - img [ref=e107]
+            - generic [ref=e110]:
+              - img [ref=e112]
+              - generic [ref=e116]:
+                - heading "Email Confirmation Required" [level=3] [ref=e118]
+                - paragraph [ref=e119]:
+                  - text: Your email admin@demo.com is not yet confirmed.
+                  - button "Edit Email" [ref=e120] [cursor=pointer]
+                  - text: Please confirm your email to prevent data loss and ensure full account security.
+              - button "Resend Verification" [ref=e122] [cursor=pointer]:
+                - img [ref=e123]
+                - generic [ref=e126]: Resend Verification
+          - generic [ref=e127]:
+            - generic [ref=e131]: 🎓
+            - generic [ref=e133]:
+              - heading "Oliskey School App" [level=3] [ref=e134]
+              - paragraph [ref=e135]: Loading dashboard statistics...
+  - button "Open AI Assistant" [ref=e138] [cursor=pointer]:
+    - img [ref=e139]
+  - generic [ref=e143]:
+    - generic [ref=e144]:
+      - generic [ref=e145]:
+        - img [ref=e147]
+        - generic [ref=e149]:
+          - heading "Install School App" [level=3] [ref=e150]
+          - paragraph [ref=e151]: Install for quick access and offline use. Works even without internet!
+        - button "Close install prompt" [ref=e152] [cursor=pointer]:
+          - img [ref=e153]
+      - generic [ref=e155]:
+        - button "Install Now" [ref=e156] [cursor=pointer]
+        - button "Not Now" [ref=e157] [cursor=pointer]
+    - generic [ref=e158]:
+      - img [ref=e159]
+      - generic [ref=e161]: Fast, reliable, and works offline
+```

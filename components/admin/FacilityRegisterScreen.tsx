@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 import {
     PlusIcon,
     SearchIcon,
@@ -9,18 +10,21 @@ import {
     TrashIcon,
     CheckCircleIcon,
     AlertTriangle,
-    XCircleIcon
+    XCircleIcon,
+    RefreshCw
 } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface Facility {
     id: string;
     school_id: string;
     name: string;
-    facility_type: 'Classroom' | 'Laboratory' | 'Toilet' | 'Library' | 'Sick bay' | 'Staff Room' | 'Other';
+    type: 'Classroom' | 'Laboratory' | 'Toilet' | 'Library' | 'Sick bay' | 'Staff Room' | 'Other';
     capacity: number;
     location: string;
     status: 'operational' | 'maintenance' | 'out_of_service';
     last_inspected_at: string;
+    facility_type?: string; // Kept for backward compatibility if any
 }
 
 const FacilityRegisterScreen = () => {
@@ -34,7 +38,7 @@ const FacilityRegisterScreen = () => {
     const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
     const [newFacility, setNewFacility] = useState<Partial<Facility>>({
         name: '',
-        facility_type: 'Classroom',
+        type: 'Classroom',
         capacity: 0,
         location: '',
         status: 'operational'
@@ -46,35 +50,37 @@ const FacilityRegisterScreen = () => {
         }
     }, [currentSchool]);
 
+    useAutoSync(['facilities'], () => {
+        console.log('🔄 [FacilityRegister] Real-time auto-sync triggered');
+        fetchFacilities();
+    });
+
     const fetchFacilities = async () => {
         if (!currentSchool) return;
         setLoading(true);
-        const { data, error } = await supabase
-            .from('facility_registers')
-            .select('*')
-            .eq('school_id', currentSchool.id)
-            .order('name');
-
-        if (data) setFacilities(data);
-        setLoading(false);
+        try {
+            const data = await api.getFacilities();
+            setFacilities(data as any[] || []);
+        } catch (err) {
+            console.error('Error fetching facilities:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleAdd = async () => {
         if (!newFacility.name || !currentSchool) return;
 
-        const { error } = await supabase
-            .from('facility_registers')
-            .insert([{
+        try {
+            const payload = {
                 ...newFacility,
-                school_id: currentSchool.id,
-                last_inspected_at: new Date().toISOString()
-            }]);
-
-        if (!error) {
+                school_id: currentSchool.id
+            };
+            await api.createFacility(payload);
             setIsAdding(false);
-            setNewFacility({ name: '', facility_type: 'Classroom', capacity: 0, location: '', status: 'operational' });
+            setNewFacility({ name: '', type: 'Classroom', capacity: 0, location: '', status: 'operational' });
             fetchFacilities();
-        } else {
+        } catch (error) {
             console.error('Error adding facility:', error);
             alert('Failed to add facility. Please check your permissions.');
         }
@@ -83,45 +89,40 @@ const FacilityRegisterScreen = () => {
     const handleUpdate = async () => {
         if (!editingFacility || !currentSchool) return;
 
-        const { error } = await supabase
-            .from('facility_registers')
-            .update({
+        try {
+            await api.updateFacility(editingFacility.id, {
                 name: editingFacility.name,
-                facility_type: editingFacility.facility_type,
+                type: editingFacility.type,
                 capacity: editingFacility.capacity,
                 location: editingFacility.location,
-                status: editingFacility.status,
-                last_inspected_at: new Date().toISOString()
-            })
-            .eq('id', editingFacility.id);
-
-        if (!error) {
+                status: editingFacility.status
+            });
             setIsEditing(false);
             setEditingFacility(null);
             fetchFacilities();
-        } else {
+            toast.success('Facility updated successfully');
+        } catch (error) {
             console.error('Error updating facility:', error);
-            alert('Failed to update facility.');
+            toast.error('Failed to update facility.');
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Are you sure you want to delete this facility?') || !currentSchool) return;
-        const { error } = await supabase
-            .from('facility_registers')
-            .delete()
-            .eq('id', id)
-            .eq('school_id', currentSchool.id);
-        if (!error) {
+        if (!window.confirm('Are you sure you want to delete this facility?')) return;
+
+        try {
+            await api.deleteFacility(id);
             fetchFacilities();
-        } else {
+            toast.success('Facility deleted successfully');
+        } catch (error) {
             console.error('Error deleting facility:', error);
-            alert('Failed to delete facility.');
+            toast.error('Failed to delete facility.');
         }
     };
 
+
     const filteredFacilities = facilities.filter(f =>
-        (filterType === 'All' || f.facility_type === filterType) &&
+        (filterType === 'All' || f.type === filterType) &&
         f.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -185,11 +186,11 @@ const FacilityRegisterScreen = () => {
                     {filteredFacilities.map(facility => (
                         <div key={facility.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start">
-                                <div className={`p-3 rounded-2xl ${facility.facility_type === 'Laboratory' ? 'bg-purple-50 text-purple-600' :
-                                    facility.facility_type === 'Sick bay' ? 'bg-red-50 text-red-600' :
+                                <div className={`p-3 rounded-2xl ${facility.type === 'Laboratory' ? 'bg-purple-50 text-purple-600' :
+                                    facility.type === 'Sick bay' ? 'bg-red-50 text-red-600' :
                                         'bg-blue-50 text-blue-600'
                                     }`}>
-                                    <span className="font-bold text-xs uppercase tracking-wider">{facility.facility_type}</span>
+                                    <span className="font-bold text-xs uppercase tracking-wider">{facility.type}</span>
                                 </div>
                                 <div className="flex space-x-1">
                                     <button
@@ -271,10 +272,10 @@ const FacilityRegisterScreen = () => {
                                     <label className="block text-sm font-semibold text-gray-700 mb-1">Type</label>
                                     <select
                                         className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        value={isEditing ? editingFacility?.facility_type : newFacility.facility_type}
+                                        value={isEditing ? editingFacility?.type : newFacility.type}
                                         onChange={e => isEditing ?
-                                            setEditingFacility({ ...editingFacility!, facility_type: e.target.value as any }) :
-                                            setNewFacility({ ...newFacility, facility_type: e.target.value as any })
+                                            setEditingFacility({ ...editingFacility!, type: e.target.value as any }) :
+                                            setNewFacility({ ...newFacility, type: e.target.value as any })
                                         }
                                     >
                                         <option value="Classroom">Classroom</option>
@@ -345,3 +346,4 @@ const FacilityRegisterScreen = () => {
 };
 
 export default FacilityRegisterScreen;
+

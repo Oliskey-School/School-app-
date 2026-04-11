@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 // import { useProfile } from '../../context/ProfileContext';
 import { formatCurrency } from '../../lib/payroll';
@@ -30,30 +29,26 @@ const TeacherSalaryProfile: React.FC<TeacherSalaryProfileProps> = ({ teacherId }
     const fetchSalaryData = async () => {
         if (!teacherId) return;
         try {
-            // Get data from staff_profiles
-            const { data, error } = await supabase
-                .from('staff_profiles')
-                .select('*')
-                .eq('teacher_id', teacherId)
-                .maybeSingle();
+            // Get data from our custom API
+            const data = await api.getTeacherSalaryProfile(teacherId);
 
-            if (error) {
-                if (error.code === '42P01') setErrorOccurred(true);
-                throw error;
-            }
             if (data) {
                 setSalaryData({
-                    base_salary: data.salary || 0,
-                    currency: 'NGN', // Assuming NGN for now or can be added to staff_profiles
-                    effective_date: data.hire_date || data.created_at,
-                    payment_frequency: 'Monthly',
-                    is_active: true,
+                    base_salary: data.base_salary || data.salary || 0,
+                    currency: data.currency || 'NGN', 
+                    effective_date: data.effective_date || data.hire_date || data.created_at,
+                    payment_frequency: data.payment_frequency || 'Monthly',
+                    is_active: data.is_active ?? true,
                     bank_name: data.bank_name || 'Not Set',
                     account_number: data.account_number || 'Not Set'
                 });
             }
         } catch (error: any) {
             console.error('Error fetching salary:', error);
+            // Check for specific backend errors if needed
+            if (error.message?.includes('not found')) {
+                setSalaryData(null);
+            }
         } finally {
             setLoading(false);
         }

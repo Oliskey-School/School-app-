@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { CalendarIcon, ClockIcon, PlusIcon } from '../../constants';
 
 interface TimetableSlot {
-    id?: number;
-    day_of_week: string;
-    period_number: number;
+    id: string;
+    day: string;
+    period_index: number;
     subject: string;
     class_name: string;
-    room: string;
+    teacher_id: string;
     start_time: string;
     end_time: string;
 }
@@ -31,48 +31,23 @@ const TimetableManager: React.FC = () => {
         if (!profile?.school_id) return;
         try {
             setLoading(true);
-            // Fetch teacher record with strict tenant isolation
-            let teacherQuery = supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .eq('school_id', profile.school_id);
+            const data = await api.getTimetable({
+                teacherId: profile.id,
+                schoolId: profile.school_id,
+                branchId: profile.branch_id && profile.branch_id !== 'all' ? profile.branch_id : undefined
+            });
 
-            if (profile.branch_id) {
-                teacherQuery = teacherQuery.eq('branch_id', profile.branch_id);
-            }
-
-            const { data: teacherData } = await teacherQuery.maybeSingle();
-
-            if (!teacherData) {
-                setLoading(false);
-                return;
-            }
-
-            // Fetch timetable with strict tenant isolation
-            let timetableQuery = supabase
-                .from('teacher_timetable')
-                .select('*')
-                .eq('teacher_id', teacherData.id)
-                .eq('school_id', profile.school_id);
-
-            if (profile.branch_id) {
-                timetableQuery = timetableQuery.eq('branch_id', profile.branch_id);
-            }
-
-            const { data, error } = await timetableQuery;
-
-            if (error) throw error;
             setTimetable(data || []);
         } catch (error: any) {
             console.error('Error:', error);
+            toast.error("Failed to load timetable");
         } finally {
             setLoading(false);
         }
     };
 
     const getSlot = (day: string, period: number) => {
-        return timetable.find(t => t.day_of_week === day && t.period_number === period);
+        return timetable.find(t => t.day === day && t.period_index === period);
     };
 
     return (
@@ -104,7 +79,6 @@ const TimetableManager: React.FC = () => {
                                                 <div className="p-2 bg-indigo-50 border border-indigo-200 rounded text-xs">
                                                     <p className="font-semibold text-indigo-900">{slot.subject}</p>
                                                     <p className="text-indigo-700">{slot.class_name}</p>
-                                                    <p className="text-indigo-600">{slot.room}</p>
                                                     <p className="text-indigo-500">{slot.start_time?.slice(0, 5)} - {slot.end_time?.slice(0, 5)}</p>
                                                 </div>
                                             ) : (
@@ -123,3 +97,4 @@ const TimetableManager: React.FC = () => {
 };
 
 export default TimetableManager;
+

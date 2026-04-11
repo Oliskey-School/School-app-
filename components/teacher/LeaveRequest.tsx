@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 // import { useProfile } from '../../context/ProfileContext'; // Removed profile dependency
 import { toast } from 'react-hot-toast';
 import LeaveBalanceTracker from '../shared/LeaveBalanceTracker';
@@ -93,24 +93,12 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, curren
     };
 
     const fetchMyRequests = async (tId: string) => {
-        let query = supabase
-            .from('leave_requests')
-            .select('*')
-            .eq('teacher_id', tId);
-
-        if (schoolId) query = query.eq('school_id', schoolId);
-        if (currentBranchId && currentBranchId !== 'all') query = query.eq('branch_id', currentBranchId);
-
-        const { data, error } = await query
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (error) {
+        try {
+            const data = await api.getLeaveRequests(tId, schoolId);
+            setMyRequests(data || []);
+        } catch (error) {
             console.error('Error fetching requests:', error);
-            return;
         }
-
-        setMyRequests(data || []);
     };
 
     const calculateDays = (start: string, end: string): number => {
@@ -144,23 +132,19 @@ const LeaveRequest: React.FC<LeaveRequestProps> = ({ teacherId, schoolId, curren
             setSubmitting(true);
             const days = calculateDays(formData.start_date, formData.end_date);
 
-            const { error } = await supabase
-                .from('leave_requests')
-                .insert({
-                    teacher_id: teacherId,
-                    school_id: schoolId,
-                    branch_id: currentBranchId || null,
-                    leave_type_id: formData.leave_type_id,
-                    leave_type: formData.leave_type, // Maintain name for reference
-                    start_date: formData.start_date,
-                    end_date: formData.end_date,
-                    days_requested: days,
-                    reason: formData.reason,
-                    notes: formData.notes,
-                    status: 'Pending'
-                });
-
-            if (error) throw error;
+            await api.submitLeaveRequest({
+                teacher_id: teacherId,
+                school_id: schoolId,
+                branch_id: currentBranchId || null,
+                leave_type_id: formData.leave_type_id,
+                leave_type: formData.leave_type,
+                start_date: formData.start_date,
+                end_date: formData.end_date,
+                days_requested: days,
+                reason: formData.reason,
+                notes: formData.notes,
+                status: 'Pending'
+            });
 
             toast.success('Leave request submitted successfully');
             setShowForm(false);

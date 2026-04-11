@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { Volume2Icon, VolumeXIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface SimonSaysGameProps {
     onBack: () => void;
@@ -142,6 +143,18 @@ const SimonSaysGame: React.FC<SimonSaysGameProps> = ({ onBack }) => {
         }
 
         scheduleNextRound(1500);
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'simon-says',
+            game_name: 'Simon Says Body Parts',
+            score: score + 10,
+            metadata: {
+                passive,
+                command: currentCommand?.text,
+                part: currentCommand?.part
+            }
+        }).catch(err => console.error("Failed to save simon score:", err));
     };
 
     const handleMistake = (reason: string) => {

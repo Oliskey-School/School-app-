@@ -1,67 +1,73 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class LessonPlanService {
     static async getLessonPlans(schoolId: string, branchId: string | undefined, teacherId?: string) {
-        let query = supabase.from('lesson_notes').select('*').eq('school_id', schoolId);
+        const where: any = {
+            school_id: schoolId
+        };
 
-        if (teacherId) query = query.eq('teacher_id', teacherId);
-
-        if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+        if (teacherId) {
+            where.teacher_id = teacherId;
         }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (error) throw new Error(error.message);
-        return data || [];
+        if (branchId && branchId !== 'all') {
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
+        }
+
+        return await prisma.lessonNote.findMany({
+            where,
+            orderBy: { created_at: 'desc' }
+        });
     }
 
     static async createLessonPlan(schoolId: string, branchId: string | undefined, planData: any) {
-        const insertData = { ...planData, school_id: schoolId };
+        const plan = await prisma.lessonNote.create({
+            data: {
+                ...planData,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : null
+            }
+        });
 
-        if (branchId && branchId !== 'all') {
-            insertData.branch_id = branchId;
-        }
-
-        const { data, error } = await supabase
-            .from('lesson_notes')
-            .insert([insertData])
-            .select()
-            .single();
-        if (error) throw new Error(error.message);
-        return data;
+        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'create_lesson_plan', planId: plan.id });
+        return plan;
     }
 
     static async updateLessonPlan(schoolId: string, branchId: string | undefined, id: string, updates: any) {
-        let query = supabase
-            .from('lesson_notes')
-            .update(updates)
-            .eq('id', id)
-            .eq('school_id', schoolId);
+        const where: any = {
+            id,
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.branch_id = branchId;
         }
 
-        const { data, error } = await query
-            .select()
-            .single();
-        if (error) throw new Error(error.message);
-        return data;
+        const plan = await prisma.lessonNote.update({
+            where,
+            data: updates
+        });
+
+        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'update_lesson_plan', planId: id });
+        return plan;
     }
 
     static async deleteLessonPlan(schoolId: string, branchId: string | undefined, id: string) {
-        let query = supabase
-            .from('lesson_notes')
-            .delete()
-            .eq('id', id)
-            .eq('school_id', schoolId);
+        const where: any = {
+            id,
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.branch_id = branchId;
         }
 
-        const { error } = await query;
-        if (error) throw new Error(error.message);
+        const result = await prisma.lessonNote.delete({ where });
+        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'delete_lesson_plan', planId: id });
         return true;
     }
 }

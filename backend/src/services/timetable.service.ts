@@ -1,40 +1,96 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class TimetableService {
     static async getTimetable(schoolId: string, branchId: string | undefined, className?: string, teacherId?: string) {
-        let query = supabase.from('timetable').select('*').eq('school_id', schoolId);
+        const whereClause: any = { school_id: schoolId };
 
         if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            whereClause.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
         }
 
         if (className) {
-            query = query.ilike('class_name', `%${className}%`);
+            whereClause.class_name = { contains: className, mode: 'insensitive' };
         }
 
         if (teacherId) {
-            query = query.eq('teacher_id', teacherId);
+            whereClause.teacher_id = teacherId;
         }
 
-        const { data, error } = await query.order('start_time', { ascending: true });
-        if (error) throw new Error(error.message);
+        return await prisma.timetable.findMany({
+            where: whereClause,
+            orderBy: { start_time: 'asc' }
+        });
+    }
 
-        // DEMO MODE MOCK DATA INJECTION
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-        if (isDemoSchool && (!data || data.length === 0)) {
-            console.log('🛡️ [TimetableService] Injecting Demo Mock Timetable');
-            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-            const mockEntries = [];
-            for (const day of dayNames) {
-                mockEntries.push(
-                    { id: `tt-${day}-1`, school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', day, start_time: '08:00', end_time: '09:00', subject: 'Mathematics', class_name: 'Grade 10A', teacher_id: 't1' },
-                    { id: `tt-${day}-2`, school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', day, start_time: '09:00', end_time: '10:00', subject: 'English Language', class_name: 'Grade 10A', teacher_id: 't2' },
-                    { id: `tt-${day}-3`, school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', day, start_time: '10:30', end_time: '11:30', subject: 'Physics', class_name: 'Grade 10A', teacher_id: 't3' }
-                );
+    static async createTimetable(schoolId: string, data: any) {
+        const entry = await prisma.timetable.create({
+            data: {
+                ...data,
+                school_id: schoolId
             }
-            return mockEntries;
+        });
+
+        SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'create', entryId: entry.id });
+        return entry;
+    }
+
+    static async updateTimetable(schoolId: string, id: string, data: any) {
+        const entry = await prisma.timetable.update({
+            where: { id, school_id: schoolId },
+            data: {
+                ...data,
+                updated_at: new Date()
+            }
+        });
+
+        SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'update', entryId: id });
+        return entry;
+    }
+
+    static async deleteTimetable(schoolId: string, id: string) {
+        const result = await prisma.timetable.delete({
+            where: { id, school_id: schoolId }
+        });
+
+        SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'delete', entryId: id });
+        return result;
+    }
+
+    static async deleteTimetableByClass(schoolId: string, classId: string) {
+        const result = await (prisma as any).timetable.deleteMany({
+            where: { class_id: classId, school_id: schoolId }
+        });
+
+        SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'delete_by_class', classId });
+        return result;
+    }
+
+    static async checkTeacherConflict(schoolId: string, data: { teacherId: string, day: string, startTime: string, endTime: string, excludeClassId?: string }) {
+        const conflict = await (prisma as any).timetable.findFirst({
+            where: {
+                school_id: schoolId,
+                teacher_id: data.teacherId,
+                day: data.day,
+                start_time: data.startTime,
+                class_id: data.excludeClassId ? { not: data.excludeClassId } : undefined
+            },
+            include: {
+                class: { select: { name: true } }
+            }
+        });
+
+        if (conflict) {
+            return {
+                conflict: true,
+                message: `Teacher is already assigned to class ${(conflict as any).class?.name || 'Unknown'} at this time.`,
+                class_name: (conflict as any).class?.name
+            };
         }
 
-        return data || [];
+        return { conflict: false };
     }
 }

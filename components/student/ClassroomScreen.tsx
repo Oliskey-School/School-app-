@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Student, Teacher, Notice } from '../../types';
-import { fetchStudentsByClass, fetchTeachers, fetchNotices } from '../../lib/database';
+import { api } from '../../lib/api';
 import { SUBJECT_COLORS, BookOpenIcon, ClipboardListIcon, MegaphoneIcon, UsersIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -11,7 +11,6 @@ interface ClassroomScreenProps {
 }
 
 const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigateTo }) => {
-  const { user } = useAuth();
   const { profile } = useProfile();
 
   const [student, setStudent] = useState<Student | null>(null);
@@ -24,29 +23,28 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
     const loadData = async () => {
       setLoading(true);
       try {
-        // 1. Get student profile from current profile context (which should be populated)
-        // If not a student profile, we might be an admin viewing this.
+        // 1. Get student profile from current profile context
         const currentStudent = profile as unknown as Student;
         setStudent(currentStudent);
 
         if (currentStudent && currentStudent.grade) {
-          // 2. Fetch Classmates
-          const peers = await fetchStudentsByClass(currentStudent.grade, currentStudent.section);
+          // 2. Fetch Classmates using normalized api client
+          const peers = await api.getStudentsByClass(currentStudent.grade, currentStudent.section, currentStudent.schoolId);
           setClassmates(peers.filter(p => p.id !== currentStudent.id));
 
-          // 3. Fetch Notices
-          const allNotices = await fetchNotices(currentStudent.schoolId);
+          // 3. Fetch Notices using normalized api client
+          const allNotices = await api.getNotices(currentStudent.schoolId);
           const classAnnouncements = allNotices.filter(
             n => (n.audience.includes('all') || n.audience.includes('students')) &&
               (!n.className || n.className === `Grade ${currentStudent.grade}${currentStudent.section}`)
           ).slice(0, 2);
           setAnnouncements(classAnnouncements);
+          
+          // 4. Fetch Teachers to find the one for this subject
+          const allTeachers = await api.getTeachers(currentStudent.schoolId);
+          const subjectTeacher = allTeachers.find(t => t.subjects?.includes(subjectName));
+          setTeacher(subjectTeacher || null);
         }
-
-        // 4. Fetch Teacher for this subject
-        const allTeachers = await fetchTeachers(currentStudent?.schoolId);
-        const subjectTeacher = allTeachers.find(t => t.subjects.includes(subjectName));
-        setTeacher(subjectTeacher || null);
 
       } catch (err) {
         console.error("Error loading classroom data:", err);

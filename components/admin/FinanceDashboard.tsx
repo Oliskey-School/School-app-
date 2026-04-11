@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { DollarSign, TrendingUp, TrendingDown, PieChart, Calendar, Download, CreditCard } from 'lucide-react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
-import { api } from '../../lib/api';
+
 
 interface FinancialSummary {
     period_type: string;

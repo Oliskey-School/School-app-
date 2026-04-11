@@ -1,17 +1,16 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ExamService } from '../services/exam.service';
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 
 export const getExams = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;
         if (req.user.role === 'teacher') {
-            const { data: teacher } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('user_id', req.user.id)
-                .single();
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true }
+            });
             if (teacher) teacherId = teacher.id;
             else return res.json([]);
         }

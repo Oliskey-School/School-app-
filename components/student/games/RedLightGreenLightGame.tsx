@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface RedLightGreenLightGameProps {
@@ -156,6 +157,18 @@ const RedLightGreenLightGame: React.FC<RedLightGreenLightGameProps> = ({ onBack 
             spread: 70,
             origin: { y: 0.6 }
         });
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'red-light-green-light',
+            game_name: 'Red Light, Green Light',
+            score: score,
+            metadata: {
+                steps: steps,
+                livesRemaining: lives,
+                outcome: 'victory'
+            }
+        }).catch(err => console.error("Failed to save redlight score:", err));
     };
 
     const handleGameOver = (win: boolean) => {

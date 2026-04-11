@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { Student } from '../../types';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import DonutChart from '../ui/DonutChart';
@@ -50,47 +51,47 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
         ? Math.round(performance.reduce((sum, record) => sum + record.score, 0) / performance.length)
         : 0;
 
-    useEffect(() => {
-        const loadFullData = async () => {
-            setLoading(true);
-            try {
-                const { data: attendanceRecords, error: attError } = await supabase
-                    .from('student_attendance')
-                    .select('status')
-                    .eq('student_id', student.id);
-
-                if (attError) throw attError;
-
-                if (attendanceRecords) {
-                    const counts = { present: 0, absent: 0, late: 0, leave: 0 };
-                    attendanceRecords.forEach((record: any) => {
-                        const status = record.status.toLowerCase();
-                        if (status === 'present') counts.present++;
-                        else if (status === 'absent') counts.absent++;
-                        else if (status === 'late') counts.late++;
-                        else if (status === 'leave' || status === 'on leave') counts.leave++;
-                    });
-                    setAttendanceData(counts);
-                }
-
-                // Fetch Performance & Notes
-                const { fetchAcademicPerformance, fetchBehaviorNotes } = await import('../../lib/database');
-                const [perf, notes] = await Promise.all([
-                    fetchAcademicPerformance(student.id),
-                    (fetchBehaviorNotes as any)(student.id)
-                ]);
-                setPerformance(perf);
-                setBehaviorNotes(notes);
-
-            } catch (err) {
-                console.error('Error fetching student details:', err);
-            } finally {
-                setLoading(false);
+    const loadFullData = async () => {
+        setLoading(true);
+        try {
+            // Fetch attendance via backend API
+            const attendanceRecords: any[] = await api.getStudentAttendance(student.id).catch(() => []);
+            if (attendanceRecords && attendanceRecords.length > 0) {
+                const counts = { present: 0, absent: 0, late: 0, leave: 0 };
+                attendanceRecords.forEach((record: any) => {
+                    const status = (record.status || '').toLowerCase();
+                    if (status === 'present') counts.present++;
+                    else if (status === 'absent') counts.absent++;
+                    else if (status === 'late') counts.late++;
+                    else if (status === 'leave' || status === 'on leave') counts.leave++;
+                });
+                setAttendanceData(counts);
             }
-        };
 
+            // Fetch Performance & Notes
+            const { fetchAcademicPerformance, fetchBehaviorNotes } = await import('../../lib/database');
+            const [perf, notes] = await Promise.all([
+                fetchAcademicPerformance(student.id),
+                (fetchBehaviorNotes as any)(student.id)
+            ]);
+            setPerformance(perf);
+            setBehaviorNotes(notes);
+
+        } catch (err) {
+            console.error('Error fetching student details:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         loadFullData();
     }, [student.id]);
+
+    useAutoSync(['students', 'attendance', 'report_cards', 'behavior_notes'], () => {
+        console.log('🔄 [StudentProfileDashboard] Real-time auto-sync triggered');
+        loadFullData();
+    });
 
     const handleGenerateSummary = async () => {
         setIsGeneratingSummary(true);
@@ -121,8 +122,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 
     const handleDelete = async () => {
         try {
-            const { error } = await supabase.from('students').delete().eq('id', student.id);
-            if (error) throw error;
+            await api.deleteStudent(student.id);
             toast.success('Student deleted successfully');
             forceUpdate();
             handleBack();
@@ -353,3 +353,4 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 };
 
 export default StudentProfileDashboard;
+

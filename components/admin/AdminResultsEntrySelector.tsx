@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName } from '../../constants';
-import { useRealtime } from '../../lib/useRealtime';
 import { ClassInfo } from '../../types';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface AdminResultsEntrySelectorProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -10,7 +12,15 @@ interface AdminResultsEntrySelectorProps {
 }
 
 const AdminResultsEntrySelector: React.FC<AdminResultsEntrySelectorProps> = ({ navigateTo, schoolId, currentBranchId }) => {
-    const { data: rawClasses, loading: isLoading } = useRealtime<any>('classes', '*', 'grade');
+    const { data: rawClasses = [], isLoading } = useQuery({
+        queryKey: ['classes', schoolId, currentBranchId],
+        queryFn: () => api.getClasses(schoolId!, currentBranchId === 'all' ? undefined : currentBranchId),
+        enabled: !!schoolId
+    });
+
+    useAutoSync(['classes'], () => {
+        console.log('🔄 [ResultsEntrySelector] Auto-sync triggered');
+    });
 
     const classes: ClassInfo[] = useMemo(() => {
         return rawClasses

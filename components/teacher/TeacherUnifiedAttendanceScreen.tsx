@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRightIcon, LockIcon } from '../../constants';
 import { getFormattedClassName } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { ClassInfo as ClassData } from '../../types';

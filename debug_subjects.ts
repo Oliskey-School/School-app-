@@ -1,8 +1,8 @@
 
-import { supabase } from './lib/supabase';
+import { api } from './lib/api';
 
 async function debugSubjects() {
-    const { data, error } = await supabase
+    const { data, error } = await api
         .from('classes')
         .select('subject, grade, section');
 

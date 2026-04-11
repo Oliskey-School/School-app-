@@ -1,688 +1,174 @@
-/**
- * Sync Engine - Bidirectional Synchronization
- * 
- * Orchestrates data synchronization between IndexedDB and Supabase.
- * Handles conflict resolution, retry logic, and delta sync.
- */
-
-import { EventEmitter } from './EventEmitter';
-import { supabase } from './supabase';
-import { offlineDB, TableName, SyncQueueItem, dbHelpers } from './offlineDatabase';
+import { offlineDB, SyncAction } from './dexie-db';
+import { api } from './api';
 import { networkManager } from './networkManager';
-import { debounce } from './performanceUtils';
-import { requestBackgroundSync } from './serviceWorkerRegistration';
-
-// ============================================================================
-// Types & Interfaces
-// ============================================================================
-
-export enum SyncStatus {
-    IDLE = 'idle',
-    SYNCING = 'syncing',
-    ERROR = 'error',
-    PAUSED = 'paused'
-}
-
-export interface SyncState {
-    status: SyncStatus;
-    lastSync: number;
-    pendingOperations: number;
-    failedOperations: number;
-    isInitialSyncComplete: boolean;
-}
-
-export interface SyncEventMap {
-    'sync-start': void;
-    'sync-complete': { synced: number; failed: number };
-    'sync-error': { error: Error; operation?: SyncQueueItem };
-    'sync-progress': { current: number; total: number };
-    'state-change': SyncState;
-    'conflict-detected': { table: TableName; localData: any; serverData: any };
-}
-
-export interface ConflictResolutionResult {
-    resolution: 'server' | 'client' | 'merged';
-    data: any;
-}
-
-// ============================================================================
-// Sync Engine Class
-// ============================================================================
+import { EventEmitter } from './EventEmitter';
 
 class SyncEngine extends EventEmitter {
-    private state: SyncState;
-    private syncIntervalId: NodeJS.Timeout | null = null;
-    private isSyncing: boolean = false;
-    private syncInterval: number = 2 * 60 * 1000; // 2 minutes
-    private maxRetries: number = 3;
-    private batchSize: number = 50;
-    private debouncedSync = debounce(() => this.sync(), 1000);
+    private isSyncing = false;
 
     constructor() {
         super();
+        // Periodically check for unsynced items
+        if (typeof window !== 'undefined') {
+            setInterval(() => this.processQueue(), 60000);
+        }
+    }
 
-        const savedState = this.loadState();
-        this.state = {
-            status: SyncStatus.IDLE,
-            lastSync: savedState.lastSync || 0,
-            pendingOperations: 0,
-            failedOperations: 0,
-            isInitialSyncComplete: savedState.isInitialSyncComplete || false
+    /**
+     * Entry point for all data mutations in the app.
+     */
+    async enqueueAction(type: SyncAction['action_type'], payload: any) {
+        const action: SyncAction = {
+            action_type: type,
+            payload,
+            created_at: new Date().toISOString(),
+            synced: 0,
+            retry_count: 0
         };
 
-        this.setupListeners();
+        await offlineDB.sync_queue.add(action);
+        console.log(`📦 [SyncEngine] Action enqueued: ${type}`);
+        
+        await this.emitStateChange();
+        
+        // Trigger background sync if online
+        this.processQueue();
     }
 
-    // ========================================================================
-    // Persistence
-    // ========================================================================
-
-    private loadState(): Partial<SyncState> {
-        if (typeof window === 'undefined') return {};
-        const stored = localStorage.getItem('sync_engine_state');
-        return stored ? JSON.parse(stored) : {};
-    }
-
-    private saveState(): void {
-        if (typeof window === 'undefined') return;
-        const stateToSave = {
-            lastSync: this.state.lastSync,
-            isInitialSyncComplete: this.state.isInitialSyncComplete
+    /**
+     * Generic table operation queueing
+     */
+    async queueOperation(table: string, operation: 'create' | 'update' | 'delete' | 'upsert', payload: any) {
+        const action: SyncAction = {
+            action_type: 'TABLE_OP',
+            table,
+            operation,
+            payload,
+            created_at: new Date().toISOString(),
+            synced: 0,
+            retry_count: 0
         };
-        localStorage.setItem('sync_engine_state', JSON.stringify(stateToSave));
-    }
 
-    // ========================================================================
-    // Initialization
-    // ========================================================================
-
-    private setupListeners(): void {
-        // Sync on network reconnection
-        networkManager.on('online', async () => {
-            console.log('🔄 Network reconnected - triggering sync');
-            await this.sync();
-        });
-
-        // Sync on visibility change (tab refocus)
-        if (typeof document !== 'undefined') {
-            document.addEventListener('visibilitychange', async () => {
-                if (!document.hidden && networkManager.isOnline()) {
-                    await this.sync();
-                }
-            });
-        }
-
-        // Periodic sync
-        this.startPeriodicSync();
-    }
-
-    private startPeriodicSync(): void {
-        this.syncIntervalId = setInterval(async () => {
-            if (networkManager.isOnline() && !this.isSyncing) {
-                await this.sync();
-            }
-        }, this.syncInterval);
-    }
-
-    private stopPeriodicSync(): void {
-        if (this.syncIntervalId) {
-            clearInterval(this.syncIntervalId);
-            this.syncIntervalId = null;
-        }
-    }
-
-    // ========================================================================
-    // Main Sync Logic
-    // ========================================================================
-
-    /**
-     * Trigger full bidirectional sync
-     */
-    async sync(): Promise<{ synced: number; failed: number }> {
-        if (this.isSyncing) {
-            console.log('⏳ Sync already in progress, skipping');
-            return { synced: 0, failed: 0 };
-        }
-
-        if (networkManager.isOffline()) {
-            console.log('📴 Offline - skipping sync');
-            return { synced: 0, failed: 0 };
-        }
-
-        this.isSyncing = true;
-        this.updateState({ status: SyncStatus.SYNCING });
-        this.emit('sync-start');
-
-        let syncedCount = 0;
-        let failedCount = 0;
-        const modifiedTables = new Set<TableName>();
-
-        try {
-            // Step 1: Process local changes (push to server)
-            const pushResult = await this.pushLocalChanges();
-            syncedCount += pushResult.synced;
-            failedCount += pushResult.failed;
-            // Push changes usually modify the table they are for
-            // (handled inside processSyncQueueItem or here if we track)
-
-            // Step 2: Pull server changes (fetch from server)
-            const pullResult = await this.pullServerChanges();
-            syncedCount += pullResult.synced;
-            failedCount += pullResult.failed;
-            
-            // Track which tables were modified in pullServerChanges
-            // We can return this from pullServerChanges or just track it
-            if (pullResult.modifiedTables) {
-                pullResult.modifiedTables.forEach(t => modifiedTables.add(t));
-            }
-
-            // Step 3: Initial hydration if first sync
-            if (!this.state.isInitialSyncComplete) {
-                await this.initialHydration();
-                this.updateState({ isInitialSyncComplete: true });
-                // All essential tables modified
-                ['users', 'schools', 'classes', 'subjects', 'timetable'].forEach(t => modifiedTables.add(t as TableName));
-            }
-
-            this.updateState({
-                status: SyncStatus.IDLE,
-                lastSync: Date.now(),
-                pendingOperations: failedCount
-            });
-
-            this.emit('sync-complete', { 
-                synced: syncedCount, 
-                failed: failedCount,
-                tables: Array.from(modifiedTables) 
-            });
-
-            console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed. Modified tables: ${Array.from(modifiedTables).join(', ')}`);
-        } catch (error) {
-            console.error('❌ Sync failed:', error);
-            this.updateState({ status: SyncStatus.ERROR });
-            this.emit('sync-error', { error: error as Error });
-            failedCount++;
-        } finally {
-            this.isSyncing = false;
-        }
-
-        return { synced: syncedCount, failed: failedCount };
-    }
-
-    // ========================================================================
-    // Push Local Changes
-    // ========================================================================
-
-    /**
-     * Push local changes to server
-     */
-    private async pushLocalChanges(): Promise<{ synced: number; failed: number }> {
-        const queueItems = await offlineDB.getPendingSyncQueue();
-
-        if (queueItems.length === 0) {
-            return { synced: 0, failed: 0 };
-        }
-
-        console.log(`📤 Pushing ${queueItems.length} local changes to server`);
-
-        let synced = 0;
-        let failed = 0;
-
-        // Process in batches
-        for (let i = 0; i < queueItems.length; i += this.batchSize) {
-            const batch = queueItems.slice(i, i + this.batchSize);
-
-            for (const item of batch) {
-                try {
-                    await this.processSyncQueueItem(item.data);
-                    await offlineDB.removeFromSyncQueue(item.id);
-                    synced++;
-
-                    this.emit('sync-progress', {
-                        current: i + batch.indexOf(item) + 1,
-                        total: queueItems.length
-                    });
-                } catch (error) {
-                    console.error(`Failed to sync item ${item.id}:`, error);
-
-                    // Increment retry count
-                    await offlineDB.incrementSyncRetry(item.id, (error as Error).message);
-
-                    // Remove if max retries exceeded
-                    if (item.data.retryCount >= this.maxRetries) {
-                        console.warn(`Max retries exceeded for ${item.id}, removing from queue`);
-                        await offlineDB.removeFromSyncQueue(item.id);
-                    }
-
-                    failed++;
-                    this.emit('sync-error', { error: error as Error, operation: item.data });
-                }
-            }
-        }
-
-        return { synced, failed };
+        await offlineDB.sync_queue.add(action);
+        console.log(`📦 [SyncEngine] Table operation queued: ${operation} on ${table}`);
+        
+        await this.emitStateChange();
+        this.processQueue();
     }
 
     /**
-     * Process a single sync queue item
+     * Replays all unsynced actions to Backend in chronological order.
      */
-    private async processSyncQueueItem(item: SyncQueueItem): Promise<void> {
-        const { table, operation, data } = item;
+    async processQueue() {
+        if (this.isSyncing || networkManager.isOffline()) return;
 
-        switch (operation) {
-            case 'create':
-                await this.createOnServer(table, data);
-                break;
-            case 'update':
-                await this.updateOnServer(table, data);
-                break;
-            case 'delete':
-                await this.deleteOnServer(table, data.id);
-                break;
+        this.setSyncing(true);
+        const unsynced = await offlineDB.sync_queue
+            .where('synced')
+            .equals(0)
+            .sortBy('created_at');
+
+        if (unsynced.length === 0) {
+            this.setSyncing(false);
+            return;
         }
 
-        // Mark as synced in local DB
-        await dbHelpers.markSynced(table, data.id);
-    }
+        console.log(`🔄 [SyncEngine] Syncing ${unsynced.length} actions...`);
 
-    // ========================================================================
-    // Server Operations
-    // ========================================================================
-
-    private async createOnServer(table: TableName, data: any): Promise<void> {
-        const { error } = await supabase.from(table).insert(data);
-        if (error) throw error;
-    }
-
-    private async updateOnServer(table: TableName, data: any): Promise<void> {
-        // Check for conflicts
-        const { data: serverData, error: fetchError } = await supabase
-            .from(table)
-            .select('*')
-            .eq('id', data.id)
-            .single();
-
-        if (fetchError && fetchError.code !== 'PGRST116') {
-            throw fetchError;
-        }
-
-        if (serverData) {
-            // Conflict detection
-            const resolution = await this.resolveConflict(table, data, serverData);
-
-            const { error } = await supabase
-                .from(table)
-                .update(resolution.data)
-                .eq('id', data.id);
-
-            if (error) throw error;
-
-            // Update local copy with resolved data
-            if (resolution.resolution === 'server' || resolution.resolution === 'merged') {
-                await offlineDB.upsert(table, data.id, resolution.data, {
-                    syncStatus: 'synced',
-                    lastSynced: Date.now()
-                });
-            }
-        } else {
-            // Record doesn't exist on server, create it
-            await this.createOnServer(table, data);
-        }
-    }
-
-    private async deleteOnServer(table: TableName, id: string): Promise<void> {
-        const { error } = await supabase.from(table).delete().eq('id', id);
-        if (error) throw error;
-    }
-
-    // ========================================================================
-    // Pull Server Changes
-    // ========================================================================
-
-    /**
-     * Pull server changes and update local database
-     */
-    private async pullServerChanges(): Promise<{ synced: number; failed: number; modifiedTables: TableName[] }> {
-        // Essential tables for app startup
-        const essentialTables: TableName[] = [
-            'schools', 'users', 'branches', 'notices'
-        ];
-
-        // Background tables (synced if we have time or on demand)
-        const backgroundTables: TableName[] = [
-            'classes', 'subjects', 'timetable', 'students', 'teachers', 'parents',
-            'assignments', 'grades', 'attendance_records', 'messages'
-        ];
-
-        let synced = 0;
-        let failed = 0;
-        const modifiedTables = new Set<TableName>();
-
-        // On first sync, only fetch essential tables to reduce blocking
-        const tablesToSync = this.state.lastSync === 0 ? essentialTables : [...essentialTables, ...backgroundTables];
-
-        // Check for Demo Mode first to avoid auth lock contention
-        const isDemoMode = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('is_demo_mode') === 'true';
-        let schoolId = null;
-
-        if (isDemoMode) {
-            schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-            console.log('🛡️ [SyncEngine] Operating in Demo Mode');
-        } else {
+        for (const action of unsynced) {
             try {
-                // Get session to check for school_id validity
-                const { data: { session } } = await supabase.auth.getSession();
-                schoolId = session?.user?.user_metadata?.school_id || session?.user?.app_metadata?.school_id;
-
-                // Fallback: Query public.users if metadata is missing
-                if (!schoolId && session?.user?.id) {
-                    const { data: userProfile } = await supabase
-                        .from('users')
-                        .select('school_id')
-                        .eq('id', session.user.id)
-                        .maybeSingle();
-
-                    if (userProfile?.school_id) {
-                        schoolId = userProfile.school_id;
-                    }
-                }
-            } catch (err: any) {
-                if (err.name === 'NavigatorLockAcquireTimeoutError') {
-                    console.warn('⚠️ SyncEngine: Auth lock timeout, using restricted sync mode');
+                const success = await this.replayAction(action);
+                if (success) {
+                    await offlineDB.sync_queue.update(action.id!, { synced: 1 });
                 } else {
-                    throw err;
+                    await offlineDB.sync_queue.update(action.id!, { 
+                        retry_count: (action.retry_count || 0) + 1 
+                    });
                 }
+            } catch (err) {
+                console.error(`❌ [SyncEngine] Replay failed for action ${action.id}:`, err);
             }
         }
 
-        // Limit concurrency to 3 parallel fetches to balance speed and network load
-        const concurrencyLimit = 3;
-        const batches = [];
-        for (let i = 0; i < tablesToSync.length; i += concurrencyLimit) {
-            batches.push(tablesToSync.slice(i, i + concurrencyLimit));
-        }
-
-        for (const batch of batches) {
-            if (!this.isSyncing) break;
-
-            await Promise.all(batch.map(async (table) => {
-                try {
-                    // Skip sensitive tables if no school_id
-                    if (['grades', 'attendance_records', 'timetable', 'assignments'].includes(table) && !schoolId) {
-                        return;
-                    }
-
-                    const lastSync = this.state.lastSync;
-                    let query = supabase.from(table).select('*');
-
-                    if (lastSync > 0) {
-                        const lastSyncDate = new Date(lastSync).toISOString();
-                        query = query.gt('updated_at', lastSyncDate);
-                    }
-
-                    query = query.limit(1000);
-
-                    const { data, error } = await query;
-
-                    if (error) {
-                        if (error.code !== '42501' && !error.message?.includes('permission denied')) {
-                            console.error(`Failed to fetch ${table}:`, error);
-                            failed++;
-                        }
-                        return;
-                    }
-
-                    if (data && data.length > 0) {
-                        const records = data.map(record => ({
-                            id: record.id,
-                            data: record,
-                            metadata: {
-                                syncStatus: 'synced' as const,
-                                lastSynced: Date.now()
-                            }
-                        }));
-
-                        await offlineDB.batchUpsert(table, records);
-                        synced += data.length;
-                        modifiedTables.add(table);
-                        console.log(`📥 Pulled ${data.length} records from ${table}`);
-                    }
-                } catch (error) {
-                    console.error(`Error pulling ${table}:`, error);
-                    failed++;
-                }
-            }));
-        }
-
-        return { synced, failed, modifiedTables: Array.from(modifiedTables) };
-    }
-
-    // ========================================================================
-    // Initial Hydration
-    // ========================================================================
-
-    /**
-     * Initial data hydration for first-time users
-     */
-    private async initialHydration(): Promise<void> {
-        console.log('🌊 Starting initial data hydration...');
-
-        const tables: TableName[] = [
-            'users', 'schools', 'classes', 'subjects', 'timetable'
-        ];
-
-        // Parallel hydration for initial setup
-        await Promise.all(tables.map(async (table) => {
-            try {
-                const { data } = await supabase.from(table).select('*').limit(500);
-
-                if (data && data.length > 0) {
-                    const records = data.map(record => ({
-                        id: record.id,
-                        data: record,
-                        metadata: {
-                            syncStatus: 'synced' as const,
-                            lastSynced: Date.now()
-                        }
-                    }));
-
-                    await offlineDB.batchUpsert(table, records);
-                    console.log(`✅ Hydrated ${data.length} ${table} records`);
-                }
-            } catch (error) {
-                console.error(`Failed to hydrate ${table}:`, error);
-            }
+        this.setSyncing(false);
+        
+        // Broadcast completion for UI status bar
+        window.dispatchEvent(new CustomEvent('sync-complete', { 
+            detail: { count: unsynced.length } 
         }));
     }
 
-    // ========================================================================
-    // Conflict Resolution
-    // ========================================================================
-
-    /**
-     * Resolve conflicts using Last-Write-Wins strategy
-     */
-    private async resolveConflict(
-        table: TableName,
-        localData: any,
-        serverData: any
-    ): Promise<ConflictResolutionResult> {
-        const localTimestamp = new Date(localData.updated_at || localData.created_at).getTime();
-        const serverTimestamp = new Date(serverData.updated_at || serverData.created_at).getTime();
-
-        // Emit conflict event for logging
-        this.emit('conflict-detected', { table, localData, serverData });
-
-        console.warn(`⚠️ Conflict detected in ${table} for record ${localData.id}`);
-        console.log(`Local timestamp: ${new Date(localTimestamp).toISOString()}`);
-        console.log(`Server timestamp: ${new Date(serverTimestamp).toISOString()}`);
-
-        // Last-Write-Wins: Server timestamp takes priority
-        if (serverTimestamp > localTimestamp) {
-            console.log('✅ Server wins (newer timestamp)');
-            return {
-                resolution: 'server',
-                data: serverData
-            };
-        } else if (localTimestamp > serverTimestamp) {
-            console.log('✅ Client wins (newer timestamp)');
-            return {
-                resolution: 'client',
-                data: localData
-            };
-        } else {
-            // Same timestamp - merge where possible
-            console.log('⚖️ Same timestamp - merging');
-            const merged = { ...serverData, ...localData };
-            return {
-                resolution: 'merged',
-                data: merged
-            };
-        }
+    private setSyncing(val: boolean) {
+        this.isSyncing = val;
+        this.emitStateChange();
     }
 
-    // ========================================================================
-    // State Management
-    // ========================================================================
-
-    private updateState(updates: Partial<SyncState>): void {
-        this.state = { ...this.state, ...updates };
-        this.saveState();
-        this.emit('state-change', this.state);
+    private async emitStateChange() {
+        const count = await this.getPendingCount();
+        this.emit('state-change', {
+            status: this.isSyncing ? 'syncing' : 'idle',
+            pendingOperations: count
+        });
     }
 
-    // ========================================================================
-    // Public API
-    // ========================================================================
-
-    /**
-     * Get current sync state
-     */
-    getState(): SyncState {
-        return { ...this.state };
-    }
-
-    /**
-     * Check if currently syncing
-     */
-    isSyncInProgress(): boolean {
-        return this.isSyncing;
-    }
-
-    /**
-     * Manually trigger sync
-     */
-    async triggerSync(): Promise<void> {
-        await this.sync();
-    }
-
-    /**
-     * Pause automatic syncing
-     */
-    pause(): void {
-        this.stopPeriodicSync();
-        this.updateState({ status: SyncStatus.PAUSED });
-    }
-
-    /**
-     * Resume automatic syncing
-     */
-    resume(): void {
-        this.startPeriodicSync();
-        this.updateState({ status: SyncStatus.IDLE });
-    }
-
-    /**
-     * Queue an operation for sync
-     */
-    async queueOperation(
-        table: TableName,
-        operation: 'create' | 'update' | 'delete',
-        data: any
-    ): Promise<void> {
-        await offlineDB.addToSyncQueue({ table, operation, data });
-
-        const pendingCount = (await offlineDB.getPendingSyncQueue()).length;
-        this.updateState({ pendingOperations: pendingCount });
-
-        // Trigger immediate sync if online and not already syncing
-        if (networkManager.isOnline() && !this.isSyncing) {
-            // Debounce sync to avoid too many rapid syncs
-            setTimeout(() => this.sync(), 1000);
-        } else if (networkManager.isOffline()) {
-            // Register background sync task
-            requestBackgroundSync('offline-sync');
-        }
-    }
-
-    /**
-     * Get pending operations count
-     */
     async getPendingCount(): Promise<number> {
-        const queue = await offlineDB.getPendingSyncQueue();
-        return queue.length;
+        return await offlineDB.sync_queue.where('synced').equals(0).count();
     }
 
-    /**
-     * Clear failed operations
-     */
-    async clearFailed(): Promise<void> {
-        const queue = await offlineDB.getPendingSyncQueue();
-        const failed = queue.filter(item => item.data.retryCount >= this.maxRetries);
+    async triggerSync() {
+        return this.processQueue();
+    }
 
-        for (const item of failed) {
-            await offlineDB.removeFromSyncQueue(item.id);
+    private async replayAction(action: SyncAction): Promise<boolean> {
+        const { action_type, payload, table, operation } = action;
+
+        try {
+            switch (action_type) {
+                case 'TABLE_OP':
+                    if (!table || !operation) return false;
+                    const query = api.from(table);
+                    let result;
+                    
+                    if (operation === 'create') {
+                        result = await query.insert(payload);
+                    } else if (operation === 'update') {
+                        result = await query.eq('id', payload.id).update(payload);
+                    } else if (operation === 'upsert') {
+                        result = await query.upsert(payload);
+                    } else if (operation === 'delete') {
+                        result = await query.eq('id', payload.id).delete();
+                    }
+                    
+                    return !result?.error;
+
+                case 'ATTENDANCE':
+                    await api.saveAttendance(Array.isArray(payload) ? payload : [payload]);
+                    return true;
+                
+                case 'FEE_PAYMENT':
+                    await api.recordStudentPayment(payload);
+                    return true;
+
+                case 'GRADE_ENTRY':
+                    await api.saveGrade(payload);
+                    return true;
+
+                case 'LESSON_NOTE':
+                    await api.createLessonNote({
+                        ...payload,
+                        status: 'published' // Upgrade from 'draft_offline' on sync
+                    });
+                    return true;
+
+                default:
+                    return false;
+            }
+        } catch (err) {
+            console.error(`[SyncEngine] Error replaying action ${action_type}:`, err);
+            return false;
         }
-
-        this.updateState({ failedOperations: 0 });
-    }
-
-    /**
-     * Register event listener
-     */
-    on<K extends keyof SyncEventMap>(
-        event: K,
-        listener: (data: SyncEventMap[K]) => void
-    ): this {
-        return super.on(event, listener);
-    }
-
-    /**
-     * Remove event listener
-     */
-    off<K extends keyof SyncEventMap>(
-        event: K,
-        listener: (data: SyncEventMap[K]) => void
-    ): this {
-        return super.off(event, listener);
-    }
-
-    /**
-     * Cleanup
-     */
-    destroy(): void {
-        this.stopPeriodicSync();
-        this.removeAllListeners();
     }
 }
-
-// ============================================================================
-// Singleton Export
-// ============================================================================
 
 export const syncEngine = new SyncEngine();
-
-// Auto-start sync engine
-if (typeof window !== 'undefined') {
-    // Wait for initial network check and app hydration
-    setTimeout(() => {
-        if (networkManager.isOnline()) {
-            // Only trigger if last sync was more than 30 mins ago
-            const THIRTY_MINS = 30 * 60 * 1000;
-            const state = syncEngine.getState();
-            if (Date.now() - state.lastSync > THIRTY_MINS) {
-                syncEngine.triggerSync();
-            }
-        }
-    }, 5000); // Increased delay to let app settle
-}
+export default syncEngine;

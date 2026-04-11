@@ -1,50 +1,16 @@
-import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
-import { toast } from 'react-hot-toast';
-import { Database } from '../types/supabase';
-import {
-    Student,
-    Teacher,
-    Parent,
-    Notice,
-    ClassInfo,
-    Assignment,
-    Exam,
-    Conversation,
-    Message,
-    ReportCard,
-    Bus
-} from '../types';
-
-import {
-    isDemoMode,
-    backendFetch,
-    getFormattedClassName,
-    getGrade
-} from '../lib/apiHelpers';
-
 
 /**
- * Complete Database Service for School Management System
- * All data fetching happens here - NO mock data!
+ * Attendance Service
+ * Handles all attendance-related operations via the backend API.
  */
 
-
-// ============================================
-// CONNECTION CHECK
-// ============================================
-
-export async function checkSupabaseConnection(): Promise<boolean> {
+export async function checkBackendConnection(): Promise<boolean> {
     try {
-        const { error } = await supabase.from('students').select('id').limit(1);
-        if (error) {
-            console.error('Supabase connection check failed:', error.message);
-            return false;
-        }
-        console.log('✅ Supabase connected successfully');
-        return true;
+        const health = await api.checkBackendHealth();
+        return health.backend;
     } catch (err) {
-        console.error('Supabase connection exception:', err);
+        console.error('Backend connection check failed:', err);
         return false;
     }
 }
@@ -60,41 +26,20 @@ export async function saveAttendanceRecords(records: Array<{
     className?: string;
 }>): Promise<boolean> {
     try {
-        const inserts = records.map(r => ({
-            student_id: r.studentId,
-            date: r.date,
-            status: r.status,
-            class_name: r.className
-        }));
-
-        const { error } = await supabase
-            .from('student_attendance')
-            .upsert(inserts, {
-                onConflict: 'student_id,date',
-                ignoreDuplicates: false
-            });
-
-        if (error) throw error;
-        return true;
+        const result = await api.saveAttendance(records);
+        return !!result;
     } catch (err) {
         console.error('Error saving attendance records:', err);
         return false;
     }
 }
 
-export async function fetchAttendanceForClass(className: string, date: string): Promise<any[]> {
+export async function fetchAttendanceForClass(classId: string, date: string): Promise<any[]> {
     try {
-        const { data, error } = await supabase
-            .from('student_attendance')
-            .select('*')
-            .eq('class_name', className)
-            .eq('date', date);
-
-        if (error) throw error;
+        const data = await api.getAttendance(classId, date);
         return data || [];
     } catch (err) {
         console.error('Error fetching attendance:', err);
         return [];
     }
 }
-

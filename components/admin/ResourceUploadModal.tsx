@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase'; // Assuming strict supabase client
+import { api } from '../../lib/api'; // Assuming strict supabase client
 import { XCircleIcon, CloudUploadIcon, DocumentTextIcon, VideoIcon, PhotoIcon, MicrophoneIcon } from '../../constants';
 // import { useAuth } from '../../context/AuthContext'; // If needed for uploader ref
 
@@ -50,43 +50,27 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
         setProgress(10);
 
         try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const filePath = `lesson-materials/${fileName}`;
+            // Use the Express backend upload endpoint via the API client
+            const result = await api.uploadFile('resources', file.name, file);
+            const publicUrl = (result as any).publicUrl || (result as any).url;
 
-            // 1. Upload to Supabase Storage
-            const { error: uploadError } = await supabase.storage
-                .from('resources')
-                .upload(filePath, file, {
-                    cacheControl: '3600',
-                    upsert: false
-                });
-
-            if (uploadError) throw uploadError;
+            if (!publicUrl) throw new Error('Failed to get public URL');
 
             setProgress(60);
 
-            // 2. Get Public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('resources')
-                .getPublicUrl(filePath);
+            // 3. Insert into Resources Table via Backend API
+            await api.createLearningResource({
+                title,
+                description,
+                type: getFileType(file),
+                subject,
+                grade: parseInt(grade) || 0,
+                url: publicUrl,
+                language,
+                teacher_id: teacherId,
+                is_public: true
+            });
 
-            // 3. Insert into Resources Table
-            const { error: dbError } = await supabase
-                .from('resources')
-                .insert([{
-                    title,
-                    description,
-                    type: getFileType(file),
-                    subject,
-                    grade: parseInt(grade) || 0,
-                    url: publicUrl,
-                    language,
-                    teacher_id: teacherId,
-                    is_public: true // Default to public for MVP
-                }]);
-
-            if (dbError) throw dbError;
 
             setProgress(100);
             toast.success('Resource uploaded successfully!');
@@ -178,3 +162,4 @@ const ResourceUploadModal: React.FC<ResourceUploadModalProps> = ({ isOpen, onClo
 };
 
 export default ResourceUploadModal;
+

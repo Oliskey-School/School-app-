@@ -1,19 +1,15 @@
 
-import React, { useState, useMemo } from 'react';
-import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon, Sword, Mic2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { PlayIcon, Gamepad2 as GameControllerIcon, TrophyIcon, BriefcaseIcon, ChevronRightIcon, Search as SearchIcon, Sword, Mic2, Sparkles as SparklesIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { educationalGamesData, EducationalGame } from '../../../data/gamesData';
-import { mockStudents, mockCustomAIGames } from '../../../data';
+import { EducationalGame } from '../../../data/gamesData';
 import { Student, AIGame } from '../../../types';
-
-
-// Mock imports removed or kept if needed for other things
+import { api } from '../../../lib/api';
 
 interface GamesHubScreenProps {
-    navigateTo: (view: string, title?: string) => void;
+    navigateTo: (view: string, title?: string, props?: any) => void;
     student: Student;
 }
-
 
 const getStudentLevel = (grade: number): EducationalGame['level'] | null => {
     if (grade < 1) return 'Early Years (1-3 years)';
@@ -121,7 +117,62 @@ const LevelAccordion: React.FC<{ level: string; games: EducationalGame[]; defaul
     );
 };
 
-/* ... FeaturedGameCard ... */
+const LeaderboardSection: React.FC = () => {
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLeaderboard = async () => {
+            try {
+                // Fetching a specific game for now, can be 'global' once backend is updated
+                const data = await api.getLeaderboard('global'); 
+                setLeaderboard(data.slice(0, 5)); // Top 5
+            } catch (err) {
+                console.error('Error fetching leaderboard:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchLeaderboard();
+    }, []);
+
+    if (loading) return null;
+    if (leaderboard.length === 0) return null;
+
+    return (
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100">
+            <h3 className="text-xl font-black text-gray-900 mb-4 flex items-center gap-2">
+                <TrophyIcon className="w-6 h-6 text-yellow-500" />
+                Live Leaderboard
+            </h3>
+            <div className="space-y-3">
+                {leaderboard.map((entry, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-orange-50 transition-colors border border-transparent hover:border-orange-100">
+                        <div className="flex items-center gap-3">
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                                i === 0 ? 'bg-yellow-100 text-yellow-700' :
+                                i === 1 ? 'bg-slate-200 text-slate-700' :
+                                i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-600'
+                            }`}>
+                                {i + 1}
+                            </span>
+                            <div>
+                                <p className="font-bold text-gray-800 leading-none">{entry.player?.full_name || 'Anonymous'}</p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">{entry.game_name}</p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-lg font-black text-orange-600 leading-none">{entry.score}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Points</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+/* FeaturedGameCard Component */
 const FeaturedGameCard: React.FC<{ title: string; description: string; icon: React.ReactNode; bgColor: string; onClick: () => void; }> = ({ title, description, icon, bgColor, onClick }) => (
     <div className={`flex-shrink-0 w-72 md:w-80 h-48 ${bgColor} rounded-2xl p-5 flex flex-col justify-between text-white shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1 cursor-pointer`}>
         <div>
@@ -135,22 +186,45 @@ const FeaturedGameCard: React.FC<{ title: string; description: string; icon: Rea
     </div>
 );
 
-/* ... Main Component ... */
 const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) => {
-    /* ... Logic ... */
+    const [dbGames, setDbGames] = useState<EducationalGame[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchGames = async () => {
+            try {
+                setLoading(true);
+                const data = await api.getGames();
+                // Map DB games to UI interface
+                const mappedGames: EducationalGame[] = data.map((g: any) => ({
+                    id: g.id,
+                    gameName: g.title,
+                    subject: g.game_type,
+                    level: g.config?.level || 'Junior Secondary (12-14 years)',
+                    mode: g.config?.mode || 'Both',
+                    howToPlay: g.config?.howToPlay || g.description,
+                    learningGoal: g.description,
+                    topic: g.config?.topic || g.game_type
+                }));
+                setDbGames(mappedGames);
+            } catch (err) {
+                console.error('Error fetching games:', err);
+                toast.error('Failed to load games catalog');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchGames();
+    }, []);
+
     const studentLevel = getStudentLevel(student?.grade || 1);
 
-
-    const customGamesForLevel = useMemo(() => {
-        return mockCustomAIGames.filter(game => game.level === studentLevel && game.status === 'Published');
-    }, [studentLevel]);
-
     const gamesByLevel = useMemo(() => {
-        return educationalGamesData.reduce((acc, game) => {
+        return dbGames.reduce((acc, game) => {
             (acc[game.level] = acc[game.level] || []).push(game);
             return acc;
         }, {} as Record<string, EducationalGame[]>);
-    }, []);
+    }, [dbGames]);
 
     const levels: EducationalGame['level'][] = [
         'Early Years (1-3 years)',
@@ -245,34 +319,39 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
         return allGames.filter(g => g.subject.includes(activeCategory) || (activeCategory === "Logic" && g.gameName.includes("Code")));
     }, [activeCategory, gamesByLevel]);
 
+    if (loading) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center bg-gray-50 p-8 space-y-4">
+                <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin"></div>
+                <p className="text-orange-600 font-bold animate-pulse">Loading Games Catalog...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="h-full overflow-y-auto pb-20 bg-gray-50">
             <div className="p-4 space-y-8 max-w-7xl mx-auto w-full">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 md:p-10 text-white text-center shadow-lg relative overflow-hidden">
-                    <div className="relative z-10 max-w-2xl mx-auto">
-                        <GameControllerIcon className="h-12 w-12 md:h-16 md:w-16 mx-auto text-white mb-4 opacity-90" />
-                        <h3 className="font-extrabold text-3xl md:text-4xl mb-3 tracking-tight">Games Arcade</h3>
-                        <p className="text-orange-50 text-base md:text-lg font-medium opacity-90 max-w-md mx-auto">
-                            Play educational games, earn badges, and climb the leaderboard!
-                        </p>
+                <div className="relative overflow-hidden bg-indigo-600 rounded-3xl p-8 text-white shadow-2xl">
+                    <div className="relative z-10">
+                        <h1 className="text-4xl font-black tracking-tight">Game Center</h1>
+                        <p className="text-indigo-100 mt-2 text-lg font-medium opacity-90">Ready for a learning adventure, {student?.name}?</p>
                     </div>
-                    {/* Decorative circles */}
-                    <div className="absolute top-0 left-0 w-32 h-32 md:w-48 md:h-48 bg-white opacity-10 rounded-full -translate-x-10 -translate-y-10 blur-xl"></div>
-                    <div className="absolute bottom-0 right-0 w-24 h-24 md:w-40 md:h-40 bg-white opacity-10 rounded-full translate-x-5 translate-y-5 blur-xl"></div>
+                    <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 -ml-10 -mb-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-2xl"></div>
                 </div>
 
-                {/* Featured Section */}
-                <div>
-                    <div className="flex items-center justify-between px-1 mb-4">
-                        <h3 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            <PlayIcon className="w-6 h-6 text-orange-600" />
+                {/* Featured Horizontal Scroll */}
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center px-2">
+                        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                            <SparklesIcon className="w-6 h-6 text-yellow-500" />
                             Featured Games
-                        </h3>
+                        </h2>
                     </div>
-                    <div className="flex overflow-x-auto pb-6 gap-6 snap-x snap-mandatory no-scrollbar px-1 -mx-1 py-1">
-                        {featuredGames.map(game => (
-                            <div key={game.title} className="snap-start">
+                    <div className="flex space-x-4 overflow-x-auto pb-6 px-2 scrollbar-hide snap-x">
+                        {featuredGames.map((game, i) => (
+                            <div key={i} className="snap-center">
                                 <FeaturedGameCard
                                     title={game.title}
                                     description={game.description}
@@ -285,49 +364,79 @@ const GamesHubScreen: React.FC<GamesHubScreenProps> = ({ navigateTo, student }) 
                     </div>
                 </div>
 
-                {/* Categories & Library */}
-                <div>
-                    <div className="flex items-center justify-between px-1 mb-4">
-                        <h3 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
-                            <BriefcaseIcon className="w-6 h-6 text-blue-600" />
-                            Browse Library
-                        </h3>
-                    </div>
+                {/* Leaderboard and Categories Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-8">
+                        {/* Categories */}
+                        <div className="flex space-x-2 overflow-x-auto py-2 scrollbar-hide no-scrollbar">
+                            {categoryTabs.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setActiveCategory(cat)}
+                                    className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap shadow-sm ${
+                                        activeCategory === cat 
+                                        ? 'bg-indigo-600 text-white shadow-indigo-200' 
+                                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
 
-                    <div className="space-y-4">
-                        {levels.map((level) => (
-                            gamesByLevel[level] && gamesByLevel[level].length > 0 && (
-                                <LevelAccordion
-                                    key={level}
-                                    level={level}
-                                    games={gamesByLevel[level]}
-                                    defaultOpen={false}
+                        {/* Your Level Section */}
+                        {studentLevel && gamesByLevel[studentLevel] && activeCategory === "All" && (
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-black text-gray-900 px-2 flex items-center gap-2">
+                                    <div className="w-2 h-8 bg-orange-500 rounded-full"></div>
+                                    Just for Your Level
+                                </h2>
+                                <LevelAccordion 
+                                    level={studentLevel} 
+                                    games={gamesByLevel[studentLevel]} 
+                                    defaultOpen={true}
                                     navigateTo={navigateTo}
                                     student={student}
                                 />
-                            )
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="lg:col-span-1">
+                        <LeaderboardSection />
+                    </div>
+                </div>
+
+                {/* All Levels Selection */}
+                <div className="space-y-4">
+                    <h2 className="text-xl font-black text-gray-900 px-2">Browse All Levels</h2>
+                    <div className="space-y-4">
+                        {levels.filter(l => l !== studentLevel || activeCategory !== "All").map(level => (
+                            <LevelAccordion 
+                                key={level} 
+                                level={level} 
+                                games={gamesByLevel[level] || []}
+                                navigateTo={navigateTo}
+                                student={student}
+                            />
                         ))}
                     </div>
                 </div>
 
-                {/* Coming Soon Section */}
-                <div>
-                    <div className="flex items-center gap-2 px-1 mb-4">
-                        <h3 className="text-lg md:text-xl font-bold text-gray-500 uppercase tracking-widest text-sm">Coming Soon</h3>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {comingSoonGames.map((game, i) => (
-                            <div key={i} className="bg-white rounded-xl p-6 border border-gray-200 border-dashed relative overflow-hidden flex flex-col items-center text-center opacity-80 hover:opacity-100 transition-opacity">
-                                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3 text-2xl">
-                                    {game.category === 'Language' ? '📚' : game.category === 'History' ? '🏛️' : '🔬'}
+                {/* Coming Soon */}
+                <div className="bg-gray-100 rounded-3xl p-8 border-2 border-dashed border-gray-300 transition-all hover:border-indigo-300">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="text-center md:text-left">
+                            <h3 className="text-2xl font-black text-gray-800">Mystery Games?</h3>
+                            <p className="text-gray-500 font-medium mt-1">Our AI is designing something special just for you!</p>
+                        </div>
+                        <div className="flex -space-x-4">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="w-14 h-14 rounded-2xl bg-white shadow-lg flex items-center justify-center text-2xl animate-bounce" style={{ animationDelay: `${i * 0.2}s` }}>
+                                    {['🎁', '🎲', '🧩'][i-1]}
                                 </div>
-                                <h4 className="font-bold text-gray-900 mb-1">{game.title}</h4>
-                                <p className="text-sm text-gray-500 mb-3">{game.description}</p>
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 border border-gray-200 px-2 py-1 rounded inline-block">
-                                    In Development
-                                </span>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -28,4 +28,5 @@ export const useAutoSync = (tables: string[], onUpdate: () => void) => {
         };
     }, [tables.join(','), onUpdate]);
 };
+
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import {
     PlusIcon,
     SearchIcon,
@@ -10,8 +10,10 @@ import {
     Calendar,
     Wrench,
     HardDrive,
-    Shield
+    Shield,
+    RefreshCw
 } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 
 interface Equipment {
@@ -24,7 +26,7 @@ interface Equipment {
     purchase_date: string;
     next_service_date: string;
     facility_id: string | null;
-    facility_registers?: { name: string };
+    facility?: { name: string };
 }
 
 const EquipmentInventoryScreen = () => {
@@ -51,23 +53,27 @@ const EquipmentInventoryScreen = () => {
         }
     }, [currentSchool]);
 
+    useAutoSync(['equipment'], () => {
+        console.log('🔄 [EquipmentInventory] Real-time auto-sync triggered');
+        fetchData();
+    });
+
     const fetchData = async () => {
         if (!currentSchool) return;
         setLoading(true);
-        const { data: equipData } = await supabase
-            .from('equipment_tracking')
-            .select('*, facility_registers(name)')
-            .eq('school_id', currentSchool.id)
-            .order('name');
+        try {
+            const [equipData, facData] = await Promise.all([
+                api.getEquipment(),
+                api.getFacilities()
+            ]);
 
-        const { data: facData } = await supabase
-            .from('facility_registers')
-            .select('id, name')
-            .eq('school_id', currentSchool.id);
-
-        if (equipData) setEquipment(equipData);
-        if (facData) setFacilities(facData);
-        setLoading(false);
+            if (equipData) setEquipment(equipData);
+            if (facData) setFacilities(facData);
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleAdd = async () => {
@@ -85,13 +91,7 @@ const EquipmentInventoryScreen = () => {
                 school_id: currentSchool.id
             };
 
-            const { error } = await supabase.from('equipment_tracking').insert([payload]);
-
-            if (error) {
-                console.error('Failed to add equipment:', error);
-                alert(`Failed to add equipment: ${error.message}`);
-                return;
-            }
+            await api.createEquipment(payload);
 
             setIsAdding(false);
             setNewEquipment({
@@ -111,10 +111,12 @@ const EquipmentInventoryScreen = () => {
 
     const handleDelete = async (id: string) => {
         if (!window.confirm('Delete this item?') || !currentSchool) return;
-        const { error } = await supabase.from('equipment_tracking').delete()
-            .eq('id', id)
-            .eq('school_id', currentSchool.id);
-        if (!error) fetchData();
+        try {
+            await api.deleteEquipment(id);
+            fetchData();
+        } catch (error) {
+            console.error('Failed to delete equipment:', error);
+        }
     };
 
     const isNearService = (date: string) => {
@@ -215,7 +217,7 @@ const EquipmentInventoryScreen = () => {
                                     </td>
                                     <td className="px-6 py-5">
                                         <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-lg">
-                                            {item.facility_registers?.name || 'Unassigned'}
+                                            {item.facility?.name || 'Unassigned'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-5">

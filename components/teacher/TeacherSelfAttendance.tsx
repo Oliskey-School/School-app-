@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../lib/api';
-import { supabase } from '../../lib/supabase';
+
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, CalendarIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
@@ -43,7 +43,8 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
             setAttendanceHistory(history || []);
 
             // Find today's entry
-            const todayStr = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const today = history.find(h => h.date === todayStr);
             setTodayStatus(today || null);
             
@@ -61,22 +62,14 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
     }, [user?.id]);
 
     useEffect(() => {
-        const handleRealtimeUpdate = (event: any) => {
-            const { table } = event.detail;
-            if (table === 'teacher_attendance') {
-                console.log('🔄 [SelfAttendance] Realtime update detected, refreshing...');
-                loadAttendanceData();
-            }
-        };
-
-        window.addEventListener('realtime-update', handleRealtimeUpdate);
-        return () => window.removeEventListener('realtime-update', handleRealtimeUpdate);
+        loadAttendanceData();
     }, [user?.id]);
+
 
     const handleCheckIn = async () => {
         setSubmitting(true);
         try {
-            const result = await api.submitTeacherAttendance();
+            const result = await api.submitMyAttendance();
             console.log('✅ [SelfAttendance] Check-in result:', result);
             toast.success("Attendance marked successfully!");
             
@@ -207,3 +200,5 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
 };
 
 export default TeacherSelfAttendance;
+
+

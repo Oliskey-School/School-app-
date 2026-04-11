@@ -3,7 +3,7 @@
  * Handles absence notifications to parents via SMS and email
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { sendAbsenceNotificationEmail } from './emailService';
 
 interface AbsenceNotificationParams {
@@ -17,51 +17,41 @@ interface AbsenceNotificationParams {
  */
 export const sendAbsenceNotification = async (params: AbsenceNotificationParams): Promise<{ success: boolean; error?: string }> => {
     try {
-        // Get student details
-        const { data: student, error: studentError } = await supabase
-            .from('students')
-            .select('id, name, grade, section, user_id')
-            .eq('id', params.studentId)
-            .single();
+        // 1. Get student details via direct API method
+        const student = await api.getStudent(params.studentId.toString());
 
-        if (studentError || !student) {
-            console.error('Error fetching student:', studentError);
+        if (!student) {
+            console.error('Student not found:', params.studentId);
             return { success: false, error: 'Student not found' };
         }
 
-        // Get parent(s) for the student
-        const { data: parentLinks, error: linksError } = await supabase
-            .from('parent_children')
-            .select('parent_id')
-            .eq('student_id', student.id);
+        // 2. Get parent(s) for the student
+        // Assuming we can get parents linked to this student
+        const parents = await api.getParentsByStudentId(student.id);
+        
+        // Fallback or specific method if available
+        let parentProfiles = parents;
+        if (!parentProfiles) {
+            // If specific method missing, use the generic users endpoint filtered by parent role if possible
+            // Or better, if we have a classroom-based parent fetch
+            if (student.class_id) {
+                parentProfiles = await api.getParentsByClassId(student.class_id);
+            }
+        }
 
-        if (linksError || !parentLinks || parentLinks.length === 0) {
+        if (!parentProfiles || parentProfiles.length === 0) {
             console.warn('No parents found for student:', student.id);
-            return { success: true }; // Not an error, just no parents linked
+            return { success: true }; 
         }
 
-        const parentIds = parentLinks.map((link: any) => link.parent_id);
-
-        // Get parent profiles with email and phone
-        const { data: parents, error: parentsError } = await supabase
-            .from('profiles')
-            .select('id, name, email, phone, notification_preferences')
-            .in('id', parentIds)
-            .eq('role', 'parent');
-
-        if (parentsError || !parents || parents.length === 0) {
-            console.warn('Parent profiles not found');
-            return { success: true };
-        }
-
-        // Send notifications to each parent
+        // 3. Send notifications to each parent
         const results = {
             emailsSent: 0,
             smsSent: 0,
             errors: [] as string[]
         };
 
-        for (const parent of parents) {
+        for (const parent of parentProfiles) {
             const prefs = parent.notification_preferences || {};
 
             // Send email notification
@@ -82,25 +72,20 @@ export const sendAbsenceNotification = async (params: AbsenceNotificationParams)
                 }
             }
 
-            // Send SMS notification (high priority)
+            // Send SMS notification
             if (parent.phone && prefs.sms !== false) {
                 try {
                     const smsMessage = `${student.name} was marked absent on ${new Date(params.date).toLocaleDateString()}. Please confirm or provide explanation via the school portal.`;
 
-                    // Call edge function for SMS
-                    const { data: authData } = await supabase.auth.getSession();
-                    if (authData.session) {
-                        await supabase.functions.invoke('send-notification', {
-                            body: {
-                                userId: parent.id,
-                                title: 'Student Absence',
-                                body: smsMessage,
-                                urgency: 'high',
-                                channel: 'sms'
-                            }
-                        });
-                        results.smsSent++;
-                    }
+                    // Use the unified sendNotification method which replaces the edge function
+                    await api.sendNotification({
+                        userId: parent.id,
+                        title: 'Student Absence',
+                        body: smsMessage,
+                        urgency: 'high',
+                        channel: 'sms'
+                    });
+                    results.smsSent++;
                 } catch (err) {
                     console.error('Error sending absence SMS:', err);
                     results.errors.push(`SMS to ${parent.phone} failed`);
@@ -108,10 +93,11 @@ export const sendAbsenceNotification = async (params: AbsenceNotificationParams)
             }
         }
 
-        console.log('✅ Absence notifications sent:', results);
+        console.log('✅ Attendance notifications sent:', results);
         return { success: true };
     } catch (err: any) {
         console.error('Error in sendAbsenceNotification:', err);
         return { success: false, error: err.message };
     }
 };
+

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Loader2, CheckCircle, XCircle, Mail } from 'lucide-react';
 
 /**
  * Auth Confirmation Route
- * Handles email verification tokens from Supabase confirmation emails
- * Automatically exchanges token for session and redirects to dashboard
+ * Handles email verification tokens from confirmation emails
+ * Automatically verifies token with backend and redirects to dashboard
  */
 
 export const AuthConfirm: React.FC = () => {
@@ -18,68 +18,28 @@ export const AuthConfirm: React.FC = () => {
             try {
                 // Helper to extract params from various sources
                 const getParams = () => {
-                    // 1. Try standard query params (PKCE flow often uses this)
                     const searchParams = new URLSearchParams(window.location.search);
-                    if (searchParams.has('code') || searchParams.has('access_token') || searchParams.has('error')) {
+                    if (searchParams.has('code') || searchParams.has('token') || searchParams.has('error')) {
                         return searchParams;
                     }
 
-                    // 2. Try Hash params (Implicit flow)
-                    const hash = window.location.hash.substring(1); // Remove #
-
-                    // Handle HashRouter case: "/auth/callback?token=..."
+                    const hash = window.location.hash.substring(1); 
                     const queryIndex = hash.indexOf('?');
                     if (queryIndex !== -1) {
                         return new URLSearchParams(hash.substring(queryIndex + 1));
                     }
 
-                    // Handle standard hash: "access_token=..."
                     return new URLSearchParams(hash);
                 };
 
                 const params = getParams();
-                const accessToken = params.get('access_token') || params.get('token'); // Some flows use 'token'
-                const refreshToken = params.get('refresh_token');
-                const type = params.get('type');
-                const code = params.get('code'); // PKCE code
+                const token = params.get('token') || params.get('access_token') || params.get('code');
+                const type = params.get('type') || 'signup';
                 const errorDescription = params.get('error_description');
 
                 if (errorDescription) {
                     throw new Error(errorDescription.replace(/\+/g, ' '));
                 }
-
-                // Helper to sync confirmation to our database
-                const syncConfirmation = async (userId: string) => {
-                    try {
-                        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                        await fetch(`${API_URL}/auth/confirm-email`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId })
-                        });
-                    } catch (e) {
-                        console.error('Failed to sync confirmation to backend:', e);
-                    }
-                };
-
-                // Handle PKCE code exchange if present
-                if (code) {
-                    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-                    if (error) throw error;
-                    if (data.session) {
-                        setStatus('success');
-                        await syncConfirmation(data.session.user.id);
-
-                        localStorage.setItem('show_welcome_toast', 'true');
-                        setTimeout(() => {
-                            window.location.hash = '';
-                            window.location.reload();
-                        }, 1500);
-                        return;
-                    }
-                }
-
-                const token = accessToken;
 
                 if (!token) {
                     setStatus('error');
@@ -87,55 +47,22 @@ export const AuthConfirm: React.FC = () => {
                     return;
                 }
 
-                // If we have access_token and refresh_token from hash, set session directly
-                if (accessToken && refreshToken) {
-                    const { data, error: sessionError } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken
-                    });
+                // Verify with our custom backend
+                const response = await api.verifyToken(token, type);
 
-                    if (sessionError) throw sessionError;
-
-                    if (data.user) {
-                        await syncConfirmation(data.user.id);
+                if (response.user) {
+                    // Success - backend should return user and token
+                    if (response.token) {
+                        localStorage.setItem('auth_token', response.token);
                     }
-
-                    // Success
+                    
                     setStatus('success');
                     localStorage.setItem('show_welcome_toast', 'true');
 
                     // Clear hash and reload to dashboard
                     setTimeout(() => {
                         window.location.hash = '';
-                        window.location.reload();
-                    }, 1500);
-                    return;
-                }
-
-                // Otherwise, verify using OTP method (fallback)
-                const { data, error } = await supabase.auth.verifyOtp({
-                    token_hash: token,
-                    type: (type as any) || 'signup'
-                });
-
-                if (error) {
-                    throw error;
-                }
-
-                if (data.user) {
-                    await syncConfirmation(data.user.id);
-
-                    setStatus('success');
-                    localStorage.setItem('show_welcome_toast', 'true');
-
-                    // Get user role from metadata to redirect to appropriate dashboard
-                    const userRole = data.user.user_metadata?.role || data.user.app_metadata?.role || 'admin';
-                    console.log('User verified with role:', userRole);
-
-                    // Clear hash and reload to dashboard
-                    setTimeout(() => {
-                        window.location.hash = '';
-                        window.location.reload();
+                        window.location.href = '/'; // Go to root/dashboard
                     }, 1500);
                 } else {
                     throw new Error('Email verification succeeded but no user returned');
@@ -145,7 +72,6 @@ export const AuthConfirm: React.FC = () => {
                 setStatus('error');
 
                 if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-                    console.warn('Request aborted, likely due to navigation or double-mount. Ignoring.');
                     return;
                 }
 
@@ -166,16 +92,11 @@ export const AuthConfirm: React.FC = () => {
     const handleResendEmail = async () => {
         try {
             if (!email) {
-                setErrorMessage('Email address is required to resend verification. Please log in and try again.');
+                setErrorMessage('Email address is required to resend verification. Please try to log in again.');
                 return;
             }
 
-            const { error } = await supabase.auth.resend({
-                type: 'signup',
-                email: email
-            });
-
-            if (error) throw error;
+            await api.resendVerification(email);
 
             setStatus('success');
             setErrorMessage('Verification email sent! Please check your inbox.');
@@ -186,7 +107,7 @@ export const AuthConfirm: React.FC = () => {
 
     const handleBackToLogin = () => {
         window.location.hash = '';
-        window.location.reload();
+        window.location.href = '/login';
     };
 
     return (

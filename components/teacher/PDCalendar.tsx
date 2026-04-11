@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import {
     CalendarIcon,
     ClockIcon,
@@ -33,15 +33,7 @@ const PDCalendar: React.FC = () => {
     const fetchEvents = async () => {
         try {
             setLoading(true);
-
-            const { data, error } = await supabase
-                .from('pd_events')
-                .select('*')
-                .gte('start_date', new Date().toISOString())
-                .order('start_date');
-
-            if (error) throw error;
-
+            const data = await api.getPDCalendarEvents();
             const formatted: PDEvent[] = (data || []).map((e: any) => ({
                 id: e.id,
                 title: e.title,
@@ -52,9 +44,8 @@ const PDCalendar: React.FC = () => {
                 location: e.location,
                 is_virtual: e.is_virtual,
                 max_participants: e.max_participants,
-                is_registered: false
+                is_registered: e.is_registered || false
             }));
-
             setEvents(formatted);
         } catch (error: any) {
             console.error('Error fetching events:', error);
@@ -179,3 +170,4 @@ const PDCalendar: React.FC = () => {
 };
 
 export default PDCalendar;
+

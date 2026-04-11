@@ -33,3 +33,33 @@ export const markAsRead = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const createPlatformNotification = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await NotificationService.createPlatformNotification({
+            ...req.body,
+            createdBy: req.user.id
+        });
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getAllPlatformNotifications = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await NotificationService.getAllPlatformNotifications();
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getMyPlatformNotifications = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await NotificationService.getPlatformNotificationsForSchool(req.user.school_id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

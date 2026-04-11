@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Award, TrendingUp, BookOpen, Download, FileText, Users, LogOut, Settings, Camera, ChevronRight, Bell, Shield, Book } from 'lucide-react'; // Using Lucide icons for consistency with Professional profile
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { useProfile } from '../../context/ProfileContext';
 import { ExamIcon, LogoutIcon } from '../../constants'; // Keep custom icons where needed
@@ -34,26 +34,22 @@ export default function StudentProfileStandard({ studentId, student: initialStud
     const fetchStudentData = async () => {
         setLoading(true);
         try {
-            const { data } = await supabase
-                .from('students')
-                .select('*')
-                .eq('id', studentId)
-                .single();
+            const data = await api.getStudentProfile(studentId.toString());
 
             if (data) {
                 setStudent({
                     ...data,
-                    name: data.name,
+                    name: data.name || `${data.firstName} ${data.lastName}`,
                     email: data.email,
-                    phone: data.parent_phone || 'N/A', // Assuming parent phone as contact for student profile
-                    class_name: `Grade ${data.grade}${data.section}`,
-                    admission_number: data.school_generated_id,
-                    date_of_birth: data.birthday,
+                    phone: data.parentPhone || data.phone || 'N/A',
+                    class_name: data.className || `Grade ${data.grade}${data.section}`,
+                    admission_number: data.schoolGeneratedId || data.school_generated_id || data.admissionNumber,
+                    date_of_birth: data.birthday || data.dateOfBirth,
                     address: data.address || 'School Address',
-                    guardian_name: data.parent_name || 'Parent',
-                    guardian_phone: data.parent_phone || 'N/A',
-                    attendance_rate: data.attendance_status === 'Present' ? 98 : 95, // Mock if not tracked
-                    average_grade: 88, // Mock
+                    guardian_name: data.parentName || 'Parent',
+                    guardian_phone: data.parentPhone || 'N/A',
+                    attendance_rate: data.attendanceRate || 95,
+                    average_grade: data.averageGrade || 88,
                 });
             }
         } catch (error) {
@@ -342,3 +338,4 @@ function EventItem({ date, title }: any) {
         </div>
     );
 }
+

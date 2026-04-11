@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { generatePayslip, savePayslip, approvePayslip, PayslipItem, generateBulkPayslips } from '../../lib/payslipGenerator';
 import { formatCurrency } from '../../lib/payroll';
@@ -45,7 +45,7 @@ const PayslipGenerator: React.FC = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-            let teachersQuery = supabase
+            let teachersQuery = api
                 .from('teacher_salaries')
                 .select(`
           teacher_id,
@@ -391,3 +391,4 @@ const PayslipGenerator: React.FC = () => {
 };
 
 export default PayslipGenerator;
+

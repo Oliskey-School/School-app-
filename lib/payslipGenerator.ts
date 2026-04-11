@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { api } from './api';
 import { calculateGrossSalary, calculateMonthlyTax, calculatePension, calculateNetSalary } from './payroll';
 import { SalaryComponent } from './payroll';
 
@@ -40,7 +40,7 @@ export async function generatePayslip(
 ): Promise<PayslipData | null> {
     try {
         // Get teacher and salary info
-        let query = supabase
+        let query = api
             .from('teacher_salaries')
             .select('*, teachers!inner(full_name, school_id, branch_id)')
             .eq('teacher_id', teacherId)
@@ -115,7 +115,7 @@ export async function generatePayslip(
 export async function savePayslip(payslipData: PayslipData): Promise<string | null> {
     try {
         // Insert payslip
-        const { data: payslip, error: payslipError } = await supabase
+        const { data: payslip, error: payslipError } = await api
             .from('payslips')
             .insert({
                 teacher_id: payslipData.teacher_id,
@@ -148,7 +148,7 @@ export async function savePayslip(payslipData: PayslipData): Promise<string | nu
             item_type: item.type === 'earning' ? 'Earning' : 'Deduction'
         }));
 
-        const { error: itemsError } = await supabase
+        const { error: itemsError } = await api
             .from('payslip_items')
             .insert(itemsToInsert);
 
@@ -169,7 +169,7 @@ export async function savePayslip(payslipData: PayslipData): Promise<string | nu
  */
 export async function approvePayslip(payslipId: string): Promise<boolean> {
     try {
-        const { error } = await supabase
+        const { error } = await api
             .from('payslips')
             .update({ status: 'Approved' })
             .eq('id', payslipId);
@@ -191,7 +191,7 @@ export async function generateBulkPayslips(
     branchId?: string
 ): Promise<{ success: number; failed: number }> {
     try {
-        let query = supabase
+        let query = api
             .from('teacher_salaries')
             .select('teacher_id, teachers!inner(school_id, branch_id)')
             .eq('is_active', true)
@@ -237,3 +237,4 @@ export async function generateBulkPayslips(
         return { success: 0, failed: 0 };
     }
 }
+

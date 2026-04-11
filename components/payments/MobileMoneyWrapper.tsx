@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fee } from '../../types';
 import { initializeTransaction, verifyTransaction } from '../../lib/payments';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface MobileMoneyWrapperProps {
     fee: Fee;
@@ -138,7 +138,7 @@ export const MobileMoneyWrapper: React.FC<MobileMoneyWrapperProps> = ({
 
                     // Send payment confirmation
                     try {
-                        const { data: transaction } = await supabase
+                        const { data: transaction } = await api
                             .from('transactions')
                             .select('id')
                             .eq('reference', reference)

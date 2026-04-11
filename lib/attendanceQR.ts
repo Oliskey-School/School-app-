@@ -3,7 +3,7 @@
  * Handles generation and validation of secure QR codes for student check-in.
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { notifyStudentsAndParents } from './notifications';
 
 export interface AttendanceResult {
@@ -27,7 +27,7 @@ export async function processQRCheckIn(
         // Here we assume it's a student_id or a secure token.
         const studentId = qrData; 
 
-        const { data: student, error: studentError } = await supabase
+        const { data: student, error: studentError } = await api
             .from('students')
             .select('id, name, user_id')
             .eq('id', studentId)
@@ -38,7 +38,7 @@ export async function processQRCheckIn(
         const timestamp = new Date().toISOString();
 
         // Log to attendance_records
-        const { error: attendanceError } = await supabase
+        const { error: attendanceError } = await api
             .from('attendance_records')
             .insert({
                 student_id: student.id,
@@ -69,3 +69,4 @@ export async function processQRCheckIn(
         return { success: false, error: error.message };
     }
 }
+

@@ -11,6 +11,25 @@ vi.mock('../../../lib/auth', () => ({
     logoutUser: vi.fn(),
 }));
 
+// Mock api to prevent AuthContext initialization errors
+vi.mock('../../../lib/api', () => ({
+    api: {
+        getMe: vi.fn().mockResolvedValue(null),
+        getMemberships: vi.fn().mockResolvedValue([]),
+    }
+}));
+
+// Mock AuthContext to provide signIn function and prevent auto-initialization
+vi.mock('../../../context/AuthContext', () => ({
+    useAuth: () => ({
+        signIn: vi.fn().mockResolvedValue(undefined),
+        signInWithGoogle: vi.fn(),
+        loading: false,
+        user: null,
+    }),
+    AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 describe('Login Component Integration Tests', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -21,8 +40,8 @@ describe('Login Component Integration Tests', () => {
         renderWithProviders(<Login onNavigateToSignup={vi.fn()} onNavigateToCreateSchool={vi.fn()} />);
         
         // Use findBy to wait for AuthProvider loading to finish
-        expect(await screen.findByText(/School Admin Sign In/i)).toBeDefined();
-        expect(await screen.findByPlaceholderText(/Gmail or Username/i)).toBeDefined();
+        expect(await screen.findByText(/School Portal Sign In/i)).toBeDefined();
+        expect(await screen.findByPlaceholderText(/Email or Username/i)).toBeDefined();
         expect(await screen.findByPlaceholderText(/Password/i)).toBeDefined();
     });
 
@@ -40,7 +59,7 @@ describe('Login Component Integration Tests', () => {
 
             renderWithProviders(<Login onNavigateToSignup={vi.fn()} />);
 
-            const emailInput = await screen.findByPlaceholderText(/Gmail or Username/i);
+            const emailInput = await screen.findByPlaceholderText(/Email or Username/i);
             const passwordInput = await screen.findByPlaceholderText(/Password/i);
             const signInBtn = await screen.findByRole('button', { name: /Sign In/i });
 
@@ -61,7 +80,7 @@ describe('Login Component Integration Tests', () => {
 
             renderWithProviders(<Login onNavigateToSignup={vi.fn()} />);
 
-            const emailInput = await screen.findByPlaceholderText(/Gmail or Username/i);
+            const emailInput = await screen.findByPlaceholderText(/Email or Username/i);
             const passwordInput = await screen.findByPlaceholderText(/Password/i);
             const signInBtn = await screen.findByRole('button', { name: /Sign In/i });
 
@@ -89,8 +108,8 @@ describe('Login Component Integration Tests', () => {
             const tryDemoBtn = await screen.findByText(/Try Demo School/i);
             fireEvent.click(tryDemoBtn);
 
-            const adminBtn = await screen.findByText(/Admin/i);
-            fireEvent.click(adminBtn);
+            const adminBtn = await screen.findAllByText(/Admin/i);
+            fireEvent.click(adminBtn[0]);
 
             await waitFor(() => {
                 expect(authenticateUser).toHaveBeenCalled();

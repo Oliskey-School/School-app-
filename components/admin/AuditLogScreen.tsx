@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { fetchAuditLogs } from '../../lib/database';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 import {
   LoginIcon,
@@ -44,18 +44,29 @@ const AuditLogScreen: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Unified Backend-driven Auto Sync
+  useAutoSync(['audit_logs'], () => {
+    console.log('🔄 [AuditLogScreen] Auto-sync triggered');
+    loadLogs();
+  });
+
   useEffect(() => {
-    if (currentSchool) {
+    if (currentSchool?.id) {
       loadLogs();
     }
-  }, [currentSchool]);
+  }, [currentSchool?.id]);
 
   const loadLogs = async () => {
     if (!currentSchool) return;
     setLoading(true);
-    const data = await fetchAuditLogs(50, currentSchool.id);
-    setLogs(data);
-    setLoading(false);
+    try {
+      const data = await api.getAuditLogs(currentSchool.id, 50);
+      setLogs(data);
+    } catch (err) {
+      console.error("Failed to load audit logs:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const mapActionToType = (action: string): AuditLogActionType => {

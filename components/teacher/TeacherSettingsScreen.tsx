@@ -28,7 +28,7 @@ import TeacherNotificationSettingsScreen from './TeacherNotificationSettingsScre
 import TeacherSecurityScreen from './TeacherSecurityScreen';
 import ProfessionalDevelopmentScreen from './ProfessionalDevelopmentScreen';
 import CBTManagementScreen from './CBTManagementScreen';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { Copy } from 'lucide-react';
 
@@ -275,3 +275,4 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
 };
 
 export default TeacherSettingsScreen;
+

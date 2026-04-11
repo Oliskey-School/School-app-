@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -12,40 +12,41 @@ import {
     LogOut,
     AlertTriangle,
     CheckCircle2,
-    Trash2,
     RefreshCw,
     Key,
     Fingerprint,
     Eye
 } from 'lucide-react';
-
-interface UserSession {
-    id: string;
-    device_name: string;
-    device_type: 'desktop' | 'mobile' | 'tablet';
-    browser: string;
-    ip_address: string;
-    location: string;
-    is_current: boolean;
-    last_active: string;
-    created_at: string;
-}
+import { api } from '../../lib/api';
 
 const SessionManagementScreen = () => {
     const { currentSchool } = useAuth();
-    const [sessions, setSessions] = useState<UserSession[]>([
-        { id: '1', device_name: 'Windows 11 PC', device_type: 'desktop', browser: 'Chrome 120', ip_address: '105.112.**.***', location: 'Lagos, Nigeria', is_current: true, last_active: '2026-03-17T22:15:00', created_at: '2026-03-17T08:00:00' },
-        { id: '2', device_name: 'iPhone 15 Pro', device_type: 'mobile', browser: 'Safari 17', ip_address: '105.112.**.***', location: 'Lagos, Nigeria', is_current: false, last_active: '2026-03-17T21:30:00', created_at: '2026-03-17T07:30:00' },
-        { id: '3', device_name: 'Samsung Galaxy S24', device_type: 'mobile', browser: 'Chrome Mobile', ip_address: '41.203.**.***', location: 'Abuja, Nigeria', is_current: false, last_active: '2026-03-16T18:45:00', created_at: '2026-03-16T09:00:00' },
-        { id: '4', device_name: 'iPad Air', device_type: 'tablet', browser: 'Safari 17', ip_address: '105.112.**.***', location: 'Lagos, Nigeria', is_current: false, last_active: '2026-03-15T14:00:00', created_at: '2026-03-15T10:00:00' },
-        { id: '5', device_name: 'MacBook Pro', device_type: 'desktop', browser: 'Firefox 122', ip_address: '196.46.**.***', location: 'Port Harcourt, Nigeria', is_current: false, last_active: '2026-03-14T16:20:00', created_at: '2026-03-14T08:30:00' },
-    ]);
+    const [sessions, setSessions] = useState<any[]>([]);
     const [revoking, setRevoking] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const getDeviceIcon = (type: string) => {
-        if (type === 'desktop') return Monitor;
-        if (type === 'mobile') return Smartphone;
-        return Tablet;
+    useEffect(() => {
+        fetchSessions();
+    }, []);
+
+    const fetchSessions = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getSessions();
+            setSessions(data);
+        } catch (error) {
+            console.error('Fetch sessions error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getDeviceIcon = (userAgent: string | null) => {
+        if (!userAgent) return Monitor;
+        const ua = userAgent.toLowerCase();
+        if (ua.includes('mobi') || ua.includes('iphone') || ua.includes('android')) return Smartphone;
+        if (ua.includes('tablet') || ua.includes('ipad')) return Tablet;
+        return Monitor;
     };
 
     const getTimeAgo = (dateStr: string) => {
@@ -59,28 +60,33 @@ const SessionManagementScreen = () => {
         return `${days}d ago`;
     };
 
-    const handleRevoke = (id: string) => {
+    const handleRevoke = async (id: string) => {
         setRevoking(id);
-        setTimeout(() => {
-            setSessions(prev => prev.filter(s => s.id !== id));
-            setRevoking(null);
+        try {
+            await api.revokeSession(id);
             toast.success('Session terminated');
-        }, 1500);
+            fetchSessions();
+        } catch (error: any) {
+            toast.error('Revoke failed');
+        } finally {
+            setRevoking(null);
+        }
     };
 
-    const handleRevokeAll = () => {
-        if (!window.confirm('Terminate all other sessions? You will remain logged in on this device only.')) return;
-        setSessions(prev => prev.filter(s => s.is_current));
-        toast.success('All other sessions terminated');
+    const handleRevokeAll = async () => {
+        if (!window.confirm('Terminate all sessions? You will need to log in again on other devices.')) return;
+        try {
+            await api.revokeAllSessions();
+            toast.success('All sessions terminated');
+            fetchSessions();
+        } catch (error: any) {
+            toast.error('Revoke all failed');
+        }
     };
 
     const activeSessions = sessions.filter(s => {
         const hoursSinceActive = (Date.now() - new Date(s.last_active).getTime()) / 3600000;
         return hoursSinceActive < 24;
-    });
-    const inactiveSessions = sessions.filter(s => {
-        const hoursSinceActive = (Date.now() - new Date(s.last_active).getTime()) / 3600000;
-        return hoursSinceActive >= 24;
     });
 
     return (
@@ -128,7 +134,7 @@ const SessionManagementScreen = () => {
             <div className="space-y-4">
                 <h2 className="text-lg font-bold text-gray-700">Active Sessions</h2>
                 {sessions.map(session => {
-                    const DeviceIcon = getDeviceIcon(session.device_type);
+                    const DeviceIcon = getDeviceIcon(session.user_agent);
                     return (
                         <div key={session.id} className={`bg-white p-6 rounded-3xl shadow-sm border transition-all hover:shadow-md ${session.is_current ? 'border-indigo-200 bg-indigo-50/30' : 'border-gray-100'}`}>
                             <div className="flex items-start justify-between">
@@ -138,16 +144,16 @@ const SessionManagementScreen = () => {
                                     </div>
                                     <div>
                                         <div className="flex items-center space-x-3">
-                                            <h3 className="font-bold text-gray-900">{session.device_name}</h3>
+                                            <h3 className="font-bold text-gray-900">{session.device_type || 'Unknown Device'}</h3>
                                             {session.is_current && <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">This Device</span>}
                                         </div>
-                                        <p className="text-sm text-gray-500 mt-1">{session.browser}</p>
+                                        <p className="text-sm text-gray-500 mt-1 truncate max-w-md">{session.user_agent || 'Web Browser'}</p>
                                         <div className="flex items-center space-x-4 mt-3">
                                             <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                                <MapPin className="w-3 h-3" /><span>{session.location}</span>
+                                                <MapPin className="w-3 h-3" /><span>{session.location || 'Unknown Location'}</span>
                                             </div>
                                             <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                                <Globe className="w-3 h-3" /><span>{session.ip_address}</span>
+                                                <Globe className="w-3 h-3" /><span>{session.ip_address || 'Hidden IP'}</span>
                                             </div>
                                             <div className="flex items-center space-x-1 text-xs text-gray-500">
                                                 <Clock className="w-3 h-3" /><span>Active {getTimeAgo(session.last_active)}</span>
@@ -166,6 +172,9 @@ const SessionManagementScreen = () => {
                         </div>
                     );
                 })}
+                {sessions.length === 0 && !loading && (
+                    <div className="px-6 py-10 text-center text-gray-500">No active sessions found.</div>
+                )}
             </div>
 
             {/* Security Tips */}

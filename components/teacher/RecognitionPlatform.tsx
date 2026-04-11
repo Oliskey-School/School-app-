@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { StarIcon, TrophyIcon, HeartIcon } from '../../constants';
@@ -28,50 +28,12 @@ const RecognitionPlatform: React.FC = () => {
     const fetchRecognitions = async () => {
         try {
             setLoading(true);
-
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) return;
-
-            // Fetch recognitions
-            const { data, error } = await supabase
-                .from('teacher_recognitions')
-                .select(`
-          *,
-          teacher:teachers!teacher_recognitions_teacher_id_fkey(full_name),
-          recognizer:teachers!teacher_recognitions_recognized_by_fkey(full_name)
-        `)
-                .eq('is_public', true)
-                .order('created_at', { ascending: false })
-                .limit(20);
-
-            if (error) throw error;
-
-            const formatted: Recognition[] = (data || []).map((r: any) => ({
-                id: r.id,
-                teacher_name: (r.teacher as any)?.full_name || 'Unknown',
-                recognized_by_name: (r.recognizer as any)?.full_name || 'Anonymous',
-                recognition_type: r.recognition_type,
-                title: r.title,
-                description: r.description,
-                points: r.points,
-                created_at: r.created_at
-            }));
-
-            setRecognitions(formatted);
-
-            // Calculate my points
-            const { data: myRecs } = await supabase
-                .from('teacher_recognitions')
-                .select('points')
-                .eq('teacher_id', teacherData.id);
-
-            const total = (myRecs || []).reduce((sum, r) => sum + r.points, 0);
-            setMyPoints(total);
+            // Fetch via backend API - returns {recognitions, myPoints}
+            const result = await api.getTeacherRecognitions();
+            if (result) {
+                setRecognitions(result.recognitions || []);
+                setMyPoints(result.myPoints || 0);
+            }
         } catch (error: any) {
             console.error('Error:', error);
         } finally {
@@ -171,3 +133,4 @@ const RecognitionPlatform: React.FC = () => {
 };
 
 export default RecognitionPlatform;
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Phone, Mic, Play, Upload, PhoneCall, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -58,7 +58,7 @@ const IVRLessonRecorder: React.FC = () => {
     const fetchLessons = async () => {
         if (!currentSchool) return;
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('ivr_lessons')
                 .select('*')
                 .eq('school_id', currentSchool.id)
@@ -76,7 +76,7 @@ const IVRLessonRecorder: React.FC = () => {
     const fetchCalls = async () => {
         if (!currentSchool) return;
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('ivr_calls')
                 .select(`
           *,
@@ -100,7 +100,7 @@ const IVRLessonRecorder: React.FC = () => {
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
             // Fetch lesson IDs for the current school first
-            const { data: schoolLessons } = await supabase
+            const { data: schoolLessons } = await api
                 .from('ivr_lessons')
                 .select('id')
                 .eq('school_id', currentSchool.id);
@@ -115,7 +115,7 @@ const IVRLessonRecorder: React.FC = () => {
             }
 
             // Total calls
-            const { count: total } = await supabase
+            const { count: total } = await api
                 .from('ivr_calls')
                 .select('*', { count: 'exact', head: true })
                 .in('lesson_id', lessonIds)
@@ -124,7 +124,7 @@ const IVRLessonRecorder: React.FC = () => {
             setTotalCalls(total || 0);
 
             // Completed calls
-            const { count: completed } = await supabase
+            const { count: completed } = await api
                 .from('ivr_calls')
                 .select('*', { count: 'exact', head: true })
                 .eq('call_status', 'Completed')
@@ -134,7 +134,7 @@ const IVRLessonRecorder: React.FC = () => {
             setCompletedCalls(completed || 0);
 
             // Average duration
-            const { data: durData } = await supabase
+            const { data: durData } = await api
                 .from('ivr_calls')
                 .select('call_duration_seconds')
                 .eq('call_status', 'Completed')
@@ -158,7 +158,7 @@ const IVRLessonRecorder: React.FC = () => {
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('ivr_lessons')
                 .insert({
                     school_id: currentSchool.id,
@@ -511,3 +511,4 @@ const IVRLessonRecorder: React.FC = () => {
 };
 
 export default IVRLessonRecorder;
+

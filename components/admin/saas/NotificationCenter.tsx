@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import api from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     Bell,
@@ -58,17 +58,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
             setLoading(true);
 
             const [notificationsData, schoolsData] = await Promise.all([
-                supabase
-                    .from('platform_notifications')
-                    .select('*')
-                    .order('created_at', { ascending: false }),
-                supabase
-                    .from('schools')
-                    .select('id, name, status')
+                api.getPlatformNotifications(),
+                api.getSchools()
             ]);
 
-            if (notificationsData.data) setNotifications(notificationsData.data);
-            if (schoolsData.data) setSchools(schoolsData.data);
+            setNotifications(notificationsData || []);
+            setSchools(schoolsData || []);
 
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -79,31 +74,20 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
 
     const handleSendNotification = async () => {
         if (!formData.title || !formData.message) {
-            alert('Please fill in title and message');
             return;
         }
 
         try {
             setSending(true);
 
-            const { data: userData } = await supabase.auth.getUser();
-
-            const { error } = await supabase
-                .from('platform_notifications')
-                .insert({
-                    title: formData.title,
-                    message: formData.message,
-                    type: formData.type,
-                    priority: formData.priority,
-                    target_schools: formData.targetSchools.length > 0 ? formData.targetSchools : null,
-                    created_by: userData.user?.id,
-                    sent_at: new Date().toISOString(),
-                    expires_at: formData.expiresAt || null
-                });
-
-            if (error) throw error;
-
-            alert('Notification sent successfully!');
+            await api.sendPlatformNotification({
+                title: formData.title,
+                message: formData.message,
+                type: formData.type,
+                priority: formData.priority,
+                targetSchools: formData.targetSchools,
+                expiresAt: formData.expiresAt || null
+            });
 
             // Reset form
             setFormData({
@@ -116,10 +100,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
             });
 
             fetchData();
-
         } catch (error) {
             console.error('Error sending notification:', error);
-            alert('Failed to send notification');
         } finally {
             setSending(false);
         }
@@ -448,3 +430,4 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ navigate
 };
 
 export default NotificationCenter;
+

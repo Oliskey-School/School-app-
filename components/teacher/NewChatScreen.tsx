@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { SearchIcon, UserIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface UserListItem {
     id: string | number;
@@ -59,46 +59,39 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo, teacherId, cu
             setSearching(true);
 
             try {
-                let query = supabase.from('users').select('id, name, avatar_url, role, email, school_generated_id');
-
-                // Filter by Role based on Tab
+                // Determine schoolId and other context
+                const schoolId = currentUser?.school_id || '';
+                
+                // For now, use getChatContacts or a search endpoint if exists. 
+                const data = await api.getChatContacts(schoolId);
+                let allUsers: any[] = [];
+                
                 if (activeTab === 'Students') {
-                    query = query.eq('role', 'Student');
-                } else if (activeTab === 'Parents') {
-                    query = query.eq('role', 'Parent');
+                    allUsers = data.classmates || [];
                 } else if (activeTab === 'Staff') {
-                    query = query.in('role', ['Teacher', 'Admin']);
+                    allUsers = data.teachers || [];
                 }
+                
+                // Fuzzy Search client-side
+                const searchLower = searchTerm.toLowerCase();
+                const filtered = allUsers.filter(u => 
+                    u.full_name?.toLowerCase().includes(searchLower) || 
+                    u.name?.toLowerCase().includes(searchLower) ||
+                    u.school_generated_id?.toLowerCase().includes(searchLower)
+                );
 
-                // Search Logic: If searchTerm looks like an ID, search by ID or school_generated_id
-                if (searchTerm.startsWith('OLISKEY_') || !isNaN(Number(searchTerm))) {
-                    if (!isNaN(Number(searchTerm))) {
-                        query = query.or(`id.eq.${searchTerm},school_generated_id.ilike.%${searchTerm}%`);
-                    } else {
-                        query = query.eq('school_generated_id', searchTerm.toUpperCase());
-                    }
-                } else {
-                    // Fuzzy Name search
-                    query = query.ilike('name', `%${searchTerm}%`);
-                }
+                const mapped: UserListItem[] = filtered
+                    .filter((u: any) => u.user_id !== myId && u.id !== myId)
+                    .map((u: any) => ({
+                        id: u.user_id || u.id,
+                        schoolGeneratedId: u.school_generated_id,
+                        name: u.full_name || u.name,
+                        avatarUrl: u.avatar_url,
+                        role: activeTab === 'Staff' ? 'Teacher' : 'Student',
+                        description: activeTab === 'Staff' ? 'Teacher' : 'Student'
+                    }));
+                setResults(mapped);
 
-                const { data, error } = await query.limit(10);
-
-                if (error) throw error;
-
-                if (data) {
-                    const mapped: UserListItem[] = data
-                        .filter((u: any) => u.id !== myId) // Exclude self
-                        .map((u: any) => ({
-                            id: u.id,
-                            schoolGeneratedId: u.school_generated_id,
-                            name: u.name,
-                            avatarUrl: u.avatar_url,
-                            role: u.role,
-                            description: u.role
-                        }));
-                    setResults(mapped);
-                }
             } catch (err) {
                 console.error("Search error:", err);
             } finally {
@@ -108,71 +101,24 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo, teacherId, cu
 
         const debounce = setTimeout(performSearch, 500);
         return () => clearTimeout(debounce);
-    }, [searchTerm, activeTab, myId]);
+    }, [searchTerm, activeTab, myId, currentUser?.school_id]);
 
 
     const handleSelectUser = async (user: UserListItem) => {
         setLoading(true);
         try {
-            // 1. Check if conversation exists
-            // Complex query: find conversation where both participants exist
-            // Simplification: Fetch all my conversations, check if user is in them
+            const schoolId = currentUser?.school_id || '';
+            const targetUserId = String(user.id);
+            
+            // Use backend API to get or create direct chat
+            const room = await api.getOrCreateDirectChat(targetUserId, schoolId);
 
-            // Get all conversation IDs I am part of
-            const { data: myConvs } = await supabase
-                .from('conversation_participants')
-                .select('conversation_id')
-                .eq('user_id', myId);
-
-            const myConvIds = myConvs?.map(c => c.conversation_id) || [];
-
-            let existingConvId: number | null = null;
-
-            if (myConvIds.length > 0) {
-                // Check if selected user is in any of these
-                const { data: found } = await supabase
-                    .from('conversation_participants')
-                    .select('conversation_id')
-                    .in('conversation_id', myConvIds)
-                    .eq('user_id', user.id)
-                    .single(); // Should be unique pair for direct chat
-
-                if (found) existingConvId = found.conversation_id;
-            }
-
-            if (existingConvId) {
+            if (room) {
                 navigateTo('chat', user.name, {
-                    conversationId: existingConvId,
-                    roomDetails: { displayName: user.name, displayAvatar: user.avatarUrl }
-                });
-            } else {
-                // 2. Create new conversation
-                const { data: newConv, error: createError } = await supabase
-                    .from('conversations')
-                    .insert({ type: 'direct', name: `${user.name}` }) // Name is optional/mutable
-                    .select()
-                    .single();
-
-                if (createError || !newConv) throw createError || new Error("Failed to create chat");
-
-                // 3. Add participants
-                const participants = [
-                    { conversation_id: newConv.id, user_id: myId, role: 'member' },
-                    { conversation_id: newConv.id, user_id: user.id, role: 'member' }
-                ];
-
-                const { error: partError } = await supabase
-                    .from('conversation_participants')
-                    .insert(participants);
-
-                if (partError) throw partError;
-
-                navigateTo('chat', user.name, {
-                    conversationId: newConv.id,
+                    conversationId: room.id,
                     roomDetails: { displayName: user.name, displayAvatar: user.avatarUrl }
                 });
             }
-
         } catch (error) {
             console.error('Error starting chat:', error);
             toast.error("Error starting chat. Please try again.");
@@ -243,3 +189,4 @@ const NewChatScreen: React.FC<NewChatScreenProps> = ({ navigateTo, teacherId, cu
 };
 
 export default NewChatScreen;
+

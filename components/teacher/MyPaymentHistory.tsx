@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 // import { useProfile } from '../../context/ProfileContext';
 import PaymentStatusBadge from '../shared/PaymentStatusBadge';
@@ -253,3 +252,4 @@ const MyPaymentHistory: React.FC<MyPaymentHistoryProps> = ({ teacherId }) => {
 };
 
 export default MyPaymentHistory;
+

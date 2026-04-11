@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Phone, Activity, BarChart3, Hash } from 'lucide-react';
 
@@ -58,7 +58,7 @@ const USSDWorkflow: React.FC = () => {
 
     const fetchMenus = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('ussd_menu_structure')
                 .select('*')
                 .order('menu_level', { ascending: true })
@@ -75,7 +75,7 @@ const USSDWorkflow: React.FC = () => {
 
     const fetchSessions = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('ussd_sessions')
                 .select(`
           *,
@@ -93,7 +93,7 @@ const USSDWorkflow: React.FC = () => {
 
     const fetchTransactions = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('ussd_transactions')
                 .select('*')
                 .order('created_at', { ascending: false })
@@ -112,7 +112,7 @@ const USSDWorkflow: React.FC = () => {
             const thirtyDaysAgo = new Date(today.setDate(today.getDate() - 30));
 
             // Total sessions in last 30 days
-            const { count: total } = await supabase
+            const { count: total } = await api
                 .from('ussd_sessions')
                 .select('*', { count: 'exact', head: true })
                 .gte('started_at', thirtyDaysAgo.toISOString());
@@ -120,7 +120,7 @@ const USSDWorkflow: React.FC = () => {
             setTotalSessions(total || 0);
 
             // Active sessions
-            const { count: active } = await supabase
+            const { count: active } = await api
                 .from('ussd_sessions')
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'Active');
@@ -128,7 +128,7 @@ const USSDWorkflow: React.FC = () => {
             setActiveSessions(active || 0);
 
             // Completed sessions
-            const { count: completed } = await supabase
+            const { count: completed } = await api
                 .from('ussd_sessions')
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'Completed')
@@ -137,7 +137,7 @@ const USSDWorkflow: React.FC = () => {
             setCompletedSessions(completed || 0);
 
             // Total transactions
-            const { count: txns } = await supabase
+            const { count: txns } = await api
                 .from('ussd_transactions')
                 .select('*', { count: 'exact', head: true })
                 .gte('created_at', thirtyDaysAgo.toISOString());
@@ -415,3 +415,4 @@ const USSDWorkflow: React.FC = () => {
 };
 
 export default USSDWorkflow;
+

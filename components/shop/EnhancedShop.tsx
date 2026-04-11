@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { EnhancedStoreProduct, ShoppingCartItem, StoreOrderFull } from '../../types-additional';
 import { toast } from 'react-hot-toast';
 import { ShoppingCartIcon } from '../../constants';
@@ -17,7 +17,7 @@ const EnhancedShop: React.FC = () => {
 
     const fetchProducts = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('store_products')
                 .select('*')
                 .eq('is_active', true);
@@ -32,10 +32,10 @@ const EnhancedShop: React.FC = () => {
     };
 
     const fetchCart = async () => {
-        const user = (await supabase.auth.getUser()).data.user;
+        const user = (await api.auth.getUser()).data.user;
         if (!user) return;
 
-        const { data } = await supabase
+        const { data } = await api
             .from('shopping_cart')
             .select('*, product:store_products(*)')
             .eq('user_id', user.id);
@@ -44,14 +44,14 @@ const EnhancedShop: React.FC = () => {
     };
 
     const addToCart = async (productId: number) => {
-        const user = (await supabase.auth.getUser()).data.user;
+        const user = (await api.auth.getUser()).data.user;
         if (!user) {
             toast.error('Please login to add items to cart');
             return;
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('shopping_cart')
                 .upsert({
                     user_id: user.id,
@@ -72,7 +72,7 @@ const EnhancedShop: React.FC = () => {
 
     const removeFromCart = async (cartItemId: number) => {
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('shopping_cart')
                 .delete()
                 .eq('id', cartItemId);
@@ -87,7 +87,7 @@ const EnhancedShop: React.FC = () => {
     };
 
     const checkout = async () => {
-        const user = (await supabase.auth.getUser()).data.user;
+        const user = (await api.auth.getUser()).data.user;
         if (!user || cart.length === 0) return;
 
         try {
@@ -98,7 +98,7 @@ const EnhancedShop: React.FC = () => {
             const orderNumber = `ORD-${Date.now()}`;
 
             // Create order
-            const { data: order, error: orderError } = await supabase
+            const { data: order, error: orderError } = await api
                 .from('store_orders')
                 .insert({
                     order_number: orderNumber,
@@ -122,14 +122,14 @@ const EnhancedShop: React.FC = () => {
                 color: item.color
             }));
 
-            const { error: itemsError } = await supabase
+            const { error: itemsError } = await api
                 .from('order_items')
                 .insert(orderItems);
 
             if (itemsError) throw itemsError;
 
             // Clear cart
-            await supabase
+            await api
                 .from('shopping_cart')
                 .delete()
                 .eq('user_id', user.id);

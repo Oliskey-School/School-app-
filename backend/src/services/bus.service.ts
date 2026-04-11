@@ -1,83 +1,89 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class BusService {
     static async getBuses(schoolId: string, branchId: string | undefined) {
-        let query = supabase
-            .from('transport_buses')
-            .select('*')
-            .eq('school_id', schoolId);
-
+        const where: any = { school_id: schoolId };
+        
         if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
-        }
-
-        const { data, error } = await query.order('name', { ascending: true });
-
-        if (error) throw new Error(error.message);
-
-        // DEMO MODE MOCK DATA INJECTION
-        const isDemoSchool = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-        if (isDemoSchool && (!data || data.length === 0)) {
-            console.log('🛡️ [BusService] Injecting Demo Mock Buses');
-            return [
-                { id: 'b1', name: 'Bus 001', driver_name: 'John Driver', phone: '1234567890', status: 'active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' },
-                { id: 'b2', name: 'Bus 002', driver_name: 'Jane Driver', phone: '0987654321', status: 'active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' },
-                { id: 'b3', name: 'Bus 003', driver_name: 'Bob Driver', phone: '5554443333', status: 'inactive', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f' }
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
             ];
         }
 
-        return data || [];
+        const buses = await prisma.transportBus.findMany({
+            where,
+            orderBy: { name: 'asc' }
+        });
+
+        return buses;
     }
 
     static async createBus(schoolId: string, branchId: string | undefined, busData: any) {
-        const insertData: any = { ...busData, school_id: schoolId };
+        // Destructure to prevent conflicts with securely provided IDs
+        const { school_id, branch_id, ...data } = busData;
+        
+        const createData: any = {
+            ...data,
+            school_id: schoolId,
+        };
+        
         if (branchId && branchId !== 'all') {
-            insertData.branch_id = branchId;
+            createData.branch_id = branchId;
         }
 
-        const { data, error } = await supabase
-            .from('transport_buses')
-            .insert([insertData])
-            .select()
-            .single();
+        const bus = await prisma.transportBus.create({
+            data: createData
+        });
 
-        if (error) throw new Error(error.message);
-        return data;
+        SocketService.emitToSchool(schoolId, 'transport:updated', { action: 'create_bus', busId: bus.id });
+        return bus;
     }
 
     static async updateBus(schoolId: string, branchId: string | undefined, busId: string, updates: any) {
-        let query = supabase
-            .from('transport_buses')
-            .update(updates)
-            .eq('id', busId)
-            .eq('school_id', schoolId);
+        // Destructure to prevent sensitive field modification
+        const { school_id, branch_id, ...data } = updates;
+
+        const where: any = {
+            id: busId,
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
         }
 
-        const { data, error } = await query
-            .select()
-            .single();
+        const bus = await prisma.transportBus.update({
+            where: { id: busId },
+            data: updates
+        });
 
-        if (error) throw new Error(error.message);
-        return data;
+        SocketService.emitToSchool(schoolId, 'transport:updated', { action: 'update_bus', busId });
+        return bus;
     }
 
     static async deleteBus(schoolId: string, branchId: string | undefined, busId: string) {
-        let query = supabase
-            .from('transport_buses')
-            .delete()
-            .eq('id', busId)
-            .eq('school_id', schoolId);
+        const where: any = {
+            id: busId,
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
         }
 
-        const { error } = await query;
+        await prisma.transportBus.delete({
+            where: { id: busId }
+        });
 
-        if (error) throw new Error(error.message);
+        SocketService.emitToSchool(schoolId, 'transport:updated', { action: 'delete_bus', busId });
         return true;
     }
 }

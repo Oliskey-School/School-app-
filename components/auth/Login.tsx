@@ -1,26 +1,122 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useEffect, useRef } from 'react';
+import { api } from '../../lib/api';
 import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-// import { useNavigate } from 'react-router-dom';
-import { generateCustomId } from '../../lib/id-generator';
 import { SchoolLogoIcon, THEME_CONFIG } from '../../constants';
-// Simple Eye Icons
-const EyeIcon = ({ size = 20 }: { size?: number }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
-const EyeOffIcon = ({ size = 20 }: { size?: number }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
-import SchoolSignup from './SchoolSignup';
 import { authenticateUser } from '../../lib/auth';
+import { useNavigate } from 'react-router-dom';
+import SchoolSignup from './SchoolSignup';
+import EmailVerificationScreen from './EmailVerificationScreen';
 
-import { MOCK_USERS, mockLogin, DEMO_ACCOUNTS, DEMO_ROLES_ORDER, DEMO_SCHOOL_ID, DEMO_BRANCH_ID } from '../../lib/mockAuth';
+const EyeIcon = ({ size = 20 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+    <circle cx="12" cy="12" r="3"></circle>
+  </svg>
+);
+
+const EyeOffIcon = ({ size = 20 }: { size?: number }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+    <line x1="1" y1="1" x2="23" y2="23"></line>
+  </svg>
+);
+
+import { DEMO_ACCOUNTS, DEMO_ROLES_ORDER, DEMO_SCHOOL_ID, DEMO_BRANCH_ID } from '../../lib/mockAuth';
 
 const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool?: () => void }> = ({ onNavigateToSignup, onNavigateToCreateSchool }) => {
-  const [view, setView] = useState<'login' | 'school_signup' | 'demo'>('login');
+  const [view, setView] = useState<'login' | 'school_signup' | 'demo' | 'verify'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle, switchDemoRole } = useAuth();
+  const navigate = useNavigate();
+  const [showGoogleMock, setShowGoogleMock] = useState(false);
+  
+  // Verification state
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationUserId, setVerificationUserId] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [googleInitialized, setGoogleInitialized] = useState(false);
+
+  const googleInitRef = useRef(false);
+
+  // Initialize Google Identity Services
+  useEffect(() => {
+    const initializeGoogle = () => {
+      if ((window as any).google && !googleInitRef.current) {
+        console.log('🛡️ [Google] Initializing Identity Services...');
+        (window as any).google.accounts.id.initialize({
+          client_id: "721743639912-8ks885994n29is9595849494.apps.googleusercontent.com", // Placeholder: REPLACE WITH REAL ID
+          callback: handleGoogleResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        googleInitRef.current = true;
+        setGoogleInitialized(true);
+      }
+    };
+
+    // Load Google script check
+    if (!(window as any).google) {
+      const interval = setInterval(() => {
+        if ((window as any).google) {
+          initializeGoogle();
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    } else {
+      initializeGoogle();
+    }
+  }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      // Decode JWT to get email and name (No library needed for basic preview)
+      const base64Url = response.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      
+      const payload = JSON.parse(jsonPayload);
+      const { email, name } = payload;
+      
+      console.log('🛡️ [Google] Verifying account:', email);
+      
+      // Call our backend to verify if this email has an account
+      await signInWithGoogle(email, name);
+      navigate('/');
+    } catch (err: any) {
+      console.error('❌ [Google] Auth Error:', err);
+      // The backend returns "No Data" if not found
+      setError(err.message || 'No Data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleClick = () => {
+    if (googleInitialized) {
+      // Trigger the Google Account Picker ("show them all the google account on that phone")
+      (window as any).google.accounts.id.prompt((notification: any) => {
+        if (notification.isNotDisplayed()) {
+          // If One Tap is blocked/not shown, we could use the standard button
+          // But usually prompt() works well for the "all accounts" experience
+          console.warn('One Tap not displayed:', notification.getNotDisplayedReason());
+          setError('Please use the standard login or ensure Google services are enabled.');
+        }
+      });
+    } else {
+      setError('Google Sign-In is initializing. Please try again in a moment.');
+    }
+  };
 
   useEffect(() => {
     const lastMode = localStorage.getItem('last_login_mode');
@@ -41,6 +137,35 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     />;
   }
 
+  // Email Verification flow
+  if (view === 'verify') {
+    return (
+      <EmailVerificationScreen
+        email={verificationEmail}
+        userId={verificationUserId}
+        onBack={() => {
+          setView('login');
+          setVerificationEmail('');
+          setVerificationUserId('');
+          setOtpCode('');
+          setError('');
+        }}
+        onVerified={async (token, user) => {
+          const dashboardType = mapRoleToDashboard(user.role);
+          await signIn(dashboardType, {
+            userId: user.id,
+            email: user.email,
+            userType: user.role,
+            token: token,
+            schoolGeneratedId: user.school_generated_id,
+            school: user.school_id ? { id: user.school_id } : undefined
+          });
+          navigate('/'); // Redirect to dashboard
+        }}
+      />
+    );
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -53,62 +178,12 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     setIsLoading(true);
 
     try {
-      // 1. Resolve Username to Email (if needed)
-      let resolvedEmail = email;
-
-      // Simple check: if no '@', assume it's a username
-      if (!email.includes('@')) {
-        console.log(`Checking for username: ${email}`);
-
-        try {
-          const { data: userData } = await supabase
-            .from('auth_accounts')
-            .select('email')
-            .eq('username', email.toLowerCase())
-            .maybeSingle();
-
-          if (userData?.email) {
-            resolvedEmail = userData.email;
-            console.log(`Resolved username ${email} to ${resolvedEmail}`);
-          } else {
-            console.warn('Username lookup failed, attempting direct auth anyway...');
-          }
-        } catch (err) {
-          console.error('Error resolving username:', err);
-        }
-      }
-
-      // 1. Attempt Unified Auth (Backend + Supabase Fallback inside authenticateUser)
-      const result = await authenticateUser(resolvedEmail, password);
+      // 1. Attempt Unified Auth (Backend handles Email or Username)
+      const result = await authenticateUser(email, password);
 
       if (!result.success) {
         // If real auth fails, we might check for mock credentials if configured
         console.warn("Auth Failed:", result.error);
-
-        // 2. FALLBACK: Mock Patterns (Only if backend auth explicitly failed)
-        // Check mock credentials locally
-        const mockResult = await checkMockCredentials(email, password);
-        if (mockResult.success) {
-          await signIn(mockResult.dashboardType, {
-            userId: mockResult.userId,
-            email: email,
-            userType: mockResult.role,
-            isDemo: true,
-            schoolGeneratedId: (mockResult as any).schoolGeneratedId,
-            school: {
-              id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-              branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
-              name: 'Oliskey Demo School',
-              slug: 'demo',
-              subscriptionStatus: 'active',
-              createdAt: new Date().toISOString()
-            },
-            token: mockResult.token || localStorage.getItem('auth_token'),
-            refreshToken: mockResult.refreshToken || localStorage.getItem('auth_refresh_token')
-          });
-
-          return;
-        }
 
         throw new Error(result.error || 'Invalid credentials');
       }
@@ -127,6 +202,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           school: result.userData?.school_id ? { id: result.userData.school_id } : undefined
 
         });
+        
+        navigate('/'); // Redirect to dashboard
       }
 
     } catch (err: any) {
@@ -141,95 +218,13 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     setError('');
     setIsLoading(true);
 
-    // Use credentials from DEMO_ACCOUNTS
-    let mockAccount = DEMO_ACCOUNTS[roleKey];
-
-    if (!mockAccount) {
-      setError(`Demo account not configured for ${roleKey}`);
-      setIsLoading(false);
-      return;
-    }
-
-    // Map account to the structure needed for login
-    const userKey = roleKey.toLowerCase();
-    const mockUserData = MOCK_USERS[userKey] || MOCK_USERS['student']; // Default to student if totally lost, but keep roleKey
-
-    let mockUser = {
-      id: mockUserData.id,
-      email: mockAccount.email,
-      password: mockAccount.password,
-      role: mockAccount.role,
-      metadata: mockUserData.metadata
-    };
-
-    // Role-specific email overrides if needed for Real Auth
-    if (roleKey === 'teacher') {
-      mockUser.email = 'john.smith@demo.com';
-    } else if (roleKey === 'parent') {
-      mockUser.email = 'parent1@demo.com';
-    } else if (roleKey === 'admin') {
-      mockUser.email = 'user@school.com';
-    } else if (roleKey === 'proprietor') {
-      mockUser.email = 'proprietor@demo.com';
-    } else if (roleKey === 'inspector') {
-      mockUser.email = 'inspector@demo.com';
-    } else if (roleKey === 'examofficer') {
-      mockUser.email = 'examofficer@demo.com';
-    } else if (roleKey === 'complianceofficer') {
-      mockUser.email = 'compliance@demo.com';
-    }
-
     try {
-      console.log(`🚀 [Demo] Attempting resilient Quick Login for ${roleKey} (${mockUser.email})...`);
-
-      // Use the unified authentication logic which prioritizes backend tokens
-      const result = await authenticateUser(mockUser.email, mockUser.password);
-
-      if (result.success) {
-        console.log(`✅ [Demo] Auth successful for ${roleKey}. Token present: ${!!result.token}`);
-        const dashboardType = mapRoleToDashboard(mockUser.role);
-
-        await signIn(dashboardType, {
-          userId: result.userId,
-          email: result.email,
-          userType: dashboardType,
-          isDemo: true,
-          schoolGeneratedId: result.schoolGeneratedId,
-          school: {
-            id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-            branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
-            name: 'Oliskey Demo School',
-            slug: 'demo',
-            subscriptionStatus: 'active',
-            createdAt: new Date().toISOString()
-          },
-          token: result.token,
-          refreshToken: result.refreshToken
-        });
-        return;
-      } else {
-        throw new Error(result.error || 'Authentication failed');
-      }
+      console.log(`🚀 [Demo] Switching to Demo Role: ${roleKey}...`);
+      await switchDemoRole(roleKey);
+      navigate('/'); // Redirect to dashboard
     } catch (err: any) {
       console.error("❌ [Demo] Quick Login Error:", err);
-      // Fallback to local mock if everything else fails for true "offline" demo
-      const dashboardType = mapRoleToDashboard(mockUser.role);
-      await signIn(dashboardType, {
-        userId: mockUser.id,
-        email: mockUser.email,
-        userType: dashboardType,
-        isDemo: true,
-        schoolGeneratedId: mockUser.metadata?.school_generated_id,
-        school: {
-          id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-          branch_id: '7601cbea-e1ba-49d6-b59b-412a584cb94f',
-          name: 'Oliskey Demo School',
-          slug: 'demo',
-          subscriptionStatus: 'active',
-          createdAt: new Date().toISOString()
-        },
-        token: 'mock-token' // Critical: Ensures api.ts knows we are in a demo session even if offline
-      });
+      setError(err.message || 'Demo login failed');
     } finally {
       setIsLoading(false);
     }
@@ -250,26 +245,49 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
           <p className="text-sm text-slate-500 mt-1 mb-8">Sign in to your demo portal</p>
 
-          {/* Role Grid */}
-          <div className="grid grid-cols-2 gap-3 w-full">
-            {DEMO_ROLES_ORDER.map((key) => {
-              const account = DEMO_ACCOUNTS[key];
-              const isActive = false; // Not needed on login page
+          {/* Featured Roles Section */}
+          <div className="w-full mb-6">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Featured Portals</h3>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              {['admin', 'teacher', 'student', 'parent'].map((key) => {
+                const account = DEMO_ACCOUNTS[key];
+                if (!account) return null;
+                return (
+                  <button
+                    key={key}
+                    disabled={isLoading}
+                    onClick={() => handleQuickLogin(key)}
+                    className={`flex flex-col items-center justify-center p-4 rounded-2xl text-sm font-bold border-2 border-transparent transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${account.color} ${account.textColor} group relative overflow-hidden shadow-sm hover:shadow-md`}
+                  >
+                    <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:scale-110 transition-transform">
+                      <SchoolLogoIcon className="w-8 h-8" />
+                    </div>
+                    <span className="capitalize text-lg mb-1">{key}</span>
+                    <span className="text-[10px] font-medium opacity-70 line-clamp-1">{account.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-              // Get color from theme config for consistency
-              const roleTheme = THEME_CONFIG[key as DashboardType] || { cardIconBg: 'bg-slate-50', iconColor: 'text-slate-600' };
-
-              return (
-                <button
-                  key={key}
-                  disabled={isLoading}
-                  onClick={() => handleQuickLogin(key)}
-                  className={`flex items-center justify-center px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${account.color} ${account.textColor}`}
-                >
-                  <span className="capitalize">{key === 'examofficer' ? 'Exam Officer' : key === 'complianceofficer' ? 'Compliance' : key}</span>
-                </button>
-              );
-            })}
+          {/* Other Roles Section */}
+          <div className="w-full">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Specialized Portals</h3>
+            <div className="grid grid-cols-2 gap-2 w-full">
+              {DEMO_ROLES_ORDER.filter(k => !['admin', 'teacher', 'student', 'parent'].includes(k)).map((key) => {
+                const account = DEMO_ACCOUNTS[key];
+                return (
+                  <button
+                    key={key}
+                    disabled={isLoading}
+                    onClick={() => handleQuickLogin(key)}
+                    className={`flex items-center justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 border border-slate-100 bg-slate-50 text-slate-600 hover:bg-white hover:border-blue-200 hover:text-blue-600`}
+                  >
+                    <span className="capitalize">{key === 'examofficer' ? 'Exam Officer' : key === 'complianceofficer' ? 'Compliance' : key}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Footer Link */}
@@ -298,7 +316,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 mb-4">
             <SchoolLogoIcon className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
           </div>
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800">School Admin Sign In</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800">School Portal Sign In</h2>
         </div>
 
         {/* Form Section */}
@@ -309,13 +327,15 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
                 type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="Gmail or Username"
+                placeholder="Email or Username"
                 className="w-full px-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
                 required
                 autoComplete="off"
                 name="email_prevent_autofill"
               />
             </div>
+            {/* Real Google Account Picker handled via GSI prompt */}
+
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -344,16 +364,19 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
               {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
 
+            {/* Google OAuth enabled for custom backend bridging */}
             <button
               type="button"
+              disabled={isLoading}
               onClick={async () => {
-                const { error } = await supabase.auth.signInWithOAuth({
-                  provider: 'google',
-                  options: { queryParams: { access_type: 'offline', prompt: 'consent' } }
-                });
-                if (error) setError(error.message);
+                try {
+                  setError('');
+                  handleGoogleClick();
+                } catch (err: any) {
+                  setError(err.message || 'Google Sign In failed');
+                }
               }}
-              className="w-full py-2.5 sm:py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2 transition-all active:scale-95 text-sm sm:text-base"
+              className="w-full py-2.5 sm:py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2 transition-all active:scale-95 text-sm sm:text-base disabled:opacity-50"
             >
               <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -409,55 +432,6 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     </div>
   );
 };
-
-async function getMockSessionForRole(roleName: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, email: string }> {
-
-
-  const role = roleName.toLowerCase().replace(' ', '');
-  const dashboardType = mapRoleToDashboard(role);
-
-  // PROFESSIONAL ID: SCH-branch-role-number
-  const mockId = generateCustomId({
-    schoolShortName: 'OLISKEY',
-    branch: 'Lagos',
-    role: role,
-    sequenceNumber: Math.floor(Math.random() * 1000)
-  });
-
-  return {
-    success: true,
-    role: role,
-    dashboardType: dashboardType,
-    userId: mockId,
-    email: `${role}@demo.com` // Matching the StudentDashboard.tsx demo check
-  };
-}
-
-async function checkMockCredentials(email: string, pass: string): Promise<{ success: boolean, role: string, dashboardType: DashboardType, userId: string, schoolGeneratedId?: string, token?: string, refreshToken?: string }> {
-  // 1. Simulating a DB lookup for mock users
-
-
-  // Use the synced MOCK_USERS list for consistency
-  const user = Object.values(MOCK_USERS).find(u =>
-    u.email.toLowerCase() === email.toLowerCase() ||
-    (u.username && u.username.toLowerCase() === email.toLowerCase())
-  );
-
-  if (user && user.password === pass) {
-    console.log("Mock Credential Bypass Success for:", email);
-    return {
-      success: true,
-      role: user.role,
-      dashboardType: mapRoleToDashboard(user.role),
-      userId: user.id,
-      schoolGeneratedId: user.metadata?.school_generated_id,
-      token: localStorage.getItem('auth_token') || undefined,
-      refreshToken: localStorage.getItem('auth_refresh_token') || undefined
-    };
-  }
-
-  return { success: false, role: '', dashboardType: DashboardType.Student, userId: '' };
-}
 
 function mapRoleToDashboard(role: string): DashboardType {
   const map: any = {

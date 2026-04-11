@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface IDUploadProps {
     onUploadComplete?: () => void;
@@ -53,13 +53,13 @@ export function IDUpload({ onUploadComplete }: IDUploadProps) {
 
         try {
             // Get current user
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
             // Upload to Supabase Storage
             const fileExt = file.name.split('.').pop();
             const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const { data: uploadData, error: uploadError } = await api.storage
                 .from('id-documents')
                 .upload(fileName, file, {
                     cacheControl: '3600',
@@ -69,12 +69,12 @@ export function IDUpload({ onUploadComplete }: IDUploadProps) {
             if (uploadError) throw uploadError;
 
             // Get public URL
-            const { data: { publicUrl } } = supabase.storage
+            const { data: { publicUrl } } = api.storage
                 .from('id-documents')
                 .getPublicUrl(fileName);
 
             // Create verification request
-            const { error: requestError } = await supabase
+            const { error: requestError } = await api
                 .from('id_verification_requests')
                 .insert({
                     user_id: user.id,
@@ -86,7 +86,7 @@ export function IDUpload({ onUploadComplete }: IDUploadProps) {
             if (requestError) throw requestError;
 
             // Update profile
-            await supabase
+            await api
                 .from('profiles')
                 .update({
                     id_document_url: publicUrl,

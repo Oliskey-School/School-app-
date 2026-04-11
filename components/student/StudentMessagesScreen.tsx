@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChatRoom, ChatUser, Student } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
@@ -46,78 +46,33 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
     }, []);
 
     useEffect(() => {
-        if (studentId === undefined || studentId === null) return;
+        if (!studentId) return;
 
         const fetchConversations = async () => {
+            setLoading(true);
             try {
-                const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
-                const branchId = profile?.branch_id;
+                const convs = await api.getChatRooms();
 
-                // 1. Get IDs of conversations I'm in
-                let partQuery = supabase
-                    .from('conversation_participants')
-                    .select('conversation_id, last_read_message_id')
-                    .eq('user_id', studentId);
-
-                if (schoolId) partQuery = partQuery.eq('school_id', schoolId);
-
-                const { data: participation, error: pError } = await partQuery;
-
-                if (pError) throw pError;
-
-                const conversationIds = participation?.map(p => p.conversation_id) || [];
-
-                if (conversationIds.length === 0) {
-                    setRooms([]);
-                    setLoading(false);
-                    return;
-                }
-
-                // 2. Fetch conversations details + participants
-                let convsQuery = supabase
-                    .from('conversations')
-                    .select(`
-                        *,
-                        participants:conversation_participants(
-                            user:users(id, name, avatar_url, role)
-                        )
-                    `)
-                    .in('id', conversationIds);
-
-                if (schoolId) convsQuery = convsQuery.eq('school_id', schoolId);
-                if (branchId && branchId !== 'all') convsQuery = convsQuery.eq('branch_id', branchId);
-
-                const { data: convs, error: cError } = await convsQuery.order('last_message_at', { ascending: false });
-
-                if (cError) throw cError;
-
-                // 3. Format for UI
-                const formattedRooms = convs?.map(c => {
-                    // Find other participant for DM name/avatar
+                const formattedRooms = convs?.map((c: any) => {
                     const otherPart = c.participants?.find((p: any) => p.user?.id !== studentId)?.user;
-                    // Or if self-chat or fallback
                     const displayUser = otherPart || c.participants?.[0]?.user;
-
-                    // Get last read ID
-                    const myPart = participation?.find(p => p.conversation_id === c.id);
-                    const lastReadId = myPart?.last_read_message_id || 0;
 
                     return {
                         id: c.id,
                         displayName: c.name || displayUser?.name || 'Unknown',
-                        displayAvatar: c.name ? null : (displayUser?.avatar_url || ''),
+                        displayAvatar: c.name ? null : (displayUser?.avatarUrl || ''),
                         lastMessage: {
-                            content: c.last_message_text || 'No messages yet',
-                            created_at: c.last_message_at || c.created_at,
-                            sender_id: 0, // Not explicitly needed for list list view often
-                            id: 0
+                            content: c.messages?.[0]?.content || 'No messages yet',
+                            created_at: c.messages?.[0]?.createdAt || c.createdAt,
+                            sender_id: c.messages?.[0]?.senderId,
+                            id: c.messages?.[0]?.id
                         },
                         unreadCount: 0,
-                        updated_at: c.last_message_at || c.created_at,
+                        updated_at: c.lastMessageAt || c.createdAt,
                         is_group: c.type === 'group',
-                        lastReadMessageId: lastReadId,
+                        lastReadMessageId: 0,
                         participants: c.participants || [],
-                        creatorId: c.creator_id,
+                        creatorId: c.creatorId,
                         type: c.type
                     };
                 }) || [];
@@ -131,20 +86,6 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
         };
 
         fetchConversations();
-
-        // Realtime Subscriptions
-        const channel = supabase.channel(`student_chat_list_${studentId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
-                fetchConversations();
-            })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_participants', filter: `user_id=eq.${studentId}` }, () => {
-                fetchConversations();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [studentId]);
 
     const filteredConversations = useMemo(() => {

@@ -1,30 +1,21 @@
-/**
- * Plan Gate Middleware
- *
- * Checks whether the authenticated school can perform a resource-creating
- * action (enrolling a student, adding a teacher) against the current plan
- * limits returned by get_plan_status().
- *
- * Usage in a route:
- *   router.post('/enroll', authenticate, requirePlanCapacity('student'), enrollStudent);
- *   router.post('/',       authenticate, requirePlanCapacity('teacher'), createTeacher);
- */
-
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
-import { createClient } from '@supabase/supabase-js';
-import { config } from '../config/env';
-
-const getAdminClient = () =>
-    createClient(config.supabaseUrl, config.supabaseServiceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-    });
+import prisma from '../config/database';
 
 type ResourceType = 'student' | 'teacher';
+
+const PLAN_LIMITS: Record<string, { student: number; teacher: number }> = {
+    free: { student: 50, teacher: 5 },
+    pro: { student: 500, teacher: 50 },
+    enterprise: { student: 10000, teacher: 1000 },
+};
 
 export const requirePlanCapacity =
     (resource: ResourceType) =>
     async (req: AuthRequest, res: Response, next: NextFunction) => {
+        // Temporarily disabled as requested
+        return next();
+        
         const schoolId = req.user?.school_id;
         if (!schoolId) {
             return res.status(400).json({ message: 'School context missing.' });
@@ -36,34 +27,37 @@ export const requirePlanCapacity =
         }
 
         try {
-            const supabase = getAdminClient();
-            const { data, error } = await supabase.rpc('get_plan_status', {
-                p_school_id: schoolId,
+            // 1. Get school plan
+            const school = await prisma.school.findUnique({
+                where: { id: schoolId },
+                select: { plan_type: true, subscription_status: true }
             });
 
-            if (error) {
-                console.error('[PlanMiddleware] RPC error:', error.message);
-                // Fail open — don't block on plan check errors
-                return next();
+            if (!school) {
+                return res.status(404).json({ message: 'School not found.' });
             }
 
-            const canAdd = resource === 'student' ? data.can_add_student : data.can_add_teacher;
-            if (!canAdd) {
-                const limit = resource === 'student'
-                    ? data.limits.max_students
-                    : data.limits.max_teachers;
-                const current = resource === 'student'
-                    ? data.usage.students
-                    : data.usage.teachers;
+            const plan = school.plan_type?.toLowerCase() || 'free';
+            const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+            const limit = resource === 'student' ? limits.student : limits.teacher;
 
+            // 2. Count current usage
+            let current = 0;
+            if (resource === 'student') {
+                current = await prisma.student.count({ where: { school_id: schoolId } });
+            } else {
+                current = await prisma.teacher.count({ where: { school_id: schoolId } });
+            }
+
+            if (current >= limit) {
                 return res.status(402).json({
-                    message: `${resource.charAt(0).toUpperCase() + resource.slice(1)} limit reached for your plan.`,
+                    message: `${resource.charAt(0).toUpperCase() + resource.slice(1)} limit reached for your ${plan} plan.`,
                     plan_limit_exceeded: true,
                     resource,
                     current,
                     limit,
-                    effective_plan: data.effective_plan,
-                    upgrade_required: data.effective_plan === 'free' || data.is_expired,
+                    effective_plan: plan,
+                    upgrade_required: plan === 'free' || school.subscription_status === 'expired',
                 });
             }
 

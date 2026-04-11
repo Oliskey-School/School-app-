@@ -28,3 +28,22 @@ export const recordIVRLesson = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+export const uploadFile = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const bucket = req.body.bucket || 'general';
+        const filePath = req.body.path || req.file.filename;
+        
+        // Return public URL (assuming backend serves /uploads as static)
+        // Adjust the base URL as needed (e.g., from ENV)
+        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+        const publicUrl = `${baseUrl}/uploads/${bucket}/${filePath}`;
+
+        res.json({ publicUrl });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

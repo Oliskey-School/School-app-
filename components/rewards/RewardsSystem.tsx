@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { StudentPoints, PointTransaction, StudentBadge, BadgeFull } from '../../types-additional';
 import { Student } from '../../types';
 import { toast } from 'react-hot-toast';
@@ -22,7 +22,7 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
     const fetchRewardsData = async () => {
         try {
             // Fetch points
-            const { data: pointsData } = await supabase
+            const { data: pointsData } = await api
                 .from('student_points')
                 .select('*')
                 .eq('student_id', student.id)
@@ -32,7 +32,7 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
                 setPoints(pointsData);
             } else {
                 // Initialize points if don't exist
-                const { data: newPoints } = await supabase
+                const { data: newPoints } = await api
                     .from('student_points')
                     .insert({ student_id: student.id, points: 0, level: 1 })
                     .select()
@@ -41,7 +41,7 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
             }
 
             // Fetch recent transactions
-            const { data: transData } = await supabase
+            const { data: transData } = await api
                 .from('point_transactions')
                 .select('*, awarded_by_user:users!awarded_by(name)')
                 .eq('student_id', student.id)
@@ -55,7 +55,7 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ student }) => {
             })) || []);
 
             // Fetch earned badges
-            const { data: badgesData } = await supabase
+            const { data: badgesData } = await api
                 .from('student_badges')
                 .select('*, badge:badges(*)')
                 .eq('student_id', student.id);

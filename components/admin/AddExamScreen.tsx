@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Exam } from '../../types';
-import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+
 
 interface AddExamScreenProps {
   onSave: (exam: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => void;
@@ -28,68 +27,47 @@ const AddExamScreen: React.FC<AddExamScreenProps> = ({ onSave, examToEdit }) => 
       setLoading(true);
       try {
         // Get Auth User and Role
-        const { data: { user } } = await supabase.auth.getUser();
-        const isTeacher = user?.app_metadata?.role === 'teacher' || user?.user_metadata?.role === 'teacher';
+        const user = await api.getMe();
+        const isTeacher = user?.role === 'teacher';
 
         if (isTeacher && user) {
-          // 1. Fetch Teacher ID
-          const { data: teacher } = await supabase.from('teachers').select('id').eq('user_id', user.id).single();
+          const teacher = user.teacher_profile;
           if (teacher) {
             const { getGradeDisplayName } = await import('../../lib/schoolSystem');
 
-            // 2. MODERN: Fetch Assigned Classes (class_teachers)
-            const { data: modernAssignments } = await supabase
-              .from('class_teachers')
-              .select(`
-                                class_id,
-                                subject_id,
-                                classes (grade, section),
-                                subjects (name)
-                            `)
-              .eq('teacher_id', teacher.id);
+            // MODERN: Fetch Assigned Classes from profile
+            const assignments = teacher.classes || [];
 
             const finalClasses: any[] = [];
-            const finalSubjects: any[] = [];
             const addedClassKeys = new Set<string>();
-            const addedSubjectKeys = new Set<string>();
 
-            if (modernAssignments && modernAssignments.length > 0) {
-              modernAssignments.forEach((item: any) => {
-                const c = item.classes;
-                if (c) {
-                  const name = `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`;
-                  if (!addedClassKeys.has(name)) {
-                    finalClasses.push({ name });
-                    addedClassKeys.add(name);
-                  }
+            assignments.forEach((item: any) => {
+              const c = item.class;
+              if (c) {
+                const name = `${getGradeDisplayName(c.grade)}${c.section ? ' ' + c.section : ''}`;
+                if (!addedClassKeys.has(name)) {
+                  finalClasses.push({ name });
+                  addedClassKeys.add(name);
                 }
-                const s = item.subjects;
-                if (s && !addedSubjectKeys.has(s.name)) {
-                  finalSubjects.push({ name: s.name });
-                  addedSubjectKeys.add(s.name);
-                }
-              });
-            } else {
-              // 3. LEGACY: Fetch Assigned Classes (teacher_classes/teacher_subjects)
-              console.log('ℹ️ [AddExam] No modern assignments found, checking legacy...');
-              const { data: legacyClasses } = await supabase.from('teacher_classes').select('class_name').eq('teacher_id', teacher.id);
-              const { data: legacySubjects } = await supabase.from('teacher_subjects').select('subject').eq('teacher_id', teacher.id);
-
-              legacyClasses?.forEach(c => finalClasses.push({ name: c.class_name }));
-              legacySubjects?.forEach(s => finalSubjects.push({ name: s.subject }));
-            }
+              }
+            });
             setAvailableClasses(finalClasses);
-            setAvailableSubjects(finalSubjects);
+            
+            // For subjects, since we don't have a direct link in profile yet in this schema, 
+            // we'll fetch all subjects for now or teacher's specialty
+            const subjectsRes = await api.getSubjects(currentSchool.id);
+            if (subjectsRes) setAvailableSubjects(subjectsRes);
+
             setLoading(false);
             return; // Done for teacher
           }
         }
 
         // ADMIN OR FALLBACK: Fetch all classes and subjects
-        const branchId = currentBranchId || null;
+        const branchId = currentBranchId || undefined;
         const [classesRes, subjectsRes] = await Promise.all([
-          api.getClasses(currentSchool.id, branchId || undefined),
-          api.getSubjects(currentSchool.id, branchId || undefined)
+          api.getClasses(currentSchool.id, branchId),
+          api.getSubjects(currentSchool.id, branchId)
         ]);
 
         if (classesRes) setAvailableClasses(classesRes);

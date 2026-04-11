@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { isDemoMode, backendFetch } from '../lib/database';
 import { ChevronDown, Building } from 'lucide-react';
 import { Branch, DashboardType } from '../types';
+import api from '../lib/api';
 
 interface BranchContextType {
     currentBranch: Branch | null;
     branches: Branch[];
-    switchBranch: (branchId: string) => void;
+    switchBranch: (branchId: string | null) => void;
     isLoading: boolean;
     canSwitchBranches: boolean;
 }
@@ -38,54 +38,26 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             try {
                 setIsLoading(true);
 
-                // Fetch all branches for this school
-                let { data, error } = await supabase
-                    .from('branches')
-                    .select('id, name, is_main, curriculum_type, location')
-                    .eq('school_id', currentSchool.id)
-                    .order('is_main', { ascending: false }) as { data: Branch[] | null, error: any };
-
-                // Fallback to backend API if direct query returns nothing and we're in demo mode
-                if ((!data || data.length === 0) && (isDemoMode() || !error)) {
-                    try {
-                        const backendData = await backendFetch<Branch[]>('/branches');
-                        if (backendData && backendData.length > 0) {
-                            data = backendData;
-                        }
-                    } catch (backendErr) {
-                        console.error('Backend fallback failed for branches:', backendErr);
-                    }
-                }
-
-                if (error && !data) {
-                    console.error('Supabase fetchBranches error:', error);
-                    // Don't throw here, allow fallback or empty state
-                }
+                // Fetch all branches for this school using our custom API
+                const data = await api.getBranches(currentSchool.id);
 
                 if (data && data.length > 0) {
                     setBranches(data);
 
-                    // Determine which branch to select:
-                    // 1. Saved in localStorage
-                    // 2. Assigned via JWT (Project Ironclad claim)
-                    // 3. Main branch (fallback)
-
                     const savedBranchId = localStorage.getItem('selected_branch_id');
                     const assignedBranchId = currentBranchId;
 
-                    // If user is a Main Admin/Proprietor and has "all" saved, or nothing assigned
                     if (canSwitchBranches && (savedBranchId === 'all' || (!savedBranchId && !assignedBranchId))) {
                         setCurrentBranch(null);
                     } else if (data.length > 0) {
                         const branchToSelect =
-                            data.find(b => b.id === savedBranchId) ||
-                            data.find(b => b.id === assignedBranchId) ||
+                            data.find((b: Branch) => b.id === savedBranchId) ||
+                            data.find((b: Branch) => b.id === assignedBranchId) ||
                             data[0];
 
                         setCurrentBranch(branchToSelect);
                     }
                 } else {
-                    console.log('No branches found for school');
                     setBranches([]);
                     setCurrentBranch(null);
                 }
@@ -104,40 +76,22 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const switchBranch = async (branchId: string | null) => {
         try {
             if (branchId === null) {
-                // Main Admin switching to "All Branches"
                 if (!canSwitchBranches) {
-                    throw new Error("SecurityException: Unauthorized attempt to clear branch context.");
+                    throw new Error("Unauthorized attempt to clear branch context.");
                 }
-
-                // Sync with backend
-                const { error: rpcError } = await supabase.rpc('sync_active_branch', { p_branch_id: null });
-                if (rpcError) throw rpcError;
 
                 setCurrentBranch(null);
                 localStorage.setItem('selected_branch_id', 'all');
-                console.log("🔓 [Context Switch] All branches active.");
             } else {
-                // Switching to a specific branch
                 const branch = branches.find(b => b.id === branchId);
                 if (!branch) {
-                    throw new Error("SecurityException: Target branch not found or unauthorized.");
+                    throw new Error("Target branch not found or unauthorized.");
                 }
-
-                // Sync with backend
-                const { error: rpcError } = await supabase.rpc('sync_active_branch', { p_branch_id: branchId });
-                if (rpcError) throw rpcError;
 
                 setCurrentBranch(branch);
                 localStorage.setItem('selected_branch_id', branchId);
-                console.log(`🔒 [Context Switch] Active branch: ${branch.name}`);
             }
-
-            // The onAuthStateChange in AuthContext will handle the session update
-            // and trigger a re-render, which will then cause the BranchContext
-            // to re-evaluate the user's branch access.
-            console.log("Branch switched. Auth state will be updated by its own listener.");
         } catch (err: any) {
-            console.error("❌ [SecurityException] Branch switch failed:", err.message);
             toast.error(err.message);
         }
     };

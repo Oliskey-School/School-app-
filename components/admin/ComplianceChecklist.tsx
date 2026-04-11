@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 
 const ComplianceChecklist = () => {
@@ -14,10 +15,15 @@ const ComplianceChecklist = () => {
         }
     }, [currentSchool]);
 
+    useAutoSync(['compliance_checklists'], () => {
+        console.log('🔄 [ComplianceChecklist] Real-time auto-sync triggered');
+        fetchChecks();
+    });
+
     const fetchChecks = async () => {
         if (!currentSchool) return;
         try {
-            let query = supabase
+            let query = api
                 .from('compliance_checklists')
                 .select('*')
                 .eq('school_id', currentSchool.id);
@@ -90,3 +96,4 @@ const ComplianceChecklist = () => {
 };
 
 export default ComplianceChecklist;
+

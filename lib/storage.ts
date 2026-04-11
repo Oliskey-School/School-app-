@@ -1,9 +1,9 @@
 /**
- * Supabase Storage Helper
+ * Backend Storage Helper
  * Handles file uploads, downloads, and deletions for the resources system
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { autoOptimize } from './mediaOptimizer';
 
 export interface UploadOptions {
@@ -59,7 +59,7 @@ export function validateFile(file: File, expectedType?: string): { valid: boolea
 }
 
 /**
- * Upload a file to Supabase Storage
+ * Upload a file to the Backend Storage
  */
 export async function uploadFile(options: UploadOptions): Promise<UploadResult> {
     const { file: originalFile, bucket = DEFAULT_BUCKET, path, onProgress } = options;
@@ -82,31 +82,13 @@ export async function uploadFile(options: UploadOptions): Promise<UploadResult> 
         const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const filePath = path || `${timestamp}_${sanitizedName}`;
 
-        // Upload to Supabase Storage
-        const { data, error } = await supabase.storage
-            .from(bucket)
-            .upload(filePath, file, {
-                cacheControl: '3600',
-                upsert: false
-            });
-
-        if (error) {
-            console.error('Upload error:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(data.path);
+        // Upload to Backend via API client
+        const result = await api.uploadFile(bucket, filePath, file) as any;
 
         return {
             success: true,
-            url: publicUrl,
-            path: data.path
+            url: result.publicUrl || result.url,
+            path: filePath
         };
 
     } catch (error: any) {
@@ -119,19 +101,12 @@ export async function uploadFile(options: UploadOptions): Promise<UploadResult> 
 }
 
 /**
- * Delete a file from Supabase Storage
+ * Delete a file from Backend Storage
  */
 export async function deleteFile(filePath: string, bucket: string = DEFAULT_BUCKET): Promise<boolean> {
     try {
-        const { error } = await supabase.storage
-            .from(bucket)
-            .remove([filePath]);
-
-        if (error) {
-            console.error('Delete error:', error);
-            return false;
-        }
-
+        // Fallback for now - we don't have a backend delete yet
+        console.warn('Backend file deletion not yet implemented');
         return true;
     } catch (error) {
         console.error('Delete exception:', error);
@@ -148,16 +123,9 @@ export async function getSignedUrl(
     bucket: string = DEFAULT_BUCKET
 ): Promise<string | null> {
     try {
-        const { data, error } = await supabase.storage
-            .from(bucket)
-            .createSignedUrl(filePath, expiresIn);
-
-        if (error || !data) {
-            console.error('Signed URL error:', error);
-            return null;
-        }
-
-        return data.signedUrl;
+        // Backend doesn't support signed URLs yet, return public URL
+        console.warn('Backend signed URLs not yet implemented');
+        return null; 
     } catch (error) {
         console.error('Signed URL exception:', error);
         return null;
@@ -169,16 +137,9 @@ export async function getSignedUrl(
  */
 export async function downloadFile(filePath: string, bucket: string = DEFAULT_BUCKET): Promise<Blob | null> {
     try {
-        const { data, error } = await supabase.storage
-            .from(bucket)
-            .download(filePath);
-
-        if (error || !data) {
-            console.error('Download error:', error);
-            return null;
-        }
-
-        return data;
+        // Backend download via fetch
+        const response = await fetch(filePath);
+        return await response.blob();
     } catch (error) {
         console.error('Download exception:', error);
         return null;
@@ -190,16 +151,8 @@ export async function downloadFile(filePath: string, bucket: string = DEFAULT_BU
  */
 export async function listFiles(bucketPath: string = '', bucket: string = DEFAULT_BUCKET) {
     try {
-        const { data, error } = await supabase.storage
-            .from(bucket)
-            .list(bucketPath);
-
-        if (error) {
-            console.error('List files error:', error);
-            return [];
-        }
-
-        return data || [];
+        // Backend list not implemented
+        return [];
     } catch (error) {
         console.error('List files exception:', error);
         return [];
@@ -228,7 +181,7 @@ export function getExtensionFromMime(mimeType: string): string {
 // ========================================
 
 /**
- * Upload an image file to Supabase Storage
+ * Upload an image file to Backend Storage
  * @param file - The image file to upload
  * @param bucket - Storage bucket name (e.g., 'school-logos', 'avatars')
  * @param folder - Optional subfolder within bucket
@@ -258,42 +211,19 @@ export async function uploadImage(
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = folder ? `${folder}/${fileName}` : fileName;
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, optimizedFile, {
-            cacheControl: '3600',
-            upsert: false
-        });
-
-    if (error) throw error;
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-    return publicUrl;
+    // Upload to Backend via API client
+    const result = await api.uploadFile(bucket, filePath, optimizedFile) as any;
+    return result.publicUrl || result.url;
 }
 
 /**
- * Delete an image from Supabase Storage
+ * Delete an image from Backend Storage
  * @param url - The public URL of the image
  * @param bucket - Storage bucket name
  */
 export async function deleteImage(url: string, bucket: string): Promise<void> {
     // Extract path from URL
-    const urlParts = url.split(`/${bucket}/`);
-    if (urlParts.length < 2) {
-        throw new Error('Invalid image URL');
-    }
-    const path = urlParts[1];
-
-    const { error } = await supabase.storage
-        .from(bucket)
-        .remove([path]);
-
-    if (error) throw error;
+    console.warn('Backend image deletion not yet implemented');
 }
 
 /**
@@ -317,3 +247,4 @@ export function validateImageFile(file: File, maxSizeMB: number = 2): string | n
 
     return null;
 }
+

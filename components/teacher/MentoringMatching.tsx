@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -39,48 +39,12 @@ const MentoringMatching: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) {
-                setLoading(false);
-                return;
+            // Fetch all teachers and my mentoring matches from backend
+            const result = await api.getMentoringData();
+            if (result) {
+                setTeachers(result.teachers || []);
+                setMyMatches(result.myMatches || []);
             }
-
-            // Fetch all teachers
-            const { data: allTeachers } = await supabase
-                .from('teachers')
-                .select('id, full_name, email')
-                .neq('id', teacherData.id);
-
-            setTeachers(allTeachers || []);
-
-            // Fetch my mentoring matches
-            const { data: matches } = await supabase
-                .from('mentoring_matches')
-                .select(`
-          *,
-          mentor:teachers!mentoring_matches_mentor_id_fkey(full_name),
-          mentee:teachers!mentoring_matches_mentee_id_fkey(full_name)
-        `)
-                .or(`mentor_id.eq.${teacherData.id},mentee_id.eq.${teacherData.id}`)
-                .eq('status', 'Active');
-
-            const formatted: MentoringMatch[] = (matches || []).map((m: any) => ({
-                id: m.id,
-                mentor_name: m.mentor?.full_name || 'Unknown',
-                mentee_name: m.mentee?.full_name || 'Unknown',
-                subject_area: m.subject_area,
-                status: m.status,
-                started_at: m.started_at,
-                is_mentor: m.mentor_id === teacherData.id
-            }));
-
-            setMyMatches(formatted);
         } catch (error: any) {
             console.error('Error fetching data:', error);
         } finally {
@@ -95,25 +59,7 @@ const MentoringMatching: React.FC = () => {
         }
 
         try {
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) return;
-
-            const { error } = await supabase
-                .from('mentoring_matches')
-                .insert({
-                    mentor_id: selectedTeacher,
-                    mentee_id: teacherData.id,
-                    subject_area: subjectArea,
-                    status: 'Active'
-                });
-
-            if (error) throw error;
-
+            await api.requestMentor(selectedTeacher, subjectArea);
             toast.success('Mentoring request sent successfully!');
             setSelectedTeacher(0);
             setSubjectArea('');
@@ -228,3 +174,4 @@ const MentoringMatching: React.FC = () => {
 };
 
 export default MentoringMatching;
+

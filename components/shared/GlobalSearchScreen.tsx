@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardType } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -16,6 +16,7 @@ import {
     BuildingLibraryIcon
 } from '../../constants';
 import { deduplicateClasses } from '../../utils/classUtils';
+import VoiceSearchWidget from '../shared/VoiceSearchWidget';
 
 interface SearchResult {
     id: number | string;
@@ -72,66 +73,52 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
         const newResults: SearchResult[] = [];
 
         try {
-            // Helper to apply branch filter
-            const applyBranch = (query: any) => {
-                if (currentBranchId && currentBranchId !== 'all') {
-                    return query.eq('branch_id', currentBranchId);
-                }
-                return query;
-            };
-
-            // Parallel fetch from multiple tables
-            const [
-                { data: students },
-                { data: teachers },
-                { data: classes },
-                { data: assignments },
-                { data: quizzes },
-                { data: notices },
-                { data: parents }
-            ] = await Promise.all([
-                applyBranch(supabase.from('students').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,school_generated_id.ilike.%${term}%`)).limit(10),
-                applyBranch(supabase.from('teachers').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`)).limit(5),
-                applyBranch(supabase.from('classes').select('*').eq('school_id', schoolId).ilike('name', `%${term}%`)).limit(5),
-                applyBranch(supabase.from('assignments').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`)).limit(5),
-                applyBranch(supabase.from('quizzes').select('*').eq('school_id', schoolId).ilike('title', `%${term}%`)).limit(5),
-                applyBranch(supabase.from('notices').select('*').eq('school_id', schoolId).or(`title.ilike.%${term}%,content.ilike.%${term}%`)).limit(5),
-                applyBranch(supabase.from('parents').select('*').eq('school_id', schoolId).or(`name.ilike.%${term}%,email.ilike.%${term}%`)).limit(5)
-            ]);
+            // Use the new unified global search endpoint
+            const searchData = await api.globalSearch(term, schoolId, currentBranchId || 'all');
+            
+            const {
+                students = [],
+                teachers = [],
+                classes = [],
+                assignments = [],
+                quizzes = [],
+                notices = [],
+                parents = []
+            } = searchData || {};
 
             // Map Students
-            students?.forEach(s => {
+            students.forEach((s: any) => {
                 newResults.push({
                     id: s.id,
-                    title: s.name,
+                    title: s.full_name || s.name,
                     subtitle: s.school_generated_id || `Grade ${s.grade}${s.section || ''}`,
                     type: 'Student',
                     onClick: () => {
-                        if (dashboardType === DashboardType.Admin) navigateTo('studentProfileAdminView', s.name, { student: s });
-                        else if (dashboardType === DashboardType.Teacher) navigateTo('studentProfile', s.name, { student: s });
-                        else if (dashboardType === DashboardType.Parent) navigateTo('childDetail', s.name, { student: s });
+                        if (dashboardType === DashboardType.Admin) navigateTo('studentProfileAdminView', s.full_name || s.name, { student: s });
+                        else if (dashboardType === DashboardType.Teacher) navigateTo('studentProfile', s.full_name || s.name, { student: s });
+                        else if (dashboardType === DashboardType.Parent) navigateTo('childDetail', s.full_name || s.name, { student: s });
                     }
                 });
             });
 
             // Map Teachers
-            teachers?.forEach(t => {
+            teachers.forEach((t: any) => {
                 newResults.push({
                     id: t.id,
-                    title: t.name,
+                    title: t.full_name || t.name,
                     subtitle: t.email,
                     type: 'Teacher',
                     onClick: () => {
-                        if (dashboardType === DashboardType.Admin) navigateTo('teacherDetailAdminView', t.name, { teacher: t });
+                        if (dashboardType === DashboardType.Admin) navigateTo('teacherDetailAdminView', t.full_name || t.name, { teacher: t });
                     }
                 });
             });
 
-            // Deduplicate Classes
+            // Deduplicate Classes if needed (already handled by service but good for UI safety)
             const uniqueClasses = deduplicateClasses(classes || []);
 
             // Map Classes
-            uniqueClasses.forEach(c => {
+            uniqueClasses.forEach((c: any) => {
                 newResults.push({
                     id: c.id,
                     title: c.name,
@@ -145,7 +132,7 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
             });
 
             // Map Assignments
-            assignments?.forEach(a => {
+            assignments.forEach((a: any) => {
                 newResults.push({
                     id: a.id,
                     title: a.title,
@@ -159,7 +146,7 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
             });
 
             // Map Quizzes
-            quizzes?.forEach(q => {
+            quizzes.forEach((q: any) => {
                 newResults.push({
                     id: q.id,
                     title: q.title,
@@ -173,7 +160,7 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
             });
 
             // Map Notices
-            notices?.forEach(n => {
+            notices.forEach((n: any) => {
                 newResults.push({
                     id: n.id,
                     title: n.title,
@@ -184,14 +171,14 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
             });
 
             // Map Parents
-            parents?.forEach(p => {
+            parents.forEach((p: any) => {
                 newResults.push({
                     id: p.id,
-                    title: p.name,
+                    title: p.full_name || p.name,
                     subtitle: p.email || 'No email',
                     type: 'Teacher', // Reusing StaffIcon for now as Parent icon
                     onClick: () => {
-                        if (dashboardType === DashboardType.Admin) navigateTo('parentDetailAdminView', p.name, { parentId: p.id });
+                        if (dashboardType === DashboardType.Admin) navigateTo('parentDetailAdminView', p.full_name || p.name, { parentId: p.id });
                     }
                 });
             });
@@ -232,14 +219,12 @@ const GlobalSearchScreen: React.FC<GlobalSearchScreenProps> = ({ dashboardType, 
                         autoFocus
                         className={`w-full pl-10 pr-10 py-3 text-lg bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent ${isSearching ? 'opacity-70' : ''}`}
                     />
-                    {isSearching && (
-                        <div className="absolute right-12 inset-y-0 flex items-center">
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-sky-500"></div>
-                        </div>
-                    )}
                     <button onClick={onClose} className="absolute inset-y-0 right-0 flex items-center pr-3">
                         <XCircleIcon className="text-gray-400 hover:text-gray-600 w-7 h-7" />
                     </button>
+                    <div className="absolute right-12 inset-y-0 flex items-center">
+                        <VoiceSearchWidget onSearch={(text) => setSearchTerm(text)} showInput={false} />
+                    </div>
                 </div>
             </div>
             <div className="flex-grow overflow-y-auto p-4">

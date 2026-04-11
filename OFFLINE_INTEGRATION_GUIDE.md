@@ -21,15 +21,14 @@ This guide shows you how to integrate the offline-first synchronization system i
 
 ## 1. Simple Query Replacement
 
-### Before (standard React Query)
+### Before (Standard API Call)
 ```typescript
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 function StudentsList() {
     const { data, isLoading } = useQuery(['students'], async () => {
-        const { data } = await supabase.from('students').select('*');
-        return data;
+        return api.getStudents();
     });
 
     return <div>{/* ... */}</div>;

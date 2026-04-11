@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { LearningResource } from '../../types';
 import { DocumentTextIcon, PlayIcon, SearchIcon, ElearningIcon, ChevronRightIcon } from '../../constants';
 
@@ -88,12 +88,8 @@ const LearningResourcesScreen: React.FC = () => {
 
     const fetchResources = async () => {
         try {
-            const { data, error } = await supabase
-                .from('learning_resources')
-                .select('*')
-                .order('created_at', { ascending: false });
+            const data = await api.getLearningResources();
 
-            if (error) throw error;
 
             if (data) {
                 // Map DB columns to Typescript interface if needed (snake_case -> camelCase)

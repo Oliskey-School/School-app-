@@ -14,7 +14,7 @@ import {
 import { SchoolLogoIcon } from '../../constants';
 import { StudentReportInfo, ReportCard } from '../../types';
 import { api } from '../../lib/api';
-import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 
@@ -74,18 +74,10 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
         (student as any).school_id ||
         (student as any).schoolId;
 
-    // Real-time Subscription for Academic Performance
-    useRealtimeSubscription({
-        table: 'academic_performance',
-        filter: `student_id=eq.${student.id}`,
-        callback: () => fetchMergedData()
-    });
-
-    // Real-time Subscription for the Report Card itself
-    useRealtimeSubscription({
-        table: 'report_cards',
-        filter: `student_id=eq.${student.id}`,
-        callback: () => fetchMergedData()
+    // Unified Backend-driven Auto Sync
+    useAutoSync(['academic_performance', 'report_cards'], () => {
+        console.log('🔄 [ReportCardPreview] Auto-sync triggered');
+        fetchMergedData();
     });
 
     const fetchMergedData = async () => {
@@ -94,24 +86,22 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
 
         setIsLoading(true);
         try {
-            // 1. Fetch Class Subjects - Fixed for schema
-            const { data: classData } = await api.getScopedQuery('classes', targetId)
-                .eq('grade', student.grade)
-                .select('name');
+            // 1. Fetch Class subjects via API
+            const classesResponse = await api.getClasses(targetId);
+            const myClass = classesResponse.find((c: any) => c.grade === student.grade);
+            const subjects = myClass?.subjects || [];
 
-            // 2. Fetch latest scores
-            const performance = await api.getGrades(schoolId, undefined, student.id, undefined, term);
+            // 2. Fetch latest scores via API
+            const performance = await api.getGrades([student.id], undefined, term);
             setAcademicPerformance(performance);
 
-            // 3. Extract subjects from performance data (backup)
-            const subjects = Array.from(new Set((performance || []).map((p: any) => p.subject))).filter(Boolean);
-
-            // 4. Fetch Master Report Card
-            const { data: reportData } = await api.getScopedQuery('report_cards', targetId)
-                .eq('student_id', student.id)
-                .eq('term', term)
-                .eq('session', session)
-                .maybeSingle();
+            // 3. Fetch Master Report Card via API
+            const reportCards = await api.getReportCards(targetId);
+            const reportData = reportCards.find((r: any) => 
+                r.student_id === student.id && 
+                r.term === term && 
+                r.session === session
+            );
 
             // 4. Merge Logic
             const finalSubjects = subjects.length > 0

@@ -3,16 +3,16 @@
  * Supports Africa's Talking and Twilio for Nigerian schools
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 
 // Africa's Talking configuration (preferred for Nigeria)
-const AT_API_KEY = import.meta.env.VITE_AFRICASTALKING_API_KEY;
-const AT_USERNAME = import.meta.env.VITE_AFRICASTALKING_USERNAME;
+const AT_API_KEY = (import.meta.env as any).VITE_AFRICASTALKING_API_KEY;
+const AT_USERNAME = (import.meta.env as any).VITE_AFRICASTALKING_USERNAME;
 
 // Twilio configuration (fallback)
-const TWILIO_ACCOUNT_SID = import.meta.env.VITE_TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = import.meta.env.VITE_TWILIO_AUTH_TOKEN;
-const TWILIO_PHONE_NUMBER = import.meta.env.VITE_TWILIO_PHONE_NUMBER;
+const TWILIO_ACCOUNT_SID = (import.meta.env as any).VITE_TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = (import.meta.env as any).VITE_TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE_NUMBER = (import.meta.env as any).VITE_TWILIO_PHONE_NUMBER;
 
 export interface PhoneVerificationResult {
     success: boolean;
@@ -21,8 +21,8 @@ export interface PhoneVerificationResult {
 }
 
 /**
- * Send OTP code via SMS using Edge Function
- * This calls our Supabase Edge Function which securely handles the SMS provider APIs
+ * Send OTP code via SMS using Backend Endpoint
+ * This calls our custom backend which securely handles the SMS provider APIs
  */
 export async function sendOTPCode(
     phone: string,
@@ -38,8 +38,8 @@ export async function sendOTPCode(
             };
         }
 
-        // Call Edge Function to send OTP
-        const { data, error } = await supabase.functions.invoke('send-otp', {
+        // Call Backend to send OTP
+        const { data, error } = await api.functions.invoke('send-otp', {
             body: {
                 phone: cleanPhone,
                 purpose
@@ -57,7 +57,7 @@ export async function sendOTPCode(
         return {
             success: true,
             message: `Verification code sent to ${maskPhoneNumber(cleanPhone)}`,
-            expiresAt: data.expiresAt
+            expiresAt: data?.expiresAt
         };
     } catch (error) {
         console.error('Send OTP error:', error);
@@ -78,8 +78,8 @@ export async function verifyOTPCode(
     try {
         const cleanPhone = cleanPhoneNumber(phone);
 
-        // Call Edge Function to verify OTP
-        const { data, error } = await supabase.functions.invoke('verify-otp', {
+        // Call Backend to verify OTP
+        const { data, error } = await api.functions.invoke('verify-otp', {
             body: {
                 phone: cleanPhone,
                 code: code.trim()
@@ -93,22 +93,22 @@ export async function verifyOTPCode(
             };
         }
 
-        if (!data.valid) {
+        if (!data?.valid) {
             return {
                 success: false,
-                message: data.message || 'Invalid verification code'
+                message: data?.message || 'Invalid verification code'
             };
         }
 
         // Update user profile to mark phone as verified
-        const { error: updateError } = await supabase
+        const { error: updateError } = await api
             .from('profiles')
+            .eq('id', data.userId)
             .update({
                 phone: cleanPhone,
                 phone_verified: true,
                 phone_verified_at: new Date().toISOString()
-            })
-            .eq('id', data.userId);
+            });
 
         if (updateError) {
             console.error('Profile update error:', updateError);
@@ -203,40 +203,43 @@ export async function resendOTPCode(phone: string): Promise<PhoneVerificationRes
 export async function isPhoneVerified(phone: string): Promise<boolean> {
     const cleanPhone = cleanPhoneNumber(phone);
 
-    const { data, error } = await supabase
+    const { data, error } = await api
         .from('profiles')
         .select('phone_verified')
         .eq('phone', cleanPhone)
         .single();
 
     if (error || !data) return false;
-    return data.phone_verified === true;
+    return (data as any).phone_verified === true;
 }
 
 /**
  * Get verification status for current user
  */
 export async function getCurrentUserVerificationStatus() {
-    const { data: { user } } = await supabase.auth.getUser();
+    // In our backend migration, we use the AuthContext or api.getCurrentUser()
+    const { data: user, error: userError } = await api.getCurrentUser();
 
-    if (!user) return null;
+    if (userError || !user) return null;
 
-    const { data, error } = await supabase
+    const { data, error } = await api
         .from('profiles')
         .select('phone, phone_verified, verification_status, id_document_url')
         .eq('id', user.id)
         .single();
 
-    if (error) {
+    if (error || !data) {
         console.error('Get verification status error:', error);
         return null;
     }
 
+    const profileData = data as any;
     return {
-        hasPhone: !!data.phone,
-        phoneVerified: data.phone_verified || false,
-        hasIDDocument: !!data.id_document_url,
-        verificationStatus: data.verification_status || 'unverified',
-        isFullyVerified: data.phone_verified && data.verification_status === 'verified'
+        hasPhone: !!profileData.phone,
+        phoneVerified: profileData.phone_verified || false,
+        hasIDDocument: !!profileData.id_document_url,
+        verificationStatus: profileData.verification_status || 'unverified',
+        isFullyVerified: profileData.phone_verified && profileData.verification_status === 'verified'
     };
 }
+

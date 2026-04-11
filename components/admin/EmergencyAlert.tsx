@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, MapPinIcon, UserIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
@@ -32,62 +32,23 @@ const EmergencyAlert: React.FC = () => {
 
     useEffect(() => {
         if (!currentSchool) return;
-
         fetchAlerts();
-
-        const branchId = profile?.branch_id;
-
-        // Real-time subscription for new alerts
-        const subscription = supabase
-            .channel('emergency_alerts_channel')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'emergency_alerts',
-                filter: `school_id=eq.${currentSchool.id}`
-            }, (payload) => {
-                const newRecord = payload.new as any;
-                if (branchId && branchId !== 'all' && newRecord.branch_id !== branchId) return;
-
-                fetchAlerts();
-                toast.error('🚨 NEW EMERGENCY ALERT!', { duration: 10000 });
-                // Play alert sound
-                playAlertSound();
-            })
-            .subscribe();
-
-        return () => {
-            subscription.unsubscribe();
-        };
     }, [filter, currentSchool]);
 
     const fetchAlerts = async () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-
-            const branchId = profile?.branch_id;
-
-            let query = supabase
-                .from('emergency_alerts')
-                .select('*')
-                .eq('school_id', currentSchool.id)
-                .order('sent_at', { ascending: false });
-
-            if (branchId && branchId !== 'all') {
-                query = query.eq('branch_id', branchId);
-            }
-
+            const data = await api.getEmergencyAlerts(currentSchool.id);
+            
+            let filteredData = data;
             if (filter === 'active') {
-                query = query.eq('all_clear', false);
+                filteredData = data.filter((a: any) => !a.all_clear);
             } else if (filter === 'resolved') {
-                query = query.eq('all_clear', true);
+                filteredData = data.filter((a: any) => a.all_clear);
             }
 
-            const { data, error } = await query;
-            if (error) throw error;
-
-            setAlerts(data || []);
+            setAlerts(filteredData || []);
         } catch (error: any) {
             console.error('Error fetching alerts:', error);
             toast.error('Failed to load alerts');
@@ -102,48 +63,12 @@ const EmergencyAlert: React.FC = () => {
         audio.play().catch(() => { });
     };
 
-    const handleRespond = async (alertId: string) => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const startTime = new Date(selectedAlert?.sent_at || new Date()).getTime();
-            const responseTime = Math.floor((Date.now() - startTime) / 1000);
-
-            const { error } = await supabase
-                .from('emergency_alerts')
-                .update({
-                    all_clear: false, // Keeping it active for now but could add a "status" column if needed later
-                    // notes: `In Progress - Response time: ${responseTime}s`
-                })
-                .eq('id', alertId);
-
-            if (error) throw error;
-
-            toast.success('Response logged. Stay safe!');
-            fetchAlerts();
-            setSelectedAlert(null);
-        } catch (error: any) {
-            toast.error('Failed to update status');
-        }
-    };
-
     const handleResolve = async (alertId: string) => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { error } = await supabase
-                .from('emergency_alerts')
-                .update({
-                    all_clear: true,
-                    // resolved_by: user.id,
-                    // resolved_at: new Date().toISOString(),
-                    message: `${selectedAlert?.message}\n\nResolution Notes: ${responseNotes}`
-                })
-                .eq('id', alertId);
-
-            if (error) throw error;
+            await api.updateEmergencyAlert(alertId, {
+                all_clear: true,
+                message: `${selectedAlert?.message}\n\nResolution Notes: ${responseNotes}`
+            });
 
             toast.success('Alert resolved successfully');
             setResponseNotes('');
@@ -317,3 +242,4 @@ const EmergencyAlert: React.FC = () => {
 };
 
 export default EmergencyAlert;
+

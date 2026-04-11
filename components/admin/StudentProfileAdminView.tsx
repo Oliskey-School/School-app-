@@ -20,8 +20,9 @@ import DonutChart from '../ui/DonutChart';
 import { getAIClient, AI_MODEL_NAME } from '../../lib/ai';
 import ReactMarkdown from 'react-markdown';
 import ConfirmationModal from '../ui/ConfirmationModal';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+
 
 interface StudentProfileAdminViewProps {
     student: Student;
@@ -142,6 +143,11 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         ? Math.round(academicPerformance.reduce((sum, record) => sum + record.score, 0) / academicPerformance.length)
         : 0;
 
+    useAutoSync(['students', 'classes', 'attendance', 'academic'], () => {
+        console.log('🔄 [StudentProfile] Auto-sync triggered');
+        loadProfileData();
+    });
+
     // Fetch enrollments and attendance
     useEffect(() => {
         loadProfileData();
@@ -158,7 +164,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             }
 
             // Fetch enrollments with strict tenant isolation
-            const enrollmentResults = await supabase
+            const enrollmentResults = await api
                 .from('student_enrollments')
                 .select('classes(name, section)')
                 .eq('student_id', student.id)
@@ -169,7 +175,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             }
 
             // Fetch attendance with strict tenant isolation
-            const { data: attendanceRecords, error: attendanceError } = await supabase
+            const { data: attendanceRecords, error: attendanceError } = await api
                 .from('student_attendance')
                 .select('status')
                 .eq('student_id', student.id)
@@ -209,7 +215,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
         try {
             // Use api.deleteStudent which should handle all related deletions and backend cleanup
             await api.deleteStudent(student.id);
-            toast.success(`${student.name} has been successfully deleted.`);
+            toast.success(`${student.name || student.full_name || 'Student'} has been successfully deleted.`);
             forceUpdate();
             handleBack();
         } catch (error: any) {
@@ -228,7 +234,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
             // Assign to new class
             await api.assignStudentToClass(student.id, newClassId);
 
-            toast.success(`${student.name} has been assigned to the new class.`);
+            toast.success(`${student.name || student.full_name || 'Student'} has been assigned to the new class.`);
             setShowClassModal(false);
             loadProfileData(); // Reload to show updated class
             forceUpdate();
@@ -272,7 +278,7 @@ const StudentProfileAdminView: React.FC<StudentProfileAdminViewProps> = ({ stude
                         <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6 text-center sm:text-left">
                             <img src={student.avatarUrl} alt={student.name} className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-8 border-indigo-50 shadow-inner" />
                             <div>
-                                <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-800 tracking-tight">{student.name}</h3>
+                                <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-800 tracking-tight">{student.name || student.full_name || 'Student'}</h3>
                                 <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2">
                                     <button
                                         onClick={() => setShowClassModal(true)}

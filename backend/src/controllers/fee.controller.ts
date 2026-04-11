@@ -74,7 +74,7 @@ export const bulkFetchFees = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'studentIds array is required' });
         }
         const branchId = req.user.branch_id || req.body.branch_id;
-        const result = await FeeService.getFeesByStudentIds(req.user.school_id, branchId, studentIds, statusList);
+        const result = await FeeService.getFeesByStudentIds(req.user.school_id, branchId, studentIds as string[], statusList as string[]);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -165,6 +165,15 @@ export const updateArrear = async (req: AuthRequest, res: Response) => {
     try {
         const { status } = req.body;
         const result = await FeeService.updateArrearStatus(req.params.id as string, status);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+export const getTransactions = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const result = await FeeService.getTransactions(req.user.school_id, req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

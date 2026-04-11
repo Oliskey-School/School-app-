@@ -1,70 +1,74 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 
 export class UserService {
     static async createUser(schoolId: string, branchId: string | undefined, data: any) {
-        // Ensure user is created within the tenant
-        const { data: user, error } = await supabase
-            .from('users')
-            .insert([{ ...data, school_id: schoolId, branch_id: branchId || data.branch_id }])
-            .select()
-            .single();
-
-        if (error) throw new Error(error.message);
-        return user;
+        return await prisma.user.create({
+            data: {
+                ...data,
+                school_id: schoolId,
+                branch_id: branchId || data.branch_id
+            }
+        });
     }
 
-    static async getUsers(schoolId: string, branchId: string | undefined, role?: string) {
-        let query = supabase
-            .from('users')
-            .select('*')
-            .eq('school_id', schoolId); // Tenant isolation
+    static async getUsers(schoolId: string, branchId: string | undefined, role?: string, term?: string) {
+        const where: any = {
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.branch_id = branchId;
         }
 
         if (role) {
-            query = query.eq('role', role);
+            where.role = role;
         }
 
-        const { data: users, error } = await query;
-        if (error) throw new Error(error.message);
-        return users;
+        if (term) {
+            where.OR = [
+                { full_name: { contains: term, mode: 'insensitive' } },
+                { email: { contains: term, mode: 'insensitive' } }
+            ];
+        }
+
+        return await prisma.user.findMany({
+            where,
+            orderBy: { full_name: 'asc' }
+        });
     }
 
     static async getUserById(schoolId: string, branchId: string | undefined, userId: string) {
-        let query = supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .eq('school_id', schoolId); // Tenant isolation
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data: user, error } = await query.single();
-
-        if (error) throw new Error(error.message);
-        return user;
+        return await prisma.user.findFirst({
+            where: {
+                id: userId,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            }
+        });
     }
 
-    static async updateUser(schoolId: string, branchId: string | undefined, userId: string, updates: any) {
-        let query = supabase
-            .from('users')
-            .update(updates)
-            .eq('id', userId)
-            .eq('school_id', schoolId); // Strict isolation
+    static async updateUser(school_id: string, branch_id: string | undefined, userId: string, updates: any) {
+        return await prisma.user.update({
+            where: { id: userId },
+            data: updates
+        });
+    }
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
+    static async getUserByEmail(schoolId: string, email: string) {
+        return await prisma.user.findFirst({
+            where: {
+                email: email.toLowerCase(),
+                school_id: schoolId
+            }
+        });
+    }
 
-        const { data: user, error } = await query
-            .select()
-            .single();
-
-        if (error) throw new Error(error.message);
-        return user;
+    static async deleteUser(schoolId: string, userId: string) {
+        return await prisma.user.delete({
+            where: {
+                id: userId,
+                school_id: schoolId
+            }
+        });
     }
 }

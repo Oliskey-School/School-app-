@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
-import { User } from '@supabase/supabase-js';
 import { useAuth } from './AuthContext';
 
 /**
@@ -22,6 +20,8 @@ export interface UserProfile {
     school_generated_id: string | null;
     username: string | null;
     is_active: boolean | null;
+    user_id?: string; // Some backend responses use this
+    userId?: string;
     created_at: string;
     updated_at: string;
 }
@@ -39,194 +39,64 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const { user: authUser, role: authRole } = useAuth();
+    const { user: authUser, loading: authLoading, refreshUser } = useAuth();
 
     /**
-     * FETCH PROFILE DATA
-     * Uses the exact schema discovered via MCP
+     * INITIALIZE PROFILE FROM AUTH CONTEXT
+     * This eliminates redundant network calls and the extra loading screen
      */
-    const fetchProfile = useCallback(async (userId: string) => {
-        if (!userId) {
-            setProfile(null);
+    useEffect(() => {
+        if (authLoading) {
+            setIsLoading(true);
             return;
         }
 
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .maybeSingle(); // Prevents 406 Not Acceptable if no rows are found
-
-            if (error) {
-                console.error('Error fetching profile:', error.message);
-                setProfile(null);
-            } else if (data) {
-                // Map snake_case to camelCase aliases for legacy component support
-                const mappedProfile: UserProfile = {
-                    ...data,
-                    name: data.full_name,
-                    schoolId: data.school_id,
-                    branchId: data.branch_id,
-                    avatarUrl: data.avatar_url
-                };
-                setProfile(mappedProfile);
-            } else {
-                // Fallback for mocked local-only demo users (like d3300...) or new users without profile rows
-                const userRole = authRole || authUser?.user_metadata?.role || authUser?.app_metadata?.role || 'student';
-                
-                // Map role to prefix code: Student -> STU, Teacher -> TCH, Parent -> PAR, Admin -> ADM
-                const getRoleCode = (role: string) => {
-                    const r = String(role).toLowerCase();
-                    if (r.includes('student')) return 'STU';
-                    if (r.includes('teacher')) return 'TCH';
-                    if (r.includes('parent')) return 'PAR';
-                    if (r.includes('admin')) return 'ADM';
-                    if (r.includes('proprietor')) return 'PRO';
-                    return 'USR';
-                };
-
-                const roleCode = getRoleCode(userRole);
-                
-                let demoId = authUser?.user_metadata?.school_generated_id || 
-                             authUser?.app_metadata?.school_generated_id ||
-                             authUser?.user_metadata?.custom_id ||
-                             `OLISKEY_MAIN_${roleCode}_00001`;
-                             
-                setProfile({
-                    id: userId,
-                    full_name: authUser?.user_metadata?.full_name || 'Demo User',
-                    name: authUser?.user_metadata?.full_name || 'Demo User',
-                    email: authUser?.email || '',
-                    phone: null,
-                    avatar_url: null,
-                    role: userRole,
-                    school_id: authUser?.user_metadata?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-                    branch_id: authUser?.user_metadata?.branch_id || '7601cbea-e1ba-49d6-b59b-412a584cb94f',
-                    school_generated_id: demoId,
-                    username: authUser?.user_metadata?.full_name || 'demo_user',
-                    is_active: true,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                });
-            }
-        } catch (err) {
-            console.error('Unexpected error fetching profile:', err);
+        if (authUser) {
+            // Use authUser data directly to avoid another fetch
+            const mappedProfile: UserProfile = {
+                ...authUser,
+                id: authUser.id || authUser.userId,
+                full_name: authUser.full_name || authUser.name || authUser.email?.split('@')[0] || 'User',
+                name: authUser.name || authUser.full_name,
+                school_id: authUser.school_id || authUser.schoolId || (authUser.school?.id),
+                schoolId: authUser.schoolId || authUser.school_id || (authUser.school?.id),
+                branch_id: authUser.branch_id || authUser.branchId,
+                branchId: authUser.branchId || authUser.branch_id,
+                avatar_url: authUser.avatar_url || authUser.avatarUrl,
+                avatarUrl: authUser.avatarUrl || authUser.avatar_url
+            };
+            setProfile(mappedProfile);
+        } else {
             setProfile(null);
         }
-    }, []);
-
-    /**
-     * INITIALIZE SESSION & AUTH LISTENERS
-     * This handles hard refreshes by checking the session immediately
-     */
-    useEffect(() => {
-        let mounted = true;
-
-        const initializeAuth = async () => {
-            setIsLoading(true);
-
-            // 1. Recover existing session (crucial for refresh)
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (session?.user) {
-                await fetchProfile(session.user.id);
-            } else {
-                setProfile(null);
-            }
-
-            if (mounted) setIsLoading(false);
-        };
-
-        initializeAuth();
-
-        // 2. Listen for auth changes (sign in, sign out, token refresh)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                if (session?.user) {
-                    await fetchProfile(session.user.id);
-                }
-            } else if (event === 'SIGNED_OUT') {
-                setProfile(null);
-            }
-
-            if (mounted) setIsLoading(false);
-        });
-
-        return () => {
-            mounted = false;
-            subscription.unsubscribe();
-        };
-    }, [fetchProfile]);
-
-    /**
-     * SYNC WITH AUTH CONTEXT
-     * This handles "Quick Login" or mock logins where a session is manually set
-     */
-    useEffect(() => {
-        if (authUser && !profile) {
-            console.log('🔄 [Profile] Syncing with AuthContext User:', authUser.id);
-            fetchProfile(authUser.id);
-        } else if (!authUser && profile) {
-            setProfile(null);
-        }
-    }, [authUser, fetchProfile, profile]);
+        setIsLoading(false);
+    }, [authUser, authLoading]);
 
     const refreshProfile = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            await fetchProfile(user.id);
+        setIsLoading(true);
+        try {
+            await refreshUser();
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
         if (!profile?.id) return { error: 'No profile loaded' };
-
-        // Handle camelCase aliases if provided in updates
-        const dbUpdates: any = { ...updates };
-        if (updates.name) dbUpdates.full_name = updates.name;
-        if (updates.schoolId) dbUpdates.school_id = updates.schoolId;
-        if (updates.branchId) dbUpdates.branch_id = updates.branchId;
-        if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
-
-        const { data, error } = await supabase
-            .from('profiles')
-            .update({ ...dbUpdates, updated_at: new Date().toISOString() })
-            .eq('id', profile.id)
-            .select()
-            .single();
-
-        if (!error && data) {
-            const mappedProfile: UserProfile = {
-                ...data,
-                name: data.full_name,
-                schoolId: data.school_id,
-                branchId: data.branch_id,
-                avatarUrl: data.avatar_url
-            };
-            setProfile(mappedProfile);
+        
+        try {
+            const { api } = await import('../lib/api');
+            const result = await api.updateStudent(profile.id, updates);
+            return { error: null };
+        } catch (error) {
+            return { error };
         }
-        return { error };
     };
 
     return (
         <ProfileContext.Provider value={{ profile, isLoading, refreshProfile, updateProfile, setProfile }}>
-            {/* 
-                STRICT LOADING ENFORCEMENT
-                Prevents children (the app) from rendering with stale/dummy data 
-                until the profile is actually verified or determined to be null.
-            */}
-            {isLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f9fafb' }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #4f46e5', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
-                        <p style={{ color: '#4b5563', fontFamily: 'sans-serif' }}>Loading secure profile...</p>
-                        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-                    </div>
-                </div>
-            ) : (
-                children
-            )}
+            {/* Remove the blocking loading screen as AuthProvider handles it */}
+            {children}
         </ProfileContext.Provider>
     );
 };

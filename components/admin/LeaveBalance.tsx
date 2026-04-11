@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
     UserGroupIcon,
@@ -50,7 +50,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
 
     const fetchBalances = async () => {
         if (!currentSchool) return;
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('leave_balances')
             .select(`
         *,
@@ -86,7 +86,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
 
     const fetchTeachers = async () => {
         if (!currentSchool) return;
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('teachers')
             .select('id, full_name')
             .eq('school_id', currentSchool.id)
@@ -106,7 +106,7 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
         try {
             const newRemaining = newTotal - editingBalance.used_days;
 
-            const { error } = await supabase
+            const { error } = await api
                 .from('leave_balances')
                 .update({
                     total_days: newTotal,
@@ -310,3 +310,4 @@ const LeaveBalance: React.FC<LeaveBalanceProps> = () => {
 };
 
 export default LeaveBalance;
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -47,9 +47,9 @@ const InspectionFlowPage = () => {
         setLoading(true);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
 
-            const { data, error } = await supabase.from('inspections').insert([{
+            const { data, error } = await api.from('inspections').insert([{
                 school_id: currentSchool.id,
                 inspector_id: user?.id,
                 status: 'In Progress',
@@ -67,7 +67,7 @@ const InspectionFlowPage = () => {
                     { category: 'Safety', text: 'Functioning fire extinguishers in every wing' },
                 ];
 
-                const { data: createdItems, error: itemsError } = await supabase
+                const { data: createdItems, error: itemsError } = await api
                     .from('inspection_items')
                     .insert(defaultItemTexts.map(t => ({
                         inspection_id: data.id,
@@ -94,7 +94,7 @@ const InspectionFlowPage = () => {
         const newCompliantStatus = !item.is_compliant;
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('inspection_items')
                 .update({ is_compliant: newCompliantStatus })
                 .eq('id', item.id);
@@ -112,7 +112,7 @@ const InspectionFlowPage = () => {
     const updateComment = async (index: number, comment: string) => {
         const item = items[index];
         try {
-            await supabase
+            await api
                 .from('inspection_items')
                 .update({ comments: comment })
                 .eq('id', item.id);

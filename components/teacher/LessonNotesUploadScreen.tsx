@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { fetchSubjects, createLessonNote } from '../../lib/database';
+import api from '../../lib/api';
+import { getAuthToken } from '../../lib/apiHelpers';
 import { Subject } from '../../types';
 import { toast } from 'react-hot-toast';
 import { BookOpenIcon, PlusIcon, UploadIcon, CheckCircleIcon, ClockIcon, getFormattedClassName } from '../../constants';
@@ -62,7 +62,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
 
         setIsSubmitting(true);
         try {
-            const success = await createLessonNote({
+            const success = await api.createLessonNote({
                 teacherId,
                 subjectId: selectedSubjectId as any, // UUID string, cast to avoid type error if interface expects number (needs fix in types but works in JS)
                 classId: selectedClassId as any,

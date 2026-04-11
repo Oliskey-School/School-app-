@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import {
   BookOpenIcon,
@@ -18,12 +18,13 @@ import {
   UserGroupIcon,
   getFormattedClassName
 } from '../../constants';
-// import { ClassInfo, Teacher, Assignment } from '../../types'; // Not utilizing full types yet for raw DB data
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
-import { supabase } from '../../lib/supabase';
 import { useTeacherStats } from '../../hooks/useTeacherStats';
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { api } from '../../lib/api';
 
 interface TeacherOverviewProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -50,62 +51,31 @@ const StatCard: React.FC<{ label: string; value: string | number; icon: React.Re
   );
 };
 
-// Helper: Parse "Grade 10A" -> {grade: 10, section: 'A'} or "Grade 7 - General" -> {grade: 7, section: 'General'}
-// Helper: Parse "Grade 10A - Math" -> {grade: 10, section: 'A', subject: 'Math'}
-// Helper: Parse "Grade 10A" -> {grade: 10, section: 'A'} using standardized logic if possible, 
-// but for normalized DB access we should rely on what's stored.
-// If class_name comes from DB as "10A", we just need to parse it.
-// If it comes as "JSS 1 - Section A", we need to handle that.
-// For now, let's just make the display consistent.
-
-// We will import the helper inside the effect or component if needed, 
-// but 'parseClassName' is a local legacy helper that we should probably just make more robust or align with DB data.
-// However, since we are just fixing the "Virtual Classroom" complaint specifically, I will focus on that.
-// But the user said "any where class ... is requested".
-// Let's modify the display logic in the component loop to use the standard helper if we have the grade number.
-
-// Helper: Parse Class Names (Supports: "10A", "Grade 10A", "JSS 1A", "SSS 2 Gold")
-// Returns standardized grade number and section
 const parseClassName = (name: string) => {
   const clean = name.trim();
   let grade = 0;
   let section = '';
-
-  // 1. Try Standard Patterns
-  // Matches: "10A", "10 A", "Grade 10A", "Year 10A"
   const standardMatch = clean.match(/^(?:Grade|Year)?\s*(\d+)\s*(.*)$/i);
-
-  // 2. Try Nigerian Secondary Patterns
-  // Matches: "JSS 1A", "JSS1 A", "SSS 3 Gold"
   const jsMatch = clean.match(/^JSS\s*(\d+)\s*(.*)$/i);
-  const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i); // Matches SS or SSS
-
-  // 3. Try Primary Patterns
+  const ssMatch = clean.match(/^S{2,3}\s*(\d+)\s*(.*)$/i);
   const primaryMatch = clean.match(/^Primary\s*(\d+)\s*(.*)$/i);
 
   if (standardMatch) {
     grade = parseInt(standardMatch[1]);
     section = standardMatch[2];
   } else if (jsMatch) {
-    grade = 6 + parseInt(jsMatch[1]); // JSS1 = 7
+    grade = 6 + parseInt(jsMatch[1]);
     section = jsMatch[2];
   } else if (ssMatch) {
-    grade = 9 + parseInt(ssMatch[1]); // SS1 = 10
+    grade = 9 + parseInt(ssMatch[1]);
     section = ssMatch[2];
   } else if (primaryMatch) {
     grade = parseInt(primaryMatch[1]);
     section = primaryMatch[2];
   }
-
-  // Clean section (remove hyphens, extra spaces)
   section = section.replace(/^[-–]\s*/, '').trim();
-
   return { grade, section };
 };
-
-import { useTeacherClasses } from '../../hooks/useTeacherClasses';
-import { useAutoSync } from '../../hooks/useAutoSync';
-import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUser, profile, teacherProfile, teacherId, schoolId, currentBranchId }) => {
   const theme = THEME_CONFIG[DashboardType.Teacher];
@@ -119,103 +89,55 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
   const [version, setVersion] = useState(0);
   const forceUpdate = () => setVersion(v => v + 1);
 
-  // Effect to calculate stats from teacherClasses (REMOVED - handled by hook)
-  /*
-  useEffect(() => {
-    const calculateStats = async () => {
-      // ... logic moved to RPC ...
-    };
-    calculateStats();
-  }, [teacherClasses, classesLoading, schoolId]);
-  */
+    useEffect(() => {
+        const fetchData = async () => {
+            const actualTeacherId = resolvedTeacherId || teacherId;
+            const actualSchoolId = resolvedSchoolId || schoolId;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      // Use resolved ID from hook if available, fallback to prop
-      const actualTeacherId = resolvedTeacherId || teacherId;
-      const actualSchoolId = resolvedSchoolId || schoolId;
+            if (!actualSchoolId || !actualTeacherId) return;
 
-      if (!actualSchoolId || !actualTeacherId) return;
+            try {
+                setLoading(true);
+                const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+                const [scheduleRes, assignmentsRes] = await Promise.all([
+                    api.getTimetable(
+                        currentBranchId && currentBranchId !== 'all' ? currentBranchId : undefined,
+                        undefined, 
+                        actualTeacherId
+                    ),
+                    api.getAssignments(actualSchoolId, {
+                        teacherId: actualTeacherId,
+                        branchId: currentBranchId && currentBranchId !== 'all' ? currentBranchId : undefined
+                    })
+                ]);
 
-      try {
-        setLoading(true);
+                setTodaySchedule(scheduleRes || []);
+                setUngradedAssignments((assignmentsRes || []).slice(0, 3));
+            } catch (err) {
+                console.error('❌ Error fetching overview data:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-
-        // 1. Fetch schedule and assignments using the resolved record ID
-        let scheduleQuery = supabase
-          .from('timetable')
-          .select('id, start_time, subject, class_name')
-          .eq('teacher_id', actualTeacherId)
-          .eq('school_id', actualSchoolId)
-          .eq('day', todayName)
-          .eq('status', 'Published');
-
-        let assignmentsQuery = supabase
-          .from('assignments')
-          .select('id, title, class_name, created_at')
-          .eq('school_id', actualSchoolId)
-          .eq('teacher_id', actualTeacherId);
-
-        if (currentBranchId && currentBranchId !== 'all') {
-          scheduleQuery = scheduleQuery.eq('branch_id', currentBranchId);
-          assignmentsQuery = assignmentsQuery.eq('branch_id', currentBranchId);
+        if (!classesLoading && resolvedTeacherId) {
+            fetchData();
         }
+    }, [resolvedTeacherId, resolvedSchoolId, classesLoading, currentBranchId]);
 
-        const [scheduleRes, assignmentsRes] = await Promise.all([
-          scheduleQuery.order('start_time', { ascending: true }),
-          assignmentsQuery
-            .order('created_at', { ascending: false })
-            .limit(3)
-        ]);
-
-        setTodaySchedule(scheduleRes.data || []);
-        setUngradedAssignments(assignmentsRes.data || []);
-
-      } catch (err) {
-        console.error('❌ Error fetching overview data:', err);
-      } finally {
-        setLoading(false);
+    const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    useAutoSync(
+      ['assignments', 'timetable', 'students', 'teachers', 'classes', 'teacher_classes', 'class_teachers', 'report_cards'],
+      () => {
+        if (syncTimeoutRef.current) {
+          clearTimeout(syncTimeoutRef.current);
+        }
+        syncTimeoutRef.current = setTimeout(() => {
+          forceUpdate();
+          syncTimeoutRef.current = null;
+        }, 2000);
       }
-    };
-
-    if (!classesLoading && resolvedTeacherId) {
-      fetchData();
-    }
-
-  }, [resolvedTeacherId, resolvedSchoolId, classesLoading, currentBranchId, version]);
-
-  // Auto-refresh when relevant tables change in real-time
-  const refetchOverview = () => {
-    const fetchData = async () => {
-      const actualTeacherId = resolvedTeacherId || teacherId;
-      const actualSchoolId = resolvedSchoolId || schoolId;
-      if (!actualSchoolId || !actualTeacherId) return;
-      try {
-        const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-        const [scheduleRes, assignmentsRes] = await Promise.all([
-          supabase.from('timetable').select('id, start_time, subject, class_name')
-            .eq('teacher_id', actualTeacherId).eq('school_id', actualSchoolId).eq('day', todayName).eq('status', 'Published')
-            .order('start_time', { ascending: true }),
-          supabase.from('assignments').select('id, title, class_name, created_at')
-            .eq('school_id', actualSchoolId).eq('teacher_id', actualTeacherId)
-            .order('created_at', { ascending: false }).limit(3)
-        ]);
-        setTodaySchedule(scheduleRes.data || []);
-        setUngradedAssignments(assignmentsRes.data || []);
-      } catch (err) { console.error('❌ Realtime refetch error:', err); }
-    };
-    fetchData();
-  };
-  useRealtimeRefresh(['assignments', 'timetable', 'students', 'teachers', 'classes'], refetchOverview);
-
-  useAutoSync(
-    ['teacher_classes', 'class_teachers', 'assignments', 'timetable', 'report_cards'],
-    () => {
-      console.log('🔄 [TeacherOverview] Auto-Sync Triggered');
-      forceUpdate();
-    }
-  );
+    );
 
   const formatTime12Hour = (timeStr: string) => {
     if (!timeStr) return '';
@@ -246,10 +168,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
 
   return (
     <div className="p-4 lg:p-6 space-y-6 bg-gray-50">
-      {!currentUser?.user_metadata?.email_verified && (
-        <EmailVerificationPrompt />
-      )}
-      {/* Welcome Message */}
+      {!currentUser?.user_metadata?.email_verified && <EmailVerificationPrompt />}
       <div className={`p-5 rounded-2xl text-white shadow-lg ${theme.mainBg}`}>
         <h3 className="text-2xl font-bold">Welcome, {teacherProfile?.name || 'Teacher'}!</h3>
         <p className="text-sm opacity-90 mt-1">Ready to inspire today?</p>
@@ -260,7 +179,6 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
         <StatCard label="Total Assigned Classes" value={statsLoading ? '...' : stats.totalClasses} icon={<ViewGridIcon />} />
       </div>
 
-      {/* Your Assigned Classes & Subjects */}
       <div>
         <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar">
           {classesLoading ? (
@@ -275,11 +193,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
               <button
                 key={i}
                 onClick={() => navigateTo('classDetail', c.name || getFormattedClassName(c.grade, c.section, true, c.subject), {
-                  classInfo: {
-                    ...c,
-                    schoolId: schoolId,
-                    branchId: currentBranchId
-                  }
+                  classInfo: { ...c, schoolId, branchId: currentBranchId }
                 })}
                 className="min-w-[180px] bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all text-left border-b-4 border-purple-500 group"
               >
@@ -301,9 +215,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Priority Actions */}
           <div>
             <div className="flex justify-between items-end mb-2 px-1">
               <h3 className="text-lg font-bold text-gray-800">Recent Assignments</h3>
@@ -324,10 +236,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                 </div>
               ) : ungradedAssignments.length > 0 ? ungradedAssignments.slice(0, 1).map(a => (
                 <button key={a.id} onClick={() => navigateTo('assignmentSubmissions', `Submissions: ${a.title}`, {
-                  assignment: a,
-                  schoolId,
-                  teacherId,
-                  branchId: currentBranchId
+                  assignment: a, schoolId, teacherId, branchId: currentBranchId
                 })} className="w-full text-left bg-white p-3 rounded-xl shadow-sm hover:bg-purple-50 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-gray-800">{a.title}</p>
@@ -342,7 +251,6 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
             </div>
           </div>
 
-          {/* Quick Actions */}
           <div>
             <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Quick Actions</h3>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3">
@@ -356,9 +264,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
           </div>
         </div>
 
-        {/* Right Column */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Today's Schedule */}
           <div>
             <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Today's Schedule</h3>
             {loading ? (
@@ -401,4 +307,5 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
     </div>
   );
 };
+
 export default TeacherOverview;

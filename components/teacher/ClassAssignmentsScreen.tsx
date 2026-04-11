@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Assignment } from '../../types';
 import { ChevronRightIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 interface ClassAssignmentsScreenProps {
@@ -19,20 +19,10 @@ const ClassAssignmentsScreen: React.FC<ClassAssignmentsScreenProps> = ({ classNa
     const fetchAssignments = async () => {
         setLoading(true);
         try {
-            let query = supabase
-                .from('assignments')
-                .select('*')
-                .eq('class_name', className)
-                .eq('school_id', schoolId);
-
-            if (currentBranchId && currentBranchId !== 'all') {
-                query = query.eq('branch_id', currentBranchId);
-            }
-
-            const { data, error } = await query
-                .order('due_date', { ascending: false });
-
-            if (error) throw error;
+            const data = await api.getAssignments(schoolId, {
+                className,
+                branchId: currentBranchId && currentBranchId !== 'all' ? currentBranchId : undefined
+            });
 
             if (data) {
                 setAssignments(data.map((a: any) => ({

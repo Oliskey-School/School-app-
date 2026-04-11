@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SchoolLogoIcon, UserIcon, LockIcon, EyeIcon, EyeOffIcon } from '../../constants';
 import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { useProfile } from '../../context/ProfileContext';
-import { fetchSchools } from '../../lib/database';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 interface SignupProps {
@@ -14,9 +12,8 @@ interface SignupProps {
 
 const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
     const { signIn } = useAuth();
-    const { setProfile } = useProfile();
 
-    const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+    const [schools, setSchools] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -34,15 +31,15 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
 
     const loadSchools = async () => {
         try {
-            const data = await fetchSchools();
-            // Ensure we have at least the demo school if DB is empty but typically verify_phase1 ensures seed
-            if (data.length === 0) {
-                setSchools([{ id: 1, name: 'Demo International School (Fallback)' }]); // Fallback for UI testing
-            } else {
+            const data = await api.getSchools();
+            if (data && data.length > 0) {
                 setSchools(data);
+            } else {
+                setSchools([{ id: 'demo-school-id', name: 'Demo International School' }]);
             }
         } catch (err) {
             console.error("Failed to load schools", err);
+            setSchools([{ id: 'demo-school-id', name: 'Demo International School (Fallback)' }]);
         }
     };
 
@@ -62,33 +59,19 @@ const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
         }
 
         try {
-            // Real Supabase Signup
-            const { data, error: signUpError } = await supabase.auth.signUp({
+            // Use custom backend signup
+            const result = await api.signup({
                 email: formData.email,
                 password: formData.password,
-                options: {
-                    data: {
-                        full_name: formData.fullName,
-                        role: formData.role,
-                        school_id: formData.schoolId
-                    }
-                }
+                full_name: formData.fullName,
+                role: formData.role,
+                school_id: formData.schoolId
             });
 
-            if (signUpError) throw signUpError;
-
-            if (data.user) {
-                // Note: The database trigger 'handle_new_user_v5' automatically creates the record 
-                // in 'users' AND the domain-specific table (students/teachers/parents) based on metadata.
-                // No manual inserts needed here, ensuring atomicity.
-
+            if (result) {
                 toast.success("Account created successfully!");
-
-                if (!data.session) {
-                    toast("Please check your email to confirm your account.", { icon: '📧' });
-                    onNavigateToLogin();
-                }
-                // If session exists, AuthContext will handle the state update automatically via onAuthStateChange
+                toast("You can now log in with your credentials.", { icon: '📧' });
+                onNavigateToLogin();
             }
 
         } catch (err: any) {

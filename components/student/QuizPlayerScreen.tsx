@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Quiz, Question, QuestionOption, Student } from '../../types';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ChevronRightIcon, ChevronLeftIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
@@ -49,57 +49,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
     return () => clearInterval(timer);
   }, [timeLeft, isFinished, loading]);
 
-  // Real-time Subscription
-  useEffect(() => {
-    if (!quizInfo?.id) return;
-
-    console.log('🔌 Setting up Real-time connection for Quiz:', quizInfo.id);
-
-    const channel = supabase
-      .channel(`quiz-player-${quizInfo.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'cbt_questions',
-          filter: `exam_id=eq.${quizInfo.id}`
-        },
-        (payload) => {
-          console.log('⚡ Real-time update received:', payload);
-          // Refresh questions on any change
-          // Ideally we would optimistically update state, but refetching is safer for consistency
-          fetchQuizDetails();
-          toast('Assessment updated by teacher', { icon: '🔄' });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'quizzes',
-          filter: `id=eq.${quizInfo.id}`
-        },
-        (payload: any) => {
-          if (payload.new && !payload.new.is_active) {
-            toast.error('Teacher has ended the assessment.');
-            handleBack(); // Kick out if deactivated
-          }
-          if (payload.new && payload.new.duration_minutes !== payload.old.duration_minutes) {
-            toast('Duration updated!');
-            // Basic logic: if duration changes, we might want to adjust timer? 
-            // specific business logic can be added here.
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('🔌 Cleaning up Real-time connection');
-      supabase.removeChannel(channel);
-    };
-  }, [quizInfo?.id]); // Re-sub if ID changes (unlikely)
+  // Focus Mode Logic (Anti-Cheat)
 
   // Focus Mode Logic (Anti-Cheat)
   useEffect(() => {
@@ -130,74 +80,46 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
   const fetchQuizDetails = async () => {
     setLoading(true);
     try {
-      // Whether it's a CBT Exam or a regular Quiz, we now treat them similarly as they both come from 'quizzes' (conceptually unified).
-      // However, if we separated logic before, we can unify it now.
-      // If `cbtExamId` is passed, it refers to a 'CBT' type quiz in the `quizzes` table (formerly `cbt_exams` was removed).
-
       const targetId = cbtExamId || quizId;
       if (!targetId) {
         throw new Error("No Quiz ID provided");
       }
 
       // 1. Fetch Quiz Metadata
-      const { data: quizData, error: quizError } = await supabase
-        .from('quizzes')
-        .select('*')
-        .eq('id', targetId)
-        .single();
-
-      if (quizError) throw quizError;
+      const quizData = await api.getQuizDetails(targetId);
 
       setQuizInfo({
         id: quizData.id,
         title: quizData.title,
         durationMinutes: quizData.duration_minutes || 0,
-        type: quizData.description === 'Exam' ? 'cbt' : 'quiz' // Basic mapping
+        type: quizData.description === 'Exam' ? 'cbt' : 'quiz'
       });
 
       if (quizData.duration_minutes) {
         setTimeLeft(quizData.duration_minutes * 60);
       }
 
-      // 2. Fetch Questions (from cbt_questions)
-      const { data: qData, error: qError } = await supabase
-        .from('cbt_questions')
-        .select('*')
-        .eq('exam_id', targetId);
-
-      if (qError) throw qError;
+      // 2. Fetch Questions
+      const questionsData = await api.getQuizQuestions(targetId);
 
       // Map to local Question format
-      const mappedQuestions: Question[] = (qData || []).map((q: any) => {
-        // Check if options are JSON or specific columns (CBT logic used separate columns, Quiz logic used JSON)
-        // `CBTManagementScreen` saves options as JSON array in `options` column.
-        // `quiz_questions` schema usually has `options` as JSONB.
-
+      const mappedQuestions: Question[] = (questionsData || []).map((q: any) => {
         let options: QuestionOption[] = [];
 
         if (Array.isArray(q.options)) {
           if (q.options.length > 0 && typeof q.options[0] === 'string') {
-            // CBT Upload format: ["Option A", "Option B", ...]
-            // Map to {id: 'A', text: '...'}
             options = q.options.map((opt: string, idx: number) => ({
-              id: String.fromCharCode(65 + idx), // A, B, C...
+              id: String.fromCharCode(65 + idx),
               text: opt,
-              isCorrect: String.fromCharCode(65 + idx) === q.correct_answer // Compare A, B...
+              isCorrect: String.fromCharCode(65 + idx) === q.correct_answer
             }));
           } else {
-            // Manual Builder format: [{id: 'opt1', text: '...', isCorrect: ...}]
-            // Already in correct format, just ensure types
             options = q.options.map((opt: any) => ({
               id: opt.id,
               text: opt.text,
               isCorrect: opt.isCorrect
             }));
           }
-        } else if (typeof q.options === 'object' && q.options !== null) {
-          // Fallback/Legacy object format
-          // If it's the old 'questions' table JSONB structure, it might vary.
-          // Try to cast or wrap.
-          options = Object.values(q.options);
         }
 
         return {
@@ -304,26 +226,13 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       const studentId = student?.id;
       if (!studentId) throw new Error("Student ID missing");
 
-      // DIRECT UPSERT (Prevents 409 and ensures teacher sees a result)
-      const effectiveSchoolId = student?.schoolId || (student as any)?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-      const { error: submitError } = await supabase
-        .from('quiz_submissions')
-        .upsert({
-          quiz_id: quizInfo?.id,
-          student_id: studentId,
-          school_id: effectiveSchoolId,
-          score: percentage,
-          total_questions: questions.length,
-          answers: answersLog,
-          focus_violations: focusViolations,
-          status: 'graded',
-          submitted_at: new Date().toISOString()
-        }, {
-          onConflict: 'student_id, quiz_id'
-        });
-
-      if (submitError) throw submitError;
+      // BACKEND SUBMISSION
+      await api.submitQuiz(quizInfo?.id, {
+        score: percentage,
+        total_questions: questions.length,
+        answers: answersLog,
+        focus_violations: focusViolations,
+      });
 
       toast.dismiss();
       toast.success(autoSubmit ? 'Assessment ended & saved.' : 'Submitted successfully!');
@@ -559,3 +468,4 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
 };
 
 export default QuizPlayerScreen;
+

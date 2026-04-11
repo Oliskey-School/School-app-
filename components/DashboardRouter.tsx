@@ -3,15 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { DashboardType } from '../types';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
-import PremiumErrorPage from './ui/PremiumErrorPage';
 
-import NotFoundPage from './ui/NotFoundPage';
+const PremiumErrorPage = React.lazy(() => import('./ui/PremiumErrorPage'));
+const NotFoundPage = React.lazy(() => import('./ui/NotFoundPage'));
 
-// Import Dashboards (Placeholder imports - these components need to exist or be lazy loaded)
-// Assuming these components are already created or I should mock them for now.
-// For the purpose of this task, I will mock them inline if they don't exist, 
-// but in a real app these would be: import AdminDashboard from './admin/AdminDashboard'; etc.
-
+// Import Dashboards (Using standard paths)
 const AdminDashboard = React.lazy(() => import('./admin/AdminDashboard'));
 const SuperAdminDashboard = React.lazy(() => import('./admin/SuperAdminDashboard'));
 const TeacherDashboard = React.lazy(() => import('./teacher/TeacherDashboard'));

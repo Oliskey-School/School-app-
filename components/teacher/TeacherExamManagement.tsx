@@ -92,7 +92,7 @@ const TeacherExamManagement: React.FC<TeacherExamManagementProps> = ({ navigateT
                     return;
                 }
 
-                // Construct clean payload for Supabase
+                // Construct clean payload for API
                 const payload = {
                     type: examData.type,
                     date: examData.date,

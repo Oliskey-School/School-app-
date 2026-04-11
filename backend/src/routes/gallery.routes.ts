@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getPhotos } from '../controllers/gallery.controller';
+import { getPhotos, addPhoto } from '../controllers/gallery.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 
@@ -9,5 +9,6 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', getPhotos);
+router.post('/', addPhoto);
 
 export default router;

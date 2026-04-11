@@ -1,15 +1,31 @@
 import React, { useMemo } from 'react';
 import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName } from '../../constants';
-import { useRealtime } from '../../lib/useRealtime';
 import { ClassInfo } from '../../types';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { useAuth } from '../../context/AuthContext';
 
 interface AdminSelectClassForReportProps {
     navigateTo: (view: string, title: string, props?: any) => void;
+    schoolId?: string;
+    currentBranchId?: string;
 }
 
-const AdminSelectClassForReport: React.FC<AdminSelectClassForReportProps> = ({ navigateTo }) => {
-    // Enable Real-time updates for classes
-    const { data: rawClasses, loading: isLoading } = useRealtime<any>('classes', '*', 'grade');
+const AdminSelectClassForReport: React.FC<AdminSelectClassForReportProps> = ({ navigateTo, schoolId: propSchoolId, currentBranchId }) => {
+    const { currentSchool } = useAuth();
+    const schoolId = propSchoolId || currentSchool?.id;
+
+    // Enable React Query for classes instead of legacy useRealtime
+    const { data: rawClasses = [], isLoading } = useQuery({
+        queryKey: ['classes', schoolId, currentBranchId],
+        queryFn: () => api.getClasses(schoolId!, currentBranchId === 'all' ? undefined : currentBranchId),
+        enabled: !!schoolId
+    });
+
+    useAutoSync(['classes'], () => {
+        console.log('🔄 [SelectClassForReport] Auto-sync triggered');
+    });
 
     // Mapped data to ensure compatibility with UI components expecting camelCase
     const classes: ClassInfo[] = useMemo(() => {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, BellIcon } from '../../constants';
+import { SaveIcon, SchoolLogoIcon, CheckCircleIcon, XCircleIcon, PhotoIcon, BellIcon, RefreshCw } from '../../constants';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 // Since we don't have a MusicIcon in constants, I'll use a fallback or add it if I could.
 // I'll stick to what is available or define a simple SVG locally if needed. 
@@ -44,6 +45,11 @@ const SchoolInfoScreen: React.FC = () => {
             });
         }
     }, [currentSchool]);
+
+    useAutoSync(['schools', 'school_settings'], () => {
+        console.log('🔄 [SchoolInfo] Real-time auto-sync triggered');
+        refreshCurrentSchool();
+    });
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { CheckCircle, XCircle, Loader2, School } from 'lucide-react';
 
 /**

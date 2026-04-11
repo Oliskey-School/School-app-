@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { StudentPoints } from '../../types-additional';
 import { TrophyIcon, StarIcon, FireIcon } from '../../constants';
 
@@ -24,7 +24,7 @@ const Leaderboard: React.FC = () => {
 
     const fetchLeaderboard = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('student_points')
                 .select(`
           *,

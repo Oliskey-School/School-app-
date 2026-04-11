@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     Shield,
@@ -40,7 +40,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
     const checkTwoFactorStatus = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await api.getMe();
 
             // Check if 2FA is enabled (this would need backend support)
             // For now, we'll simulate it
@@ -62,7 +62,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 
             // Simulated response
             const mockSecret = 'JBSWY3DPEHPK3PXP';
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await api.getMe();
             const appName = 'SchoolApp';
             const otpauthUrl = `otpauth://totp/${appName}:${user?.email}?secret=${mockSecret}&issuer=${appName}`;
 
@@ -450,3 +450,4 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({ navigateTo }
 };
 
 export default SecuritySettings;
+

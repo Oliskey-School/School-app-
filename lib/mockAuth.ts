@@ -23,7 +23,7 @@ export interface DemoAccount {
 export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
     admin: {
         role: 'admin',
-        email: 'user@school.com',
+        email: 'admin@demo.com',
         password: 'password123',
         name: 'School Admin',
         description: 'Manage the full school — students, teachers, fees, reports',

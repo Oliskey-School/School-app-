@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import api from '../lib/api';
 
 interface PaymentInitialization {
     email: string;
@@ -7,27 +7,19 @@ interface PaymentInitialization {
     reference?: string;
 }
 
-interface PaymentVerification {
-    reference: string;
-}
-
 /**
  * PaymentService handles interactions with Payment Gateways (e.g., Paystack).
- * Note: specific SDKs (like react-paystack) might be used in the UI components,
- * but this service handles business logic and database updates.
  */
 export const PaymentService = {
 
     /**
-     * Initialize a transaction (Client-side generation of ref usually sufficient for Paystack)
+     * Initialize a transaction
      */
     initializeTransaction: async ({ email, amount, metadata }: PaymentInitialization) => {
-        // In a real backend, we might call the Paystack API here to get an authorization URL.
-        // For client-side integration (Popup), we mostly need a unique reference.
         const reference = `SCH_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
         return {
             reference,
-            publicKey: process.env.NEXT_PUBLIC_PAYSTACK_KEY || '', // Ensure this env var is set
+            publicKey: (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || '',
         };
     },
 
@@ -36,19 +28,7 @@ export const PaymentService = {
      */
     verifyTransaction: async ({ reference, gateway = 'paystack' }: { reference: string, gateway?: string }) => {
         try {
-            // CALL BACKEND FOR SECURE VERIFICATION
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions/verify/${reference}?gateway=${gateway}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.message || 'Payment verification failed');
-            }
-
+            const result = await (api as any).fetch(`/transactions/verify/${reference}?gateway=${gateway}`);
             return { success: true, data: result };
         } catch (error: any) {
             console.error('Verification error:', error);
@@ -61,32 +41,23 @@ export const PaymentService = {
      */
     recordSubscriptionPayment: async (schoolId: string, amount: number, reference: string, planType: string) => {
         try {
-            // 1. Record the payment
-            const { error: payError } = await supabase
-                .from('payments')
-                .insert({
-                    school_id: schoolId,
-                    amount,
-                    reference,
-                    status: 'success',
-                    provider: 'paystack',
-                    purpose: 'subscription_upgrade',
-                    metadata: { plan: planType }
-                });
+            // 1. Record the payment via backend
+            await api.recordPayment({
+                school_id: schoolId,
+                amount,
+                reference,
+                status: 'success',
+                provider: 'paystack',
+                purpose: 'subscription_upgrade',
+                metadata: { plan: planType }
+            });
 
-            if (payError) throw payError;
-
-            // 2. Update School Subscription Status
-            const { error: schoolError } = await supabase
-                .from('schools')
-                .update({
-                    is_premium: true,
-                    plan_type: planType, // 'premium', etc.
-                    subscription_status: 'active'
-                })
-                .eq('id', schoolId);
-
-            if (schoolError) throw schoolError;
+            // 2. Update School Subscription Status via backend
+            await api.updateSchoolSubscription(schoolId, {
+                is_premium: true,
+                plan_type: planType,
+                subscription_status: 'active'
+            });
 
             return { success: true };
         } catch (error: any) {
@@ -95,3 +66,5 @@ export const PaymentService = {
         }
     }
 };
+
+export default PaymentService;

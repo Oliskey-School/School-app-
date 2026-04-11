@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { XCircleIcon, CheckCircleIcon, EyeIcon } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
 interface IDVerificationRequest {
@@ -37,7 +37,7 @@ export function IDVerificationPanel() {
         if (!currentSchool) return;
         setLoading(true);
         try {
-            let query = supabase
+            let query = api
                 .from('id_verification_requests')
                 .select(`
           *,
@@ -68,10 +68,10 @@ export function IDVerificationPanel() {
     const handleApprove = async (requestId: string) => {
         setProcessing(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
 
             // Update verification request
-            const { error: updateError } = await supabase
+            const { error: updateError } = await api
                 .from('id_verification_requests')
                 .update({
                     status: 'approved',
@@ -86,7 +86,7 @@ export function IDVerificationPanel() {
             // Update profile verification status
             const request = requests.find(r => r.id === requestId);
             if (request) {
-                await supabase
+                await api
                     .from('profiles')
                     .update({
                         verification_status: 'verified',
@@ -97,7 +97,7 @@ export function IDVerificationPanel() {
                     .eq('id', request.user_id);
 
                 // Log audit trail
-                await supabase.from('verification_audit_log').insert({
+                await api.from('verification_audit_log').insert({
                     user_id: request.user_id,
                     action: 'id_approved',
                     details: { request_id: requestId, notes: reviewNotes }
@@ -123,10 +123,10 @@ export function IDVerificationPanel() {
 
         setProcessing(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await api.auth.getUser();
 
             // Update verification request
-            const { error: updateError } = await supabase
+            const { error: updateError } = await api
                 .from('id_verification_requests')
                 .update({
                     status: 'rejected',
@@ -141,7 +141,7 @@ export function IDVerificationPanel() {
             // Update profile verification status
             const request = requests.find(r => r.id === requestId);
             if (request) {
-                await supabase
+                await api
                     .from('profiles')
                     .update({
                         verification_status: 'rejected',
@@ -150,7 +150,7 @@ export function IDVerificationPanel() {
                     .eq('id', request.user_id);
 
                 // Log audit trail
-                await supabase.from('verification_audit_log').insert({
+                await api.from('verification_audit_log').insert({
                     user_id: request.user_id,
                     action: 'id_rejected',
                     details: { request_id: requestId, notes: reviewNotes }
@@ -366,3 +366,4 @@ export function IDVerificationPanel() {
         </div>
     );
 }
+

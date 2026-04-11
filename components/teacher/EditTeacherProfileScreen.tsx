@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserIcon, MailIcon, PhoneIcon, CameraIcon, BookOpenIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
-import { api } from '../../lib/api';
+
 import { toast } from 'react-hot-toast';
 import { LockIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
 
@@ -38,19 +37,19 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     // Fetch Teacher specific data (subjects)
     useEffect(() => {
         const fetchTeacherData = async () => {
-            if (!profile?.email) return;
-            const { data, error } = await supabase
-                .from('teachers')
-                .select('subjects')
-                .eq('email', profile.email)
-                .maybeSingle();
-
-            if (data?.subjects) {
-                setSubjects(Array.isArray(data.subjects) ? data.subjects : [data.subjects]);
+            if (!profile?.id) return;
+            try {
+                // Use unified API client
+                const teacher = await api.getTeacherById(profile.id);
+                if (teacher?.subjects) {
+                    setSubjects(Array.isArray(teacher.subjects) ? teacher.subjects : [teacher.subjects]);
+                }
+            } catch (err) {
+                console.error('Error fetching teacher data:', err);
             }
         };
         fetchTeacherData();
-    }, [profile?.email]);
+    }, [profile?.id]);
 
     // Update local state when context profile changes (e.g. initial load)
     useEffect(() => {
@@ -117,16 +116,11 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
             });
 
             // 3. Update subjects in the 'teachers' table specifically
-            if (profile.email) {
-                const { error: teacherError } = await supabase
-                    .from('teachers')
-                    .update({
-                        name: name, // Sync name back to teachers table too
-                        subjects
-                    })
-                    .eq('email', profile.email);
-
-                if (teacherError) throw teacherError;
+            if (profile.id) {
+                await api.updateTeacher(profile.id, {
+                    name: name, // Sync name back to teachers table too
+                    subjects
+                });
             }
 
             toast.success('Profile updated successfully!');

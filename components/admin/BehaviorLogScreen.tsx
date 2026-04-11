@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -18,20 +18,22 @@ import {
     BarChart3,
     CheckCircle2,
     Eye,
-    MessageSquare
+    MessageSquare,
+    RefreshCw
 } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface BehaviorLog {
     id: string;
-    student_name: string;
-    class_name: string;
+    student_id: string;
     type: 'positive' | 'negative' | 'neutral';
     category: string;
-    description: string;
+    note: string;
     points: number;
     parent_visible: boolean;
-    logged_at: string;
-    teacher_name: string;
+    created_at: string;
+    student?: { full_name: string; grade?: string; section?: string };
+    teacher?: { full_name: string };
 }
 
 const CATEGORIES = [
@@ -47,23 +49,45 @@ const CATEGORIES = [
 
 const BehaviorLogScreen = () => {
     const { currentSchool, user } = useAuth();
-    const [logs, setLogs] = useState<BehaviorLog[]>([
-        { id: '1', student_name: 'Femi Adeyemi', class_name: 'JSS 2A', type: 'positive', category: 'leadership', description: 'Led the science project group exceptionally well. Organized team tasks and ensured everyone contributed.', points: 5, parent_visible: true, logged_at: '2026-03-17T14:30:00', teacher_name: 'Mrs. Okafor' },
-        { id: '2', student_name: 'Chioma Okeke', class_name: 'SS 1B', type: 'positive', category: 'participation', description: 'Actively participated in class discussion on Nigerian history. Asked thoughtful questions.', points: 3, parent_visible: true, logged_at: '2026-03-17T11:15:00', teacher_name: 'Mr. Ibrahim' },
-        { id: '3', student_name: 'Abubakar Musa', class_name: 'JSS 3A', type: 'negative', category: 'punctuality', description: 'Late to school for the 3rd time this week. Arrived at 8:45 AM instead of 7:30 AM.', points: -2, parent_visible: true, logged_at: '2026-03-17T08:45:00', teacher_name: 'Mrs. Okafor' },
-        { id: '4', student_name: 'Blessing Okafor', class_name: 'JSS 1A', type: 'positive', category: 'homework', description: 'Submitted outstanding Mathematics assignment. Perfect score on all word problems.', points: 4, parent_visible: true, logged_at: '2026-03-16T16:00:00', teacher_name: 'Mr. Adebayo' },
-        { id: '5', student_name: 'Tunde Bakare', class_name: 'SS 2C', type: 'negative', category: 'conduct', description: 'Disrupted class by talking during the test. Given verbal warning.', points: -3, parent_visible: true, logged_at: '2026-03-16T10:30:00', teacher_name: 'Mrs. Okafor' },
-        { id: '6', student_name: 'Amina Ibrahim', class_name: 'JSS 2A', type: 'positive', category: 'creativity', description: 'Created an amazing art piece for the inter-house competition. Represented the house well.', points: 5, parent_visible: true, logged_at: '2026-03-15T13:00:00', teacher_name: 'Mr. Nwosu' },
-        { id: '7', student_name: 'Femi Adeyemi', class_name: 'JSS 2A', type: 'neutral', category: 'homework', description: 'Homework submitted but incomplete. Missing last 3 questions. Needs to complete by tomorrow.', points: 0, parent_visible: false, logged_at: '2026-03-15T15:30:00', teacher_name: 'Mrs. Okafor' },
-    ]);
+    const [logs, setLogs] = useState<BehaviorLog[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [students, setStudents] = useState<any[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [formData, setFormData] = useState<any>({});
     const [filterType, setFilterType] = useState<'all' | 'positive' | 'negative' | 'neutral'>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
+    useEffect(() => {
+        fetchData();
+    }, [currentSchool]);
+
+    useAutoSync(['behavior_notes', 'students'], () => {
+        console.log('🔄 [BehaviorLog] Real-time auto-sync triggered');
+        fetchData();
+    });
+
+    const fetchData = async () => {
+        if (!currentSchool) return;
+        try {
+            setLoading(true);
+            const [logsData, studentsData] = await Promise.all([
+                api.getBehaviorNotesBySchool(currentSchool.id),
+                api.getStudents(currentSchool.id)
+            ]);
+            setLogs(logsData);
+            setStudents(studentsData);
+        } catch (err) {
+            console.error('Error fetching behavior data:', err);
+            toast.error('Failed to load logs');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const filteredLogs = logs.filter(log => {
         const matchType = filterType === 'all' || log.type === filterType;
-        const matchSearch = log.student_name.toLowerCase().includes(searchTerm.toLowerCase()) || log.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchSearch = log.student?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          log.note.toLowerCase().includes(searchTerm.toLowerCase());
         return matchType && matchSearch;
     });
 
@@ -71,24 +95,25 @@ const BehaviorLogScreen = () => {
     const negativeCount = logs.filter(l => l.type === 'negative').length;
     const totalPoints = logs.reduce((sum, l) => sum + l.points, 0);
 
-    const handleSave = () => {
-        if (!formData.student_name || !formData.description) { toast.error('Student name and description are required'); return; }
-        const newLog: BehaviorLog = {
-            id: Date.now().toString(),
-            student_name: formData.student_name,
-            class_name: formData.class_name || 'JSS 1A',
-            type: formData.type || 'positive',
-            category: formData.category || 'conduct',
-            description: formData.description,
-            points: parseInt(formData.points || '0'),
-            parent_visible: formData.parent_visible !== false,
-            logged_at: new Date().toISOString(),
-            teacher_name: (user as any)?.name || 'Teacher',
-        };
-        setLogs(prev => [newLog, ...prev]);
-        toast.success('Behavior log recorded!');
-        setIsAdding(false);
-        setFormData({});
+    const handleSave = async () => {
+        if (!formData.student_id || !formData.note) { toast.error('Student and note are required'); return; }
+        try {
+            setLoading(true);
+            await api.createBehaviorNote({
+                ...formData,
+                school_id: currentSchool?.id,
+                points: parseInt(formData.points || '0'),
+                parent_visible: formData.parent_visible !== false
+            });
+            toast.success('Behavior log recorded!');
+            setIsAdding(false);
+            setFormData({});
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to save');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -126,25 +151,13 @@ const BehaviorLogScreen = () => {
                 </div>
             </div>
 
-            {/* Filter Bar */}
-            <div className="flex flex-col md:flex-row items-start md:items-center space-y-3 md:space-y-0 md:space-x-4">
-                <div className="relative flex-grow max-w-md">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input type="text" placeholder="Search by student name or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none" />
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-40 space-y-4">
+                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-gray-400 font-medium animate-pulse">Loading behavior logs...</p>
                 </div>
-                <div className="flex p-1 bg-gray-100 rounded-xl">
-                    {(['all', 'positive', 'negative', 'neutral'] as const).map(type => (
-                        <button key={type} onClick={() => setFilterType(type)}
-                            className={`px-4 py-2 rounded-lg font-bold text-sm capitalize transition-all ${filterType === type ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
-                            {type}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Log Cards */}
-            <div className="space-y-4">
+            ) : (
+                <div className="space-y-4">
                 {filteredLogs.length === 0 ? (
                     <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
                         <Star className="w-12 h-12 text-gray-200 mx-auto mb-4" />
@@ -163,9 +176,9 @@ const BehaviorLogScreen = () => {
                                 <div className="flex-grow">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <h3 className="font-bold text-gray-900">{log.student_name}</h3>
+                                            <h3 className="font-bold text-gray-900">{log.student?.full_name}</h3>
                                             <div className="flex items-center space-x-3 mt-1">
-                                                <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{log.class_name}</span>
+                                                <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{log.student?.grade}</span>
                                                 <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded capitalize">{log.category}</span>
                                                 {log.parent_visible && (
                                                     <span className="text-xs font-bold text-amber-600 flex items-center space-x-1"><Eye className="w-3 h-3" /><span>Parent-visible</span></span>
@@ -178,10 +191,10 @@ const BehaviorLogScreen = () => {
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-sm text-gray-600 mt-2">{log.description}</p>
+                                    <p className="text-sm text-gray-600 mt-2">{log.note}</p>
                                     <div className="flex items-center space-x-4 mt-3">
-                                        <span className="text-xs text-gray-400">{log.teacher_name}</span>
-                                        <span className="text-xs text-gray-400">{new Date(log.logged_at).toLocaleString('en-NG')}</span>
+                                        <span className="text-xs text-gray-400">{log.teacher?.full_name}</span>
+                                        <span className="text-xs text-gray-400">{new Date(log.created_at).toLocaleString('en-NG')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -189,6 +202,7 @@ const BehaviorLogScreen = () => {
                     ))
                 )}
             </div>
+            )}
 
             {/* Add Modal */}
             {isAdding && (
@@ -200,13 +214,18 @@ const BehaviorLogScreen = () => {
                         </div>
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Student Name <span className="text-red-500">*</span></label>
-                                <input type="text" placeholder="e.g., Femi Adeyemi" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" value={formData.student_name || ''} onChange={e => setFormData({ ...formData, student_name: e.target.value })} />
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Student <span className="text-red-500">*</span></label>
+                                <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.student_id || ''} onChange={e => setFormData({ ...formData, student_id: e.target.value })}>
+                                    <option value="">Select Student</option>
+                                    {students.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.grade})</option>)}
+                                </select>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Class</label>
-                                    <input type="text" placeholder="JSS 2A" className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.class_name || ''} onChange={e => setFormData({ ...formData, class_name: e.target.value })} />
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Category</label>
+                                    <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.category || 'conduct'} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+                                        {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Type</label>
@@ -218,14 +237,8 @@ const BehaviorLogScreen = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Category</label>
-                                <select className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold" value={formData.category || 'conduct'} onChange={e => setFormData({ ...formData, category: e.target.value })}>
-                                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Description <span className="text-red-500">*</span></label>
-                                <textarea rows={3} placeholder="Describe the behavior..." className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium" value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Note <span className="text-red-500">*</span></label>
+                                <textarea rows={3} placeholder="Describe the behavior..." className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium" value={formData.note || ''} onChange={e => setFormData({ ...formData, note: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -252,3 +265,4 @@ const BehaviorLogScreen = () => {
 };
 
 export default BehaviorLogScreen;
+

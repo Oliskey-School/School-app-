@@ -1,8 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { ChatMessage } from '../../types';
-import { supabase } from '../../lib/supabase';
-import { SendIcon, PaperclipIcon, HappyIcon, DotsVerticalIcon, SearchIcon, ChevronLeftIcon, CheckCircleIcon } from '../../constants';
+import { api } from '../../lib/api';
+import { 
+    SendIcon, 
+    PaperclipIcon, 
+    HappyIcon, 
+    DotsVerticalIcon, 
+    SearchIcon, 
+    ChevronLeftIcon, 
+    CheckCircleIcon 
+} from '../../constants';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -46,7 +54,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
     const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
     // Mobile Responsive State
-    // On mobile, if activeConversationId is null, show list. If set, show chat.
     const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -55,39 +62,27 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    const effectiveUserId = currentUserId || user?.id;
+
     // 1. Fetch Conversation List
     useEffect(() => {
-        const fetchConversations = async () => {
-            if (!currentUserId || !user) return;
+        const fetchConversationsList = async () => {
+            if (!effectiveUserId || !user) return;
 
             const schoolId = user.user_metadata?.school_id || user.app_metadata?.school_id;
             const branchId = profile?.branch_id;
-            // For MVP, assuming 'conversations' table has some metadata or we fetch participants
             try {
-                // Fetch conversations where I am a participant
-                // Note: DB schema might vary. Assuming 'conversation_participants' exists or 'conversations' has fields.
-                // Fallback: Fetch all for demo or use a known RPC/query if available.
-                // Let's assume we fetch from 'conversations' table directly for now.
-
-                let query = supabase
-                    .from('conversations')
-                    .select('*');
-
-                if (schoolId) query = query.eq('school_id', schoolId);
-                if (branchId && branchId !== 'all') query = query.eq('branch_id', branchId);
-
-                const { data, error } = await query.order('last_message_at', { ascending: false });
-
+                const data = await api.getConversations(effectiveUserId, schoolId, branchId);
+                
                 if (data) {
-                    // Filter or Map to display format
-                    // For a real app, you'd filter by participant. For now showing all public/relevant convos
                     const formatted = data.map((c: any) => ({
                         id: c.id,
-                        name: c.title || `Chat ${c.id}`, // Fallback title
+                        name: c.title || `Chat ${c.id}`,
                         lastMessage: c.last_message_text || 'No messages yet',
-                        time: c.last_message_at,
-                        unread: 0, // Todo: implement unread count
-                        avatar: `https://ui-avatars.com/api/?name=${c.title || 'C'}&background=random`
+                        time: c.last_message_at ? formatDistanceToNow(new Date(c.last_message_at)) + ' ago' : 'Recently',
+                        unreadCount: c.unread_count || 0,
+                        online: c.is_online || false,
+                        avatar: c.avatar_url || `https://ui-avatars.com/api/?name=${c.title || 'C'}&background=random`
                     }));
                     setConversations(formatted);
                 }
@@ -97,57 +92,63 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                 setLoadingConversations(false);
             }
         };
-        fetchConversations();
-    }, [currentUserId]);
+        fetchConversationsList();
+    }, [effectiveUserId, user, profile?.branch_id]);
 
-    // 2. Fetch Messages for Active Chat
+    // 2. Fetch Messages for Active Chat with Polling
     useEffect(() => {
         if (!activeConversationId) return;
 
-        const fetchMessages = async () => {
-            setLoadingMessages(true);
-            const { data } = await supabase
-                .from('messages')
-                .select('*, sender:users!sender_id(id, name, avatar_url)')
-                .eq('conversation_id', activeConversationId)
-                .order('created_at', { ascending: true });
+        const fetchMessagesList = async (showLoading = true) => {
+            if (showLoading) setLoadingMessages(true);
+            try {
+                const data = await api.getMessages(activeConversationId);
+                if (data) {
+                    const mapped = data.map((m: any) => ({
+                        id: m.id,
+                        content: m.content,
+                        senderId: m.sender_id,
+                        createdAt: m.created_at,
+                        type: m.type,
+                        roomId: m.conversation_id,
+                        mediaUrl: m.media_url || m.mediaUrl,
+                        isDeleted: false,
+                        isEdited: false,
+                        updatedAt: m.created_at,
+                        sender: {
+                            id: m.sender?.id || m.sender_id || '',
+                            name: m.sender?.name || 'User',
+                            avatarUrl: m.sender?.avatar_url,
+                            role: m.sender?.role || 'Member'
+                        }
+                    }));
+                    
+                    // Only update if count changed or last message changed to avoid unnecessary re-renders
+                    setMessages(prev => {
+                        if (JSON.stringify(prev) !== JSON.stringify(mapped)) {
+                            return mapped;
+                        }
+                        return prev;
+                    });
 
-            if (data) {
-                setMessages(data.map((m: any) => ({
-                    id: m.id,
-                    content: m.content,
-                    senderId: m.sender_id,
-                    createdAt: m.created_at,
-                    type: m.type,
-                    roomId: m.conversation_id,
-                    isDeleted: false,
-                    isEdited: false,
-                    updatedAt: m.created_at,
-                    sender: {
-                        id: m.sender?.id || '', // Default to empty string for UUID consistency
-                        name: m.sender?.name || 'User',
-                        avatarUrl: m.sender?.avatar_url,
-                        role: m.sender?.role || 'Member'
-                    }
-                })));
-
-                // Find details for active room from list
-                const room = conversations.find(c => c.id === activeConversationId);
-                if (room) setActiveRoomDetails(room);
+                    const room = conversations.find(c => c.id === activeConversationId);
+                    if (room) setActiveRoomDetails(room);
+                }
+            } catch (e) {
+                console.error("Error fetching messages", e);
+            } finally {
+                if (showLoading) setLoadingMessages(false);
             }
-            setLoadingMessages(false);
         };
 
-        fetchMessages();
+        fetchMessagesList(true);
 
-        // Realtime Subscription for Messages
-        const channel = supabase.channel(`chat:${activeConversationId}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${activeConversationId}` }, payload => {
-                fetchMessages(); // Simple refresh for now
-            })
-            .subscribe();
+        // Polling for new messages every 3 seconds
+        const pollInterval = setInterval(() => {
+            fetchMessagesList(false);
+        }, 3000);
 
-        return () => { supabase.removeChannel(channel); };
+        return () => clearInterval(pollInterval);
     }, [activeConversationId, conversations]);
 
     useEffect(() => {
@@ -193,18 +194,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // 1. Try to recover User ID if missing (Demo/Mock Mode Fallback)
-        let effectiveUserId = currentUserId;
-        if (!effectiveUserId) {
-            const storedUser = sessionStorage.getItem('user');
-            if (storedUser) {
-                try {
-                    const parsed = JSON.parse(storedUser);
-                    effectiveUserId = parsed.id;
-                } catch (e) { /* ignore */ }
-            }
-        }
-
         if (!effectiveUserId) {
             toast.error("Error: Missing User ID. Please re-login.");
             return;
@@ -218,16 +207,14 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
         const text = inputText.trim();
         const attachmentsToSend = [...pendingAttachments];
 
-        // Clear UI immediately for better UX
         setInputText('');
         setPendingAttachments([]);
         setIsUploading(true);
         setShowEmojiPicker(false);
 
         try {
-            // 1. Send Text Message first (if any)
             if (text) {
-                const { error } = await supabase.from('messages').insert({
+                await api.sendMessage({
                     conversation_id: activeConversationId,
                     sender_id: effectiveUserId,
                     content: text,
@@ -235,35 +222,21 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                     school_id: user?.user_metadata?.school_id || user?.app_metadata?.school_id,
                     branch_id: profile?.branch_id
                 });
-                if (error) throw error;
             }
 
-            // 2. Upload and Send Attachments
             for (const attachment of attachmentsToSend) {
                 const file = attachment.file;
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-                const filePath = `${activeConversationId}/${fileName}`;
+                
+                // Use standardized uploadFile method instead of legacy api.storage
+                const uploadResult: any = await api.uploadFile(file);
+                const publicUrl = uploadResult.publicUrl || uploadResult.url;
 
-                const { error: uploadError } = await supabase.storage
-                    .from('chat-attachments')
-                    .upload(filePath, file);
-
-                if (uploadError) {
-                    console.error("Upload error:", uploadError);
-                    if (uploadError.message.includes("Bucket not found")) {
-                        toast.error("Error: bucket missing. Run migration.");
-                    } else {
-                        toast.error(`Failed to upload ${file.name}: ${uploadError.message}`);
-                    }
-                    continue; // Skip this one but try others
+                if (!publicUrl) {
+                    toast.error(`Failed to upload ${file.name}`);
+                    continue;
                 }
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('chat-attachments')
-                    .getPublicUrl(filePath);
-
-                const { error: msgError } = await supabase.from('messages').insert({
+                await api.sendMessage({
                     conversation_id: activeConversationId,
                     sender_id: effectiveUserId,
                     content: file.name,
@@ -272,8 +245,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                     school_id: user?.user_metadata?.school_id || user?.app_metadata?.school_id,
                     branch_id: profile?.branch_id
                 });
-
-                if (msgError) console.error("Error saving message record:", msgError);
             }
 
         } catch (err: any) {
@@ -283,23 +254,16 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
         }
     };
 
-    // Derived state for filtered list
     const filteredConversations = conversations.filter(c =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Render Helpers
     const showSidebar = !isMobileView || (isMobileView && !activeConversationId);
     const showChat = !isMobileView || (isMobileView && activeConversationId);
 
-    const handleNotImplemented = () => {
-        toast("This feature is coming soon!", { icon: '🚧' });
-    };
-
     return (
         <div className="flex h-full bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-            {/* LEFT SIDEBAR */}
             {showSidebar && (
                 <div className={`w-full lg:w-80 flex flex-col border-r border-gray-100 ${activeConversationId ? 'hidden lg:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50">
@@ -327,7 +291,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                     <div className="flex items-start space-x-3">
                                         <div className="relative">
                                             <img
-                                                src={conv.avatar || `https://ui-avatars.com/api/?name=${conv.name}`}
+                                                src={conv.avatar}
                                                 alt={conv.name}
                                                 className="w-12 h-12 rounded-full object-cover border border-gray-100 shadow-sm"
                                             />
@@ -357,12 +321,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                 </div>
             )}
 
-            {/* RIGHT MAIN AREA - Chat */}
             {showChat && (
                 <div className="flex-1 flex flex-col bg-[#F8FAFC] relative h-full pb-20 lg:pb-0">
                     {activeConversationId ? (
                         <>
-                            {/* Chat Header */}
                             <div className="px-6 py-3 bg-white border-b border-gray-100 flex items-center justify-between shadow-sm sticky top-0 z-10">
                                 <div className="flex items-center space-x-3">
                                     {isMobileView && (
@@ -388,14 +350,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                 </button>
                             </div>
 
-                            {/* Messages List */}
                             <div className={`flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 custom-scrollbar ${isMobileView ? 'pb-32' : ''}`}>
                                 {loadingMessages ? (
                                     <CenteredLoader message="Loading messages..." />
                                 ) : (
                                     <>
                                         {messages.map((msg, idx) => {
-                                            const isMe = msg.senderId === currentUserId;
+                                            const isMe = msg.senderId === effectiveUserId;
                                             return (
                                                 <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
                                                     {!isMe && (
@@ -407,7 +368,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                                             : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-none'
                                                             }`}>
 
-                                                            {/* Media Rendering */}
                                                             {msg.type === 'image' && msg.mediaUrl && (
                                                                 <img src={msg.mediaUrl} alt="attachment" className="rounded-lg mb-2 max-w-full h-auto cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(msg.mediaUrl, '_blank')} />
                                                             )}
@@ -430,9 +390,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                 )}
                             </div>
 
-                            {/* Input Area */}
                             <div className={`bg-white border-t border-gray-100 relative p-4 ${isMobileView ? 'px-2 py-3 shadow-inner' : ''}`}>
-                                {/* Attachment Previews */}
                                 {pendingAttachments.length > 0 && (
                                     <div className="flex gap-2 overflow-x-auto mb-2 pb-2 custom-scrollbar">
                                         {pendingAttachments.map((att, idx) => (
@@ -455,7 +413,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                     </div>
                                 )}
 
-                                {/* Emoji Picker Popover */}
                                 {showEmojiPicker && (
                                     <div className="absolute bottom-20 left-4 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 w-64 z-50 animate-slide-in-up">
                                         <div className="grid grid-cols-5 gap-2">
@@ -476,7 +433,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                 <form onSubmit={handleSendMessage} className="flex items-end space-x-2 bg-gray-50 p-2 rounded-3xl border border-gray-200 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-300 transition-all shadow-sm">
                                     <button
                                         type="button"
-                                        className="p-2 text-gray-400 hover:text-yellow-500 transition-colors"
+                                        className="p-2 text-gray-400 hover:Yellow-500 transition-colors"
                                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                                     >
                                         <HappyIcon className="w-6 h-6" />
@@ -503,7 +460,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                         )}
                                     </button>
 
-
                                     <input
                                         type="text"
                                         value={inputText}
@@ -520,7 +476,6 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
                                     </button>
                                 </form>
                             </div>
-
                         </>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-[#F8FAFC]">

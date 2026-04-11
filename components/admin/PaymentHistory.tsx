@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import PaymentStatusBadge from '../shared/PaymentStatusBadge';
 import {
@@ -10,6 +10,7 @@ import {
     SearchIcon
 } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface PaymentTransaction {
     id: number;
@@ -38,6 +39,11 @@ const PaymentHistory: React.FC = () => {
         fetchTransactions();
     }, [currentSchool]);
 
+    useAutoSync(['payment_transactions', 'payslips'], () => {
+        console.log('🔄 [PaymentHistory] Real-time auto-sync triggered');
+        fetchTransactions();
+    });
+
     useEffect(() => {
         applyFilters();
     }, [transactions, filter, searchTerm]);
@@ -47,7 +53,7 @@ const PaymentHistory: React.FC = () => {
             if (!currentSchool) return;
             setLoading(true);
 
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('payment_transactions')
                 .select(`
           *,
@@ -308,3 +314,4 @@ const PaymentHistory: React.FC = () => {
 };
 
 export default PaymentHistory;
+

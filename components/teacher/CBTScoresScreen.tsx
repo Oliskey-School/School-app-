@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { CBTTest, CBTResult } from '../../types';
 import { CheckCircleIcon, XCircleIcon } from '../../constants';
 
@@ -15,28 +15,20 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
         const fetchScores = async () => {
             setLoading(true);
             try {
-                // Corrected join: quiz_submissions.student_id references profiles.id
-                // Use an optional join for students because demo students might not be linked via user_id
-                const { data, error } = await supabase
-                    .from('quiz_submissions')
-                    .select('*, profiles:student_id(full_name, students(name, school_generated_id))')
-                    .eq('quiz_id', test.id)
-                    .order('submitted_at', { ascending: false });
-
-                if (error) throw error;
+                // Use unified API client for scores
+                const data = await api.getQuizSubmissions(test.id);
 
                 if (data) {
                     const formattedResults: CBTResult[] = data.map((sub: any) => {
                         const score = parseFloat(sub.score);
-                        // In unified schema, score is percentage
                         const total = 100;
                         const percentage = score;
 
                         return {
                             id: sub.id,
                             examId: test.id,
-                            studentId: sub.profiles?.students?.[0]?.school_generated_id || sub.student_id,
-                            studentName: sub.profiles?.students?.[0]?.name || sub.profiles?.full_name || 'Unknown',
+                            studentId: sub.student?.school_generated_id || sub.student_id,
+                            studentName: sub.student?.name || sub.full_name || 'Unknown',
                             score: score,
                             totalQuestions: total,
                             percentage: percentage,
@@ -123,3 +115,4 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
 };
 
 export default CBTScoresScreen;
+

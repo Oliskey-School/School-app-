@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { LearningPathFull, StudentLearningPath, ModuleProgress } from '../../types-additional';
 import { toast } from 'react-hot-toast';
 import { AcademicCapIcon, CheckCircleIcon, PlayIcon } from '../../constants';
@@ -25,7 +25,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
         try {
             if (isTeacher) {
                 // Teachers see all paths
-                const { data: pathsData } = await supabase
+                const { data: pathsData } = await api
                     .from('learning_paths')
                     .select('*, modules:learning_path_modules(*), creator:teachers(name)')
                     .eq('is_active', true)
@@ -34,7 +34,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
                 setPaths(pathsData || []);
             } else {
                 // Students see assigned paths
-                const { data: studentPathsData } = await supabase
+                const { data: studentPathsData } = await api
                     .from('student_learning_paths')
                     .select(`
             *,
@@ -59,7 +59,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
 
     const assignPath = async (pathId: number) => {
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('student_learning_paths')
                 .insert({
                     student_id: studentId,
@@ -85,7 +85,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
         if (!selectedPath) return;
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('module_progress')
                 .upsert({
                     student_id: studentId,
@@ -98,7 +98,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
 
             // Update student path status
             if (selectedPath.status === 'assigned') {
-                await supabase
+                await api
                     .from('student_learning_paths')
                     .update({
                         status: 'in_progress',
@@ -118,7 +118,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
         if (!selectedPath) return;
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('module_progress')
                 .update({
                     status: 'completed',
@@ -133,7 +133,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
             // Award points if configured
             const module = selectedPath.path?.modules?.find(m => m.id === moduleId);
             if (module?.pointsReward) {
-                await supabase
+                await api
                     .from('point_transactions')
                     .insert({
                         student_id: studentId,
@@ -154,7 +154,7 @@ const LearningPathsDashboard: React.FC<LearningPathsDashboardProps> = ({ student
         const path = studentPaths.find(p => p.id === pathId);
         if (!path) return;
 
-        const { data } = await supabase
+        const { data } = await api
             .from('module_progress')
             .select('*')
             .eq('student_id', studentId)

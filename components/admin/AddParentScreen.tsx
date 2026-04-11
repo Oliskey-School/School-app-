@@ -5,7 +5,7 @@ import { CameraIcon, UserIcon, MailIcon, PhoneIcon, StudentsIcon } from '../../c
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import { Parent } from '../../types';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import { sendWelcomeEmail } from '../../lib/emailService';
 import CredentialsModal from '../ui/CredentialsModal';
@@ -55,7 +55,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                 setEmergencyContact(parentToEdit.emergency_contact || ''); // ✅ NEW
 
                 try {
-                    const { data: links } = await supabase
+                    const { data: links } = await api
                         .from('student_parent_links')
                         .select('student_user_id')
                         .eq('parent_user_id', parentToEdit.user_id);
@@ -63,7 +63,7 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
                     if (links && links.length > 0) {
                         // Fetch the readable IDs for these students
                         const studentUserIds = links.map(l => l.student_user_id);
-                        const { data: students } = await supabase
+                        const { data: students } = await api
                             .from('students')
                             .select('school_generated_id, admission_number')
                             .in('user_id', studentUserIds);
@@ -143,151 +143,52 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
             const saveOperation = async () => {
                 if (parentToEdit) {
                     // UPDATE MODE
-                    const { error: updateError } = await supabase
-                        .from('parents')
-                        .update({
-                            name,
-                            email,
-                            phone,
-                            address: address || null,
-                            occupation: occupation || null,
-                            relationship: relationship,
-                            emergency_contact: emergencyContact || null,
-                            avatar_url: avatarUrl,
-                            branch_id: branchId
-                        })
-                        .eq('id', parentToEdit.id);
+                    const payload = {
+                        full_name: name,
+                        email,
+                        phone,
+                        address: address || null,
+                        occupation: occupation || null,
+                        relationship,
+                        emergency_contact: emergencyContact || null,
+                        branch_id: branchId,
+                        childIds: rawChildIds
+                    };
 
-                    if (updateError) throw updateError;
-
-                    if (parentToEdit.user_id) {
-                        await supabase.from('users').update({ name, avatar_url: avatarUrl, branch_id: branchId }).eq('id', parentToEdit.user_id);
-                    }
-
-                    // Transactional-like update for children
-                    if (parentToEdit.user_id) {
-                        await supabase
-                            .from('student_parent_links')
-                            .delete()
-                            .eq('parent_user_id', parentToEdit.user_id)
-                            .eq('school_id', schoolId);
-                    }
-                    if (rawChildIds.length > 0) {
-                        // Resolve IDs: Check school_generated_id, admission_number, OR user_id (UUID)
-                        const { data: students } = await supabase
-                            .from('students')
-                            .select('user_id')
-                            .or(`school_generated_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')}),user_id.in.(${rawChildIds.join(',')})`);
-
-                        if (students && students.length > 0) {
-                            // Deduplicate user_ids just in case
-                            const uniqueStudentUserIds = [...new Set(students.map(s => s.user_id))];
-                            const relations = uniqueStudentUserIds.map(sid => ({
-                                parent_user_id: parentToEdit.user_id,
-                                student_user_id: sid,
-                                school_id: schoolId,
-                                branch_id: branchId
-                            }));
-                            await supabase.from('student_parent_links').insert(relations);
-                        }
-                    }
+                    await api.updateParent(parentToEdit.id, payload);
 
                     toast.success('Parent updated successfully!', { id: toastId });
                     forceUpdate();
                     handleBack();
                 } else {
                     // CREATE MODE
-                    // 1. Create Login Credentials
-                    const authResult = await createUserAccount(name, 'Parent', email, schoolId);
-                    if (authResult.error) throw new Error(authResult.error);
+                    const payload = {
+                        full_name: name,
+                        email,
+                        phone,
+                        address: address || null,
+                        occupation: occupation || null,
+                        relationship,
+                        emergency_contact: emergencyContact || null,
+                        branch_id: branchId,
+                        childIds: rawChildIds // We'll need to handle this in the backend
+                    };
 
-                    // 2. Create/Update User Record (Handle trigger/backend conflicts gracefully)
-                    let newUserData;
-                    const { data: insertedData, error: userError } = await supabase
-                        .from('users')
-                        .insert([{
-                            id: authResult.userId, // Required to tie to Auth
-                            email,
-                            name,
-                            role: 'parent', // Lowercase role as per schema
-                            avatar_url: avatarUrl,
-                            school_id: schoolId,
-                            branch_id: branchId
-                        }])
-                        .select()
-                        .single();
-
-                    if (userError) {
-                        if (userError.code !== '23505') { // 23505 is duplicate key violation
-                            console.error('Error creating user profile:', userError);
-                            throw new Error(`Failed to create user profile: ${userError.message}`);
-                        } else {
-                            console.log('User profile already exists (created by backend), continuing...');
-                            // Manually construct newUserData since insert failed
-                            newUserData = { id: authResult.userId };
-                        }
-                    } else {
-                        newUserData = insertedData;
-                    }
-
-                    if (!newUserData?.id) throw new Error("Failed to resolve user ID");
-
-                    // 2b. Sync Profiles Table for RLS Context
-                    const { error: profileError } = await supabase
-                        .from('profiles')
-                        .update({
-                            full_name: name,
-                            role: 'parent',
-                            branch_id: branchId,
-                            avatar_url: avatarUrl
-                        })
-                        .eq('id', authResult.userId);
-                    if (profileError) console.warn("Notice: Syncing profile failed", profileError);
-
-                    // 3. Create Parent Profile
-                    const { data: newParentData, error: parentError } = await supabase
-                        .from('parents')
-                        .insert([{
-                            user_id: newUserData.id,
-                            school_id: schoolId,
-                            branch_id: branchId,
-                            name,
-                            email,
-                            phone,
-                            address: address || null,
-                            occupation: occupation || null,
-                            relationship: relationship,
-                            emergency_contact: emergencyContact || null,
-                            avatar_url: avatarUrl
-                        }])
-                        .select()
-                        .single();
-
-                    if (parentError) throw parentError;
-
-                    // 4. Link Students
-                    if (rawChildIds.length > 0) {
-                        // Resolve IDs: Check school_generated_id, admission_number, OR user_id (UUID)
-                        const { data: students } = await supabase
-                            .from('students')
-                            .select('user_id')
-                            .or(`school_generated_id.in.(${rawChildIds.join(',')}),admission_number.in.(${rawChildIds.join(',')}),user_id.in.(${rawChildIds.join(',')})`);
-
-                        if (students && students.length > 0) {
-                            const uniqueStudentUserIds = [...new Set(students.map(s => s.user_id))];
-                            const relations = uniqueStudentUserIds.map(sid => ({
-                                parent_user_id: newUserData.id,
-                                student_user_id: sid,
-                                school_id: schoolId,
-                                branch_id: branchId
-                            }));
-                            await supabase.from('student_parent_links').insert(relations);
-                        }
-                    }
-
+                    const result = await api.createParent(payload);
+                    
                     toast.success('Parent created successfully!', { id: toastId });
-                    setCredentials({ username: authResult.username, password: authResult.password, email });
-                    setShowCredentialsModal(true);
+                    
+                    if (result.password) {
+                        setCredentials({ 
+                            username: result.loginId || email, 
+                            password: result.password, 
+                            email 
+                        });
+                        setShowCredentialsModal(true);
+                    } else {
+                        forceUpdate();
+                        handleBack();
+                    }
                 }
             };
 
@@ -458,3 +359,4 @@ const InputField: React.FC<{
 );
 
 export default AddParentScreen;
+

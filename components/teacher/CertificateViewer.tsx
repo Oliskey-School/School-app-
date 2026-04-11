@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import {
     CertificateIcon,
@@ -28,40 +28,15 @@ const CertificateViewer: React.FC = () => {
     const fetchCertificates = async () => {
         try {
             setLoading(true);
-
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) {
+            // Fetch via backend API using teacher profile ID
+            const myProfile = await api.getMe();
+            if (!myProfile?.teacher_id && !myProfile?.id) {
                 setLoading(false);
                 return;
             }
-
-            const { data, error } = await supabase
-                .from('pd_certificates')
-                .select(`
-          *,
-          pd_courses (
-            title
-          )
-        `)
-                .eq('teacher_id', teacherData.id)
-                .order('issued_at', { ascending: false });
-
-            if (error) throw error;
-
-            const formatted: Certificate[] = (data || []).map((c: any) => ({
-                id: c.id,
-                course_title: c.pd_courses?.title || 'Unknown Course',
-                certificate_number: c.certificate_number,
-                issued_at: c.issued_at,
-                expiry_date: c.expiry_date
-            }));
-
-            setCertificates(formatted);
+            const teacherId = myProfile?.teacher_id || myProfile?.id;
+            const data = await api.getTeacherCertificates(teacherId);
+            setCertificates(data || []);
         } catch (error: any) {
             console.error('Error fetching certificates:', error);
         } finally {
@@ -129,3 +104,4 @@ const CertificateViewer: React.FC = () => {
 };
 
 export default CertificateViewer;
+

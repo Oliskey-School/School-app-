@@ -5,7 +5,8 @@ import DonutChart from '../ui/DonutChart';
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType, Teacher } from '../../types';
 import { api } from '../../lib/api';
-import { supabase } from '../../lib/supabase';
+import { useAutoSync } from '../../hooks/useAutoSync';
+
 import { useAuth } from '../../context/AuthContext';
 
 type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Pending' | 'Not Marked';
@@ -13,7 +14,9 @@ type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Pending' | 'Not Marked
 interface TeacherWithAttendance extends Teacher {
     attendanceStatus: AttendanceStatus;
     checkInTime?: string;
-    attendanceId?: string; // to approve/reject
+    attendanceId?: string;
+    full_name?: string;
+    avatar_url?: string;
 }
 
 interface TeacherAttendanceScreenProps {
@@ -35,7 +38,8 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
             const allTeachers = await api.getTeachers(currentSchool.id, currentBranchId || undefined);
 
             // 2. Fetch today's attendance records
-            const today = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const attendanceData = await api.getTeacherAttendance(currentSchool.id, { date: today });
 
             // 3. Merge data
@@ -68,24 +72,13 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
 
     useEffect(() => {
         fetchTeacherData();
+    }, [currentSchool?.id, currentBranchId]);
 
-        // Real-time subscription
-        const today = new Date().toISOString().split('T')[0];
-        const channel = supabase.channel('teacher_attendance_realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'teacher_attendance', filter: `date=eq.${today}` },
-                (payload) => {
-                    console.log('Real-time teacher attendance update:', payload);
-                    fetchTeacherData(); // Simple re-fetch strategy for correctness
-                }
-            )
-            .subscribe();
+    useAutoSync(['staff_attendance', 'teachers'], () => {
+        console.log('🔄 [TeacherAttendance] Real-time auto-sync triggered');
+        fetchTeacherData();
+    });
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, []);
 
 
     const handleStatusChange = useCallback(async (teacherId: string, status: AttendanceStatus) => {
@@ -107,7 +100,7 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
 
     const filteredTeachers = useMemo(() =>
         teachers.filter(teacher =>
-            teacher.name.toLowerCase().includes(searchTerm.toLowerCase())
+            (teacher.full_name || teacher.name || '').toLowerCase().includes(searchTerm.toLowerCase())
         ), [teachers, searchTerm]
     );
 
@@ -187,10 +180,10 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
                     ) : filteredTeachers.length > 0 ? (
                         filteredTeachers.map(teacher => (
                             <div key={teacher.id} className="bg-white rounded-xl shadow-sm p-3 flex items-center space-x-3">
-                                <button onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.name}'s Attendance`, { teacher })} className="flex items-center space-x-3 flex-grow text-left">
-                                    <img src={teacher.avatarUrl} alt={teacher.name} className="w-12 h-12 rounded-full object-cover" />
+                                <button onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.full_name || teacher.name || 'Teacher'}'s Attendance`, { teacher })} className="flex items-center space-x-3 flex-grow text-left">
+                                    <img src={teacher.avatar_url || teacher.avatarUrl || 'https://i.pravatar.cc/150'} alt={teacher.full_name || teacher.name || 'Teacher'} className="w-12 h-12 rounded-full object-cover" />
                                     <div className="flex-grow">
-                                        <p className="font-bold text-gray-800">{teacher.name}</p>
+                                        <p className="font-bold text-gray-800">{teacher.full_name || teacher.name || 'Teacher'}</p>
                                         <div className="flex items-center space-x-2">
                                             <p className={`text-sm font-semibold ${statusStyles[teacher.attendanceStatus].text}`}>
                                                 Status: {teacher.attendanceStatus}

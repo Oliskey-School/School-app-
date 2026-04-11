@@ -85,9 +85,9 @@ interface SubjectsScreenProps {
 }
 
 const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) => {
-  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]); // Changed from string[] to any[]
   const [loading, setLoading] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<any | null>(null); // Changed from string to any
   const [selectedTerm, setSelectedTerm] = useState<number | null>(null);
   const [topics, setTopics] = useState<any[]>([]);
   const [isLoadingTopics, setIsLoadingTopics] = useState(false);
@@ -96,53 +96,31 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
     const loadSubjects = async () => {
       if (!student) return;
 
-      const cacheKey = `subjects_${student.id}_${student.grade}`;
+      const cacheKey = `subjects_${student.id}`;
 
       // 1. Cache First
-      const cachedSubjects = await offlineStorage.load<string[]>(cacheKey);
+      const cachedSubjects = await offlineStorage.load<any[]>(cacheKey);
       if (cachedSubjects && cachedSubjects.length > 0) {
         setSubjects(cachedSubjects);
-        setLoading(false); // Instant display
+        setLoading(false);
       } else {
         setLoading(true);
       }
 
-      console.log('Loading subjects for student:', student);
-
       try {
-        let finalSubjects: string[] = [];
-
-        // If student has academicPerformance populated, use it
-        if (student.academicPerformance?.length) {
-          finalSubjects = [...new Set(student.academicPerformance.map(p => p.subject))];
-          console.log('Subjects from academic performance:', finalSubjects);
+        const fetchedSubjects = await api.getMySubjects();
+        
+        if (fetchedSubjects && fetchedSubjects.length > 0) {
+          setSubjects(fetchedSubjects);
+          await offlineStorage.save(cacheKey, fetchedSubjects);
         } else {
-          // Fetch from database based on grade/section
-          console.log(`Fetching subjects for Grade ${student.grade}${student.section}`);
-          const fetchedSubjects = await fetchClassSubjects(student.grade, student.section);
-          console.log('Fetched subjects from database:', fetchedSubjects);
-
-          if (fetchedSubjects.length > 0) {
-            finalSubjects = fetchedSubjects;
-          } else {
-            // Fallback to standard subjects for the grade level
-            console.log('No subjects found in database, using fallback');
-            finalSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
-            console.log('Using default subjects:', finalSubjects);
-          }
+          setSubjects([]);
         }
-
-        if (finalSubjects.length > 0) {
-          setSubjects(finalSubjects);
-          await offlineStorage.save(cacheKey, finalSubjects);
-        }
-
       } catch (error) {
         console.error('Error loading subjects:', error);
-        // On error, use fallback subjects if we don't have cache
         if (!cachedSubjects) {
-          const defaultSubjects = getDefaultSubjectsForGrade(student.grade, student.department);
-          setSubjects(defaultSubjects);
+          const defaultNames = getDefaultSubjectsForGrade(student.grade, student.department);
+          setSubjects(defaultNames.map(name => ({ id: name, name: name })));
         }
       } finally {
         setLoading(false);
@@ -152,32 +130,12 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
     loadSubjects();
   }, [student]);
 
-  const loadTopics = async (subjectName: string, term: number) => {
+  const loadTopics = async (subjectId: string, term: number) => {
     setIsLoadingTopics(true);
     try {
-      // Find subject ID by name if possible, or just use name if DB supports it.
-      // For now, we'll need the subject object. 
-      // fetchClassSubjects returns string[]. We should have objects ideally.
-      // I'll try to find the subject by name in the curriculum topics.
-      // OR I should use the subject name as a filter if ID is not available.
-
-      // In Supabase, curriculum_topics.subject_id is UUID.
-      // We need to fetch the subject ID first or update lib/database to return objects.
-
-      // I'll assume for now we might need to find the subject ID.
-      const { data: subjectData } = await api.supabase
-        .from('subjects')
-        .select('id')
-        .eq('name', subjectName)
-        .eq('school_id', student?.schoolId)
-        .single();
-
-      if (subjectData) {
-        const data = await api.getCurriculumTopics(subjectData.id, term);
-        setTopics(data);
-      } else {
-        toast.error('Subject details not found');
-      }
+      // Use the new backend API method
+      const data = await api.getStudentCurriculumTopics(subjectId, term.toString());
+      setTopics(data);
     } catch (error) {
       toast.error('Failed to load curriculum topics');
       console.error(error);
@@ -225,7 +183,7 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                   <BookOpenIcon className="w-8 h-8" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black text-gray-900">{selectedSubject}</h2>
+                  <h2 className="text-2xl font-black text-gray-900">{selectedSubject.name}</h2>
                   <p className="text-sm text-gray-500 font-medium font-sans uppercase tracking-widest">Curriculum Details</p>
                 </div>
               </div>
@@ -238,7 +196,7 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                       key={t}
                       onClick={() => {
                         setSelectedTerm(t);
-                        loadTopics(selectedSubject, t);
+                        loadTopics(selectedSubject.id, t);
                       }}
                       className={`p-4 rounded-2xl border-2 transition-all font-black ${selectedTerm === t
                         ? 'border-orange-500 bg-orange-50 text-orange-600'
@@ -289,11 +247,11 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                 )}
 
                 <button
-                  onClick={() => navigateTo('classroom', `${selectedSubject} Classroom`, { subjectName: selectedSubject })}
+                  onClick={() => navigateTo('classroom', `${selectedSubject.name} Classroom`, { subjectName: selectedSubject.name })}
                   className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
                 >
                   <GlobeIcon className="w-5 h-5" />
-                  Go to {selectedSubject} Classroom
+                  Go to {selectedSubject.name} Classroom
                 </button>
               </div>
             )}
@@ -312,14 +270,15 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {subjects.filter(s => s && s !== 'Subject').map(subjectName => {
+                {subjects.filter(s => s && s.name && s.name !== 'Subject').map(subject => {
+                  const subjectName = subject.name;
                   const colorClass = SUBJECT_COLORS[subjectName] || 'bg-gray-200 text-gray-800';
                   const [bgColor, textColor] = colorClass.split(' ');
 
                   return (
                     <button
-                      key={subjectName}
-                      onClick={() => setSelectedSubject(subjectName)}
+                      key={subject.id || subjectName}
+                      onClick={() => setSelectedSubject(subject)}
                       className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center justify-between text-left hover:bg-gray-50 hover:ring-2 hover:ring-orange-200 transition-all"
                     >
                       <div className="flex items-center space-x-4">

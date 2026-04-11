@@ -1,6 +1,6 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { TrashIcon, PlusIcon, CalendarIcon, UsersIcon, VideoIcon, UserIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +22,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
 
     // Deletion State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [meetingToDelete, setMeetingToDelete] = useState<number | null>(null);
+    const [meetingToDelete, setMeetingToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         if (!currentSchool) return;
@@ -32,13 +32,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
     const fetchMeetings = async () => {
         if (!currentSchool) return;
         try {
-            const { data, error } = await supabase
-                .from('pta_meetings')
-                .select('*')
-                .eq('school_id', currentSchool.id)
-                .order('date', { ascending: true });
-
-            if (error) throw error;
+            const data = await api.getPTAMeetings();
             setMeetings(data || []);
         } catch (err) {
             console.error('Error fetching meetings:', err);
@@ -53,11 +47,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const { error } = await supabase
-                .from('pta_meetings')
-                .insert([{ ...newItem, school_id: currentSchool.id }]);
-
-            if (error) throw error;
+            await api.createPTAMeeting({ ...newItem, school_id: currentSchool.id });
 
             setNewItem({
                 title: '',
@@ -78,7 +68,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
         }
     };
 
-    const confirmDelete = (id: number) => {
+    const confirmDelete = (id: string) => {
         setMeetingToDelete(id);
         setShowDeleteModal(true);
     };
@@ -90,8 +80,7 @@ const ManagePTAMeetingsScreen: React.FC = () => {
         setMeetingToDelete(null);
 
         try {
-            const { error } = await supabase.from('pta_meetings').delete().eq('id', id);
-            if (error) throw error;
+            await api.deletePTAMeeting(id);
             fetchMeetings();
             toast.success('Meeting cancelled.');
         } catch (err) {
@@ -309,3 +298,4 @@ const ManagePTAMeetingsScreen: React.FC = () => {
 };
 
 export default ManagePTAMeetingsScreen;
+

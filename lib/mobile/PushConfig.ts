@@ -1,7 +1,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, ActionPerformed, Token } from '@capacitor/push-notifications';
-import { supabase } from '../supabase';
+import { api } from '../api';
 import { showNotification } from '../../components/shared/notifications';
 
 /**
@@ -75,25 +75,12 @@ export class PushNotificationManager {
     }
 
     /**
-     * Save the device token to Supabase for the current user
+     * Save the device token to Backend for the current user
      */
     private static async saveTokenToBackend(token: string) {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            // Upsert into a 'user_devices' table (assumed structure)
-            const { error } = await supabase
-                .from('user_devices')
-                .upsert({
-                    user_id: user.id,
-                    token: token,
-                    platform: Capacitor.getPlatform(), // 'ios' or 'android'
-                    last_active: new Date().toISOString()
-                }, { onConflict: 'token' });
-
-            if (error) console.error('Failed to save push token to backend', error);
-
+            // Use our custom API to save the push token
+            await api.savePushToken(token, Capacitor.getPlatform());
         } catch (err) {
             console.error('Error saving push token', err);
         }

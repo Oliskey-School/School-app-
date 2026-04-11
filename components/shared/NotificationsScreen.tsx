@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { NOTIFICATION_CATEGORY_CONFIG } from '../../constants';
 import { fetchStudentById, fetchStudentFeeSummary } from '../../lib/database';
@@ -57,18 +57,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
 
       const branchId = profile?.branch_id;
 
-      let query = supabase
-        .from('notifications')
-        .select('*')
-        .eq('school_id', activeSchoolId);
-
-      if (branchId && branchId !== 'all') {
-        query = query.eq('branch_id', branchId);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.getNotifications({
+        schoolId: activeSchoolId,
+        branchId: branchId && branchId !== 'all' ? branchId : undefined
+      });
 
       const roleToCheck = (userType || 'student').toLowerCase();
       const studentGrade = student?.grade || (profile as any)?.grade;
@@ -120,32 +112,12 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
 
   useEffect(() => {
     fetchNotifications();
-
-    const branchId = profile?.branch_id;
-    const activeSchoolId = schoolId || profile?.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-    const channel = supabase.channel(`notifications-screen-${activeSchoolId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
-        filter: `school_id=eq.${activeSchoolId}`
-      }, (payload) => {
-        const newRecord = payload.new as any;
-        if (branchId && branchId !== 'all' && newRecord && newRecord.branch_id && newRecord.branch_id !== branchId) return;
-
-        console.log('🔔 [NotificationsScreen] Update received:', payload);
-        fetchNotifications();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); }
   }, [profile?.id, userType, schoolId, profile?.schoolId]);
 
   const markAsRead = async (notificationId: string) => {
     setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
     try {
-      await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
+      await api.updateNotification(notificationId, { is_read: true });
     } catch (err) {
       console.error('Error marking as read:', err);
     }
@@ -199,8 +171,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ userType, nav
     if (unreadIds.length === 0) return;
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     try {
-      const { error } = await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds);
-      if (error) throw error;
+      await api.markNotificationsRead(unreadIds);
       toast.success('All marked as read');
     } catch (err) {
       console.error('Error marking all as read:', err);

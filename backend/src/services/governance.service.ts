@@ -1,17 +1,16 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 
 export class GovernanceService {
     static async getComplianceStatus(schoolId: string) {
-        const { data, error } = await supabase
-            .from('compliance_reports')
-            .select('*')
-            .eq('school_id', schoolId)
-            .order('check_date', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        const data = await prisma.complianceReport.findFirst({
+            where: { school_id: schoolId },
+            orderBy: { check_date: 'desc' }
+        });
 
-        if (error) throw new Error(error.message);
-        return data || { status: 'Pending', score: 0, lastCheck: null };
+        if (!data) {
+            return { status: 'Pending', score: 0, lastCheck: null };
+        }
+        return data;
     }
 
     static async verifySystemIntegrity(schoolId: string) {

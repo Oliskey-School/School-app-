@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AiService } from '../services/ai.service';
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getGeneratedResources = async (req: AuthRequest, res: Response) => {
@@ -9,11 +9,10 @@ export const getGeneratedResources = async (req: AuthRequest, res: Response) => 
         let teacherId = (req.query.teacherId || req.query.teacher_id) as string;
 
         if (req.user.role === 'teacher' && !teacherId) {
-            const { data: teacher } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('user_id', req.user.id)
-                .single();
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true }
+            });
             if (teacher) teacherId = teacher.id;
             else return res.json([]);
         }

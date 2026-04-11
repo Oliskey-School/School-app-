@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { StarIcon, PlayIcon, RefreshCwIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface CountingShapesTapGameProps {
     onBack: () => void;
@@ -125,6 +126,17 @@ const CountingShapesTapGame: React.FC<CountingShapesTapGameProps> = ({ onBack })
                 spread: 100,
                 origin: { y: 0.6 }
             });
+
+            // PERSIST TO DATABASE
+            api.submitGameScore({
+                game_id: 'counting-shapes',
+                game_name: 'Counting Shapes Tap',
+                score: score,
+                metadata: {
+                    circlesFound: circleCount,
+                    win: true
+                }
+            }).catch(console.error);
         }
     };
 

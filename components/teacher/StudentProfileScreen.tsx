@@ -85,7 +85,14 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                     <div>
                         <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
                         <p className="text-gray-500 font-medium">Grade {student.grade}{student.section}</p>
-                        <p className="text-xs text-gray-400">ID: {student.schoolId || 'Pending Generation'}</p>
+                        <p className="text-xs text-gray-400 mb-1">
+                            ID: {student.schoolGeneratedId || student.schoolId || 'Pending Generation'}
+                        </p>
+                        {(student as any).initial_password && (
+                            <span className="inline-block px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-mono rounded">
+                                Password: {(student as any).initial_password}
+                            </span>
+                        )}
                     </div>
                 </div>
 

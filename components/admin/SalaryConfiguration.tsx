@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { formatCurrency, calculateGrossSalary } from '../../lib/payroll';
 import { toast } from 'react-hot-toast';
 import {
@@ -54,7 +54,7 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
     const fetchTeachers = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('teachers')
                 .select('id, full_name, email')
                 .order('full_name');
@@ -79,7 +79,7 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
 
         try {
             if (editingId) {
-                const { error } = await supabase
+                const { error } = await api
                     .from('teacher_salaries')
                     .update({
                         base_salary: formData.base_salary,
@@ -96,7 +96,7 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
                 if (error) throw error;
                 toast.success('Salary updated successfully');
             } else {
-                const { error } = await supabase
+                const { error } = await api
                     .from('teacher_salaries')
                     .insert({
                         teacher_id: formData.teacher_id,
@@ -338,3 +338,4 @@ const SalaryConfiguration: React.FC<SalaryConfigurationProps> = ({ navigateTo, h
 };
 
 export default SalaryConfiguration;
+

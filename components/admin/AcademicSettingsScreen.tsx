@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { BookOpenIcon, SaveIcon, ChevronRightIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -26,32 +27,33 @@ const AcademicSettingsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  // Unified Backend-driven Auto Sync
+  useAutoSync(['system_settings'], () => {
+    console.log('🔄 [AcademicSettingsScreen] Auto-sync triggered');
+    fetchSettings();
+  });
+
+  const fetchSettings = async () => {
+    if (!schoolId) return;
+    setLoading(true);
     const branchId = (useAuth() as any).currentBranchId;
-    const fetchSettings = async () => {
-      if (!schoolId) return;
-      setLoading(true);
-      try {
-        let calQuery = supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'academic_calendar');
-        let gradeQuery = supabase.from('system_settings').select('value').eq('school_id', schoolId).eq('key', 'grading_config');
+    try {
+      const data = await api.getSystemSettings(schoolId, ['academic_calendar', 'grading_config'], branchId);
+      
+      const calendarData = data.find(s => s.key === 'academic_calendar');
+      const gradingData = data.find(s => s.key === 'grading_config');
 
-        if (branchId && branchId !== 'all') {
-          calQuery = calQuery.eq('branch_id', branchId);
-          gradeQuery = gradeQuery.eq('branch_id', branchId);
-        }
+      if (calendarData) setCalendar(calendarData.value);
+      if (gradingData) setGrading(gradingData.value);
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+      toast.error('Error loading academic settings.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        const { data: calendarData } = await calQuery.maybeSingle();
-        const { data: gradingData } = await gradeQuery.maybeSingle();
-
-        if (calendarData) setCalendar(calendarData.value);
-        if (gradingData) setGrading(gradingData.value);
-      } catch (err) {
-        console.error('Failed to load settings:', err);
-        toast.error('Error loading academic settings.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  useEffect(() => {
     fetchSettings();
   }, [schoolId]);
 
@@ -68,11 +70,10 @@ const AcademicSettingsScreen: React.FC = () => {
         branch_id: (branchId && branchId !== 'all' ? branchId : null)
       };
 
-      const { error: calErr } = await supabase.from('system_settings').upsert({ ...payload, key: 'academic_calendar', value: calendar });
-      if (calErr) throw calErr;
-
-      const { error: gradeErr } = await supabase.from('system_settings').upsert({ ...payload, key: 'grading_config', value: grading });
-      if (gradeErr) throw gradeErr;
+      await api.updateSystemSettings(schoolId, [
+        { key: 'academic_calendar', value: calendar },
+        { key: 'grading_config', value: grading }
+      ], branchId);
 
       toast.success('Settings saved successfully!');
     } catch (err: any) {

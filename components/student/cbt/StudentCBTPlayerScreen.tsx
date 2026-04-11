@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { CBTTest } from '../../../types';
 import { ClockIcon, CheckCircleIcon } from '../../../constants';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { useAuth } from '../../../context/AuthContext';
 import { syncCBTToGradebook } from '../../../lib/database';
 
@@ -54,24 +54,14 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
             setLoading(true);
             try {
                 if (questions.length === 0 && test.id) {
-                    // Fetch from the correct table: cbt_questions linked by exam_id
-                    const { data, error } = await supabase
-                        .from('cbt_questions')
-                        .select('*')
-                        .eq('exam_id', test.id);
-
-                    if (error) {
-                        console.error('Error fetching questions:', error);
-                        toast.error('Failed to load questions');
-                        return;
-                    }
+                    const data = await api.getQuizQuestions(test.id);
 
                     if (data && data.length > 0) {
                         const mapped = data.map((q: any) => ({
                             id: q.id,
-                            text: q.question_text,
-                            options: Array.isArray(q.options) ? q.options : [],
-                            correctAnswer: q.correct_answer,
+                            text: q.question_text || q.text,
+                            options: Array.isArray(q.options) ? q.options : (typeof q.options === 'string' ? JSON.parse(q.options) : []),
+                            correctAnswer: q.correct_answer || q.correctAnswer,
                             points: q.points || 1
                         }));
                         setQuestions(mapped);
@@ -140,14 +130,9 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
         };
 
         try {
-            // Direct Upsert (Bypassing API helper to ensure reliability and handle conflicts)
-            const { error } = await supabase
-                .from('quiz_submissions')
-                .upsert(submissionPayload, { onConflict: 'student_id, quiz_id' });
+            await api.submitQuiz(test.id, submissionPayload);
 
-            if (error) throw error;
-
-            toast.success('Exam submitted successfully! (v1.2)');
+            toast.success('Exam submitted successfully!');
 
             // Sync to Gradebook
             try {
@@ -354,3 +339,4 @@ const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, s
 };
 
 export default StudentCBTPlayerScreen;
+

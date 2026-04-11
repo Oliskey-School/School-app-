@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, SearchIcon, TrashIcon, EditIcon } from 'lucide-react';
+import { PlusIcon, SearchIcon, TrashIcon, EditIcon, RefreshCw } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 const VendorManagement = () => {
     const [vendors, setVendors] = useState<any[]>([]);
@@ -11,9 +12,14 @@ const VendorManagement = () => {
         fetchVendors();
     }, []);
 
+    useAutoSync(['vendors'], () => {
+        console.log('🔄 [VendorManagement] Real-time auto-sync triggered');
+        fetchVendors();
+    });
+
     const fetchVendors = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('vendors')
                 .select('*')
                 .order('vendor_name', { ascending: true });
@@ -104,3 +110,4 @@ const VendorManagement = () => {
 };
 
 export default VendorManagement;
+

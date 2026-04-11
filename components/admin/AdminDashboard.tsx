@@ -1,18 +1,19 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { useProfile } from '../../context/ProfileContext';
 import PremiumLoader from '../ui/PremiumLoader';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { syncEngine } from '../../lib/syncEngine';
 import { DashboardType } from '../../types';
 import { realtimeService } from '../../services/RealtimeService';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
-import { formatSchoolId } from '../../utils/idFormatter';
+import { useDemoRealtime } from '../../hooks/useDemoRealtime';
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
 import TrialBanner from '../ui/TrialBanner';
+import DashboardSkeletonLoader from '../ui/DashboardSkeletonLoader';
 
 // Lazy load all admin screens
 const DashboardOverview = lazy(() => import('../admin/DashboardOverview'));
@@ -68,8 +69,8 @@ const ParentListScreen = lazy(() => import('../admin/ParentListScreen'));
 const ParentDetailAdminView = lazy(() => import('../admin/ParentDetailAdminView'));
 const ManagePoliciesScreen = lazy(() => import('../admin/ManagePoliciesScreen'));
 const ManageVolunteeringScreen = lazy(() => import('../admin/ManageVolunteeringScreen'));
-const ManagePermissionSlipsScreen = lazy(() => import('../admin/ManagePermissionSlipsScreen'));
-const ManageLearningResourcesScreen = lazy(() => import('../admin/ManageLearningResourcesScreen'));
+const ManagePermissionSlipsScreen = lazy(() => import('./ManagePermissionSlipsScreen'));
+const ManageLearningResourcesScreen = lazy(() => import('./ManageLearningResourcesScreen'));
 const ManagePTAMeetingsScreen = lazy(() => import('../admin/ManagePTAMeetingsScreen'));
 const SchoolOnboardingScreen = lazy(() => import('../admin/SchoolOnboardingScreen'));
 const CurriculumSettingsScreen = lazy(() => import('../admin/CurriculumSettingsScreen'));
@@ -135,6 +136,13 @@ const CustomReportBuilder = lazy(() => import('../admin/CustomReportBuilder'));
 const BackupRestoreScreen = lazy(() => import('../admin/BackupRestoreScreen'));
 const SessionManagementScreen = lazy(() => import('../admin/SessionManagementScreen'));
 const BehaviorLogScreen = lazy(() => import('../admin/BehaviorLogScreen'));
+const ConsentFormScreen = lazy(() => import('../admin/ConsentFormScreen'));
+const AutoInvoiceGenerator = lazy(() => import('../admin/AutoInvoiceGenerator'));
+const LateArrivalConfig = lazy(() => import('../admin/LateArrivalConfig'));
+const DataExportScreen = lazy(() => import('../admin/DataExportScreen'));
+const NotificationDigestSettings = lazy(() => import('../shared/NotificationDigestSettings'));
+const ProjectBoardScreen = lazy(() => import('../shared/ProjectBoardScreen'));
+const EnrollmentTrendsWidget = lazy(() => import('../admin/EnrollmentTrendsWidget'));
 
 type ViewStackItem = {
     view: string;
@@ -161,14 +169,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     const { currentBranch } = useBranch();
     const { profile } = useProfile();
 
-    // Derived schoolId with stabilization
-    const schoolId = currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id || (user?.email?.includes('demo') ? 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' : undefined);
+    // Memoize schoolId derivation to prevent unnecessary recalculations
+    const schoolId = React.useMemo(() => {
+        return currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+    }, [currentSchool?.id, profile?.schoolId, user?.user_metadata?.school_id, user?.app_metadata?.school_id]);
 
+    // Optimize initialization effect - only run when auth loading changes or schoolId is set
     useEffect(() => {
-        if (!authLoading && (schoolId || user?.email?.includes('demo'))) {
+        // Skip if still loading auth
+        if (authLoading) return;
+
+        // Resolve initialization when auth completes, with or without schoolId
+        if (schoolId) {
             setIsInitializing(false);
+        } else {
+            // Give school context 1 extra second to populate, then proceed anyway
+            const timer = setTimeout(() => setIsInitializing(false), 1500);
+            return () => clearTimeout(timer);
         }
-    }, [authLoading, schoolId, user]);
+    }, [authLoading, schoolId]);
 
     useEffect(() => {
         setIsHomePage(viewStack.length === 1 && !isSearchOpen);
@@ -176,32 +195,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
     useEffect(() => {
         const checkDb = async () => {
-            if (!isSupabaseConfigured) {
-                setDbStatus('error');
-                return;
-            }
             try {
-                const { error } = await supabase.from('schools').select('*', { count: 'exact', head: true });
-                setDbStatus(error ? 'connected' : 'connected');
+                const { backend } = await api.checkBackendHealth();
+                setDbStatus(backend ? 'connected' : 'error');
             } catch (e) {
-                setDbStatus('connected');
+                setDbStatus('connected'); // Fallback for demo
             }
         };
-        checkDb();
+
+        // Debounce the health check to prevent excessive calls
+        const handler = setTimeout(checkDb, 1000);
+        return () => clearTimeout(handler);
     }, [user]);
 
     useEffect(() => {
         let schoolId = currentSchool?.id || user?.user_metadata?.school_id || user?.app_metadata?.school_id || profile?.schoolId;
-        const isDemo = user?.email?.includes('demo') || user?.user_metadata?.is_demo || !schoolId;
-        if (!schoolId && isDemo) {
-            schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1'; // Fixed Demo School ID
-        }
         if (user?.id && schoolId) {
             realtimeService.initialize(user.id, schoolId);
-            const handleUpdate = () => forceUpdate();
+
+            const handleUpdate = () => {
+                // Debounce real-time updates to prevent excessive re-renders
+                if (updateTimeoutRef.current) {
+                    clearTimeout(updateTimeoutRef.current);
+                }
+
+                updateTimeoutRef.current = setTimeout(() => {
+                    forceUpdate();
+                    updateTimeoutRef.current = null;
+                }, 1000); // 1 second debounce for real-time updates
+            };
+
             (syncEngine as any).on('realtime-update', handleUpdate);
+
+            // Listen for demo realtime events (BroadcastChannel/localStorage)
+            const handleDemoUpdate = () => {
+                api.invalidateCache();
+                handleUpdate();
+            };
+            window.addEventListener('demo-realtime-update', handleDemoUpdate);
+
             return () => {
                 (syncEngine as any).off('realtime-update', handleUpdate);
+                window.removeEventListener('demo-realtime-update', handleDemoUpdate);
                 realtimeService.destroy();
             };
         }
@@ -342,55 +377,71 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         backupRestore: BackupRestoreScreen,
         sessionManagement: SessionManagementScreen,
         behaviorLog: BehaviorLogScreen,
+        consentForms: ConsentFormScreen,
+        autoInvoice: AutoInvoiceGenerator,
+        lateArrivalConfig: LateArrivalConfig,
+        dataExport: DataExportScreen,
+        notificationDigest: NotificationDigestSettings,
+        projectBoard: ProjectBoardScreen,
+        enrollmentTrends: EnrollmentTrendsWidget,
     };
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         const getUser = async () => {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-                const { data: userData } = await supabase.from('users').select('id').eq('email', authUser.email).single();
-                setCurrentUserId(userData ? userData.id : (authUser.id as any));
-            } else if (user) {
-                // Demo fallback
-                setCurrentUserId(user.id);
+            try {
+                const authUser = await api.getMe();
+                if (authUser?.id) {
+                    setCurrentUserId(authUser.id);
+                } else if (user?.id) {
+                    setCurrentUserId(user.id);
+                }
+            } catch (e) {
+                if (user?.id) setCurrentUserId(user.id);
             }
         };
         getUser();
     }, [user]);
 
     const navigateTo = (view: string, title: string, props: any = {}) => {
-        setViewStack(stack => [...stack, { view, props, title }]);
+        React.startTransition(() => {
+            setViewStack(stack => [...stack, { view, props, title }]);
+        });
     };
 
     const handleBack = () => {
         if (viewStack.length > 1) {
-            setViewStack(stack => stack.slice(0, -1));
+            React.startTransition(() => {
+                setViewStack(stack => stack.slice(0, -1));
+            });
         }
     };
 
     const handleBottomNavClick = (screen: string) => {
-        setActiveBottomNav(screen);
-        switch (screen) {
-            case 'actions': setViewStack([{ view: 'adminActions', props: {}, title: 'Quick Actions' }]); break;
-            case 'home': setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]); break;
-            case 'branches': setViewStack([{ view: 'schoolManagement', props: {}, title: 'Manage Branches' }]); break;
-            case 'studentList': setViewStack([{ view: 'studentList', props: {}, title: 'Students' }]); break;
-            case 'teacherList': setViewStack([{ view: 'teacherList', props: {}, title: 'Teachers' }]); break;
-            case 'parentList': setViewStack([{ view: 'parentList', props: {}, title: 'Parents' }]); break;
-            case 'studentApprovals': setViewStack([{ view: 'studentApprovals', props: {}, title: 'Student Approvals' }]); break;
-            case 'classList': setViewStack([{ view: 'classList', props: {}, title: 'Classes' }]); break;
-            case 'timetable': setViewStack([{ view: 'timetable', props: {}, title: 'Timetable' }]); break;
-            case 'examManagement': setViewStack([{ view: 'examManagement', props: {}, title: 'Exams' }]); break;
-            case 'messages': setViewStack([{ view: 'adminMessages', props: {}, title: 'Messages' }]); break;
-            case 'communication': setViewStack([{ view: 'communicationHub', props: {}, title: 'Communication Hub' }]); break;
-            case 'analytics': setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]); break;
-            case 'settings': setViewStack([{ view: 'systemSettings', props: {}, title: 'System Settings' }]); break;
-            case 'feeManagement': setViewStack([{ view: 'feeManagement', props: {}, title: 'Fee Management' }]); break;
-            case 'staffManagement': setViewStack([{ view: 'teacherList', props: {}, title: 'Manage Teachers' }]); break;
-            default: setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
-        }
+        React.startTransition(() => {
+            setActiveBottomNav(screen);
+            switch (screen) {
+                case 'actions': setViewStack([{ view: 'adminActions', props: {}, title: 'Quick Actions' }]); break;
+                case 'home': setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]); break;
+                case 'branches': setViewStack([{ view: 'schoolManagement', props: {}, title: 'Manage Branches' }]); break;
+                case 'studentList': setViewStack([{ view: 'studentList', props: {}, title: 'Students' }]); break;
+                case 'teacherList': setViewStack([{ view: 'teacherList', props: {}, title: 'Teachers' }]); break;
+                case 'parentList': setViewStack([{ view: 'parentList', props: {}, title: 'Parents' }]); break;
+                case 'studentApprovals': setViewStack([{ view: 'studentApprovals', props: {}, title: 'Student Approvals' }]); break;
+                case 'classList': setViewStack([{ view: 'classList', props: {}, title: 'Classes' }]); break;
+                case 'timetable': setViewStack([{ view: 'timetable', props: {}, title: 'Timetable' }]); break;
+                case 'examManagement': setViewStack([{ view: 'examManagement', props: {}, title: 'Exams' }]); break;
+                case 'messages': setViewStack([{ view: 'adminMessages', props: {}, title: 'Messages' }]); break;
+                case 'communication': setViewStack([{ view: 'communicationHub', props: {}, title: 'Communication Hub' }]); break;
+                case 'analytics': setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]); break;
+                case 'settings': setViewStack([{ view: 'systemSettings', props: {}, title: 'System Settings' }]); break;
+                case 'feeManagement': setViewStack([{ view: 'feeManagement', props: {}, title: 'Fee Management' }]); break;
+                case 'staffManagement': setViewStack([{ view: 'teacherList', props: {}, title: 'Manage Teachers' }]); break;
+                default: setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
+            }
+        });
     };
 
     const currentNavigation = viewStack[viewStack.length - 1];
@@ -410,17 +461,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
     };
 
     const renderContent = () => {
-        if (isInitializing) return <PremiumLoader message="Initializing secure session..." />;
+        if (isInitializing) return <DashboardSkeletonLoader type="overview" />;
         if (!ComponentToRender) return <div className="p-8 text-center">View Not Found: {currentNavigation.view}</div>;
 
         if (currentNavigation.view === 'notifications') return (
-            <Suspense fallback={<PremiumLoader message="Loading notifications..." />}>
+            <Suspense fallback={<DashboardSkeletonLoader type="list" />}>
                 <NotificationsScreen {...currentNavigation.props} {...commonProps} userType="admin" />
             </Suspense>
         );
 
         if (currentNavigation.view === 'adminMessages') return (
-            <Suspense fallback={<PremiumLoader message="Loading messages..." />}>
+            <Suspense fallback={<DashboardSkeletonLoader type="list" />}>
                 <AdminMessagesScreen
                     {...currentNavigation.props}
                     {...commonProps}
@@ -435,7 +486,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         );
 
         if (currentNavigation.view === 'adminNewChat') return (
-            <Suspense fallback={<PremiumLoader message="Starting new chat..." />}>
+            <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
                 <AdminNewChatScreen
                     {...currentNavigation.props}
                     {...commonProps}
@@ -445,13 +496,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         );
 
         if (currentNavigation.view === 'onboardingPage') return (
-            <Suspense fallback={<PremiumLoader message="Preparing onboarding module..." />}>
+            <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
                 <PilotOnboardingPage {...currentNavigation.props} {...commonProps} onComplete={handleBack} />
             </Suspense>
         );
 
         return (
-            <Suspense fallback={<PremiumLoader message={`Loading ${currentNavigation.title}...`} />}>
+            <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
                 <ComponentToRender {...currentNavigation.props} {...commonProps} />
             </Suspense>
         );
@@ -464,9 +515,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
         >
-            {/* Error Banners */}
-            {!isSupabaseConfigured && <div className="bg-amber-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Supabase Config Missing</div>}
-            {isSupabaseConfigured && dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}
+            {/* Database Connection Error */}
+            {dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}
 
             {/* Plan / Trial Banner */}
             <TrialBanner onUpgradeClick={() => navigateTo('upgrade', 'Upgrade Plan')} />

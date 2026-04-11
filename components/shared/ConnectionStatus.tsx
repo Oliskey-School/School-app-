@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { WifiIcon, WifiOffIcon, RefreshCwIcon, AlertCircleIcon } from 'lucide-react';
 
 const ConnectionStatus: React.FC = () => {
@@ -15,7 +15,7 @@ const ConnectionStatus: React.FC = () => {
 
         try {
             // "Ping" query - lightweight check
-            const { count, error } = await supabase
+            const { count, error } = await api
                 .from('profiles')
                 .select('*', { count: 'exact', head: true });
 

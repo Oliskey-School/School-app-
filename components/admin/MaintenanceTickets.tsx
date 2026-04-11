@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { WrenchIcon, AlertCircleIcon, CheckCircleIcon, ClockIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 const MaintenanceTickets = () => {
     const { currentSchool } = useAuth();
@@ -14,12 +15,17 @@ const MaintenanceTickets = () => {
         fetchTickets();
     }, [currentSchool]);
 
+    useAutoSync(['maintenance_tickets'], () => {
+        console.log('🔄 [MaintenanceTickets] Real-time auto-sync triggered');
+        fetchTickets();
+    });
+
     const fetchTickets = async () => {
         if (!currentSchool) return;
         try {
             const branchId = (useAuth() as any).currentBranchId; // Or access from context if available
 
-            let query = supabase
+            let query = api
                 .from('maintenance_tickets')
                 .select('*, assets!inner(asset_name, school_id, branch_id)')
                 .eq('assets.school_id', currentSchool.id);
@@ -114,3 +120,4 @@ const MaintenanceTickets = () => {
 };
 
 export default MaintenanceTickets;
+

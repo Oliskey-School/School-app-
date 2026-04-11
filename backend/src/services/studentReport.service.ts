@@ -1,8 +1,9 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class StudentReportService {
     static async createAnonymousReport(schoolId: string, branchId: string | undefined, reportData: any) {
-        const insertData = {
+        const insertData: any = {
             ...reportData,
             school_id: schoolId
         };
@@ -10,18 +11,16 @@ export class StudentReportService {
             insertData.branch_id = branchId;
         }
 
-        const { data, error } = await supabase
-            .from('anonymous_reports')
-            .insert([insertData])
-            .select()
-            .single();
+        const result = await prisma.anonymousReport.create({
+            data: insertData
+        });
 
-        if (error) throw new Error(error.message);
-        return data;
+        SocketService.emitToSchool(schoolId, 'notice:updated', { action: 'anonymous_report', reportId: result.id });
+        return result;
     }
 
     static async createDiscreetRequest(schoolId: string, branchId: string | undefined, requestData: any) {
-        const insertData = {
+        const insertData: any = {
             ...requestData,
             school_id: schoolId
         };
@@ -29,29 +28,24 @@ export class StudentReportService {
             insertData.branch_id = branchId;
         }
 
-        const { data, error } = await supabase
-            .from('menstrual_support_requests')
-            .insert([insertData])
-            .select()
-            .single();
+        const result = await prisma.menstrualSupportRequest.create({
+            data: insertData
+        });
 
-        if (error) throw new Error(error.message);
-        return data;
+        SocketService.emitToSchool(schoolId, 'health:updated', { action: 'menstrual_request', requestId: result.id });
+        return result;
     }
 
     static async getReports(schoolId: string, branchId: string | undefined) {
-        let query = supabase
-            .from('anonymous_reports')
-            .select('*')
-            .eq('school_id', schoolId);
+        const where: any = { school_id: schoolId };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.branch_id = branchId;
         }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
-
-        if (error) throw new Error(error.message);
-        return data || [];
+        return prisma.anonymousReport.findMany({
+            where,
+            orderBy: { created_at: 'desc' }
+        });
     }
 }

@@ -1,11 +1,23 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ParentService } from '../services/parent.service';
+import prisma from '../config/database';
 
 export const getParents = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = req.user.branch_id || (req.query.branch_id as string) || (req.query.branchId as string);
         const result = await ParentService.getParents(req.user.school_id, branchId);
+
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = (req.user.branch_id || req.query.branch_id || req.query.branchId || '') as any as string;
+        const result = await ParentService.getParentsByClassId((req.user.school_id as string), branchId, (req.params.classId as string));
 
         res.json(result);
     } catch (error: any) {
@@ -53,11 +65,65 @@ export const deleteParent = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getMyProfile = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = (req.user.branch_id || req.query.branchId || req.query.branch_id) as string | undefined;
+        const result = await ParentService.getParentProfile(req.user.school_id, branchId, req.user.id);
+        if (!result) return res.status(404).json({ message: 'Parent profile not found' });
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const getMyChildren = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = req.user.branch_id || req.query.branchId as string;
         const result = await ParentService.getChildren(req.user.school_id, branchId, req.user.id);
         res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = (req.user.branch_id || req.query.branchId || req.query.branch_id || undefined) as string | undefined;
+        const parentId = req.params.id as string;
+        
+        const parent = await prisma.parent.findFirst({ 
+            where: { 
+                id: parentId,
+                school_id: req.user.school_id
+            } 
+        });
+        if (!parent) return res.status(404).json({ message: 'Parent profile not found in your school' });
+        
+        const result = await ParentService.getChildren(req.user.school_id, branchId, parent.user_id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
+export const linkChild = async (req: AuthRequest, res: Response) => {
+    try {
+        const { parentId, studentId } = req.body;
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await ParentService.linkChild(req.user.school_id, branchId, parentId, studentId);
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const unlinkChild = async (req: AuthRequest, res: Response) => {
+    try {
+        const { parentId, studentId } = req.body;
+        const branchId = req.user.branch_id || req.body.branch_id;
+        await ParentService.unlinkChild(req.user.school_id, branchId, parentId, studentId);
+        res.status(204).send();
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
@@ -91,6 +157,96 @@ export const markNotificationRead = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = req.user.branch_id || req.body.branch_id;
         const result = await ParentService.markNotificationRead(req.user.school_id, branchId, req.params.id as string);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getChildOverview = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const result = await ParentService.getChildOverview(req.user.school_id, branchId, req.params.studentId as string);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getStudentFees = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const result = await ParentService.getStudentFees(req.user.school_id, branchId, req.params.studentId as string);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const recordPayment = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await ParentService.recordPayment(req.user.school_id, branchId, req.body);
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getPTAMeetings = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const result = await ParentService.getPTAMeetings(req.user.school_id, branchId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getLearningResources = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const result = await ParentService.getLearningResources(req.user.school_id, branchId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getParentMessages = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await ParentService.getParentMessages(req.user.school_id, req.user.id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const sendMessage = async (req: AuthRequest, res: Response) => {
+    try {
+        const { receiverId, content } = req.body;
+        const branchId = req.user.branch_id || req.body.branch_id;
+        const result = await ParentService.sendMessage(req.user.school_id, branchId, req.user.id, receiverId, content);
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getNotifications = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const result = await ParentService.getNotifications(req.user.school_id, branchId, req.user.id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getVolunteeringOpportunities = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const result = await ParentService.getVolunteeringOpportunities(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

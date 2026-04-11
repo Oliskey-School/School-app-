@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 import { TargetIcon } from 'lucide-react';
 
@@ -167,6 +168,17 @@ const BeanBagTossGame: React.FC<BeanBagTossGameProps> = ({ onBack }) => {
             }
             pickTarget();
         });
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'bean-bag-toss',
+            game_name: 'Number Bean Bag Toss',
+            score: score + 10,
+            metadata: {
+                target: targetNumber,
+                success: true
+            }
+        }).catch(err => console.error("Failed to save toss score:", err));
     };
 
     const handleMiss = (hitNumber?: number) => {

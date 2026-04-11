@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { syncEngine } from '../../lib/syncEngine';
-import { supabase } from '../../lib/supabase'; // Using direct supabase for fresh fetch or we could use offlineDB
+import { api } from '../../lib/api'; 
 import { useAuth } from '../../context/AuthContext';
 
-export const ContextualMarquee: React.FC = () => {
-    const { user } = useAuth();
+const ContextualMarquee: React.FC = () => {
+    const { user, currentSchool } = useAuth();
     const [status, setStatus] = useState<'syncing' | 'events' | 'hidden'>('hidden');
     const [eventText, setEventText] = useState<string>('');
     const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -12,22 +12,24 @@ export const ContextualMarquee: React.FC = () => {
     // Fetch Events (Notices)
     useEffect(() => {
         const fetchNotices = async () => {
-            if (!user?.user_metadata?.school_id) return;
+            const schoolId = user?.user_metadata?.school_id || currentSchool?.id;
+            if (!schoolId) return;
 
             try {
-                // Fetch recent events or urgent notices
-                const { data, error } = await supabase
-                    .from('notices')
-                    .select('title')
-                    .eq('school_id', user.user_metadata.school_id)
-                    .in('category', ['Event', 'Urgent', 'Holiday'])
-                    .gt('timestamp', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
-                    .limit(5);
+                // Fetch recent events or urgent notices via custom API
+                const data = await api.getNotices(schoolId);
 
                 if (data && data.length > 0) {
-                    const text = data.map(n => n.title).join('  •  ');
-                    setEventText(text);
-                    if (status === 'hidden') setStatus('events');
+                    // Filter for relevant categories manually if API doesn't support it yet
+                    const filtered = data.filter((n: any) => 
+                        ['Event', 'Urgent', 'Holiday'].includes(n.category)
+                    ).slice(0, 5);
+
+                    if (filtered.length > 0) {
+                        const text = filtered.map((n: any) => n.title).join('  •  ');
+                        setEventText(text);
+                        if (status === 'hidden') setStatus('events');
+                    }
                 }
             } catch (err) {
                 console.error('Failed to fetch marquee notices', err);
@@ -35,16 +37,13 @@ export const ContextualMarquee: React.FC = () => {
         };
 
         fetchNotices();
-        // Refresh every minute? Or just once on mount
-    }, [user]);
+    }, [user, currentSchool]);
 
     // Sync Logic
     useEffect(() => {
         const onSyncStart = () => {
-            // Priority 1: Show Sync
             setStatus('syncing');
 
-            // "Auto-Dismiss: The 'Syncing' status must disappear after a maximum of 3 seconds."
             if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
             syncTimeoutRef.current = setTimeout(() => {
                 setStatus(prev => prev === 'syncing' ? (eventText ? 'events' : 'hidden') : prev);
@@ -52,19 +51,13 @@ export const ContextualMarquee: React.FC = () => {
         };
 
         const onSyncComplete = () => {
-            if (getStatusFromRef() === 'syncing') {
-                setStatus(eventText ? 'events' : 'hidden');
-            }
+            setStatus(eventText ? 'events' : 'hidden');
         };
-
-        // Helper to get current status in closure (not perfect but OK given state updates)
-        // Alternatively, functional updates in setStatus handle atomic transitions.
 
         syncEngine.on('sync-start', onSyncStart);
         syncEngine.on('sync-complete', onSyncComplete);
         syncEngine.on('sync-error', onSyncComplete);
 
-        // Cleanup
         return () => {
             syncEngine.off('sync-start', onSyncStart);
             syncEngine.off('sync-complete', onSyncComplete);
@@ -72,15 +65,6 @@ export const ContextualMarquee: React.FC = () => {
             if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
         };
     }, [eventText]);
-
-    // Workaround for state closure in event listeners if needed, 
-    // but the functional update in timeout handles the important part.
-    // For onSyncComplete, we blindly switch to events/hidden, which is fine.
-
-    function getStatusFromRef() {
-        // Just a placeholder, actual logic is inside the effects
-        return 'unknown';
-    }
 
     if (status === 'hidden' && !eventText) return null;
 
@@ -103,11 +87,6 @@ export const ContextualMarquee: React.FC = () => {
             <div
                 className={`absolute inset-0 bg-amber-100 border-b border-amber-200 flex items-center transition-transform duration-500 ${status === 'events' ? 'translate-y-0' : status === 'syncing' ? 'translate-y-full' : '-translate-y-full'}`}
             >
-                {/* 
-                   We need a pure CSS marquee. 
-                   Tailwind doesn't have 'marquee' by default, usually requires a plugin. 
-                   We'll inject a style tag or standard css animation.
-                */}
                 <style>{`
                     @keyframes marquee {
                         0% { transform: translateX(100%); }
@@ -127,3 +106,5 @@ export const ContextualMarquee: React.FC = () => {
         </div>
     );
 };
+
+export default ContextualMarquee;

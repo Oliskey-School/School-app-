@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Student, ClassInfo } from '../../types';
 import { ChevronLeftIcon, AIIcon, getFormattedClassName } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
@@ -48,52 +48,33 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo,
         const fetchStudentsAndStats = async () => {
             setLoadingStudents(true);
             try {
-                // 1. Fetch Students (Merged grade - no section filter)
-                const { data: studentsData } = await supabase
-                    .from('students')
-                    .select('*')
-                    .eq('grade', selectedClass.grade);
+                // Fetch students by grade via backend API
+                const studentsData = await api.getStudentsByClass(
+                    selectedClass.schoolId || '',
+                    String(selectedClass.grade),
+                    selectedClass.section || ''
+                );
 
-                if (!studentsData) {
+                if (!studentsData || studentsData.length === 0) {
                     setStudents([]);
                     return;
                 }
 
+                // Fetch report stats for each student via backend
                 const studentsWithStats = await Promise.all(studentsData.map(async (s: any) => {
-                    // 2. Fetch Performance
-                    const { data: performance } = await supabase
-                        .from('academic_performance')
-                        .select('subject, score')
-                        .eq('student_id', s.id);
-
-                    const avgScore = performance && performance.length > 0
-                        ? Math.round(performance.reduce((acc, curr) => acc + curr.score, 0) / performance.length)
-                        : 0;
-
-                    // 3. Fetch Attendance
-                    const { count: totalAttendance } = await supabase
-                        .from('student_attendance')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('student_id', s.id);
-
-                    const { count: presentAttendance } = await supabase
-                        .from('student_attendance')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('student_id', s.id)
-                        .in('status', ['Present', 'Late']);
-
-                    const attendancePct = totalAttendance && totalAttendance > 0
-                        ? Math.round(((presentAttendance || 0) / totalAttendance) * 100)
-                        : 100;
-
-                    return {
-                        ...s,
-                        name: s.name,
-                        avatarUrl: s.avatar_url,
-                        gradeAverage: avgScore,
-                        attendancePercentage: attendancePct,
-                        academicPerformance: performance
-                    };
+                    try {
+                        const stats = await api.getStudentReportStats(s.id);
+                        return {
+                            ...s,
+                            name: s.name,
+                            avatarUrl: s.avatar_url,
+                            gradeAverage: stats?.avgScore || 0,
+                            attendancePercentage: stats?.attendancePct || 100,
+                            academicPerformance: stats?.performance || []
+                        };
+                    } catch {
+                        return { ...s, gradeAverage: 0, attendancePercentage: 100 };
+                    }
                 }));
 
                 setStudents(studentsWithStats as any);
@@ -170,3 +151,4 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo,
 };
 
 export default TeacherReportsScreen;
+

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { CheckCircle, BarChart2, MessageSquare, Star, ThumbsUp } from 'lucide-react';
@@ -65,7 +64,7 @@ const SurveysAndPolls: React.FC<SurveysAndPollsProps> = ({ schoolId }) => {
             setQuestions(data || []);
 
             // Check if user has already responded (direct query for efficiency)
-            const { data: existingResponse } = await supabase
+            const { data: existingResponse } = await api
                 .from('survey_responses')
                 .select('id')
                 .eq('survey_id', surveyId)

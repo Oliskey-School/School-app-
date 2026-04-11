@@ -1,21 +1,34 @@
 import { toast } from 'react-hot-toast';
-import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 interface EmergencyBroadcastProps {
     onClose?: () => void;
 }
 
+interface AlertRecord {
+    id: string;
+    title: string;
+    message: string;
+    alert_type: string;
+    severity: string;
+    target_audiences: string[];
+    sent_at: string;
+}
+
 export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
+    const { currentSchool } = useAuth();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [urgency, setUrgency] = useState<'high' | 'emergency'>('emergency');
     const [targetAudience, setTargetAudience] = useState<string[]>(['all']);
     const [sending, setSending] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [confirming, setConfirming] = useState(false); // New state for confirmation
-
-    // ... (audiences, templates, handleTemplate, toggleAudience - keep same)
+    const [confirming, setConfirming] = useState(false);
+    const [history, setHistory] = useState<AlertRecord[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(true);
+    const [showHistory, setShowHistory] = useState(false);
 
     const audiences = [
         { id: 'all', label: 'Everyone', icon: '🌐' },
@@ -44,6 +57,21 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
         }
     ];
 
+    // Load broadcast history from Express backend
+    useEffect(() => {
+        const fetchHistory = async () => {
+            try {
+                const data = await api.getEmergencyHistory(10);
+                setHistory(Array.isArray(data) ? data : []);
+            } catch (err) {
+                console.error('Failed to load emergency history:', err);
+            } finally {
+                setLoadingHistory(false);
+            }
+        };
+        fetchHistory();
+    }, [currentSchool?.id]);
+
     const handleTemplate = (template: typeof templates[0]) => {
         setTitle(template.title);
         setMessage(template.message);
@@ -67,12 +95,10 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
             toast.error('Please enter both title and message');
             return;
         }
-
         if (targetAudience.length === 0) {
             toast.error('Please select at least one audience');
             return;
         }
-
         setConfirming(true);
     };
 
@@ -80,54 +106,28 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
         setConfirming(false);
         setSending(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            const schoolId = (user?.app_metadata?.school_id || user?.user_metadata?.school_id);
-
-            // 1. Save to Database for history and real-time dashboard updates
-            const { data: alert, error: dbError } = await supabase
-                .from('emergency_alerts')
-                .insert({
-                    school_id: schoolId,
-                    alert_type: urgency === 'emergency' ? 'lockdown' : 'severe_weather', // Simplified mapping
-                    title,
-                    message,
-                    severity: urgency === 'emergency' ? 'critical' : 'warning',
-                    sent_by: user?.id,
-                    target_audiences: targetAudience // Ensure this column exists or handle separately
-                })
-                .select()
-                .single();
-
-            if (dbError) throw dbError;
-
-            // 2. Trigger Real-time Notifications via Edge Function
-            // Send to each target audience
-            for (const audience of targetAudience) {
-                const { error } = await supabase.functions.invoke('send-notification', {
-                    body: {
-                        role: audience === 'all' ? undefined : audience,
-                        title: `🚨 ${title}`,
-                        body: message,
-                        urgency,
-                        school_id: schoolId,
-                        alert_id: alert?.id
-                    }
-                });
-
-                // We don't throw if edge function fails, just log it, 
-                // since DB record is already saved
-                if (error) console.error('Edge function error:', error);
-            }
+            // Send via Express backend — persists to DB + fans out notifications
+            await api.sendEmergencyBroadcast({
+                title,
+                message,
+                urgency,
+                targetAudience,
+            });
 
             setSuccess(true);
-            toast.success('Emergency broadcast sent and logged!');
+            toast.success('🚨 Emergency broadcast sent and logged!');
+
+            // Refresh history
+            const newHistory = await api.getEmergencyHistory(10);
+            setHistory(Array.isArray(newHistory) ? newHistory : []);
+
             setTimeout(() => {
                 setTitle('');
                 setMessage('');
                 setTargetAudience(['all']);
                 setSuccess(false);
                 onClose?.();
-            }, 2000);
+            }, 2500);
 
         } catch (error: any) {
             console.error('Broadcast error:', error);
@@ -145,28 +145,73 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
         }
     };
 
+    const getSeverityBadge = (severity: string) => {
+        if (severity === 'critical') return 'bg-red-100 text-red-700 border border-red-200';
+        if (severity === 'warning') return 'bg-orange-100 text-orange-700 border border-orange-200';
+        return 'bg-blue-100 text-blue-700 border border-blue-200';
+    };
 
     return (
         <div className="max-w-4xl mx-auto p-6">
+            {/* Header */}
             <div className="bg-red-50 border-2 border-red-600 rounded-lg p-6 mb-6">
-// ... (Render content)
-                <div className="flex items-center gap-3 mb-2">
-                    <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <h1 className="text-2xl font-bold text-red-900">Emergency Broadcast System</h1>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 mb-2">
+                        <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <h1 className="text-2xl font-bold text-red-900">Emergency Broadcast System</h1>
+                    </div>
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="text-sm font-medium text-red-700 hover:text-red-900 underline"
+                    >
+                        {showHistory ? 'Hide History' : `View History (${history.length})`}
+                    </button>
                 </div>
                 <p className="text-red-700">
                     Send critical alerts to all users via push notifications, SMS, and email
                 </p>
             </div>
 
+            {/* Broadcast History Panel */}
+            {showHistory && (
+                <div className="mb-6 bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                        <h3 className="font-semibold text-gray-800">Recent Broadcasts</h3>
+                    </div>
+                    {loadingHistory ? (
+                        <div className="p-6 text-center text-gray-400">Loading history...</div>
+                    ) : history.length === 0 ? (
+                        <div className="p-6 text-center text-gray-400">No broadcasts yet</div>
+                    ) : (
+                        <div className="divide-y divide-gray-100">
+                            {history.map((alert) => (
+                                <div key={alert.id} className="px-4 py-3 flex items-start gap-3">
+                                    <span className={`mt-0.5 text-xs font-bold px-2 py-0.5 rounded-full ${getSeverityBadge(alert.severity)}`}>
+                                        {alert.severity.toUpperCase()}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-900 truncate">{alert.title}</p>
+                                        <p className="text-sm text-gray-500 truncate">{alert.message}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {new Date(alert.sent_at).toLocaleString()} · to {alert.target_audiences?.join(', ')}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Success Banner */}
             {success && (
                 <div className="bg-green-50 border border-green-600 rounded-lg p-4 mb-6 flex items-center gap-2">
-                    <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-6 h-6 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <p className="text-green-800 font-medium">Emergency broadcast sent successfully!</p>
+                    <p className="text-green-800 font-medium">Emergency broadcast sent and saved to database!</p>
                 </div>
             )}
 
@@ -224,7 +269,7 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                         <button
                             key={audience.id}
                             onClick={() => toggleAudience(audience.id)}
-                            className={`p-4 border-2 rounded-lg transition ${targetAudience.includes(audience.id) || targetAudience.includes('all')
+                            className={`p-4 border-2 rounded-lg transition ${targetAudience.includes(audience.id) || (audience.id !== 'all' && targetAudience.includes('all'))
                                 ? 'border-indigo-600 bg-indigo-50'
                                 : 'border-gray-200 hover:border-gray-300'
                                 }`}
@@ -264,12 +309,13 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                 </div>
             </div>
 
-            {/* Send Button or Confirmation */}
+            {/* Confirmation or Send Button */}
             {confirming ? (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-5 mb-4 animate-fade-in-up">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-5 mb-4">
                     <h4 className="font-bold text-orange-800 text-lg mb-2">⚠️ Confirm Broadcast?</h4>
                     <p className="text-orange-700 mb-4">
-                        You are about to send a <strong className="uppercase">{urgency}</strong> alert to <strong>{targetAudience.includes('all') ? 'EVERYONE' : targetAudience.join(', ')}</strong>.
+                        You are about to send a <strong className="uppercase">{urgency}</strong> alert to{' '}
+                        <strong>{targetAudience.includes('all') ? 'EVERYONE' : targetAudience.join(', ')}</strong>.
                         This action cannot be undone.
                     </p>
                     <div className="flex gap-3">
@@ -283,7 +329,7 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
                             onClick={handleConfirmSend}
                             className="flex-1 py-3 px-4 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 shadow-md"
                         >
-                            CONFIRM & SEND
+                            CONFIRM &amp; SEND
                         </button>
                     </div>
                 </div>
@@ -322,6 +368,6 @@ export function EmergencyBroadcast({ onClose }: EmergencyBroadcastProps) {
             )}
         </div>
     );
-};
+}
 
 export default EmergencyBroadcast;

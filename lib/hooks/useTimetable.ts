@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { api } from '../api';
 import { TimetableEntry } from '../../types';
 
 export interface UseTimetableResult {
@@ -8,32 +8,35 @@ export interface UseTimetableResult {
     error: Error | null;
     refetch: () => Promise<void>;
     createTimetableEntry: (entry: Partial<TimetableEntry>) => Promise<TimetableEntry | null>;
-    updateTimetableEntry: (id: number, updates: Partial<TimetableEntry>) => Promise<TimetableEntry | null>;
-    deleteTimetableEntry: (id: number) => Promise<boolean>;
+    updateTimetableEntry: (id: string | number, updates: Partial<TimetableEntry>) => Promise<TimetableEntry | null>;
+    deleteTimetableEntry: (id: string | number) => Promise<boolean>;
 }
 
-export function useTimetable(filters?: { className?: string; teacherId?: number }): UseTimetableResult {
+export function useTimetable(filters?: { className?: string; teacherId?: string | number }): UseTimetableResult {
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
+    const transformTimetableEntry = (t: any): TimetableEntry => ({
+        id: t.id,
+        day: t.day,
+        startTime: t.start_time,
+        endTime: t.end_time,
+        subject: t.subject,
+        className: t.class_name,
+        teacherId: t.teacher_id
+    });
+
     const fetchTimetable = useCallback(async () => {
         try {
             setLoading(true);
-            let query = supabase.from('timetable').select('*');
+            // API signature: getTimetable(branchId?: string, className?: string, teacherId?: string)
+            const branchId = sessionStorage.getItem('branch_id') || undefined;
+            const teacherId = filters?.teacherId ? String(filters.teacherId) : undefined;
+            
+            const data = await api.getTimetable(branchId, filters?.className, teacherId);
 
-            if (filters?.className) {
-                query = query.eq('class_name', filters.className);
-            }
-            if (filters?.teacherId) {
-                query = query.eq('teacher_id', filters.teacherId);
-            }
-
-            const { data, error: fetchError } = await query.order('start_time', { ascending: true });
-
-            if (fetchError) throw fetchError;
-
-            const transformedTimetable: TimetableEntry[] = (data || []).map(transformSupabaseTimetableEntry);
+            const transformedTimetable: TimetableEntry[] = (data || []).map(transformTimetableEntry);
 
             setTimetable(transformedTimetable);
             setError(null);
@@ -48,42 +51,21 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
 
     useEffect(() => {
         fetchTimetable();
-
-        const channel = supabase
-            .channel('timetable-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'timetable' },
-                (payload) => {
-                    console.log('Timetable change detected:', payload);
-                    fetchTimetable();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [fetchTimetable]);
 
     const createTimetableEntry = async (entryData: Partial<TimetableEntry>): Promise<TimetableEntry | null> => {
         try {
-            const { data, error: insertError } = await supabase
-                .from('timetable')
-                .insert([{
-                    day: entryData.day,
-                    start_time: entryData.startTime,
-                    end_time: entryData.endTime,
-                    subject: entryData.subject,
-                    class_name: entryData.className,
-                    teacher_id: entryData.teacherId,
-                }])
-                .select()
-                .single();
+            const data = await api.createTimetable({
+                day: entryData.day,
+                start_time: entryData.startTime,
+                end_time: entryData.endTime,
+                subject: entryData.subject,
+                class_name: entryData.className,
+                teacher_id: entryData.teacherId,
+                school_id: sessionStorage.getItem('school_id')
+            });
 
-            if (insertError) throw insertError;
-
-            return transformSupabaseTimetableEntry(data);
+            return transformTimetableEntry(data);
         } catch (err) {
             console.error('Error creating timetable entry:', err);
             setError(err as Error);
@@ -91,25 +73,18 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
         }
     };
 
-    const updateTimetableEntry = async (id: number, updates: Partial<TimetableEntry>): Promise<TimetableEntry | null> => {
+    const updateTimetableEntry = async (id: string | number, updates: Partial<TimetableEntry>): Promise<TimetableEntry | null> => {
         try {
-            const { data, error: updateError } = await supabase
-                .from('timetable')
-                .update({
-                    day: updates.day,
-                    start_time: updates.startTime,
-                    end_time: updates.endTime,
-                    subject: updates.subject,
-                    class_name: updates.className,
-                    teacher_id: updates.teacherId,
-                })
-                .eq('id', id)
-                .select()
-                .single();
+            const data = await api.updateTimetable(String(id), {
+                day: updates.day,
+                start_time: updates.startTime,
+                end_time: updates.endTime,
+                subject: updates.subject,
+                class_name: updates.className,
+                teacher_id: updates.teacherId,
+            });
 
-            if (updateError) throw updateError;
-
-            return transformSupabaseTimetableEntry(data);
+            return transformTimetableEntry(data);
         } catch (err) {
             console.error('Error updating timetable entry:', err);
             setError(err as Error);
@@ -117,15 +92,9 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
         }
     };
 
-    const deleteTimetableEntry = async (id: number): Promise<boolean> => {
+    const deleteTimetableEntry = async (id: string | number): Promise<boolean> => {
         try {
-            const { error: deleteError } = await supabase
-                .from('timetable')
-                .delete()
-                .eq('id', id);
-
-            if (deleteError) throw deleteError;
-
+            await api.deleteTimetable(String(id));
             return true;
         } catch (err) {
             console.error('Error deleting timetable entry:', err);
@@ -144,13 +113,3 @@ export function useTimetable(filters?: { className?: string; teacherId?: number 
         deleteTimetableEntry,
     };
 }
-
-const transformSupabaseTimetableEntry = (t: any): TimetableEntry => ({
-    id: t.id,
-    day: t.day,
-    startTime: t.start_time,
-    endTime: t.end_time,
-    subject: t.subject,
-    className: t.class_name,
-    teacherId: t.teacher_id,
-});

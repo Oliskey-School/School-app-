@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { AnchorIcon, ShipIcon, Volume2Icon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface AlphabetFishingGameProps {
     onBack: () => void;
@@ -128,13 +129,20 @@ const AlphabetFishingGame: React.FC<AlphabetFishingGameProps> = ({ onBack }) => 
 
             // Reeling animation delay
             setTimeout(() => {
-                setCaughtFish(null);
-                if (score > 0 && score % 100 === 0) {
-                    addXP(25);
-                    unlockBadge('master-angler');
-                }
                 pickNewTarget();
             }, 1000);
+
+            // PERSIST TO DATABASE
+            api.submitGameScore({
+                game_id: 'alphabet-fishing',
+                game_name: 'Alphabet Fishing',
+                score: score + 10,
+                metadata: {
+                    letter: fish.letter,
+                    target: targetLetter,
+                    correct: true
+                }
+            }).catch(err => console.error("Failed to save fish score:", err));
 
         } else {
             // Wrong

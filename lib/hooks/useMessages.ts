@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { api } from '../api';
 import { ChatMessage } from '../../types';
 
 export interface UseMessagesResult {
@@ -24,15 +24,9 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
 
         try {
             setLoading(true);
-            const { data, error: fetchError } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('conversation_id', conversationId)
-                .order('created_at', { ascending: true });
+            const data = await api.getChatRoomMessages(conversationId);
 
-            if (fetchError) throw fetchError;
-
-            const transformedMessages: ChatMessage[] = (data || []).map(transformSupabaseMessage);
+            const transformedMessages: ChatMessage[] = (data || []).map(transformMessage);
 
             setMessages(transformedMessages);
             setError(null);
@@ -47,48 +41,24 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
 
     useEffect(() => {
         fetchMessages();
-
-        if (!conversationId) return;
-
-        const channel = supabase
-            .channel(`messages-room-${conversationId}`)
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-                (payload) => {
-                    console.log('Message change detected:', payload);
-                    fetchMessages();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [fetchMessages, conversationId]);
 
     const sendMessage = async (messageData: Partial<ChatMessage>): Promise<ChatMessage | null> => {
         try {
-            const { data, error: insertError } = await supabase
-                .from('messages')
-                .insert([{
-                    conversation_id: conversationId,
-                    sender_id: messageData.senderId,
-                    content: messageData.content,
-                    type: messageData.type,
-                    media_url: messageData.mediaUrl,
-                    file_name: messageData.fileName,
-                    file_size: messageData.fileSize,
-                    reply_to_id: messageData.replyToId,
-                    school_id: messageData.schoolId,
-                    branch_id: (messageData as any).branchId // Ensure branch_id is passed for multi-tenancy
-                }])
-                .select()
-                .single();
+            const data = await api.post<any>(`/chat/rooms/${conversationId}/messages`, {
+                conversation_id: conversationId,
+                sender_id: messageData.senderId,
+                content: messageData.content,
+                type: messageData.type,
+                media_url: messageData.mediaUrl,
+                file_name: messageData.fileName,
+                file_size: messageData.fileSize,
+                reply_to_id: messageData.replyToId,
+                school_id: messageData.schoolId,
+                branch_id: (messageData as any).branchId
+            });
 
-            if (insertError) throw insertError;
-
-            return transformSupabaseMessage(data);
+            return transformMessage(data);
         } catch (err) {
             console.error('Error sending message:', err);
             setError(err as Error);
@@ -105,7 +75,7 @@ export function useMessages(conversationId: string | number): UseMessagesResult 
     };
 }
 
-const transformSupabaseMessage = (m: any): ChatMessage => ({
+const transformMessage = (m: any): ChatMessage => ({
     id: m.id,
     roomId: m.room_id,
     senderId: m.sender_id,
@@ -120,3 +90,4 @@ const transformSupabaseMessage = (m: any): ChatMessage => ({
     createdAt: m.created_at,
     updatedAt: m.updated_at,
 });
+

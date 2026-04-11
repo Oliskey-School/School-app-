@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../lib/supabase';
+import api from '../lib/api';
 
 interface Badge {
     id: string;
@@ -28,7 +28,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode; student
     ]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Initial Fetch & Real-time Subscription
+    // Initial Fetch
     useEffect(() => {
         if (!studentId) {
             setIsLoading(false);
@@ -37,25 +37,11 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode; student
 
         const fetchGamificationData = async () => {
             try {
-                // @ts-ignore - Supabase type definition might lag behind local migration
-                const { data, error } = await supabase
-                    .from('students')
-                    .select('xp, level, badges')
-                    .eq('id', studentId)
-                    .single();
+                const data = await api.getStudent(studentId as string);
 
-                if (data && !error) {
+                if (data) {
                     setXp(data.xp || 0);
                     setLevel(data.level || 1);
-                    if (data.badges && Array.isArray(data.badges)) {
-                        // Merge with default badges if needed, or just set
-                        // For now, we'll keep the static "available" badges and maybe track "unlocked" state differently
-                        // But to simple sync, let's assume 'badges' column stores the *unlocked* ones.
-                        // But my local state 'badges' seems to be a list of ALL badges.
-                        // Let's adjust: local state 'badges' should be the Definition of badges, 
-                        // and we need a 'userBadges' state. 
-                        // For simplicity in this quick fix, let's just sync XP/Level.
-                    }
                 }
             } catch (err) {
                 console.error("Error fetching gamification data:", err);
@@ -65,20 +51,6 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode; student
         };
 
         fetchGamificationData();
-
-        // Real-time subscription
-        const channel = supabase
-            .channel(`public:students:id=eq.${studentId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'students', filter: `id=eq.${studentId}` }, (payload) => {
-                const newData = payload.new;
-                if (newData.xp !== undefined) setXp(newData.xp);
-                if (newData.level !== undefined) setLevel(newData.level);
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [studentId]);
 
     // Level up logic (Frontend Check)
@@ -92,7 +64,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode; student
             });
             // Update Backend
             if (studentId) {
-                supabase.from('students').update({ level: calculatedLevel }).eq('id', studentId).then();
+                api.updateStudent(studentId as string, { level: calculatedLevel }).catch(console.error);
             }
         }
     }, [xp, level, studentId]);
@@ -103,7 +75,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode; student
         toast(`+${amount} XP`, { icon: '✨', position: 'bottom-right' });
 
         if (studentId) {
-            await supabase.from('students').update({ xp: newXp }).eq('id', studentId);
+            await api.updateStudent(studentId as string, { xp: newXp }).catch(console.error);
         }
     };
 

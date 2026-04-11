@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
     CheckCircleIcon,
@@ -48,7 +48,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
         try {
             setLoading(true);
 
-            let query = supabase
+            let query = api
                 .from('leave_requests')
                 .select(`
           *,
@@ -105,7 +105,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
             if (!approved) return; // Don't update balance if rejected
 
             // Get current balance
-            const { data: balanceData } = await supabase
+            const { data: balanceData } = await api
                 .from('leave_balances')
                 .select('*')
                 .eq('teacher_id', teacherId)
@@ -117,7 +117,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
                 const newUsedDays = balanceData.used_days + days;
                 const newRemainingDays = balanceData.total_days - newUsedDays;
 
-                await supabase
+                await api
                     .from('leave_balances')
                     .update({
                         used_days: newUsedDays,
@@ -137,7 +137,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
             setProcessing(true);
 
             // Update request status
-            const { error } = await supabase
+            const { error } = await api
                 .from('leave_requests')
                 .update({
                     status: 'Approved',
@@ -149,7 +149,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
             if (error) throw error;
 
             //  Get leave_type_id for balance update
-            const { data: requestData } = await supabase
+            const { data: requestData } = await api
                 .from('leave_requests')
                 .select('leave_type_id')
                 .eq('id', selectedRequest.id)
@@ -187,7 +187,7 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
         try {
             setProcessing(true);
 
-            const { error } = await supabase
+            const { error } = await api
                 .from('leave_requests')
                 .update({
                     status: 'Rejected',
@@ -428,3 +428,4 @@ const LeaveApproval: React.FC<LeaveApprovalProps> = () => {
 };
 
 export default LeaveApproval;
+

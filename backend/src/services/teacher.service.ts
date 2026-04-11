@@ -1,335 +1,625 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 import { IdGeneratorService } from './idGenerator.service';
+import { Role } from '@prisma/client';
+import { SocketService } from './socket.service';
 
 export class TeacherService {
     static async createTeacher(schoolId: string, branchId: string | undefined, data: any) {
-        const { name, email, phone, subjects, classes, avatar_url, branch_id } = data;
-        const effectiveBranchId = branchId || branch_id;
+        const { name, email, phone, subjects, classes, avatar_url } = data;
 
         // 1. Generate standard school ID
-        let schoolGeneratedId: string | undefined;
-        if (effectiveBranchId) {
+        let schoolGeneratedId: string | null = null;
+        if (schoolId && branchId) {
             try {
-                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, effectiveBranchId, 'teacher');
+                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'teacher');
             } catch (idErr: any) {
                 console.warn('[TeacherService] Could not generate school ID:', idErr.message);
             }
         }
 
-        // 2. Create Teacher Record
-        const { data: teacher, error } = await supabase
-            .from('teachers')
-            .insert([{
-                name,
-                email,
-                phone,
-                avatar_url,
-                school_id: schoolId,
-                branch_id: effectiveBranchId,
-                school_generated_id: schoolGeneratedId || null,
-                status: 'Active'
-            }])
-            .select()
-            .single();
+        // 2. Generate initial password
+        const generatedPassword = 'teacher' + Math.floor(1000 + Math.random() * 9000);
+        const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
-        if (error) throw new Error(error.message);
+        return await prisma.$transaction(async (tx) => {
+            // 3. Check if user already exists
+            let user = await tx.user.findUnique({
+                where: { email: email?.toLowerCase() }
+            });
 
-        // 3. Link Subjects if provided
-        if (subjects && Array.isArray(subjects)) {
-            const subjectInserts = subjects.map(s => ({ teacher_id: teacher.id, subject: s }));
-            await supabase.from('teacher_subjects').insert(subjectInserts);
-        }
+            if (user) {
+                // If user exists, ensure they have the TEACHER role
+                if (user.role !== Role.TEACHER) {
+                    await tx.user.update({
+                        where: { id: user.id },
+                        data: { role: Role.TEACHER }
+                    });
+                }
+                // Update existing user details if needed
+                await tx.user.update({
+                    where: { id: user.id },
+                    data: {
+                        full_name: name,
+                        school_id: schoolId,
+                        branch_id: branchId || user.branch_id,
+                        school_generated_id: schoolGeneratedId || user.school_generated_id
+                    }
+                });
+            } else {
+                // Create User if doesn't exist
+                user = await tx.user.create({
+                    data: {
+                        email: email?.toLowerCase() || `${schoolGeneratedId || 'temp_teacher'}@school.com`,
+                        password_hash: hashedPassword,
+                        full_name: name,
+                        role: Role.TEACHER,
+                        school_id: schoolId,
+                        branch_id: branchId || null,
+                        school_generated_id: schoolGeneratedId,
+                        initial_password: generatedPassword,
+                        email_verified: true // Admin-created teachers are verified by default
+                    }
+                });
+            }
 
-        // 4. Link Classes if provided
-        if (classes && Array.isArray(classes)) {
-            const classInserts = classes.map(c => ({ teacher_id: teacher.id, class_name: c }));
-            await supabase.from('teacher_classes').insert(classInserts);
-        }
+            // 4. Create or Update Teacher Record
+            const teacher = await tx.teacher.upsert({
+                where: { user_id: user.id },
+                create: {
+                    user_id: user.id,
+                    full_name: name,
+                    email: email?.toLowerCase(),
+                    phone,
+                    avatar_url,
+                    school_id: schoolId,
+                    branch_id: branchId || null,
+                    school_generated_id: schoolGeneratedId,
+                    status: 'Active'
+                },
+                update: {
+                    full_name: name,
+                    email: email?.toLowerCase(),
+                    phone,
+                    avatar_url,
+                    school_id: schoolId,
+                    branch_id: branchId || null,
+                    school_generated_id: schoolGeneratedId,
+                    status: 'Active'
+                }
+            });
 
-        // Sync school_generated_id to users table if this teacher has a linked user
-        if (teacher.user_id && schoolGeneratedId) {
-            await IdGeneratorService.syncToUsersTable(teacher.user_id, schoolGeneratedId);
-        }
+            // 4. Link Subjects/Classes (Assuming many-to-many or specific structure)
+            // Note: class_teachers is the junction table in our Prisma schema
+            if (classes && Array.isArray(classes)) {
+                for (const classId of classes) {
+                    const existingClass = await tx.class.findUnique({ where: { id: classId } });
+                    if (existingClass) {
+                        await (tx.classTeacher.upsert as any)({
+                            where: {
+                                class_id_teacher_id: {
+                                    class_id: classId,
+                                    teacher_id: teacher.id
+                                }
+                            },
+                            create: {
+                                teacher_id: teacher.id,
+                                class_id: classId,
+                                is_primary: false
+                            },
+                            update: {}
+                        });
+                    }
+                }
+            }
 
-        return teacher;
+            const result = {
+                ...teacher,
+                initial_password: user.initial_password,
+                username: user.school_generated_id || user.email
+            };
+
+            SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'create', teacherId: teacher.id });
+            return result;
+        });
     }
 
     static async getAllTeachers(schoolId: string, branchId?: string) {
-        console.log(`🔍 [TeacherService] getAllTeachers - schoolId: ${schoolId}, branchId: ${branchId}`);
-        let query = supabase
-            .from('teachers')
-            .select('*')
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
-        }
-
-        const { data, error } = await query.order('name');
-        console.log(`🔍 [TeacherService] Database returned ${data?.length || 0} teachers. Error:`, error);
-
-        if (error) throw new Error(error.message);
-
-        return data || [];
+        return await prisma.teacher.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            include: {
+                user: true
+            },
+            orderBy: { full_name: 'asc' }
+        });
     }
 
     static async getTeacherById(schoolId: string, branchId: string | undefined, id: string) {
-        let query = supabase
-            .from('teachers')
-            .select(`
-    *,
-    class_teachers(
-        class_id,
-        subject_id,
-        is_class_teacher,
-        classes(id, name, grade, section, school_id, branch_id),
-        subjects(id, name, school_id)
-    )
-        `)
-            .eq('school_id', schoolId)
-            .eq('id', id);
+        const teacher = await prisma.teacher.findFirst({
+            where: {
+                id: id,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            include: {
+                user: true,
+                classes: {
+                    include: {
+                        class: true
+                    }
+                }
+            }
+        });
 
-        if (branchId && branchId !== 'all') {
-            // Be more permissive for demo data: match branch or match null
-            query = query.or(`branch_id.eq.${branchId}, branch_id.is.null`);
+        if (teacher) {
+            // Note: Subjects are handled via Class relationships in this schema
+            return teacher;
         }
-
-        const { data, error } = await query.maybeSingle();
-
-        if (error) throw new Error(error.message);
-
-        // DEMO MODE MOCK DATA INJECTION
-        if (!data && id.toString().startsWith('t')) {
-            console.log(`🛡️[TeacherService] Injecting Mock Data for teacher ID: ${id} `);
-            const mockTeachers: any = {
-                't1': { id: 't1', name: 'Robert Smith', email: 'robert@school.com', phone: '1234567890', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] },
-                't2': { id: 't2', name: 'Sarah Wilson', email: 'sarah@school.com', phone: '0987654321', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] },
-                't3': { id: 't3', name: 'Michael Chen', email: 'michael@school.com', phone: '5556667777', status: 'Active', school_id: schoolId, branch_id: branchId || '7601cbea-e1ba-49d6-b59b-412a584cb94f', class_teachers: [] }
-            };
-            return mockTeachers[id.toString()] || null;
-        }
-
-        return data;
+        return null;
     }
 
     static async updateTeacher(schoolId: string, branchId: string | undefined, id: string, updates: any) {
-        let query = supabase
-            .from('teachers')
-            .update(updates)
-            .eq('school_id', schoolId)
-            .eq('id', id);
+        const {
+            name,
+            full_name,
+            email,
+            phone,
+            status,
+            avatar_url,
+            curriculum_eligibility,
+            subject_specialty,
+            classes,
+            school_generated_id
+        } = updates;
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
+        const prismaData: any = {};
+        if (name || full_name) prismaData.full_name = name || full_name;
+        if (email !== undefined) prismaData.email = email;
+        if (phone !== undefined) prismaData.phone = phone;
+        if (status !== undefined) prismaData.status = status;
+        if (avatar_url !== undefined) prismaData.avatar_url = avatar_url;
+        if (curriculum_eligibility !== undefined) prismaData.curriculum_eligibility = curriculum_eligibility;
+        if (subject_specialty !== undefined) prismaData.subject_specialty = subject_specialty;
+        if (school_generated_id !== undefined) prismaData.school_generated_id = school_generated_id;
 
-        const { data, error } = await query
-            .select()
-            .single();
+        return await prisma.$transaction(async (tx) => {
+            const updatedTeacher = await tx.teacher.update({
+                where: { id: id },
+                data: prismaData
+            });
 
-        if (error) throw new Error(error.message);
-        return data;
+            // Update user record if ID or name changed
+            if (school_generated_id !== undefined || name || full_name) {
+                const userData: any = {};
+                if (school_generated_id !== undefined) userData.school_generated_id = school_generated_id;
+                if (name || full_name) userData.full_name = name || full_name;
+
+                if (updatedTeacher.user_id) {
+                    await tx.user.update({
+                        where: { id: updatedTeacher.user_id },
+                        data: userData
+                    });
+                }
+            }
+
+            // Update classes if provided
+            if (classes && Array.isArray(classes)) {
+                await tx.classTeacher.deleteMany({
+                    where: { teacher_id: id }
+                });
+
+                for (const classId of classes) {
+                    // Check if class exists to prevent foreign key errors (classes might be basic string arrays in mock)
+                    const existingClass = await tx.class.findUnique({ where: { id: classId } });
+                    if (existingClass) {
+                        await tx.classTeacher.create({
+                            data: {
+                                teacher_id: id,
+                                class_id: classId,
+                                is_primary: false
+                            } as any
+                        });
+                    }
+                }
+            }
+
+            SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'update', teacherId: id });
+            return updatedTeacher;
+        });
     }
 
     static async deleteTeacher(schoolId: string, branchId: string | undefined, id: string) {
-        let query = supabase
-            .from('teachers')
-            .delete()
-            .eq('school_id', schoolId)
-            .eq('id', id);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+        const teacher = await prisma.teacher.findUnique({ where: { id } });
+        if (teacher && teacher.user_id) {
+            await prisma.user.delete({ where: { id: teacher.user_id } });
+        } else if (teacher) {
+            await prisma.teacher.delete({ where: { id: teacher.id } });
         }
 
-        const { error } = await query;
-
-        if (error) throw new Error(error.message);
+        SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'delete', teacherId: id });
         return true;
     }
 
     static async submitMyAttendance(schoolId: string, branchId: string | undefined, userId: string) {
-        // 1. Resolve teacher ID from user ID
-        let tQuery = supabase
-            .from('teachers')
-            .select('id, branch_id, name')
-            .eq('user_id', userId)
-            .eq('school_id', schoolId);
+        const teacher = await prisma.teacher.findFirst({
+            where: { user_id: userId, school_id: schoolId }
+        });
 
-        if (branchId && branchId !== 'all') {
-            tQuery = tQuery.eq('branch_id', branchId);
-        }
+        if (!teacher) throw new Error('Teacher record not found');
 
-        let { data: teacher, error: tErr } = await tQuery.maybeSingle();
-
-        const isDemo = (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' || userId === '014811ea-281f-484e-b039-e37beb8d92b2' || !schoolId);
-
-        // [ENHANCED PERSISTENCE] If teacher not found in demo mode, try to link or create one
-        if (!teacher && isDemo && userId) {
-            console.log('🛡️ [TeacherService] Demo Mode: Attempting to resolve or create teacher for user:', userId);
-            
-            // Try to find ANY teacher record for this user (ignore school/branch filter for a moment)
-            const { data: anyTeacher } = await supabase
-                .from('teachers')
-                .select('id, branch_id, name, school_id')
-                .eq('user_id', userId)
-                .maybeSingle();
-            
-            if (anyTeacher) {
-                teacher = anyTeacher;
-                console.log('🛡️ [TeacherService] Resolved existing teacher record for demo user');
-            } else {
-                // Fetch profile to get a name for the new teacher record
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('full_name, email')
-                    .eq('id', userId)
-                    .maybeSingle();
-                
-                if (profile) {
-                    console.log('🛡️ [TeacherService] Creating new teacher record for demo user:', profile.full_name);
-                    const { data: newTeacher, error: createErr } = await supabase
-                        .from('teachers')
-                        .insert({
-                            user_id: userId,
-                            name: profile.full_name || 'Demo Teacher',
-                            email: profile.email,
-                            school_id: schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-                            branch_id: branchId && branchId !== 'all' ? branchId : '7601cbea-e1ba-49d6-b59b-412a584cb94f',
-                            status: 'Active'
-                        })
-                        .select()
-                        .maybeSingle();
-                    
-                    if (newTeacher) {
-                        teacher = newTeacher;
-                    } else if (createErr) {
-                        console.error('❌ [TeacherService] Failed to create demo teacher:', createErr.message);
-                    }
-                }
-            }
-        }
-
-        // Final fallback to Sarah Jones ONLY if we still haven't found a teacher and it's demo
-        let teacherId = teacher?.id;
-        if (!teacherId && isDemo) {
-            console.log('🛡️ [TeacherService] Using Sarah Jones as final demo fallback');
-            teacherId = '2e8f37b9-bae9-461a-b31e-9a757a261ce0';
-        }
-
-        if (!teacherId) {
-            throw new Error('Teacher record not found');
-        }
-
-        const date = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const checkIn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
-        // Use UPSERT to allow re-marking (updating check-in) and avoid unique constraint errors
-        const { data, error } = await supabase
-            .from('teacher_attendance')
-            .upsert({
-                teacher_id: teacherId,
-                school_id: schoolId || (teacher as any)?.school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-                branch_id: (branchId && branchId !== 'all') ? branchId : (teacher?.branch_id || '7601cbea-e1ba-49d6-b59b-412a584cb94f'),
-                date,
+        const result = await prisma.teacherAttendance.upsert({
+            where: {
+                teacher_id_date: {
+                    teacher_id: teacher.id,
+                    date: date
+                }
+            },
+            create: {
+                teacher_id: teacher.id,
+                school_id: schoolId,
+                branch_id: branchId || teacher.branch_id,
+                date: date,
                 status: 'present',
                 approval_status: 'pending',
                 check_in: checkIn
-            }, { onConflict: 'teacher_id,date' })
-            .select()
-            .single();
+            },
+            update: {
+                check_in: checkIn,
+                status: 'present'
+            }
+        });
 
-        if (error) {
-            console.error('❌ [TeacherService] Attendance persistence failed:', error.message);
-            throw new Error(error.message);
-        }
-        
-        return data;
+        SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'attendance_submit', teacherId: teacher.id });
+        return result;
     }
 
     static async getMyAttendanceHistory(schoolId: string, branchId: string | undefined, userId: string, limit: number = 30) {
-        let tQuery = supabase
-            .from('teachers')
-            .select('id')
-            .eq('user_id', userId);
+        const teacher = await prisma.teacher.findFirst({
+            where: { user_id: userId, school_id: schoolId }
+        });
 
-        // Only filter by school/branch if provided, to be more robust in demo/sync scenarios
-        if (schoolId) {
-            tQuery = tQuery.eq('school_id', schoolId);
+        if (!teacher) return [];
+
+        return await prisma.teacherAttendance.findMany({
+            where: { teacher_id: teacher.id },
+            orderBy: { date: 'desc' },
+            take: limit
+        });
+    }
+
+    static async getTeacherAttendance(schoolId: string, branchId: string | undefined, filters: { date?: string; status?: string; teacher_id?: string; startDate?: string; endDate?: string }) {
+        return await prisma.teacherAttendance.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                teacher_id: filters.teacher_id,
+                approval_status: filters.status,
+                AND: [
+                    filters.date ? { date: filters.date } : {},
+                    filters.startDate ? { date: { gte: filters.startDate } } : {},
+                    filters.endDate ? { date: { lte: filters.endDate } } : {}
+                ]
+            },
+            include: {
+                teacher: true
+            },
+            orderBy: { date: 'desc' }
+        });
+    }
+
+    static async getTeacherProfileByUserId(schoolId: string, userId: string) {
+        return await prisma.teacher.findFirst({
+            where: { user_id: userId, school_id: schoolId },
+            include: { 
+                user: true,
+                classes: {
+                    include: {
+                        class: true
+                    }
+                }
+            }
+        });
+    }
+
+    static async saveTeacherAttendance(schoolId: string, branchId: string | undefined, records: any[]) {
+        const results = [];
+        for (const record of records) {
+            const result = await prisma.teacherAttendance.upsert({
+                where: {
+                    teacher_id_date: {
+                        teacher_id: record.teacher_id,
+                        date: record.date
+                    }
+                },
+                create: {
+                    teacher_id: record.teacher_id,
+                    school_id: schoolId,
+                    branch_id: branchId || record.branch_id || null,
+                    date: record.date,
+                    status: record.status,
+                    approval_status: record.approval_status || 'approved',
+                    check_in: record.check_in,
+                    check_out: record.check_out
+                },
+                update: {
+                    status: record.status,
+                    approval_status: record.approval_status || 'approved',
+                    check_in: record.check_in,
+                    check_out: record.check_out
+                }
+            });
+            results.push(result);
         }
+        SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'attendance_bulk_save' });
+        return results;
+    }
 
-        if (branchId && branchId !== 'all') {
-            tQuery = tQuery.eq('branch_id', branchId);
-        }
+    static async approveTeacherAttendance(schoolId: string, attendanceId: string, status: 'approved' | 'rejected') {
+        const result = await prisma.teacherAttendance.update({
+            where: { id: attendanceId, school_id: schoolId },
+            data: { approval_status: status }
+        });
 
-        let { data: teacher, error: tErr } = await tQuery.maybeSingle();
+        SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'attendance_approve', attendanceId });
+        return result;
+    }
 
-        const isDemo = schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' || userId === '014811ea-281f-484e-b039-e37beb8d92b2' || !schoolId;
-
-        // If not found by strict criteria, try broad lookup for demo users
-        if (!teacher && isDemo && userId) {
-            const { data: anyTeacher } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('user_id', userId)
-                .maybeSingle();
-            
-            if (anyTeacher) teacher = anyTeacher;
-        }
+    /**
+     * Get students with their login credentials for teachers
+     * Teachers can see credentials for students in their classes (Approved only)
+     */
+    static async getStudentsWithCredentials(schoolId: string, branchId: string | undefined, teacherId: string) {
+        const teacher = await prisma.teacher.findUnique({
+            where: { id: teacherId }
+        });
 
         if (!teacher) {
-            if (isDemo) {
-                console.log('🛡️ [TeacherService] Demo History Fallback for user_id:', userId);
-                // Return empty but don't throw, allowing UI to show "No records yet"
-                return [];
-            }
-            throw new Error('Teacher record not found');
+            throw new Error('Teacher not found');
         }
 
-        const { data, error } = await supabase
-            .from('teacher_attendance')
-            .select('*')
-            .eq('teacher_id', teacher.id)
-            .order('date', { ascending: false })
-            .limit(limit);
+        const classTeachers = await prisma.classTeacher.findMany({
+            where: { teacher_id: teacherId },
+            include: {
+                class: true
+            }
+        });
 
-        if (error) throw new Error(error.message);
-        return data;
+        const studentsWithCredentials: any[] = [];
+        const seenStudentIds = new Set();
+
+        for (const classTeacher of classTeachers) {
+            const enrollments = await prisma.studentEnrollment.findMany({
+                where: { class_id: classTeacher.class_id },
+                include: {
+                    student: {
+                        include: {
+                            user: true
+                        }
+                    }
+                }
+            });
+
+            for (const enrollment of enrollments) {
+                const student = enrollment.student;
+                
+                if (seenStudentIds.has(student.id)) continue;
+                seenStudentIds.add(student.id);
+
+                studentsWithCredentials.push({
+                    id: student.id,
+                    full_name: student.full_name,
+                    email: student.email,
+                    school_generated_id: student.school_generated_id,
+                    status: student.status,
+                    grade: student.grade,
+                    section: student.section,
+                    class_name: classTeacher.class.name,
+                    class_id: classTeacher.class_id,
+                    credentials: student.status === 'Active' ? {
+                        login_id: student.school_generated_id || student.email,
+                        has_password: !!student.user?.initial_password,
+                        password: student.user?.initial_password || null
+                    } : null,
+                    created_at: student.created_at
+                });
+            }
+        }
+
+        return studentsWithCredentials;
     }
 
-    static async getTeacherAttendance(schoolId: string, branchId: string | undefined, filters: { date?: string; status?: string; teacher_id?: string }) {
-        let query = supabase
-            .from('teacher_attendance')
-            .select(`
-                *,
-                teachers (
-                    id,
-                    name,
-                    avatar_url,
-                    email
-                )
-            `)
-            .eq('school_id', schoolId);
+    /**
+     * Get pending students that need approval (for admin dashboard)
+     */
+    static async getPendingStudentsForSchool(schoolId: string, branchId: string | undefined) {
+        return await prisma.student.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                status: 'Pending'
+            },
+            include: {
+                user: true
+            },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+    /**
+     * Get appointments for a teacher
+     */
+    static async getTeacherAppointments(schoolId: string, branchId: string | undefined, teacherId: string) {
+        return await (prisma.appointment.findMany as any)({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                teacher_id: teacherId
+            },
+            include: {
+                Student: {
+                    select: { full_name: true }
+                },
+                Parent: {
+                    select: { full_name: true, avatar_url: true }
+                }
+            },
+            orderBy: { date: 'desc' }
+        });
+    }
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
+    /**
+     * Update appointment status
+     */
+    static async updateAppointmentStatus(schoolId: string, appointmentId: string, status: string) {
+        const result = await prisma.appointment.update({
+            where: { 
+                id: appointmentId,
+                school_id: schoolId 
+            },
+            data: { 
+                status: status,
+                updated_at: new Date()
+            }
+        });
 
-        if (filters.date) {
-            query = query.eq('date', filters.date);
-        }
+        SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'appointment_status', appointmentId });
+        return result;
+    }
 
-        if (filters.status) {
-            query = query.eq('approval_status', filters.status);
-        }
+    static async getTeacherBadges(userId: string) {
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: userId } });
+        if (!teacher) return { badges: [], totalPoints: 0 };
 
-        if (filters.teacher_id) {
-            query = query.eq('teacher_id', filters.teacher_id);
-        }
+        const allBadges = await prisma.pDBadge.findMany();
+        const earnedBadges = await prisma.teacherBadge.findMany({ where: { teacher_id: teacher.id } });
+        
+        const earnedMap = new Map(earnedBadges.map(b => [b.badge_id, b.earned_at]));
+        
+        const badges = allBadges.map(b => ({
+            ...b,
+            is_earned: earnedMap.has(b.id),
+            earned_at: earnedMap.get(b.id)
+        }));
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+        const totalPoints = badges.filter(b => b.is_earned).reduce((s, b) => s + (b.points || 0), 0);
+        return { badges, totalPoints };
+    }
 
-        if (error) throw new Error(error.message);
-        return data;
+    static async getTeacherRecognitions(schoolId: string, userId: string) {
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: userId } });
+        if (!teacher) return { recognitions: [], myPoints: 0 };
+
+        const recs = await prisma.teacherRecognition.findMany({
+            where: { is_public: true },
+            orderBy: { created_at: 'desc' },
+            take: 20,
+            include: {
+                teacher: { select: { full_name: true } },
+                recognizer: { select: { full_name: true } }
+            }
+        });
+
+        const myRecs = await prisma.teacherRecognition.findMany({ where: { teacher_id: teacher.id } });
+        const myPoints = myRecs.reduce((s, r) => s + (r.points || 0), 0);
+
+        const recognitions = recs.map(r => ({
+            ...r,
+            teacher_name: r.teacher?.full_name || 'Unknown',
+            recognized_by_name: r.recognizer?.full_name || 'Anonymous'
+        }));
+
+        return { recognitions, myPoints };
+    }
+
+    static async getMentoringMatches(schoolId: string, userId: string) {
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: userId, school_id: schoolId } });
+        if (!teacher) return { teachers: [], myMatches: [] };
+
+        const teachers = await prisma.teacher.findMany({
+            where: { school_id: schoolId, id: { not: teacher.id } },
+            select: { id: true, full_name: true, email: true },
+            take: 50
+        });
+
+        const matches = await prisma.mentoringMatch.findMany({
+            where: {
+                OR: [{ mentor_id: teacher.id }, { mentee_id: teacher.id }],
+                status: 'Active'
+            },
+            include: {
+                mentor: { select: { full_name: true } },
+                mentee: { select: { full_name: true } }
+            }
+        });
+
+        const myMatches = matches.map(m => ({
+            ...m,
+            mentor_name: m.mentor?.full_name || 'Unknown',
+            mentee_name: m.mentee?.full_name || 'Unknown',
+            is_mentor: m.mentor_id === teacher.id
+        }));
+
+        return { teachers, myMatches };
+    }
+
+    static async createMentoringMatch(userId: string, data: { mentor_id: string, subject_area: string }) {
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: userId } });
+        if (!teacher) throw new Error('Teacher not found');
+
+        return await prisma.mentoringMatch.create({
+            data: {
+                mentor_id: data.mentor_id,
+                mentee_id: teacher.id,
+                subject_area: data.subject_area,
+                status: 'Active'
+            }
+        });
+    }
+
+    static async getTeacherCertificates(teacherId: string) {
+        const certs = await prisma.pDCertificate.findMany({
+            where: { teacher_id: teacherId },
+            orderBy: { issued_at: 'desc' },
+            include: { pd_course: { select: { title: true } } }
+        });
+
+        return certs.map(c => ({
+            ...c,
+            course_title: c.pd_course?.title || 'Unknown Course'
+        }));
+    }
+
+    static async getSubstituteRequests(schoolId: string, branchId?: string) {
+        return await prisma.substituteAssignment.findMany({
+            where: {
+                school_id: schoolId,
+                status: 'Pending'
+            },
+            orderBy: { date: 'asc' }
+        });
+    }
+
+    static async createSubstituteRequest(schoolId: string, teacherId: string, data: any) {
+        const result = await prisma.substituteAssignment.create({
+            data: {
+                school_id: schoolId,
+                original_teacher_id: teacherId,
+                substitute_teacher_id: data.substitute_teacher_id,
+                class_id: data.class_id,
+                subject_id: data.subject_id,
+                date: new Date(data.date),
+                status: 'Pending'
+            }
+        });
+
+        SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'substitute_request', requestId: result.id });
+        return result;
     }
 }
+
+

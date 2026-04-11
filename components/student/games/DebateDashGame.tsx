@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { MicIcon, UsersIcon, ThumbsUpIcon, ThumbsDownIcon, ClockIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface DebateDashGameProps {
     onBack: () => void;
@@ -224,6 +225,18 @@ const DebateDashGame: React.FC<DebateDashGameProps> = ({ onBack }) => {
             setWinStreak(0);
             localStorage.setItem('debate_dash_streak', '0');
         }
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'debate-dash',
+            game_name: 'Debate Dash',
+            score: crowdScore,
+            metadata: {
+                topic: scenario?.topic,
+                streak: winStreak,
+                outcome: crowdScore > 50 ? 'victory' : 'defeat'
+            }
+        }).catch(err => console.error("Failed to save debate score:", err));
     };
 
     return (

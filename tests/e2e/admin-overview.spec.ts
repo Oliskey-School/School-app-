@@ -6,8 +6,8 @@ test.describe('Admin Route: Overview', () => {
         await page.waitForLoadState('networkidle');
 
         // Login via Demo
-        await page.getByRole('button', { name: 'Try Demo School' }).click();
-        const adminBtn = page.getByRole('button', { name: 'Admin', exact: true });
+        await page.getByRole('button', { name: /Try Demo School/ }).click();
+        const adminBtn = page.getByRole('button', { name: /Admin/i, exact: false });
         await adminBtn.waitFor({ state: 'visible' });
         await adminBtn.click();
 

@@ -2,9 +2,9 @@ import React, { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { StudentAssignment, Submission } from '../../types';
 import { SUBJECT_COLORS, ClockIcon, PaperclipIcon, XCircleIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../lib/api';
+
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -42,26 +42,19 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
   React.useEffect(() => {
     const loadSubmission = async () => {
       try {
-        const { data, error } = await supabase
-          .from('assignment_submissions')
-          .select('*')
-          .eq('assignment_id', assignment.id)
-          .eq('student_id', studentId)
-          .maybeSingle();
-
+        const data = await api.getAssignmentSubmission(assignment.id);
         if (data) {
           setExistingSubmission(data);
           setTextAnswer(data.submission_text || '');
-          // Parse attachment_url
         }
       } catch (err) {
-        console.error(err);
+        console.error("Error loading submission:", err);
       } finally {
         setLoading(false);
       }
     };
     loadSubmission();
-  }, [assignment.id, studentId]);
+  }, [assignment.id]);
 
   const isSubmitted = !!existingSubmission;
 
@@ -90,27 +83,12 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       // Prepare file "URLs" (mocking upload since no storage bucket)
       const fileNames = attachedFiles.map(f => f.name).join(',');
 
-      // Common payload mapping
+      // Submission payload is handled by the backend, but we can pass content
       const submissionPayload = {
-        assignment_id: assignment.id,
-        student_id: studentId,
-        student_user_id: user?.id,
         submission_text: textAnswer,
         attachment_url: fileNames || (existingSubmission?.attachment_url),
-        submitted_at: new Date().toISOString(),
         status: 'submitted',
-        school_id: currentSchool?.id,
-        branch_id: currentBranchId,
       };
-
-      if (!submissionPayload.school_id && !existingSubmission) {
-        // Fallback if context missing
-        const { data: assignData } = await supabase.from('assignments').select('school_id, branch_id').eq('id', assignment.id).single();
-        if (assignData) {
-          submissionPayload.school_id = assignData.school_id;
-          if (!submissionPayload.branch_id) submissionPayload.branch_id = assignData.branch_id;
-        }
-      }
 
       // Upsert via Backend API (Bypass RLS)
       await api.submitAssignment(assignment.id, submissionPayload);
@@ -239,3 +217,4 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
 };
 
 export default AssignmentSubmissionScreen;
+

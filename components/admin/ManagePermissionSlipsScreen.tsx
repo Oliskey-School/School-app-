@@ -1,8 +1,15 @@
-import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { TrashIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ClipboardListIcon, UserIcon } from '../../constants';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
+import { 
+    PlusIcon, 
+    TrashIcon, 
+    SearchIcon, 
+    ClockIcon, 
+    UserIcon, 
+    ClipboardListIcon 
+} from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface ManagePermissionSlipsScreenProps {
@@ -25,7 +32,7 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
 
     // Deletion State
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [slipToDelete, setSlipToDelete] = useState<number | null>(null);
+    const [slipToDelete, setSlipToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         fetchClasses();
@@ -44,14 +51,7 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
 
     const fetchRecentSlips = async () => {
         try {
-            const { data, error } = await supabase
-                .from('permission_slips')
-                .select('*, students(name, grade, section)')
-                .eq('school_id', schoolId)
-                .order('created_at', { ascending: false })
-                .limit(50);
-
-            if (error) throw error;
+            const data = await api.getPermissionSlips();
             setRecentSlips(data || []);
         } catch (err) {
             console.error('Error fetching slips:', err);
@@ -102,12 +102,8 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
                 status: 'Pending'
             }));
 
-            // 4. Bulk insert
-            const { error: insertError } = await supabase
-                .from('permission_slips')
-                .insert(inserts);
-
-            if (insertError) throw insertError;
+            // 4. Bulk insert via API
+            await api.bulkCreatePermissionSlips(inserts);
 
             setNewItem({ title: '', description: '', location: '', date: '', selectedClassId: '' });
             fetchRecentSlips();
@@ -120,7 +116,7 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
         }
     };
 
-    const confirmDelete = (id: number) => {
+    const confirmDelete = (id: string) => {
         setSlipToDelete(id);
         setShowDeleteModal(true);
     };
@@ -132,11 +128,12 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
         setSlipToDelete(null);
 
         if (!schoolId) return;
-        const { error } = await supabase.from('permission_slips').delete().eq('id', id).eq('school_id', schoolId);
-        if (!error) {
+        try {
+            await api.deletePermissionSlip(id);
             fetchRecentSlips();
             toast.success('Slip deleted.');
-        } else {
+        } catch (err) {
+            console.error('Failed to delete slip:', err);
             toast.error('Failed to delete slip.');
         }
     };
@@ -223,13 +220,25 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
                                     onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                                 />
                             </div>
-                            <button
+                            <motion.button
+                                whileHover={{ scale: 1.01 }}
+                                whileTap={{ scale: 0.99 }}
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-200"
+                                className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-100 flex items-center justify-center space-x-2"
                             >
-                                {isSubmitting ? 'Sending...' : 'Issue to Entire Class'}
-                            </button>
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span>Sending...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <PlusIcon className="w-5 h-5" />
+                                        <span>Issue to Entire Class</span>
+                                    </>
+                                )}
+                            </motion.button>
                         </form>
                     </div>
                 </div>
@@ -252,61 +261,89 @@ const ManagePermissionSlipsScreen: React.FC<ManagePermissionSlipsScreenProps> = 
                         </div>
 
                         {loading ? (
-                            <div className="flex-grow flex justify-center items-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                            <div className="flex-grow flex flex-col justify-center items-center py-20">
+                                <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                                <p className="mt-4 text-gray-400 font-medium">Loading records...</p>
                             </div>
                         ) : filteredSlips.length === 0 ? (
-                            <div className="flex-grow flex flex-col justify-center items-center text-gray-400 py-12">
-                                <ClipboardListIcon className="w-12 h-12 mb-3 opacity-20" />
-                                <p>No recent slips found.</p>
-                            </div>
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex-grow flex flex-col justify-center items-center text-center py-12 px-6"
+                            >
+                                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                                    <ClipboardListIcon className="w-10 h-10 text-gray-300" />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-700">No slips found</h3>
+                                <p className="text-gray-500 max-w-xs mt-2 text-sm">
+                                    {searchTerm ? `No results for "${searchTerm}".` : "Track class excursions and events by issuing your first permission slip."}
+                                </p>
+                            </motion.div>
                         ) : (
                             <div className="overflow-hidden">
                                 <table className="min-w-full text-left">
                                     <thead>
-                                        <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider">
-                                            <th className="pb-3 px-2 font-semibold">Student</th>
-                                            <th className="pb-3 px-2 font-semibold">Event</th>
-                                            <th className="pb-3 px-2 font-semibold">Date</th>
-                                            <th className="pb-3 px-2 font-semibold">Status</th>
-                                            <th className="pb-3 px-2 text-right font-semibold">Action</th>
+                                        <tr className="border-b border-gray-100 text-gray-400 text-[10px] uppercase tracking-wider">
+                                            <th className="pb-4 px-2 font-bold">Student</th>
+                                            <th className="pb-4 px-2 font-bold">Event & Location</th>
+                                            <th className="pb-4 px-2 font-bold">Date</th>
+                                            <th className="pb-4 px-2 font-bold">Status</th>
+                                            <th className="pb-4 px-2 text-right font-bold">Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="text-sm divide-y divide-gray-50">
-                                        {filteredSlips.map(slip => (
-                                            <tr key={slip.id} className="hover:bg-gray-50 transition-colors group">
-                                                <td className="py-3 px-2">
-                                                    <div className="flex items-center">
-                                                        <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 font-bold text-xs">
-                                                            {slip.students?.name?.charAt(0) || <UserIcon className="w-4 h-4" />}
+                                    <tbody className="text-sm">
+                                        <AnimatePresence mode="popLayout">
+                                            {filteredSlips.map((slip, index) => (
+                                                <motion.tr 
+                                                    key={slip.id}
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, x: 20 }}
+                                                    transition={{ delay: Math.min(index * 0.03, 0.3) }}
+                                                    className="hover:bg-indigo-50/30 transition-colors group"
+                                                >
+                                                    <td className="py-4 px-2">
+                                                        <div className="flex items-center">
+                                                            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 font-bold text-xs ring-2 ring-white shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                                                {slip.students?.full_name?.charAt(0) || slip.students?.name?.charAt(0) || <UserIcon className="w-4 h-4" />}
+                                                            </div>
+                                                            <div>
+                                                                <div className="font-bold text-gray-800 group-hover:text-indigo-900">{slip.students?.full_name || slip.students?.name}</div>
+                                                                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-tight">Class {slip.students?.grade}{slip.students?.section}</div>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <div className="font-medium text-gray-800">{slip.students?.name}</div>
-                                                            <div className="text-xs text-gray-400">Class {slip.students?.grade}{slip.students?.section}</div>
+                                                    </td>
+                                                    <td className="py-4 px-2">
+                                                        <div className="font-semibold text-gray-700">{slip.title}</div>
+                                                        <div className="text-[11px] text-gray-400 flex items-center mt-0.5">
+                                                            <ClockIcon className="w-3 h-3 mr-1" />
+                                                            {slip.location}
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-2 text-gray-600 font-medium">{slip.title}</td>
-                                                <td className="py-3 px-2 text-gray-500">{new Date(slip.date).toLocaleDateString()}</td>
-                                                <td className="py-3 px-2">
-                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${slip.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                                                        slip.status === 'Rejected' ? 'bg-red-100 text-red-700' :
-                                                            'bg-yellow-100 text-yellow-700'
+                                                    </td>
+                                                    <td className="py-4 px-2 text-gray-500 font-medium tabular-nums">
+                                                        {new Date(slip.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                    </td>
+                                                    <td className="py-4 px-2">
+                                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                                                            slip.status === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                            slip.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                                            'bg-amber-100 text-amber-700 border border-amber-200 animate-pulse'
                                                         }`}>
-                                                        {slip.status}
-                                                    </span>
-                                                </td>
-                                                <td className="py-3 px-2 text-right">
-                                                    <button
-                                                        onClick={() => confirmDelete(slip.id)}
-                                                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Delete Slip"
-                                                    >
-                                                        <TrashIcon className="w-4 h-4" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                            {slip.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-4 px-2 text-right">
+                                                        <button
+                                                            onClick={() => confirmDelete(slip.id)}
+                                                            className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 border border-transparent hover:border-red-100"
+                                                            title="Delete Slip"
+                                                        >
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </AnimatePresence>
                                     </tbody>
                                 </table>
                             </div>

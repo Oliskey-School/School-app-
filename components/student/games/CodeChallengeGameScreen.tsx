@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Student } from '../../../types';
 import { PlayIcon, RotateCcw, ArrowUp, ArrowRight, ArrowLeft } from 'lucide-react';
+import { api } from '../../../lib/api';
 import { toast } from 'react-hot-toast';
 
 interface CodeChallengeGameScreenProps {
@@ -185,6 +186,14 @@ const CodeChallengeGameScreen: React.FC<CodeChallengeGameScreenProps> = ({ navig
                 if (currentBot.pos[0] === currentLevel.goal[0] && currentBot.pos[1] === currentLevel.goal[1]) {
                     setGameStatus('success');
                     toast.success('Level Complete! 🎉');
+                    
+                    // Save score
+                    api.submitGameScore({
+                        game_id: 'code-challenge',
+                        game_name: 'Code Challenge',
+                        score: program.length * 10, // Simple scoring
+                        metadata: { level: currentLevel, grade: student?.grade }
+                    }).catch(console.error);
                 } else {
                     setGameStatus('failed');
                     toast.error('Target not reached.');

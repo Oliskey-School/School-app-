@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useToast } from '../../hooks/use-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { BookOpen, AlertCircle, Save, CheckCircle } from 'lucide-react';
 import { useProfile } from '../../context/ProfileContext';
-import { api } from '../../lib/api';
+
 
 interface AttendanceTrackSelectorProps {
     teacherId: string;
@@ -34,12 +34,9 @@ export default function AttendanceTrackSelector({
     const fetchStudents = async () => {
         setLoading(true);
         try {
-            // Get curriculum ID for the selected curriculum
-            const { data: curriculum } = await supabase
-                .from('curricula')
-                .select('id')
-                .ilike('name', `%${selectedCurriculum}%`)
-                .single();
+            // Get all curricula from API
+            const curriculaList = await api.getCurricula();
+            const curriculum = curriculaList.find(c => c.name.toLowerCase().includes(selectedCurriculum.toLowerCase()));
 
             if (!curriculum) {
                 console.warn('Curriculum not found:', selectedCurriculum);
@@ -48,19 +45,11 @@ export default function AttendanceTrackSelector({
                 return;
             }
 
-            // Fetch students enrolled in this curriculum
-            const { data: tracks, error: tracksError } = await supabase
-                .from('academic_tracks')
-                .select('student_id')
-                .eq('curriculum_id', curriculum.id)
-                .eq('status', 'Active');
-
-            if (tracksError) {
-                console.error('Error fetching tracks:', tracksError);
-                setStudents([]);
-                setLoading(false);
-                return;
-            }
+            // Fetch students enrolled in this curriculum track
+            const tracks = await api.getAcademicTracks({
+                curriculumId: curriculum.id,
+                status: 'Active'
+            });
 
             if (!tracks || tracks.length === 0) {
                 console.log('No students enrolled in this curriculum');
@@ -69,7 +58,12 @@ export default function AttendanceTrackSelector({
                 return;
             }
 
+            const trackStudentIds = new Set(tracks.map(t => t.student_id));
+
             let studentList = await api.getStudents(profile.schoolId, profile.branchId || undefined);
+            
+            // Filter students by track membership
+            studentList = studentList.filter(s => trackStudentIds.has(s.id));
 
             // Filter by class if classId is provided
             if (classId && studentList) {
@@ -78,11 +72,7 @@ export default function AttendanceTrackSelector({
 
                 // If no results with class_id, try getting class info and filtering by grade/section
                 if (classFiltered.length === 0) {
-                    const { data: classInfo } = await supabase
-                        .from('classes')
-                        .select('grade, section')
-                        .eq('id', classId)
-                        .single();
+                    const classInfo = await api.getClassById(classId);
 
                     if (classInfo) {
                         studentList = studentList.filter(s =>

@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { Fee } from '../../types';
-import { fetchStudentFees } from '../../lib/payments';
 import { FeeCard } from '../payments/FeeCard';
 import { PaystackButton } from '../payments/PaystackWrapper';
 import { FlutterwaveWrapper } from '../payments/FlutterwaveWrapper';
@@ -82,12 +81,26 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
     const loadFees = async (studentId: string) => {
         setLoading(true);
         try {
-            const data = await fetchStudentFees(studentId, schoolId);
-            setFees(data);
+            const rawFees = await api.getStudentFees(studentId);
+            
+            // Map Prisma fields to frontend Fee interface
+            const formattedFees: Fee[] = rawFees.map((f: any) => ({
+                id: f.id,
+                title: f.title,
+                amount: f.amount,
+                paidAmount: f.paid_amount || 0,
+                status: f.status,
+                dueDate: f.due_date,
+                description: f.description || '',
+                studentId: f.student_id,
+                schoolId: f.school_id
+            }));
+            
+            setFees(formattedFees);
 
             const plansSet = new Set<string>();
             await Promise.all(
-                data.map(async (fee) => {
+                formattedFees.map(async (fee) => {
                     const hasPlan = await hasPaymentPlan(fee.id);
                     if (hasPlan) plansSet.add(fee.id);
                 })

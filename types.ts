@@ -1,9 +1,4 @@
 import React from 'react';
-import { Database } from './types/supabase'; // Import generated types
-
-// Helper type to extract Row types
-type TableRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
-
 
 // SaaS Types
 export interface School {
@@ -21,6 +16,7 @@ export interface School {
   plan_type?: 'free' | 'basic' | 'premium' | 'enterprise';
   user_count?: number; // Tracked user count for limits
   createdAt: string;
+  updated_at?: string;
   primaryColor?: string;
   secondaryColor?: string;
   branch_id?: string | null;
@@ -133,6 +129,7 @@ export interface Student {
   branchId?: string; // branch_id UUID FK
   schoolGeneratedId?: string; // e.g. OLISKEY_MAIN_STD_0001
   name: string; // TEXT NOT NULL
+  full_name?: string; // Alias for name (from DB column)
   email: string; // TEXT
   admission_number?: string; // TEXT (⚠️ orphaned - not in form)
   current_class_id?: string; // UUID FK to classes(id) (⚠️ orphaned)
@@ -229,6 +226,7 @@ export interface Parent {
   id: string; // UUID PRIMARY KEY
   user_id?: string; // UUID FK to auth.users(id)
   schoolId?: string; // school_id UUID FK
+  branchId?: string; // branch_id UUID FK
   schoolGeneratedId?: string; // e.g. OLISKEY_MAIN_PAR_0001
   name: string; // TEXT NOT NULL
   email?: string; // TEXT
@@ -243,6 +241,7 @@ export interface Parent {
 
   // Joined/Computed Fields (NOT in database directly)
   childIds?: string[]; // From student_parent_links junction table
+  childrenNames?: string[]; // From student API wrapper
   children?: Student[]; // Joined student data
 }
 
@@ -250,7 +249,8 @@ export interface Parent {
 export interface ClassInfo {
   id: string;
   name?: string;
-  level?: string;
+  level?: string; // @deprecated - use level_category
+  level_category?: string;
   subject?: string;
   grade: number;
   section: string;
@@ -258,22 +258,24 @@ export interface ClassInfo {
   studentCount: number;
   schoolId?: string;
   branch_id?: string;
-  level_category?: string;
 }
 
 
 export interface Notice {
-  id: number;
+  id: string;
+  school_id: string;
   title: string;
   content: string;
-  timestamp: string; // ISO string
-  // FIX: Updated category to use the unified AnnouncementCategory type.
+  timestamp: string;
   category: AnnouncementCategory;
-  isPinned: boolean;
-  imageUrl?: string;
-  videoUrl?: string;
-  audience: Array<'all' | 'parents' | 'teachers' | 'students'>;
-  className?: string;
+  is_pinned: boolean;
+  image_url?: string | null;
+  video_url?: string | null;
+  audience: Array<string>;
+  branch_id?: string | null;
+  created_by?: string | null;
+  attachment_url?: string | null;
+  updated_at: string;
 }
 
 export type EventType = 'Sport' | 'Culture' | 'Exam' | 'Holiday' | 'General';

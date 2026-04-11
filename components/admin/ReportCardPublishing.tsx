@@ -5,7 +5,7 @@ import ReportCardPreview from './ReportCardPreview';
 import { StudentReportInfo, ReportCard, Student } from '../../types';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 
 const statusStyles: { [key in ReportCard['status']]: { bg: string, text: string, border: string, icon: React.ReactNode } } = {
@@ -37,14 +37,10 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   const [showPreview, setShowPreview] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentReportInfo | null>(null);
 
-  // Real-time Subscription for Report Cards
-  useRealtimeSubscription({
-    table: 'report_cards',
-    filter: activeSchoolId ? `school_id=eq.${activeSchoolId}` : undefined,
-    callback: () => {
-      console.log('[Realtime] Refreshing Reports...');
-      fetchStudentsWithReports();
-    }
+  // Unified Backend-driven Auto Sync
+  useAutoSync(['report_cards'], () => {
+    console.log('🔄 [ReportCardPublishing] Auto-sync triggered');
+    fetchStudentsWithReports();
   });
 
   // Fetch students with their latest report cards

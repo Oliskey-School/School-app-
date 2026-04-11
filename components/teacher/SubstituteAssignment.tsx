@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { UsersIcon, CheckCircleIcon, XCircleIcon } from '../../constants';
@@ -27,38 +27,8 @@ const SubstituteAssignment: React.FC = () => {
     const fetchRequests = async () => {
         try {
             setLoading(true);
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) return;
-
-            const { data, error } = await supabase
-                .from('substitute_assignments')
-                .select(`
-          *,
-          original_teacher:teachers!substitute_assignments_original_teacher_id_fkey(full_name)
-        `)
-                .eq('substitute_teacher_id', teacherData.id)
-                .gte('date', new Date().toISOString().split('T')[0])
-                .order('date');
-
-            if (error) throw error;
-
-            const formatted: SubstituteRequest[] = (data || []).map((r: any) => ({
-                id: r.id,
-                date: r.date,
-                period_number: r.period_number,
-                subject: r.subject,
-                class_name: r.class_name,
-                reason: r.reason,
-                status: r.status,
-                original_teacher_name: r.original_teacher?.full_name || 'Unknown'
-            }));
-
-            setRequests(formatted);
+            const data = await api.getSubstituteRequests(profile?.id || '');
+            setRequests(data || []);
         } catch (error: any) {
             console.error('Error:', error);
         } finally {
@@ -68,12 +38,7 @@ const SubstituteAssignment: React.FC = () => {
 
     const handleAccept = async (id: number) => {
         try {
-            const { error } = await supabase
-                .from('substitute_assignments')
-                .update({ status: 'Accepted' })
-                .eq('id', id);
-
-            if (error) throw error;
+            await api.updateAppointmentStatus(String(id), 'Accepted');
             toast.success('Assignment accepted');
             fetchRequests();
         } catch (error: any) {
@@ -83,12 +48,7 @@ const SubstituteAssignment: React.FC = () => {
 
     const handleDecline = async (id: number) => {
         try {
-            const { error } = await supabase
-                .from('substitute_assignments')
-                .update({ status: 'Declined' })
-                .eq('id', id);
-
-            if (error) throw error;
+            await api.updateAppointmentStatus(String(id), 'Declined');
             toast.success('Assignment declined');
             fetchRequests();
         } catch (error: any) {
@@ -161,3 +121,4 @@ const SubstituteAssignment: React.FC = () => {
 };
 
 export default SubstituteAssignment;
+

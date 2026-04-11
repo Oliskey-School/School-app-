@@ -4,7 +4,7 @@ import { getCurriculum } from '../../curriculumData';
 import { CurriculumSubject, CurriculumSubjectCategory, Department } from '../../types';
 import { BookOpenIcon } from '../../constants';
 import { fetchSubjects } from '../../lib/database';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
 const categoryStyles: { [key in CurriculumSubjectCategory]: string } = {
@@ -40,8 +40,7 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
       setLoading(true);
       try {
         // Try to find subjects in the DB matching this level
-        // We'll search for subjects where grade_level_category matches the 'level' string or similar
-        const { data, error } = await supabase
+        const { data, error } = await api
           .from('subjects')
           .select('*')
           .eq('school_id', currentSchool.id)
@@ -124,4 +123,4 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
   );
 };
 
-export default CurriculumScreen;
+export default CurriculumScreen;

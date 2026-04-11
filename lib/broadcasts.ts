@@ -1,5 +1,5 @@
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { EmergencyBroadcast } from '../types';
 
 /**
@@ -13,11 +13,11 @@ export async function sendEmergencyBroadcast(
     channels: string[] = ['push'] // 'push', 'email', 'sms'
 ): Promise<{ success: boolean; error?: string }> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await api.auth.getUser();
         if (!user) throw new Error('Unauthorized');
 
         // 1. Log the broadcast in database
-        const { data: broadcast, error: dbError } = await supabase
+        const { data: broadcast, error: dbError } = await api
             .from('emergency_broadcasts')
             .insert([{
                 title,
@@ -34,7 +34,7 @@ export async function sendEmergencyBroadcast(
 
         // 2. Trigger Cloud/Edge Function to handle the heavy lifting (mass sending)
         // We don't want to loop through 1000 users on the client side.
-        const { error: fnError } = await supabase.functions.invoke('broadcast-alert', {
+        const { error: fnError } = await api.functions.invoke('broadcast-alert', {
             body: {
                 broadcastId: broadcast.id,
                 title,
@@ -62,7 +62,7 @@ export async function sendEmergencyBroadcast(
  * Fetch Recent Broadcasts
  */
 export async function fetchBroadcasts(): Promise<EmergencyBroadcast[]> {
-    const { data, error } = await supabase
+    const { data, error } = await api
         .from('emergency_broadcasts')
         .select('*')
         .order('created_at', { ascending: false })
@@ -82,3 +82,4 @@ export async function fetchBroadcasts(): Promise<EmergencyBroadcast[]> {
         targetAudience: Array.isArray(b.audience) ? b.audience : [b.audience]
     }));
 }
+

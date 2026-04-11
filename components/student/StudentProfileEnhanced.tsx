@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import {
     User, BookOpen, FileText, Calendar,
     Download, Eye, GraduationCap, CheckCircle,
@@ -71,20 +71,16 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             // 1. Fetch Basic Student Info if we don't have it or need fresh data
             let currentStudent = student;
 
-            const { data: dbStudent, error: studentError } = await supabase
-                .from('students')
-                .select('*')
-                .eq('id', id)
-                .single();
-
-            if (studentError) throw studentError;
+            const dbStudent = await api.getStudentProfile(id.toString());
 
             if (dbStudent) {
                 currentStudent = {
                     ...dbStudent,
-                    name: dbStudent.name || `${dbStudent.first_name || ''} ${dbStudent.last_name || ''}`.trim(),
-                    school_generated_id: dbStudent.school_generated_id,
-                    admission_number: dbStudent.school_generated_id || dbStudent.admission_number || 'Pending'
+                    name: dbStudent.name || `${dbStudent.firstName || dbStudent.first_name || ''} ${dbStudent.lastName || dbStudent.last_name || ''}`.trim(),
+                    school_generated_id: dbStudent.schoolGeneratedId || dbStudent.school_generated_id,
+                    admission_number: dbStudent.schoolGeneratedId || dbStudent.school_generated_id || dbStudent.admission_number || 'Pending',
+                    grade: dbStudent.grade || dbStudent.class_name?.match(/\d+/)?.[0] || '10',
+                    section: dbStudent.section || dbStudent.class_name?.match(/[A-Z]$/)?.[0] || 'A'
                 };
                 setStudent(currentStudent);
             }
@@ -733,3 +729,4 @@ function EventItem({ date, title, time }: any) {
         </div>
     );
 }
+

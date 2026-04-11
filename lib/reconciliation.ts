@@ -3,7 +3,7 @@
  * Automates daily audits, chargeback detection, and department split monitoring.
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { Transaction, Fee } from '../types';
 
 export interface AuditReport {
@@ -25,7 +25,7 @@ export async function generateDailyAuditReport(
 ): Promise<AuditReport | null> {
     try {
         // Fetch all transactions for the day
-        const { data: transactions, error: txError } = await supabase
+        const { data: transactions, error: txError } = await api
             .from('transactions')
             .select('*')
             .eq('school_id', schoolId)
@@ -35,7 +35,7 @@ export async function generateDailyAuditReport(
         if (txError) throw txError;
 
         // Fetch all fees due or updated today
-        const { data: fees, error: feeError } = await supabase
+        const { data: fees, error: feeError } = await api
             .from('student_fees')
             .select('*')
             .eq('school_id', schoolId);
@@ -71,7 +71,7 @@ export async function detectChargebacks(schoolId: string): Promise<string[]> {
     // In a production environment, this would call Paystack/Flutterwave APIs 
     // to check for 'reversed' or 'refunded' statuses that haven't been updated locally.
     
-    const { data: reversals, error } = await supabase
+    const { data: reversals, error } = await api
         .from('transactions')
         .select('id, reference')
         .eq('school_id', schoolId)
@@ -111,3 +111,4 @@ export function generateUSSDReference(studentCode: string): string {
     // Example: *5573*1*STUDENT_CODE#
     return `*5573*1*${studentCode}#`;
 }
+

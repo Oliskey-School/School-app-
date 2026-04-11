@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 /**
  * AuthCallback Component
- * Specifically designed to handle Supabase Auth verification redirects.
- * Extracts tokens from the URL (handling double-hash edge cases) and 
- * redirects the user to their appropriate dashboard based on metadata.
+ * Refactored to use custom backend API for verification.
+ * Extracts tokens from the URL and verifies them with our server.
  */
 const AuthCallback: React.FC = () => {
     const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
@@ -18,90 +17,56 @@ const AuthCallback: React.FC = () => {
             try {
                 console.log('🔄 AuthCallback triggered. Parsing URL...');
 
-                // 1. Extract tokens and params
-                // We use a robust regex/manual split to handle potential double-hashes like /#/auth/callback#access_token=...
                 const fullUrl = window.location.href;
                 let params = new URLSearchParams();
 
                 if (fullUrl.includes('access_token')) {
-                    // Handle fragment identifying tokens specifically
                     const fragment = fullUrl.substring(fullUrl.indexOf('access_token'));
                     params = new URLSearchParams(fragment);
                 } else if (window.location.search) {
-                    // Fallback to standard query params (PKCE/OTP)
                     params = new URLSearchParams(window.location.search);
                 }
 
-                const accessToken = params.get('access_token');
-                const refreshToken = params.get('refresh_token');
+                const accessToken = params.get('access_token') || params.get('token') || params.get('code');
+                const type = params.get('type') || 'signup';
                 const errorCode = params.get('error');
                 const errorDescription = params.get('error_description');
 
-                // Check for oauth/signup errors passed in URL
                 if (errorCode || errorDescription) {
                     throw new Error(errorDescription?.replace(/\+/g, ' ') || 'Authentication failed');
                 }
 
-                // Helper to sync confirmation to our database
-                const syncConfirmation = async (userId: string) => {
-                    try {
-                        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                        await fetch(`${API_URL}/auth/confirm-email`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId })
-                        });
-                    } catch (e) {
-                        console.error('Failed to sync confirmation to backend:', e);
-                    }
-                };
-
-                // 2. Set the session if tokens are found
-                if (accessToken && refreshToken) {
-                    console.log('🔑 Tokens found, setting session...');
-                    const { data, error: sessionError } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
-
-                    if (sessionError) throw sessionError;
-
-                    if (data.session) {
-                        const role = data.session.user.user_metadata?.role || 'admin';
-                        console.log(`✅ Session verified. User Role: ${role}`);
-
-                        // Sync confirmation to backend (transfers auth.users email to public.users)
-                        await syncConfirmation(data.session.user.id);
-
-                        setStatus('success');
-                        setMessage('Verification successful! Welcome.');
-                        localStorage.setItem('show_welcome_toast', 'true');
-
-                        // 3. Perform role-based redirection
-                        setTimeout(() => {
-                            // Priority redirect for admins as requested
-                            if (role === 'admin' || role === 'proprietor') {
-                                window.location.href = '/admin/dashboard';
-                            } else {
-                                window.location.href = '/'; // Default dash router handles others
-                            }
-                        }, 1500);
-                        return;
-                    }
+                if (!accessToken) {
+                    throw new Error('No valid session or tokens found in verification link.');
                 }
 
-                // 4. Fallback: Check if session already exists (Supabase might have handled it via detectSessionInUrl)
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
+                console.log('🔑 Token found, verifying with backend...');
+                
+                // Verify with our custom backend
+                const response = await api.verifyToken(accessToken, type);
+
+                if (response.user) {
+                    if (response.token) {
+                        localStorage.setItem('auth_token', response.token);
+                    }
+
+                    const role = response.user.role || 'admin';
+                    console.log(`✅ Verified. User Role: ${role}`);
+
                     setStatus('success');
-                    setMessage('Already signed in. Redirecting...');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
-                    return;
-                }
+                    setMessage('Verification successful! Welcome.');
+                    localStorage.setItem('show_welcome_toast', 'true');
 
-                throw new Error('No valid session or tokens found in verification link.');
+                    setTimeout(() => {
+                        if (role.toLowerCase().includes('admin') || role.toLowerCase() === 'proprietor') {
+                            window.location.href = '/'; // DashboardRouter handles it
+                        } else {
+                            window.location.href = '/'; 
+                        }
+                    }, 1500);
+                } else {
+                    throw new Error('Verification succeeded but no user data returned.');
+                }
 
             } catch (err: any) {
                 console.error('❌ AuthCallback Error:', err);

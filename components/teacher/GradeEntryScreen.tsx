@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Exam, Student } from '../../types';
 import { CheckCircleIcon } from '../../constants';
-import { api } from '../../lib/api';
+
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 
@@ -64,30 +63,17 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
             if (!currentSchool?.id) return;
             setLoading(true);
             try {
-                // 1. Fetch Students
-                let studentQuery = supabase
-                    .from('students')
-                    .select('*')
-                    .eq('school_id', currentSchool.id)
-                    .eq('grade', gradeSection.grade);
-
-                if (currentSchool.branch_id) {
-                    studentQuery = studentQuery.eq('branch_id', currentSchool.branch_id);
-                }
-
-                if (gradeSection.section && gradeSection.section !== 'null' && gradeSection.section !== '') {
-                    studentQuery = studentQuery.eq('section', gradeSection.section);
-                } else {
-                    studentQuery = studentQuery.is('section', null);
-                }
-
-                const { data: studentsData, error } = await studentQuery.order('name');
-
-                if (error) throw error;
+                // 1. Fetch Students using backend API
+                const studentsData = await api.getStudentsByClass(
+                    currentSchool.id,
+                    gradeSection.grade.toString(),
+                    gradeSection.section
+                );
 
                 const loadedStudents = studentsData.map((s: any) => ({
                     ...s,
-                    avatarUrl: s.avatar_url
+                    avatarUrl: s.avatar_url,
+                    schoolGeneratedId: s.school_generated_id
                 }));
                 setStudents(loadedStudents);
 

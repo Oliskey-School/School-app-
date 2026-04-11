@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Quiz, Student } from '../../types';
+import { api } from '../../lib/api';
+import { Student } from '../../types';
 import { SUBJECT_COLORS, HelpIcon, ChevronRightIcon, ClockIcon, ExamIcon, ClipboardListIcon, CheckCircleIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 
@@ -16,7 +15,6 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
   const [activeCategory, setActiveCategory] = useState<QuizCategory>('cbt');
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchContent();
@@ -27,102 +25,36 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
     setLoading(true);
 
     try {
-      // Timeout Promise
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
+      const [quizzesData, submissions] = await Promise.all([
+        api.getQuizzes(student.grade, student.section),
+        api.getMyQuizResults()
+      ]);
 
-      // Wrap the fetch logic in a promise or just race the execution? 
-      // Since the original logic is sequential (await exams, then await submissions), proper racing requires wrapping the whole logic.
-      // A simpler way is to just throw if it takes too long.
+      const subMap: Record<string, any> = {};
+      submissions?.forEach((s: any) => { subMap[s.quiz_id] = s; });
 
-      const loadData = async () => {
-        let loadedItems: any[] = [];
+      const filteredItems = (quizzesData || [])
+        .filter((q: any) => {
+          const isExam = q.type === 'EXAM' || q.type === 'TEST' || q.is_cbt;
+          if (activeCategory === 'cbt' && !isExam) return false;
+          if (activeCategory === 'quiz' && isExam) return false;
+          return true;
+        })
+        .map((q: any) => ({
+          id: q.id,
+          title: q.title,
+          subject: q.subject?.name || q.subject_id || 'General',
+          className: q.class ? `Grade ${q.class.grade}${q.class.section || ''}` : `Grade ${q.grade || ''}`,
+          durationMinutes: q.duration_minutes,
+          submission: subMap[q.id],
+          type: activeCategory
+        }));
 
-        // Unified fetch from 'quizzes' table
-        const effectiveSchoolId = student.schoolId || (student as any).school_id || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
-        let query = supabase
-          .from('quizzes')
-          .select(`
-              *,
-              classes ( id, grade, section ),
-              subjects ( name )
-          `)
-          .eq('school_id', effectiveSchoolId)
-          .eq('is_published', true)
-          .order('created_at', { ascending: false });
-
-        const { data: quizzesData, error: quizError } = await query;
-        if (quizError) throw quizError;
-
-        // Fetch submissions
-        const { data: submissions } = await supabase
-          .from('quiz_submissions')
-          .select('quiz_id, score, status')
-          .eq('student_id', student.id);
-
-        const subMap: Record<string, any> = {};
-        submissions?.forEach(s => { subMap[s.quiz_id] = s; });
-
-        // Filter and map
-        loadedItems = (quizzesData || [])
-          .filter((q: any) => {
-            // Category filtering
-            const isExam = q.description === 'Exam' || q.description === 'Test';
-            if (activeCategory === 'cbt' && !isExam) return false;
-            if (activeCategory === 'quiz' && isExam) return false;
-
-            // Class filtering
-            if (q.classes) {
-              return String(q.classes.grade) === String(student.grade) &&
-                (!q.classes.section || !student.section || q.classes.section === student.section);
-            }
-            // Fallback grade filter
-            if (q.grade) {
-              return String(q.grade) === String(student.grade);
-            }
-            return true; // Default to showing if no class/grade restriction
-          })
-          .map((q: any) => ({
-            id: q.id,
-            title: q.title,
-            subject: q.subjects?.name || q.subject || 'General',
-            className: q.classes ? `Grade ${q.classes.grade}${q.classes.section || ''}` : `Grade ${q.grade || ''}`,
-            durationMinutes: q.duration_minutes,
-            submission: subMap[q.id],
-            type: activeCategory
-          }));
-
-        return loadedItems;
-      };
-
-      // Race the actual load against timeout
-      const resultItems = await Promise.race([loadData(), timeoutPromise]) as any[];
-
-      // If result is empty, maybe fallback to demo if we suspect issue?
-      // Or just empty is fine. But for now let's set it.
-      setItems(resultItems);
-      // Wait, if resultItems is empty, should we show demo?
-      // If user is demo maybe?
-      if (resultItems.length === 0) {
-        // Optional: Inject demo if empty? Let's assume empty is valid.
-        // BUT if we threw Timeout, we hit catch block.
-      }
+      setItems(filteredItems);
 
     } catch (err: any) {
-      console.warn('Error or timeout fetching content, showing fallback:', err);
-      // Fallback Demo Items
-      if (activeCategory === 'cbt') {
-        setItems([
-          { id: 'demo1', title: 'Mid-Term Mathematics', subject: 'Mathematics', className: `Grade ${student.grade}A`, durationMinutes: 60, type: 'cbt' },
-          { id: 'demo2', title: 'Physics Theory', subject: 'Physics', className: `Grade ${student.grade}A`, durationMinutes: 45, type: 'cbt' }
-        ]);
-      } else {
-        setItems([
-          { id: 'demo3', title: 'English Vocab Quiz', subject: 'English', durationMinutes: 15, type: 'quiz' },
-          { id: 'demo4', title: 'Biology Basics', subject: 'Biology', durationMinutes: 20, type: 'quiz' }
-        ]);
-      }
-      setError('general_error'); // Keeps error state but we populated items so user sees something
+      console.warn('Error fetching quizzes:', err);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -147,7 +79,6 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <main className="flex-grow p-4 space-y-6 overflow-y-auto pb-24">
-
         {/* Category Selector */}
         <div className="space-y-3">
           <button
@@ -262,12 +193,6 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
                             <span className="flex items-center bg-gray-50 px-2 py-0.5 rounded-md">
                               <ClockIcon className="w-3.5 h-3.5 mr-1 text-gray-400" />
                               {item.durationMinutes}m
-                            </span>
-                          )}
-                          {item.submission && (
-                            <span className="px-2 py-0.5 font-bold text-green-700 bg-green-100 rounded-lg border border-green-200 flex items-center gap-1">
-                              <CheckCircleIcon className="w-3.5 h-3.5" />
-                              {item.submission.score}%
                             </span>
                           )}
                         </div>

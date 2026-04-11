@@ -1,9 +1,9 @@
-import { supabase as supabaseAdmin } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class ResourceService {
     static async createResource(schoolId: string, branchId: string | undefined, resourceData: any) {
-        // Teacher submitting a resource. Uses Admin privileges to bypass RLS.
-        const insertData = {
+        const insertData: any = {
             ...resourceData,
             school_id: schoolId
         };
@@ -12,37 +12,46 @@ export class ResourceService {
             insertData.branch_id = branchId;
         }
 
-        const { data, error } = await supabaseAdmin
-            .from('resources')
-            .insert([insertData])
-            .select()
-            .single();
+        const resource = await prisma.resource.create({
+            data: insertData,
+            include: { teacher: { select: { full_name: true } } }
+        });
 
-        if (error) throw error;
-        return data;
+        SocketService.emitToSchool(schoolId, 'resource:updated', { action: 'create', resourceId: resource.id });
+        return resource;
     }
 
     static async getResources(schoolId: string, branchId: string | undefined, filters: any = {}) {
-        let query = supabaseAdmin
-            .from('resources')
-            .select('*, teacher:teachers(name)')
-            .eq('school_id', schoolId);
+        const where: any = { school_id: schoolId };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.branch_id = branchId;
         }
 
         if (filters.category) {
-            query = query.eq('category', filters.category);
+            where.category = filters.category;
         }
 
         if (filters.subject) {
-            query = query.eq('subject', filters.subject);
+            where.subject = filters.subject;
         }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+        return prisma.resource.findMany({
+            where,
+            include: { teacher: { select: { full_name: true } } },
+            orderBy: { created_at: 'desc' }
+        });
+    }
 
-        if (error) throw error;
-        return data || [];
+    static async deleteResource(id: string) {
+        const resource = await prisma.resource.findUnique({ where: { id } });
+        const result = await prisma.resource.delete({
+            where: { id }
+        });
+
+        if (resource) {
+            SocketService.emitToSchool(resource.school_id, 'resource:updated', { action: 'delete', resourceId: id });
+        }
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { TrendingUp, Target, TrendingDown, Award, Users } from 'lucide-react';
 
 interface GradeDistribution {
@@ -51,6 +52,11 @@ const AcademicAnalytics: React.FC<AcademicAnalyticsProps> = ({ schoolId, current
             fetchAnalytics();
         }
     }, [selectedTerm, selectedClass, schoolId, currentBranchId]);
+
+    useAutoSync(['academic_results', 'student_results', 'attendance', 'students', 'classes'], () => {
+        console.log('🔄 [AcademicAnalytics] Real-time auto-sync triggered');
+        fetchAnalytics();
+    });
 
     const fetchAnalytics = async () => {
         try {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -45,7 +45,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
         setSubmitting(true);
 
         try {
-            const user = (await supabase.auth.getUser()).data.user;
+            const user = (await api.auth.getUser()).data.user;
 
             // Create transactions for each student
             const transactions = selectedStudents.map(studentId => ({
@@ -57,7 +57,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
                 awarded_by: user?.id
             }));
 
-            const { error: transError } = await supabase
+            const { error: transError } = await api
                 .from('point_transactions')
                 .insert(transactions);
 
@@ -65,14 +65,14 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
 
             // Update each student's points
             for (const studentId of selectedStudents) {
-                const { data: currentPoints } = await supabase
+                const { data: currentPoints } = await api
                     .from('student_points')
                     .select('points, total_earned')
                     .eq('student_id', studentId)
                     .single();
 
                 if (currentPoints) {
-                    await supabase
+                    await api
                         .from('student_points')
                         .update({
                             points: currentPoints.points + points,
@@ -81,7 +81,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
                         .eq('student_id', studentId);
                 } else {
                     // Create if doesn't exist
-                    await supabase
+                    await api
                         .from('student_points')
                         .insert({
                             student_id: studentId,
@@ -246,3 +246,4 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
 };
 
 export default AwardPoints;
+

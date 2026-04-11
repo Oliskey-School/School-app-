@@ -3,7 +3,7 @@
  * Handles channel creation, message posting, and read receipts
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 
 export interface MessagingChannel {
     id: string;
@@ -48,17 +48,15 @@ export async function createChannel(params: {
     grade?: string;
 }): Promise<MessagingChannel | null> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await api.auth.getUser();
         if (!user) return null;
 
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('messaging_channels')
             .insert({
                 ...params,
                 created_by: user.id
-            })
-            .select()
-            .single();
+            });
 
         if (error) throw error;
         return data;
@@ -73,12 +71,9 @@ export async function createChannel(params: {
  */
 export async function getUserChannels(): Promise<MessagingChannel[]> {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('messaging_channels')
-            .select(`
-        *,
-        channel_members!inner(user_id)
-      `)
+            .select(`*`) // Joint selects handled by backend or simplified
             .eq('is_active', true)
             .order('created_at', { ascending: false });
 
@@ -101,10 +96,10 @@ export async function postChannelMessage(params: {
     notify?: boolean;
 }): Promise<ChannelMessage | null> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await api.auth.getUser();
         if (!user) return null;
 
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('channel_messages')
             .insert({
                 channel_id: params.channel_id,
@@ -112,9 +107,7 @@ export async function postChannelMessage(params: {
                 content: params.content,
                 message_type: params.message_type || 'text',
                 priority: params.priority || 'normal'
-            })
-            .select()
-            .single();
+            });
 
         if (error) throw error;
 
@@ -138,17 +131,9 @@ export async function getChannelMessages(
     limit: number = 50
 ): Promise<ChannelMessage[]> {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('channel_messages')
-            .select(`
-        *,
-        sender:sender_id (
-          full_name,
-          role,
-          avatar_url
-        ),
-        message_read_receipts(count)
-      `)
+            .select(`*`)
             .eq('channel_id', channel_id)
             .order('created_at', { ascending: false })
             .limit(limit);
@@ -166,7 +151,7 @@ export async function getChannelMessages(
  */
 export async function markMessageAsRead(message_id: string): Promise<boolean> {
     try {
-        const { error } = await supabase.rpc('mark_message_read', {
+        const { error } = await api.rpc('mark_message_read', {
             msg_id: message_id
         });
 
@@ -183,16 +168,9 @@ export async function markMessageAsRead(message_id: string): Promise<boolean> {
  */
 export async function getMessageReadReceipts(message_id: string) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('message_read_receipts')
-            .select(`
-        *,
-        user:user_id (
-          full_name,
-          role,
-          avatar_url
-        )
-      `)
+            .select(`*`)
             .eq('message_id', message_id)
             .order('read_at', { ascending: false });
 
@@ -209,7 +187,7 @@ export async function getMessageReadReceipts(message_id: string) {
  */
 export async function getMessageDeliveryStatus(message_id: string) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('message_delivery')
             .select('*')
             .eq('message_id', message_id);
@@ -218,13 +196,13 @@ export async function getMessageDeliveryStatus(message_id: string) {
 
         const stats = {
             total: data.length,
-            sent: data.filter(d => d.status === 'sent' || d.status === 'delivered').length,
-            delivered: data.filter(d => d.status === 'delivered').length,
-            failed: data.filter(d => d.status === 'failed').length,
+            sent: data.filter((d: any) => d.status === 'sent' || d.status === 'delivered').length,
+            delivered: data.filter((d: any) => d.status === 'delivered').length,
+            failed: data.filter((d: any) => d.status === 'failed').length,
             by_channel: {
-                push: data.filter(d => d.channel === 'push').length,
-                sms: data.filter(d => d.channel === 'sms').length,
-                email: data.filter(d => d.channel === 'email').length
+                push: data.filter((d: any) => d.channel === 'push').length,
+                sms: data.filter((d: any) => d.channel === 'sms').length,
+                email: data.filter((d: any) => d.channel === 'email').length
             }
         };
 
@@ -236,7 +214,7 @@ export async function getMessageDeliveryStatus(message_id: string) {
 }
 
 /**
- * Notify channel members (via Edge Function)
+ * Notify channel members (via Backend API)
  */
 async function notifyChannelMembers(
     channel_id: string,
@@ -245,25 +223,23 @@ async function notifyChannelMembers(
 ): Promise<void> {
     try {
         // Get channel members
-        const { data: members } = await supabase
+        const { data: members } = await api
             .from('channel_members')
             .select('user_id')
             .eq('channel_id', channel_id);
 
         if (!members || members.length === 0) return;
 
-        const userIds = members.map(m => m.user_id);
+        const userIds = members.map((m: any) => m.user_id);
 
-        // Send notification via Edge Function
-        await supabase.functions.invoke('send-notification', {
-            body: {
-                userIds,
-                title: 'New Channel Message',
-                body: content.substring(0, 100),
-                urgency: 'normal',
-                channel: 'push',
-                url: `/messages?channel=${channel_id}`
-            }
+        // Send notification via API
+        await api.post('/notifications/send', {
+            userIds,
+            title: 'New Channel Message',
+            body: content.substring(0, 100),
+            urgency: 'normal',
+            channel: 'push',
+            url: `/messages?channel=${channel_id}`
         });
     } catch (error) {
         console.error('Notify members error:', error);
@@ -272,28 +248,27 @@ async function notifyChannelMembers(
 
 /**
  * Subscribe to realtime channel messages
+ * (Shimmed to use polling or empty depending on backend capability)
  */
 export function subscribeToChannel(
     channel_id: string,
     callback: (message: ChannelMessage) => void
 ) {
-    const channel = supabase
-        .channel(`channel-${channel_id}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'channel_messages',
-                filter: `channel_id=eq.${channel_id}`
-            },
-            (payload) => {
-                callback(payload.new as ChannelMessage);
+    console.log(`📡 Realtime subscription for channel ${channel_id} (Shimmed to Polling)`);
+    
+    const intervalId = setInterval(async () => {
+        try {
+            const messages = await getChannelMessages(channel_id, 1);
+            if (messages && messages.length > 0) {
+                callback(messages[0]);
             }
-        )
-        .subscribe();
+        } catch (e) {
+            // Ignore polling errors
+        }
+    }, 10000); // Poll every 10 seconds
 
     return () => {
-        supabase.removeChannel(channel);
+        clearInterval(intervalId);
     };
 }
+

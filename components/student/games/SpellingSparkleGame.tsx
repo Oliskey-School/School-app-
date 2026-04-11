@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { SparklesIcon, MicIcon, UserIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface SpellingSparkleGameProps {
     onBack: () => void;
@@ -226,11 +227,35 @@ const SpellingSparkleGame: React.FC<SpellingSparkleGameProps> = ({ onBack }) => 
         addXP(100);
         unlockBadge('spelling-bee-champ');
         confetti({ particleCount: 200, spread: 100 });
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'spelling-sparkle',
+            game_name: 'Spelling Sparkle',
+            score: score,
+            metadata: {
+                outcome: 'victory',
+                rounds: round,
+                finalWord: currentWord
+            }
+        }).catch(err => console.error("Failed to save sparkle score:", err));
     };
 
     const handleGameOver = () => {
         setGameState('GAMEOVER');
         speak("Game Over!");
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'spelling-sparkle',
+            game_name: 'Spelling Sparkle',
+            score: score,
+            metadata: {
+                outcome: 'eliminated',
+                rounds: round,
+                finalWord: currentWord
+            }
+        }).catch(err => console.error("Failed to save sparkle score:", err));
     };
 
     // Render Logic

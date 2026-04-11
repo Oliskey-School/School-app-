@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { VirtualClass } from '../../types-additional';
 import { toast } from 'react-hot-toast';
 import { VideoCameraIcon, CalendarIcon, ClockIcon } from '../../constants';
+import api from '../../lib/api';
 
 interface VirtualClassroomProps {
     userRole: 'teacher' | 'student';
@@ -17,35 +17,15 @@ const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId })
 
     useEffect(() => {
         fetchClasses();
-
-        // REAL-TIME LISTENER for the classroom list
-        const channel = supabase.channel('virtual-classroom-list')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'virtual_class_sessions' }, () => {
-                fetchClasses();
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
     }, []);
 
     const fetchClasses = async () => {
         try {
-            let query = supabase
-                .from('virtual_class_sessions')
-                .select('*, teacher:teachers(name)')
-                .order('start_time', { ascending: false });
-
-            if (userRole === 'teacher') {
-                query = query.eq('teacher_id', userId);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-
+            setLoading(true);
+            const data = await api.getVirtualClasses(userId, userRole);
             setClasses(data || []);
         } catch (error) {
             console.error('Error fetching classes:', error);
-            // toast.error('Failed to load classes');
         } finally {
             setLoading(false);
         }
@@ -57,14 +37,9 @@ const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId })
 
         // Record attendance if student
         if (userRole === 'student') {
-            supabase
-                .from('class_attendance_virtual')
-                .upsert({
-                    session_id: session.id,
-                    student_id: userId,
-                    joined_at: new Date().toISOString()
-                })
-                .then(() => console.log('Attendance recorded'));
+            api.recordVirtualAttendance(session.id, userId)
+                .then(() => console.log('Attendance recorded'))
+                .catch(err => console.error('Failed to record attendance', err));
         }
     };
 

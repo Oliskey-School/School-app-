@@ -38,27 +38,36 @@ const AttendanceStatusIndicator: React.FC<{ status: AttendanceStatus }> = ({ sta
   }
 };
 
-const StudentRow: React.FC<{ student: Student; onSelect: (student: Student) => void; }> = ({ student, onSelect }) => (
-  <button
-    key={student.id}
-    onClick={() => onSelect(student)}
-    className="w-full text-left bg-white rounded-lg p-2 flex items-center space-x-3 transition-all hover:bg-gray-100 ring-1 ring-gray-100"
-    aria-label={`View profile for ${student.name}`}
-  >
-    <img
-      src={student.avatarUrl}
-      alt={student.name}
-      className="w-10 h-10 rounded-full object-cover"
-      loading="lazy"
-    />
-    <div className="flex-grow min-w-0">
-      <p className="font-bold text-sm text-gray-800 truncate">{student.name}</p>
-      <p className="text-xs text-gray-500">ID: {student.schoolGeneratedId || 'Pending'}</p>
+const StudentRow: React.FC<{ student: any; onSelect: (student: Student) => void; }> = ({ student, onSelect }) => (
+  <div className="w-full text-left bg-white rounded-lg p-2 flex items-center justify-between transition-all hover:bg-gray-100 ring-1 ring-gray-100">
+    <button
+      key={student.id}
+      onClick={() => onSelect(student)}
+      className="flex items-center space-x-3 flex-grow min-w-0"
+      aria-label={`View profile for ${student.name}`}
+    >
+      <img
+        src={student.avatarUrl || student.avatar_url || `https://ui-avatars.com/api/?name=${student.name}`}
+        alt={student.name}
+        className="w-10 h-10 rounded-full object-cover"
+        loading="lazy"
+      />
+      <div className="flex-grow min-w-0 text-left">
+        <p className="font-bold text-sm text-gray-800 truncate">{student.name || student.full_name}</p>
+        <p className="text-xs text-gray-500">
+          ID: {student.schoolGeneratedId || student.school_generated_id || 'Pending'}
+          {(student.user?.initial_password || student.initial_password) && (
+             <span className="ml-2 text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded text-[10px]">
+               Pass: {student.user?.initial_password || student.initial_password}
+             </span>
+          )}
+        </p>
+      </div>
+    </button>
+    <div className="flex items-center space-x-3 px-2">
+      <AttendanceStatusIndicator status={student.attendanceStatus || student.status} />
     </div>
-    <div className="flex items-center space-x-3">
-      <AttendanceStatusIndicator status={student.attendanceStatus} />
-    </div>
-  </button>
+  </div>
 );
 
 const StageAccordion: React.FC<{ title: string; count: number; children: React.ReactNode, defaultOpen?: boolean }> = ({ title, count, children, defaultOpen = false }) => {
@@ -163,15 +172,17 @@ const StudentListScreen: React.FC<StudentListScreenProps> = ({ filter, navigateT
         id: s.id,
         schoolId: s.school_id || s.schoolId,
         schoolGeneratedId: s.school_generated_id || s.schoolGeneratedId,
-        name: s.name,
+        name: s.name || s.full_name || '',
         email: s.email || '',
-        avatarUrl: s.avatar_url || s.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.name}`,
+        avatarUrl: s.avatar_url || s.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${s.name || s.full_name || 'student'}`,
         grade: s.grade,
         section: s.section,
         department: s.department,
         attendanceStatus: s.attendance_status || s.attendanceStatus || 'Absent',
         birthday: s.birthday,
-        classId: s.class_id || s.classId
+        classId: s.class_id || s.classId,
+        status: s.status,
+        initial_password: s.user?.initial_password || s.initial_password
       }));
     },
     enabled: !!schoolId,

@@ -1,163 +1,54 @@
-import { supabase } from '../lib/supabase';
 import { showNotification } from '../components/shared/notifications';
-import { offlineDB, TableName } from '../lib/offlineDatabase';
-import { syncEngine } from '../lib/syncEngine';
+import { api } from '../lib/api';
 
+/**
+ * Service to handle background polling for global updates
+ * (Previously Supabase Realtime)
+ */
 class RealtimeService {
-    private channel: any;
+    private interval: NodeJS.Timeout | null = null;
     private userId: string | null = null;
     private schoolId: string | null = null;
-    private branchId: string | null = null;
+    private lastNotificationId: string | number | null = null;
 
-    constructor() { }
-
-    initialize(userId: string, schoolId: string, branchId?: string | null) {
-        if (this.channel) {
-            if (this.userId === userId && this.schoolId === schoolId && this.branchId === branchId) return;
-            this.destroy();
-        }
+    initialize(userId: string, schoolId: string) {
+        if (this.interval) this.destroy();
 
         this.userId = userId;
         this.schoolId = schoolId;
-        this.branchId = branchId || null;
 
-        console.log(`🔌 Initializing Global Realtime Service for School: ${schoolId}, Branch: ${branchId || 'All'}`);
+        console.log(`🔌 Initializing Global Background Polling for School: ${schoolId}`);
 
-        // Construct filter
-        let filter = `school_id=eq.${schoolId}`;
-        if (branchId && branchId !== 'all') {
-            filter += `,branch_id=eq.${branchId}`;
-        }
-
-        this.channel = supabase.channel('global_changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', filter },
-                (payload) => {
-                    const table = (payload as any).table;
-                    console.log(`📥 Realtime Update [${table}]:`, payload.eventType);
-                    this.handleDataUpdate(table as any, payload);
-
-                    // Specific toast for messages
-                    if (table === 'messages' && payload.eventType === 'INSERT' && payload.new.sender_id !== userId) {
-                        showNotification('New Message', {
-                            body: payload.new.content || 'You have a new message'
-                        });
-                    }
-
-                    // Specific toast for notices
-                    if (table === 'notices' && payload.eventType === 'INSERT') {
-                        showNotification('New School Notice', {
-                            body: payload.new.title || 'Check the dashboard'
-                        });
-                    }
-
-                    // Specific toast for notifications
-                    if (table === 'notifications' && payload.eventType === 'INSERT') {
-                        const audience = Array.isArray(payload.new.audience) ? payload.new.audience : [payload.new.audience];
-                        const lowercaseAudience = audience.map((a: string) => (a || '').toLowerCase());
-
-                        if (payload.new.user_id === userId ||
-                            lowercaseAudience.includes('all') ||
-                            lowercaseAudience.includes('admin') ||
-                            lowercaseAudience.includes('teacher') ||
-                            lowercaseAudience.includes('parent') ||
-                            lowercaseAudience.includes('student')) {
-
-                            showNotification(payload.new.title || 'New Notification', {
-                                body: payload.new.message || 'You have a new update'
-                            });
-                        }
-                    }
-                }
-            )
-            .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log(`✅ [Realtime] Connected to Global Channel (School: ${this.schoolId})`);
-                }
-                if (status === 'CHANNEL_ERROR') {
-                    console.error('❌ [Realtime] Channel Error:', err);
-                }
-                if (status === 'TIMED_OUT') {
-                    console.warn('⚠️ [Realtime] Subscription timed out. Retrying in 2s...');
-                    setTimeout(() => {
-                        if (this.userId && this.schoolId) {
-                            this.initialize(this.userId, this.schoolId, this.branchId);
-                        }
-                    }, 2000);
-                }
-
-            });
+        // Start polling for notifications every 30 seconds
+        this.interval = setInterval(() => this.pollUpdates(), 30000);
+        this.pollUpdates(); // Initial poll
     }
 
-    private async handleDataUpdate(table: TableName, payload: any) {
+    private async pollUpdates() {
+        if (!this.schoolId) return;
+
         try {
-            // Tenant Isolation Check: Only process updates for the current school
-            // Note: payload.new or payload.old might have school_id
-            const record = payload.new || payload.old;
-            const recordSchoolId = record?.school_id;
-
-            if (recordSchoolId && this.schoolId && String(recordSchoolId) !== String(this.schoolId)) {
-                // Ignore updates from other schools (tenant isolation)
-                return;
-            }
-
-            // Update Offline DB if table exists in schema
-            const knownTables: string[] = [
-                'students', 'teachers', 'parents', 'users', 'classes', 'subjects',
-                'timetable', 'conversations', 'assignments', 'grades',
-                'attendance_records', 'student_attendance', 'teacher_attendance', 'notices', 'messages', 'schools',
-                'branches', 'notifications', 'class_teachers', 'teacher_subjects',
-                'generated_resources'
-            ];
-
-            if (knownTables.includes(table as string)) {
-                switch (payload.eventType) {
-                    case 'INSERT':
-                    case 'UPDATE':
-                        await offlineDB.upsert(table, payload.new.id, payload.new, {
-                            syncStatus: 'synced',
-                            lastSynced: Date.now()
-                        });
-
-                        // Show specific toasts for record changes
-                        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-                            if (table === 'classes' || (table as string) === 'class_teachers') {
-                                showNotification('Academic Update', { body: 'A class or teacher assignment has been updated.' });
-                            } else if (table === 'grades') {
-                                showNotification('Grades Updated', { body: 'New grades have been recorded or modified.' });
-                            } else if (table === 'attendance_records') {
-                                showNotification('Attendance Update', { body: 'An attendance record has been updated.' });
-                            } else if (table === 'timetable' && payload.new.status === 'Published') {
-                                showNotification('Timetable Updated', { body: 'Your class timetable has been updated or published.' });
-                            }
-                        }
-                        break;
-                    case 'DELETE':
-                        await offlineDB.delete(table, payload.old.id);
-                        break;
+            // Check for new notifications via centralized API with school context
+            const notifications = await api.getMyNotifications(this.schoolId);
+            
+            if (notifications && notifications.length > 0) {
+                const latest = notifications[0];
+                if (latest.id !== this.lastNotificationId) {
+                    this.lastNotificationId = latest.id;
+                    showNotification(latest.title || 'New Notification', {
+                        body: latest.message || 'You have a new update'
+                    });
                 }
-            }
-
-            // Notify SyncEngine
-            (syncEngine as any).emit('realtime-update', { table, record: payload.new || payload.old });
-
-            // Notify UI via Window Event
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('realtime-update', {
-                    detail: { table, record: payload.new || payload.old, eventType: payload.eventType }
-                }));
             }
         } catch (err) {
-            console.error(`❌ Failed to apply realtime update to ${table}:`, err);
+            // Silent failure for background polling
         }
     }
 
-
     destroy() {
-        if (this.channel) {
-            supabase.removeChannel(this.channel);
-            this.channel = null;
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = null;
         }
         this.userId = null;
         this.schoolId = null;
@@ -165,3 +56,4 @@ class RealtimeService {
 }
 
 export const realtimeService = new RealtimeService();
+export default realtimeService;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import { CheckCircle2, Circle, Camera, Info, Trophy } from 'lucide-react';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface SimpleMachineScavengerHuntGameProps {
@@ -72,6 +73,19 @@ const SimpleMachineScavengerHuntGame: React.FC<SimpleMachineScavengerHuntGamePro
                     });
                     setScore(s => s + 150);
                     addXP(150);
+
+                    // PERSIST TO DATABASE
+                    api.submitGameScore({
+                        game_id: 'simple-machine-scavenger-hunt',
+                        game_name: "Dr. Gizmo's Gadget Hunt",
+                        score: score + 150,
+                        metadata: {
+                            itemId: id,
+                            itemName: item.name,
+                            totalFound: items.filter(i => i.found).length + 1
+                        }
+                    }).catch(err => console.error("Failed to save scavenger score:", err));
+
                     return { ...item, found: true };
                 }
                 return item;

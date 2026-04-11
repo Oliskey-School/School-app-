@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -9,7 +9,7 @@ import {
     ChevronLeft,
     Building
 } from 'lucide-react';
-import api from '../../lib/api';
+
 
 type UserRole =
     | 'admin'
@@ -79,7 +79,7 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
 
         try {
             // First, validate with the RPC function
-            const { error: validationError } = await supabase.rpc('invite_staff_member', {
+            const { error: validationError } = await api.rpc('invite_staff_member', {
                 p_school_id: profile.schoolId,
                 p_email: invitationForm.email,
                 p_role: invitationForm.role,
@@ -90,7 +90,7 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
             if (validationError) throw validationError;
 
             // Use the admin API to send the invitation (with auth token)
-            const { data: sessionData } = await supabase.auth.getSession();
+            const { data: sessionData } = await api.auth.getSession();
             const token = sessionData.session?.access_token;
             const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const response = await fetch(`${apiBase}/invite-user`, {
@@ -282,3 +282,5 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
 };
 
 export default InviteStaffScreen;
+
+

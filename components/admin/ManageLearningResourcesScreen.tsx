@@ -1,13 +1,13 @@
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { TrashIcon, PlusIcon, ElearningIcon, LinkIcon, SearchIcon, VideoIcon, FilePdfIcon, CloudUploadIcon } from '../../constants';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import ResourceUploadModal from './ResourceUploadModal';
 
 const ManageLearningResourcesScreen: React.FC = () => {
-    const { user } = useAuth();
+    const { user, currentSchool, currentBranchId } = useAuth();
     const [resources, setResources] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -23,58 +23,32 @@ const ManageLearningResourcesScreen: React.FC = () => {
     }, []);
 
     const fetchResources = async () => {
+        if (!currentSchool?.id) return;
         try {
-            const { data, error } = await supabase
-                .from('resources') // V2 Table
-                .select('*')
-                .eq('school_id', user?.user_metadata?.school_id || '')
-                .order('created_at', { ascending: false });
-
-            // Fallback for empty table or error during migration transition
-            if (!data && !error) {
-                // Try legacy table if needed or just empty
-                setResources([]);
-                return;
-            }
-
-            if (error) {
-                // If error is "relation does not exist", it means V2 table isn't ready, fallback to V1 or empty
-                console.warn("V2 Resources table might not exist yet, trying legacy 'learning_resources'");
-                const { data: legacyData } = await supabase
-                    .from('learning_resources')
-                    .select('*')
-                    .eq('school_id', user?.user_metadata?.school_id || '');
-                setResources(legacyData || []);
-            } else {
-                setResources(data || []);
-            }
+            setLoading(true);
+            const data = await api.getLearningResources(currentSchool.id, currentBranchId || undefined);
+            setResources(data || []);
         } catch (err) {
             console.error('Error fetching resources:', err);
-            // Silent fail or toast
+            toast.error('Failed to load resources');
         } finally {
             setLoading(false);
         }
     };
 
-    const confirmDelete = (id: number) => {
+    const confirmDelete = (id: any) => {
         setResourceToDelete(id);
         setShowDeleteModal(true);
     };
 
     const handleDelete = async () => {
         if (resourceToDelete === null) return;
-        const id = resourceToDelete;
+        const id = resourceToDelete.toString();
         setShowDeleteModal(false);
         setResourceToDelete(null);
 
         try {
-            // Try deleting from 'resources' first
-            const { error } = await supabase.from('resources').delete().eq('id', id);
-
-            if (error) {
-                // If failed, maybe it's legacy
-                await supabase.from('learning_resources').delete().eq('id', id);
-            }
+            await api.deleteLearningResource(id);
             fetchResources();
             toast.success('Resource deleted.');
         } catch (err) {
@@ -245,3 +219,4 @@ const ManageLearningResourcesScreen: React.FC = () => {
     );
 };
 export default ManageLearningResourcesScreen;
+

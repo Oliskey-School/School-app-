@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Rocket, School, BookOpen, Users, DollarSign, CheckCircle2, ChevronRight, ChevronLeft, Layout, MapPin, Building2, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Rocket, School, BookOpen, Users, DollarSign, CheckCircle2, ChevronRight, ChevronLeft, Layout, Building2, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
 const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
     const { currentSchool } = useAuth();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [fetchLoading, setFetchLoading] = useState(true);
     const totalSteps = 4;
 
     // Form State
@@ -15,53 +16,58 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
     const [infrastructure, setInfrastructure] = useState<string[]>([]);
     const [schoolName, setSchoolName] = useState(currentSchool?.name || '');
     const [curriculumTrack, setCurriculumTrack] = useState('Dual-Track');
+    const [schoolState, setSchoolState] = useState(currentSchool?.state || 'Lagos State');
 
     const FACILITIES = [
         "Science Laboratory", "ICT Center", "Library", "Sports Field",
         "Art Studio", "Music Room", "School Clinic", "Cafeteria"
     ];
 
+    // Load existing onboarding data from Express backend
     useEffect(() => {
-        const fetchSchoolData = async () => {
-            if (!currentSchool?.id) return;
-            const { data, error } = await supabase
-                .from('schools')
-                .select('name, state, lga, infrastructure_config, onboarding_step, is_onboarded, curriculum_type')
-                .eq('id', currentSchool.id)
-                .single();
-
-            if (data) {
-                setSchoolName(data.name || '');
-                setLga(data.lga || '');
-                setInfrastructure(data.infrastructure_config?.facilities || []);
-                setCurriculumTrack(data.curriculum_type || 'Dual-Track');
-                setStep(data.onboarding_step || 1);
-                if (data.is_onboarded) {
-                    onComplete();
+        const fetchOnboardingData = async () => {
+            if (!currentSchool?.id) {
+                setFetchLoading(false);
+                return;
+            }
+            try {
+                const data = await api.getPilotOnboarding();
+                if (data) {
+                    setSchoolName(data.name || '');
+                    setSchoolState(data.state || 'Lagos State');
+                    setLga(data.lga || '');
+                    setInfrastructure((data.infrastructure_config as any)?.facilities || []);
+                    setCurriculumTrack(data.curriculum_type || 'Dual-Track');
+                    setStep(data.onboarding_step || 1);
+                    if (data.is_onboarded) {
+                        onComplete();
+                    }
                 }
+            } catch (err) {
+                console.error('Failed to load onboarding data:', err);
+                // Non-fatal — proceed with defaults
+            } finally {
+                setFetchLoading(false);
             }
         };
-        fetchSchoolData();
+        fetchOnboardingData();
     }, [currentSchool?.id]);
 
     const saveProgress = async (nextStep: number, isFinal = false) => {
-        if (!currentSchool?.id) return;
+        if (!currentSchool?.id) {
+            toast.error('School context not loaded. Please try again.');
+            return;
+        }
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('schools')
-                .update({
-                    name: schoolName,
-                    lga,
-                    curriculum_type: curriculumTrack,
-                    infrastructure_config: { facilities: infrastructure },
-                    onboarding_step: nextStep,
-                    is_onboarded: isFinal,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', currentSchool.id);
-
-            if (error) throw error;
+            await api.savePilotProgress({
+                name: schoolName,
+                lga,
+                curriculum_type: curriculumTrack,
+                infrastructure_config: { facilities: infrastructure },
+                onboarding_step: nextStep,
+                is_onboarded: isFinal
+            });
 
             if (isFinal) {
                 toast.success('🎉 Hub Onboarding Complete!');
@@ -76,7 +82,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
         }
     };
 
-    const nextStep = () => {
+    const handleNext = () => {
         if (step < totalSteps) {
             saveProgress(step + 1);
         } else {
@@ -132,7 +138,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700 italic">State / Region</label>
                                     <div className="p-2.5 bg-indigo-50 border-2 border-indigo-100 rounded-xl font-black text-indigo-600">
-                                        {currentSchool?.state || 'Lagos State'}
+                                        {schoolState}
                                     </div>
                                 </div>
                                 <div className="space-y-2">
@@ -154,7 +160,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                         <h2 className="text-xl font-bold text-gray-900 border-b pb-2 flex items-center gap-2">
                             <Building2 className="w-5 h-5 text-emerald-500" />
-                            Infrastructure & Facilities
+                            Infrastructure &amp; Facilities
                         </h2>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             {FACILITIES.map(facility => (
@@ -167,7 +173,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                                         }`}
                                 >
                                     <span className="font-medium">{facility}</span>
-                                    <div className={`w-5 h-5 border-2 rounded-md ${infrastructure.includes(facility) ? 'bg-emerald-500 border-emerald-500' : 'border-gray-200'}`}>
+                                    <div className={`w-5 h-5 border-2 rounded-md flex items-center justify-center ${infrastructure.includes(facility) ? 'bg-emerald-500 border-emerald-500' : 'border-gray-200'}`}>
                                         {infrastructure.includes(facility) && <CheckCircle2 className="w-4 h-4 text-white" />}
                                     </div>
                                 </button>
@@ -181,7 +187,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                         <h2 className="text-xl font-bold text-gray-900 border-b pb-2 flex items-center gap-2">
                             <ShieldCheck className="w-5 h-5 text-blue-500" />
-                            Governance & Board
+                            Governance &amp; Board
                         </h2>
                         <div className="space-y-4">
                             <div className="p-4 bg-gray-50 rounded-2xl flex items-center gap-4 border border-gray-100">
@@ -223,12 +229,25 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                                 <p className="text-xs text-gray-500">Flutterwave / Monnify.</p>
                             </div>
                         </div>
+                        <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                            <p className="text-sm text-amber-700 font-medium">
+                                ✓ Your school profile and infrastructure data have been saved. Click <strong>Launch Hub</strong> to complete onboarding.
+                            </p>
+                        </div>
                     </div>
                 );
             default:
                 return null;
         }
     };
+
+    if (fetchLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full" />
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-8">
@@ -246,7 +265,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                 {[...Array(totalSteps)].map((_, i) => (
                     <div
                         key={i}
-                        className={`flex-1 rounded-full transition-all duration-500 ${i + 1 <= step ? 'bg-indigo-600 scale-x-100' : 'bg-gray-100 scale-x-95'}`}
+                        className={`flex-1 rounded-full transition-all duration-500 ${i + 1 <= step ? 'bg-indigo-600' : 'bg-gray-100'}`}
                     />
                 ))}
             </div>
@@ -266,7 +285,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                         Back
                     </button>
                     <button
-                        onClick={nextStep}
+                        onClick={handleNext}
                         disabled={loading}
                         className="flex items-center gap-2 bg-gray-900 text-white px-8 py-3 rounded-2xl font-black hover:bg-black transition hover:translate-x-1 active:scale-95 shadow-lg shadow-gray-200 disabled:opacity-50"
                     >

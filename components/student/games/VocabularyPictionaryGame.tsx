@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import { PencilIcon, EraserIcon, TrashIcon, CheckIcon, RefreshCwIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface VocabularyPictionaryGameProps {
@@ -108,6 +109,18 @@ const VocabularyPictionaryGame: React.FC<VocabularyPictionaryGameProps> = ({ onB
         });
         setScore(s => s + 50);
         addXP(50);
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'vocabulary-pictionary',
+            game_name: 'Vocabulary Pictionary',
+            score: score + 50,
+            metadata: {
+                word: currentWord.word,
+                hint: currentWord.hint
+            }
+        }).catch(err => console.error("Failed to save pictionary score:", err));
+
         clearCanvas();
         setCurrentWordIndex(prev => (prev + 1) % VOCAB_WORDS.length);
     };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon, AcademicCapIcon, HomeIcon, PhoneIcon, MailIcon } from '../../constants';
+import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon, AcademicCapIcon, HomeIcon, PhoneIcon, MailIcon, DEFAULT_STANDARD_CLASSES } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { checkUserLimit } from '../../lib/usage-limits';
 
@@ -25,6 +25,8 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
         studentLastName: '',
         studentDob: '',
         studentGender: 'Male',
+        grade: -3,
+        section: 'A',
         curriculum: 'NIGERIAN' as 'NIGERIAN' | 'BRITISH' | 'DUAL'
     });
     const [uploadedDocs, setUploadedDocs] = useState<File[]>([]);
@@ -35,7 +37,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
 
     const handleSubmit = async () => {
         // Validation
-        const required = ['parentName', 'parentEmail', 'parentPhone', 'studentFirstName', 'studentLastName', 'studentDob'];
+        const required = ['parentName', 'parentEmail', 'parentPhone', 'studentFirstName', 'studentLastName', 'studentDob', 'grade', 'section'];
         const missing = required.filter(field => !formData[field as keyof typeof formData]);
 
         if (missing.length > 0) {
@@ -67,6 +69,8 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
                 parentEmail: formData.parentEmail,
                 parentPhone: formData.parentPhone,
                 parentAddress: formData.parentAddress,
+                grade: Number(formData.grade),
+                section: formData.section,
                 curriculumType: formData.curriculum === 'NIGERIAN' ? 'Nigerian' :
                     formData.curriculum === 'BRITISH' ? 'British' : 'Both',
                 documentUrls: {} // Placeholder for actual doc upload logic
@@ -168,6 +172,33 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
                                         >
                                             <option>Male</option>
                                             <option>Female</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="label text-xs sm:text-sm">Assigned Class / Grade</label>
+                                        <select
+                                            className="input-field"
+                                            value={formData.grade}
+                                            onChange={e => handleChange('grade', Number(e.target.value))}
+                                        >
+                                            {DEFAULT_STANDARD_CLASSES.map(cls => (
+                                                <option key={cls.grade} value={cls.grade}>{cls.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="label text-xs sm:text-sm">Section</label>
+                                        <select
+                                            className="input-field"
+                                            value={formData.section}
+                                            onChange={e => handleChange('section', e.target.value)}
+                                        >
+                                            <option value="A">Section A</option>
+                                            <option value="B">Section B</option>
+                                            <option value="C">Section C</option>
+                                            <option value="D">Section D</option>
+                                            <option value="E">Section E</option>
+                                            <option value="F">Section F</option>
                                         </select>
                                     </div>
                                 </div>

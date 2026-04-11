@@ -31,6 +31,13 @@ vi.mock('../../../components/layout/DashboardLayout', () => ({
     )
 }));
 
+// Mock API
+vi.mock('../../../lib/api', () => ({
+    api: {
+        getMyTeacherProfile: vi.fn().mockResolvedValue({ id: 'teacher-123', name: 'Test Teacher' })
+    }
+}));
+
 // Mock ALL views imported in TeacherDashboard to prevent them from running their own effects
 vi.mock('../TeacherOverview', () => ({ default: () => <div>Overview Content</div> }));
 

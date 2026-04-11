@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { api } from '../api';
 import { ClassInfo } from '../../types';
 
 export interface UseClassesResult {
@@ -20,22 +20,9 @@ export function useClasses(schoolId?: string): UseClassesResult {
     const fetchClasses = useCallback(async () => {
         try {
             setLoading(true);
-            let query = supabase
-                .from('classes')
-                .select('*');
+            const data = await api.getClasses(schoolId);
 
-            if (schoolId) {
-                query = query.eq('school_id', schoolId);
-            }
-
-            const { data, error: fetchError } = await query
-                .order('grade', { ascending: true })
-                .order('section', { ascending: true })
-                .order('subject', { ascending: true });
-
-            if (fetchError) throw fetchError;
-
-            const transformedClasses: ClassInfo[] = (data || []).map(transformSupabaseClass);
+            const transformedClasses: ClassInfo[] = (data || []).map(transformClassInfo);
 
             setClasses(transformedClasses);
             setError(null);
@@ -51,45 +38,20 @@ export function useClasses(schoolId?: string): UseClassesResult {
     useEffect(() => {
         fetchClasses();
 
-        const channel = supabase
-            .channel('classes-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'classes' },
-                (payload) => {
-                    console.log('Class change detected:', payload);
-                    fetchClasses();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        // Realtime is handled via polling in the new architecture if needed.
     }, [fetchClasses]);
 
     const createClass = async (classData: Partial<ClassInfo>): Promise<ClassInfo | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot create class');
-            return null;
-        }
-
         try {
-            const { data, error: insertError } = await supabase
-                .from('classes')
-                .insert([{
-                    id: classData.id,
-                    subject: classData.subject,
-                    grade: classData.grade,
-                    section: classData.section,
-                    department: classData.department,
-                }])
-                .select()
-                .single();
+            const data = await api.createClass({
+                id: classData.id,
+                subject: classData.subject,
+                grade: classData.grade,
+                section: classData.section,
+                department: classData.department,
+            });
 
-            if (insertError) throw insertError;
-
-            return transformSupabaseClass(data);
+            return transformClassInfo(data);
         } catch (err) {
             console.error('Error creating class:', err);
             setError(err as Error);
@@ -98,27 +60,15 @@ export function useClasses(schoolId?: string): UseClassesResult {
     };
 
     const updateClass = async (id: string, updates: Partial<ClassInfo>): Promise<ClassInfo | null> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot update class');
-            return null;
-        }
-
         try {
-            const { data, error: updateError } = await supabase
-                .from('classes')
-                .update({
-                    subject: updates.subject,
-                    grade: updates.grade,
-                    section: updates.section,
-                    department: updates.department,
-                })
-                .eq('id', id)
-                .select()
-                .single();
+            const data = await api.updateClass(id, {
+                subject: updates.subject,
+                grade: updates.grade,
+                section: updates.section,
+                department: updates.department,
+            });
 
-            if (updateError) throw updateError;
-
-            return transformSupabaseClass(data);
+            return transformClassInfo(data);
         } catch (err) {
             console.error('Error updating class:', err);
             setError(err as Error);
@@ -127,19 +77,8 @@ export function useClasses(schoolId?: string): UseClassesResult {
     };
 
     const deleteClass = async (id: string): Promise<boolean> => {
-        if (!isSupabaseConfigured) {
-            console.warn('Supabase not configured, cannot delete class');
-            return false;
-        }
-
         try {
-            const { error: deleteError } = await supabase
-                .from('classes')
-                .delete()
-                .eq('id', id);
-
-            if (deleteError) throw deleteError;
-
+            await api.deleteClass(id);
             return true;
         } catch (err) {
             console.error('Error deleting class:', err);
@@ -159,7 +98,7 @@ export function useClasses(schoolId?: string): UseClassesResult {
     };
 }
 
-const transformSupabaseClass = (c: any): ClassInfo => ({
+const transformClassInfo = (c: any): ClassInfo => ({
     id: c.id,
     subject: c.subject,
     grade: c.grade,

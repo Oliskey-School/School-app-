@@ -6,7 +6,10 @@ import {
     getMentalHealthResources, 
     getCrisisHelplines, 
     triggerPanicAlert, 
-    getPhotos 
+    getPhotos,
+    getVolunteeringOpportunities,
+    createVolunteeringOpportunity,
+    deleteVolunteeringOpportunity
 } from '../controllers/community.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -20,6 +23,10 @@ router.post('/surveys/responses', submitSurveyResponse);
 router.get('/mental-health', getMentalHealthResources);
 router.get('/helplines', getCrisisHelplines);
 router.post('/panic/activate', triggerPanicAlert);
+router.get('/volunteering', getVolunteeringOpportunities);
+router.post('/volunteering', createVolunteeringOpportunity);
+router.delete('/volunteering/:id', deleteVolunteeringOpportunity);
 router.get('/photos', getPhotos);
+
 
 export default router;

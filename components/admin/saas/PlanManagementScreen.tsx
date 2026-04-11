@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSaaS } from '../../../contexts/SaaSContext';
 import { Plan } from '../../../types';
-import { supabase } from '../../../lib/supabase';
+import api from '../../../lib/api';
 import {
     Check,
     X,
@@ -33,11 +33,11 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
         if (!editingPlan) return;
 
         try {
-            const { error } = editingPlan.id
-                ? await supabase.from('plans').update(editingPlan).eq('id', editingPlan.id)
-                : await supabase.from('plans').insert([editingPlan]);
-
-            if (error) throw error;
+            if (editingPlan.id) {
+                await api.updatePlan(editingPlan.id, editingPlan);
+            } else {
+                await api.createPlan(editingPlan);
+            }
 
             toast.success(editingPlan.id ? 'Plan updated' : 'Plan created');
             setIsEditing(false);
@@ -52,8 +52,7 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
         if (!confirm('Are you sure you want to delete this plan? This may affect existing subscriptions.')) return;
 
         try {
-            const { error } = await supabase.from('plans').delete().eq('id', id);
-            if (error) throw error;
+            await api.deletePlan(id);
             toast.success('Plan deleted');
             refreshPlans();
         } catch (error: any) {
@@ -347,3 +346,4 @@ const PlanManagementScreen: React.FC<PlanManagementScreenProps> = ({ navigateTo 
 };
 
 export default PlanManagementScreen;
+

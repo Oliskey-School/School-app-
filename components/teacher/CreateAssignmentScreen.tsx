@@ -12,11 +12,10 @@ import {
   getFormattedClassName,
 } from '../../constants';
 import { ClassInfo, Assignment } from '../../types';
-import { supabase } from '../../lib/supabase';
-import api from '../../lib/api';
+import { api } from '../../lib/api';
+
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useProfile } from '../../context/ProfileContext';
-import { fetchParentsByClassId } from '../../lib/database';
 
 const getFileIcon = (fileName: string): React.ReactElement => {
   const extension = fileName.split('.').pop()?.toLowerCase();
@@ -108,26 +107,12 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
       // 1. Upload files if any
       const fileUrls: string[] = [];
       for (const file of attachedFiles) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${activeTeacherId}/${fileName}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('assignments')
-          .upload(filePath, file);
-
-        if (uploadError) {
-          console.error('Error uploading file:', uploadError);
-          // If bucket doesn't exist, we might get an error. Continuing without files or showing error.
-          // For now, let's just log and continue, or we could throw.
-          continue;
-        }
-
-        if (uploadData) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('assignments')
-            .getPublicUrl(filePath);
+        try {
+          const { publicUrl } = await api.uploadFile('assignments', `${activeTeacherId}/${file.name}`, file);
           fileUrls.push(publicUrl);
+        } catch (uploadError) {
+          console.error('Error uploading file:', uploadError);
+          continue;
         }
       }
 
@@ -167,12 +152,12 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
 
       // 2. Notify Parents
       try {
-        const parents = await fetchParentsByClassId(selectedClassId);
-        if (parents.length > 0) {
-          const notificationPromises = parents.map(parent =>
+        const parents = await api.getParentsByClass(selectedClassId);
+        if (parents && parents.length > 0) {
+          const notificationPromises = parents.map((parent: any) =>
             api.createNotification({
               school_id: dbPayload.school_id,
-              user_id: parent.user_id, // We need to make sure fetchParentsByClassId returns user_id
+              user_id: parent.user_id, 
               category: 'Homework',
               title: 'New Assignment: ' + title,
               summary: `A new assignment has been posted for ${dbPayload.class_name} in ${dbPayload.subject}. Due: ${new Date(dueDate).toLocaleDateString()}`,
@@ -294,3 +279,4 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
 };
 
 export default CreateAssignmentScreen;
+

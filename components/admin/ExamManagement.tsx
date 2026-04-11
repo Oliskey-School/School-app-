@@ -4,8 +4,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PlusIcon, EditIcon, TrashIcon, PublishIcon, EXAM_TYPE_COLORS } from '../../constants';
 import { useNavigate } from 'react-router-dom';
 import { Exam, Teacher } from '../../types';
-import { supabase } from '../../lib/supabase';
-import { fetchExams, fetchTeachers } from '../../lib/database';
+import { api } from '../../lib/api';
+import { fetchExams } from '../../lib/database';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import ConfirmationModal from '../ui/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,24 +29,13 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
 
     useEffect(() => {
         if (!currentSchool?.id) return;
-
         loadData();
-
-        const examsChannel = supabase.channel('exams-changes')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'exams',
-                filter: `school_id=eq.${currentSchool.id}`
-            }, () => {
-                loadData();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(examsChannel);
-        };
     }, [currentSchool?.id]);
+
+    useAutoSync(['exams', 'teachers'], () => {
+        console.log('🔄 [ExamManagement] Real-time auto-sync triggered');
+        loadData();
+    });
 
     const loadData = async () => {
         if (!currentSchool?.id) return;
@@ -53,10 +43,10 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
         try {
             const [examsData, teachersData] = await Promise.all([
                 fetchExams(currentSchool.id),
-                fetchTeachers(currentSchool.id)
+                api.getTeachers(currentSchool.id)
             ]);
             setExams(examsData);
-            setTeachers(teachersData);
+            setTeachers(teachersData || []);
         } catch (err) {
             console.error('Error loading exam management data:', err);
             toast.error('Failed to load exams');
@@ -87,23 +77,19 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
         navigateTo('addExam', 'Edit Exam', {
             examToEdit: exam,
             onSave: async (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
-                const { error } = await supabase
-                    .from('exams')
-                    .update({
+                try {
+                    await api.updateExam(exam.id, currentSchool.id, currentSchool.branch_id || undefined, {
                         type: examData.type,
                         date: examData.date,
                         class_name: examData.className,
                         subject: examData.subject
-                    })
-                    .eq('id', exam.id)
-                    .eq('school_id', currentSchool?.id);
-
-                if (error) {
-                    toast.error('Failed to update exam');
-                } else {
+                    });
                     toast.success('Exam updated successfully');
                     loadData();
                     handleBack();
+                } catch (err) {
+                    console.error('Error updating exam:', err);
+                    toast.error('Failed to update exam');
                 }
             }
         });
@@ -117,58 +103,46 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
     const handleDelete = async () => {
         if (examToDelete === null) return;
 
-        const { error } = await supabase
-            .from('exams')
-            .delete()
-            .eq('id', examToDelete)
-            .eq('school_id', currentSchool?.id);
-
-        if (error) {
-            toast.error('Failed to delete exam');
-        } else {
+        try {
+            await api.deleteExam(examToDelete, currentSchool.id, currentSchool.branch_id || null);
             toast.success('Exam deleted successfully');
             loadData();
+        } catch (err) {
+            console.error('Error deleting exam:', err);
+            toast.error('Failed to delete exam');
         }
         setShowDeleteModal(false);
         setExamToDelete(null);
     };
 
     const handlePublish = async (examId: string) => {
-        const { error } = await supabase
-            .from('exams')
-            .update({ is_published: true })
-            .eq('id', examId)
-            .eq('school_id', currentSchool?.id);
-
-        if (error) {
-            toast.error('Failed to publish exam');
-        } else {
+        try {
+            await api.updateExam(examId, currentSchool.id, currentSchool.branch_id || undefined, { is_published: true });
             toast.success('Exam published successfully');
             loadData();
+        } catch (err) {
+            console.error('Error publishing exam:', err);
+            toast.error('Failed to publish exam');
         }
     };
 
     const handleAddNew = () => {
         navigateTo('addExam', 'Add New Exam', {
             onSave: async (examData: Omit<Exam, 'id' | 'isPublished' | 'teacherId'>) => {
-                const { error } = await supabase
-                    .from('exams')
-                    .insert([{
+                try {
+                    await api.createExam(currentSchool.id, currentSchool.branch_id || undefined, {
                         type: examData.type,
                         date: examData.date,
-                        time: examData.time,
                         class_name: examData.className,
                         subject: examData.subject,
-                        is_published: false,
-                        school_id: currentSchool?.id
-                    }]);
-
-                if (error) {
-                    toast.error('Failed to create exam');
-                } else {
+                        is_published: false
+                    });
                     toast.success('Exam created successfully');
                     loadData();
                     handleBack();
+                } catch (err) {
+                    console.error('Error creating exam:', err);
+                    toast.error('Failed to create exam');
                 }
             }
         });
@@ -191,7 +165,7 @@ const ExamManagement: React.FC<ExamManagementProps> = ({ navigateTo, forceUpdate
                     >
                         <option value="all">All Teachers</option>
                         {teachers.map(teacher => (
-                            <option key={teacher.id} value={teacher.id.toString()}>{teacher.name}</option>
+                            <option key={teacher.id} value={teacher.id.toString()}>{(teacher as any).full_name || teacher.name}</option>
                         ))}
                     </select>
                 </div>

@@ -1,8 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
 import { Student, Parent, Teacher, Conversation, RoleName } from '../../types';
 import { SearchIcon } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
+import { useProfile } from '../../context/ProfileContext';
 
 type UserListItem = {
     id: number;
@@ -27,7 +30,12 @@ const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user,
     </button>
 );
 
+
 const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo, currentUserId }) => {
+    const { user } = useAuth();
+    const { profile } = useProfile();
+    const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+    const currentBranchId = profile?.branch_id;
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'Students' | 'Parents' | 'Staff'>('Students');
     const [dbUsers, setDbUsers] = useState<UserListItem[]>([]);
@@ -35,129 +43,85 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo, cur
 
     useEffect(() => {
         const fetchUsers = async () => {
-            const { data, error } = await supabase
-                .from('users')
-                .select('id, name, avatar_url, role');
+            if (!schoolId) return;
+            try {
+                const data = await api.getUsers(schoolId, currentBranchId || undefined);
 
-            if (data) {
-                const mappedUsers: UserListItem[] = data.map((u: any) => {
-                    // Normalize role to Title Case for UI
-                    let userType: 'Student' | 'Parent' | 'Teacher' = 'Student';
-                    let subtitle = 'Student';
-                    const roleLower = (u.role || '').toLowerCase();
+                if (data) {
+                    const mappedUsers: UserListItem[] = data.map((u: any) => {
+                        const roleLower = (u.role || '').toLowerCase();
+                        let userType: 'Student' | 'Parent' | 'Teacher' = 'Student';
+                        let subtitle = 'Student';
 
-                    if (roleLower === 'teacher' || roleLower === 'admin' || roleLower === 'staff') {
-                        userType = 'Teacher'; // Map all staff-like roles to Teacher/Staff tab
-                        subtitle = roleLower === 'admin' ? 'Administrator' : 'Teacher';
-                    } else if (roleLower === 'parent') {
-                        userType = 'Parent';
-                        subtitle = 'Parent';
-                    } else {
-                        userType = 'Student';
-                        subtitle = 'Student';
-                    }
+                        if (roleLower === 'teacher' || roleLower === 'admin' || roleLower === 'staff' || roleLower === 'principal') {
+                            userType = 'Teacher';
+                            subtitle = roleLower === 'admin' ? 'Administrator' : 
+                                       roleLower === 'principal' ? 'Principal' : 'Teacher';
+                        } else if (roleLower === 'parent') {
+                            userType = 'Parent';
+                            subtitle = 'Parent';
+                        }
 
-                    return {
-                        id: u.id,
-                        name: u.name,
-                        avatarUrl: u.avatar_url, // Note snake_case from DB
-                        subtitle: subtitle,
-                        userType: userType
-                    };
-                });
-                setDbUsers(mappedUsers);
+                        return {
+                            id: u.id,
+                            name: u.full_name || u.name,
+                            avatarUrl: u.avatar_url || `https://ui-avatars.com/api/?name=${u.full_name || u.name || 'User'}&background=random`,
+                            subtitle: subtitle,
+                            userType: userType
+                        };
+                    });
+                    setDbUsers(mappedUsers);
+                }
+            } catch (err) {
+                console.error("Error fetching users:", err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         fetchUsers();
-    }, []);
+    }, [schoolId, currentBranchId]);
 
     const filteredUsers = useMemo(() => {
         return dbUsers.filter(user => {
             const term = searchTerm.toLowerCase();
-            const typeMatch = activeTab === 'Students' && user.userType === 'Student' ||
-                activeTab === 'Parents' && user.userType === 'Parent' ||
-                activeTab === 'Staff' && user.userType === 'Teacher';
+            const typeMatch = (activeTab === 'Students' && user.userType === 'Student') ||
+                (activeTab === 'Parents' && user.userType === 'Parent') ||
+                (activeTab === 'Staff' && user.userType === 'Teacher');
             const nameMatch = user.name?.toLowerCase().includes(term);
             return typeMatch && nameMatch;
         });
     }, [searchTerm, activeTab, dbUsers]);
 
     const handleSelectUser = async (user: UserListItem) => {
+        if (!schoolId) {
+            toast.error("School ID missing. Please refresh.");
+            return;
+        }
+
         setLoading(true);
-        // 1. Check if conversation exists
         try {
-            // This is a basic check. In a real app, you'd use a more robust RPC or query to find a direct chat between two users.
-            // For this MVP, we will try to find a conversation where type is 'direct' and this user is a participant.
-            // Note: This logic is simplified.
-
-            // Allow selecting oneself for demo purposes or handle strict distinct users logic.
-
-            // Create a new conversation if we can't easily find one (or for simplicity in this demo flow)
-            // Ideally: SELECT * FROM conversations c JOIN conversation_participants cp ON c.id = cp.conversation_id WHERE ...
-
-            // Let's simplified approach: Just create/navigate for now, assuming ChatScreen will handle loading if we pass an ID.
-            // But we need an ID.
-
-            // Let's create a new conversation for this pair.
-            const { data: convData, error: convError } = await supabase
-                .from('conversations')
-                .insert({
-                    type: 'direct',
-                    title: user.name, // For direct chats, we might use the other person's name as title clone
-                    last_message_text: 'Started a new conversation',
-                    last_message_at: new Date().toISOString()
-                })
-                .select()
-                .single();
-
-            if (convError) {
-                console.error("Error creating conversation:", convError);
-                alert(`Failed to start chat: ${convError.message}`);
-                setLoading(false);
-                return;
-            }
+            // Use the standardized backend endpoint for direct chats
+            const convData = await api.getOrCreateDirectChat(user.id.toString(), schoolId);
 
             if (convData) {
-                // Add participants: Me (Admin) + Selected User
-                // Retrieve current user ID (mock fallback or real)
-                // const { data: { user: authUser } } = await supabase.auth.getUser();
-                // const currentUserId = authUser?.id ? 0 : 0; // Fixme: need real int ID. Using 0 for now if mock.
-
-                // Insert participants
-                // Note: 'user_id' in 'conversation_participants' is BIGINT (users.id). 
-                // We need the admin's ID. For now assuming we are ID 1 or similar if not found.
-
-                const participants = [
-                    { conversation_id: convData.id, user_id: user.id },
-                ];
-
-                // Only add admin if we have a valid ID (and assuming admin exists in users table)
-                if (currentUserId) {
-                    participants.push({ conversation_id: convData.id, user_id: currentUserId });
-                }
-
-                const { error: partError } = await supabase
-                    .from('conversation_participants')
-                    .insert(participants);
-
-                if (partError) {
-                    console.error("Error adding participants:", partError);
-                    // Continue anyway to show chat, but warn
-                }
-
                 navigateTo('chat', user.name, {
                     conversation: {
                         id: convData.id,
-                        participant: { id: user.id, name: user.name, avatarUrl: user.avatarUrl, role: user.userType }
+                        participant: { 
+                            id: user.id, 
+                            name: user.name, 
+                            avatarUrl: user.avatarUrl, 
+                            role: user.userType 
+                        }
                     }
                 });
             }
         } catch (error: any) {
             console.error("Error starting chat", error);
             alert(`Error: ${error.message || 'Unknown error occurred'}`);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const tabs: ('Students' | 'Parents' | 'Staff')[] = ['Students', 'Parents', 'Staff'];
@@ -213,3 +177,4 @@ const AdminNewChatScreen: React.FC<AdminNewChatScreenProps> = ({ navigateTo, cur
 };
 
 export default AdminNewChatScreen;
+

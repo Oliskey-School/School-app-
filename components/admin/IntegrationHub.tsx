@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Plug, ToggleLeft, ToggleRight, RefreshCw, AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -46,7 +46,7 @@ const IntegrationHub: React.FC = () => {
             setLoading(true);
 
             // Fetch government integrations
-            const { data: integrationsData } = await supabase
+            const { data: integrationsData } = await api
                 .from('external_integrations')
                 .select('*')
                 .eq('school_id', currentSchool!.id)
@@ -55,7 +55,7 @@ const IntegrationHub: React.FC = () => {
             setIntegrations(integrationsData || []);
 
             // Fetch third-party apps
-            const { data: appsData } = await supabase
+            const { data: appsData } = await api
                 .from('third_party_apps')
                 .select('*')
                 .eq('is_published', true)
@@ -64,7 +64,7 @@ const IntegrationHub: React.FC = () => {
             setThirdPartyApps(appsData || []);
 
             // Fetch installed apps
-            const { data: installationsData } = await supabase
+            const { data: installationsData } = await api
                 .from('app_installations')
                 .select('app_id')
                 .eq('school_id', currentSchool!.id)
@@ -81,7 +81,7 @@ const IntegrationHub: React.FC = () => {
 
     const toggleIntegration = async (integrationId: number, currentStatus: boolean) => {
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('external_integrations')
                 .update({ is_active: !currentStatus })
                 .eq('id', integrationId);
@@ -101,7 +101,7 @@ const IntegrationHub: React.FC = () => {
             toast.loading(`Syncing ${integrationName}...`);
 
             // Create sync log
-            const { error } = await supabase
+            const { error } = await api
                 .from('sync_logs')
                 .insert({
                     school_id: currentSchool!.id,
@@ -117,7 +117,7 @@ const IntegrationHub: React.FC = () => {
             if (error) throw error;
 
             // Update last_sync_at
-            await supabase
+            await api
                 .from('external_integrations')
                 .update({ last_sync_at: new Date().toISOString() })
                 .eq('id', integrationId);
@@ -134,7 +134,7 @@ const IntegrationHub: React.FC = () => {
 
     const installApp = async (appId: number, appName: string) => {
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('app_installations')
                 .insert({
                     school_id: currentSchool!.id,
@@ -154,7 +154,7 @@ const IntegrationHub: React.FC = () => {
 
     const uninstallApp = async (appId: number, appName: string) => {
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('app_installations')
                 .update({ is_active: false, uninstalled_at: new Date().toISOString() })
                 .eq('app_id', appId)
@@ -385,3 +385,4 @@ const IntegrationHub: React.FC = () => {
 };
 
 export default IntegrationHub;
+

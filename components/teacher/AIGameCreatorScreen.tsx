@@ -108,16 +108,33 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
         }
     };
 
-    const handlePublish = () => {
+    const handlePublish = async () => {
         if (!game) return;
-        const publishedGame = { ...game, status: 'Published' as const };
+        setLoading(true);
+        try {
+            await api.createGame({
+                title: game.gameName,
+                description: `${game.subject} - ${game.topic}`,
+                game_type: 'quiz',
+                config: {
+                    questions: game.questions,
+                    level: game.level
+                },
+                metadata: {
+                    subject: game.subject,
+                    topic: game.topic
+                }
+            });
 
-        // In a real app, this would be an API call. Here we update the mock data.
-        mockCustomAIGames.push(publishedGame);
-
-        toast.success(`Game "${game.gameName}" has been published!`);
-        forceUpdate(); // To update views that use this data
-        handleBack();
+            toast.success(`Game "${game.gameName}" has been published!`);
+            forceUpdate(); 
+            handleBack();
+        } catch (err) {
+            console.error('Publish error:', err);
+            toast.error("Failed to publish game.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     // A simplified review screen for brevity. A real app would have full editing.

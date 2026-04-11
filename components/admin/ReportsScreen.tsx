@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { ChartBarIcon, TrophyIcon, TrendingUpIcon, SUBJECT_COLORS, gradeColors } from '../../constants';
 // import { mockSubjectAverages, mockTopStudents, mockAttendanceCorrelation } from '../../data';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { User as UserIcon } from 'lucide-react';
 
 interface SubjectAverage {
   subject: string;
@@ -132,111 +133,96 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!schoolId) return; // Prevent raw fetching if ID isn't ready
-
-    const fetchReportsData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Fetch Performance Data
-        // Join with students to get names/grades
-        // Note: supabase-js plain query doesn't do deep aggregation easily without Views or RPC.
-        // We will fetch raw data and aggregate in JS for now (assuming dataset < 1000 records for prototype)
-
-        let perfQuery = supabase.from('academic_performance').select('student_id, subject, score').eq('school_id', schoolId);
-
-        if (currentBranchId && currentBranchId !== 'all') {
-          perfQuery = perfQuery.eq('branch_id', currentBranchId);
-        }
-
-        const { data: performanceData, error: perfError } = await perfQuery;
-        if (perfError) throw perfError;
-
-        // Use api.getStudents which works in demo mode via backend
-        const studentsData = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
-
-        // 1. Calculate Subject Averages
-        const subjectMap: { [key: string]: { total: number, count: number } } = {};
-        performanceData?.forEach(p => {
-          if (!subjectMap[p.subject]) subjectMap[p.subject] = { total: 0, count: 0 };
-          subjectMap[p.subject].total += (p.score || 0);
-          subjectMap[p.subject].count += 1;
-        });
-
-        const avgList = Object.keys(subjectMap).map(sub => ({
-          subject: sub,
-          averageScore: Math.round(subjectMap[sub].total / subjectMap[sub].count)
-        })).sort((a, b) => b.averageScore - a.averageScore);
-
-        setSubjectAverages(avgList);
-
-        // 2. Calculate Top Students
-        const studentPerformanceMap: { [key: string]: { total: number, count: number } } = {};
-        performanceData?.forEach(p => {
-          if (!studentPerformanceMap[p.student_id]) studentPerformanceMap[p.student_id] = { total: 0, count: 0 };
-          studentPerformanceMap[p.student_id].total += (p.score || 0);
-          studentPerformanceMap[p.student_id].count += 1;
-        });
-
-        const rankedStudents = studentsData?.map(student => {
-          const stats = studentPerformanceMap[student.id];
-          const avg = stats ? Math.round(stats.total / stats.count) : 0;
-          return {
-            id: student.id,
-            name: student.name,
-            grade: student.grade,
-            section: student.section,
-            averageScore: avg,
-            avatarUrl: (student as any).avatar_url
-          };
-        }).sort((a, b) => b.averageScore - a.averageScore).slice(0, 5); // Top 5
-
-        setTopStudents(rankedStudents || []);
-
-        // 3. Attendance Correlation (Mockish logic with real data if available, simply mapping avg score to some dummy attendance if attendance table is sparse, 
-        // but let's try to fetch attendance if possible or leave empty)
-        // For now, let's use a placeholder that relies on the calculated averages to show *some* chart 
-        // We don't have linked attendance-performance readily available without complex joins.
-        // We'll generate a chart based on the distribution of student averages we just calculated.
-
-        // Group students by average score brackets (High, Med, Low) -> usually correlates to attendance in real life
-        // This is a simplification.
-        const brackets = [
-          { label: '<60%', scores: [] as number[], attendanceLabel: '<75%' },
-          { label: '60-70%', scores: [] as number[], attendanceLabel: '75-85%' },
-          { label: '70-80%', scores: [] as number[], attendanceLabel: '85-90%' },
-          { label: '80-90%', scores: [] as number[], attendanceLabel: '90-95%' },
-          { label: '90%+', scores: [] as number[], attendanceLabel: '95%+' },
-        ];
-
-        // Check actual student averages
-        (studentsData || []).forEach(student => {
-          const stats = studentPerformanceMap[student.id];
-          const avg = stats ? (stats.total / stats.count) : 0;
-          if (avg >= 90) brackets[4].scores.push(avg);
-          else if (avg >= 80) brackets[3].scores.push(avg);
-          else if (avg >= 70) brackets[2].scores.push(avg);
-          else if (avg >= 60) brackets[1].scores.push(avg);
-          else brackets[0].scores.push(avg);
-        });
-
-        const correlationData = brackets.map(b => ({
-          attendanceBracket: b.attendanceLabel, // Pretending X-axis is attendance
-          averageScore: b.scores.length > 0 ? Math.round(b.scores.reduce((a, b) => a + b, 0) / b.scores.length) : 0
-        })).filter(d => d.averageScore > 0); // Only show relevant points
-
-        setAttendanceData(correlationData);
-
-      } catch (err: any) {
-        console.error("Error fetching reports:", err);
-        setError(err.message || 'Failed to generate school reports.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  // Unified Backend-driven Auto Sync
+  useAutoSync(['academic_performance'], () => {
+    console.log('🔄 [ReportsScreen] Auto-sync triggered');
     fetchReportsData();
+  });
+
+  const fetchReportsData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch Performance Data via API instead of direct Supabase
+      const performanceData = await api.getSchoolPerformance(schoolId, currentBranchId || undefined);
+
+      // Use api.getStudents which works in demo mode via backend
+      const studentsData = await api.getStudents(schoolId, currentBranchId || undefined, { includeUntagged: true });
+
+      // 1. Calculate Subject Averages
+      const subjectMap: { [key: string]: { total: number, count: number } } = {};
+      performanceData?.forEach(p => {
+        if (!subjectMap[p.subject]) subjectMap[p.subject] = { total: 0, count: 0 };
+        subjectMap[p.subject].total += (p.score || 0);
+        subjectMap[p.subject].count += 1;
+      });
+
+      const avgList = Object.keys(subjectMap).map(sub => ({
+        subject: sub,
+        averageScore: Math.round(subjectMap[sub].total / subjectMap[sub].count)
+      })).sort((a, b) => b.averageScore - a.averageScore);
+
+      setSubjectAverages(avgList);
+
+      // 2. Calculate Top Students
+      const studentPerformanceMap: { [key: string]: { total: number, count: number } } = {};
+      performanceData?.forEach(p => {
+        if (!studentPerformanceMap[p.student_id]) studentPerformanceMap[p.student_id] = { total: 0, count: 0 };
+        studentPerformanceMap[p.student_id].total += (p.score || 0);
+        studentPerformanceMap[p.student_id].count += 1;
+      });
+
+      const rankedStudents = studentsData?.map(student => {
+        const stats = studentPerformanceMap[student.id];
+        const avg = stats ? Math.round(stats.total / stats.count) : 0;
+        return {
+          id: student.id,
+          name: student.name,
+          grade: student.grade,
+          section: student.section,
+          averageScore: avg,
+          avatarUrl: (student as any).avatar_url
+        };
+      }).sort((a, b) => b.averageScore - a.averageScore).slice(0, 5); // Top 5
+
+      setTopStudents(rankedStudents || []);
+
+      // 3. Attendance Correlation
+      const brackets = [
+        { label: '<60%', scores: [] as number[], attendanceLabel: '<75%' },
+        { label: '60-70%', scores: [] as number[], attendanceLabel: '75-85%' },
+        { label: '70-80%', scores: [] as number[], attendanceLabel: '85-90%' },
+        { label: '80-90%', scores: [] as number[], attendanceLabel: '90-95%' },
+        { label: '90%+', scores: [] as number[], attendanceLabel: '95%+' },
+      ];
+
+      (studentsData || []).forEach(student => {
+        const stats = studentPerformanceMap[student.id];
+        const avg = stats ? (stats.total / stats.count) : 0;
+        if (avg >= 90) brackets[4].scores.push(avg);
+        else if (avg >= 80) brackets[3].scores.push(avg);
+        else if (avg >= 70) brackets[2].scores.push(avg);
+        else if (avg >= 60) brackets[1].scores.push(avg);
+        else brackets[0].scores.push(avg);
+      });
+
+      const correlationData = brackets.map(b => ({
+        attendanceBracket: b.attendanceLabel,
+        averageScore: b.scores.length > 0 ? Math.round(b.scores.reduce((a, b) => a + b, 0) / b.scores.length) : 0
+      })).filter(d => d.averageScore > 0);
+
+      setAttendanceData(correlationData);
+
+    } catch (err: any) {
+      console.error("Error fetching reports:", err);
+      setError(err.message || 'Failed to generate school reports.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (schoolId) fetchReportsData();
   }, [schoolId, currentBranchId]);
 
   return (
@@ -271,6 +257,7 @@ const ReportsScreen: React.FC<ReportsScreenProps> = ({ schoolId, currentBranchId
               <div className="bg-blue-100 text-blue-500 p-2 rounded-lg"><TrendingUpIcon /></div>
               <h3 className="font-bold text-gray-800">Attendance-Performance Trend</h3>
             </div>
+            {attendanceData.length > 0 ? <AttendanceCorrelationChart data={attendanceData} /> : <p className="text-gray-400 text-sm">No trend data available</p>}
           </div>
         </>
       )}

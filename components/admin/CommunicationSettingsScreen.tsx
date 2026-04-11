@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronRightIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -32,7 +32,7 @@ const CommunicationSettingsScreen: React.FC = () => {
     if (!currentSchool?.id) return;
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      const { error } = await api
         .from('schools')
         .update({
           settings: {
@@ -74,3 +74,4 @@ const CommunicationSettingsScreen: React.FC = () => {
   );
 };
 export default CommunicationSettingsScreen;
+

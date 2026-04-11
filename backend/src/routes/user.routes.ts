@@ -10,7 +10,9 @@ router.use(requireTenant);
 
 router.get('/', UserController.getUsers);
 router.get('/:id', UserController.getUserById);
+router.get('/email/:email', UserController.getUserByEmail);
 router.put('/:id', UserController.updateUser);
+router.delete('/:id', UserController.deleteUser);
 router.post('/', UserController.createUser);
 
 export default router;

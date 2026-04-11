@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarIcon, EyeIcon, EditIcon, PlusIcon, CheckCircleIcon, ClockIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
-import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
+import { toast } from 'react-hot-toast';
+
 
 interface TimetableOverviewProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -39,7 +39,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
             classesData?.forEach((c: any) => classLevelMap.set(c.name, c.level));
 
             // Fetch timetable entries - Strict Data Isolation
-            let timetableQuery = supabase
+            let timetableQuery = api
                 .from('timetable')
                 .select('class_name, updated_at, status')
                 .eq('school_id', schoolId);
@@ -222,7 +222,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                                     <button
                                         onClick={async () => {
                                             try {
-                                                const { data: entries, error } = await supabase
+                                                const { data: entries, error } = await api
                                                     .from('timetable')
                                                     .select('*')
                                                     .eq('school_id', schoolId)
@@ -237,7 +237,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                                                 // So let's fetch unique teacher IDs
                                                 const teacherIds = Array.from(new Set(entries.map((e: any) => e.teacher_id).filter(Boolean)));
 
-                                                const { data: teachers } = await supabase
+                                                const { data: teachers } = await api
                                                     .from('teachers')
                                                     .select('id, name')
                                                     .eq('school_id', schoolId)

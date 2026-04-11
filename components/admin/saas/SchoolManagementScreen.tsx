@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSaaS } from '../../../contexts/SaaSContext';
 import { SaaSSchool } from '../../../types';
-import { supabase } from '../../../lib/supabase';
 import { exportToCSV, exportToPDF, paginate, formatDate } from '../../../lib/exportUtils';
 import { logAuditAction } from '../../../lib/auditLogger';
 import api from '../../../lib/api';
@@ -54,17 +53,13 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
     const handleStatusChange = async (schoolId: string, newStatus: 'active' | 'suspended') => {
         if (!confirm(`Are you sure you want to ${newStatus} this school?`)) return;
 
-        const { error } = await supabase
-            .from('schools')
-            .update({ status: newStatus })
-            .eq('id', schoolId);
-
-        if (error) {
-            toast.error(`Failed to update status: ${error.message}`);
-        } else {
+        try {
+            await api.updateSchool(schoolId, { is_active: newStatus === 'active' });
             toast.success(`School ${newStatus} successfully.`);
             logAuditAction(newStatus === 'active' ? 'ACTIVATE' : 'SUSPEND', 'SCHOOL', schoolId);
             refreshSchools();
+        } catch (error: any) {
+            toast.error(`Failed to update status: ${error.message}`);
         }
     };
 
@@ -479,3 +474,4 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
 };
 
 export default SchoolManagementScreen;
+

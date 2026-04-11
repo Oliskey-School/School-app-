@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { mockDigitalResources } from '../../data';
 import { DigitalResource, VideoLesson } from '../../types';
 import { RESOURCE_TYPE_CONFIG, PlayIcon, DownloadIcon } from '../../constants';
@@ -85,11 +85,7 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigateTo }) => {
     useEffect(() => {
         const fetchResources = async () => {
             try {
-                const { data, error } = await supabase
-                    .from('resources')
-                    .select('*')
-                    .eq('is_public', true)
-                    .order('created_at', { ascending: false });
+                const data = await api.getResources();
 
                 if (data && data.length > 0) {
                     setResources(data);

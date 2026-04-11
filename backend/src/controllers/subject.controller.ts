@@ -11,3 +11,14 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getCurriculumTopics = async (req: AuthRequest, res: Response) => {
+    try {
+        const subjectId = req.params.subjectId as string;
+        const term = req.query.term as string | undefined;
+        const result = await SubjectService.getCurriculumTopics(subjectId, term);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

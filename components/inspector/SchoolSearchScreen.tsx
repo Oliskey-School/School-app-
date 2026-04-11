@@ -4,7 +4,7 @@ import {
     TrendingUp, AlertCircle, CheckCircle, FileText,
     ChevronRight, Award, Calendar
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface SchoolSearchScreenProps {
     onSelectSchool: (schoolId: number) => void;
@@ -34,7 +34,7 @@ export default function SchoolSearchScreen({ onSelectSchool, onBack }: SchoolSea
     const fetchSchools = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('schools')
                 .select(`
           *,
@@ -74,7 +74,7 @@ export default function SchoolSearchScreen({ onSelectSchool, onBack }: SchoolSea
     const calculateComplianceStatus = async (schoolId: number) => {
         try {
             // Check for expired documents
-            const { data: docs } = await supabase
+            const { data: docs } = await api
                 .from('school_documents')
                 .select('*')
                 .eq('school_id', schoolId);
@@ -84,7 +84,7 @@ export default function SchoolSearchScreen({ onSelectSchool, onBack }: SchoolSea
             );
 
             // Check for unqualified teachers
-            const { data: teachers } = await supabase
+            const { data: teachers } = await api
                 .from('teachers')
                 .select('curriculum_eligibility')
                 .eq('school_id', schoolId);

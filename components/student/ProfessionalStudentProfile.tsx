@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Award, TrendingUp, BookOpen, Download, FileText, Users } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface StudentProfileProps {
     studentId?: number;
@@ -17,32 +17,25 @@ export default function ProfessionalStudentProfile({ studentId }: StudentProfile
     const fetchStudentData = async () => {
         setLoading(true);
         try {
-            // Fetch student data - replace with actual supabase call
-            const { data } = await supabase
-                .from('students')
-                .select('*')
-                .eq('id', studentId || 1)
-                .single();
-
-            const studentData = {
-                ...data,
-                admission_number: data?.school_generated_id || 'SCH-STU-PENDING'
-            };
-
-            setStudent(studentData || {
-                first_name: 'Student',
-                last_name: 'Name',
-                email: 'student@school.com',
-                phone: '+234 XXX XXX XXXX',
-                class_name: 'Grade 10A',
-                admission_number: 'STU2024001',
-                date_of_birth: '2008-01-15',
-                address: 'Lagos, Nigeria',
-                guardian_name: 'Parent Name',
-                guardian_phone: '+234 XXX XXX XXXX',
-                attendance_rate: 95,
-                average_grade: 88,
-            });
+            const data = await api.getStudentProfile(studentId || 'me');
+            
+            if (data) {
+                setStudent({
+                    ...data,
+                    first_name: data.firstName || data.first_name || data.name?.split(' ')[0] || 'Student',
+                    last_name: data.lastName || data.last_name || data.name?.split(' ').slice(1).join(' ') || 'Name',
+                    email: data.email || 'student@school.com',
+                    phone: data.phone || data.parentPhone || '+234 XXX XXX XXXX',
+                    class_name: data.className || `Grade ${data.grade}${data.section}`,
+                    admission_number: data.schoolGeneratedId || data.school_generated_id || 'STU2024001',
+                    date_of_birth: data.birthday || data.date_of_birth || '2008-01-15',
+                    address: data.address || 'Lagos, Nigeria',
+                    guardian_name: data.parentName || data.parent_name || 'Parent Name',
+                    guardian_phone: data.parentPhone || data.parent_phone || '+234 XXX XXX XXXX',
+                    attendance_rate: data.attendanceRate || 95,
+                    average_grade: data.averageGrade || 88,
+                });
+            }
         } catch (error) {
             console.error('Error fetching student:', error);
         } finally {
@@ -339,3 +332,4 @@ function EventItem({ date, title }: any) {
         </div>
     );
 }
+

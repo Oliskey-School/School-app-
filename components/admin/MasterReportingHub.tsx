@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FileBarChart, Users, GraduationCap, Award, Download, Building, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
 const MasterReportingHub: React.FC = () => {
@@ -11,23 +11,29 @@ const MasterReportingHub: React.FC = () => {
     const handleGenerateCensus = async () => {
         if (!currentSchool) return;
         setGenerating('census');
-        // Aggregation logic for Ministry of Education ASC
-        const { data: students } = await supabase.from('students').select('count').eq('school_id', currentSchool.id);
-        const { data: staff } = await supabase.from('profiles').select('count').eq('school_id', currentSchool.id).neq('role', 'parent').neq('role', 'student');
+        try {
+            // Aggregation logic using consolidated stats
+            const stats = await api.getDashboardStats(currentSchool.id);
+            const totalStudents = stats.totalStudents || 0;
+            const totalStaff = stats.totalTeachers || 0;
 
-        // Mocking the complex aggregation for a second
-        setTimeout(() => {
-            toast.success("Annual School Census (2025/2026) generated successfully.");
+            // Mocking the complex aggregation for a second
+            setTimeout(() => {
+                toast.success("Annual School Census (2025/2026) generated successfully.");
+                setGenerating(null);
+
+                // Trigger download of mock CSV with real counts
+                const blob = new Blob([`Year,SchoolID,TotalStudents,TotalStaff,FacilityCount\n2026,${currentSchool.id},${totalStudents},${totalStaff},12`], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'ASC_Report_2026.csv';
+                a.click();
+            }, 1500);
+        } catch (error) {
+            toast.error("Failed to fetch census data");
             setGenerating(null);
-
-            // Trigger download of mock CSV
-            const blob = new Blob(["Year,SchoolID,TotalStudents,TotalStaff,FacilityCount\n2026,SCH-NG-4021,450,42,12"], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'ASC_Report_2026.csv';
-            a.click();
-        }, 1500);
+        }
     };
 
     const handleTeacherRegistry = () => {
@@ -126,3 +132,4 @@ const MasterReportingHub: React.FC = () => {
 };
 
 export default MasterReportingHub;
+

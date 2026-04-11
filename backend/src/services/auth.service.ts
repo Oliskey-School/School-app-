@@ -1,458 +1,680 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 import { config } from '../config/env';
 import { IdGeneratorService } from './idGenerator.service';
+import { AuditService } from './audit.service';
+import { SocketService } from './socket.service';
+
+export enum Role {
+    SUPER_ADMIN = 'SUPER_ADMIN',
+    PROPRIETOR = 'PROPRIETOR',
+    ADMIN = 'ADMIN',
+    TEACHER = 'TEACHER',
+    STUDENT = 'STUDENT',
+    PARENT = 'PARENT',
+    BURSAR = 'BURSAR',
+    INSPECTOR = 'INSPECTOR',
+    EXAM_OFFICER = 'EXAM_OFFICER',
+    COMPLIANCE_OFFICER = 'COMPLIANCE_OFFICER'
+}
 
 export class AuthService {
-    static async signup(data: any) {
-        // 1. Check if user exists (mocked or real DB check)
-        // 2. Hash password
-        const hashedPassword = await bcrypt.hash(data.password, 10);
+    /**
+     * Helper to map string roles to Prisma Role enum
+     */
+    private static mapRole(role: string): Role {
+        const r = role.toUpperCase().replace(/_/g, '');
+        if (r === 'SUPERADMIN') return Role.SUPER_ADMIN;
+        if (r === 'INSPECTOR') return Role.INSPECTOR;
+        if (r === 'EXAMOFFICER') return Role.EXAM_OFFICER;
+        if (r === 'COMPLIANCEOFFICER') return Role.COMPLIANCE_OFFICER;
+        
+        if (Object.values(Role).includes(r as Role)) return r as Role;
+        return Role.STUDENT;
+    }
 
-        // 3. Create user in DB
-        const { data: user, error } = await supabase
-            .from('users')
-            .insert([{
-                email: data.email,
-                password_hash: hashedPassword, // Storing hash, NOT plain password
-                role: data.role || 'Student',
+    static async checkEmail(email: string) {
+        const user = await prisma.user.findUnique({
+            where: { email: email.toLowerCase() }
+        });
+        return { exists: !!user, user };
+    }
+
+    static async checkUsername(username: string) {
+        const user = await prisma.user.findFirst({
+            where: { school_generated_id: username }
+        });
+        return { exists: !!user };
+    }
+
+    static async updateUsername(userId: string, newUsername: string) {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { school_generated_id: newUsername }
+        });
+        return { success: true, message: 'Username updated successfully' };
+    }
+
+    static async signup(data: any) {
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+        const role = this.mapRole(data.role || 'student');
+
+        let schoolGeneratedId = null;
+        if (data.school_id && data.branch_id) {
+            try {
+                schoolGeneratedId = await IdGeneratorService.generateSchoolId(data.school_id, data.branch_id, role.toLowerCase());
+            } catch (err) {
+                console.warn('Could not generate school ID:', err);
+            }
+        }
+
+        const user = await prisma.user.create({
+            data: {
+                email: data.email.toLowerCase(),
+                password_hash: hashedPassword,
+                role: role,
                 school_id: data.school_id,
                 branch_id: data.branch_id || null,
-                full_name: data.full_name
-            }])
-            .select()
-            .single();
+                full_name: data.full_name,
+                email_verified: false,
+                school_generated_id: schoolGeneratedId,
+                initial_password: data.password // Store generated credentials for Admin visibility
+            }
+        });
 
-        if (error) throw new Error(error.message);
+        // Create initial membership
+        if (data.school_id) {
+            await prisma.schoolMembership.create({
+                data: {
+                    user_id: user.id,
+                    school_id: data.school_id,
+                    base_role: role,
+                    is_active: true
+                }
+            });
+        }
+
+        SocketService.emitToSchool(data.school_id || 'system', 'auth:updated', { action: 'signup', userId: user.id });
         return user;
     }
 
-    static async login(email: string, password: string) {
-        // 0. Handle Demo Login
-        const isDemoAccount = email.endsWith('@demo.com') || email.includes('demo_');
-        if (isDemoAccount && password === 'password123') {
-            // Return a mock demo user based on the email
-            const role = email.split('@')[0].replace('demo_', '');
+    static async login(identifier: string, password: string) {
+        const normalizedIdentifier = identifier.trim().toLowerCase();
+        
+        // Find user by email OR school_generated_id
+        const user = await (prisma.user.findFirst as any)({
+            where: {
+                OR: [
+                    { email: { equals: normalizedIdentifier, mode: 'insensitive' } },
+                    { school_generated_id: { equals: normalizedIdentifier, mode: 'insensitive' } }
+                ]
+            },
+            include: {
+                school: true,
+                branch: true
+            }
+        });
 
-            // USE VALID UUIDs for demo accounts to satisfy PG schema
-            const demoIdMap: { [key: string]: string } = {
-                'admin': 'd3300000-0000-0000-0000-000000000001',
-                'teacher': 'd3300000-0000-0000-0000-000000000002',
-                'parent': 'd3300000-0000-0000-0000-000000000003',
-                'student': 'd3300000-0000-0000-0000-000000000004'
-            };
+        if (!user) throw new Error('Invalid credentials');
 
-            const demoUser = {
-                id: demoIdMap[role] || `d3300000-0000-0000-0000-000000000005`,
-                email: email,
-                role: role.charAt(0).toUpperCase() + role.slice(1),
-                school_id: 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
-                full_name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`
-            };
-            const token = jwt.sign(demoUser, config.jwtSecret, { expiresIn: '1d' });
-            return { user: demoUser, token };
-        }
-
-        // 1. Find user
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-
-        if (error || !user) throw new Error('Invalid credentials');
-
-        // 2. Compare password
+        // Compare password
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) throw new Error('Invalid credentials');
 
-        // 3. Generate Token
+        // Check if email is verified (for parents and students, email verification is required)
+        // Admins and Super Admins can bypass this for first-time login
+        const requiresVerification = ['PARENT', 'STUDENT', 'TEACHER'].includes(user.role);
+        if (requiresVerification && !user.email_verified) {
+            return {
+                requiresVerification: true,
+                userId: user.id,
+                email: user.email,
+                message: 'Please verify your email before logging in'
+            };
+        }
+
+        // Generate Token
         const payload = {
             id: user.id,
             email: user.email,
             role: user.role,
             school_id: user.school_id,
-            email_verified: user.email_verified || false
+            branch_id: user.branch_id
         };
 
         const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
 
-        return { user: { ...user, email_verified: user.email_verified || false }, token };
+        // Log successful login
+        if (user.school_id) {
+            await AuditService.createLog(user.school_id, user.branch_id, {
+                user_id: user.id,
+                action: 'Login',
+                entity_type: 'User',
+                entity_id: user.id
+            });
+
+            // Create persistent session
+            try {
+                await (prisma as any).userSession.create({
+                    data: {
+                        user_id: user.id,
+                        token_id: token.split('.')[2], // Use signature as token ID
+                        is_active: true
+                    }
+                });
+            } catch (err) {
+                console.warn('Could not create session record:', err);
+            }
+        }
+
+        return { user, token };
     }
+
+    static async googleLogin(email: string, name: string) {
+        const normalizedEmail = email.trim().toLowerCase();
+        
+        // 1. Find user by email
+        let user = await (prisma.user.findUnique as any)({
+            where: { email: normalizedEmail },
+            include: {
+                school: true,
+                branch: true
+            }
+        });
+
+        if (!user) {
+            throw new Error('No Data: This account is not registered. Please sign up first.');
+        }
+
+        // 2. Generate Token
+        const payload = {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            school_id: user.school_id,
+            branch_id: user.branch_id
+        };
+
+        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
+
+        // Log successful google login
+        if (user.school_id) {
+            await AuditService.createLog(user.school_id, user.branch_id, {
+                user_id: user.id,
+                action: 'Google Login',
+                entity_type: 'User',
+                entity_id: user.id
+            });
+
+            // Create persistent session
+            try {
+                await (prisma as any).userSession.create({
+                    data: {
+                        user_id: user.id,
+                        token_id: token.split('.')[2],
+                        is_active: true
+                    }
+                });
+            } catch (err) {
+                console.warn('Could not create session record:', err);
+            }
+        }
+
+        return { user, token };
+    }
+
     static async createUser(data: any) {
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseAdmin = createClient(
-            config.supabaseUrl,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-        );
+        return await prisma.$transaction(async (tx) => {
+            // 1. Check if user exists
+            let user = await tx.user.findUnique({
+                where: { email: data.email.toLowerCase() }
+            });
 
-        // 1. Check if email already exists in public.users (which reflects auth.users)
-        const { data: existingUser, error: searchError } = await supabaseAdmin
-            .from('users')
-            .select('id, email_verified')
-            .eq('email', data.email.toLowerCase())
-            .maybeSingle();
+            let isExisting = false;
+            if (user) {
+                isExisting = true;
+            } else {
+                // 2. Create new user
+                const hashedPassword = await bcrypt.hash(data.password, 10);
+                const role = this.mapRole(data.role);
+                
+                user = await tx.user.create({
+                    data: {
+                        email: data.email.toLowerCase(),
+                        password_hash: hashedPassword,
+                        role: role,
+                        school_id: data.school_id,
+                        branch_id: data.branch_id || null,
+                        full_name: data.full_name,
+                        avatar_url: data.avatar_url || null,
+                        initial_password: data.password || null,
+                        email_verified: false
+                    }
+                });
 
-        let userId: string;
-        let isExisting = false;
+            }
 
-        if (existingUser) {
-            userId = existingUser.id;
-            isExisting = true;
-            console.log(`[AUTH] Linking existing user ${data.email} to new schoolId: ${data.school_id}`);
-        } else {
-            // 2. Hash Password for our internal users table (only for new users)
-            const hashedPassword = await bcrypt.hash(data.password, 10);
-
-            // 3. Normalize Role to lowercase
-            const normalizedRole = data.role ? data.role.toLowerCase() : 'student';
-
-            // 4. Create Supabase Auth User
-            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-                email: data.email,
-                password: data.password,
-                email_confirm: true,
-                user_metadata: {
-                    full_name: data.full_name,
-                    role: normalizedRole,
+            // 3. Ensure membership
+            const role = this.mapRole(data.role);
+            await tx.schoolMembership.upsert({
+                where: {
+                    school_id_user_id: {
+                        school_id: data.school_id,
+                        user_id: user.id
+                    }
+                },
+                create: {
                     school_id: data.school_id,
-                    branch_id: data.branch_id || null,
-                    username: data.username
+                    user_id: user.id,
+                    base_role: role,
+                    is_active: true
+                },
+                update: {
+                    base_role: role,
+                    is_active: true
                 }
             });
 
-            if (authError) throw new Error(`Supabase Auth Error: ${authError.message}`);
-            userId = authData.user.id;
+            // 4. Generate School ID
+            let schoolGeneratedId: string | null = null;
+            if (data.school_id && data.branch_id) {
+                try {
+                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(
+                        data.school_id,
+                        data.branch_id,
+                        data.role
+                    );
+                    
+                    await tx.user.update({
+                        where: { id: user.id },
+                        data: { school_generated_id: schoolGeneratedId }
+                    });
+                } catch (err: any) {
+                    console.warn('[AuthService] ID generation failed:', err.message);
+                }
+            }
 
-            // 5. Update public.users password_hash
-            await supabaseAdmin
-                .from('users')
-                .update({
-                    password_hash: hashedPassword,
-                    email_verified: false,
-                    branch_id: data.branch_id || null
-                })
-                .eq('id', userId);
-        }
-
-        // 6. Ensure membership exists in school_memberships
-        const { error: membershipError } = await supabaseAdmin
-            .from('school_memberships')
-            .upsert({
+            // 5. Create role-specific profile
+            const roleLower = data.role.toLowerCase();
+            const profileData: any = {
                 school_id: data.school_id,
-                user_id: userId,
-                base_role: data.role ? data.role.toLowerCase() : 'student',
-                is_active: true
-            });
-
-        if (membershipError) console.warn('Membership Sync Warning:', membershipError.message);
-
-        // 7. Update auth_accounts (for username login)
-        const { error: accountError } = await supabaseAdmin
-            .from('auth_accounts')
-            .upsert({
-                username: data.username.toLowerCase(),
+                branch_id: data.branch_id || null,
+                full_name: data.full_name,
                 email: data.email.toLowerCase(),
-                school_id: data.school_id,
-                is_verified: isExisting ? existingUser.email_verified : false,
-                user_id: userId
-            });
+                school_generated_id: schoolGeneratedId
+            };
 
-        if (accountError) console.warn('Auth Account Sync Warning:', accountError.message);
-
-        // 8. Generate standard school ID for this user
-        const normalizedRoleForTable = data.role ? data.role.toLowerCase() : 'student';
-        let schoolGeneratedId: string | undefined;
-        if (data.school_id && data.branch_id) {
-            try {
-                schoolGeneratedId = await IdGeneratorService.generateSchoolId(
-                    data.school_id,
-                    data.branch_id,
-                    normalizedRoleForTable
-                );
-                // Write the ID to the users table
-                await supabaseAdmin
-                    .from('users')
-                    .update({ school_generated_id: schoolGeneratedId })
-                    .eq('id', userId);
-            } catch (idErr: any) {
-                console.warn('[AuthService] Could not generate school ID:', idErr.message);
+            if (roleLower === 'teacher') {
+                await tx.teacher.upsert({
+                    where: { user_id: user.id },
+                    create: { ...profileData, user_id: user.id },
+                    update: profileData
+                });
+            } else if (roleLower === 'student') {
+                await tx.student.upsert({
+                    where: { user_id: user.id },
+                    create: { ...profileData, user_id: user.id },
+                    update: profileData
+                });
+            } else if (roleLower === 'parent') {
+                await tx.parent.upsert({
+                    where: { user_id: user.id },
+                    create: { ...profileData, user_id: user.id },
+                    update: profileData
+                });
             }
-        }
 
-        // 9. Create role-specific record (Teachers/Parents/Students) if missing for THIS school
-        const tableName = normalizedRoleForTable === 'teacher' ? 'teachers' :
-            normalizedRoleForTable === 'parent' ? 'parents' :
-                normalizedRoleForTable === 'student' ? 'students' : null;
-
-        if (tableName) {
-            const { data: profileExists } = await supabaseAdmin
-                .from(tableName)
-                .select('id')
-                .eq('school_id', data.school_id)
-                .eq(tableName === 'students' ? 'id' : 'user_id', userId)
-                .maybeSingle();
-
-            if (!profileExists) {
-                const profileData: any = {
-                    school_id: data.school_id,
-                    full_name: data.full_name,
-                    email: data.email,
-                    branch_id: data.branch_id || null,
-                    school_generated_id: schoolGeneratedId || null
-                };
-                if (tableName === 'students') profileData.id = userId;
-                else profileData.user_id = userId;
-
-                await supabaseAdmin.from(tableName).insert([profileData]);
-            }
-        }
-
-        return {
-            id: userId,
-            email: data.email,
-            username: data.username,
-            schoolGeneratedId: schoolGeneratedId || null,
-            email_verified: isExisting ? existingUser.email_verified : false,
-            linked: isExisting
-        };
-    }
-
-    static async resendVerification(email: string) {
-        console.log(`[AUTH] Resending verification email to ${email}`);
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseAdmin = createClient(
-            config.supabaseUrl,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-        );
-
-        const { error } = await supabaseAdmin.auth.resend({ type: 'signup', email });
-
-        if (error) throw new Error(`Resend Error: ${error.message}`);
-        return { success: true, message: 'Verification email sent successfully' };
-    }
-
-    static async confirmEmail(userId: string) {
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseAdmin = createClient(
-            config.supabaseUrl,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-        );
-
-        // Fetch user from auth.users to get the newly verified email
-        const { data: { user }, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(userId);
-        if (fetchError || !user) throw new Error(`User auth data sync failed.`);
-
-        const verifiedEmail = user.email;
-
-        // Sync to public.users
-        const { error: userError } = await supabaseAdmin
-            .from('users')
-            .update({ email: verifiedEmail, email_verified: true })
-            .eq('id', userId);
-
-        if (userError) throw new Error(`Confirmation User Sync Error: ${userError.message}`);
-
-        // Sync to auth_accounts
-        const { error: accError } = await supabaseAdmin
-            .from('auth_accounts')
-            .update({ email: verifiedEmail, is_verified: true })
-            .eq('user_id', userId);
-
-        if (accError) console.warn('Account Verification Sync Warning:', accError.message);
-
-        // Cascade to role-specific tables (students, teachers, parents)
-        const tables = ['students', 'teachers', 'parents'];
-        for (const table of tables) {
-            const idField = table === 'students' ? 'id' : 'user_id';
-            await supabaseAdmin
-                .from(table)
-                .update({ email: verifiedEmail })
-                .eq(idField, userId);
-        }
-
-        return { success: true, message: 'Email confirmed successfully' };
-    }
-
-    static async updateEmail(userId: string, newEmail: string) {
-        // Handle Demo Users
-        if (userId.startsWith('d33000')) {
-            return { success: true, message: 'Email updated successfully (Demo Mode)' };
-        }
-
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseAdmin = createClient(
-            config.supabaseUrl,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-        );
-
-        console.log(`[AUTH] Updating email for user ${userId} to ${newEmail}`);
-
-        // 1. Update Supabase Auth (set to unconfirmed so we can send a new verification email)
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-            email: newEmail,
-            email_confirm: false
+            SocketService.emitToSchool(data.school_id, 'auth:updated', { action: 'user_created', userId: user.id });
+            return {
+                id: user.id,
+                email: user.email,
+                schoolGeneratedId,
+                linked: isExisting
+            };
         });
-        if (authError) throw new Error(`Auth Update Error: ${authError.message}`);
-
-        // 2. Trigger verification email to the new address
-        const { error: resendError } = await supabaseAdmin.auth.resend({
-            type: 'signup',
-            email: newEmail
-        });
-        if (resendError) console.warn('[AUTH] Failed to trigger resend after email update:', resendError.message);
-
-        // 3. Update public.users
-        const { error: userError } = await supabaseAdmin
-            .from('users')
-            .update({ email: newEmail, email_verified: false })
-            .eq('id', userId);
-        if (userError) throw new Error(`User Table Update Error: ${userError.message}`);
-
-        // 4. Update auth_accounts
-        const { error: accError } = await supabaseAdmin
-            .from('auth_accounts')
-            .update({ email: newEmail, is_verified: false })
-            .eq('user_id', userId);
-        if (accError) console.warn('[AUTH] auth_accounts sync warning:', accError.message);
-
-        // 5. Cascade to role-specific tables (students, teachers, parents)
-        const tables = ['students', 'teachers', 'parents'];
-        for (const table of tables) {
-            const idField = table === 'students' ? 'id' : 'user_id';
-            await supabaseAdmin
-                .from(table)
-                .update({ email: newEmail })
-                .eq(idField, userId);
-        }
-
-        return { success: true, message: 'Email updated successfully. Please verify your new email.' };
-    }
-
-    static async updateUsername(userId: string, newUsername: string) {
-        // Handle Demo Users
-        if (userId.startsWith('d33000')) {
-            return { success: true, message: 'Username updated successfully (Demo Mode)' };
-        }
-
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseAdmin = createClient(
-            config.supabaseUrl,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-        );
-
-        // 1. Check if username taken
-        const { data: existing } = await supabaseAdmin
-            .from('auth_accounts')
-            .select('id')
-            .eq('username', newUsername.toLowerCase())
-            .maybeSingle();
-
-        if (existing) throw new Error('Username already taken');
-
-        // 2. Update auth_accounts
-        const { error } = await supabaseAdmin
-            .from('auth_accounts')
-            .update({ username: newUsername.toLowerCase() })
-            .eq('user_id', userId);
-
-        if (error) throw new Error(`Username Update Error: ${error.message}`);
-
-        // 3. Sync to user metadata if needed
-        await supabaseAdmin.auth.admin.updateUserById(userId, {
-            user_metadata: { username: newUsername }
-        });
-
-        return { success: true, message: 'Username updated successfully' };
-    }
-
-    static async updatePassword(userId: string, newPassword: string) {
-        // Handle Demo Users
-        if (userId.startsWith('d33000')) {
-            return { success: true, message: 'Password updated successfully (Demo Mode)' };
-        }
-
-        const { createClient } = require('@supabase/supabase-js');
-        const supabaseAdmin = createClient(
-            config.supabaseUrl,
-            process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-        );
-
-        // 1. Hash new password
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // 2. Update Supabase Auth
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-            password: newPassword
-        });
-        if (authError) throw new Error(`Auth Password Update Error: ${authError.message}`);
-
-        // 3. Update public.users
-        const { error: userError } = await supabaseAdmin
-            .from('users')
-            .update({ password_hash: hashedPassword })
-            .eq('id', userId);
-        if (userError) throw new Error(`User Password Update Error: ${userError.message}`);
-
-        return { success: true, message: 'Password updated successfully' };
     }
 
     static async getMemberships(userId: string) {
-        const { data, error } = await supabase
-            .from('school_memberships')
-            .select('school_id, schools(*), base_role')
-            .eq('user_id', userId)
-            .eq('is_active', true);
-
-        if (error) throw new Error(error.message);
-        return data;
+        return await (prisma.schoolMembership.findMany as any)({
+            where: { user_id: userId, is_active: true },
+            include: { school: true }
+        });
     }
 
     static async switchSchool(userId: string, schoolId: string) {
-        // 1. Verify membership
-        const { data: membership, error: memError } = await supabase
-            .from('school_memberships')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('school_id', schoolId)
-            .eq('is_active', true)
-            .maybeSingle();
+        const membership = await prisma.schoolMembership.findUnique({
+            where: {
+                school_id_user_id: {
+                    school_id: schoolId,
+                    user_id: userId
+                }
+            }
+        });
 
-        if (memError || !membership) throw new Error('Not a member of this school');
-
-        // 2. Get user info
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single();
-
-        if (userError || !user) throw new Error('User not found');
-
-        // 3. Update Supabase Auth app_metadata if not demo
-        if (!userId.startsWith('d33000')) {
-            const { createClient } = require('@supabase/supabase-js');
-            const supabaseAdmin = createClient(
-                config.supabaseUrl,
-                process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceKey
-            );
-
-            await supabaseAdmin.auth.admin.updateUserById(userId, {
-                app_metadata: { school_id: schoolId, role: membership.base_role }
-            });
+        if (!membership || !membership.is_active) {
+            throw new Error('Not an active member of this school');
         }
 
-        // 4. Generate new token
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: { school_id: schoolId }
+        });
+
         const payload = {
             id: user.id,
             email: user.email,
             role: membership.base_role,
             school_id: schoolId,
-            email_verified: user.email_verified || false
+            branch_id: user.branch_id
         };
 
         const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
-        return { token, user: { ...user, role: membership.base_role, school_id: schoolId } };
+        SocketService.emitToSchool(schoolId, 'auth:updated', { action: 'switch_school', userId });
+        return { token, user: { ...user, role: membership.base_role } };
+    }
+
+    static async updatePassword(userId: string, newPassword: string) {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: { password_hash: hashedPassword, initial_password: newPassword }
+        });
+
+        if (user.school_id) {
+            SocketService.emitToSchool(user.school_id, 'auth:updated', { action: 'password_update', userId });
+        }
+        return { success: true, message: 'Password updated successfully' };
+    }
+
+    /**
+     * Admin changes a user's password directly
+     */
+    static async adminChangePassword(userId: string, newPassword: string, adminId: string) {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        await prisma.user.update({
+            where: { id: userId },
+            data: { 
+                password_hash: hashedPassword,
+                initial_password: newPassword // Store for admin visibility
+            }
+        });
+
+        // Log the password change for audit
+        console.log(`[AUTH] Admin ${adminId} changed password for user ${userId} at ${new Date().toISOString()}`);
+
+        return { success: true, message: 'Password changed successfully' };
+    }
+
+    /**
+     * Generate a new password for a user
+     */
+    static async resetUserPassword(userId: string): Promise<string> {
+        const newPassword = this.generateRandomPassword();
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        await prisma.user.update({
+            where: { id: userId },
+            data: { 
+                password_hash: hashedPassword,
+                initial_password: newPassword
+            }
+        });
+
+        return newPassword;
+    }
+
+    /**
+     * Generate a random secure password
+     */
+    private static generateRandomPassword(length: number = 10): string {
+        const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        const lowercase = 'abcdefghjkmnpqrstuvwxyz';
+        const numbers = '23456789';
+        const special = '!@#$%';
+        
+        const allChars = uppercase + lowercase + numbers + special;
+        let password = '';
+        
+        // Ensure at least one of each type
+        password += uppercase.charAt(Math.floor(Math.random() * uppercase.length));
+        password += lowercase.charAt(Math.floor(Math.random() * lowercase.length));
+        password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+        password += special.charAt(Math.floor(Math.random() * special.length));
+        
+        // Fill the rest randomly
+        for (let i = 4; i < length; i++) {
+            password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+        }
+        
+        // Shuffle the password
+        return password.split('').sort(() => Math.random() - 0.5).join('');
+    }
+
+    static async resendVerification(email: string) {
+        // Mock implementation for now
+        console.log(`Resending verification to ${email}`);
+        return { success: true, message: 'Verification email sent' };
+    }
+
+    static async confirmEmail(userId: string) {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { email_verified: true }
+        });
+        return { success: true, message: 'Email confirmed' };
+    }
+
+    static async verifyEmail(token: string, enteredCode: string) {
+        try {
+            const decoded = jwt.verify(token, config.jwtSecret) as any;
+            if (decoded.purpose !== 'otp_verification') {
+                throw new Error('Invalid token purpose');
+            }
+
+            if (decoded.code !== enteredCode) {
+                throw new Error('Incorrect verification code');
+            }
+            
+            await prisma.user.update({
+                where: { id: decoded.userId },
+                data: { email_verified: true }
+            });
+
+            const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+            
+            if (user && user.school_id) {
+                // Activate the new school
+                await prisma.school.update({
+                    where: { id: user.school_id },
+                    data: { subscription_status: 'active' }
+                });
+            }
+
+            if (!user) throw new Error('User not found');
+
+            const payload = {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                school_id: user.school_id,
+                branch_id: user.branch_id
+            };
+            const authToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
+
+            return { success: true, message: 'Email confirmed successfully', token: authToken, user };
+        } catch (err: any) {
+            throw new Error('Invalid or expired verification link.');
+        }
+    }
+
+    static async updateEmail(userId: string, newEmail: string) {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { email: newEmail.toLowerCase(), email_verified: false }
+        });
+        return { success: true, message: 'Email updated' };
+    }
+
+    static DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+    static DEMO_BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
+
+    private static DEMO_USERS: Record<string, {
+        id: string;
+        email: string;
+        role: string;
+        full_name: string;
+        branch_id: string;
+        school_generated_id: string;
+    }> = {
+        admin: {
+            id: 'd3300000-0000-0000-0000-000000000001',
+            email: 'admin@demo.com',
+            role: 'ADMIN',
+            full_name: 'School Admin',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_ADM_0001',
+        },
+        teacher: {
+            id: 'd3300000-0000-0000-0000-000000000002',
+            email: 'john.smith@demo.com',
+            role: 'TEACHER',
+            full_name: 'John Smith',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_TCH_0017',
+        },
+        parent: {
+            id: 'd3300000-0000-0000-0000-000000000003',
+            email: 'parent1@demo.com',
+            role: 'PARENT',
+            full_name: 'Demo Parent',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_PAR_0007',
+        },
+        student: {
+            id: 'd3300000-0000-0000-0000-000000000004',
+            email: 'student1@demo.com',
+            role: 'STUDENT',
+            full_name: 'Demo Student',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_STU_0135',
+        },
+        proprietor: {
+            id: 'd3300000-0000-0000-0000-000000000005',
+            email: 'proprietor@demo.com',
+            role: 'PROPRIETOR',
+            full_name: 'Proprietor',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_PRO_0001',
+        },
+        inspector: {
+            id: 'd3300000-0000-0000-0000-000000000006',
+            email: 'inspector@demo.com',
+            role: 'INSPECTOR',
+            full_name: 'Inspector',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_INS_0001',
+        },
+        examofficer: {
+            id: 'd3300000-0000-0000-0000-000000000007',
+            email: 'examofficer@demo.com',
+            role: 'EXAM_OFFICER',
+            full_name: 'Exam Officer',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_EXM_0001',
+        },
+        complianceofficer: {
+            id: 'd3300000-0000-0000-0000-000000000008',
+            email: 'compliance@demo.com',
+            role: 'COMPLIANCE_OFFICER',
+            full_name: 'Compliance Officer',
+            branch_id: AuthService.DEMO_BRANCH_ID,
+            school_generated_id: 'OLISKEY_MAIN_CMP_0001',
+        },
+    };
+
+    /**
+     * Generate a cryptographically signed JWT demo token for a specific role.
+     * These tokens are server-side generated and cannot be forged by clients.
+     */
+    static async generateDemoToken(role: string) {
+        console.log(`[AUTH] 🚀 Starting Demo Login flow for role: ${role}`);
+        const roleKey = role.toLowerCase();
+        const fallbackUser = this.DEMO_USERS[roleKey];
+
+        if (!fallbackUser) {
+            console.error(`[AUTH] ❌ Invalid demo role requested: ${role}`);
+            throw new Error(`Invalid demo role: ${role}. Valid roles: ${Object.keys(this.DEMO_USERS).join(', ')}`);
+        }
+
+        try {
+            console.log(`[AUTH] 🔍 Fetching demo user from database for email: ${fallbackUser.email}`);
+            // Validate pulling DB user instantly (fast access to Prisma user)
+            const demoUser = await (prisma.user.findUnique as any)({ 
+                where: { email: fallbackUser.email },
+                include: { school: true, branch: true }
+            });
+
+            if (!demoUser) {
+                console.warn(`[AUTH] ⚠️ Demo database user not found for ${fallbackUser.email}. Check seeding.`);
+                throw new Error('Demo accounts are currently spinning up... Please try again in a few seconds.');
+            }
+
+            console.log(`[AUTH] ✅ Demo user found: ${demoUser.full_name} (${demoUser.role})`);
+
+            // Return EXACT standard auth payload format for Parity
+            const payload = {
+                id: demoUser.id,
+                email: demoUser.email,
+                role: demoUser.role,
+                school_id: demoUser.school_id,
+                branch_id: demoUser.branch_id,
+                school_generated_id: demoUser.school_generated_id,
+                full_name: demoUser.full_name,
+                is_demo: true,
+            };
+
+            const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1h' });
+
+            return {
+                token,
+                user: demoUser,
+            };
+        } catch (error: any) {
+            console.error(`[AUTH] 💥 Error in generateDemoToken:`, error);
+            throw error;
+        }
+    }
+
+    static getDemoRoles() {
+        return Object.keys(this.DEMO_USERS).map((key) => ({
+            role: key,
+            email: this.DEMO_USERS[key].email,
+            full_name: this.DEMO_USERS[key].full_name,
+            school_generated_id: this.DEMO_USERS[key].school_generated_id,
+        }));
+    }
+
+    static async getSessions(userId: string) {
+        return (prisma as any).userSession.findMany({
+            where: { user_id: userId, is_active: true },
+            orderBy: { created_at: 'desc' },
+            take: 10
+        });
+    }
+
+    static async revokeSession(userId: string, sessionId: string) {
+        return (prisma as any).userSession.update({
+            where: { id: sessionId, user_id: userId },
+            data: { is_active: false }
+        });
+    }
+
+    static async revokeAllSessions(userId: string) {
+        return (prisma as any).userSession.updateMany({
+            where: { user_id: userId, is_active: true },
+            data: { is_active: false }
+        });
     }
 }

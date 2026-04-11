@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { VideoLesson, DigitalResource } from '../../types';
 // import { mockDigitalResources } from '../../data'; // REMOVED
 import { ChevronRightIcon, DocumentTextIcon, RESOURCE_TYPE_CONFIG } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface VideoLessonScreenProps {
     lessonId: number;
@@ -41,13 +41,7 @@ const VideoLessonScreen: React.FC<VideoLessonScreenProps> = ({ lessonId, navigat
         const fetchLesson = async () => {
             try {
                 setLoading(true);
-                const { data, error } = await supabase
-                    .from('digital_resources')
-                    .select('*')
-                    .eq('id', lessonId)
-                    .single();
-
-                if (error) throw error;
+                const data = await api.getResourceById(lessonId);
 
                 if (data) {
                     const mappedLesson: VideoLesson = {
@@ -57,8 +51,8 @@ const VideoLessonScreen: React.FC<VideoLessonScreenProps> = ({ lessonId, navigat
                         subject: data.subject || 'General',
                         description: data.description || '',
                         videoUrl: data.url,
-                        thumbnailUrl: data.thumbnail_url,
-                        duration: '10:00', // Placeholder as DB doesn't have duration
+                        thumbnailUrl: data.thumbnailUrl || data.thumbnail_url,
+                        duration: data.duration || '10:00',
                         notes: data.description || 'No notes available.',
                         relatedResourceIds: []
                     };
@@ -66,27 +60,20 @@ const VideoLessonScreen: React.FC<VideoLessonScreenProps> = ({ lessonId, navigat
 
                     // Fetch related resources (Same subject)
                     if (data.subject) {
-                        const { data: related } = await supabase
-                            .from('digital_resources')
-                            .select('*')
-                            .eq('subject', data.subject)
-                            .neq('id', lessonId)
-                            .limit(3);
-
+                        const related = await api.getRelatedResources(data.subject, lessonId);
                         if (related) {
                             setRelatedResources(related.map((r: any) => ({
                                 id: r.id,
                                 title: r.title,
-                                type: r.type, // Ensure DB has valid types like 'Video', 'PDF'
+                                type: r.type,
                                 subject: r.subject,
                                 description: r.description,
                                 url: r.url,
-                                thumbnailUrl: r.thumbnail_url
+                                thumbnailUrl: r.thumbnailUrl || r.thumbnail_url
                             } as DigitalResource)));
                         }
                     }
                 }
-
             } catch (err) {
                 console.error("Error fetching video lesson:", err);
             } finally {

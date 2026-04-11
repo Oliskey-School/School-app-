@@ -6,7 +6,7 @@
  * and multiple caching strategies.
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { offlineDB, TableName, OfflineRecord, QueryOptions } from './offlineDatabase';
 import { syncEngine } from './syncEngine';
 import { networkManager } from './networkManager';
@@ -205,7 +205,7 @@ class DataService {
         table: TableName,
         options: QueryOptions = {}
     ): Promise<T[]> {
-        let query = supabase.from(table).select(options.columns || '*');
+        let query = api.from(table).select(options.columns || '*');
 
         // Apply filters
         if (options.where) {
@@ -291,7 +291,7 @@ class DataService {
         // If online, sync immediately
         if (networkManager.isOnline() && networkManager.isGoodForSync()) {
             try {
-                const { data: serverData, error } = await supabase
+                const { data: serverData, error } = await api
                     .from(table)
                     .insert(data)
                     .select()
@@ -346,7 +346,7 @@ class DataService {
         // If online, sync immediately
         if (networkManager.isOnline() && networkManager.isGoodForSync()) {
             try {
-                const { data: serverData, error } = await supabase
+                const { data: serverData, error } = await api
                     .from(table)
                     .update(updates)
                     .eq('id', id)
@@ -394,7 +394,7 @@ class DataService {
         // If online, sync immediately
         if (networkManager.isOnline() && networkManager.isGoodForSync()) {
             try {
-                const { error } = await supabase
+                const { error } = await api
                     .from(table)
                     .delete()
                     .eq('id', id);
@@ -435,7 +435,7 @@ class DataService {
         // If online, sync immediately
         if (networkManager.isOnline() && networkManager.isGoodForSync()) {
             try {
-                const { data: serverData, error } = await supabase
+                const { data: serverData, error } = await api
                     .from(table)
                     .insert(items)
                     .select();
@@ -523,3 +523,4 @@ class DataService {
 // ============================================================================
 
 export const dataService = new DataService();
+

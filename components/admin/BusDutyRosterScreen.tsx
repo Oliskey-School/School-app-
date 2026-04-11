@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { BusVehicleIcon, PlusIcon, TrashIcon, EditIcon } from '../../constants';
 import { Bus } from '../../types';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface BusFormData {
     name: string;
@@ -23,7 +23,7 @@ interface BusDutyRosterProps {
 }
 
 const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoolId }) => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const { profile, refreshProfile } = useProfile();
 
     // Multi-source schoolId detection
@@ -54,48 +54,29 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         loadBuses();
     }, [schoolId]);
 
+    useAutoSync(['buses'], () => {
+        console.log('🔄 [BusDutyRoster] Real-time auto-sync triggered');
+        loadBuses();
+    });
+
     const loadBuses = async () => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            // Fetch via hybrid client (will fallback to Supabase in Demo mode)
-            const data = await api.getBuses();
+            const data = await api.getBuses(schoolId, currentBranchId || undefined);
             setBuses(data.map((b: any) => ({
                 id: b.id,
                 name: b.name,
-                routeName: b.route_name || b.routeName,
-                capacity: b.capacity,
-                plateNumber: b.plate_number || b.plateNumber,
-                driverName: b.driver_name || b.driverName,
-                status: b.status,
+                routeName: b.route_name || b.routeName || '',
+                capacity: b.capacity || 0,
+                plateNumber: b.plate_number || b.plateNumber || '',
+                driverName: b.driver_name || b.driverName || '',
+                status: b.status || 'active',
                 createdAt: b.created_at || b.createdAt
             })));
         } catch (err) {
             console.error('API error fetching buses:', err);
-            // Fallback to direct supabase
-            try {
-                const { data, error } = await supabase
-                    .from('transport_buses')
-                    .select('*')
-                    .eq('school_id', schoolId)
-                    .order('name');
-
-                if (error) throw error;
-
-                setBuses((data || []).map((b: any) => ({
-                    id: b.id,
-                    name: b.name,
-                    routeName: b.route_name,
-                    capacity: b.capacity,
-                    plateNumber: b.plate_number,
-                    driverName: b.driver_name,
-                    status: b.status,
-                    createdAt: b.created_at
-                })));
-            } catch (fallbackErr) {
-                console.error('Fallback fetching buses failed:', fallbackErr);
-                toast.error("Could not load buses.");
-            }
+            toast.error("Could not load buses.");
         } finally {
             setLoading(false);
         }
@@ -121,9 +102,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         }
 
         try {
-            // Map camelCase to snake_case for the database
             const payload = {
-                school_id: schoolId,
                 name: formData.name,
                 route_name: formData.routeName,
                 capacity: formData.capacity,
@@ -131,16 +110,16 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                 driver_name: formData.driverName,
                 status: formData.status
             };
-            const newBus = await api.createBus(schoolId, undefined, payload);
+            const newBus = await api.createBus(payload);
             if (newBus) {
                 const mappedBus: Bus = {
                     id: newBus.id,
                     name: newBus.name,
-                    routeName: newBus.route_name || newBus.routeName,
-                    capacity: newBus.capacity,
-                    plateNumber: newBus.plate_number || newBus.plateNumber,
-                    driverName: newBus.driver_name || newBus.driverName,
-                    status: newBus.status,
+                    routeName: newBus.route_name || newBus.routeName || '',
+                    capacity: newBus.capacity || 0,
+                    plateNumber: newBus.plate_number || newBus.plateNumber || '',
+                    driverName: newBus.driver_name || newBus.driverName || '',
+                    status: newBus.status || 'active',
                     createdAt: newBus.created_at || newBus.createdAt
                 };
                 setBuses([...buses, mappedBus]);
@@ -162,7 +141,6 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
         }
 
         try {
-            // Map camelCase to snake_case for the database
             const payload = {
                 name: formData.name,
                 route_name: formData.routeName,
@@ -171,16 +149,16 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
                 driver_name: formData.driverName,
                 status: formData.status
             };
-            const updatedBus = await api.updateBus(editingBusId, schoolId, undefined, payload);
+            const updatedBus = await api.updateBus(editingBusId, payload);
             if (updatedBus) {
                 const mappedBus: Bus = {
                     id: updatedBus.id,
                     name: updatedBus.name,
-                    routeName: updatedBus.route_name || updatedBus.routeName,
-                    capacity: updatedBus.capacity,
-                    plateNumber: updatedBus.plate_number || updatedBus.plateNumber,
-                    driverName: updatedBus.driver_name || updatedBus.driverName,
-                    status: updatedBus.status,
+                    routeName: updatedBus.route_name || updatedBus.routeName || '',
+                    capacity: updatedBus.capacity || 0,
+                    plateNumber: updatedBus.plate_number || updatedBus.plateNumber || '',
+                    driverName: updatedBus.driver_name || updatedBus.driverName || '',
+                    status: updatedBus.status || 'active',
                     createdAt: updatedBus.created_at || updatedBus.createdAt
                 };
                 setBuses(buses.map(bus => bus.id === editingBusId ? mappedBus : bus));
@@ -203,19 +181,18 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
             status: bus.status
         });
         setEditingBusId(bus.id);
-        setIsAddingBus(false);
+        setIsAddingBus(true);
     };
 
     const handleDeleteBus = async (busId: string) => {
-        if (confirm('Are you sure you want to delete this bus?')) {
-            try {
-                await api.deleteBus(busId, schoolId, undefined);
-                setBuses(buses.filter(bus => bus.id !== busId));
-                toast.success('Bus deleted successfully');
-            } catch (error) {
-                console.error(error);
-                toast.error("An error occurred deleting the bus.");
-            }
+        if (!window.confirm('Are you sure you want to delete this bus?')) return;
+        try {
+            await api.deleteBus(busId);
+            setBuses(buses.filter(bus => bus.id !== busId));
+            toast.success('Bus deleted successfully');
+        } catch (error) {
+            console.error(error);
+            toast.error("An error occurred deleting the bus.");
         }
     };
 

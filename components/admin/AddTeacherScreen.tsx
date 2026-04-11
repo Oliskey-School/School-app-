@@ -1,19 +1,18 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
 import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon, CheckCircleIcon, ChevronDownIcon } from '../../constants';
 import { Teacher } from '../../types';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { createUserAccount, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
+import { api } from '../../lib/api';
+import { sendVerificationEmail } from '../../lib/auth';
 
 // import { checkUserLimit } from '../../lib/usage-limits'; // Replaced by useTenantLimit
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
-import { api } from '../../lib/api';
+
 import UpgradeModal from '../shared/UpgradeModal';
 
 interface AddTeacherScreenProps {
@@ -158,34 +157,40 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     } | null>(null);
 
     // Fetch Reference Data
-    useEffect(() => {
-        const fetchRefs = async () => {
-            try {
-                // Fetch Subjects
-                const sData = await api.getSubjects(schoolId, branchId || undefined);
-                if (sData) {
-                    setValidSubjects(sData.map((d: any) => d.name));
-                    const sMap: Record<string, string> = {};
-                    sData.forEach((s: any) => { sMap[s.name] = s.id; });
-                    setSubjectIdMap(sMap);
-                }
-
-                // Fetch Classes
-                const cData = await api.getClasses(schoolId, branchId || undefined);
-                if (cData) {
-                    setValidClasses(cData.map((d: any) => d.name));
-                    const map: Record<string, string> = {};
-                    cData.forEach((c: any) => { map[c.name] = c.id; });
-                    setClassIdMap(map);
-                }
-            } catch (err) {
-                console.error("Error fetching reference data:", err);
-            } finally {
-                setLoadingRefs(false);
+    const fetchRefs = async () => {
+        try {
+            // Fetch Subjects
+            const sData = await api.getSubjects(schoolId, branchId || undefined);
+            if (sData) {
+                setValidSubjects(sData.map((d: any) => d.name));
+                const sMap: Record<string, string> = {};
+                sData.forEach((s: any) => { sMap[s.name] = s.id; });
+                setSubjectIdMap(sMap);
             }
-        };
+
+            // Fetch Classes
+            const cData = await api.getClasses(schoolId, branchId || undefined);
+            if (cData) {
+                setValidClasses(cData.map((d: any) => d.name));
+                const map: Record<string, string> = {};
+                cData.forEach((c: any) => { map[c.name] = c.id; });
+                setClassIdMap(map);
+            }
+        } catch (err) {
+            console.error("Error fetching reference data:", err);
+        } finally {
+            setLoadingRefs(false);
+        }
+    };
+
+    useEffect(() => {
         fetchRefs();
     }, [schoolId]);
+
+    useAutoSync(['subjects', 'classes'], () => {
+        console.log('🔄 [AddTeacher] Real-time auto-sync triggered');
+        fetchRefs();
+    });
 
     useEffect(() => {
         if (teacherToEdit) {
@@ -233,195 +238,25 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
         try {
             let avatarUrl = avatar;
 
-            // Handle Photo Upload
+            // Handle Photo Upload via API
             if (avatarFile) {
                 const fileExt = avatarFile.name.split('.').pop();
                 const fileName = `${Date.now()}_avatar.${fileExt}`;
                 const filePath = `avatars/${fileName}`;
 
-                const { error: uploadError } = await supabase.storage
-                    .from('teacher-documents')
-                    .upload(filePath, avatarFile);
-
-                if (!uploadError) {
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('teacher-documents')
-                        .getPublicUrl(filePath);
-                    avatarUrl = publicUrl;
+                try {
+                    const uploadResult = await api.uploadFile('teacher-documents', filePath, avatarFile);
+                    avatarUrl = 'publicUrl' in uploadResult ? uploadResult.publicUrl : uploadResult.url;
+                } catch (uploadError) {
+                    console.error("Failed to upload avatar:", uploadError);
                 }
             }
 
             const curriculumData = curriculumEligibility.map(c => c === 'NIGERIAN' ? 'Nigerian' : 'British');
-
-            if (teacherToEdit) {
-                // UPDATE MODE
-                const { error: updateError } = await supabase
-                    .from('teachers')
-                    .update({
-                        name,
-                        email,
-                        phone,
-                        status,
-                        avatar_url: avatarUrl,
-                        branch_id: branchId,
-                        curriculum_eligibility: curriculumData
-                    })
-                    .eq('id', teacherToEdit.id);
-
-                if (updateError) throw updateError;
-
-                if (teacherToEdit.user_id) {
-                    await supabase.from('profiles').update({ full_name: name, avatar_url: avatarUrl }).eq('id', teacherToEdit.user_id);
-                    await supabase.from('users').update({ name: name, avatar_url: avatarUrl }).eq('id', teacherToEdit.user_id);
-                }
-
-                // Sync assignments
-                console.log("🔄 Syncing assignments for teacher:", teacherToEdit.id);
-                
-                // 1. Legacy Tables (for backward compatibility/reporting)
-                await supabase.from('teacher_subjects').delete().eq('teacher_id', teacherToEdit.id);
-                if (subjects.length > 0) {
-                    const { error: tsErr } = await supabase.from('teacher_subjects').insert(
-                        subjects.map(s => ({ teacher_id: teacherToEdit.id, subject: s, school_id: schoolId }))
-                    );
-                    if (tsErr) console.error("❌ Error syncing teacher_subjects:", tsErr);
-                }
-
-                await supabase.from('teacher_classes').delete().eq('teacher_id', teacherToEdit.id);
-                if (classes.length > 0) {
-                    const { error: tcErr } = await supabase.from('teacher_classes').insert(
-                        classes.map(c => ({ teacher_id: teacherToEdit.id, class_name: c.trim(), school_id: schoolId }))
-                    );
-                    if (tcErr) console.error("❌ Error syncing teacher_classes:", tcErr);
-                }
-
-                // 2. Modern Table (class_teachers) - Source of truth for many views
-                await supabase.from('class_teachers').delete().eq('teacher_id', teacherToEdit.id);
-                
-                // Map with robustness (trimming)
-                const classIds = classes.map(c => classIdMap[c.trim()] || Object.entries(classIdMap).find(([name]) => name.trim() === c.trim())?.[1]).filter(Boolean);
-                const subIds = subjects.map(s => subjectIdMap[s.trim()] || Object.entries(subjectIdMap).find(([name]) => name.trim() === s.trim())?.[1]).filter(Boolean);
-
-                console.log(`📍 Mapping results: Classes(${classes.length} -> ${classIds.length}), Subjects(${subjects.length} -> ${subIds.length})`);
-
-                if (classIds.length > 0) {
-                    const ctInserts: any[] = [];
-                    classIds.forEach(cid => {
-                        if (subIds.length > 0) {
-                            subIds.forEach(sid => {
-                                ctInserts.push({ 
-                                    teacher_id: teacherToEdit.id, 
-                                    class_id: cid, 
-                                    subject_id: sid, 
-                                    school_id: schoolId, 
-                                    branch_id: branchId, 
-                                    academic_year: '2025-2026', 
-                                    is_class_teacher: false 
-                                });
-                            });
-                        } else {
-                            ctInserts.push({ 
-                                teacher_id: teacherToEdit.id, 
-                                class_id: cid, 
-                                subject_id: null, 
-                                school_id: schoolId, 
-                                branch_id: branchId, 
-                                academic_year: '2025-2026', 
-                                is_class_teacher: false 
-                            });
-                        }
-                    });
-                    
-                    if (ctInserts.length > 0) {
-                        const { error: ctErr } = await supabase.from('class_teachers').insert(ctInserts);
-                        if (ctErr) console.error("❌ Error syncing class_teachers:", ctErr);
-                        else console.log("✅ Successfully synced class_teachers inserts:", ctInserts.length);
-                    }
-                }
-                currentTeacherId = teacherToEdit.id;
-            } else {
-                // CREATE MODE
-                const teacherEmail = email || `teacher${Date.now()}@school.com`;
-                if (!schoolId) throw new Error('School ID missing');
-
-                authResult = await createUserAccount(name, 'Teacher', teacherEmail, schoolId);
-                if (authResult.error) throw new Error(authResult.error);
-
-                const { data: uData, error: uError } = await supabase
-                    .from('users')
-                    .insert([{ email: teacherEmail, name: name, role: 'teacher', avatar_url: avatarUrl }])
-                    .select().single();
-                if (uError) throw uError;
-
-                const { data: tData, error: tError } = await supabase
-                    .from('teachers')
-                    .insert([{
-                        user_id: uData.id,
-                        school_id: schoolId,
-                        branch_id: branchId,
-                        name,
-                        email: teacherEmail,
-                        phone,
-                        avatar_url: avatarUrl,
-                        status,
-                        curriculum_eligibility: curriculumData
-                    }])
-                    .select().single();
-                if (tError) {
-                    await supabase.from('users').delete().eq('id', uData.id);
-                    throw tError;
-                }
-                currentTeacherId = tData.id;
-                console.log("✅ Teacher created with ID:", currentTeacherId);
-
-                // Initial assignments
-                if (subjects.length > 0) {
-                    await supabase.from('teacher_subjects').insert(subjects.map(s => ({ teacher_id: currentTeacherId, subject: s, school_id: schoolId })));
-                }
-                if (classes.length > 0) {
-                    await supabase.from('teacher_classes').insert(classes.map(c => ({ teacher_id: currentTeacherId, class_name: c.trim(), school_id: schoolId })));
-                    
-                    const classIds = classes.map(c => classIdMap[c.trim()] || Object.entries(classIdMap).find(([name]) => name.trim() === c.trim())?.[1]).filter(Boolean);
-                    const subIds = subjects.map(s => subjectIdMap[s.trim()] || Object.entries(subjectIdMap).find(([name]) => name.trim() === s.trim())?.[1]).filter(Boolean);
-                    
-                    if (classIds.length > 0) {
-                        const ctInserts: any[] = [];
-                        classIds.forEach(cid => {
-                            if (subIds.length > 0) {
-                                subIds.forEach(sid => {
-                                    ctInserts.push({ 
-                                        teacher_id: currentTeacherId, 
-                                        class_id: cid, 
-                                        subject_id: sid, 
-                                        school_id: schoolId, 
-                                        branch_id: branchId, 
-                                        academic_year: '2025-2026', 
-                                        is_class_teacher: false 
-                                    });
-                                });
-                            } else {
-                                ctInserts.push({ 
-                                    teacher_id: currentTeacherId, 
-                                    class_id: cid, 
-                                    subject_id: null, 
-                                    school_id: schoolId, 
-                                    branch_id: branchId, 
-                                    academic_year: '2025-2026', 
-                                    is_class_teacher: false 
-                                });
-                            }
-                        });
-                        if (ctInserts.length > 0) {
-                            const { error: ctErr } = await supabase.from('class_teachers').insert(ctInserts);
-                            if (ctErr) console.error("❌ Error creating class_teachers:", ctErr);
-                        }
-                    }
-                }
-            }
-
+            
             // Shared Document Uploads
-            if (currentTeacherId && uploadedDocs.length > 0) {
-                const complianceDocs: Record<string, string> = {};
+            const complianceDocs: Record<string, string> = {};
+            if (uploadedDocs.length > 0) {
                 for (const file of uploadedDocs) {
                     try {
                         const fileName = `${Date.now()}_${file.name}`;
@@ -431,28 +266,41 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         else if (file.name.toLowerCase().includes('british') || file.name.toLowerCase().includes('qts')) { folder = 'british'; dbField = 'british_qualification'; }
                         else { folder = 'degree'; dbField = 'degree_certificate'; }
 
-                        const { data: uploadData, error: uploadError } = await supabase.storage
-                            .from('teacher-documents')
-                            .upload(`${currentTeacherId}/${folder}/${fileName}`, file);
-
-                        if (!uploadError) {
-                            const { data: urlData } = supabase.storage.from('teacher-documents').getPublicUrl(uploadData.path);
-                            if (dbField) complianceDocs[dbField] = urlData.publicUrl;
-                        }
+                        const uploadResult = await api.uploadFile('teacher-documents', `temp/${folder}/${fileName}`, file);
+                        if (dbField) complianceDocs[dbField] = 'publicUrl' in uploadResult ? uploadResult.publicUrl : uploadResult.url;
                     } catch (err) { console.error("Doc upload failed:", err); }
-                }
-                if (Object.keys(complianceDocs).length > 0) {
-                    await supabase.from('teachers').update(complianceDocs).eq('id', currentTeacherId);
                 }
             }
 
-            // Final Redirect/UI Feedback
+            const payload = {
+                name,
+                email,
+                phone,
+                status,
+                avatar_url: avatarUrl,
+                branch_id: branchId,
+                curriculum_eligibility: curriculumData,
+                subjects: subjects.map(s => subjectIdMap[s]).filter(Boolean),
+                classes: classes.map(c => classIdMap[c]).filter(Boolean),
+                ...complianceDocs
+            };
+
             if (teacherToEdit) {
+                // UPDATE MODE
+                await api.updateTeacher(teacherToEdit.id, payload);
                 toast.success('Teacher updated successfully!');
                 handleBack();
-            } else if (authResult) {
+            } else {
+                // CREATE MODE
+                const createdTeacher = await api.createTeacher(payload);
+                
+                // Final Redirect/UI Feedback
                 await sendVerificationEmail(name, email || '', 'School App');
-                setCredentials({ username: authResult.username, password: authResult.password, email: email || '' });
+                setCredentials({ 
+                    username: createdTeacher.username, 
+                    password: createdTeacher.initial_password, 
+                    email: email || '' 
+                });
                 setShowCredentialsModal(true);
             }
         } catch (error: any) {

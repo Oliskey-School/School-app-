@@ -96,12 +96,6 @@ interface ViewStackItem {
     title: string;
 }
 
-import { supabase } from '../../lib/supabase';
-
-// ... (other imports remain)
-
-// Remove global loggedInStudent
-
 import { NextUpTask } from './NextUpTask';
 
 const TodayFocus: React.FC<{
@@ -193,49 +187,16 @@ const Overview: React.FC<{
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+                setLoading(true);
+                const data = await api.getMyDashboardOverview();
 
-                const [timetableData, assignmentsData, quizzesData] = await Promise.all([
-                    api.getTimetable(schoolId, student.grade.toString(), undefined, currentBranchId),
-                    api.getAssignments(schoolId, { classId: student.classId || student.current_class_id, branchId: currentBranchId }),
-                    api.getQuizzesByClass(schoolId, student.grade.toString(), student.section, currentBranchId)
-                ]);
-
-                if (timetableData && timetableData.length > 0) {
-                    // Filter for today locally if API returns all
-                    setTodaySchedule(timetableData.filter((t: any) => t.day === today).slice(0, 3));
-                } else {
-                    setTodaySchedule([]);
+                if (data) {
+                    setTodaySchedule(data.timetable || []);
+                    setUpcomingAssignments(data.assignments || []);
+                    setUpcomingQuizzes(data.quizzes || []);
                 }
-
-                if (assignmentsData && assignmentsData.length > 0) {
-                    const now = new Date();
-                    // Upcoming = due today or in the future
-                    const upcoming = assignmentsData
-                        .filter((a: any) => new Date(a.due_date) >= now)
-                        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
-                    setUpcomingAssignments(upcoming.slice(0, 2));
-                } else {
-                    setUpcomingAssignments([]);
-                }
-
-                if (quizzesData && quizzesData.length > 0) {
-                    const now = new Date();
-                    // Upcoming = not ended yet
-                    const upcoming = quizzesData
-                        .filter((q: any) => !q.end_time || new Date(q.end_time) >= now)
-                        .sort((a, b) => {
-                            if (!a.start_time) return 1;
-                            if (!b.start_time) return -1;
-                            return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
-                        });
-                    setUpcomingQuizzes(upcoming.slice(0, 2));
-                } else {
-                    setUpcomingQuizzes([]);
-                }
-
             } catch (err) {
-                console.warn('Error fetching overview data via Hybrid API:', err);
+                console.error('Error fetching dashboard overview:', err);
                 setTodaySchedule([]);
                 setUpcomingAssignments([]);
                 setUpcomingQuizzes([]);
@@ -364,19 +325,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     useEffect(() => {
         const fetchStudentAndNotifications = async () => {
-            // Prevent infinite loop - if already fetching, skip
-            if (isFetchingRef.current) {
-                console.log('⏭️ Fetch already in progress, skipping...');
-                return;
-            }
-
-            // Don't fetch if we don't have a user
+            if (isFetchingRef.current) return;
             if (!currentUser?.id) {
                 setLoadingStudent(false);
                 return;
             }
 
-            isFetchingRef.current = true; // Mark as fetching
+            isFetchingRef.current = true;
             const cacheKey = `student_profile_${currentUser.id}`;
 
             try {
@@ -390,109 +345,38 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     setLoadingStudent(true);
                 }
 
-                if (!currentUser.email) {
-                    setLoadingStudent(false);
-                    isFetchingRef.current = false;
-                    return;
-                }
-
                 if (!isOnline && cachedStudent) {
                     setIsRevalidating(false);
                     return;
                 }
 
-                const isDemoEmail = currentUser.email === 'student@school.edu' ||
-                    currentUser.email?.endsWith('@demo.com');
-
-                const createDemoStudent = (): Student => ({
-                    id: currentUser.id || '00000000-0000-0000-0000-000000000001',
-                    name: currentUser.user_metadata?.full_name || 'Demo Student',
-                    grade: 10,
-                    section: 'A',
-                    avatarUrl: currentUser.user_metadata?.avatar_url || 'https://i.pravatar.cc/150?img=1',
-                    email: currentUser.email,
-                    department: 'Science',
-                    attendanceStatus: 'Present',
-                    user_id: currentUser.id,
-                    school_generated_id: currentUser.user_metadata?.school_generated_id || 'Pending Generation',
-                    schoolGeneratedId: currentUser.user_metadata?.school_generated_id || 'Pending Generation',
-                    schoolId: currentUser.user_metadata?.school_generated_id || 'Pending Generation',
-                } as Student);
-
-                // 1. Try to fetch Student Data via Hybrid API
+                // Strictly use Hybrid API
                 console.log("Fetching student profile via Hybrid API for user:", currentUser?.id);
+                const studentData = await api.getMyStudentProfile();
 
-                try {
-                    const studentData = await api.getMyStudentProfile();
+                if (studentData) {
+                    const mappedStudent: Student = {
+                        ...studentData,
+                        id: studentData.id,
+                        name: studentData.name || studentData.full_name || '',
+                        grade: studentData.grade,
+                        section: studentData.section,
+                        avatarUrl: studentData.avatar_url || studentData.avatarUrl,
+                        school_generated_id: studentData.school_generated_id,
+                        schoolGeneratedId: studentData.school_generated_id,
+                        schoolId: studentData.school_id || studentData.schoolId,
+                    } as any;
 
-                    if (studentData) {
-                        const mappedStudent: Student = {
-                            ...studentData,
-                            id: studentData.id,
-                            name: studentData.name,
-                            grade: studentData.grade,
-                            section: studentData.section,
-                            avatarUrl: studentData.avatar_url,
-                            school_generated_id: studentData.school_generated_id,
-                            schoolGeneratedId: studentData.school_generated_id, // Compatibility
-                            schoolId: studentData.school_generated_id, // Compatibility
-                        } as any;
-
-                        setStudent(mappedStudent);
-                        await offlineStorage.save(cacheKey, mappedStudent);
-                    } else if (isDemoEmail) {
-                        // AUTO-HEALING for demo users
-                        console.log("⚠️ No student profile found for demo user. Auto-healing...");
-                        const DEMO_SCHOOL_ID = '00000000-0000-0000-0000-000000000000';
-
-                        const { data: newStudent, error: createError } = await supabase
-                            .from('students')
-                            .upsert({
-                                user_id: currentUser.id,
-                                email: currentUser.email,
-                                school_id: schoolId || DEMO_SCHOOL_ID,
-                                name: currentUser.user_metadata?.full_name || 'Demo Student',
-                                grade: 10,
-                                section: 'A',
-                                attendance_status: 'Present'
-                            }, {
-                                onConflict: 'user_id'
-                            })
-                            .select()
-                            .single();
-
-                        if (newStudent) {
-                            const mappedNewStudent = {
-                                ...newStudent,
-                                id: newStudent.id,
-                                name: newStudent.name,
-                                grade: newStudent.grade,
-                                section: newStudent.section,
-                                avatarUrl: newStudent.avatar_url,
-                                school_generated_id: newStudent.school_generated_id,
-                                schoolGeneratedId: newStudent.school_generated_id,
-                                schoolId: newStudent.school_generated_id,
-                            };
-                            setStudent(mappedNewStudent as any);
-                            await offlineStorage.save(cacheKey, mappedNewStudent);
-                        } else {
-                            setStudent(createDemoStudent());
-                        }
-                    } else {
-                        // If no student found and not demo email, fall back to basic profile from auth
-                        console.log("📡 Using basic profile from auth for non-student row user");
-                        setStudent(createDemoStudent());
-                    }
-                } catch (apiError: any) {
-                    console.error("API Error fetching student profile:", apiError);
-                    if (apiError.message?.includes('permission denied') || apiError.status === 403 || apiError.message?.includes('403')) {
-                        setStudent(createDemoStudent());
-                    }
+                    setStudent(mappedStudent);
+                    await offlineStorage.save(cacheKey, mappedStudent);
+                } else {
+                    console.warn("No student profile found for this user.");
+                    setStudent(null);
                 }
 
             } catch (e) {
-                console.error('Error loading dashboard:', e);
-                if (!student) setLoadingStudent(false);
+                console.error('Error loading dashboard profile:', e);
+                if (!student) setStudent(null);
             } finally {
                 setLoadingStudent(false);
                 setIsRevalidating(false);
@@ -535,139 +419,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-    // Real-time Service Integration
-    // Listen for Virtual Class Sessions
-    const [incomingClass, setIncomingClass] = useState<any | null>(null);
-
-    useEffect(() => {
-        if (!student || !schoolId) return;
-
-        let myClassId: string | null = null;
-        let channel: any = null;
-
-        const setupListener = async () => {
-            try {
-                // 1. Get Class ID scoped to School
-                let classQuery = supabase
-                    .from('classes')
-                    .select('id')
-                    .eq('school_id', schoolId)
-                    .eq('grade', student.grade);
-
-                if (student.section && student.section !== 'null' && student.section !== '') {
-                    classQuery = classQuery.eq('section', student.section);
-                } else {
-                    classQuery = classQuery.is('section', null);
-                }
-
-                const { data: cls } = await classQuery.limit(1).maybeSingle();
-
-                if (cls) {
-                    myClassId = cls.id;
-                    console.log('📡 [Student] Listening for class sessions for:', myClassId);
-
-                    // 2. CHECK FOR EXISTING ACTIVE SESSIONS (Important for students joining late)
-                    const { data: existingActive } = await supabase
-                        .from('virtual_class_sessions')
-                        .select('*, teachers(name)')
-                        .eq('class_id', myClassId)
-                        .eq('status', 'active')
-                        .limit(1)
-                        .maybeSingle();
-
-                    if (existingActive) {
-                        console.log('🔔 [Student] Found already active class:', existingActive);
-                        setIncomingClass({
-                            ...existingActive,
-                            teacherName: (existingActive as any).teachers?.name || 'Teacher'
-                        });
-                    }
-
-                    // 3. Subscribe to Future Changes
-                    channel = supabase
-                        .channel(`student-class-${myClassId}`)
-                        .on(
-                            'postgres_changes',
-                            {
-                                event: '*',
-                                schema: 'public',
-                                table: 'virtual_class_sessions',
-                                filter: `class_id=eq.${myClassId}`
-                            },
-                            async (payload: any) => {
-                                console.log('🔔 [Student] Class session event:', payload.eventType, payload.new);
-
-                                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                                    if (payload.new && payload.new.status === 'active') {
-                                        // Fetch teacher name
-                                        const { data: teacher } = await supabase
-                                            .from('teachers')
-                                            .select('name')
-                                            .eq('id', payload.new.teacher_id)
-                                            .limit(1)
-                                            .maybeSingle();
-
-                                        setIncomingClass({
-                                            ...payload.new,
-                                            teacherName: teacher?.name || 'Teacher'
-                                        });
-
-                                        // Also show a toast for immediate visibility if modal is somehow blocked
-                                        toast.success(`Live Class Started: ${payload.new.subject}`, { icon: '🎥' });
-                                    } else if (payload.new && payload.new.status === 'ended') {
-                                        setIncomingClass(null);
-                                    }
-                                } else if (payload.eventType === 'DELETE') {
-                                    setIncomingClass(null);
-                                }
-                            }
-                        )
-                        .subscribe();
-                }
-            } catch (err) {
-                console.error("❌ [Student] Error setting up class listener:", err);
-            }
-        };
-
-        setupListener();
-
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-        };
-    }, [student, schoolId]);
-
-    // Real-time Service Integration Removed
-    /*
-    useEffect(() => {
-        const userId = (currentUser as any)?.id;
-        if (userId) {
-            // Subscribe to personal notifications
-            realtimeService.subscribeToNotifications(userId, (notif) => {
-                toast(notif.message || notif.content || 'New Event', {
-                    icon: '🔔',
-                    duration: 4000
-                });
-                forceUpdate();
-            });
-
-            // Subscribe to messages
-            realtimeService.subscribeToMessages(userId, (msg) => {
-                toast.success(`Message from ${msg.sender_name || 'Teacher'}`, {
-                    icon: '💬',
-                    duration: 4000
-                });
-                forceUpdate();
-            });
-        }
-
-        return () => {
-            realtimeService.unsubscribeAll();
-        };
-    }, [currentUser]);
-    */
-
     const navigateTo = (view: string, title: string, props: any = {}) => {
-        setViewStack(stack => [...stack, { view, props, title }]);
+        React.startTransition(() => {
+            setViewStack(stack => [...stack, { view, props, title }]);
+        });
         // Scroll to top on navigation
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTo(0, 0);
@@ -675,12 +430,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
     };
 
     const handleBack = () => {
-        if (viewStack.length > 1) {
-            setViewStack(stack => stack.slice(0, -1));
-        } else {
-            // Fallback: If we are stuck, go to overview
-            setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
-        }
+        React.startTransition(() => {
+            if (viewStack.length > 1) {
+                setViewStack(stack => stack.slice(0, -1));
+            } else {
+                // Fallback: If we are stuck, go to overview
+                setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
+            }
+        });
         // Scroll to top on back navigation
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTo(0, 0);
@@ -689,35 +446,38 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
 
     const handleBottomNavClick = (screen: string) => {
         if (!student) return;
-        setActiveBottomNav(screen);
+        
+        React.startTransition(() => {
+            setActiveBottomNav(screen);
 
-        // Reset scroll when switching tabs via bottom nav
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTo(0, 0);
-        }
+            // Reset scroll when switching tabs via bottom nav
+            if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollTo(0, 0);
+            }
 
-        switch (screen) {
-            case 'home':
-                setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
-                break;
-            case 'quizzes':
-                setViewStack([{ view: 'quizzes', title: 'Assessments & Quizzes' }]);
-                break;
-            case 'results':
-                setViewStack([{ view: 'results', title: 'Academic Performance', props: { studentId: student.id } }]);
-                break;
-            case 'games':
-                setViewStack([{ view: 'gamesHub', title: 'Games Hub' }]);
-                break;
-            case 'messages':
-                setViewStack([{ view: 'messages', title: 'Messages' }]);
-                break;
-            case 'profile':
-                setViewStack([{ view: 'profile', title: 'My Profile', props: {} }]);
-                break;
-            default:
-                setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
-        }
+            switch (screen) {
+                case 'home':
+                    setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
+                    break;
+                case 'quizzes':
+                    setViewStack([{ view: 'quizzes', title: 'Assessments & Quizzes' }]);
+                    break;
+                case 'results':
+                    setViewStack([{ view: 'results', title: 'Academic Performance', props: { studentId: student.id } }]);
+                    break;
+                case 'games':
+                    setViewStack([{ view: 'gamesHub', title: 'Games Hub' }]);
+                    break;
+                case 'messages':
+                    setViewStack([{ view: 'messages', title: 'Messages' }]);
+                    break;
+                case 'profile':
+                    setViewStack([{ view: 'profile', title: 'My Profile', props: {} }]);
+                    break;
+                default:
+                    setViewStack([{ view: 'overview', title: 'Student Dashboard' }]);
+            }
+        });
     };
 
     const handleNotificationClick = () => {
@@ -838,54 +598,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                     </p>
                     <div className="flex flex-col gap-3 w-full">
                         <button
-                            className="w-full py-3 px-4 bg-white text-gray-700 border border-gray-200 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                        >
-                            Back to Login
-                        </button>
-
-                        <button
-                            onClick={async () => {
-                                try {
-                                    setLoadingStudent(true);
-                                    // Manually trigger the auto-creation logic by forcing a re-check with special flag or just re-running 
-                                    // Actually, simpler to just insert directly here as a manual action
-                                    // Match Shared Reality Demo School ID
-                                    const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-                                    const effectiveSchoolId = schoolId || DEMO_SCHOOL_ID;
-
-                                    const { data: newStudent, error } = await supabase
-                                        .from('students')
-                                        .upsert({
-                                            user_id: user?.id,
-                                            email: user?.email,
-                                            school_id: effectiveSchoolId,
-                                            name: currentUser.user_metadata?.full_name || 'New Student',
-                                            grade: 10,
-                                            section: 'A',
-                                            attendance_status: 'Present'
-                                        }, {
-                                            onConflict: 'user_id'
-                                        })
-                                        .select()
-                                        .single();
-
-                                    if (error) {
-                                        toast.error("Failed to create profile: " + error.message);
-                                        console.error(error);
-                                    } else {
-                                        toast.success("Profile created! Reloading...");
-                                        window.location.reload();
-                                    }
-                                } catch (e) {
-                                    toast.error("An unexpected error occurred");
-                                    console.error(e);
-                                } finally {
-                                    setLoadingStudent(false);
-                                }
-                            }}
+                            onClick={() => onLogout?.()}
                             className="w-full py-3 px-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
                         >
-                            Create Student Profile
+                            Back to Login
                         </button>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100">
@@ -943,15 +659,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                 </Suspense>
             </DashboardLayout>
 
-            <IncomingClassModal
-                isOpen={!!incomingClass}
-                classInfo={incomingClass}
-                onJoin={() => {
-                    setIncomingClass(null);
-                    navigateTo('liveClass', 'Live Class Session', { session: incomingClass });
-                }}
-                onDecline={() => setIncomingClass(null)}
-            />
         </GamificationProvider>
     );
 };

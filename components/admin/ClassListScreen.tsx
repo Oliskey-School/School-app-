@@ -1,11 +1,11 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
-import { fetchClasses, fetchStudentsByClassId } from '../../lib/database';
 import { api } from '../../lib/api';
+import { fetchClasses, fetchStudentsByClassId } from '../../lib/database';
+
 import { useOptimisticMutation } from '../../hooks/useOptimisticMutation';
 import { StudentsIcon, ChevronRightIcon, gradeColors, getFormattedClassName, BookOpenIcon, PlusIcon, EditIcon, TrashIcon, XIcon } from '../../constants';
+import { DEFAULT_STANDARD_CLASSES } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { ClassInfo, Student } from '../../types';
 import CenteredLoader from '../ui/CenteredLoader';
@@ -17,20 +17,6 @@ interface ClassListScreenProps {
     currentBranchId?: string | null;
 }
 
-const DEFAULT_STANDARD_CLASSES = [
-    { name: 'Primary 1', grade: 1, section: 'A', level: 'Primary' },
-    { name: 'Primary 2', grade: 2, section: 'A', level: 'Primary' },
-    { name: 'Primary 3', grade: 3, section: 'A', level: 'Primary' },
-    { name: 'Primary 4', grade: 4, section: 'A', level: 'Primary' },
-    { name: 'Primary 5', grade: 5, section: 'A', level: 'Primary' },
-    { name: 'Primary 6', grade: 6, section: 'A', level: 'Primary' },
-    { name: 'JSS 1', grade: 7, section: 'A', level: 'Secondary' },
-    { name: 'JSS 2', grade: 8, section: 'A', level: 'Secondary' },
-    { name: 'JSS 3', grade: 9, section: 'A', level: 'Secondary' },
-    { name: 'SSS 1', grade: 10, section: 'A', level: 'Secondary' },
-    { name: 'SSS 2', grade: 11, section: 'A', level: 'Secondary' },
-    { name: 'SSS 3', grade: 12, section: 'A', level: 'Secondary' },
-];
 
 
 const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId, currentBranchId }) => {
@@ -125,29 +111,37 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
     };
 
     const groupedClasses = useMemo(() => {
-        const groups: Record<string, { grade: number; name: string; student_count: number; sections: any[] }> = {};
+        const groups: Record<number, { grade: number; name: string; student_count: number; sections: any[] }> = {};
 
-        classes.forEach(cls => {
-            const formattedName = getFormattedClassName(cls.grade, cls.section);
-            if (!groups[formattedName]) {
-                groups[formattedName] = {
-                    grade: cls.grade,
-                    name: formattedName,
+        // 1. Pre-populate with all standard grades to ensure they show up even if empty
+        DEFAULT_STANDARD_CLASSES.forEach(std => {
+            if (!groups[std.grade]) {
+                groups[std.grade] = {
+                    grade: std.grade,
+                    name: getFormattedClassName(std.grade, '', true),
                     student_count: 0,
                     sections: []
                 };
             }
-            groups[formattedName].student_count += (cls.studentCount || 0);
-            groups[formattedName].sections.push(cls);
         });
 
-        const finalGroups: Record<number, any[]> = {};
-        Object.values(groups).forEach(g => {
-            const gradeNum = g.grade !== null && g.grade !== undefined ? Number(g.grade) : 0;
-            if (!finalGroups[gradeNum]) finalGroups[gradeNum] = [];
-            finalGroups[gradeNum].push(g);
+        // 2. Add actual classes from database
+        classes.forEach(cls => {
+            const gradeNum = Number(cls.grade);
+            // In case there's an custom grade not in our standard list
+            if (!groups[gradeNum]) {
+                groups[gradeNum] = {
+                    grade: gradeNum,
+                    name: getFormattedClassName(gradeNum, '', true),
+                    student_count: 0,
+                    sections: []
+                };
+            }
+            groups[gradeNum].student_count += (cls.studentCount || 0);
+            groups[gradeNum].sections.push(cls);
         });
-        return finalGroups;
+
+        return groups;
     }, [classes]);
 
 
@@ -157,7 +151,10 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
         <div className="flex flex-col h-full bg-gray-100 relative">
             <main className="flex-grow p-4 space-y-4 overflow-y-auto pb-32 lg:pb-4">
                 <div className="flex justify-between items-center px-2">
-                    <p className="text-sm font-medium text-gray-500">{classes.length} Total Classes</p>
+                    <div className="flex flex-col">
+                        <p className="text-sm font-bold text-gray-800">{Object.keys(groupedClasses).length} Academic Levels</p>
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">{classes.length} Total Sections Created</p>
+                    </div>
                     <button
                         onClick={() => navigateTo('classForm', 'Add New Class')}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
@@ -169,111 +166,145 @@ const ClassListScreen: React.FC<ClassListScreenProps> = ({ navigateTo, schoolId,
 
                 {Object.keys(groupedClasses).sort((a, b) => Number(b) - Number(a)).map(gradeStr => {
                     const grade = Number(gradeStr);
-                    const gradeClasses = groupedClasses[grade];
+                    const gradeData = groupedClasses[grade];
                     const gradeColorClass = gradeColors[grade] || 'bg-gray-200 text-gray-800';
                     const [bgColor, textColor] = gradeColorClass.split(' ');
-                    // Use true for includeGradeWord to distinguish SSS 3 from Primary 3 etc.
-                    const formattedClassNameWithoutSection = getFormattedClassName(grade, '', true);
+                    const formattedClassName = gradeData.name;
 
                     return (
-                        <div key={grade} className={`bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100`}>
+                        <div key={grade} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
                             <div className={`${bgColor} p-4`}>
-                                <h3 className={`font-bold text-lg ${textColor}`}>{formattedClassNameWithoutSection}</h3>
+                                <h3 className={`font-bold text-lg ${textColor}`}>{formattedClassName}</h3>
                             </div>
                             <div className="p-4 space-y-3">
-                                {gradeClasses && gradeClasses.map(group => (
-                                    <div key={group.name} className="space-y-2">
-                                        {group.sections.map(cls => (
-                                            <div
-                                                key={cls.id}
-                                                className={`w-full bg-gray-50 rounded-xl border transition-colors group ${expandedClassId === cls.id ? 'border-indigo-200 ring-2 ring-indigo-100 bg-white' : 'border-gray-200/50 hover:bg-gray-100'}`}
-                                            >
-                                                <div className="flex items-center justify-between p-3">
+                                {gradeData.sections.length > 0 ? (
+                                    gradeData.sections.map(cls => (
+                                        <div
+                                            key={cls.id}
+                                            className={`w-full bg-gray-50 rounded-xl border transition-colors group ${expandedClassId === cls.id ? 'border-indigo-200 ring-2 ring-indigo-100 bg-white' : 'border-gray-200/50 hover:bg-gray-100'}`}
+                                        >
+                                            <div className="flex items-center justify-between p-3">
+                                                <button
+                                                    onClick={() => toggleExpandClass(cls.id)}
+                                                    className="flex items-center space-x-3 flex-grow text-left"
+                                                >
+                                                    <div className={`p-2 rounded-lg border border-gray-200 transition-colors ${expandedClassId === cls.id ? 'bg-indigo-50 text-indigo-600' : 'bg-white text-gray-500'}`}>
+                                                        {expandedClassId === cls.id ? <ChevronRightIcon className="h-5 w-5 rotate-90 transition-transform" /> : <StudentsIcon className={`h-5 w-5 ${textColor}`} />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <p className="font-bold text-gray-700 leading-tight">Section {cls.section || 'A'}</p>
+                                                            {cls.department && (
+                                                                <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-[10px] font-bold uppercase">{cls.department}</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-gray-400 font-medium">{cls.studentCount || 0} Students enrolled</p>
+                                                    </div>
+                                                </button>
+                                                <div className="flex items-center space-x-1">
                                                     <button
-                                                        onClick={() => toggleExpandClass(cls.id)}
-                                                        className="flex items-center space-x-3 flex-grow text-left"
+                                                        onClick={() => navigateTo('classForm', 'Edit Class', { classToEdit: cls })}
+                                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                                     >
-                                                        <div className={`p-2 rounded-lg border border-gray-200 transition-colors ${expandedClassId === cls.id ? 'bg-indigo-50 text-indigo-600' : 'bg-white text-gray-500'}`}>
-                                                            {expandedClassId === cls.id ? <ChevronRightIcon className="h-5 w-5 rotate-90 transition-transform" /> : <StudentsIcon className={`h-5 w-5 ${textColor}`} />}
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center space-x-2">
-                                                                <p className="font-semibold text-gray-800">{cls.name || getFormattedClassName(cls.grade, cls.section)}</p>
-                                                                {cls.department && (
-                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 uppercase font-bold">
-                                                                        {cls.department}
-                                                                    </span>
-                                                                )}
-                                                                <span className="text-[10px] px-1.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200 uppercase font-bold">
-                                                                    {cls.level}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-xs text-gray-500">
-                                                                {cls.studentCount || 0} Students
-                                                            </p>
-                                                        </div>
+                                                        <EditIcon className="w-4 h-4" />
                                                     </button>
-
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            onClick={() => navigateTo('studentList', group.name, { filter: { grade: cls.grade } })}
-                                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                            title="View in Student List"
-                                                        >
-                                                            <BookOpenIcon className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => navigateTo('classForm', 'Edit Class', { classToEdit: cls })}
-                                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                        >
-                                                            <EditIcon className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteClass(cls.id)}
-                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        >
-                                                            <TrashIcon className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        onClick={() => handleDeleteClass(cls.id)}
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <TrashIcon className="w-4 h-4" />
+                                                    </button>
                                                 </div>
-
-                                                {expandedClassId === cls.id && (
-                                                    <div className="px-4 pb-4 pt-0 animate-fadeIn">
-                                                        <div className="h-px w-full bg-gray-100 mb-3"></div>
-                                                        {loadingStudents[cls.id] ? (
-                                                            <div className="py-4">
-                                                                <CenteredLoader size="sm" className="min-h-[50px]" />
-                                                            </div>
-                                                        ) : (classStudents[cls.id]?.length || 0) > 0 ? (
-                                                            <div className="space-y-2">
-                                                                {classStudents[cls.id].map(student => (
-                                                                    <button
-                                                                        key={student.id}
-                                                                        onClick={() => navigateTo('studentProfileAdminView', student.name, { student })}
-                                                                        className="w-full flex items-center p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                                                    >
-                                                                        <img src={student.avatarUrl} alt={student.name} className="w-8 h-8 rounded-full object-cover mr-3" />
-                                                                        <div>
-                                                                            <p className="text-sm font-semibold text-gray-700">{student.name}</p>
-                                                                            <p className="text-xs text-gray-400">{student.schoolGeneratedId}</p>
-                                                                        </div>
-                                                                        <div className="ml-auto">
-                                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${student.attendanceStatus === 'Present' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                                                {student.attendanceStatus}
-                                                                            </span>
-                                                                        </div>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-center text-sm text-gray-400 py-2">No students enrolled</p>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
-                                        ))}
+
+                                            {expandedClassId === cls.id && (
+                                                <div className="border-t border-gray-100 p-3 bg-gray-50/30">
+                                                    {loadingStudents[cls.id] ? (
+                                                        <div className="py-4">
+                                                            <CenteredLoader size="sm" className="min-h-[50px]" />
+                                                        </div>
+                                                    ) : (classStudents[cls.id]?.length || 0) > 0 ? (
+                                                        <div className="space-y-4">
+                                                            {classStudents[cls.id].map(student => (
+                                                                <div
+                                                                    key={student.id}
+                                                                    className="w-full bg-white border border-gray-100 rounded-xl p-3 shadow-sm hover:border-indigo-200 transition-all group"
+                                                                >
+                                                                    <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                                                        <div className="flex items-center flex-1 min-w-[200px]">
+                                                                            <img src={student.avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(student.name)} alt={student.name} className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-50 mr-3" />
+                                                                            <div>
+                                                                                <p className="text-sm font-bold text-gray-800">{student.name}</p>
+                                                                                <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">{student.schoolGeneratedId}</p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex flex-col gap-1 flex-1">
+                                                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                                                <span className="w-4 h-4 flex items-center justify-center bg-gray-100 rounded text-gray-400 font-bold text-[8px]">@</span>
+                                                                                <span className="truncate">{student.email || 'No Email'}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                                                <span className="w-4 h-4 flex items-center justify-center bg-gray-100 rounded text-gray-400 font-bold text-[8px]">📱</span>
+                                                                                <span>{student.phone || 'No Phone'}</span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex flex-col gap-1 flex-1">
+                                                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                                                <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold uppercase">{student.gender || 'N/A'}</span>
+                                                                                <span className="text-[10px] text-gray-400">DOB: {student.birthday ? new Date(student.birthday).toLocaleDateString() : 'N/A'}</span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${student.attendanceStatus === 'Present' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                                {student.attendanceStatus || 'Absent'}
+                                                                            </span>
+                                                                            {student.status && (
+                                                                                <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${student.status === 'Active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                                                    {student.status}
+                                                                                </span>
+                                                                            )}
+                                                                            <button
+                                                                                onClick={() => navigateTo('studentProfileAdminView', student.name, { student })}
+                                                                                className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors ml-2"
+                                                                                title="View Full Profile"
+                                                                            >
+                                                                                <ChevronRightIcon className="w-4 h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                                            <p className="text-sm text-gray-400 italic font-medium">No students enrolled in this section yet</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 opacity-60">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="p-2 rounded-lg bg-white border border-gray-100">
+                                                <StudentsIcon className="h-5 w-5 text-gray-300" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-medium text-gray-400 italic">No sections created for this class yet</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => navigateTo('classForm', 'Add New Class', { initialGrade: grade, initialLevel: (DEFAULT_STANDARD_CLASSES.find(s => s.grade === grade) as any)?.level || 'Other' })}
+                                            className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
+                                        >
+                                            + Add Section
+                                        </button>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
                     );

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { fetchCurricula, fetchSubjects } from '../../lib/database';
 import { Curriculum, Subject } from '../../types';
 import { BookOpenIcon, CheckCircleIcon, ChevronLeftIcon, GlobeIcon, RefreshIcon, ClockIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
-import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+
 
 const CurriculumSettingsScreen: React.FC<{
     handleBack: () => void;
 }> = ({ handleBack }) => {
+    const { currentSchool, currentBranchId } = useAuth();
+    const schoolId = currentSchool?.id;
     const [templates, setTemplates] = useState<Curriculum[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState<Curriculum | null>(null);
     const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -32,14 +35,14 @@ const CurriculumSettingsScreen: React.FC<{
 
     const loadTemplates = async () => {
         setIsLoading(true);
-        const data = await fetchCurricula();
+        const data = await fetchCurricula(schoolId);
         setTemplates(data);
         if (data.length > 0) setSelectedTemplate(data[0]);
         setIsLoading(false);
     };
 
     const loadSubjects = async (curriculumId: string | number) => {
-        const data = await fetchSubjects(curriculumId);
+        const data = await fetchSubjects(schoolId, currentBranchId || undefined, curriculumId);
         setSubjects(data);
     };
 

@@ -1,5 +1,33 @@
 import { Router } from 'express';
-import { enrollStudent, getAllStudents, getStudentById, getStudentByStudentId, updateStudent, bulkUpdateStatus, deleteStudent, getMyProfile, getMyPerformance, getMyQuizResults, linkGuardian, assignStudentToClass, removeStudentFromClass } from '../controllers/student.controller';
+import { 
+    enrollStudent, 
+    approveStudent, 
+    getAllStudents, 
+    getStudentById, 
+    getStudentByStudentId, 
+    updateStudent, 
+    bulkUpdateStatus, 
+    deleteStudent, 
+    getMyProfile, 
+    getMyPerformance, 
+    getMyQuizResults, 
+    getMySubmissions, 
+    getMyFees, 
+    getMyReportCards,
+    getMyStats,
+    getMyAchievements,
+    getMyDashboardOverview,
+    getMyAttendance,
+    getMySubjects,
+    getMyActivities,
+    linkGuardian, 
+    unlinkGuardian, 
+    assignStudentToClass, 
+    removeStudentFromClass, 
+    getStudentPerformance, 
+    getStudentBehaviorNotes,
+    getStudentsByClass
+} from '../controllers/student.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { enforceTenant } from '../middleware/tenant.middleware';
 import { requirePlanCapacity } from '../middleware/plan.middleware';
@@ -11,8 +39,26 @@ const router = Router();
 router.get('/me', authenticate, getMyProfile);
 router.get('/me/performance', authenticate, getMyPerformance);
 router.get('/me/quiz-results', authenticate, getMyQuizResults);
+router.get('/me/submissions', authenticate, getMySubmissions);
+router.get('/me/fees', authenticate, getMyFees);
+router.get('/me/report-cards', authenticate, getMyReportCards);
+router.get('/me/stats', authenticate, getMyStats);
+router.get('/me/achievements', authenticate, getMyAchievements);
+router.get('/me/dashboard', authenticate, getMyDashboardOverview);
+router.get('/me/attendance', authenticate, getMyAttendance);
+router.get('/me/subjects', authenticate, getMySubjects);
+router.get('/me/activities', authenticate, getMyActivities);
+
+router.get('/:id/performance', authenticate, getStudentPerformance);
+router.get('/:id/academic-performance', authenticate, getStudentPerformance);
+router.get('/:id/behavior-notes', authenticate, getStudentBehaviorNotes);
+
 router.post('/enroll', authenticate, requirePlanCapacity('student'), enforceTenant(studentSchema), enrollStudent);
+router.post('/:id/approve', authenticate, approveStudent);
 router.post('/link-guardian', authenticate, linkGuardian);
+router.post('/unlink-guardian', authenticate, unlinkGuardian);
+
+router.get('/by-class', authenticate, getStudentsByClass);
 router.get('/', authenticate, getAllStudents);
 router.put('/bulk-status', authenticate, bulkUpdateStatus);
 router.get('/id/:studentId', authenticate, getStudentByStudentId);

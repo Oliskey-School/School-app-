@@ -3,6 +3,8 @@ import { Student } from '../../../types';
 import { PlayIcon, PauseIcon, Calculator, Timer, Trophy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+import { api } from '../../../lib/api';
+
 interface MathSprintGameScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
     student?: Student;
@@ -39,13 +41,26 @@ const MathSprintGameScreen: React.FC<MathSprintGameScreenProps> = ({ navigateTo,
             }, 1000);
             return () => clearInterval(timer);
         } else if (gameState === 'finished') {
-            // Navigate to results after a short delay or show modal
-            // For now, let's auto-navigate or show a summary
+            // Save score to database
+            if (score > 0) {
+                api.submitGameScore({
+                    game_id: 'math-sprint',
+                    game_name: 'Math Sprint',
+                    score: score,
+                    metadata: {
+                        streak,
+                        accuracy: Math.round((streak / (streak + 3)) * 100), // Placeholder logic
+                        grade: student?.grade
+                    }
+                }).catch(err => console.error('Failed to save score:', err));
+            }
+
+            // Navigate to results after a short delay
             setTimeout(() => {
-                navigateTo('mathSprintResults', 'Game Over', { score, questionsAnswered: Math.floor(score / 10) }); // Approx logic
+                navigateTo('mathSprintResults', 'Game Over', { score, questionsAnswered: streak }); 
             }, 2000);
         }
-    }, [gameState, timeLeft, navigateTo, score]);
+    }, [gameState, timeLeft, navigateTo, score, streak, student]);
 
     const generateProblem = useCallback(() => {
         const grade = student?.grade || 5;

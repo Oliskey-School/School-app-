@@ -12,7 +12,7 @@ import {
     FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 export const PeopleOverview: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'parents' | 'admins'>('students');
@@ -33,28 +33,28 @@ export const PeopleOverview: React.FC = () => {
             setLoading(true);
 
             // Fetch Students
-            const { data: students, error: studentsError } = await supabase
+            const { data: students, error: studentsError } = await api
                 .from('students')
                 .select('id, status, created_at');
 
             if (studentsError) throw studentsError;
 
             // Fetch Teachers
-            const { data: teachers, error: teachersError } = await supabase
+            const { data: teachers, error: teachersError } = await api
                 .from('teachers')
                 .select('id, is_teaching_staff');
 
             if (teachersError) throw teachersError;
 
             // Fetch Parents
-            const { data: parents, error: parentsError } = await supabase
+            const { data: parents, error: parentsError } = await api
                 .from('parents')
                 .select('id, created_at');
 
             if (parentsError) throw parentsError;
 
             // Fetch Admins (users with role 'admin')
-            const { data: admins, error: adminsError } = await supabase
+            const { data: admins, error: adminsError } = await api
                 .from('users')
                 .select('id, role, last_sign_in_at')
                 .eq('role', 'admin');

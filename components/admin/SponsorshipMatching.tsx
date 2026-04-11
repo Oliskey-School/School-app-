@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Heart, User, TrendingUp, MessageCircle, CheckCircle } from 'lucide-react';
@@ -63,7 +63,7 @@ const SponsorshipMatching: React.FC = () => {
 
     const fetchRequests = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('sponsorship_requests')
                 .select(`
           *,
@@ -82,7 +82,7 @@ const SponsorshipMatching: React.FC = () => {
 
     const fetchActiveSponsorships = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('sponsorships')
                 .select(`
           *,
@@ -120,20 +120,20 @@ const SponsorshipMatching: React.FC = () => {
     const fetchStats = async () => {
         try {
             // Total requests
-            const { count: requestCount } = await supabase
+            const { count: requestCount } = await api
                 .from('sponsorship_requests')
                 .select('*', { count: 'exact', head: true });
             setTotalRequests(requestCount || 0);
 
             // Matched students
-            const { count: matchedCount } = await supabase
+            const { count: matchedCount } = await api
                 .from('sponsorships')
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'Active');
             setMatchedStudents(matchedCount || 0);
 
             // Total committed
-            const { data: sponsorData } = await supabase
+            const { data: sponsorData } = await api
                 .from('sponsorships')
                 .select('amount_committed')
                 .eq('status', 'Active');
@@ -152,7 +152,7 @@ const SponsorshipMatching: React.FC = () => {
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('sponsorship_requests')
                 .insert({
                     student_id: selectedStudentId,

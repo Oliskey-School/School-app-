@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Teacher } from '../../types';
 import { ChevronLeftIcon, ChevronRightIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
-type AttendanceStatus = 'Present' | 'Absent' | 'Leave';
+type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Pending';
 
 const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -19,28 +20,20 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
         try {
             const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0];
             const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
+            const schoolId = sessionStorage.getItem('school_id') || '';
 
-            const { data, error } = await supabase
-                .from('teacher_attendance')
-                .select('date, approval_status')
-                .eq('teacher_id', teacher.id)
-                .gte('date', startDate)
-                .lte('date', endDate);
-
-            if (error) throw error;
+            const data = await api.getTeacherAttendance(schoolId, {
+                teacher_id: teacher.id,
+                startDate,
+                endDate
+            });
 
             const map = new Map<string, AttendanceStatus>();
             data?.forEach((record: any) => {
-                let status: AttendanceStatus = 'Absent'; // Default if rejected or unknown
+                let status: AttendanceStatus = 'Absent';
                 if (record.approval_status === 'approved') status = 'Present';
-                else if (record.approval_status === 'pending') return; // Don't show pending on calendar yet? Or maybe show as something else. For now, stick to user request of Present/Absent/Leave
-                // Note: 'Leave' status might need a specific flag in DB or specific approval_status. 
-                // Assuming 'leave' might be a status in future. For now, we map existing.
-
-                // If the user specifically wanted 'Leave', we need to know how it's stored.
-                // Based on previous analysis, we only saw 'approved', 'pending', 'rejected'.
-                // If there's a 'leave' type in 'remarks' or similar, we could check that.
-                // For this iteration, we'll map 'rejected' to 'Absent'.
+                else if (record.approval_status === 'pending') status = 'Pending';
+                else if (record.status === 'Leave' || record.status === 'excused') status = 'Leave';
 
                 map.set(record.date, status);
             });
@@ -56,6 +49,11 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
         fetchAttendance();
     }, [currentDate, teacher.id]);
 
+    useAutoSync(['staff_attendance'], () => {
+        console.log('🔄 [TeacherAttendanceDetail] Real-time auto-sync triggered');
+        fetchAttendance();
+    });
+
     const goToPreviousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     const goToNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
@@ -63,6 +61,7 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
         Present: 'bg-green-400 text-white',
         Absent: 'bg-red-400 text-white',
         Leave: 'bg-amber-400 text-white',
+        Pending: 'bg-yellow-400 text-white',
     };
 
     const stats = useMemo(() => {
@@ -93,8 +92,7 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                         {Array.from({ length: startingDayIndex }).map((_, index) => <div key={`empty-${index}`} />)}
                         {Array.from({ length: daysInMonth }).map((_, index) => {
                             const day = index + 1;
-                            const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-                            const dateString = date.toISOString().split('T')[0];
+                            const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const status = attendanceMap.get(dateString);
                             return (
                                 <div key={day} className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold ${status ? attendanceColors[status] : 'bg-gray-100 text-gray-400'}`}>
@@ -106,6 +104,7 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
                 )}
                 <div className="flex justify-center space-x-3 mt-4 text-xs">
                     <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-green-400 mr-1.5"></div>Present</span>
+                    <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-yellow-400 mr-1.5"></div>Pending</span>
                     <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-400 mr-1.5"></div>Absent</span>
                     <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-amber-400 mr-1.5"></div>Leave</span>
                 </div>

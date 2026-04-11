@@ -2,7 +2,7 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { SaaSProvider, useSaaS } from '../../contexts/SaaSContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { LogOut, LayoutDashboard, Building, Briefcase, Settings, Menu, X, Bell, User, Search, CreditCard, DollarSign, BarChart, Shield, Users, Lock, Globe } from 'lucide-react';
 import { Header } from './Header'; // Use shared Header
 import { Toaster, toast } from 'react-hot-toast';
@@ -41,32 +41,16 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
 
     useEffect(() => {
         const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: userData } = await supabase.from('users').select('id').eq('email', user.email).single();
-                setCurrentUserId(userData ? userData.id : '0');
-
-                // Real-time Service Integration for Super Admin - Removed
-                /*
-                realtimeService.subscribeToNotifications(user.id, (notif) => {
-                    toast(notif.message || notif.content || 'System Alert', {
-                        icon: '⚠️',
-                        duration: 5000,
-                        style: {
-                            borderRadius: '10px',
-                            background: '#333',
-                            color: '#fff',
-                        }
-                    });
-                });
-
-                // Global table sync for Audit Logs or Schools
-                realtimeService.subscribeToTable('schools', null, (payload) => {
-                    console.log('Real-time School Update:', payload);
-                    // Could trigger a data refresh here
-                });
-                */
+            const { data: { user } } = await api.auth.getUser();
+            
+            // Demo mode check
+            if (!user || user.email?.includes('demo')) {
+                setCurrentUserId('demo-super-admin-id');
+                return;
             }
+
+            const { data: userData } = await api.from('users').select('id').eq('email', user.email).single();
+            setCurrentUserId(userData ? userData.id : '0');
         };
         getUser();
 
@@ -283,3 +267,4 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = (props) => {
 };
 
 export default SuperAdminDashboard;
+

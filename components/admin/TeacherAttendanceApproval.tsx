@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import {
     getPendingAttendanceRequests,
     approveAttendance,
@@ -38,6 +39,11 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
         loadPendingRequests();
     }, []);
 
+    useAutoSync(['staff_attendance'], () => {
+        console.log('🔄 [TeacherAttendanceApproval] Real-time auto-sync triggered');
+        loadPendingRequests();
+    });
+
     const loadPendingRequests = async () => {
         setLoading(true);
         try {
@@ -56,49 +62,7 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
         setNotification({ message, type });
     };
 
-    const getEffectiveAdminId = async (): Promise<number | null> => {
-        if (!user?.id) return null;
 
-        // If user.id is already a number, return it
-        if (typeof user.id === 'number') return user.id;
-
-        // If it's a string looking like a number, parse it
-        if (!isNaN(Number(user.id))) return Number(user.id);
-
-        // If it's a mock string ID (e.g. "quick-admin..."), fetch a real admin ID from DB to satisfy FK
-        console.warn("Using mock ID for approval. Fetching a valid Admin ID from DB for foreign key constraint...");
-
-        try {
-            // Import supabase from context or directly if possible. 
-            // Since we don't have supabase imported here, we need to import it. 
-            // But wait, we didn't add the import yet. Let's do that in a separate chunk or assume it's available?
-            // Better to rely on the service to maybe handle this? 
-            // Or let's just do a direct fetch here if I add the import. 
-            // Actually, let's look at imports. We don't have Supabase imported.
-            // Let's rely on a new service function or import Supabase.
-            // I'll add the import in a separate step or usage.
-            // For now, let's assume I can import it.
-            // WAIT - simpler approach: Modify the `approveAttendance` service to handle this logic?
-            // No, UI handling is better for feedback. 
-            // I will return 0 or -1 or something and let service handle? No, DB constraints.
-
-            // Let's implement a quick fetch using our existing service patterns?
-            // Actually, let's add `import { supabase } from '../../lib/supabase';` to the top of file first.
-            return null; // Placeholder for this chunk, I will do the import first.
-        } catch (e) {
-            console.error("Failed to fetch fallback admin", e);
-            return null;
-        }
-    };
-
-    // REVISING APPROACH:
-    // Instead of complex logic here, let's modify the service function 'approveAttendance' to take the potentially string ID
-    // and resolve it INTERNALLY. That keeps the UI clean.
-    // The service has access to Supabase directly. 
-    // This is much cleaner.
-
-    // So I will REVERT this thought process and modify 'lib/teacherAttendanceService.ts' instead.
-    // I will pass the user.id as is (any) and let the service deal with it.
 
     const handleApprove = async (attendanceId: string) => {
         if (!user?.id) return;
@@ -163,7 +127,7 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
     };
 
     const filteredRequests = pendingRequests.filter((request) =>
-        request.teachers?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+        request.teacher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -223,10 +187,10 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
 
                                 <div className="flex items-center space-x-4 mb-5">
                                     <div className="relative">
-                                        {request.teachers?.avatar_url ? (
+                                        {request.teacher?.avatar_url ? (
                                             <img
-                                                src={request.teachers.avatar_url}
-                                                alt={request.teachers?.name}
+                                                src={request.teacher.avatar_url}
+                                                alt={request.teacher?.full_name}
                                                 className="w-14 h-14 rounded-full object-cover shadow-sm border-2 border-white ring-2 ring-gray-100"
                                             />
                                         ) : (
@@ -239,8 +203,8 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
                                         </div>
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-lg text-gray-900 leading-tight">{request.teachers?.name || 'Unknown Teacher'}</h3>
-                                        <p className="text-sm text-gray-500 font-medium">{request.teachers?.email}</p>
+                                        <h3 className="font-bold text-lg text-gray-900 leading-tight">{request.teacher?.full_name || 'Unknown Teacher'}</h3>
+                                        <p className="text-sm text-gray-500 font-medium">{request.teacher?.email}</p>
                                     </div>
                                 </div>
 
@@ -292,3 +256,4 @@ const TeacherAttendanceApproval: React.FC<TeacherAttendanceApprovalProps> = ({ n
 };
 
 export default TeacherAttendanceApproval;
+

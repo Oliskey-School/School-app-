@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
 import { Fee } from '../../types';
 import { api } from '../../lib/api';
 import { Plus, Search, Filter, Trash2, CheckCircle, Clock, AlertCircle, Wallet } from 'lucide-react';
@@ -10,6 +9,7 @@ import { PaymentPlanModal } from './PaymentPlanModal';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { getFormattedClassName } from '../../constants';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 const AssignFeeSchema = Yup.object().shape({
   title: Yup.string().required('Title is required'),
@@ -39,25 +39,14 @@ const FeeManagement: React.FC<any> = (props) => {
 
     loadData();
 
-    // Real-time subscription for fee updates
-    // Note: In demo mode, this might not fire if using mock data, 
-    // but we keep it for live environments.
-    const channel = supabase.channel('admin_fees_realtime')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'student_fees',
-        filter: `school_id=eq.${schoolId}`
-      }, (payload) => {
-        console.log('Fee update received:', payload);
-        loadData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    loadData();
   }, [schoolId, branchId]);
+
+  // Unified Backend-driven Auto Sync
+  useAutoSync(['student_fees'], () => {
+    console.log('🔄 [FeeManagement] Auto-sync triggered');
+    loadData();
+  });
 
   const loadData = async () => {
     setLoading(true);

@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
-import { AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar } from '../ui/DashboardSidebar';
-import { AdminBottomNav, TeacherBottomNav, ParentBottomNav, StudentBottomNav } from '../ui/DashboardBottomNav';
+import { AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar, InspectorSidebar } from '../ui/DashboardSidebar';
+import { AdminBottomNav, TeacherBottomNav, ParentBottomNav, StudentBottomNav, InspectorBottomNav } from '../ui/DashboardBottomNav';
 import { X } from 'lucide-react';
 import { BranchSwitcher } from '../shared/BranchSwitcher';
 import { formatSchoolId } from '../../utils/idFormatter';
@@ -19,16 +19,24 @@ interface DashboardLayoutProps {
     setActiveScreen?: (screen: string) => void;
     hideHeader?: boolean;
     hidePadding?: boolean;
+    onLogout?: () => void;
 }
 
 import { useProfile } from '../../context/ProfileContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hidePadding = false }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hidePadding = false, onLogout }) => {
     const { user, role, signOut, currentSchool, isDemo, switchDemoRole } = useAuth();
-    const { profile } = useProfile(); // Use Profile Context
+    const { profile, refreshProfile } = useProfile(); // Use Profile Context
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [switchingRole, setSwitchingRole] = useState<string | null>(null);
     const notificationCount = useRealtimeNotifications(role?.toLowerCase() as any || 'admin');
+
+    // Auto-sync profile data when any user-related table changes
+    useAutoSync(['teachers', 'students', 'parents', 'users'], () => {
+        console.log('🔄 [DashboardLayout] Sync event detected, refreshing profile...');
+        refreshProfile();
+    });
 
     const handleDemoRoleSwitch = async (roleKey: string) => {
         if (roleKey === role?.toLowerCase()) return;
@@ -41,7 +49,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     };
 
     const handleLogout = async () => {
-        if (signOut) {
+        if (onLogout) {
+            onLogout();
+        } else if (signOut) {
             await signOut();
         } else {
             window.location.href = '/login';
@@ -68,12 +78,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
         const props = {
             activeScreen,
             setActiveScreen: (screen: string) => {
-                setActiveScreen(screen);
-                if (isMobile) setIsMobileMenuOpen(false);
+                React.startTransition(() => {
+                    setActiveScreen(screen);
+                    if (isMobile) setIsMobileMenuOpen(false);
+                });
             },
             onLogout: handleLogout,
-            schoolName: currentSchool?.name || user?.user_metadata?.school_name || 'Oliskey School',
-            logoUrl: currentSchool?.logoUrl || user?.user_metadata?.logo_url
+            schoolName: currentSchool?.name || user?.school?.name || user?.user_metadata?.school_name || 'Oliskey School',
+            logoUrl: currentSchool?.logoUrl || user?.school?.logo_url || user?.user_metadata?.logo_url || ''
         };
 
         switch (role) {
@@ -81,6 +93,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
             case DashboardType.SuperAdmin:
             case DashboardType.Proprietor:
                 return <AdminSidebar {...props} />;
+            case DashboardType.Inspector:
+                return <InspectorSidebar {...props} />;
             case DashboardType.Teacher:
                 return <TeacherSidebar {...props} />;
             case DashboardType.Parent:
@@ -93,12 +107,21 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     };
 
     const getBottomNav = () => {
-        const props = { activeScreen, setActiveScreen };
+        const props = { 
+            activeScreen, 
+            setActiveScreen: (screen: string) => {
+                React.startTransition(() => {
+                    setActiveScreen(screen);
+                });
+            }
+        };
         switch (role) {
             case DashboardType.Admin:
             case DashboardType.SuperAdmin:
             case DashboardType.Proprietor:
                 return <AdminBottomNav {...props} />;
+            case DashboardType.Inspector:
+                return <InspectorBottomNav {...props} />;
             case DashboardType.Teacher:
                 return <TeacherBottomNav {...props} />;
             case DashboardType.Parent:

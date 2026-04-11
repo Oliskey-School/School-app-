@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { api } from '../../lib/api';
 import {
     User, FileText, CheckCircle, Upload,
     ChevronRight, ChevronLeft, BookOpen, AlertCircle
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { DEFAULT_STANDARD_CLASSES } from '../../constants';
 
 type CurriculumType = 'Nigerian' | 'British' | 'Both' | null;
 
@@ -23,6 +23,8 @@ interface EnrollmentData {
     parentName: string;
     parentEmail: string;
     parentPhone: string;
+    grade: number;
+    section: string;
 
     // Step 2: Curriculum Selection
     curriculumType: CurriculumType;
@@ -53,6 +55,8 @@ export default function EnhancedEnrollmentPage({
         parentName: '',
         parentEmail: '',
         parentPhone: '',
+        grade: -3,
+        section: 'A',
         curriculumType: null,
     });
 
@@ -71,7 +75,7 @@ export default function EnhancedEnrollmentPage({
 
     const validateStep = () => {
         if (step === 1) {
-            if (!formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.gender) {
+            if (!formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.gender || formData.grade === undefined || !formData.section) {
                 toast({ title: 'Missing Information', description: 'Please fill in all required fields.', variant: 'destructive' });
                 return false;
             }
@@ -100,23 +104,13 @@ export default function EnhancedEnrollmentPage({
         try {
             const fullName = `${formData.firstName} ${formData.lastName}`;
 
-            // 1. Upload documents to Supabase Storage
+            // 1. Upload documents to Backend
             const documentUrls: any = {};
 
             const uploadDocument = async (file: File | undefined, folder: string) => {
                 if (!file) return null;
-                const fileName = `${Date.now()}_${file.name}`;
-                const { data, error } = await supabase.storage
-                    .from('student-documents')
-                    .upload(`${folder}/${fileName}`, file);
-
-                if (error) throw error;
-
-                const { data: urlData } = supabase.storage
-                    .from('student-documents')
-                    .getPublicUrl(data.path);
-
-                return urlData.publicUrl;
+                const result = await api.uploadFile('student-documents', `${folder}/${Date.now()}_${file.name}`, file) as any;
+                return result.publicUrl || result.url;
             };
 
             // Parallel uploads
@@ -132,15 +126,24 @@ export default function EnhancedEnrollmentPage({
             documentUrls.medicalRecords = mr;
             documentUrls.passportPhoto = pp;
 
-            // 2. Enroll Student via Hybrid API (Backend logic)
-            const enrollmentResult = await api.enrollStudent({
-                ...formData,
-                documentUrls
-            }, { useBackend: true });
+            // 2. Enroll Student via hybrid API (Backend logic)
+            const response = await api.enrollStudent({
+                schoolId: schoolId,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                dateOfBirth: formData.dateOfBirth,
+                parentName: formData.parentName,
+                parentEmail: formData.parentEmail,
+                parentPhone: formData.parentPhone,
+                grade: Number(formData.grade),
+                section: formData.section,
+                curriculumType: formData.curriculumType || 'Nigerian',
+                documentUrls: documentUrls
+            });
 
             toast({
                 title: 'Enrollment Successful!',
-                description: `Student ${fullName} has been enrolled. Generated email: ${enrollmentResult.email}`,
+                description: `Student ${fullName} has been enrolled. Generated email: ${response.email}`,
             });
 
             onComplete?.();
@@ -258,7 +261,9 @@ export default function EnhancedEnrollmentPage({
                                         placeholder="parent@example.com"
                                     />
                                 </div>
+                            </div>
 
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label htmlFor="parentPhone">Parent Phone</Label>
                                     <Input
@@ -267,6 +272,38 @@ export default function EnhancedEnrollmentPage({
                                         onChange={(e) => handleInputChange('parentPhone', e.target.value)}
                                         placeholder="+234 800 000 0000"
                                     />
+                                </div>
+                                <div>
+                                    <Label htmlFor="grade">Assigned Class / Grade *</Label>
+                                    <select
+                                        id="grade"
+                                        value={formData.grade}
+                                        onChange={(e) => handleInputChange('grade', Number(e.target.value))}
+                                        className="w-full px-3 py-2 border rounded-md"
+                                    >
+                                        {DEFAULT_STANDARD_CLASSES.map(cls => (
+                                            <option key={cls.grade} value={cls.grade}>{cls.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1">
+                                <div>
+                                    <Label htmlFor="section">Section *</Label>
+                                    <select
+                                        id="section"
+                                        value={formData.section}
+                                        onChange={(e) => handleInputChange('section', e.target.value)}
+                                        className="w-full px-3 py-2 border rounded-md"
+                                    >
+                                        <option value="A">Section A</option>
+                                        <option value="B">Section B</option>
+                                        <option value="C">Section C</option>
+                                        <option value="D">Section D</option>
+                                        <option value="E">Section E</option>
+                                        <option value="F">Section F</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -506,3 +543,4 @@ export default function EnhancedEnrollmentPage({
         </div>
     );
 }
+

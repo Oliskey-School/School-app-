@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Fee } from '../../types';
 import { initializeTransaction, verifyTransaction } from '../../lib/payments';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface FlutterwaveWrapperProps {
     fee: Fee;
@@ -121,7 +121,7 @@ export const FlutterwaveWrapper: React.FC<FlutterwaveWrapperProps> = ({
                             await verifyTransaction(txRef);
 
                             // Send payment confirmation
-                            const { data: transaction } = await supabase
+                            const { data: transaction } = await api
                                 .from('transactions')
                                 .select('id')
                                 .eq('reference', txRef)

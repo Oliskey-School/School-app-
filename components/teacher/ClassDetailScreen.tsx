@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+
 import { Student, ClassInfo } from '../../types';
 import { ChevronRightIcon, TeacherAttendanceIcon, ClipboardListIcon } from '../../constants';
 import { getFormattedClassName } from '../../constants';
@@ -17,55 +17,47 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchStudents = async () => {
-    setLoading(true);
-    try {
-      let query = supabase.from('students').select('*');
+    const fetchStudents = async () => {
+        setLoading(true);
+        try {
+            // Inject strict multi-tenant filters
+            const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
+            const effectiveBranchId = classInfo.branch_id || (classInfo as any).branch_id || profile?.branchId;
 
-      // Inject strict multi-tenant filters
-      const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
-      const effectiveBranchId = classInfo.branch_id || (classInfo as any).branch_id || profile?.branchId;
+            let data: any[] = [];
 
-      if (effectiveSchoolId) {
-        query = query.eq('school_id', effectiveSchoolId);
-      }
-      if (effectiveBranchId && effectiveBranchId !== 'all') {
-        query = query.eq('branch_id', effectiveBranchId);
-      }
+            // Only use ID if it looks like a UUID (36 chars)
+            if (classInfo.id && classInfo.id.length === 36) {
+                data = await api.getStudentsByClassId(classInfo.id);
+            } else {
+                data = await api.getStudentsByClass(
+                    classInfo.grade,
+                    classInfo.section || '',
+                    effectiveSchoolId,
+                    effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : undefined
+                );
+            }
 
-      // Only use ID if it looks like a UUID (36 chars)
-      if (classInfo.id && classInfo.id.length === 36) {
-        query = query.or(`class_id.eq.${classInfo.id},current_class_id.eq.${classInfo.id}`);
-      } else {
-        query = query.eq('grade', classInfo.grade);
-        if (classInfo.section && classInfo.section !== 'null' && classInfo.section !== '') {
-          query = query.eq('section', classInfo.section);
-        } else {
-          query = query.is('section', null);
+            if (data) {
+                setStudents(data.map((s: any) => ({
+                    id: s.id,
+                    schoolId: s.school_generated_id,
+                    name: s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
+                    email: s.email || '',
+                    avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
+                    grade: s.grade,
+                    section: s.section,
+                    department: s.department,
+                    attendanceStatus: s.attendance_status || 'Absent',
+                    birthday: s.birthday
+                })));
+            }
+        } catch (err) {
+            console.error('Error fetching students for class:', err);
+        } finally {
+            setLoading(false);
         }
-      }
-      const { data, error } = await query.order('name', { ascending: true });
-      if (error) throw error;
-      if (data) {
-        setStudents(data.map((s: any) => ({
-          id: s.id,
-          schoolId: s.school_generated_id,
-          name: s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
-          email: s.email || '',
-          avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
-          grade: s.grade,
-          section: s.section,
-          department: s.department,
-          attendanceStatus: s.attendance_status || 'Absent',
-          birthday: s.birthday
-        })));
-      }
-    } catch (err) {
-      console.error('Error fetching students for class:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   useEffect(() => {
     fetchStudents();

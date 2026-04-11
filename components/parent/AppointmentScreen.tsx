@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
-import { supabase } from '../../lib/supabase';
 import { Teacher, AppointmentSlot, Student } from '../../types';
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CalendarIcon, UserIcon, StudentNavIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
@@ -82,18 +81,6 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
         };
 
         fetchTeachers();
-
-        // Real-time subscription (Optional: could be moved to api client if needed)
-        const subscription = supabase
-            .channel('public:teachers_appointment')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
-                fetchTeachers(); // Re-fetch on change for simplicity and consistency
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(subscription);
-        };
     }, [students, currentSchool?.id]);
 
     const activeTeachers = teachers;

@@ -11,12 +11,15 @@ export default defineConfig(({ mode }) => {
       globals: true,
       environment: 'happy-dom',
       setupFiles: './setupTests.ts',
+      testTimeout: 30000,
+      hookTimeout: 20000,
     },
     cacheDir: '.vite',
     server: {
       port: 3000,
       strictPort: true,
       host: '0.0.0.0',
+      allowedHosts: ['host.docker.internal', 'localhost', '172.18.0.1'],
       proxy: {
         '/api': {
           target: 'http://localhost:5000',
@@ -33,20 +36,6 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'supabase-api-cache',
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            }
           ]
         },
         manifest: {
@@ -71,15 +60,30 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       minify: 'esbuild',
+      cssCodeSplit: true,
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {
-          manualChunks: {
-            react: ['react', 'react-dom'],
-            router: ['react-router-dom'],
-            supabase: ['@supabase/supabase-js'],
-            ui: ['framer-motion', 'lucide-react', 'react-hot-toast'],
-            charts: ['recharts'],
-            utils: ['date-fns', 'uuid']
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+                return 'vendor-react';
+              }
+              if (id.includes('framer-motion')) {
+                return 'vendor-framer';
+              }
+              if (id.includes('lucide-react')) {
+                return 'vendor-lucide';
+              }
+              if (id.includes('recharts')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('html2pdf')) {
+                return 'vendor-pdf';
+              }
+              return 'vendor'; // all other node_modules
+            }
           },
         },
       },

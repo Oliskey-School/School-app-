@@ -5,7 +5,7 @@
 
 // import { getToken, onMessage } from 'firebase/messaging'; // REMOVED: Firebase not installed
 import { messaging } from './firebase';
-import { supabase } from './supabase';
+import { api } from './api';
 
 // Mock Firebase functions
 const getToken = async (messaging: any, options: any) => null;
@@ -72,11 +72,11 @@ export async function requestNotificationPermission(): Promise<string | null> {
  */
 async function saveFCMToken(token: string): Promise<void> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await api.auth.getUser();
 
         if (!user) return;
 
-        await supabase
+        await api
             .from('profiles')
             .update({ fcm_token: token })
             .eq('id', user.id);
@@ -174,11 +174,11 @@ export function getNotificationPermission(): NotificationPermission | null {
  */
 export async function unsubscribeFromNotifications(): Promise<void> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await api.auth.getUser();
 
         if (!user) return;
 
-        await supabase
+        await api
             .from('profiles')
             .update({ fcm_token: null })
             .eq('id', user.id);
@@ -200,3 +200,4 @@ export function testNotification(): void {
         data: { test: true }
     });
 }
+

@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
+import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon } from 'lucide-react';
 import { Student, Department } from '../../types';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
@@ -51,6 +51,10 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [guardianName, setGuardianName] = useState('');
     const [guardianPhone, setGuardianPhone] = useState('');
     const [guardianEmail, setGuardianEmail] = useState('');
+    const [availableParents, setAvailableParents] = useState<any[]>([]);
+    const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+    const [searchParentTerm, setSearchParentTerm] = useState('');
+    const [showNewParentForm, setShowNewParentForm] = useState(true);
     const [admissionNumber, setAdmissionNumber] = useState(''); // ⚠️ Added orphaned field
     const [studentAddress, setStudentAddress] = useState(''); // ⚠️ Added orphaned field
 
@@ -59,6 +63,27 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         const primaryClass = availableClasses.find(c => c.id === selectedClassIds[0]);
         return primaryClass?.grade || 0;
     }, [selectedClassIds, availableClasses]);
+
+    const section = useMemo(() => {
+        if (selectedClassIds.length === 0) return '';
+        const primaryClass = availableClasses.find(c => c.id === selectedClassIds[0]);
+        return primaryClass?.section || 'A';
+    }, [selectedClassIds, availableClasses]);
+
+    useEffect(() => {
+        const loadParents = async () => {
+            if (schoolId) {
+                try {
+                    const data = await api.getParents(schoolId, currentBranchId || undefined);
+                    setAvailableParents(data || []);
+                } catch (err) {
+                    console.error("Error loading parents:", err);
+                }
+            }
+        };
+        loadParents();
+    }, [schoolId, currentBranchId]);
+
     useEffect(() => {
         if (!schoolId) {
             console.log("School ID missing in profile/auth, refreshing...");
@@ -68,57 +93,77 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
     useEffect(() => {
         const loadClasses = async () => {
-            const classes = await api.fetchClasses(schoolId);
-            setAvailableClasses(classes);
+            try {
+                const classes = await api.getClasses(schoolId);
+                setAvailableClasses(classes || []);
+            } catch (err) {
+                console.error("Error loading classes:", err);
+            }
         };
         if (schoolId) loadClasses();
     }, [schoolId]);
 
+    useAutoSync(['classes'], () => {
+        const loadClasses = async () => {
+            try {
+                const classes = await api.getClasses(schoolId);
+                setAvailableClasses(classes || []);
+            } catch (err) {
+                console.error("Error loading classes:", err);
+            }
+        };
+        if (schoolId) loadClasses();
+    });
+
+    useAutoSync(['parents'], () => {
+        if (schoolId) {
+            const loadParents = async () => {
+                try {
+                    const data = await api.getParents(schoolId, currentBranchId || undefined);
+                    setAvailableParents(data || []);
+                } catch (err) {
+                    console.error("Error loading parents:", err);
+                }
+            };
+            loadParents();
+        }
+    });
+
     useEffect(() => {
         if (studentToEdit) {
             setSelectedImage(studentToEdit.avatarUrl);
-            setFullName(studentToEdit.name);
+            setFullName(studentToEdit.name || studentToEdit.full_name || '');
             setBirthday(studentToEdit.birthday || '');
             setDepartment(studentToEdit.department || '');
 
-            // Fetch Enrollments
-            const loadEnrollments = async () => {
-                const enrollments = await api.fetchStudentEnrollments(studentToEdit.id);
-                setSelectedClassIds(enrollments.map(e => e.class_id));
-            };
-            loadEnrollments();
-
-            // Fetch Guardian Info
-            const fetchGuardian = async () => {
+            // Fetch Student Details (including Enrollments and Guardian Info)
+            const fetchDetails = async () => {
                 try {
-                    const { data, error } = await supabase
-                        .from('parent_children')
-                        .select(`
-parents(
-    name,
-    email,
-    phone
-)
-                        `)
-                        .eq('student_id', studentToEdit.id)
-                        .maybeSingle();
+                    const studentData = await api.getStudentById(studentToEdit.id);
+                    if (studentData) {
+                        // Set Enrollments
+                        if (studentData.enrollments) {
+                            setSelectedClassIds(studentData.enrollments.map((e: any) => e.class_id));
+                        }
 
-                    if (!error && data && data.parents) {
-                        // Supabase returns the joined resource. Typescript might view it as array or object.
-                        // In a singular select like this from a join table, it's usually an object if the FK is correct.
-                        const p: any = Array.isArray(data.parents) ? data.parents[0] : data.parents;
-                        if (p) {
-                            setGuardianName(p.name || '');
-                            setGuardianEmail(p.email || '');
-                            setGuardianPhone(p.phone || '');
+                        // Set Guardian Info
+                        if (studentData.parents && studentData.parents.length > 0) {
+                            const p = studentData.parents[0].parent;
+                            if (p) {
+                                setSelectedParentId(p.id);
+                                setGuardianName(p.full_name || p.name || '');
+                                setGuardianEmail(p.email || '');
+                                setGuardianPhone(p.phone || '');
+                                setShowNewParentForm(false);
+                            }
                         }
                     }
                 } catch (err) {
-                    console.error("Error fetching guardian info:", err);
+                    console.error("Error fetching student details:", err);
                 }
             };
 
-            fetchGuardian();
+            fetchDetails();
 
             // ⚠️ Set orphaned fields if available
             setAdmissionNumber(studentToEdit.admission_number || '');
@@ -146,12 +191,26 @@ parents(
         navigate('/subscription');
     };
 
+    const filteredParents = useMemo(() => {
+        return availableParents.filter(p => 
+            (p.name && p.name.toLowerCase().includes(searchParentTerm.toLowerCase())) ||
+            (p.email && p.email.toLowerCase().includes(searchParentTerm.toLowerCase())) ||
+            (p.school_generated_id && p.school_generated_id.toLowerCase().includes(searchParentTerm.toLowerCase()))
+        );
+    }, [availableParents, searchParentTerm]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
         if (!studentToEdit && isLimitReached) {
             setShowUpgradeModal(true);
+            setIsLoading(false);
+            return;
+        }
+
+        if (selectedClassIds.length === 0) {
+            toast.error('Please select at least one class for enrollment.');
             setIsLoading(false);
             return;
         }
@@ -165,8 +224,10 @@ parents(
                 firstName,
                 lastName,
                 email: !studentToEdit ? `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com` : undefined,
-                gender,
+                gender: gender ? gender.toLowerCase() : undefined,
                 dateOfBirth: birthday,
+                grade,
+                section,
                 class_id: selectedClassIds[0],
                 selectedClassIds,
                 department,
@@ -174,9 +235,10 @@ parents(
                 branch_id: currentBranchId || profile.branchId || null,
                 admissionNumber,
                 address: studentAddress,
-                parentName: guardianName,
-                parentEmail: guardianEmail,
-                parentPhone: guardianPhone,
+                parentId: !showNewParentForm ? selectedParentId : undefined,
+                parentName: showNewParentForm ? guardianName : undefined,
+                parentEmail: showNewParentForm ? guardianEmail : undefined,
+                parentPhone: showNewParentForm ? guardianPhone : undefined,
                 documentUrls: { passportPhoto: avatarUrl }
             };
 
@@ -194,34 +256,38 @@ parents(
                     gender: gender || null,
                 } as any);
 
-                // Sync Enrollments (Keep this for now if updateStudent doesn't handle them)
-                await api.linkStudentToClasses(studentToEdit.id, selectedClassIds, schoolId, studentData.branch_id);
+                // Sync Enrollments
+                await api.linkStudentToClasses(studentToEdit.id, selectedClassIds);
 
                 // Guardian Update
-                if (guardianEmail && guardianName) {
-                    await api.linkGuardian({
-                        studentId: studentToEdit.id,
-                        guardianName: guardianName,
-                        guardianEmail: guardianEmail,
-                        guardianPhone: guardianPhone,
-                        branchId: studentData.branch_id
-                    });
+                if (!showNewParentForm && selectedParentId) {
+                    await api.linkParentToChild(selectedParentId, studentToEdit.id, schoolId);
                 }
 
                 toast.success('Student updated successfully!');
             } else {
                 // CREATE via Backend
-                const result = await api.enrollStudent(studentData, { useBackend: true });
+                const result = await api.enrollStudent(studentData);
 
-                setCredentials({
-                    username: result.username,
-                    password: result.password,
-                    email: result.email,
-                    // If backend returned nested result, map it here
-                });
-                setShowCredentialsModal(true);
-                setIsLoading(false);
-                return;
+                if (result.status === 'Pending') {
+                    toast.success('Student added successfully. Awaiting Admin approval.');
+                } else {
+                    setCredentials({
+                        username: result.username || result.email, // backend returns email usually
+                        password: result.password,
+                        email: result.email,
+                        secondary: result.parentCredentials ? {
+                            userName: result.parentCredentials.userName,
+                            username: result.parentCredentials.username,
+                            password: result.parentCredentials.password,
+                            email: result.parentCredentials.email,
+                            userType: 'Parent'
+                        } : undefined
+                    });
+                    setShowCredentialsModal(true);
+                    setIsLoading(false);
+                    return;
+                }
             }
 
             forceUpdate();
@@ -403,22 +469,86 @@ parents(
 
                         {/* Guardian Information Section */}
                         <div className="space-y-4">
-                            <div className="p-2 bg-green-100 rounded-lg">
+                            <div className="p-2 bg-green-100 rounded-lg flex items-center justify-between">
                                 <h3 className="font-bold text-green-800">Guardian Information</h3>
+                                <div className="flex bg-white/50 rounded-lg p-1 text-[10px]">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowNewParentForm(true)}
+                                        className={`px-2 py-1 rounded-md transition-colors ${showNewParentForm ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
+                                    >
+                                        New
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowNewParentForm(false)}
+                                        className={`px-2 py-1 rounded-md transition-colors ${!showNewParentForm ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}
+                                    >
+                                        Existing
+                                    </button>
+                                </div>
                             </div>
+
                             <div className="bg-white p-4 rounded-lg shadow-sm space-y-4">
-                                <div>
-                                    <label htmlFor="guardianName" className="block text-sm font-medium text-gray-700 mb-1">Guardian's Name</label>
-                                    <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><UserIcon className="w-5 h-5" /></span><input type="text" name="guardianName" id="guardianName" value={guardianName} onChange={e => setGuardianName(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Mr. Adewale" /></div>
-                                </div>
-                                <div>
-                                    <label htmlFor="guardianPhone" className="block text-sm font-medium text-gray-700 mb-1">Guardian's Phone</label>
-                                    <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><PhoneIcon className="w-5 h-5" /></span><input type="tel" name="guardianPhone" id="guardianPhone" value={guardianPhone} onChange={e => setGuardianPhone(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="+234 801 234 5678" /></div>
-                                </div>
-                                <div>
-                                    <label htmlFor="guardianEmail" className="block text-sm font-medium text-gray-700 mb-1">Guardian's Email</label>
-                                    <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><MailIcon className="w-5 h-5" /></span><input type="email" name="guardianEmail" id="guardianEmail" value={guardianEmail} onChange={e => setGuardianEmail(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="guardian@example.com" /></div>
-                                </div>
+                                {!showNewParentForm ? (
+                                    <div className="space-y-3">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Existing Parent</label>
+                                        <div className="relative">
+                                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                                <SearchIcon className="w-4 h-4" />
+                                            </span>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search by name, email or ID..."
+                                                value={searchParentTerm}
+                                                onChange={(e) => setSearchParentTerm(e.target.value)}
+                                                className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                            />
+                                        </div>
+                                        <div className="max-h-48 overflow-y-auto border rounded-lg divide-y bg-gray-50">
+                                            {filteredParents.length > 0 ? (
+                                                filteredParents.map(parent => (
+                                                    <button
+                                                        key={parent.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedParentId(parent.id)}
+                                                        className={`w-full text-left p-3 flex items-center gap-3 transition-colors ${selectedParentId === parent.id ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-white'}`}
+                                                    >
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${selectedParentId === parent.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                                            {parent.name.charAt(0)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-bold text-gray-800 truncate">{parent.name}</p>
+                                                            <p className="text-[10px] text-gray-500 truncate">{parent.email || parent.school_generated_id}</p>
+                                                        </div>
+                                                        {selectedParentId === parent.id && (
+                                                            <CheckCircleIcon className="w-4 h-4 text-indigo-600 ml-auto" />
+                                                        )}
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <div className="p-4 text-center text-xs text-gray-500 italic">
+                                                    No parents found. Try a different search.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label htmlFor="guardianName" className="block text-sm font-medium text-gray-700 mb-1">Guardian's Name</label>
+                                            <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><UserIcon className="w-5 h-5" /></span><input type="text" name="guardianName" id="guardianName" value={guardianName} onChange={e => setGuardianName(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Mr. Adewale" /></div>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="guardianPhone" className="block text-sm font-medium text-gray-700 mb-1">Guardian's Phone</label>
+                                            <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><PhoneIcon className="w-5 h-5" /></span><input type="tel" name="guardianPhone" id="guardianPhone" value={guardianPhone} onChange={e => setGuardianPhone(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="+234 801 234 5678" /></div>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="guardianEmail" className="block text-sm font-medium text-gray-700 mb-1">Guardian's Email</label>
+                                            <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><MailIcon className="w-5 h-5" /></span><input type="email" name="guardianEmail" id="guardianEmail" value={guardianEmail} onChange={e => setGuardianEmail(e.target.value)} className="w-full pl-10 pr-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="guardian@example.com" /></div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

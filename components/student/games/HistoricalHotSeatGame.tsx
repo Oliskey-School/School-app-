@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import { User, ScrollText, Play, ArrowRight, UserCircle2, Mic2, Star, Sparkles } from 'lucide-react';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface HistoricalHotSeatGameProps {
@@ -95,6 +96,17 @@ const HistoricalHotSeatGame: React.FC<HistoricalHotSeatGameProps> = ({ onBack })
         setGameState('reveal');
         setCurrentFigureIndex((prev) => (prev + 1) % HISTORICAL_FIGURES.length);
         addXP(50);
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'historical-hotseat',
+            game_name: 'Historical Hot Seat',
+            score: 100, // Fixed score per character
+            metadata: {
+                character: figure.name,
+                characterId: figure.id
+            }
+        }).catch(err => console.error("Failed to save hotseat score:", err));
     };
 
     return (

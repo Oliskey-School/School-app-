@@ -3,7 +3,7 @@
  * Handles payment reminders and confirmations
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { sendPaymentConfirmationEmail, sendFeeAssignmentEmail } from './emailService';
 
 interface PaymentReminderParams {
@@ -21,7 +21,7 @@ interface PaymentConfirmationParams {
 export const sendPaymentReminder = async (params: PaymentReminderParams): Promise<{ success: boolean; error?: string }> => {
     try {
         // Get fee details
-        const { data: fee, error: feeError } = await supabase
+        const { data: fee, error: feeError } = await api
             .from('student_fees')
             .select(`
                 id,
@@ -30,11 +30,6 @@ export const sendPaymentReminder = async (params: PaymentReminderParams): Promis
                 due_date,
                 paid_amount,
                 status,
-                students (
-                    id,
-                    name,
-                    user_id
-                ),
                 student_id
             `)
             .eq('id', params.feeId)
@@ -45,67 +40,67 @@ export const sendPaymentReminder = async (params: PaymentReminderParams): Promis
             return { success: false, error: 'Fee not found' };
         }
 
+        const feeData = fee as any;
+
         // Skip if already paid
-        if (fee.status === 'paid') {
+        if (feeData.status === 'paid') {
             return { success: true };
         }
 
-        const studentId = fee.student_id;
+        const studentId = feeData.student_id;
 
         // Get parent(s)
-        const { data: parentLinks, error: linksError } = await supabase
+        const { data: parentLinks, error: linksError } = await api
             .from('parent_children')
             .select('parent_id')
             .eq('student_id', studentId);
 
-        if (linksError || !parentLinks || parentLinks.length === 0) {
+        if (linksError || !parentLinks || (parentLinks as any[]).length === 0) {
             console.warn('No parents found for student');
             return { success: true };
         }
 
-        const parentIds = parentLinks.map((link: any) => link.parent_id);
+        const parentIds = (parentLinks as any[]).map((link: any) => link.parent_id);
 
-        const { data: parents, error: parentsError } = await supabase
+        const { data: parents, error: parentsError } = await api
             .from('profiles')
             .select('id, name, email, phone, notification_preferences')
             .in('id', parentIds)
             .eq('role', 'parent');
 
-        if (parentsError || !parents || parents.length === 0) {
+        if (parentsError || !parents || (parents as any[]).length === 0) {
             return { success: true };
         }
 
-        const balance = fee.amount - (fee.paid_amount || 0);
-        const dueDate = new Date(fee.due_date).toLocaleDateString();
+        const balance = feeData.amount - (feeData.paid_amount || 0);
+        const dueDate = new Date(feeData.due_date).toLocaleDateString();
 
         // Send reminders to parents
-        for (const parent of parents) {
+        for (const parent of (parents as any[])) {
             const prefs = parent.notification_preferences || {};
 
             // Send SMS reminder (high priority)
             if (parent.phone && prefs.sms !== false) {
                 try {
-                    const smsMessage = `Payment Reminder: ${fee.title} - ₦${balance.toLocaleString()} due on ${dueDate}. Pay online via the school portal.`;
+                    const smsMessage = `Payment Reminder: ${feeData.title} - ₦${balance.toLocaleString()} due on ${dueDate}. Pay online via the school portal.`;
 
-                    const { data: authData } = await supabase.auth.getSession();
-                    if (authData.session) {
-                        await supabase.functions.invoke('send-notification', {
-                            body: {
-                                userId: parent.id,
-                                title: 'Payment Reminder',
-                                body: smsMessage,
-                                urgency: 'high',
-                                channel: 'sms'
-                            }
-                        });
-                    }
+                    // In our backend, we use api.sendNotification or specific functions
+                    await api.functions.invoke('send-notification', {
+                        body: {
+                            userId: parent.id,
+                            title: 'Payment Reminder',
+                            body: smsMessage,
+                            urgency: 'high',
+                            channel: 'sms'
+                        }
+                    });
                 } catch (err) {
                     console.error('Error sending payment reminder SMS:', err);
                 }
             }
         }
 
-        console.log('✅ Payment reminders sent for fee:', fee.id);
+        console.log('✅ Payment reminders sent for fee:', feeData.id);
         return { success: true };
     } catch (err: any) {
         console.error('Error in sendPaymentReminder:', err);
@@ -119,7 +114,7 @@ export const sendPaymentReminder = async (params: PaymentReminderParams): Promis
 export const sendPaymentConfirmation = async (params: PaymentConfirmationParams): Promise<{ success: boolean; error?: string }> => {
     try {
         // Get transaction details
-        const { data: transaction, error: txError } = await supabase
+        const { data: transaction, error: txError } = await api
             .from('transactions')
             .select(`
                 id,
@@ -136,54 +131,60 @@ export const sendPaymentConfirmation = async (params: PaymentConfirmationParams)
             return { success: false, error: 'Transaction not found' };
         }
 
+        const txData = transaction as any;
+
         // Get fee details
-        const { data: fee, error: feeError } = await supabase
+        const { data: fee, error: feeError } = await api
             .from('student_fees')
             .select('id, title, amount, paid_amount')
-            .eq('id', transaction.fee_id)
+            .eq('id', txData.fee_id)
             .single();
 
         if (feeError || !fee) {
             return { success: false, error: 'Fee not found' };
         }
 
+        const feeData = fee as any;
+
         // Get student details
-        const { data: student, error: studentError } = await supabase
+        const { data: student, error: studentError } = await api
             .from('students')
             .select('id, name')
-            .eq('id', transaction.student_id)
+            .eq('id', txData.student_id)
             .single();
 
         if (studentError || !student) {
             return { success: false, error: 'Student not found' };
         }
 
+        const studentData = student as any;
+
         // Get parent(s)
-        const { data: parentLinks } = await supabase
+        const { data: parentLinks } = await api
             .from('parent_children')
             .select('parent_id')
-            .eq('student_id', student.id);
+            .eq('student_id', studentData.id);
 
-        if (!parentLinks || parentLinks.length === 0) {
+        if (!parentLinks || (parentLinks as any[]).length === 0) {
             return { success: true };
         }
 
-        const parentIds = parentLinks.map((link: any) => link.parent_id);
+        const parentIds = (parentLinks as any[]).map((link: any) => link.parent_id);
 
-        const { data: parents } = await supabase
+        const { data: parents } = await api
             .from('profiles')
             .select('id, name, email, notification_preferences')
             .in('id', parentIds)
             .eq('role', 'parent');
 
-        if (!parents || parents.length === 0) {
+        if (!parents || (parents as any[]).length === 0) {
             return { success: true };
         }
 
-        const balance = fee.amount - (fee.paid_amount || 0);
+        const balance = feeData.amount - (feeData.paid_amount || 0);
 
         // Send confirmation emails
-        for (const parent of parents) {
+        for (const parent of (parents as any[])) {
             const prefs = parent.notification_preferences || {};
 
             if (parent.email && prefs.email !== false) {
@@ -191,11 +192,11 @@ export const sendPaymentConfirmation = async (params: PaymentConfirmationParams)
                     await sendPaymentConfirmationEmail({
                         toEmail: parent.email,
                         parentName: parent.name || 'Parent',
-                        studentName: student.name,
-                        feeTitle: fee.title,
-                        amountPaid: transaction.amount,
-                        transactionReference: transaction.reference,
-                        paymentDate: new Date(transaction.created_at).toLocaleDateString(),
+                        studentName: studentData.name,
+                        feeTitle: feeData.title,
+                        amountPaid: txData.amount,
+                        transactionReference: txData.reference,
+                        paymentDate: new Date(txData.created_at).toLocaleDateString(),
                         balance: balance
                     });
                 } catch (err) {
@@ -204,7 +205,7 @@ export const sendPaymentConfirmation = async (params: PaymentConfirmationParams)
             }
         }
 
-        console.log('✅ Payment confirmation sent for transaction:', transaction.id);
+        console.log('✅ Payment confirmation sent for transaction:', txData.id);
         return { success: true };
     } catch (err: any) {
         console.error('Error in sendPaymentConfirmation:', err);
@@ -218,7 +219,7 @@ export const sendPaymentConfirmation = async (params: PaymentConfirmationParams)
 export const sendFeeAssignmentNotification = async (feeId: string): Promise<{ success: boolean; error?: string }> => {
     try {
         // Get fee details
-        const { data: fee, error: feeError } = await supabase
+        const { data: fee, error: feeError } = await api
             .from('student_fees')
             .select(`
                 id,
@@ -235,41 +236,45 @@ export const sendFeeAssignmentNotification = async (feeId: string): Promise<{ su
             return { success: false, error: 'Fee not found' };
         }
 
+        const feeData = fee as any;
+
         // Get student
-        const { data: student } = await supabase
+        const { data: student } = await api
             .from('students')
             .select('id, name')
-            .eq('id', fee.student_id)
+            .eq('id', feeData.student_id)
             .single();
 
         if (!student) {
             return { success: false, error: 'Student not found' };
         }
 
+        const studentData = student as any;
+
         // Get parents
-        const { data: parentLinks } = await supabase
+        const { data: parentLinks } = await api
             .from('parent_children')
             .select('parent_id')
-            .eq('student_id', student.id);
+            .eq('student_id', studentData.id);
 
-        if (!parentLinks || parentLinks.length === 0) {
+        if (!parentLinks || (parentLinks as any[]).length === 0) {
             return { success: true };
         }
 
-        const parentIds = parentLinks.map((link: any) => link.parent_id);
+        const parentIds = (parentLinks as any[]).map((link: any) => link.parent_id);
 
-        const { data: parents } = await supabase
+        const { data: parents } = await api
             .from('profiles')
             .select('id, name, email, notification_preferences')
             .in('id', parentIds)
             .eq('role', 'parent');
 
-        if (!parents || parents.length === 0) {
+        if (!parents || (parents as any[]).length === 0) {
             return { success: true };
         }
 
         // Send notifications
-        for (const parent of parents) {
+        for (const parent of (parents as any[])) {
             const prefs = parent.notification_preferences || {};
 
             if (parent.email && prefs.email !== false) {
@@ -277,11 +282,11 @@ export const sendFeeAssignmentNotification = async (feeId: string): Promise<{ su
                     await sendFeeAssignmentEmail({
                         toEmail: parent.email,
                         parentName: parent.name || 'Parent',
-                        studentName: student.name,
-                        feeTitle: fee.title,
-                        amount: fee.amount,
-                        dueDate: new Date(fee.due_date).toLocaleDateString(),
-                        description: fee.description
+                        studentName: studentData.name,
+                        feeTitle: feeData.title,
+                        amount: feeData.amount,
+                        dueDate: new Date(feeData.due_date).toLocaleDateString(),
+                        description: feeData.description
                     });
                 } catch (err) {
                     console.error('Error sending fee assignment email:', err);
@@ -289,10 +294,11 @@ export const sendFeeAssignmentNotification = async (feeId: string): Promise<{ su
             }
         }
 
-        console.log('✅ Fee assignment notification sent for fee:', fee.id);
+        console.log('✅ Fee assignment notification sent for fee:', feeData.id);
         return { success: true };
     } catch (err: any) {
         console.error('Error in sendFeeAssignmentNotification:', err);
         return { success: false, error: err.message };
     }
 };
+

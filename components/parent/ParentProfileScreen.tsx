@@ -101,7 +101,15 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
     if (id === 'help') {
       toast('Help Center coming soon!', { icon: 'ℹ️' });
     } else {
-      setActiveSetting(id as SettingView);
+      // If mobile, navigate to a new screen instead of just setting activeSetting
+      const isMobile = window.innerWidth < 768;
+      const item = menuItems.find(i => i.id === id);
+      
+      if (isMobile && item) {
+        navigateTo(id, item.label);
+      } else {
+        setActiveSetting(id as SettingView);
+      }
     }
   };
 

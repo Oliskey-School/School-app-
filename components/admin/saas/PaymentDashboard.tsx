@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     DollarSign,
@@ -63,7 +63,7 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
             setLoading(true);
 
             // Fetch payments with school details
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('payments')
                 .select(`
                     *,
@@ -109,7 +109,7 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
     const handleGenerateInvoice = async (payment: Payment) => {
         try {
             // Check if invoice already exists
-            const { data: existingInvoice } = await supabase
+            const { data: existingInvoice } = await api
                 .from('invoices')
                 .select('id')
                 .eq('school_id', payment.school_id)
@@ -122,13 +122,13 @@ export const PaymentDashboard: React.FC<PaymentDashboardProps> = ({ navigateTo }
             }
 
             // Generate invoice number
-            const { data: invoiceNumberData } = await supabase
+            const { data: invoiceNumberData } = await api
                 .rpc('generate_invoice_number');
 
             const invoiceNumber = invoiceNumberData || `INV-${Date.now()}`;
 
             // Create invoice
-            const { error } = await supabase
+            const { error } = await api
                 .from('invoices')
                 .insert({
                     school_id: payment.school_id,
@@ -407,3 +407,4 @@ const StatCard: React.FC<{
 );
 
 export default PaymentDashboard;
+

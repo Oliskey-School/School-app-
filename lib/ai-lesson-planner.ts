@@ -4,7 +4,7 @@
  */
 
 import { getAIClient } from './ai';
-import { supabase } from './supabase';
+import { api } from './api';
 
 export interface LessonPlan {
     topic: string;
@@ -57,3 +57,4 @@ export async function generateLessonPlan(
         return null;
     }
 }
+

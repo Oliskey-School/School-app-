@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { HeartIcon, PhoneIcon, BookOpenIcon, ExclamationCircleIcon } from '../../constants';
@@ -60,12 +59,9 @@ const MentalHealthResources: React.FC<MentalHealthResourcesProps> = ({ schoolId 
     const handleResourceClick = async (resource: Resource) => {
         // Track view count
         try {
-            await supabase.rpc('increment_view_count', { resource_id: resource.id });
+            await api.incrementResourceViewCount(resource.id);
         } catch (e) {
-            // Fallback: direct update if RPC is missing
-            await supabase.from('mental_health_resources')
-                .update({ view_count: (resource.view_count || 0) + 1 })
-                .eq('id', resource.id);
+            console.warn('Error incrementing view count:', e);
         }
 
         if (resource.content_url) {

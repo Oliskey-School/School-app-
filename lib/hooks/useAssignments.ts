@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { api } from '../api';
 import { Assignment } from '../../types';
 
 export interface UseAssignmentsResult {
@@ -20,23 +20,10 @@ export function useAssignments(filters?: { className?: string; subject?: string;
     const fetchAssignments = useCallback(async () => {
         try {
             setLoading(true);
-            let query = supabase.from('assignments').select('*');
+            const schoolId = sessionStorage.getItem('school_id') || undefined;
+            const data = await api.getAssignments(schoolId, filters);
 
-            if (filters?.className) {
-                query = query.eq('class_name', filters.className);
-            }
-            if (filters?.subject) {
-                query = query.eq('subject', filters.subject);
-            }
-            if (filters?.teacherId) {
-                query = query.eq('teacher_id', filters.teacherId);
-            }
-
-            const { data, error: fetchError } = await query.order('due_date', { ascending: false });
-
-            if (fetchError) throw fetchError;
-
-            const transformedAssignments: Assignment[] = (data || []).map(transformSupabaseAssignment);
+            const transformedAssignments: Assignment[] = (data || []).map(transformAssignment);
 
             setAssignments(transformedAssignments);
             setError(null);
@@ -51,45 +38,23 @@ export function useAssignments(filters?: { className?: string; subject?: string;
 
     useEffect(() => {
         fetchAssignments();
-
-        const channel = supabase
-            .channel('assignments-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'assignments' },
-                (payload) => {
-                    console.log('Assignment change detected:', payload);
-                    fetchAssignments();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [fetchAssignments]);
 
     const createAssignment = async (assignmentData: Partial<Assignment>): Promise<Assignment | null> => {
         try {
-            const { data, error: insertError } = await supabase
-                .from('assignments')
-                .insert([{
-                    title: assignmentData.title,
-                    description: assignmentData.description,
-                    class_name: assignmentData.className,
-                    subject: assignmentData.subject,
-                    due_date: assignmentData.dueDate,
-                    total_students: assignmentData.totalStudents,
-                    submissions_count: assignmentData.submissionsCount,
-                    teacher_id: assignmentData.teacherId,
-                    class_id: assignmentData.classId
-                }])
-                .select()
-                .single();
+            const data = await api.createAssignment({
+                title: assignmentData.title,
+                description: assignmentData.description,
+                class_name: assignmentData.className,
+                subject: assignmentData.subject,
+                due_date: assignmentData.dueDate,
+                total_students: assignmentData.totalStudents,
+                submissions_count: assignmentData.submissionsCount,
+                teacher_id: assignmentData.teacherId,
+                class_id: assignmentData.classId
+            });
 
-            if (insertError) throw insertError;
-
-            return transformSupabaseAssignment(data);
+            return transformAssignment(data);
         } catch (err) {
             console.error('Error creating assignment:', err);
             setError(err as Error);
@@ -99,26 +64,19 @@ export function useAssignments(filters?: { className?: string; subject?: string;
 
     const updateAssignment = async (id: number, updates: Partial<Assignment>): Promise<Assignment | null> => {
         try {
-            const { data, error: updateError } = await supabase
-                .from('assignments')
-                .update({
-                    title: updates.title,
-                    description: updates.description,
-                    class_name: updates.className,
-                    subject: updates.subject,
-                    due_date: updates.dueDate,
-                    total_students: updates.totalStudents,
-                    submissions_count: updates.submissionsCount,
-                    teacher_id: updates.teacherId,
-                    class_id: updates.classId
-                })
-                .eq('id', id)
-                .select()
-                .single();
+            const data = await api.updateAssignment(String(id), {
+                title: updates.title,
+                description: updates.description,
+                class_name: updates.className,
+                subject: updates.subject,
+                due_date: updates.dueDate,
+                total_students: updates.totalStudents,
+                submissions_count: updates.submissionsCount,
+                teacher_id: updates.teacherId,
+                class_id: updates.classId
+            });
 
-            if (updateError) throw updateError;
-
-            return transformSupabaseAssignment(data);
+            return transformAssignment(data);
         } catch (err) {
             console.error('Error updating assignment:', err);
             setError(err as Error);
@@ -128,13 +86,7 @@ export function useAssignments(filters?: { className?: string; subject?: string;
 
     const deleteAssignment = async (id: number): Promise<boolean> => {
         try {
-            const { error: deleteError } = await supabase
-                .from('assignments')
-                .delete()
-                .eq('id', id);
-
-            if (deleteError) throw deleteError;
-
+            await api.deleteAssignment(String(id));
             return true;
         } catch (err) {
             console.error('Error deleting assignment:', err);
@@ -142,6 +94,19 @@ export function useAssignments(filters?: { className?: string; subject?: string;
             return false;
         }
     };
+
+    const transformAssignment = (a: any): Assignment => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        className: a.class_name,
+        classId: a.class_id,
+        subject: a.subject,
+        dueDate: a.due_date,
+        totalStudents: a.total_students,
+        submissionsCount: a.submissions_count,
+        teacherId: a.teacher_id
+    });
 
     return {
         assignments,
@@ -153,16 +118,3 @@ export function useAssignments(filters?: { className?: string; subject?: string;
         deleteAssignment,
     };
 }
-
-const transformSupabaseAssignment = (a: any): Assignment => ({
-    id: a.id,
-    title: a.title,
-    description: a.description,
-    className: a.class_name,
-    classId: a.class_id,
-    subject: a.subject,
-    dueDate: a.due_date,
-    totalStudents: a.total_students,
-    submissionsCount: a.submissions_count,
-    teacherId: a.teacher_id
-});

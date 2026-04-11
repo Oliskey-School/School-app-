@@ -3,7 +3,8 @@ import { toast } from 'react-hot-toast';
 import { Teacher } from '../../types';
 import { MailIcon, PhoneIcon, ChartBarIcon, CalendarIcon, EditIcon, gradeColors, SUBJECT_COLORS, TrashIcon } from '../../constants';
 import DonutChart from '../ui/DonutChart';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface TeacherDetailAdminViewProps {
@@ -13,7 +14,7 @@ interface TeacherDetailAdminViewProps {
     handleBack: () => void;
 }
 
-import { fetchTeacherById } from '../../lib/database';
+// Removed legacy fetchTeacherById import
 import { useTeacherStats } from '../../hooks/useTeacherStats';
 
 const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher: initialTeacher, navigateTo, forceUpdate, handleBack }) => {
@@ -25,29 +26,53 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
     // but usually it should. If missing, we might need to fetch it or fallback.
     const { stats, loading: statsLoading } = useTeacherStats(teacher.id, teacher.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', null);
 
-    // Fetch latest data on mount
-    React.useEffect(() => {
-        const loadTeacher = async () => {
-            const freshData = await fetchTeacherById(initialTeacher.id);
+    const loadTeacher = async () => {
+        try {
+            const freshData = await api.getTeacherById(initialTeacher.id);
             if (freshData) {
                 setTeacher(freshData);
             }
-        };
+        } catch (err) {
+            console.error('Failed to reload teacher data:', err);
+        }
+    };
+
+    // Fetch latest data on mount
+    React.useEffect(() => {
         loadTeacher();
     }, [initialTeacher.id]);
 
+    useAutoSync(['teachers', 'attendance', 'academic'], () => {
+        console.log('🔄 [TeacherDetail] Real-time auto-sync triggered');
+        loadTeacher();
+    });
+
     // Computed classes visualization
     // If we have detailed class info in mockClasses, use it. Otherwise, create a placeholder.
-    const displayClasses = (teacher.classes || []).map(className => {
+    const displayClasses = (teacher.classes || []).map(classItem => {
+        // Normalize to string - can be string[] or [{class: {name: '...'}}] or [{name: '...'}]
+        const classNameStr = (typeof classItem === 'string' 
+            ? classItem 
+            : (classItem as any)?.class?.name || (classItem as any)?.name || 'Unknown Class') || 'Unknown Class';
+
         // Parse "Grade 7 - Math" or "10A - Physics" or "SSS 1 - Math"
-        let displayName = className;
+        let displayName = classNameStr;
         let subject = (teacher.subjects && teacher.subjects[0]) || 'General';
 
         // Check if subject is already in the string
-        const parts = className.split(/\s*[-–]\s*/);
-        if (parts.length > 1) {
-            displayName = parts[0];
-            subject = parts[1];
+        if (typeof classNameStr === 'string' && classNameStr.includes('-')) {
+            const parts = classNameStr.split(/\s*[-–]\s*/);
+            if (parts.length > 1) {
+                displayName = parts[0];
+                subject = parts[1];
+            }
+        } else if (typeof classNameStr === 'string') {
+             // Basic split attempt for other delimiters if any
+             const parts = classNameStr.split(/\s*[-–]\s*/);
+             if (parts.length > 1) {
+                 displayName = parts[0];
+                 subject = parts[1];
+             }
         }
 
         // Try to detect if it's just a number like "10" -> "Grade 10"
@@ -68,32 +93,14 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
     const handleDelete = async () => {
         try {
-            // Delete from database first
-            const { error: deleteTeacherError } = await supabase
-                .from('teachers')
-                .delete()
-                .eq('id', teacher.id)
-                .eq('school_id', teacher.schoolId);
+            // Delete using the backend API which handles relations and user accounts
+            const success = await api.deleteTeacher(teacher.id);
 
-            if (deleteTeacherError) throw deleteTeacherError;
+            if (!success) throw new Error('Failed to delete teacher via API');
 
-            // Delete associated user account if exists
-            if (teacher.user_id) {
-                const { error: deleteUserError } = await supabase
-                    .from('users')
-                    .delete()
-                    .eq('id', teacher.user_id);
-
-                if (deleteUserError) console.warn('Warning: Could not delete user account:', deleteUserError);
-            }
-
-            // Delete login credentials
-            const { error: deleteAuthError } = await supabase
-                .from('auth_accounts')
-                .delete()
-                .eq('user_id', teacher.user_id);
-
-            if (deleteAuthError) console.warn('Warning: Could not delete auth account:', deleteAuthError);
+            toast.success(`${teacher.name} has been successfully deleted from the database.`);
+            forceUpdate();
+            handleBack();
 
             toast.success(`${teacher.name} has been successfully deleted from the database.`);
             forceUpdate();
@@ -128,13 +135,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                     onClick={async () => {
                                         try {
                                             const newStatus = teacher.status === 'Active' ? 'On Leave' : 'Active';
-                                            const { error } = await supabase
-                                                .from('teachers')
-                                                .update({ status: newStatus })
-                                                .eq('id', teacher.id)
-                                                .eq('school_id', teacher.schoolId);
-
-                                            if (error) throw error;
+                                            await api.updateTeacher(teacher.id, { status: newStatus });
 
                                             setTeacher({ ...teacher, status: newStatus });
                                             forceUpdate();

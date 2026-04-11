@@ -17,62 +17,69 @@ import {
     Info
 } from 'lucide-react';
 
-interface BackupRecord {
-    id: string;
-    name: string;
-    type: 'auto' | 'manual';
-    size: string;
-    status: 'completed' | 'in_progress' | 'failed';
-    created_at: string;
-    tables_included: number;
-}
+import { api } from '../../lib/api';
 
 const BackupRestoreScreen = () => {
     const { currentSchool } = useAuth();
-    const [backups, setBackups] = useState<BackupRecord[]>([
-        { id: '1', name: 'Full Backup – March 17', type: 'auto', size: '24.3 MB', status: 'completed', created_at: '2026-03-17T06:00:00', tables_included: 42 },
-        { id: '2', name: 'Full Backup – March 16', type: 'auto', size: '23.8 MB', status: 'completed', created_at: '2026-03-16T06:00:00', tables_included: 42 },
-        { id: '3', name: 'Manual Backup – Pre-migration', type: 'manual', size: '24.1 MB', status: 'completed', created_at: '2026-03-15T14:30:00', tables_included: 42 },
-        { id: '4', name: 'Full Backup – March 15', type: 'auto', size: '23.5 MB', status: 'completed', created_at: '2026-03-15T06:00:00', tables_included: 42 },
-        { id: '5', name: 'Manual Snapshot – End of Term 1', type: 'manual', size: '22.1 MB', status: 'completed', created_at: '2026-03-01T16:00:00', tables_included: 42 },
-    ]);
+    const [backups, setBackups] = useState<any[]>([]);
     const [isBackingUp, setIsBackingUp] = useState(false);
     const [isRestoring, setIsRestoring] = useState(false);
     const [selectedBackup, setSelectedBackup] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const handleCreateBackup = () => {
-        setIsBackingUp(true);
-        setTimeout(() => {
-            const newBackup: BackupRecord = {
-                id: Date.now().toString(),
-                name: `Manual Backup – ${new Date().toLocaleDateString('en-NG', { month: 'long', day: 'numeric' })}`,
-                type: 'manual',
-                size: '24.5 MB',
-                status: 'completed',
-                created_at: new Date().toISOString(),
-                tables_included: 42,
-            };
-            setBackups(prev => [newBackup, ...prev]);
-            setIsBackingUp(false);
-            toast.success('Backup created successfully!');
-        }, 3000);
+    useEffect(() => {
+        fetchBackups();
+    }, []);
+
+    const fetchBackups = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getBackups();
+            setBackups(data);
+        } catch (error) {
+            console.error('Fetch backups error:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleRestore = (backupId: string) => {
+    const handleCreateBackup = async () => {
+        setIsBackingUp(true);
+        try {
+            await api.createBackup();
+            toast.success('Backup created successfully!');
+            fetchBackups();
+        } catch (error: any) {
+            toast.error(error.message || 'Backup failed');
+        } finally {
+            setIsBackingUp(false);
+        }
+    };
+
+    const handleRestore = async (backupId: string) => {
         if (!window.confirm('⚠️ Are you sure you want to restore from this backup? This will overwrite current data.')) return;
         setIsRestoring(true);
         setSelectedBackup(backupId);
-        setTimeout(() => {
+        try {
+            await api.restoreBackup(backupId);
+            toast.success('Database restored successfully!');
+        } catch (error: any) {
+            toast.error(error.message || 'Restore failed');
+        } finally {
             setIsRestoring(false);
             setSelectedBackup(null);
-            toast.success('Database restored successfully!');
-        }, 5000);
+        }
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (!window.confirm('Delete this backup?')) return;
-        setBackups(prev => prev.filter(b => b.id !== id));
-        toast.success('Backup deleted');
+        try {
+            await api.deleteBackup(id);
+            toast.success('Backup deleted');
+            fetchBackups();
+        } catch (error: any) {
+            toast.error('Delete failed');
+        }
     };
 
     return (
@@ -137,17 +144,17 @@ const BackupRestoreScreen = () => {
                             <tr key={backup.id} className="hover:bg-gray-50/30 transition-colors">
                                 <td className="px-6 py-5">
                                     <div className="flex items-center space-x-3">
-                                        <div className={`p-2 rounded-xl ${backup.type === 'auto' ? 'bg-blue-50' : 'bg-purple-50'}`}>
-                                            <FileArchive className={`w-4 h-4 ${backup.type === 'auto' ? 'text-blue-600' : 'text-purple-600'}`} />
+                                        <div className={`p-2 rounded-xl bg-purple-50`}>
+                                            <FileArchive className={`w-4 h-4 text-purple-600`} />
                                         </div>
-                                        <span className="font-bold text-gray-800">{backup.name}</span>
+                                        <span className="font-bold text-gray-800">{backup.filename}</span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-5"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize ${backup.type === 'auto' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{backup.type}</span></td>
-                                <td className="px-6 py-5 text-sm font-bold text-gray-700">{backup.size}</td>
-                                <td className="px-6 py-5 text-sm font-bold text-gray-700">{backup.tables_included}</td>
+                                <td className="px-6 py-5"><span className={`text-xs font-bold px-3 py-1 rounded-full capitalize bg-purple-100 text-purple-700`}>manual</span></td>
+                                <td className="px-6 py-5 text-sm font-bold text-gray-700">{backup.size} KB</td>
+                                <td className="px-6 py-5 text-sm font-bold text-gray-700">All</td>
                                 <td className="px-6 py-5">
-                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${backup.status === 'completed' ? 'bg-green-100 text-green-700' : backup.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{backup.status}</span>
+                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${backup.status.includes('Completed') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{backup.status}</span>
                                 </td>
                                 <td className="px-6 py-5 text-sm text-gray-500">{new Date(backup.created_at).toLocaleString('en-NG')}</td>
                                 <td className="px-6 py-5">
@@ -157,13 +164,16 @@ const BackupRestoreScreen = () => {
                                             {isRestoring && selectedBackup === backup.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
                                             <span>Restore</span>
                                         </button>
-                                        {backup.type === 'manual' && (
-                                            <button onClick={() => handleDelete(backup.id)} className="p-1.5 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
-                                        )}
+                                        <button onClick={() => handleDelete(backup.id)} className="p-1.5 hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </td>
                             </tr>
                         ))}
+                        {backups.length === 0 && !loading && (
+                            <tr>
+                                <td colSpan={7} className="px-6 py-10 text-center text-gray-500">No backups found. Create one to get started.</td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

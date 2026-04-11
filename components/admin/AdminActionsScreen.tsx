@@ -43,6 +43,13 @@ const AdminActionsScreen: React.FC<AdminActionsScreenProps> = ({ navigateTo }) =
             ]
         },
         {
+            title: "Safety & Wellbeing",
+            items: [
+                { label: "Emergency Alert", icon: <Bell className="w-5 h-5 text-red-600" />, onClick: () => navigateTo('emergencyAlert', 'Emergency Alert'), bg: "bg-red-50" },
+                { label: "Safety Logs", icon: <Shield className="w-5 h-5 text-rose-600" />, onClick: () => navigateTo('safetyHealthLogs', 'Safety & Health'), bg: "bg-rose-50" },
+            ]
+        },
+        {
             title: "System",
             items: [
                 { label: "Announcements", icon: <Bell className="w-5 h-5 text-amber-600" />, onClick: () => navigateTo('communicationHub', 'Communication'), bg: "bg-amber-50" },

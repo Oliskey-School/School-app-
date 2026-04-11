@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MailIcon, BellIcon, NotificationIcon, ShieldCheckIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 const SettingToggle = ({ icon, label, description, enabled, onToggle }: { icon: React.ReactNode, label: string, description: string, enabled: boolean, onToggle: () => void }) => (
     <div className="flex justify-between items-center p-4 bg-white rounded-lg shadow-sm">
@@ -42,19 +42,16 @@ const TeacherNotificationSettingsScreen: React.FC<TeacherNotificationSettingsScr
                 setLoading(false);
                 return;
             }
-
-            const { data, error } = await supabase
-                .from('teachers')
-                .select('notification_preferences')
-                .eq('id', teacherId)
-                .single();
-
-            if (error) {
+            try {
+                const data = await api.getTeacherById(teacherId);
+                if (data?.notification_preferences) {
+                    setSettings(data.notification_preferences);
+                }
+            } catch (error) {
                 console.error('Error fetching settings:', error);
-            } else if (data?.notification_preferences) {
-                setSettings(data.notification_preferences);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         fetchSettings();
     }, [teacherId]);
@@ -66,15 +63,9 @@ const TeacherNotificationSettingsScreen: React.FC<TeacherNotificationSettingsScr
         setSettings(newSettings);
 
         try {
-            const { error } = await supabase
-                .from('teachers')
-                .update({ notification_preferences: newSettings })
-                .eq('id', teacherId);
-
-            if (error) throw error;
+            await api.updateTeacher(teacherId, { notification_preferences: newSettings });
         } catch (err) {
             console.error('Error updating settings:', err);
-            // Revert on error
             setSettings(settings);
         }
     };
@@ -116,3 +107,4 @@ const TeacherNotificationSettingsScreen: React.FC<TeacherNotificationSettingsScr
 };
 
 export default TeacherNotificationSettingsScreen;
+

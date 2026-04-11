@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Assignment, Submission, StudentAssignment } from '../../types';
-import { supabase } from '../../lib/supabase';
 import api from '../../lib/api';
 import { CheckCircleIcon, ClockIcon, ExclamationCircleIcon, DocumentTextIcon, SUBJECT_COLORS } from '../../constants';
 
@@ -18,37 +17,28 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchAssignments = async () => {
+        const fetchAssignmentsAndSubmissions = async () => {
             try {
-                // Use the API service for consistent filtering and backend integration
+                // 1. Fetch Assignments (scoped by backend)
                 const assignmentsData = await api.getAssignments(schoolId || '', {
-                    classId: undefined, // Standard fetch for student (scoped by school/branch)
+                    classId: undefined, 
                 });
 
-                let submissionsQuery = supabase
-                    .from('assignment_submissions')
-                    .select('*')
-                    .eq('student_id', studentId);
+                // 2. Fetch Student Submissions via Unified API
+                const submissionsData = await api.getMySubmissions();
 
-                if (schoolId) submissionsQuery = submissionsQuery.eq('school_id', schoolId);
-
-                const { data: submissionsData, error: subError } = await submissionsQuery;
-
-                // If submissions table doesn't exist or error, we just assume no submissions or handle gracefully
-                // but we will throw if real error to see it.
-
-                const studentSubmissionsMap = new Map<number, Submission>();
+                const studentSubmissionsMap = new Map<string, Submission>();
                 if (submissionsData) {
                     submissionsData.forEach((s: any) => {
                         studentSubmissionsMap.set(s.assignment_id, {
                             id: s.id,
                             assignmentId: s.assignment_id,
-                            student: { id: studentId.toString(), name: 'You', avatarUrl: '' }, // minimal mock or fetch
-                            submittedAt: s.submission_date || s.submitted_at || new Date().toISOString(),
+                            student: { id: studentId.toString(), name: 'You', avatarUrl: '' },
+                            submittedAt: s.submitted_at || new Date().toISOString(),
                             isLate: s.is_late || false,
-                            files: s.attachment_url ? [{ name: 'Submission', size: 0 }] : [],
+                            files: s.files ? [{ name: 'Submission', size: 0 }] : [],
                             status: s.status || 'Ungraded',
-                            grade: s.score, // Corrected from grade to score based on schema
+                            grade: s.grade,
                             feedback: s.feedback
                         });
                     });
@@ -76,31 +66,8 @@ const AssignmentsScreen: React.FC<StudentAssignmentsScreenProps> = ({ studentId,
             }
         };
 
-        fetchAssignments();
-        // Realtime Subscription
-        const channel = supabase.channel(`student_assignments_${studentId}`)
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'assignments',
-                filter: schoolId ? `school_id=eq.${schoolId}` : undefined
-            }, () => {
-                fetchAssignments();
-            })
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'assignment_submissions',
-                filter: `student_id=eq.${studentId}`
-            }, () => {
-                fetchAssignments();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [studentId]);
+        fetchAssignmentsAndSubmissions();
+    }, [studentId, schoolId]);
 
     const filteredAssignments = useMemo(() => {
         return assignments

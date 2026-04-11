@@ -1,19 +1,46 @@
 import { Router } from 'express';
 import * as AuthController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
+// Rate limiter for demo endpoints — stricter than global limit
+const demoLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Too many demo login attempts, please try again later.' },
+});
+
 router.post('/signup', AuthController.signup);
 router.post('/login', AuthController.login);
+router.post('/google-login', AuthController.googleLogin);
 router.post('/create-user', AuthController.createUser);
 router.post('/resend-verification', AuthController.resendVerification);
 router.post('/confirm-email', AuthController.confirmEmail);
+router.post('/verify-email', AuthController.verifyEmail);
 router.patch('/update-email', AuthController.updateEmail);
 router.patch('/update-username', AuthController.updateUsername);
 router.patch('/update-password', AuthController.updatePassword);
-router.get('/memberships', authenticate, AuthController.getMemberships);
+router.post('/admin/change-password', authenticate, AuthController.adminChangePassword);
+router.post('/admin/reset-password', authenticate, AuthController.resetUserPassword);
+router.get('/memberships/:userId', authenticate, AuthController.getMemberships);
 router.post('/switch-school', authenticate, AuthController.switchSchool);
+
+router.get('/me', authenticate, AuthController.getMe);
+router.get('/check-email', AuthController.checkEmail);
+router.get('/check-username', AuthController.checkUsername);
+
+// Demo endpoints — rate-limited, no auth required
+router.post('/demo/login', demoLimiter, AuthController.demoLogin);
+router.get('/demo/roles', demoLimiter, AuthController.demoRoles);
+
+// Session management
+router.get('/sessions', authenticate, AuthController.getSessions);
+router.delete('/sessions/:sessionId', authenticate, AuthController.revokeSession);
+router.delete('/sessions', authenticate, AuthController.revokeAllSessions);
 
 // Verify token endpoint
 router.get('/verify', authenticate, (req, res) => {

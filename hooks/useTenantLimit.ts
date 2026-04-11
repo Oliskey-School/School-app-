@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 interface TenantLimit {
     currentCount: number;
@@ -13,7 +13,7 @@ interface TenantLimit {
 }
 
 export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'users'): TenantLimit => {
-    const { session, currentSchool } = useAuth();
+    const { isAuthenticated, currentSchool } = useAuth();
     const [count, setCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -25,41 +25,26 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     // Limits based on plan (can be expanded)
     const MAX_LIMIT = isPremium ? Infinity : FREE_TIER_LIMIT;
 
-    const fetchCount = async () => {
-        if (!currentSchool?.id) return;
+    const fetchCount = useCallback(async () => {
+        if (!isAuthenticated || !currentSchool?.id) return;
 
         try {
-            // If premium, strictly speaking we might not need count, 
-            // but good to show usage anyway.
-
-            // We use the 'users' table count for the strict 10-user limit 
-            // as defined in the requirement.
-            // If entity is specific (e.g. 'students'), we could count just those,
-            // but the prompt said "check the current count for that tenant_id" implying total users.
-            // Let's stick to total users for the guardrail.
-
-            let query = supabase
-                .from('users')
-                .select('*', { count: 'exact', head: true })
-                .eq('school_id', currentSchool.id);
-
-            const { count: userCount, error } = await query;
-
-            if (error) throw error;
-            setCount(userCount || 0);
-
+            setLoading(true);
+            // Fetch users from the backend API
+            const users = await api.getUsers(currentSchool.id);
+            setCount(users?.length || 0);
         } catch (err) {
             console.error('Error fetching tenant usage:', err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [isAuthenticated, currentSchool?.id]);
 
     useEffect(() => {
-        if (session) {
+        if (isAuthenticated) {
             fetchCount();
         }
-    }, [session, currentSchool?.id]);
+    }, [isAuthenticated, fetchCount]);
 
     return {
         currentCount: count,
@@ -71,3 +56,4 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
         refreshCount: fetchCount
     };
 };
+

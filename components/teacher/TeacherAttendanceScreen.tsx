@@ -10,7 +10,6 @@ import CenteredLoader from '../ui/CenteredLoader';
 import { THEME_CONFIG } from '../../constants';
 import { DashboardType, Student, AttendanceStatus, ClassInfo } from '../../types';
 import { getFormattedClassName } from '../../constants';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 
@@ -52,50 +51,33 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     const { profile } = useProfile();
     const [students, setStudents] = useState<Student[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const now = new Date();
+    const [selectedDate, setSelectedDate] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
 
     // Fetch students and attendance for selected date
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                // 1. Fetch Students in Class
-                let studentQuery = supabase
-                    .from('students')
-                    .select('*');
-
-                // If class has a specific section, fetch by class ID
-                // Otherwise fetch all students in that grade for the school
-                // Helper to get valid school ID
-                const getEffectiveSchoolId = () => {
-                    const cId = classInfo.schoolId || (classInfo as any).school_id;
-                    if (cId && cId !== '00000000-0000-0000-0000-000000000000') return cId;
-                    return profile?.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-                };
-                const effectiveSchoolId = getEffectiveSchoolId();
-
-                // If class has a specific section, fetch by class ID
-                // Otherwise fetch all students in that grade for the school
-                // Match by grade and effective section to ensure consistency
-                studentQuery = studentQuery
-                    .eq('grade', classInfo.grade)
-                    .eq('school_id', effectiveSchoolId);
-
+                // 1. Fetch Students in Class using API
+                const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
                 const effectiveBranchId = currentBranchId || profile?.branchId;
-                if (effectiveBranchId && effectiveBranchId !== 'all') {
-                    studentQuery = studentQuery.eq('branch_id', effectiveBranchId);
+
+                if (!effectiveSchoolId) {
+                    console.error('[Attendance] No school ID found in classInfo or profile');
+                    setIsLoading(false);
+                    return;
                 }
 
-                if (classInfo.section && classInfo.section !== 'null' && classInfo.section !== '') {
-                    studentQuery = studentQuery.eq('section', classInfo.section);
-                } else {
-                    studentQuery = studentQuery.is('section', null);
-                }
-
-                const { data: classStudents, error: studentError } = await studentQuery
-                    .order('name');
-
-                if (studentError) throw studentError;
+                const classStudents = await api.getStudents(
+                    effectiveSchoolId,
+                    effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : undefined,
+                    {
+                        classId: classInfo.id,
+                        grade: classInfo.grade,
+                        section: classInfo.section
+                    }
+                );
 
                 if (!classStudents || classStudents.length === 0) {
                     setStudents([]);
@@ -104,10 +86,8 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
                 // 2. Fetch Existing Attendance for Selected Date using api client
                 const attendanceData = await api.getAttendance(
-                    effectiveSchoolId,
-                    selectedDate,
                     classInfo.id,
-                    effectiveBranchId || undefined
+                    selectedDate
                 );
 
                 // Map API data to UI model
@@ -122,7 +102,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
 
                     return {
                         id: s.id,
-                        name: s.name,
+                        name: s.full_name || s.name || 'Unknown',
                         grade: s.grade,
                         section: s.section,
                         avatarUrl: s.avatar_url,
@@ -185,7 +165,7 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         console.log("DEBUG: Submitting Attendance Payload:", upsertData);
 
         try {
-            await api.saveAttendance(effectiveSchoolId, effectiveBranchId || undefined, upsertData);
+            await api.saveAttendance(upsertData);
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
         } catch (err) {
             console.error('Error submitting attendance:', err);

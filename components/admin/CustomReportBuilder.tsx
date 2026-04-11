@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -22,6 +22,7 @@ import {
     BookOpen,
     ClipboardCheck
 } from 'lucide-react';
+import { api } from '../../lib/api';
 
 interface ReportField {
     id: string;
@@ -65,12 +66,55 @@ const CustomReportBuilder = () => {
     const [filters, setFilters] = useState<ReportFilter[]>([]);
     const [groupBy, setGroupBy] = useState<string>('');
     const [reportName, setReportName] = useState('');
-    const [savedReports, setSavedReports] = useState<SavedReport[]>([
-        { id: '1', name: 'Term 2 Attendance Summary', description: 'Attendance rates by class for Term 2', data_source: 'attendance', fields: ['Class', 'Student Name', 'Status'], created_at: '2026-03-10' },
-        { id: '2', name: 'Outstanding Fees Report', description: 'Students with unpaid balances', data_source: 'fees', fields: ['Student Name', 'Class', 'Balance'], created_at: '2026-03-12' },
-        { id: '3', name: 'Staff Qualification Audit', description: 'All staff with qualifications', data_source: 'teachers', fields: ['Name', 'Department', 'Qualification'], created_at: '2026-03-14' },
-    ]);
+    const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
     const [showSaved, setShowSaved] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        fetchSavedReports();
+    }, []);
+
+    const fetchSavedReports = async () => {
+        try {
+            const data = await api.getSavedReports(currentSchool?.id);
+            setSavedReports(data);
+        } catch (error) {
+            console.error('Fetch reports error:', error);
+        }
+    };
+
+    const handleSaveReport = async () => {
+        if (!reportName.trim()) { toast.error('Please enter a report name'); return; }
+        setLoading(true);
+        try {
+            await api.createSavedReport({
+                name: reportName,
+                description: `Custom report from ${currentSource?.name}`,
+                data_source: selectedSource || '',
+                fields: selectedFields,
+                filters: filters
+            }, currentSchool?.id);
+            toast.success('Report template saved!');
+            setReportName('');
+            fetchSavedReports();
+        } catch (error: any) {
+            toast.error('Save failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteReport = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!window.confirm('Delete this report template?')) return;
+        try {
+            await api.deleteSavedReport(id, currentSchool?.id);
+            toast.success('Report deleted');
+            fetchSavedReports();
+        } catch (error: any) {
+            toast.error('Delete failed');
+        }
+    };
 
     const currentSource = DATA_SOURCES.find(s => s.id === selectedSource);
 
@@ -103,22 +147,6 @@ const CustomReportBuilder = () => {
     const handleExport = (format: 'csv' | 'pdf') => {
         toast.success(`Report exported as ${format.toUpperCase()}`);
     };
-
-    const handleSaveReport = () => {
-        if (!reportName.trim()) { toast.error('Please enter a report name'); return; }
-        const newReport: SavedReport = {
-            id: Date.now().toString(),
-            name: reportName,
-            description: `Custom report from ${currentSource?.name}`,
-            data_source: selectedSource || '',
-            fields: selectedFields,
-            created_at: new Date().toISOString().split('T')[0],
-        };
-        setSavedReports(prev => [newReport, ...prev]);
-        toast.success('Report template saved!');
-        setReportName('');
-    };
-
     const handleAddFilter = () => {
         setFilters(prev => [...prev, { id: Date.now().toString(), field: selectedFields[0] || '', operator: 'equals', value: '' }]);
     };
@@ -156,14 +184,17 @@ const CustomReportBuilder = () => {
                     <h2 className="text-lg font-bold text-gray-800">Saved Report Templates</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {savedReports.map(report => (
-                            <div key={report.id} className="p-4 bg-gray-50 rounded-2xl hover:bg-indigo-50 cursor-pointer transition-colors group"
+                            <div key={report.id} className="p-4 bg-gray-50 rounded-2xl hover:bg-indigo-50 cursor-pointer transition-colors group relative"
                                 onClick={() => { setSelectedSource(report.data_source); setSelectedFields(report.fields); setStep('preview'); setShowSaved(false); }}>
                                 <h3 className="font-bold text-gray-800 group-hover:text-indigo-600">{report.name}</h3>
                                 <p className="text-sm text-gray-500 mt-1">{report.description}</p>
                                 <div className="flex items-center justify-between mt-3">
-                                    <span className="text-xs font-bold text-gray-400">{report.created_at}</span>
+                                    <span className="text-xs font-bold text-gray-400">{new Date(report.created_at).toLocaleDateString()}</span>
                                     <span className="text-xs font-bold bg-white px-2 py-1 rounded-lg text-gray-500">{report.fields.length} columns</span>
                                 </div>
+                                <button onClick={(e) => handleDeleteReport(report.id, e)} className="absolute top-3 right-3 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg text-red-500 transition-all">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -190,16 +221,19 @@ const CustomReportBuilder = () => {
                 <div className="space-y-6">
                     <h2 className="text-lg font-bold text-gray-700">Select Data Source</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {DATA_SOURCES.map(source => (
+                        {DATA_SOURCES.map(source => {
+                            const Icon = source.icon;
+                            return (
                             <button key={source.id} onClick={() => { setSelectedSource(source.id); setSelectedFields([]); setStep('fields'); }}
                                 className={`p-6 rounded-3xl border-2 text-left transition-all hover:shadow-md ${selectedSource === source.id ? 'border-indigo-500 bg-indigo-50/50' : 'border-gray-100 bg-white hover:border-indigo-200'}`}>
                                 <div className={`p-3 rounded-2xl ${source.color} w-fit`}>
-                                    <source.icon className="w-6 h-6" />
+                                    <Icon className="w-6 h-6" />
                                 </div>
                                 <h3 className="text-lg font-bold text-gray-900 mt-4">{source.name}</h3>
                                 <p className="text-sm text-gray-500 mt-1">{source.fields.length} available fields</p>
                             </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}

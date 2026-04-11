@@ -3,7 +3,6 @@ import { toast } from 'react-hot-toast';
 import { ChevronLeftIcon, CameraIcon, ChartBarIcon, BookOpenIcon, ClockIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
 import { LockIcon, UserIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
 
@@ -75,32 +74,13 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
         const fetchStats = async () => {
             if (!user?.id) return;
             try {
-                // Import from database.ts logic? Or use direct supabase
-                const { data: attendance } = await supabase.from('student_attendance').select('status').eq('student_id', user.id);
-                const { data: assignments } = await supabase.from('assignment_submissions').select('id').eq('student_id', user.id);
-                const { data: performance } = await supabase.from('academic_performance').select('score').eq('student_id', user.id);
-
-                const attendanceTotal = attendance?.length || 0;
-                const presentCount = attendance?.filter(a => a.status === 'Present').length || 0;
-                const attendanceRate = attendanceTotal > 0 ? Math.round((presentCount / attendanceTotal) * 100) : 100;
-
-                const scores = performance?.map(p => p.score) || [];
-                const average = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-
-                // Map score to letter grade
-                const getGrade = (score: number) => {
-                    if (score >= 90) return 'A+';
-                    if (score >= 80) return 'A';
-                    if (score >= 70) return 'B';
-                    if (score >= 60) return 'C';
-                    if (score >= 50) return 'D';
-                    return 'F';
-                };
-
+                // These stats should ideally come from a dashboard/stats endpoint
+                const dashboardStats = await api.getDashboardStats(authUser?.school_id || 'default');
+                
                 setStats({
-                    attendanceRate,
-                    assignmentsSubmitted: assignments?.length || 0,
-                    averageScore: average
+                    attendanceRate: dashboardStats?.attendanceRate || 100,
+                    assignmentsSubmitted: dashboardStats?.totalAssignments || 0,
+                    averageScore: dashboardStats?.avgScore || 0
                 });
             } catch (err) {
                 console.error("Error fetching stats for edit profile:", err);
@@ -109,8 +89,6 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
 
         fetchStats();
     }, [user?.id]);
-
-    // Derived initials
 
     // Derived initials
     const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'ST';
@@ -139,28 +117,12 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
 
             const toastId = toast.loading('Uploading image...');
             try {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-                const filePath = `${user?.id || 'temp'}/${fileName}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('avatars')
-                    .upload(filePath, file);
-
-                if (uploadError) {
-                    throw uploadError;
-                }
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('avatars')
-                    .getPublicUrl(filePath);
-
-                setAvatar(publicUrl);
+                const result = await api.uploadAvatar(file);
+                setAvatar(result.url);
                 toast.success('Image uploaded ready to save', { id: toastId });
             } catch (error: any) {
                 toast.error('Error uploading image: ' + error.message, { id: toastId });
                 console.error('Upload error:', error);
-                // Revert to previous avatar if needed? For now just keep local preview or clear
             }
         }
     };
@@ -190,7 +152,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
         if (!username || username === authUser?.user_metadata?.username) return;
         setUpdatingUsername(true);
         try {
-            await api.patch('/auth/update-username', { username });
+            await api.updateStudent(authUser?.id || '', { school_generated_id: username });
             toast.success('Username updated successfully!');
             // Updated metadata will be synced on next session or manual refresh
         } catch (err: any) {
@@ -213,7 +175,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
 
         setUpdatingPassword(true);
         try {
-            await api.patch('/auth/update-password', { password: newPassword });
+            await api.updateStudent(authUser?.id || '', { password: newPassword });
             toast.success('Password updated successfully!');
             setNewPassword('');
             setConfirmPassword('');

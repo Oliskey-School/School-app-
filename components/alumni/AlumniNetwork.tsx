@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Alumni, FundraisingCampaign, Donation } from '../../types-additional';
 import { toast } from 'react-hot-toast';
 import { UserGroupIcon, CurrencyDollarIcon, AcademicCapIcon } from '../../constants';
@@ -18,7 +18,7 @@ const AlumniNetwork: React.FC = () => {
         setLoading(true);
         try {
             if (view === 'directory') {
-                const { data } = await supabase
+                const { data } = await api
                     .from('alumni')
                     .select(`
             *,
@@ -29,7 +29,7 @@ const AlumniNetwork: React.FC = () => {
 
                 setAlumni(data || []);
             } else {
-                const { data } = await supabase
+                const { data } = await api
                     .from('fundraising_campaigns')
                     .select('*, donations(*)')
                     .eq('status', 'active')
@@ -47,7 +47,7 @@ const AlumniNetwork: React.FC = () => {
 
     const donate = async (campaignId: number, amount: number) => {
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('donations')
                 .insert({
                     campaign_id: campaignId,
@@ -60,7 +60,7 @@ const AlumniNetwork: React.FC = () => {
             // Update campaign raised amount
             const campaign = campaigns.find(c => c.id === campaignId);
             if (campaign) {
-                await supabase
+                await api
                     .from('fundraising_campaigns')
                     .update({ raised_amount: campaign.raisedAmount + amount })
                     .eq('id', campaignId);

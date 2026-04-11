@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import { Sword, Zap, Heart, Trophy, RefreshCw } from 'lucide-react';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface WordItem {
@@ -128,6 +129,17 @@ const VocabularyNinjaGame: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     origin: { y: 0.6 }
                 });
             }
+
+            // PERSIST TO DATABASE
+            api.submitGameScore({
+                game_id: 'vocabulary-ninja',
+                game_name: 'Vocabulary Ninja',
+                score: score,
+                metadata: {
+                    category: category.name,
+                    finalScore: score
+                }
+            }).catch(err => console.error("Failed to save ninja score:", err));
         }
     }, [gameState, score, addXP]);
 

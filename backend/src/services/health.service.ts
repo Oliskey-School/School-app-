@@ -1,19 +1,45 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class HealthService {
     static async getHealthLogs(schoolId: string, branchId: string | undefined) {
-        let query = supabase
-            .from('health_logs')
-            .select('*, students(name)')
-            .eq('school_id', schoolId);
+        const where: any = { school_id: schoolId };
 
         if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+            where.branch_id = branchId;
         }
 
-        const { data, error } = await query.order('logged_date', { ascending: false }).limit(10);
+        return prisma.healthLog.findMany({
+            where,
+            include: { 
+                student: { 
+                    select: { 
+                        full_name: true,
+                        avatar_url: true
+                    } 
+                } 
+            },
+            orderBy: { logged_date: 'desc' },
+            take: 50
+        });
+    }
 
-        if (error) throw new Error(error.message);
-        return data || [];
+    static async createHealthLog(schoolId: string, branchId: string | undefined, data: any) {
+        // Destructure to sanitize incoming data
+        const { school_id, branch_id, description, ...logData } = data;
+
+        const log = await prisma.healthLog.create({
+            data: {
+                ...logData,
+                notes: description, // Map frontend description to backend notes
+                school_id: schoolId,
+                branch_id: branchId || null,
+                logged_date: logData.logged_date ? new Date(logData.logged_date) : new Date(),
+                parent_notified: logData.parent_notified === true
+            }
+        });
+
+        SocketService.emitToSchool(schoolId, 'health:updated', { action: 'create', logId: log.id });
+        return log;
     }
 }

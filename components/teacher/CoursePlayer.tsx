@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import {
     CheckCircleIcon,
@@ -35,29 +35,18 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, enrollmentId }) =
     const fetchModules = async () => {
         try {
             setLoading(true);
-
-            const { data, error } = await supabase
-                .from('course_modules')
-                .select('*')
-                .eq('course_id', courseId)
-                .order('order_index');
-
-            if (error) throw error;
-
-            const formatted: Module[] = (data || []).map((m: any) => ({
+            const course = await api.getCourseById(String(courseId));
+            const formatted: Module[] = (course?.modules || []).map((m: any) => ({
                 id: m.id,
                 title: m.title,
                 description: m.description,
                 order_index: m.order_index,
                 content_type: m.content_type,
                 duration_minutes: m.duration_minutes,
-                is_completed: false
+                is_completed: m.is_completed || false
             }));
-
             setModules(formatted);
-            if (formatted.length > 0) {
-                setSelectedModule(formatted[0]);
-            }
+            if (formatted.length > 0) setSelectedModule(formatted[0]);
         } catch (error: any) {
             console.error('Error fetching modules:', error);
             toast.error('Failed to load course modules');
@@ -68,25 +57,11 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, enrollmentId }) =
 
     const handleCompleteModule = async (moduleId: number) => {
         try {
-            const { error } = await supabase
-                .from('module_progress')
-                .upsert({
-                    enrollment_id: enrollmentId,
-                    module_id: moduleId,
-                    is_completed: true,
-                    completed_at: new Date().toISOString()
-                }, {
-                    onConflict: 'enrollment_id,module_id'
-                });
-
-            if (error) throw error;
-
+            await api.updateCourseProgress(String(courseId), String(moduleId));
             setModules(modules.map(m =>
                 m.id === moduleId ? { ...m, is_completed: true } : m
             ));
-
             toast.success('Module completed!');
-
             // Auto-select next module
             const currentIndex = modules.findIndex(m => m.id === moduleId);
             if (currentIndex < modules.length - 1) {
@@ -237,3 +212,4 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ courseId, enrollmentId }) =
 };
 
 export default CoursePlayer;
+

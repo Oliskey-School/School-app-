@@ -1,146 +1,686 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 
 export class DashboardService {
     static async getStats(schoolId: string, teacherId?: string, branchId?: string) {
         console.log(`📊 [DashboardService] Fetching stats for schoolId: ${schoolId}, teacherId: ${teacherId}, branchId: ${branchId}`);
-        // Parallel fetching for performance
-        let studentQuery = supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId);
-        let teacherQuery = supabase.from('teachers').select('*', { count: 'exact', head: true }).eq('school_id', schoolId);
-        let parentQuery = supabase.from('parents').select('*', { count: 'exact', head: true }).eq('school_id', schoolId);
-        let classQuery = supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', schoolId);
-        let feeQuery = supabase.from('student_fees').select('amount, paid_amount').eq('school_id', schoolId).eq('status', 'Overdue');
 
-        // Apply branch filter if provided
-        if (branchId && branchId !== 'all') {
-            const branchFilter = `branch_id.eq.${branchId},branch_id.is.null`;
-            studentQuery = studentQuery.or(branchFilter);
-            teacherQuery = teacherQuery.or(branchFilter);
-            parentQuery = parentQuery.or(branchFilter);
-            classQuery = classQuery.or(branchFilter);
-            feeQuery = feeQuery.or(branchFilter);
-        }
+        try {
+            const isAllBranches = branchId === 'all' || !branchId;
+            const effectiveBranchId = isAllBranches ? undefined : branchId;
 
-        if (teacherId) {
-            // Get class IDs for the teacher first for accurate student counting
-            const { data: teacherClassLinks } = await supabase
-                .from('class_teachers')
-                .select('class_id')
-                .eq('teacher_id', teacherId);
+            // Define base filters
+            const baseWhere: any = { school_id: schoolId };
+            if (effectiveBranchId) baseWhere.branch_id = effectiveBranchId;
 
-            const classIds = teacherClassLinks?.map(l => l.class_id) || [];
+            const now = new Date();
+            const today = new Date(now.setHours(0, 0, 0, 0));
+            const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const prev30Days = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
 
-            // Filter classes assigned to teacher
-            classQuery = supabase.from('classes')
-                .select('*', { count: 'exact', head: true })
-                .in('id', classIds);
+            // Specialized queries for teachers
+            if (teacherId) {
+                const [
+                    totalClasses,
+                    totalStudents,
+                    latestBehaviorNote,
+                    attendanceTodayData,
+                    avgScoreData,
+                    totalTeachers,
+                    totalParents,
+                    overdueFeesData,
+                    unpublishedReports,
+                    timetablePreview,
+                    recentActivity
+                ] = await Promise.all([
+                    // 1. Count classes assigned to this teacher
+                    prisma.classTeacher.count({
+                        where: { teacher_id: teacherId }
+                    }),
+                    // 2. Count unique students in classes assigned to this teacher
+                    prisma.student.count({
+                        where: {
+                            school_id: schoolId,
+                            enrollments: {
+                                some: {
+                                    class: {
+                                        teachers: {
+                                            some: { teacher_id: teacherId }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }),
+                    // 3. Latest behavior note for students of this teacher
+                    prisma.behaviorNote.findFirst({
+                        where: {
+                            school_id: schoolId,
+                            student: {
+                                enrollments: {
+                                    some: {
+                                        class: {
+                                            teachers: {
+                                                some: { teacher_id: teacherId }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        orderBy: { created_at: 'desc' },
+                        include: { student: true }
+                    }),
+                    // 4. Attendance Data for teacher's students today
+                    prisma.attendance.aggregate({
+                        where: {
+                            date: today,
+                            student: {
+                                ...baseWhere,
+                                enrollments: {
+                                    some: {
+                                        class: {
+                                            teachers: {
+                                                some: { teacher_id: teacherId }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        _count: { _all: true },
+                    }),
+                    // 5. Avg Score for teacher's students
+                    prisma.academicPerformance.aggregate({
+                        where: {
+                            ...baseWhere,
+                            student: {
+                                enrollments: {
+                                    some: {
+                                        class: {
+                                            teachers: {
+                                                some: { teacher_id: teacherId }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        _avg: { score: true }
+                    }),
+                    // 6. Real teacher count in school/branch
+                    prisma.teacher.count({ where: baseWhere }),
+                    // 7. Real parent count for students in teacher's classes
+                    prisma.parent.count({
+                        where: {
+                            school_id: schoolId,
+                            children: {
+                                some: {
+                                    student: {
+                                        enrollments: {
+                                            some: {
+                                                class: {
+                                                    teachers: {
+                                                        some: { teacher_id: teacherId }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }),
+                    // 8. Overdue Fees for teacher's students
+                    prisma.studentFee.aggregate({
+                        where: {
+                            ...baseWhere,
+                            status: { in: ['Overdue', 'Pending'] },
+                            student: {
+                                enrollments: {
+                                    some: {
+                                        class: {
+                                            teachers: {
+                                                some: { teacher_id: teacherId }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        _sum: { amount: true, paid_amount: true }
+                    }),
+                    // 9. Unpublished Reports for teacher's students
+                    prisma.reportCard.count({
+                        where: {
+                            is_published: false,
+                            student: {
+                                ...baseWhere,
+                                enrollments: {
+                                    some: {
+                                        class: {
+                                            teachers: {
+                                                some: { teacher_id: teacherId }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }),
+                    // 10. Real timetable preview for today
+                    prisma.timetable.findMany({
+                        where: {
+                            ...baseWhere,
+                            teacher_id: teacherId,
+                            day_of_week: now.getDay() || 7 // 1-7 (Mon-Sun)
+                        },
+                        take: 3,
+                        orderBy: { start_time: 'asc' }
+                    }),
+                    // 11. Recent activity (audit logs) for this teacher
+                    prisma.auditLog.findMany({
+                        where: { ...baseWhere, user_id: teacherId }, // Assuming user_id is the same as teacherId for audit logs
+                        orderBy: { created_at: 'desc' },
+                        take: 5
+                    })
+                ]);
 
-            // Filter students in those classes - count uniquely by student ID
-            studentQuery = supabase.from('students')
-                .select('*', { count: 'exact', head: true })
-                .in('class_id', classIds);
-
-            if (branchId && branchId !== 'all') {
-                const branchFilter = `branch_id.eq.${branchId},branch_id.is.null`;
-                classQuery = classQuery.or(branchFilter);
-                studentQuery = studentQuery.or(branchFilter);
-            }
-        }
-
-        // Calculate trends (Simple count of students added in last 30 days)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const studentTrendQuery = supabase.from('students')
-            .select('*', { count: 'exact', head: true })
-            .eq('school_id', schoolId)
-            .gt('created_at', thirtyDaysAgo.toISOString());
-
-        const [students, teachers, parents, classes, fees, unpublishedReports, studentTrend, pendingApprovals, latestHealth, timetable] = await Promise.all([
-            studentQuery,
-            teacherQuery,
-            parentQuery,
-            classQuery,
-            feeQuery,
-            supabase.from('report_cards').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'Draft'),
-            studentTrendQuery,
-            supabase.from('students').select('id', { count: 'exact', head: true }).eq('school_id', schoolId).eq('status', 'Pending'),
-            supabase.from('health_logs').select('*, students(name)').eq('school_id', schoolId).order('logged_date', { ascending: false }).limit(1).maybeSingle(),
-            supabase.from('timetable').select('*').eq('school_id', schoolId).eq('day', new Date().toLocaleDateString('en-US', { weekday: 'long' })).order('start_time', { ascending: true }).limit(5)
-        ]);
-
-        console.log(`🔍 [DashboardService] Query Results - Students: ${students.count}, Teachers: ${teachers.count}, Parents: ${parents.count}, Classes: ${classes.count}`);
-
-        const feeData = fees.data || [];
-        const overdueFeesTotal = feeData.reduce((acc: number, fee: any) => acc + (Number(fee.amount) - Number(fee.paid_amount)), 0);
-
-        // Fetch Teacher Analytics if requested
-        let teacherAnalytics = { totalStudents: students.count || 0, totalClasses: classes.count || 0, attendanceRate: 0, avgStudentScore: 0 };
-        if (teacherId) {
-            try {
-                const { data, error } = await supabase.rpc('get_teacher_analytics', {
-                    p_teacher_id: teacherId,
-                    p_school_id: schoolId,
-                    p_branch_id: branchId && branchId !== 'all' ? branchId : null
+                // Calculate present count for attendance rate
+                const presentCount = await prisma.attendance.count({
+                    where: {
+                        date: today,
+                        status: 'Present',
+                        student: {
+                            ...baseWhere,
+                            enrollments: {
+                                some: {
+                                    class: {
+                                        teachers: {
+                                            some: { teacher_id: teacherId }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 });
-                if (error) throw error;
-                if (data && data.length > 0) {
-                    teacherAnalytics = {
-                        totalStudents: Number(data[0].total_students) || 0,
-                        totalClasses: Number(data[0].total_classes) || 0,
-                        attendanceRate: Number(data[0].attendance_rate) || 0,
-                        avgStudentScore: Number(data[0].avg_student_score) || 0
-                    };
-                }
-            } catch (err) {
-                console.warn('Backend fallback: Failed to fetch teacher analytics via RPC:', err);
-            }
-        }
 
-        return {
-            totalStudents: teacherId ? teacherAnalytics.totalStudents : (students.count || 0),
-            totalTeachers: teachers.count || 0,
-            totalParents: parents.count || 0,
-            totalClasses: teacherId ? teacherAnalytics.totalClasses : (classes.count || 0),
-            overdueFees: overdueFeesTotal,
-            unpublishedReports: unpublishedReports.count || 0,
-            attendanceRate: teacherAnalytics.attendanceRate,
-            avgStudentScore: teacherAnalytics.avgStudentScore,
-            studentTrend: studentTrend.count || 0,
-            teacherTrend: 0,
-            parentTrend: 0,
-            classTrend: 0,
-            pendingApprovals: pendingApprovals.count || 0,
-            latestHealthLog: latestHealth.data ? {
-                studentName: (latestHealth.data.students as any)?.name || 'Unknown',
-                description: latestHealth.data.description,
-                logged_date: latestHealth.data.logged_date
-            } : null,
-            timetablePreview: timetable.data || [],
-            recentActivity: []
-        };
+                const attendanceRate = attendanceTodayData._count._all > 0 
+                    ? Math.round((presentCount / attendanceTodayData._count._all) * 100) 
+                    : 0;
+
+                const overdueFees = (overdueFeesData._sum.amount || 0) - (overdueFeesData._sum.paid_amount || 0);
+
+                return {
+                    totalStudents,
+                    totalTeachers,
+                    totalParents,
+                    totalClasses,
+                    overdueFees: Math.max(0, overdueFees),
+                    unpublishedReports,
+                    attendanceRate,
+                    avgStudentScore: Math.round(avgScoreData._avg.score || 0),
+                    studentTrend: 0, // Trends require more complex comparison logic across periods
+                    teacherTrend: 0,
+                    parentTrend: 0,
+                    classTrend: 0,
+                    pendingApprovals: 0,
+                    latestHealthLog: latestBehaviorNote ? {
+                        studentName: (latestBehaviorNote as any).student?.full_name || 'Unknown',
+                        description: (latestBehaviorNote as any).note || 'No description',
+                        time: latestBehaviorNote.created_at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    } : null,
+                    timetablePreview: timetablePreview.map((t: any) => ({
+                        start_time: t.start_time,
+                        subject: t.subject,
+                        class_name: (t as any).class?.name || (t as any).class_name || 'Unknown'
+                    })),
+                    recentActivity: recentActivity.map((log: any) => ({
+                        id: log.id,
+                        action: log.action,
+                        user_name: 'You',
+                        created_at: log.created_at.toISOString()
+                    }))
+                };
+            }
+
+            // Standard School-wide queries
+            const [
+                totalStudents,
+                totalTeachers,
+                totalParents,
+                totalClasses,
+                pendingApprovals,
+                latestBehaviorNote,
+                attendanceTodayTotal,
+                attendanceTodayPresent,
+                avgScoreData,
+                unpublishedReports,
+                overdueFeesData,
+                timetablePreview,
+                recentActivity,
+                // Trends
+                studentsLast30,
+                studentsPrev30,
+                teachersLast30,
+                teachersPrev30,
+                parentsLast30,
+                parentsPrev30,
+                classesLast30,
+                classesPrev30,
+                enrollmentData,
+                performanceData,
+                feeData,
+                workloadData
+            ] = await Promise.all([
+                prisma.student.count({ where: baseWhere }),
+                prisma.teacher.count({ where: baseWhere }),
+                prisma.parent.count({ where: baseWhere }),
+                prisma.class.count({ where: baseWhere }),
+                prisma.student.count({ where: { ...baseWhere, status: 'Pending' } }),
+                prisma.behaviorNote.findFirst({ 
+                    where: baseWhere, 
+                    orderBy: { created_at: 'desc' },
+                    include: { student: true }
+                }),
+                prisma.attendance.count({ where: { date: today, student: baseWhere } }),
+                prisma.attendance.count({ where: { date: today, status: 'Present', student: baseWhere } }),
+                prisma.academicPerformance.aggregate({ where: baseWhere, _avg: { score: true } }),
+                prisma.reportCard.count({ where: { is_published: false, student: baseWhere } }),
+                prisma.studentFee.aggregate({ 
+                    where: { ...baseWhere, status: { in: ['Overdue', 'Pending'] } }, 
+                    _sum: { amount: true, paid_amount: true } 
+                }),
+                prisma.timetable.findMany({
+                    where: { ...baseWhere, day_of_week: now.getDay() || 7 }, // 1-7 (Mon-Sun)
+                    include: { class: true },
+                    take: 3,
+                    orderBy: { start_time: 'asc' }
+                } as any),
+                prisma.auditLog.findMany({
+                    where: baseWhere,
+                    orderBy: { created_at: 'desc' },
+                    include: { user: true },
+                    take: 5
+                }),
+                // Trend counters
+                prisma.student.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
+                prisma.student.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
+                prisma.teacher.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
+                prisma.teacher.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
+                prisma.parent.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
+                prisma.parent.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
+                prisma.class.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
+                prisma.class.count({ where: { ...baseWhere, created_at: { gte: prev30Days, lt: last30Days } } }),
+                // Enrollment data for chart
+                prisma.student.groupBy({
+                    by: ['created_at'],
+                    where: baseWhere,
+                    _count: { id: true },
+                    orderBy: { created_at: 'asc' }
+                }) as any,
+                // Performance by subject
+                prisma.academicPerformance.groupBy({
+                    by: ['subject'],
+                    where: baseWhere,
+                    _avg: { score: true },
+                }),
+                // Fees breakdown
+                prisma.studentFee.groupBy({
+                    by: ['status'],
+                    where: baseWhere,
+                    _count: { id: true },
+                }),
+                // Teacher workload
+                prisma.teacher.findMany({
+                    where: baseWhere,
+                    select: {
+                        full_name: true,
+                        timetables: {
+                            select: { start_time: true, end_time: true }
+                        }
+                    },
+                    take: 5
+                })
+            ]);
+
+            // Process enrollment data into year-based format for the chart
+            const timeCounts: Record<string, number> = {};
+            (enrollmentData || []).forEach((item: any) => {
+                const date = new Date(item.created_at);
+                // Group by Year and Month for better granularity than just year, but still chart-friendly
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                timeCounts[key] = (timeCounts[key] || 0) + (item._count?.id || 1);
+            });
+            
+            const processedEnrollmentData = Object.keys(timeCounts).map(key => ({
+                year: parseInt(key.split('-')[0]),
+                label: key, // Keep as label for potentially more detailed tooltips
+                count: timeCounts[key]
+            })).sort((a, b) => a.label.localeCompare(b.label));
+
+            if (processedEnrollmentData.length === 0) {
+                processedEnrollmentData.push({ year: new Date().getFullYear(), label: String(new Date().getFullYear()), count: totalStudents });
+            }
+
+            // Process Performance
+            const performance = performanceData.map((p: any) => ({
+                label: p.subject,
+                value: Math.round(p._avg.score || 0),
+                a11yLabel: `${p.subject}: ${Math.round(p._avg.score || 0)}% average`
+            }));
+
+            // Process Fees
+            const feeStatusCounts: Record<string, number> = {};
+            let feeTotal = 0;
+            feeData.forEach((f: any) => {
+                feeStatusCounts[f.status] = (feeStatusCounts[f.status] || 0) + f._count.id;
+                feeTotal += f._count.id;
+            });
+            const fees = {
+                paid: feeTotal > 0 ? Math.round(((feeStatusCounts['Paid'] || 0) / feeTotal) * 100) : 0,
+                overdue: feeTotal > 0 ? Math.round(((feeStatusCounts['Overdue'] || 0) / feeTotal) * 100) : 0,
+                unpaid: feeTotal > 0 ? Math.round(((feeStatusCounts['Pending'] || 0) / feeTotal) * 100) : 0,
+                total: feeTotal
+            };
+
+            // Process Workload
+            const workload = workloadData.map((t: any) => {
+                let weeklyMinutes = 0;
+                // Sum up duration of all lessons in the timetable for this teacher
+                if (t.timetables && Array.isArray(t.timetables)) {
+                    t.timetables.forEach((session: any) => {
+                        try {
+                            if (session.start_time && session.end_time) {
+                                const [startH, startM] = session.start_time.split(':').map(Number);
+                                const [endH, endM] = session.end_time.split(':').map(Number);
+                                const duration = (endH * 60 + endM) - (startH * 60 + startM);
+                                if (duration > 0) weeklyMinutes += duration;
+                            }
+                        } catch (e) {
+                            // Skip invalid time formats
+                        }
+                    });
+                }
+                
+                return {
+                    label: t.full_name.split(' ')[0],
+                    value: Math.round((weeklyMinutes / 60) * 10) / 10 // Hours per week
+                };
+            });
+            
+            // If no real timetable data, fallback to a sensible estimation
+            if (workload.every(w => w.value === 0)) {
+                workloadData.forEach((t: any, index: number) => {
+                    if (workload[index]) {
+                        workload[index].value = (t._count?.classes || 0) * 5; // Fallback estimate
+                    }
+                });
+            }
+
+            // Process Attendance Trend
+            // For real attendance trend, we need counts of 'Present' per day
+            const attendanceTrend = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                d.setHours(0, 0, 0, 0);
+                
+                const dayCount = await prisma.attendance.count({
+                    where: { date: d, student: baseWhere }
+                });
+                const presentCount = await prisma.attendance.count({
+                    where: { date: d, status: 'Present', student: baseWhere }
+                });
+                
+                attendanceTrend.push(dayCount > 0 ? Math.round((presentCount / dayCount) * 100) : 0);
+            }
+
+            const attendanceRate = attendanceTodayTotal > 0 
+                ? Math.round((attendanceTodayPresent / attendanceTodayTotal) * 100) 
+                : 0;
+
+            const overdueFees = (overdueFeesData._sum.amount || 0) - (overdueFeesData._sum.paid_amount || 0);
+
+            return {
+                totalStudents,
+                totalTeachers,
+                totalParents,
+                totalClasses,
+                overdueFees: Math.max(0, overdueFees),
+                unpublishedReports,
+                attendanceRate,
+                avgStudentScore: Math.round(avgScoreData._avg.score || 0),
+                studentTrend: studentsLast30 - studentsPrev30,
+                teacherTrend: teachersLast30 - teachersPrev30,
+                parentTrend: parentsLast30 - parentsPrev30,
+                classTrend: classesLast30 - classesPrev30,
+                pendingApprovals,
+                latestHealthLog: latestBehaviorNote ? {
+                    studentName: (latestBehaviorNote as any).student?.full_name || 'Unknown',
+                    description: (latestBehaviorNote as any).note || 'No description',
+                    time: latestBehaviorNote.created_at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                } : null,
+                timetablePreview: timetablePreview.map((t: any) => ({
+                    start_time: t.start_time,
+                    subject: t.subject,
+                    class_name: t.class?.name || t.class_name || 'Unknown'
+                })),
+                recentActivity: recentActivity.map((log: any) => {
+                    // Normalize actions for frontend icon mapping
+                    let actionType = 'create';
+                    const act = log.action.toLowerCase();
+                    if (act.includes('login')) actionType = 'login';
+                    else if (act.includes('logout')) actionType = 'logout';
+                    else if (act.includes('update') || act.includes('edit')) actionType = 'update';
+                    else if (act.includes('delete') || act.includes('remove')) actionType = 'delete';
+                    else if (act.includes('publish')) actionType = 'publish';
+                    else if (act.includes('pay')) actionType = 'payment';
+
+                    return {
+                        id: log.id,
+                        action: log.action,
+                        user_name: log.user?.full_name || 'System',
+                        created_at: log.created_at.toISOString(),
+                        action_type: actionType // Explicitly passing normalized type
+                    };
+                }),
+                enrollmentData: processedEnrollmentData,
+                performance,
+                fees,
+                workload,
+                attendance: attendanceTrend
+            };
+        } catch (error) {
+            console.error('❌ [DashboardService] Error fetching Prisma stats:', error);
+            throw error;
+        }
     }
 
     static async getAuditLogs(schoolId: string, limit: number = 50, branchId?: string) {
-        let query = supabase
-            .from('audit_logs')
-            .select('*, profiles:users!audit_logs_user_id_fkey(name, avatar_url)')
-            .eq('school_id', schoolId);
+        try {
+            const baseWhere: any = { school_id: schoolId };
+            if (branchId && branchId !== 'all') baseWhere.branch_id = branchId;
 
-        if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            const logs = await prisma.auditLog.findMany({
+                where: baseWhere,
+                orderBy: { created_at: 'desc' },
+                include: { user: true },
+                take: limit
+            });
+
+            return logs.map((log: any) => ({
+                id: log.id,
+                action: log.action,
+                user_name: log.user?.full_name || 'System',
+                details: log.entity_type ? `${log.action} on ${log.entity_type}` : log.action,
+                created_at: log.created_at.toISOString()
+            }));
+        } catch (error) {
+            console.error('❌ [DashboardService] Error fetching audit logs:', error);
+            return [];
         }
+    }
 
-        const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
-        if (error) throw new Error(error.message);
+    static async getParentTodayUpdate(parentId: string, schoolId: string) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const today = new Date(todayStr);
 
-        // DEMO MOCK
-        if (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' && (!data || data.length === 0)) {
-            return [
-                { id: 'a1', action: 'Login', user_name: 'Demo Admin', created_at: new Date().toISOString() },
-                { id: 'a2', action: 'Update', table_name: 'students', details: 'Updated STU001 profile', created_at: new Date(Date.now() - 7200000).toISOString() }
-            ];
-        }
+        // 1. Get children
+        const children = await prisma.student.findMany({
+            where: {
+                school_id: schoolId,
+                parents: { some: { parent_id: parentId } }
+            },
+            include: {
+                attendance: { 
+                    where: { 
+                        date: {
+                            gte: today,
+                            lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+                        }
+                    } 
+                },
+                fees: { where: { status: { not: 'Paid' } } },
+                enrollments: { include: { class: true } }
+            }
+        });
 
-        return data || [];
+        // 2. Map children to summary
+        const childSummaries = children.map(child => {
+            const attendance = child.attendance[0];
+            const feesDue = child.fees.reduce((sum, f) => sum + (f.amount - f.paid_amount), 0);
+            const className = child.enrollments[0]?.class?.name || 'Unknown';
+
+            return {
+                id: child.id,
+                name: child.full_name,
+                class_name: className,
+                avatar_url: child.avatar_url || '',
+                attendance_status: (attendance?.status?.toLowerCase() || 'not_marked') as any,
+                homework_pending: 2, // Mock for now until Assignment model is fully connected to parents
+                fee_due: feesDue,
+                bus_status: 'On Route', // Mock for now
+                behavior_points: 10,
+                upcoming_events: 3
+            };
+        });
+
+        // 3. Get feed items (recent notifications)
+        const notifications = await prisma.notification.findMany({
+            where: {
+                school_id: schoolId,
+                OR: [
+                    { user_id: parentId },
+                    { audience: { has: 'PARENT' } }
+                ]
+            },
+            take: 10,
+            orderBy: { created_at: 'desc' }
+        });
+
+        return {
+            children: childSummaries,
+            feedItems: notifications.map(item => ({
+                id: item.id,
+                type: item.category.toLowerCase().includes('attendance') ? 'attendance' : 
+                      item.category.toLowerCase().includes('fee') ? 'fee' : 
+                      item.category.toLowerCase().includes('event') ? 'event' : 'message',
+                child_name: 'Update',
+                description: item.message,
+                time: item.created_at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                icon_color: 'text-indigo-500'
+            }))
+        };
+    }
+
+    static async globalSearch(schoolId: string, term: string, branchId?: string) {
+        const isAllBranches = branchId === 'all' || !branchId;
+        const effectiveBranchId = isAllBranches ? undefined : branchId;
+
+        const baseWhere: any = { school_id: schoolId };
+        if (effectiveBranchId) baseWhere.branch_id = effectiveBranchId;
+
+        const [
+            students,
+            teachers,
+            classes,
+            assignments,
+            quizzes,
+            notices,
+            parents
+        ] = await Promise.all([
+            prisma.student.findMany({
+                where: {
+                    ...baseWhere,
+                    OR: [
+                        { full_name: { contains: term, mode: 'insensitive' } },
+                        { school_generated_id: { contains: term, mode: 'insensitive' } }
+                    ]
+                },
+                take: 10
+            }),
+            prisma.teacher.findMany({
+                where: {
+                    ...baseWhere,
+                    OR: [
+                        { full_name: { contains: term, mode: 'insensitive' } },
+                        { email: { contains: term, mode: 'insensitive' } }
+                    ]
+                },
+                take: 5
+            }),
+            prisma.class.findMany({
+                where: {
+                    ...baseWhere,
+                    name: { contains: term, mode: 'insensitive' }
+                },
+                take: 5
+            }),
+            prisma.assignment.findMany({
+                where: {
+                    class: { school_id: schoolId, branch_id: effectiveBranchId },
+                    title: { contains: term, mode: 'insensitive' }
+                },
+                take: 5
+            }),
+            prisma.quiz.findMany({
+                where: {
+                    school_id: schoolId,
+                    title: { contains: term, mode: 'insensitive' }
+                },
+                take: 5
+            }),
+            prisma.announcement.findMany({
+                where: {
+                    ...baseWhere,
+                    OR: [
+                        { title: { contains: term, mode: 'insensitive' } },
+                        { content: { contains: term, mode: 'insensitive' } }
+                    ]
+                },
+                take: 5
+            }),
+            prisma.parent.findMany({
+                where: {
+                    ...baseWhere,
+                    OR: [
+                        { full_name: { contains: term, mode: 'insensitive' } },
+                        { email: { contains: term, mode: 'insensitive' } }
+                    ]
+                },
+                take: 5
+            })
+        ]);
+
+        return {
+            students,
+            teachers,
+            classes,
+            assignments,
+            quizzes,
+            notices,
+            parents
+        };
     }
 }

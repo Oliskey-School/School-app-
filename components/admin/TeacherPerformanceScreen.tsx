@@ -1,7 +1,9 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StarIcon } from '../../constants';
 import { Teacher } from '../../types';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { useAuth } from '../../context/AuthContext';
 
 // Re-usable Line Chart component
 const SimpleLineChart = ({ data, color }: { data: number[], color: string }) => {
@@ -61,8 +63,35 @@ interface TeacherPerformanceScreenProps {
 }
 
 const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ teacher }) => {
+    const { currentSchool } = useAuth();
     const [rating, setRating] = useState(4);
     const [feedback, setFeedback] = useState('Mrs. Akintola has shown great dedication this term. Her lesson plans are well-structured, though she could incorporate more interactive activities to boost student engagement.');
+    const [loading, setLoading] = useState(false);
+    
+    useAutoSync(['teacher_evaluations'], () => {
+        console.log('🔄 [TeacherPerformance] Real-time auto-sync triggered');
+        fetchEvaluation();
+    });
+
+    const fetchEvaluation = async () => {
+        if (!currentSchool || !teacher?.id) return;
+        try {
+            setLoading(true);
+            const data = await api.getTeacherEvaluation?.(currentSchool.id, teacher.id);
+            if (data) {
+                setRating(data.rating || 4);
+                setFeedback(data.feedback || '');
+            }
+        } catch (error) {
+            console.error('Error fetching teacher evaluation:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchEvaluation();
+    }, [teacher?.id]);
     
     // Mock data for the chart
     const performanceData = [85, 92, 88];

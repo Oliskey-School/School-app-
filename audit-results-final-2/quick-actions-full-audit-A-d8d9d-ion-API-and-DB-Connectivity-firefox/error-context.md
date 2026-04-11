@@ -1,0 +1,93 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e5]:
+    - img [ref=e6]
+    - generic [ref=e8]: Slow Connection - Sync may be delayed
+    - button "Dismiss" [ref=e9] [cursor=pointer]:
+      - img [ref=e10]
+  - generic [ref=e13]:
+    - generic [ref=e15]:
+      - complementary [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e20]: O
+            - generic "Oliskey Comprehensive School" [ref=e21]
+          - navigation [ref=e22]:
+            - generic [ref=e23]:
+              - button "Home" [ref=e24] [cursor=pointer]:
+                - img [ref=e25]
+                - generic [ref=e30]: Home
+              - button "Branches" [ref=e31] [cursor=pointer]:
+                - img [ref=e32]
+                - generic [ref=e39]: Branches
+              - button "Approvals" [ref=e40] [cursor=pointer]:
+                - img [ref=e41]
+                - generic [ref=e45]: Approvals
+              - button "Fee Management" [ref=e46] [cursor=pointer]:
+                - img [ref=e47]
+                - generic [ref=e54]: Fee Management
+              - button "Messages" [ref=e55] [cursor=pointer]:
+                - img [ref=e56]
+                - generic [ref=e61]: Messages
+              - button "Analytics" [ref=e62] [cursor=pointer]:
+                - img [ref=e63]
+                - generic [ref=e67]: Analytics
+              - button "Settings" [ref=e68] [cursor=pointer]:
+                - img [ref=e69]
+                - generic [ref=e73]: Settings
+          - button "Logout" [ref=e75] [cursor=pointer]:
+            - img [ref=e76]
+            - generic [ref=e80]: Logout
+      - generic [ref=e81]:
+        - banner [ref=e82]:
+          - generic [ref=e83]:
+            - heading "Admin Dashboard" [level=1] [ref=e86]
+            - generic [ref=e87]:
+              - button "Main Campus" [ref=e90] [cursor=pointer]:
+                - generic [ref=e91]:
+                  - img [ref=e93]
+                  - generic [ref=e99]: Main Campus
+                  - img [ref=e100]
+              - button "Open user menu" [ref=e102] [cursor=pointer]:
+                - img [ref=e104]
+        - main [ref=e109]:
+          - generic [ref=e111]:
+            - generic [ref=e113]:
+              - button "Dismiss for 3 days" [ref=e115] [cursor=pointer]:
+                - img [ref=e116]
+              - generic [ref=e119]:
+                - img [ref=e121]
+                - generic [ref=e125]:
+                  - heading "Email Confirmation Required" [level=3] [ref=e127]
+                  - paragraph [ref=e128]:
+                    - text: Your email admin@demo.com is not yet confirmed.
+                    - button "Edit Email" [ref=e129] [cursor=pointer]
+                    - text: Please confirm your email to prevent data loss and ensure full account security.
+                - button "Resend Verification" [ref=e131] [cursor=pointer]:
+                  - img [ref=e132]
+                  - generic [ref=e135]: Resend Verification
+            - generic [ref=e136]:
+              - generic [ref=e140]: 🎓
+              - generic [ref=e142]:
+                - heading "Oliskey School App" [level=3] [ref=e143]
+                - paragraph [ref=e144]: Loading dashboard statistics...
+    - button "Open AI Assistant" [ref=e147] [cursor=pointer]:
+      - img [ref=e148]
+    - generic [ref=e152]:
+      - generic [ref=e153]:
+        - generic [ref=e154]:
+          - img [ref=e156]
+          - generic [ref=e158]:
+            - heading "Install School App" [level=3] [ref=e159]
+            - paragraph [ref=e160]: Install for quick access and offline use. Works even without internet!
+          - button "Close install prompt" [ref=e161] [cursor=pointer]:
+            - img [ref=e162]
+        - generic [ref=e164]:
+          - button "Install Now" [ref=e165] [cursor=pointer]
+          - button "Not Now" [ref=e166] [cursor=pointer]
+      - generic [ref=e167]:
+        - img [ref=e168]
+        - generic [ref=e170]: Fast, reliable, and works offline
+```

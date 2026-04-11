@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 const AccessibilitySettings: React.FC = () => {
@@ -21,7 +21,7 @@ const AccessibilitySettings: React.FC = () => {
 
     const fetchSettings = async () => {
         try {
-            const { data } = await supabase
+            const { data } = await api
                 .from('accessibility_settings')
                 .select('*')
                 .eq('user_id', profile.id)
@@ -51,7 +51,7 @@ const AccessibilitySettings: React.FC = () => {
     const handleSave = async () => {
         try {
             setLoading(true);
-            const { error } = await supabase
+            const { error } = await api
                 .from('accessibility_settings')
                 .upsert({ ...settings, user_id: profile.id, updated_at: new Date().toISOString() });
 

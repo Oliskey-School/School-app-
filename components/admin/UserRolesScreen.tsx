@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 import {
     ExamIcon, AttendanceIcon, ReportIcon, MegaphoneIcon, BookOpenIcon,
@@ -110,35 +111,33 @@ const UserRolesScreen: React.FC = () => {
         return initialState;
     });
 
-    // 1. Fetch Overrides from DB on Load
-    useEffect(() => {
+    // Unified Backend-driven Auto Sync
+    useAutoSync(['role_permissions'], () => {
+        console.log('🔄 [UserRolesScreen] Auto-sync triggered');
+        fetchPermissions();
+    });
+
+    const fetchPermissions = async () => {
         if (!currentSchool?.id) return;
-
-        const fetchPermissions = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('role_permissions')
-                    .select('role, permission_id, enabled')
-                    .eq('school_id', currentSchool.id);
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    setPermissionsState(prev => {
-                        const newState = { ...prev };
-                        data.forEach((p: any) => {
-                            if (newState[p.role as RoleName]) {
-                                newState[p.role as RoleName]![p.permission_id] = p.enabled;
-                            }
-                        });
-                        return newState;
+        try {
+            const data = await api.getRolePermissions(currentSchool.id);
+            if (data && data.length > 0) {
+                setPermissionsState(prev => {
+                    const newState = { ...prev };
+                    data.forEach((p: any) => {
+                        if (newState[p.role as RoleName]) {
+                            newState[p.role as RoleName]![p.permission_id] = p.enabled;
+                        }
                     });
-                }
-            } catch (err) {
-                console.error("Failed to load permissions:", err);
+                    return newState;
+                });
             }
-        };
+        } catch (err) {
+            console.error("Failed to load permissions:", err);
+        }
+    };
 
+    useEffect(() => {
         fetchPermissions();
     }, [currentSchool?.id]);
 
@@ -179,11 +178,7 @@ const UserRolesScreen: React.FC = () => {
                 }
             }
 
-            const { error } = await supabase
-                .from('role_permissions')
-                .upsert(updates, { onConflict: 'school_id,role,permission_id' });
-
-            if (error) throw error;
+            await api.updateRolePermissions(updates);
             toast.success('Permissions saved successfully!');
         } catch (error: any) {
             console.error('Save failed:', error);

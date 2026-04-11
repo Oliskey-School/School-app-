@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { HelpingHandIcon } from '../../constants';
 
 interface VolunteeringOpportunity {
@@ -20,12 +20,8 @@ const VolunteeringScreen: React.FC = () => {
     useEffect(() => {
         const fetchOpportunities = async () => {
             try {
-                const { data, error } = await supabase
-                    .from('volunteering_opportunities')
-                    .select('*')
-                    .order('date', { ascending: true });
+                const data = await api.getVolunteeringOpportunities();
 
-                if (error) throw error;
 
                 if (data) {
                     setOpportunities(data.map((item: any) => ({
@@ -33,8 +29,8 @@ const VolunteeringScreen: React.FC = () => {
                         title: item.title,
                         description: item.description,
                         date: item.date,
-                        spotsAvailable: item.spots_available || 10,
-                        spotsFilled: item.spots_filled || 0
+                        spotsAvailable: item.slots_total || 10,
+                        spotsFilled: item.slots_filled || 0
                     })));
                 }
             } catch (err) {

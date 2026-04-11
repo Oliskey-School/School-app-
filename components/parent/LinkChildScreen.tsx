@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { linkStudentToParent, unlinkStudentFromParent, fetchChildrenForParent } from '../../services/studentService';
+import { linkStudentToParent, unlinkStudentFromParent } from '../../services/studentService';
 import { ChevronLeftIcon, ShieldCheckIcon, TrashIcon } from '../../constants';
 import { UserPlus, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmationModal from '../ui/ConfirmationModal';
+import { api } from '../../lib/api';
 
 interface LinkChildScreenProps {
     handleBack: () => void;
@@ -25,16 +26,23 @@ const LinkChildScreen: React.FC<LinkChildScreenProps> = ({ handleBack, forceUpda
         if (!userProfile?.id) return;
         setFetchingChildren(true);
         try {
-            // We need to find the parent profile ID first since fetchChildrenForParent expects it
-            const { data: parentData } = await (window as any).supabase
-                .from('parents')
-                .select('id')
-                .eq('user_id', userProfile.id)
-                .maybeSingle();
-
-            if (parentData) {
-                const children = await fetchChildrenForParent(parentData.id);
-                setLinkedChildren(children);
+            const children = await api.getMyChildren();
+            if (children) {
+                const mappedStudents = children.map((s: any) => ({
+                    id: s.id,
+                    name: s.name || s.full_name || 'Unknown',
+                    avatarUrl: s.avatar_url,
+                    grade: s.grade || s.class?.name || '',
+                    section: s.section || '',
+                    schoolGeneratedId: s.school_generated_id || ''
+                }));
+                const uniqueIds = new Set();
+                const uniqueStudents = mappedStudents.filter((s: any) => {
+                    if (uniqueIds.has(s.id)) return false;
+                    uniqueIds.add(s.id);
+                    return true;
+                });
+                setLinkedChildren(uniqueStudents);
             }
         } catch (error) {
             console.error('Error loading linked children:', error);

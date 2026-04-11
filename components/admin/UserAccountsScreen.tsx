@@ -1,10 +1,9 @@
-
 import { toast } from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { SearchIcon, UserIcon, RefreshIcon } from '../../constants';
-import { api } from '../../lib/api';
+
 // Import ConfirmationModal assuming it is accessible in ../ui/ConfirmationModal
 import ConfirmationModal from '../ui/ConfirmationModal';
 
@@ -25,7 +24,7 @@ const UserAccountsScreen: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [userToDelete, setUserToDelete] = useState<string | null>(null);
+    const [userToDelete, setUserToDelete] = useState<AuthAccount | null>(null);
     const { currentSchool, user, currentBranchId } = useAuth();
     // Triple-layer detection for robustness
     const schoolId = currentSchool?.id || user?.user_metadata?.school_id;
@@ -60,21 +59,6 @@ const UserAccountsScreen: React.FC = () => {
 
     useEffect(() => {
         fetchAccounts();
-
-        const channel = supabase.channel('public:profiles')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'profiles' },
-                (payload) => {
-                    console.log('Change received!', payload);
-                    fetchAccounts();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [fetchAccounts]);
 
     // Helper functions
@@ -95,67 +79,52 @@ const UserAccountsScreen: React.FC = () => {
     };
     const toggleUserStatus = async (accountId: string, currentStatus: boolean) => {
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ is_active: !currentStatus })
-                .eq('id', accountId);
-
-            if (error) {
-                console.error('Error updating user status:', error);
-                toast.error('Failed to update user status. Please try again.');
-                return;
-            }
+            await api.updateUser(accountId, { is_active: !currentStatus });
 
             // Update local state
             setAccounts(prev => prev.map(acc =>
                 acc.id === accountId ? { ...acc, is_active: !currentStatus } : acc
             ));
             toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error toggling user status:', err);
-            toast.error('An error occurred while updating user status.');
+            toast.error(`Failed to update user status: ${err.message || 'Unknown error'}`);
         }
     };
 
-    const confirmDeleteUser = (email: string) => {
-        setUserToDelete(email);
+    const confirmDeleteUser = (account: AuthAccount) => {
+        setUserToDelete(account);
         setShowDeleteModal(true);
     };
 
-    const handleResetPassword = async (email: string) => {
-        if (!email) {
-            toast.error("Cannot reset password: email is missing.");
+    const handleResetPassword = async (userId: string, email: string) => {
+        if (!userId) {
+            toast.error("Cannot reset password: userId is missing.");
             return;
         }
         try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email);
-            if (error) throw error;
-            toast.success(`Password reset email sent securely to ${email}`);
+            const result = await api.resetUserPassword(userId);
+            toast.success(`Password reset successful. New temporary password: ${result.newPassword || '********'}`);
         } catch (err: any) {
             console.error('Password reset error:', err);
-            toast.error(`Failed to send reset email: ${err.message}`);
+            toast.error(`Failed to reset password: ${err.message}`);
         }
     };
 
     const handleDeleteUser = async () => {
         if (!userToDelete) return;
 
-        const email = userToDelete;
+        const userId = userToDelete.id;
+        const email = userToDelete.email;
         setShowDeleteModal(false);
         setUserToDelete(null);
 
         try {
-            const { error } = await supabase.rpc('delete_user_by_email', { target_email: email });
-
-            if (error) {
-                console.error('Error deleting user:', error);
-                toast.error('Failed to delete user: ' + error.message);
-                return;
-            }
+            await api.deleteUser(userId);
 
             toast.success('User deleted successfully.');
-            // Realtime listener should handle the refresh, but we can optimistically remove it too
-            setAccounts(prev => prev.filter(a => a.email !== email));
+            // Update local state since realtime is disabled
+            setAccounts(prev => prev.filter(a => a.id !== userId));
 
         } catch (err: any) {
             console.error("Delete error:", err);
@@ -259,7 +228,7 @@ const UserAccountsScreen: React.FC = () => {
                                                 </button>
                                                 <button
                                                     className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                                                    onClick={() => handleResetPassword(account.email)}
+                                                    onClick={() => handleResetPassword(account.id, account.email)}
                                                 >
                                                     Reset
                                                 </button>
@@ -281,7 +250,7 @@ const UserAccountsScreen: React.FC = () => {
                                                 {account.is_active ? 'Deactivate' : 'Activate'}
                                             </button>
                                             <button
-                                                onClick={() => confirmDeleteUser(account.email)}
+                                                onClick={() => confirmDeleteUser(account)}
                                                 className="ml-2 px-3 py-1 rounded-md text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
                                             >
                                                 Delete
@@ -356,14 +325,14 @@ const UserAccountsScreen: React.FC = () => {
                                         {account.is_active ? 'Deactivate' : 'Activate'}
                                     </button>
                                     <button
-                                        onClick={() => confirmDeleteUser(account.email)}
+                                        onClick={() => confirmDeleteUser(account)}
                                         className="flex-1 py-2 rounded-lg text-sm font-semibold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"
                                     >
                                         Delete
                                     </button>
                                     <button
                                         className="flex-1 py-2 rounded-lg text-sm font-semibold bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100"
-                                        onClick={() => handleResetPassword(account.email)}
+                                        onClick={() => handleResetPassword(account.id, account.email)}
                                     >
                                         Reset Pass
                                     </button>
@@ -387,7 +356,7 @@ const UserAccountsScreen: React.FC = () => {
                 onClose={() => setShowDeleteModal(false)}
                 onConfirm={handleDeleteUser}
                 title="Delete User Account"
-                message={`Are you sure you want to PERMANENTLY delete user ${userToDelete}? This cannot be undone.`}
+                message={`Are you sure you want to PERMANENTLY delete user ${userToDelete?.email}? This cannot be undone.`}
                 confirmText="Delete"
                 isDanger
             />

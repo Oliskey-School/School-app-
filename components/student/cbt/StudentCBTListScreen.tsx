@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { Student, CBTTest } from '../../../types';
 import { ExamIcon, ClockIcon, CheckCircleIcon, ChevronRightIcon, ChevronLeftIcon, DocumentTextIcon } from '../../../constants';
 
@@ -35,13 +35,7 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
             setLoading(true);
             try {
                 // 1. Get student details to filter by grade/section
-                // In a real scenario, we should have the full student object. 
-                // We'll trust the studentId and fetch their class details.
-                const { data: studentData } = await supabase
-                    .from('students')
-                    .select('*')
-                    .eq('id', studentId)
-                    .single();
+                const studentData = await api.getStudentProfile(studentId.toString());
 
                 if (!studentData) {
                     console.error("Student not found");
@@ -50,59 +44,38 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
                 }
 
                 // 2. Fetch Quizzes (CBT & Exams)
-                // Teacher saves description as 'Test' or 'Exam'.
-                // We filter by school_id and (class_id OR generic grade match if implemented)
-                // For now, let's filter by school_id and allow all published for that school+grade?
-                // Ideally we match class_id. But teacher selects a specific class_id.
-                // We need to find quizzes where class_id matches student's class_id OR generic grade match.
-                // Let's first try matching by school_id and is_published.
+                const quizzesData = await api.getQuizzes(studentData.school_id);
 
-                let query = supabase
-                    .from('quizzes')
-                    .select('*, classes(grade, section), subjects(name)')
-                    .eq('school_id', studentData.school_id)
-                    .eq('is_published', true)
-                    .order('created_at', { ascending: false });
-
-                const { data: quizzesData, error } = await query;
-                if (error) throw error;
-
-                // Client-side filter for Class Match (Logic can be improved to DB filter if class_id is consistent)
-                // We want to show quizzes that are for this student's class.
+                // Client-side filter for Class Match
                 const filteredQuizzes = (quizzesData || []).filter((quiz: any) => {
-                    if (quiz.classes) {
-                        // Strict class match
-                        const sGrade = String(studentData.grade);
-                        const sSection = studentData.section;
-                        const qGrade = String(quiz.classes.grade);
-                        const qSection = quiz.classes.section;
+                    if (quiz.classes || (quiz.grade && quiz.section)) {
+                        const sGrade = String(studentData.grade || studentData.class_name?.match(/\d+/)?.[0]);
+                        const sSection = studentData.section || studentData.class_name?.match(/[A-Z]$/)?.[0];
+                        const qGrade = String(quiz.grade || quiz.classes?.grade);
+                        const qSection = quiz.section || quiz.classes?.section;
 
-                        // Match Grade
                         if (sGrade !== qGrade) return false;
-
-                        // Match Section if specified in quiz
                         if (qSection && sSection && qSection !== sSection) return false;
 
-                        return true;
+                        return quiz.is_published || quiz.isPublished;
                     }
-                    // If no class linked, maybe it's general? Assume NO for now to be safe.
                     return false;
                 });
 
                 const formattedTests: CBTTest[] = filteredQuizzes.map((q: any) => ({
                     id: q.id,
                     title: q.title,
-                    type: (q.description === 'Exam' ? 'Exam' : 'Test'), // Map description to Type
+                    type: (q.description === 'Exam' ? 'Exam' : 'Test'),
                     className: q.classes ? `Grade ${q.classes.grade}${q.classes.section}` : 'General',
-                    subject: q.subjects?.name || 'General',
-                    duration: q.duration_minutes,
-                    attempts: 0, // Not tracking attempts yet
-                    totalMarks: q.total_marks,
+                    subject: q.subjects?.name || q.subject || 'General',
+                    duration: q.duration_minutes || q.durationMinutes || 60,
+                    attempts: 0,
+                    totalMarks: q.total_marks || q.totalMarks || 100,
                     fileName: 'Question Bank',
-                    questionsCount: 0, // We don't fetch questions here to save bandwidth
+                    questionsCount: q.questionsCount || 0,
                     questions: [],
-                    createdAt: q.created_at,
-                    isPublished: q.is_published,
+                    createdAt: q.created_at || q.createdAt,
+                    isPublished: q.is_published || q.isPublished,
                     results: []
                 }));
 
@@ -117,19 +90,6 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
 
         if (studentId) {
             fetchTests();
-
-            // Real-time Subscription
-            const channel = supabase
-                .channel('public:quizzes')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'quizzes' }, (payload) => {
-                    console.log('Real-time update received!', payload);
-                    fetchTests();
-                })
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
         }
     }, [studentId]);
 
@@ -278,3 +238,4 @@ const StudentCBTListScreen: React.FC<StudentCBTListScreenProps> = ({ studentId, 
 };
 
 export default StudentCBTListScreen;
+

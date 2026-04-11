@@ -1,63 +1,47 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabase'; // Your type-safe client
+import api from '../api';
 
 interface QuizState {
     score: number | null;
     status: 'in_progress' | 'submitted' | 'graded';
 }
 
-export const useRealtimeQuiz = (quizId: number, studentId: string) => {
+export const useRealtimeQuiz = (quizId: string | number, studentId: string) => {
     const [quizState, setQuizState] = useState<QuizState>({ score: null, status: 'in_progress' });
 
     useEffect(() => {
-        // 1. Initial Fetch
-        const fetchInitialState = async () => {
-            const { data } = await supabase
-                .from('quiz_submissions')
-                .select('score, status')
-                .eq('quiz_id', quizId)
-                .eq('student_id', studentId)
-                .single();
+        let isMounted = true;
+        let pollInterval: NodeJS.Timeout;
 
-            if (data) {
-                // Cast the string status to our specific union type if necessary, or let TS infer if it matches
-                setQuizState({
-                    score: data.score,
-                    status: data.status as QuizState['status']
-                });
+        const fetchState = async () => {
+            try {
+                const data = await api.getQuizSubmission(quizId, studentId);
+                
+                if (data && isMounted) {
+                    setQuizState({
+                        score: data.score,
+                        status: data.status as QuizState['status']
+                    });
+
+                    // If it's already graded or submitted, we can stop polling
+                    if (data.status === 'graded' || data.status === 'submitted') {
+                        clearInterval(pollInterval);
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching quiz state:", err);
             }
         };
 
         if (quizId && studentId) {
-            fetchInitialState();
+            fetchState();
+            // Start polling every 5 seconds as a replacement for Realtime
+            pollInterval = setInterval(fetchState, 5000);
         }
 
-        // 2. Real-Time Subscription
-        const channel = supabase
-            .channel(`quiz-updates-${quizId}-${studentId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'quiz_submissions',
-                    filter: `quiz_id=eq.${quizId}`, // Filter by Quiz
-                },
-                (payload) => {
-                    // Verify student ID in payload to ensure relevance
-                    if (payload.new.student_id === studentId) {
-                        console.log('Real-time Quiz Update:', payload.new);
-                        setQuizState({
-                            score: payload.new.score,
-                            status: payload.new.status as QuizState['status']
-                        });
-                    }
-                }
-            )
-            .subscribe();
-
         return () => {
-            supabase.removeChannel(channel);
+            isMounted = false;
+            if (pollInterval) clearInterval(pollInterval);
         };
     }, [quizId, studentId]);
 

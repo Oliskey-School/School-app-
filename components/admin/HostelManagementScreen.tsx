@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import {
     Building2,
     BedDouble,
@@ -43,7 +44,7 @@ interface HostelRoom {
     bed_count: number;
     occupied_beds: number;
     status: 'available' | 'full' | 'maintenance';
-    hostels?: { name: string };
+    hostel?: { name: string };
 }
 
 interface Allocation {
@@ -54,8 +55,8 @@ interface Allocation {
     academic_year: string;
     check_in_date: string;
     status: string;
-    students?: { name: string; class?: string };
-    hostel_rooms?: { room_number: string; hostels?: { name: string } };
+    student?: { full_name: string; class?: string };
+    room?: { room_number: string; hostel?: { name: string } };
 }
 
 interface VisitorLog {
@@ -68,8 +69,8 @@ interface VisitorLog {
     check_in: string;
     check_out: string;
     purpose: string;
-    students?: { name: string };
-    hostels?: { name: string };
+    student?: { full_name: string };
+    hostel?: { name: string };
 }
 
 // ─── Stats Cards ─────────────────────────────────────────────────────────
@@ -173,7 +174,7 @@ const RoomTab = ({ rooms, onAdd, onDelete }: { rooms: HostelRoom[]; onAdd: () =>
                                     <span className="font-bold text-gray-800">{room.room_number}</span>
                                 </div>
                             </td>
-                            <td className="px-6 py-5 text-sm font-medium text-gray-600">{room.hostels?.name || '—'}</td>
+                            <td className="px-6 py-5 text-sm font-medium text-gray-600">{room.hostel?.name || '—'}</td>
                             <td className="px-6 py-5 text-sm font-medium text-gray-600">Floor {room.floor}</td>
                             <td className="px-6 py-5">
                                 <span className="text-sm font-bold text-gray-700">{room.occupied_beds}/{room.bed_count}</span>
@@ -223,7 +224,7 @@ const VisitorTab = ({ visitors, onAdd }: { visitors: VisitorLog[]; onAdd: () => 
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h3 className="font-bold text-gray-900">{v.visitor_name}</h3>
-                                    <p className="text-sm text-gray-500">{v.relationship} of {v.students?.name || 'Unknown'}</p>
+                                    <p className="text-sm text-gray-500">{v.relationship} of {v.student?.full_name || 'Unknown'}</p>
                                 </div>
                                 <span className="text-xs font-bold text-gray-400">{new Date(v.visit_date).toLocaleDateString()}</span>
                             </div>
@@ -258,108 +259,59 @@ const HostelManagementScreen = () => {
     const [isAdding, setIsAdding] = useState(false);
     const [formData, setFormData] = useState<any>({});
 
-    // Demo data for when no Supabase tables exist yet
-    const demoHostels: Hostel[] = [
-        { id: '1', school_id: '', name: 'Unity Hall (Boys)', type: 'boys', capacity: 120, warden_name: 'Mr. Adebayo', created_at: '2026-01-15' },
-        { id: '2', school_id: '', name: 'Grace House (Girls)', type: 'girls', capacity: 100, warden_name: 'Mrs. Okonkwo', created_at: '2026-01-15' },
-        { id: '3', school_id: '', name: 'Peace Lodge', type: 'mixed', capacity: 80, warden_name: 'Mr. Ibrahim', created_at: '2026-02-01' },
-    ];
-    const demoRooms: HostelRoom[] = [
-        { id: '1', hostel_id: '1', room_number: 'UH-101', floor: 1, bed_count: 6, occupied_beds: 4, status: 'available', hostels: { name: 'Unity Hall (Boys)' } },
-        { id: '2', hostel_id: '1', room_number: 'UH-102', floor: 1, bed_count: 6, occupied_beds: 6, status: 'full', hostels: { name: 'Unity Hall (Boys)' } },
-        { id: '3', hostel_id: '2', room_number: 'GH-201', floor: 2, bed_count: 4, occupied_beds: 2, status: 'available', hostels: { name: 'Grace House (Girls)' } },
-        { id: '4', hostel_id: '3', room_number: 'PL-101', floor: 1, bed_count: 4, occupied_beds: 0, status: 'available', hostels: { name: 'Peace Lodge' } },
-        { id: '5', hostel_id: '1', room_number: 'UH-103', floor: 1, bed_count: 6, occupied_beds: 1, status: 'maintenance', hostels: { name: 'Unity Hall (Boys)' } },
-    ];
-    const demoVisitors: VisitorLog[] = [
-        { id: '1', hostel_id: '1', student_id: '1', visitor_name: 'Mrs. Adeyemi', relationship: 'Mother', visit_date: '2026-03-15', check_in: '10:30', check_out: '12:00', purpose: 'Brought provisions and toiletries', students: { name: 'Femi Adeyemi' }, hostels: { name: 'Unity Hall' } },
-        { id: '2', hostel_id: '2', student_id: '2', visitor_name: 'Mr. Okeke', relationship: 'Father', visit_date: '2026-03-16', check_in: '14:00', check_out: '', purpose: 'Mid-term visit', students: { name: 'Chioma Okeke' }, hostels: { name: 'Grace House' } },
-    ];
-
     useEffect(() => {
         fetchData();
     }, [activeTab, currentSchool]);
 
+    useAutoSync(['hostels', 'hostel_rooms', 'hostel_allocations', 'hostel_visitors'], () => {
+        console.log('🔄 [HostelManagement] Real-time auto-sync triggered');
+        fetchData();
+    });
+
     const fetchData = async () => {
-        if (!currentSchool) {
-            // Use demo data
-            setHostels(demoHostels);
-            setRooms(demoRooms);
-            setVisitors(demoVisitors);
-            setLoading(false);
-            return;
-        }
+        if (!currentSchool) return;
         try {
             setLoading(true);
             if (activeTab === 'hostels') {
-                const { data, error } = await supabase
-                    .from('hostels')
-                    .select('*')
-                    .eq('school_id', currentSchool.id)
-                    .order('name');
-                if (!error && data) setHostels(data);
-                else setHostels(demoHostels);
+                const data = await api.getHostels(currentSchool.id);
+                setHostels(data);
             } else if (activeTab === 'rooms') {
-                const { data, error } = await supabase
-                    .from('hostel_rooms')
-                    .select('*, hostels(name)')
-                    .order('room_number');
-                if (!error && data) setRooms(data);
-                else setRooms(demoRooms);
+                const data = await api.getHostelRooms();
+                setRooms(data);
             } else if (activeTab === 'allocations') {
-                const { data, error } = await supabase
-                    .from('hostel_allocations')
-                    .select('*, students(name), hostel_rooms(room_number, hostels(name))')
-                    .order('check_in_date', { ascending: false });
-                if (!error && data) setAllocations(data);
-                else setAllocations([]);
+                const data = await api.getHostelAllocations(currentSchool.id);
+                setAllocations(data);
             } else if (activeTab === 'visitors') {
-                const { data, error } = await supabase
-                    .from('hostel_visitor_logs')
-                    .select('*, students(name), hostels(name)')
-                    .order('visit_date', { ascending: false });
-                if (!error && data) setVisitors(data);
-                else setVisitors(demoVisitors);
+                const data = await api.getHostelVisitorLogs(currentSchool.id);
+                setVisitors(data);
             }
         } catch (err) {
             console.error('Error fetching hostel data:', err);
-            // Fallback to demo
-            setHostels(demoHostels);
-            setRooms(demoRooms);
-            setVisitors(demoVisitors);
+            toast.error('Failed to load hostel data');
         } finally {
             setLoading(false);
         }
     };
 
     const handleSave = async () => {
-        if (!currentSchool) {
-            toast.success('Demo mode: Record saved locally');
-            setIsAdding(false);
-            setFormData({});
-            return;
-        }
+        if (!currentSchool) return;
         try {
             setLoading(true);
-            let table = '';
             const data = { ...formData, school_id: currentSchool.id };
 
             if (activeTab === 'hostels') {
                 if (!formData.name) { toast.error('Hostel name is required'); setLoading(false); return; }
-                table = 'hostels';
+                await api.createHostel(data);
             } else if (activeTab === 'rooms') {
                 if (!formData.room_number || !formData.hostel_id) { toast.error('Room number and hostel are required'); setLoading(false); return; }
-                table = 'hostel_rooms';
+                await api.createHostelRoom(data);
             } else if (activeTab === 'visitors') {
                 if (!formData.visitor_name || !formData.student_id) { toast.error('Visitor name and student are required'); setLoading(false); return; }
-                table = 'hostel_visitor_logs';
+                await api.createHostelVisitorLog(data);
             } else if (activeTab === 'allocations') {
                 if (!formData.room_id || !formData.student_id) { toast.error('Room and student are required'); setLoading(false); return; }
-                table = 'hostel_allocations';
+                await api.createHostelAllocation(data);
             }
-
-            const { error } = await supabase.from(table).insert(data);
-            if (error) throw error;
 
             toast.success('Record saved successfully');
             setIsAdding(false);
@@ -373,15 +325,12 @@ const HostelManagementScreen = () => {
         }
     };
 
-    const handleDelete = async (table: string, id: string) => {
+    const handleDelete = async (type: 'hostels' | 'rooms' | 'allocations', id: string) => {
         if (!window.confirm('Are you sure you want to delete this record?')) return;
-        if (!currentSchool) {
-            toast.success('Demo mode: Record deleted');
-            return;
-        }
         try {
-            const { error } = await supabase.from(table).delete().eq('id', id);
-            if (error) throw error;
+            if (type === 'hostels') await api.deleteHostel(id);
+            else if (type === 'rooms') await api.deleteHostelRoom(id);
+            // Add other delete methods if needed
             toast.success('Deleted successfully');
             fetchData();
         } catch (err: any) {
@@ -549,7 +498,7 @@ const HostelManagementScreen = () => {
             ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {activeTab === 'hostels' && <HostelTab hostels={hostels} onAdd={() => setIsAdding(true)} onDelete={(id) => handleDelete('hostels', id)} />}
-                    {activeTab === 'rooms' && <RoomTab rooms={rooms} onAdd={() => setIsAdding(true)} onDelete={(id) => handleDelete('hostel_rooms', id)} />}
+                    {activeTab === 'rooms' && <RoomTab rooms={rooms} onAdd={() => setIsAdding(true)} onDelete={(id) => handleDelete('rooms', id)} />}
                     {activeTab === 'allocations' && (
                         <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
                             <BedDouble className="w-12 h-12 text-gray-200 mx-auto mb-4" />
@@ -575,3 +524,4 @@ const HostelManagementScreen = () => {
 };
 
 export default HostelManagementScreen;
+

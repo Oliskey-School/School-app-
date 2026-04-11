@@ -1,0 +1,6 @@
+{
+  "watch": ["backend/src"],
+  "ext": "ts,json",
+  "exec": "npx tsx backend/src/server.ts",
+  "legacyWatch": true
+}

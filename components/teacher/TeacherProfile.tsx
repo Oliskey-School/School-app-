@@ -11,7 +11,7 @@ import {
 import { THEME_CONFIG, SUBJECT_COLORS } from '../../constants';
 import { DashboardType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface TeacherProfileProps {
   navigateTo: (view: string, title: string, props?: any) => void;
@@ -35,30 +35,15 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ navigateTo }) => {
 
   useEffect(() => {
     const fetchTeacherProfile = async () => {
-      if (!user) return;
-
       try {
         setLoading(true);
-        // 1. Fetch Teacher Details
-        const { data: teacherData, error: teacherError } = await supabase
-          .from('teachers')
-          .select('*')
-          .eq('user_id', user.id) // Assuming auth user maps to this ID, or we use email
-          .single();
-
-        if (teacherError) throw teacherError;
-
-        if (teacherData) {
-          setTeacher(teacherData);
-
-          // 2. Fetch Subjects
-          const { data: subjectsData } = await supabase
-            .from('teacher_subjects')
-            .select('subject')
-            .eq('teacher_id', teacherData.id);
-
-          if (subjectsData && subjectsData.length > 0) {
-            setPrimarySubject(subjectsData[0].subject);
+        // Use getMe to get everything including teacher_profile
+        const data = await api.getMe();
+        if (data?.teacher_profile) {
+          setTeacher(data.teacher_profile);
+          // Subjects are now part of the teacher_profile object in our backend/Prisma schema
+          if (data.teacher_profile.subjects && data.teacher_profile.subjects.length > 0) {
+              setPrimarySubject(data.teacher_profile.subjects[0]);
           }
         }
       } catch (err) {
@@ -69,7 +54,7 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ navigateTo }) => {
     };
 
     fetchTeacherProfile();
-  }, [user]);
+  }, []);
 
   const subjectColor = SUBJECT_COLORS[primarySubject] || 'bg-gray-100 text-gray-800';
 
@@ -154,3 +139,4 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ navigateTo }) => {
 };
 
 export default TeacherProfile;
+

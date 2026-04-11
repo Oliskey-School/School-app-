@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import PaymentStatusBadge from '../shared/PaymentStatusBadge';
 import {
@@ -14,6 +14,7 @@ import {
     MicrophoneIcon
 } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface Teacher {
     id: string;
@@ -72,6 +73,14 @@ const PaymentRecording: React.FC = () => {
         fetchTeachers();
     }, [currentSchool?.id]);
 
+    useAutoSync(['teachers', 'payslips'], () => {
+        console.log('🔄 [PaymentRecording] Real-time auto-sync triggered');
+        fetchTeachers();
+        if (selectedTeacher) {
+            fetchPayslips(selectedTeacher);
+        }
+    });
+
     useEffect(() => {
         if (selectedTeacher) {
             fetchPayslips(selectedTeacher);
@@ -82,7 +91,7 @@ const PaymentRecording: React.FC = () => {
         try {
             if (!currentSchool?.id) return;
             setLoading(true);
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('teachers')
                 .select('id, full_name, email')
                 .eq('school_id', currentSchool.id)
@@ -100,7 +109,7 @@ const PaymentRecording: React.FC = () => {
 
     const fetchPayslips = async (teacherId: string) => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('payslips')
                 .select('*')
                 .eq('teacher_id', teacherId)
@@ -173,7 +182,7 @@ const PaymentRecording: React.FC = () => {
             }
 
             // Insert payment transaction
-            const { error: paymentError } = await supabase
+            const { error: paymentError } = await api
                 .from('payment_transactions')
                 .insert({
                     payslip_id: formData.payslip_id,
@@ -189,7 +198,7 @@ const PaymentRecording: React.FC = () => {
             if (paymentError) throw paymentError;
 
             // Update payslip status to Paid
-            const { error: payslipError } = await supabase
+            const { error: payslipError } = await api
                 .from('payslips')
                 .update({ status: 'Paid' })
                 .eq('id', formData.payslip_id);
@@ -469,3 +478,4 @@ const PaymentRecording: React.FC = () => {
 };
 
 export default PaymentRecording;
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { MessageSquareIcon, PlusIcon, SearchIcon } from '../../constants';
@@ -28,37 +28,11 @@ const TeacherForum: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-
-            const { data: cats } = await supabase
-                .from('forum_categories')
-                .select('*')
-                .order('order_index');
-
-            setCategories(cats || []);
-
-            const { data, error } = await supabase
-                .from('forum_threads')
-                .select(`
-          *,
-          teachers(full_name),
-          forum_categories(name)
-        `)
-                .order('created_at', { ascending: false })
-                .limit(20);
-
-            if (error) throw error;
-
-            const formatted: Thread[] = (data || []).map((t: any) => ({
-                id: t.id,
-                title: t.title,
-                content: t.content,
-                author_name: (t.teachers as any)?.full_name || 'Anonymous',
-                created_at: t.created_at,
-                reply_count: 0,
-                category_name: (t.forum_categories as any)?.name || 'General'
-            }));
-
-            setThreads(formatted);
+            const data = await api.getForumData();
+            if (data) {
+                setCategories(data.categories || []);
+                setThreads(data.threads || []);
+            }
         } catch (error: any) {
             console.error('Error:', error);
         } finally {
@@ -148,3 +122,4 @@ const TeacherForum: React.FC = () => {
 };
 
 export default TeacherForum;
+

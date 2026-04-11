@@ -1,4 +1,5 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 /**
  * Role code mapping — canonical list used by both backend and frontend.
@@ -21,118 +22,105 @@ export const ROLE_CODES: Record<string, string> = {
 export class IdGeneratorService {
     /**
      * Generates the next school_generated_id for a user in a given school/branch/role.
-     * Format: {SCHOOL_CODE}_{BRANCH_CODE}_{ROLE_CODE}_{0001}
-     * Numbers restart from 0001 per branch per role.
-     *
-     * @param schoolId  UUID of the school
-     * @param branchId  UUID of the branch
-     * @param role      Role string (e.g. 'student', 'teacher', 'admin')
-     * @returns         e.g. "EXCEL_MAIN_STU_0001"
      */
     static async generateSchoolId(
         schoolId: string,
         branchId: string,
-        role: string
+        role: string,
+        tx?: Prisma.TransactionClient
     ): Promise<string> {
-        const roleCode = ROLE_CODES[role.toLowerCase()] || role.substring(0, 3).toUpperCase();
+        const roleKey = role.toLowerCase();
+        const roleCode = ROLE_CODES[roleKey] || role.substring(0, 3).toUpperCase();
 
-        // 1. Get school code
-        const { data: school, error: schoolError } = await supabase
-            .from('schools')
-            .select('code')
-            .eq('id', schoolId)
-            .single();
+        const db = tx || prisma;
 
-        if (schoolError || !school?.code) {
-            throw new Error(`IdGenerator: Cannot find school code for school_id=${schoolId}`);
+        const school = await db.school.findUnique({
+            where: { id: schoolId },
+            include: { branches: { take: 1 } } // Fetch first branch as fallback
+        });
+
+        if (!school) {
+            throw new Error(`IdGenerator: Cannot find school for school_id=${schoolId}`);
         }
 
-        // 2. Get branch code
-        const { data: branch, error: branchError } = await supabase
-            .from('branches')
-            .select('code')
-            .eq('id', branchId)
-            .single();
+        let branch = null;
+        let effectiveBranchId = branchId;
 
-        if (branchError || !branch?.code) {
-            throw new Error(`IdGenerator: Cannot find branch code for branch_id=${branchId}`);
+        if (branchId) {
+            branch = await db.branch.findUnique({
+                where: { id: branchId },
+                select: { code: true }
+            });
         }
 
-        const schoolCode = school.code.toUpperCase();
-        const branchCode = branch.code.toUpperCase();
+        // Fallback to first available branch if branchId is missing or invalid
+        if (!branch && school.branches.length > 0) {
+            branch = school.branches[0];
+            effectiveBranchId = branch.id;
+        }
 
-        // 3. Count existing users of this role in this school+branch to get next number
+        if (!branch) {
+            throw new Error(`IdGenerator: Cannot find or default a branch for school_id=${schoolId}`);
+        }
+
+        const schoolCode = school.slug.substring(0, 5).toUpperCase();
+        const branchCode = (branch as any).code.substring(0, 10).toUpperCase();
+
         const nextNumber = await IdGeneratorService.getNextSequence(
             schoolId,
-            branchId,
-            role.toLowerCase()
+            effectiveBranchId as string,
+            roleKey,
+            tx
         );
 
-        // 4. Pad to 4 digits and build the ID
         const paddedNumber = String(nextNumber).padStart(4, '0');
         return `${schoolCode}_${branchCode}_${roleCode}_${paddedNumber}`;
     }
 
-    /**
-     * Gets the next sequence number for a given school/branch/role combination.
-     * Counts existing records + 1.
-     */
     private static async getNextSequence(
         schoolId: string,
         branchId: string,
-        role: string
+        role: string,
+        tx?: Prisma.TransactionClient
     ): Promise<number> {
+        const db = tx || prisma;
         let count = 0;
 
-        if (role === 'student') {
-            const { count: c } = await supabase
-                .from('students')
-                .select('id', { count: 'exact', head: true })
-                .eq('school_id', schoolId)
-                .eq('branch_id', branchId);
-            count = c || 0;
-        } else if (role === 'teacher') {
-            const { count: c } = await supabase
-                .from('teachers')
-                .select('id', { count: 'exact', head: true })
-                .eq('school_id', schoolId)
-                .eq('branch_id', branchId);
-            count = c || 0;
-        } else if (role === 'parent') {
-            const { count: c } = await supabase
-                .from('parents')
-                .select('id', { count: 'exact', head: true })
-                .eq('school_id', schoolId)
-                .eq('branch_id', branchId);
-            count = c || 0;
-        } else {
-            // admin, proprietor, inspector, examofficer, complianceofficer, counselor
-            const roleCode = ROLE_CODES[role] || role.toUpperCase();
-            const { count: c } = await supabase
-                .from('users')
-                .select('id', { count: 'exact', head: true })
-                .eq('school_id', schoolId)
-                .eq('branch_id', branchId)
-                .eq('role', role);
-            count = c || 0;
+        switch (role) {
+            case 'student':
+                count = await db.student.count({
+                    where: { school_id: schoolId, branch_id: branchId }
+                });
+                break;
+            case 'teacher':
+                count = await db.teacher.count({
+                    where: { school_id: schoolId, branch_id: branchId }
+                });
+                break;
+            case 'parent':
+                count = await db.parent.count({
+                    where: { school_id: schoolId, branch_id: branchId }
+                });
+                break;
+            default:
+                count = await db.user.count({
+                    where: { school_id: schoolId, branch_id: branchId, role: role.toUpperCase() as any }
+                });
         }
 
         return count + 1;
     }
 
     /**
-     * Synchronizes the school_generated_id to the users table after it has been
-     * set on the role-specific table (students/teachers/parents).
-     * Call this after inserting into the role table.
+     * Synchronizes the school_generated_id to the users table.
      */
     static async syncToUsersTable(userId: string, schoolGeneratedId: string): Promise<void> {
-        const { error } = await supabase
-            .from('users')
-            .update({ school_generated_id: schoolGeneratedId })
-            .eq('id', userId);
-
-        if (error) {
-            // Non-fatal: log but do not throw — the role table already has the ID
+        try {
+            await prisma.user.update({
+                where: { id: userId },
+                data: { school_generated_id: schoolGeneratedId }
+            });
+        } catch (error: any) {
             console.warn(`[IdGenerator] Failed to sync school_generated_id to users table for user ${userId}:`, error.message);
         }
     }

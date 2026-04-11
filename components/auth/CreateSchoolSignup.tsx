@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SchoolLogoIcon, UserIcon, LockIcon, EyeIcon, EyeOffIcon, BuildingLibraryIcon, GlobeIcon, CheckCircleIcon, ArrowRightIcon, ChevronLeftIcon, PhoneIcon, MapPinIcon } from '../../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import ImageUpload from '../shared/ImageUpload';
+import { DashboardType } from '../../types';
 
 interface CreateSchoolSignupProps {
     onNavigateToLogin: () => void;
@@ -14,37 +16,46 @@ interface CreateSchoolSignupProps {
 
 const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLogin }) => {
     const { signIn } = useAuth();
+    const navigate = useNavigate();
 
-    // Steps: 1 = School Details, 2 = Admin Setup, 3 = Processing/Done
     const [step, setStep] = useState(1);
 
     const [formData, setFormData] = useState({
         schoolName: '',
+        schoolCode: '',
         motto: '',
         address: '',
         logoUrl: '',
         adminName: '',
         adminEmail: '',
         adminPassword: '',
-        phone: '' // Added phone field as per screenshot often having it
+        phone: ''
     });
 
-    // Branch State
     const [hasBranches, setHasBranches] = useState(false);
     const [numBranches, setNumBranches] = useState(1);
-    const [branchNames, setBranchNames] = useState<string[]>(['Main Campus']);
+    const [branchNames, setBranchNames] = useState<Array<{ name: string; code: string }>>([{ name: 'Main Campus', code: 'MAIN' }]);
 
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const [otpCode, setOtpCode] = useState('');
+    const [verificationData, setVerificationData] = useState<any>(null);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleBranchNameChange = (index: number, value: string) => {
         const newNames = [...branchNames];
-        newNames[index] = value;
+        newNames[index] = { ...newNames[index], name: value };
+        setBranchNames(newNames);
+    };
+
+    const handleBranchCodeChange = (index: number, value: string) => {
+        const newNames = [...branchNames];
+        newNames[index] = { ...newNames[index], code: value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) };
         setBranchNames(newNames);
     };
 
@@ -52,33 +63,62 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         const n = Math.max(1, Math.min(10, val));
         setNumBranches(n);
         
-        // Adjust branchNames array size
         const newNames = [...branchNames];
-        if (n + 1 > newNames.length) {
-            for (let i = newNames.length; i <= n; i++) {
-                newNames.push(`Branch ${i}`);
-            }
-        } else {
-            newNames.splice(n + 1);
+        while (newNames.length < n + 1) {
+            newNames.push({ name: `Branch ${newNames.length}`, code: `BRN${newNames.length}` });
+        }
+        while (newNames.length > n + 1) {
+            newNames.pop();
         }
         setBranchNames(newNames);
+    };
+
+    const validateStep1 = () => {
+        if (!formData.schoolName.trim()) {
+            setError('School name is required');
+            return false;
+        }
+        if (!formData.schoolCode.trim()) {
+            setError('School code is required (e.g., EXCEL)');
+            return false;
+        }
+        if (formData.schoolCode.length < 3 || formData.schoolCode.length > 10) {
+            setError('School code must be 3-10 characters');
+            return false;
+        }
+        if (branchNames.some(b => !b.name.trim() || !b.code.trim())) {
+            setError('All branch names and codes must be filled');
+            return false;
+        }
+        return true;
+    };
+
+    const validateStep2 = () => {
+        if (!formData.adminName.trim()) {
+            setError('Admin name is required');
+            return false;
+        }
+        if (!formData.adminEmail.trim()) {
+            setError('Admin email is required');
+            return false;
+        }
+        if (!/\S+@\S+\.\S+/.test(formData.adminEmail)) {
+            setError('Please enter a valid email address');
+            return false;
+        }
+        if (!formData.adminPassword || formData.adminPassword.length < 8) {
+            setError('Password must be at least 8 characters');
+            return false;
+        }
+        return true;
     };
 
     const nextStep = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
-        // Validation for Step 1
-        if (step === 1) {
-            if (!formData.schoolName) {
-                setError('School Name is required.');
-                return;
-            }
-            if (hasBranches && branchNames.some(name => !name.trim())) {
-                setError('All branch names must be filled.');
-                return;
-            }
-        }
+        if (step === 1 && !validateStep1()) return;
+        if (step === 2 && !validateStep2()) return;
 
         setStep(prev => prev + 1);
     };
@@ -93,61 +133,138 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         setError('');
         setIsLoading(true);
 
-        if (!formData.adminName || !formData.adminEmail || !formData.adminPassword) {
-            setError('Please complete all admin fields.');
-            setIsLoading(false);
-            return;
-        }
-
         try {
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.adminEmail,
-                password: formData.adminPassword,
-                options: {
-                    emailRedirectTo: `${window.location.origin}/#/auth/callback?type=signup&role=admin`,
-                    data: {
-                        full_name: formData.adminName,
-                        school_name: formData.schoolName,
-                        motto: formData.motto,
-                        address: formData.address,
-                        role: 'admin',
-                        signup_type: 'new_school',
-                        branch_names: hasBranches ? branchNames : ['Main Campus']
-                    }
-                }
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            
+            const res = await fetch(`${API_BASE}/schools/onboard`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    schoolName: formData.schoolName,
+                    schoolCode: formData.schoolCode.toUpperCase(),
+                    motto: formData.motto,
+                    address: formData.address,
+                    phone: formData.phone,
+                    logoUrl: formData.logoUrl,
+                    adminName: formData.adminName,
+                    adminEmail: formData.adminEmail,
+                    adminPassword: formData.adminPassword,
+                    branchNames: branchNames.map(b => b.name),
+                    mainBranchCode: branchNames[0]?.code || 'MAIN',
+                    additionalBranches: branchNames.slice(1).map(b => ({
+                        name: b.name,
+                        code: b.code
+                    })),
+                    planType: 'free'
+                })
             });
 
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("Authentication failed. No user returned.");
+            const data = await res.json();
+            
+            if (!res.ok) {
+                throw new Error(data.message || 'School creation failed');
+            }
 
-            // Move to Step 3 (Success/Confirmation)
+            setVerificationData({
+                userId: data.data?.adminUserId,
+                email: data.data?.adminEmail,
+                fullName: data.adminName
+            });
+
+            toast.success(data.message || 'School created! Check your email for verification code.');
             setStep(3);
-            toast.success("Account created successfully!");
-
-            // Redirect delay
-            setTimeout(() => {
-                window.location.hash = '#/auth/verify-email';
-            }, 3000);
 
         } catch (err: any) {
-            console.error("Signup Error Full Object:", JSON.stringify(err, null, 2));
-
-            let msg = err.message || 'Portal creation failed.';
-            if (msg.includes("Signup Trigger Failed:")) {
-                msg = msg.replace("Signup Trigger Failed:", "").trim();
-            }
-
+            console.error("Signup Error:", err);
+            let msg = err.message || 'Failed to create school';
+            
             if (msg.includes("duplicate key") || msg.includes("already exists")) {
-                msg = "An account with this email already exists.";
+                msg = "An account with this email already exists";
             }
-
             setError(msg);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Render Sidebar/Header Steps
+    const handleVerify = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setIsLoading(true);
+
+        if (otpCode.length !== 6) {
+            setError('Please enter the 6-digit code from your email');
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            
+            const res = await fetch(`${API_BASE}/verification/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: verificationData?.email,
+                    code: otpCode,
+                    purpose: 'email_verification'
+                })
+            });
+
+            const data = await res.json();
+            
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Verification failed');
+            }
+
+            toast.success('Email verified! Logging you in...');
+
+            // Auto login
+            if (data.token && data.user) {
+                const dashRole = data.user.role?.toLowerCase() === 'admin' ? DashboardType.Admin : DashboardType.Teacher;
+                await signIn(dashRole, { ...data.user, token: data.token });
+                navigate('/');
+            }
+
+        } catch (err: any) {
+            setError(err.message || 'Invalid verification code');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResendCode = async () => {
+        if (!verificationData?.email) return;
+        
+        setIsLoading(true);
+        try {
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            
+            const res = await fetch(`${API_BASE}/verification/resend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: verificationData.email,
+                    purpose: 'email_verification'
+                })
+            });
+
+            const data = await res.json();
+            
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Failed to resend code');
+            }
+
+            toast.success('New verification code sent!');
+            setOtpCode('');
+            
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to resend code');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const renderSteps = () => (
         <div className="flex flex-col gap-8">
             <div className="flex items-center gap-3 mb-4">
@@ -160,26 +277,27 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
             <div className="space-y-6">
                 <div>
                     <h2 className="text-2xl font-bold text-white mb-2">Start your journey</h2>
-                    <p className="text-indigo-200 text-sm">Join thousands of schools managing their operations efficiently with our all-in-one platform.</p>
+                    <p className="text-indigo-200 text-sm">Join thousands of schools managing their operations efficiently.</p>
                 </div>
 
                 <div className="space-y-0 relative">
-                    {/* Vertical Line */}
-                    <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-indigo-500/30 z-0 hidden lg:block"></div>
+                    <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-indigo-500/30 z-0 hidden lg:block" />
 
                     {[1, 2, 3].map((s) => (
                         <div key={s} className="relative z-10 flex items-center gap-4 py-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${step >= s
-                                ? 'bg-white border-white text-indigo-600'
-                                : 'bg-transparent border-indigo-400 text-indigo-200'
-                                }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
+                                step >= s
+                                    ? 'bg-white border-white text-indigo-600'
+                                    : 'bg-transparent border-indigo-400 text-indigo-200'
+                            }`}>
                                 {step > s ? <CheckCircleIcon className="w-5 h-5" /> : s}
                             </div>
-                            <span className={`text-sm font-medium transition-colors duration-300 ${step >= s ? 'text-white' : 'text-indigo-300'
-                                }`}>
+                            <span className={`text-sm font-medium transition-colors duration-300 ${
+                                step >= s ? 'text-white' : 'text-indigo-300'
+                            }`}>
                                 {s === 1 && 'School Details'}
                                 {s === 2 && 'Admin Setup'}
-                                {s === 3 && 'Confirmation'}
+                                {s === 3 && 'Verify Email'}
                             </span>
                         </div>
                     ))}
@@ -194,10 +312,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
 
     return (
         <div className="flex min-h-screen w-full bg-slate-50 font-sans overflow-hidden">
-
-            {/* Sidebar (Desktop) */}
             <div className="hidden lg:flex w-80 flex-col bg-indigo-600 p-8 fixed left-0 top-0 h-full z-20 shadow-2xl overflow-hidden">
-                {/* Animated Background Blobs for Sidebar */}
                 <motion.div
                     animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
                     transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
@@ -214,10 +329,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                 </div>
             </div>
 
-            {/* Main Content Area */}
             <div className="flex-1 lg:ml-80 w-full relative flex flex-col min-h-screen">
-
-                {/* Mobile Header */}
                 <div className="lg:hidden w-full bg-indigo-600 p-4 sticky top-0 z-30 shadow-lg">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -232,29 +344,19 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                     </div>
                 </div>
 
-                {/* Animated Background for Content */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                     <motion.div
-                        animate={{
-                            x: [0, 50, 0],
-                            y: [0, 30, 0],
-                            scale: [1, 1.1, 1]
-                        }}
+                        animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }}
                         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
                         className="absolute top-[10%] left-[10%] w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-40"
                     />
                     <motion.div
-                        animate={{
-                            x: [0, -40, 0],
-                            y: [0, 50, 0],
-                            scale: [1, 1.2, 1]
-                        }}
+                        animate={{ x: [0, -40, 0], y: [0, 50, 0], scale: [1, 1.2, 1] }}
                         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
                         className="absolute bottom-[10%] right-[10%] w-[500px] h-[500px] bg-purple-100 rounded-full blur-3xl opacity-30"
                     />
                 </div>
 
-                {/* Content Container */}
                 <div className="flex-1 flex flex-col justify-center items-center p-4 sm:p-8 lg:p-12 z-10">
                     <AnimatePresence mode="wait">
                         <motion.div
@@ -267,29 +369,69 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                         >
                             <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-white/50 p-6 sm:p-10 md:p-12 transition-all">
                                 {step === 3 ? (
-                                    // Success step...
-                                    <div className="text-center py-8 space-y-6">
-                                        <motion.div
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ type: "spring", damping: 12, stiffness: 200 }}
-                                            className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200"
-                                        >
-                                            <CheckCircleIcon className="w-12 h-12 text-green-600" />
-                                        </motion.div>
-                                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Registration Complete!</h2>
-                                        <p className="text-slate-500 text-lg leading-relaxed">
-                                            Your school portal has been created successfully. <br />
-                                            Check <strong>{formData.adminEmail}</strong> for a verification link.
-                                        </p>
-                                        <div className="pt-8 pt-4">
-                                            <button
-                                                onClick={() => window.location.hash = '#/auth/verify-email'}
-                                                className="w-full sm:w-auto px-10 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    <div className="text-center py-6 space-y-6">
+                                        <div className="mb-8 text-center sm:text-left">
+                                            <motion.span
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className="inline-block px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-widest rounded-full mb-3"
                                             >
-                                                Start Onboarding
-                                            </button>
+                                                Final Step
+                                            </motion.span>
+                                            <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">
+                                                Verify Your Email
+                                            </h2>
+                                            <p className="text-slate-500 font-medium">
+                                                We've sent a 6-digit code to <strong>{verificationData?.email}</strong>
+                                            </p>
                                         </div>
+
+                                        <form onSubmit={handleVerify} className="space-y-6 text-left">
+                                            {error && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: 'auto', opacity: 1 }}
+                                                    className="p-4 bg-red-50 text-red-600 text-sm font-bold rounded-2xl border border-red-100 flex items-center gap-3"
+                                                >
+                                                    <div className="w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs">!</div>
+                                                    {error}
+                                                </motion.div>
+                                            )}
+                                            
+                                            <div>
+                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">6-Digit Code</label>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    value={otpCode}
+                                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                    className="w-full px-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-600 focus:bg-white outline-none transition-all font-bold text-center text-2xl tracking-[0.5em] text-slate-800 uppercase"
+                                                    placeholder="000000"
+                                                    maxLength={6}
+                                                />
+                                            </div>
+
+                                            <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleResendCode}
+                                                    disabled={isLoading}
+                                                    className="w-full sm:w-auto px-8 py-4 text-indigo-600 font-bold hover:text-indigo-700 hover:bg-indigo-50 rounded-2xl transition-all"
+                                                >
+                                                    Resend Code
+                                                </button>
+
+                                                <button
+                                                    type="submit"
+                                                    disabled={isLoading || otpCode.length < 6}
+                                                    className="w-full sm:w-auto min-w-[200px] bg-indigo-600 text-white font-black py-4 px-8 rounded-2xl shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-100"
+                                                >
+                                                    {isLoading ? (
+                                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                                    ) : 'Verify & Login'}
+                                                </button>
+                                            </div>
+                                        </form>
                                     </div>
                                 ) : (
                                     <>
@@ -302,10 +444,10 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                 Step {step} of 2
                                             </motion.span>
                                             <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">
-                                                {step === 1 ? 'School Identity' : 'Portal Authority'}
+                                                {step === 1 ? 'School Identity' : 'Admin Account'}
                                             </h2>
                                             <p className="text-slate-500 font-medium">
-                                                {step === 1 ? 'Establish your institution\'s digital presence.' : 'Create the primary administrative account.'}
+                                                {step === 1 ? 'Tell us about your institution.' : 'Create your administrator account.'}
                                             </p>
                                         </div>
 
@@ -323,22 +465,9 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
 
                                             {step === 1 && (
                                                 <>
-                                                    {/* Logo Upload - Premium Circular */}
-                                                    <div className="flex flex-col items-center justify-center mb-8">
-                                                        <ImageUpload
-                                                            value={formData.logoUrl}
-                                                            onChange={(url) => setFormData(prev => ({ ...prev, logoUrl: url || '' }))}
-                                                            bucket="school-logos"
-                                                            folder="temp"
-                                                            circular={true}
-                                                            className="shadow-2xl shadow-indigo-200"
-                                                        />
-                                                        <span className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Institution Logo</span>
-                                                    </div>
-
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                                         <div className="col-span-1 md:col-span-2">
-                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">School Full Name</label>
+                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">School Name *</label>
                                                             <div className="relative group">
                                                                 <BuildingLibraryIcon className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                                                 <input
@@ -347,13 +476,30 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                                     value={formData.schoolName}
                                                                     onChange={handleChange}
                                                                     className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-600 focus:bg-white outline-none transition-all font-medium text-slate-700"
-                                                                    placeholder="e.g. Royal Academy"
+                                                                    placeholder="Royal Academy International"
                                                                 />
                                                             </div>
                                                         </div>
 
                                                         <div>
-                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Primary Contact</label>
+                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">School Code * (3-10 chars)</label>
+                                                            <div className="relative group">
+                                                                <LockIcon className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                                                                <input
+                                                                    name="schoolCode"
+                                                                    required
+                                                                    value={formData.schoolCode}
+                                                                    onChange={handleChange}
+                                                                    className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-600 focus:bg-white outline-none transition-all font-medium text-slate-700 uppercase"
+                                                                    placeholder="EXCEL"
+                                                                    maxLength={10}
+                                                                />
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-400 mt-1 px-1">This will be part of all user IDs (e.g., EXCEL_MAIN_STU_0001)</p>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Phone</label>
                                                             <div className="relative group">
                                                                 <PhoneIcon className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                                                 <input
@@ -361,24 +507,13 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                                     value={formData.phone}
                                                                     onChange={handleChange}
                                                                     className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-600 focus:bg-white outline-none transition-all font-medium text-slate-700"
-                                                                    placeholder="Official Number"
+                                                                    placeholder="+234..."
                                                                 />
                                                             </div>
                                                         </div>
 
-                                                        <div>
-                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Motto</label>
-                                                            <input
-                                                                name="motto"
-                                                                value={formData.motto}
-                                                                onChange={handleChange}
-                                                                className="w-full px-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-600 focus:bg-white outline-none transition-all font-medium text-slate-700"
-                                                                placeholder="Vision Statement"
-                                                            />
-                                                        </div>
-
                                                         <div className="col-span-1 md:col-span-2">
-                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Physical Location</label>
+                                                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Address</label>
                                                             <div className="relative group">
                                                                 <MapPinIcon className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                                                 <input
@@ -390,72 +525,95 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                                 />
                                                             </div>
                                                         </div>
+                                                    </div>
 
-                                                        {/* Branch Configuration Section */}
-                                                        <div className="col-span-1 md:col-span-2 pt-4">
-                                                            <label className="flex items-center gap-3 cursor-pointer group">
-                                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${hasBranches ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-300'}`}>
-                                                                    {hasBranches && <CheckCircleIcon className="w-4 h-4 text-white" />}
+                                                    <div className="pt-4 border-t border-slate-100">
+                                                        <label className="flex items-center gap-3 cursor-pointer group">
+                                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${hasBranches ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200 group-hover:border-indigo-300'}`}>
+                                                                {hasBranches && <CheckCircleIcon className="w-4 h-4 text-white" />}
+                                                            </div>
+                                                            <input 
+                                                                type="checkbox" 
+                                                                className="sr-only" 
+                                                                checked={hasBranches} 
+                                                                onChange={(e) => setHasBranches(e.target.checked)} 
+                                                            />
+                                                            <span className="text-sm font-bold text-slate-600">This institution has multiple branches</span>
+                                                        </label>
+
+                                                        {hasBranches && (
+                                                            <motion.div 
+                                                                initial={{ opacity: 0, height: 0 }}
+                                                                animate={{ opacity: 1, height: 'auto' }}
+                                                                className="mt-6 p-6 bg-indigo-50/50 border-2 border-indigo-100 rounded-[2rem] space-y-6"
+                                                            >
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                                                        <BuildingLibraryIcon className="w-4 h-4 text-indigo-600" />
+                                                                    </div>
+                                                                    <h3 className="font-black text-xs text-indigo-900 uppercase tracking-widest">Branch Setup</h3>
                                                                 </div>
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    className="sr-only" 
-                                                                    checked={hasBranches} 
-                                                                    onChange={(e) => setHasBranches(e.target.checked)} 
-                                                                />
-                                                                <span className="text-sm font-bold text-slate-600">This institution has multiple branches</span>
-                                                            </label>
 
-                                                            {hasBranches && (
-                                                                <motion.div 
-                                                                    initial={{ opacity: 0, height: 0 }}
-                                                                    animate={{ opacity: 1, height: 'auto' }}
-                                                                    className="mt-6 p-6 bg-indigo-50/50 border-2 border-indigo-100 rounded-[2rem] space-y-6"
-                                                                >
-                                                                    <div className="flex items-center gap-2 mb-2">
-                                                                        <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                                                            <BuildingLibraryIcon className="w-4 h-4 text-indigo-600" />
-                                                                        </div>
-                                                                        <h3 className="font-black text-xs text-indigo-900 uppercase tracking-widest">Branch Setup</h3>
-                                                                    </div>
+                                                                <div>
+                                                                    <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 px-1">Number of Additional Branches</label>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        min="1" 
+                                                                        max="10" 
+                                                                        value={numBranches} 
+                                                                        onChange={(e) => handleNumBranchesChange(parseInt(e.target.value) || 1)}
+                                                                        className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-bold text-indigo-900"
+                                                                    />
+                                                                </div>
 
-                                                                    <div>
-                                                                        <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 px-1">Number of Additional Branches</label>
-                                                                        <input 
-                                                                            type="number" 
-                                                                            min="1" 
-                                                                            max="10" 
-                                                                            value={numBranches} 
-                                                                            onChange={(e) => handleNumBranchesChange(parseInt(e.target.value) || 1)}
-                                                                            className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-bold text-indigo-900"
-                                                                        />
-                                                                    </div>
-
-                                                                    <div className="space-y-4">
+                                                                <div className="space-y-4">
+                                                                    <div className="grid grid-cols-2 gap-4">
                                                                         <div className="relative">
                                                                             <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 px-1">Main Branch Name</label>
                                                                             <input 
-                                                                                value={branchNames[0]} 
+                                                                                value={branchNames[0]?.name || ''} 
                                                                                 onChange={(e) => handleBranchNameChange(0, e.target.value)}
                                                                                 className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-medium text-slate-700"
-                                                                                placeholder="e.g. Main Campus"
+                                                                                placeholder="Main Campus"
                                                                             />
                                                                         </div>
-                                                                        {Array.from({ length: numBranches }).map((_, idx) => (
-                                                                            <div key={idx + 1} className="relative">
+                                                                        <div className="relative">
+                                                                            <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 px-1">Code</label>
+                                                                            <input 
+                                                                                value={branchNames[0]?.code || ''} 
+                                                                                onChange={(e) => handleBranchCodeChange(0, e.target.value)}
+                                                                                className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-medium text-slate-700 uppercase"
+                                                                                placeholder="MAIN"
+                                                                                maxLength={6}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    {Array.from({ length: numBranches }).map((_, idx) => (
+                                                                        <div key={idx + 1} className="grid grid-cols-2 gap-4">
+                                                                            <div className="relative">
                                                                                 <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 px-1">Branch {idx + 1} Name</label>
                                                                                 <input 
-                                                                                    value={branchNames[idx + 1] || ''} 
+                                                                                    value={branchNames[idx + 1]?.name || ''} 
                                                                                     onChange={(e) => handleBranchNameChange(idx + 1, e.target.value)}
                                                                                     className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-medium text-slate-700"
-                                                                                    placeholder={`Branch ${idx + 1} Name`}
+                                                                                    placeholder={`Branch ${idx + 1}`}
                                                                                 />
                                                                             </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </motion.div>
-                                                            )}
-                                                        </div>
+                                                                            <div className="relative">
+                                                                                <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 px-1">Code</label>
+                                                                                <input 
+                                                                                    value={branchNames[idx + 1]?.code || ''} 
+                                                                                    onChange={(e) => handleBranchCodeChange(idx + 1, e.target.value)}
+                                                                                    className="w-full px-4 py-3 bg-white border-2 border-indigo-100 rounded-xl focus:border-indigo-600 outline-none transition-all font-medium text-slate-700 uppercase"
+                                                                                    placeholder={`BRN${idx + 1}`}
+                                                                                    maxLength={6}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
                                                     </div>
                                                 </>
                                             )}
@@ -463,7 +621,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                             {step === 2 && (
                                                 <div className="space-y-6">
                                                     <div>
-                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Proprietor Name</label>
+                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Admin Full Name *</label>
                                                         <div className="relative group">
                                                             <UserIcon className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                                             <input
@@ -472,12 +630,12 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                                 value={formData.adminName}
                                                                 onChange={handleChange}
                                                                 className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-600 focus:bg-white outline-none transition-all font-medium text-slate-700"
-                                                                placeholder="Lead Administrator"
+                                                                placeholder="John Doe"
                                                             />
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Administrative Email</label>
+                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Admin Email *</label>
                                                         <div className="relative group">
                                                             <GlobeIcon className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                                             <input
@@ -492,7 +650,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Security Key</label>
+                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Password * (min 8 chars)</label>
                                                         <div className="relative group">
                                                             <LockIcon className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                                             <input
@@ -502,7 +660,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                                 value={formData.adminPassword}
                                                                 onChange={handleChange}
                                                                 className="w-full pl-12 pr-12 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-600 focus:bg-white outline-none transition-all font-medium text-slate-700"
-                                                                placeholder="Min 8 characters"
+                                                                placeholder="Create a secure password"
                                                             />
                                                             <button
                                                                 type="button"
@@ -523,7 +681,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                         onClick={prevStep}
                                                         className="w-full sm:w-auto px-8 py-4 text-slate-500 font-bold hover:text-slate-700 hover:bg-slate-100 rounded-2xl transition-all flex items-center justify-center gap-2"
                                                     >
-                                                        <ChevronLeftIcon className="w-5 h-5" /> Phase 1
+                                                        <ChevronLeftIcon className="w-5 h-5" /> Back
                                                     </button>
                                                 ) : (
                                                     <div className="hidden sm:block" />
@@ -538,7 +696,7 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                                         <Loader2 className="w-5 h-5 animate-spin" />
                                                     ) : (
                                                         <>
-                                                            {step === 1 ? 'Go to Phase 2' : 'Initiate Portal'}
+                                                            {step === 1 ? 'Continue' : 'Create School & Send Code'}
                                                             {step === 1 && <ArrowRightIcon className="w-5 h-5" />}
                                                         </>
                                                     )}
@@ -549,7 +707,6 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                 )}
                             </div>
 
-                            {/* Footer Login Link */}
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -557,9 +714,9 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                                 className="mt-10 text-center"
                             >
                                 <p className="text-sm text-slate-500 font-medium">
-                                    Member of the collective?{' '}
+                                    Already have an account?{' '}
                                     <button onClick={onNavigateToLogin} className="text-indigo-600 font-black hover:underline underline-offset-4">
-                                        Authenticate here
+                                        Sign in
                                     </button>
                                 </p>
                             </motion.div>

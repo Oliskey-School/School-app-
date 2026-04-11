@@ -1,14 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import readXlsxFile from 'read-excel-file';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { CloudUploadIcon, EyeIcon, ExamIcon, TrashIcon, XCircleIcon, WifiIcon, getFormattedClassName } from '../../constants';
 import { CBTExam, Subject } from '../../types';
 import ConfirmationModal from '../ui/ConfirmationModal';
-import { fetchCBTExams } from '../../lib/database';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useProfile } from '../../context/ProfileContext';
-import api from '../../lib/api';
+
 
 interface CBTManagementScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -90,8 +89,8 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Exams
-            const backendExams = await fetchCBTExams(activeTeacherId || undefined);
+            // 1. Fetch Exams using backend API
+            const backendExams = await api.getCBTExams(activeTeacherId || undefined);
             setExams(backendExams);
 
         } catch (err: any) {
@@ -152,18 +151,15 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 
             console.log("Parsed questions:", parsedQuestions);
 
-            // 1. Create Quiz Record (quizzes table)
-            // Ensure teacherId and other IDs are strings if needed.
-            // Validate School ID
+            // 1. Create Quiz Record
             let activeSchoolId = propSchoolId || profile.schoolId;
             if (!activeSchoolId) {
-                // Fallback: Try fetching from Auth
-                const { data: { user } } = await supabase.auth.getUser();
-                activeSchoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+                const me = await api.getMe();
+                activeSchoolId = me?.school_id;
 
                 if (!activeSchoolId) {
-                    console.warn("School ID missing from profile and auth. Using Demo School ID.");
-                    activeSchoolId = "d0ff3e95-9b4c-4c12-989c-e5640d3cacd1"; // Correct Demo School ID
+                    console.warn("School ID missing. Using Demo School ID.");
+                    activeSchoolId = "d0ff3e95-9b4c-4c12-989c-e5640d3cacd1";
                 }
             }
 
@@ -418,3 +414,5 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
 };
 
 export default CBTManagementScreen;
+
+

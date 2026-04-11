@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     Shield,
@@ -48,29 +48,15 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ navigateTo }) =>
         try {
             setLoading(true);
 
-            let query = supabase
-                .from('audit_logs')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(100);
+            // Fetch logs from our custom backend API
+            // For SaaS viewer, we pass undefined for schoolId to get global logs
+            const data = await api.getAuditLogs(undefined, 100);
 
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            // Fetch user emails for each log
-            const logsWithUsers = await Promise.all(
-                (data || []).map(async (log) => {
-                    if (log.user_id) {
-                        const { data: userData } = await supabase.auth.admin.getUserById(log.user_id);
-                        return {
-                            ...log,
-                            user_email: userData?.user?.email || 'Unknown'
-                        };
-                    }
-                    return { ...log, user_email: 'System' };
-                })
-            );
+            // Our backend API already includes the user email via Prisma 'include'
+            const logsWithUsers = (data || []).map((log: any) => ({
+                ...log,
+                user_email: log.user?.email || 'System'
+            }));
 
             setLogs(logsWithUsers);
 
@@ -368,3 +354,4 @@ const StatCard: React.FC<{
 );
 
 export default AuditLogViewer;
+

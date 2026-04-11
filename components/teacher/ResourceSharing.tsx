@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { DocumentTextIcon, DownloadIcon, StarIcon, PlusIcon } from '../../constants';
@@ -30,17 +30,7 @@ const ResourceSharing: React.FC = () => {
     const fetchResources = async () => {
         try {
             setLoading(true);
-
-            const { data, error } = await supabase
-                .from('shared_resources')
-                .select(`
-          *,
-          teachers(full_name)
-        `)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
+            const data = await api.getSharedResources();
             const formatted: Resource[] = (data || []).map((r: any) => ({
                 id: r.id,
                 title: r.title,
@@ -48,12 +38,11 @@ const ResourceSharing: React.FC = () => {
                 resource_type: r.resource_type,
                 subject: r.subject,
                 grade_level: r.grade_level,
-                author_name: (r.teachers as any)?.full_name || 'Anonymous',
-                download_count: r.download_count,
-                avg_rating: r.rating_count > 0 ? r.rating_sum / r.rating_count : 0,
+                author_name: r.author_name || r.teachers?.full_name || 'Anonymous',
+                download_count: r.download_count || 0,
+                avg_rating: r.rating_count > 0 ? (r.rating_sum / r.rating_count) : (r.avg_rating || 0),
                 created_at: r.created_at
             }));
-
             setResources(formatted);
         } catch (error: any) {
             console.error('Error:', error);
@@ -169,3 +158,4 @@ const ResourceSharing: React.FC = () => {
 };
 
 export default ResourceSharing;
+

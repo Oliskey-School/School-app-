@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { TimetableService } from '../services/timetable.service';
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 
 export const getTimetable = async (req: AuthRequest, res: Response) => {
     try {
@@ -9,11 +9,10 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
         let { teacherId } = req.query;
 
         if (req.user.role === 'teacher') {
-            const { data: teacher } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('user_id', req.user.id)
-                .single();
+            const teacher = await (prisma as any).teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true }
+            });
 
             if (teacher) {
                 teacherId = teacher.id;
@@ -25,10 +24,63 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
         const branchId = req.user.branch_id || req.query.branchId as string;
         const result = await TimetableService.getTimetable(
             req.user.school_id,
-            branchId,
+            branchId as string,
             className as string,
             teacherId as string
         );
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const createTimetable = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const result = await TimetableService.createTimetable(schoolId, req.body);
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateTimetable = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const { id } = req.params;
+        const result = await TimetableService.updateTimetable(schoolId, id as string, req.body);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const deleteTimetable = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const { id } = req.params;
+        await TimetableService.deleteTimetable(schoolId, id as string);
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const deleteTimetableByClass = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const { classId } = req.params;
+        await TimetableService.deleteTimetableByClass(schoolId, classId as string);
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const checkConflict = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const result = await TimetableService.checkTeacherConflict(schoolId, req.body);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

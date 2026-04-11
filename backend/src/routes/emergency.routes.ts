@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { triggerEmergencyBroadcast } from '../controllers/emergency.controller';
+import { triggerEmergencyBroadcast, getEmergencyHistory } from '../controllers/emergency.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 
@@ -9,5 +9,6 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.post('/broadcast', triggerEmergencyBroadcast);
+router.get('/history', getEmergencyHistory);
 
 export default router;

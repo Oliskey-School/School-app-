@@ -3,7 +3,7 @@
  * Simulates a WhatsApp bot for parents to query fee balances and child attendance.
  */
 
-import { supabase } from './supabase';
+import { api } from './api';
 import { sendSMS } from './notifications';
 
 export type WhatsAppCommand = 'balance' | 'attendance' | 'grades' | 'help';
@@ -19,7 +19,7 @@ export async function handleWhatsAppMessage(
 
     try {
         // Find parent by phone number
-        const { data: parent, error: parentError } = await supabase
+        const { data: parent, error: parentError } = await api
             .from('parents')
             .select('id, name')
             .eq('phone_number', phoneNumber)
@@ -28,7 +28,7 @@ export async function handleWhatsAppMessage(
         if (parentError || !parent) return "❌ Phone number not linked to any student profile. Contact your school.";
 
         // Find child(ren)
-        const { data: children } = await supabase
+        const { data: children } = await api
             .from('parent_children')
             .select('students(id, name, grade, section)')
             .eq('parent_id', parent.id);
@@ -53,7 +53,7 @@ export async function handleWhatsAppMessage(
 }
 
 async function fetchBalances(parentId: string): Promise<string> {
-    const { data: fees } = await supabase
+    const { data: fees } = await api
         .from('student_fees')
         .select('amount, status, title')
         .eq('parent_id', parentId)
@@ -71,7 +71,7 @@ async function fetchAttendance(children: any[]): Promise<string> {
     const childIds = children.map(c => c.students.id);
     const today = new Date().toISOString().split('T')[0];
 
-    const { data: attendance } = await supabase
+    const { data: attendance } = await api
         .from('attendance_records')
         .select('status, students(name)')
         .in('student_id', childIds)
@@ -80,10 +80,11 @@ async function fetchAttendance(children: any[]): Promise<string> {
     if (!attendance || attendance.length === 0) return "🕒 No arrival data recorded for today yet.";
 
     return `🎒 *Attendance Today:* \n` + 
-           attendance.map(a => `- ${a.students.name}: *${a.status.toUpperCase()}*`).join('\n');
+           attendance.map(a => `- ${(a.students as any)[0]?.name || 'Unknown Student'}: *${a.status.toUpperCase()}*`).join('\n');
 }
 
 async function fetchGrades(children: any[]): Promise<string> {
     // Logic to fetch most recent exam_results or report_card data
     return "📈 *Recent Academic Results:* \n(Grade functionality coming soon for your school)";
 }
+

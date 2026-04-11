@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProfile } from '../../context/ProfileContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { User, AlertCircle, CheckCircle, Clock, FileText } from 'lucide-react';
 
@@ -60,7 +60,7 @@ const ReferralSystem: React.FC = () => {
         try {
             // For parents - get their children
             // For admin/teachers - would need different logic
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('students')
                 .select('id, name')
                 .eq('parent_id', profile.id);
@@ -77,7 +77,7 @@ const ReferralSystem: React.FC = () => {
 
     const fetchReferrals = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('family_referrals')
                 .select(`
           *,

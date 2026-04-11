@@ -32,7 +32,7 @@ const ClassFormScreen: React.FC<ClassFormScreenProps> = ({ classToEdit, schoolId
         try {
             const classData = {
                 name: name || `Grade ${grade}`,
-                level,
+                level_category: level,
                 grade: parseInt(grade),
                 section,
                 department: department || null,

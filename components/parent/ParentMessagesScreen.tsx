@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '../../lib/api';
 import { PhoneIcon, BusVehicleIcon, ClockIcon, UsersIcon } from '../../constants';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Conversation } from '../../types';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
@@ -108,18 +107,13 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
 
         fetchConversations();
 
-        // Realtime Subscriptions (Keep these as they are specific to the UI channel)
-        const channel = supabase.channel(`parent_chat_list_${myId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
-                fetchConversations();
-            })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_participants', filter: `user_id=eq.${myId}` }, () => {
-                fetchConversations();
-            })
-            .subscribe();
+        // Replace Supabase Realtime with standard polling (every 30 seconds)
+        const pollInterval = window.setInterval(() => {
+            fetchConversations();
+        }, 30000);
 
         return () => {
-            supabase.removeChannel(channel);
+            clearInterval(pollInterval);
         };
     }, [myId]);
 

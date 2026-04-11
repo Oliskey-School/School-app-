@@ -39,11 +39,33 @@ import governanceRoutes from './governance.routes';
 import healthRoutes from './health.routes';
 import payrollRoutes from './payroll.routes';
 import communityRoutes from './community.routes';
+import verificationRoutes from './verification.routes';
+import parentAuthRoutes from './parentAuth.routes';
+import extracurricularRoutes from './extracurricular.routes';
+import hostelRoutes from './hostel.routes';
+import transportRoutes from './transport.routes';
+import chatRoutes from './chat.routes';
+import planRoutes from './plan.routes';
+import anonymousReportRoutes from './anonymousReport.routes';
+import gameRoutes from './game.routes';
+import pdRoutes from './pd.routes';
+import inspectionRoutes from './inspection.routes';
+import policyRoutes from './policy.routes';
+import infrastructureRoutes from './infrastructure.routes';
+import behaviorRoutes from './behavior.routes';
+import adminHubRoutes from './admin-hub.routes';
+import saasAnalyticsRoutes from './saas-analytics.routes';
+import conferenceRoutes from './conference.routes';
+import counselingRoutes from './counseling.routes';
 
 const router = Router();
 
+// Public health check for the API prefix
+router.get('/health', (req, res) => {
+    res.json({ status: 'ok', service: 'School SaaS API' });
+});
+
 router.use('/auth', authRoutes);
-router.use('/schools', onboardingRoutes);  // /api/schools/onboard — public signup
 router.use('/users', userRoutes);
 router.use('/schools', schoolRoutes);
 router.use('/students', studentRoutes);
@@ -81,6 +103,24 @@ router.use('/governance', governanceRoutes);
 router.use('/health-logs', healthRoutes);
 router.use('/payroll', payrollRoutes);
 router.use('/community', communityRoutes);
+router.use('/verification', verificationRoutes);
+router.use('/extracurriculars', extracurricularRoutes);
+router.use('/parent-auth', parentAuthRoutes);
+router.use('/hostels', hostelRoutes);
+router.use('/transport', transportRoutes);
+router.use('/chat', chatRoutes);
+router.use('/plans', planRoutes);
+router.use('/anonymous-reports', anonymousReportRoutes);
+router.use('/games', gameRoutes);
+router.use('/pd', pdRoutes);
+router.use('/inspections', inspectionRoutes);
+router.use('/academic-policies', policyRoutes);
+router.use('/infrastructure', infrastructureRoutes);
+router.use('/behavior', behaviorRoutes);
+router.use('/admin-hub', adminHubRoutes);
+router.use('/saas-analytics', saasAnalyticsRoutes);
+router.use('/conferences', conferenceRoutes);
+router.use('/counseling', counselingRoutes);
 
 router.use('/', inviteRoutes);
 

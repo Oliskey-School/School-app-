@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { api } from './api';
 
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'SUSPEND' | 'ACTIVATE' | 'EXPORT';
 export type AuditTarget = 'SCHOOL' | 'PLAN' | 'USER' | 'PAYMENT' | 'SETTING';
@@ -10,10 +10,10 @@ export const logAuditAction = async (
     metadata: any = {}
 ) => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await api.getMe();
         if (!user) return;
 
-        const { error } = await supabase.from('audit_logs').insert([{
+        await api.createAuditLog({
             user_id: user.id,
             action,
             target_type: targetType,
@@ -21,13 +21,9 @@ export const logAuditAction = async (
             metadata: {
                 ...metadata,
                 timestamp: new Date().toISOString(),
-                user_agent: navigator.userAgent
+                user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Server'
             }
-        }]);
-
-        if (error) {
-            console.error('Audit Log Error:', error);
-        }
+        });
     } catch (error) {
         console.error('Audit Log Failed:', error);
     }
@@ -52,3 +48,4 @@ export const withAuditLog = async <T>(
         throw error;
     }
 };
+

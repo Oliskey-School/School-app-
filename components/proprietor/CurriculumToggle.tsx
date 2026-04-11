@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 /**
  * Premium CurriculumToggle Component
@@ -28,7 +28,7 @@ export const CurriculumToggle: React.FC<{ schoolId: string }> = ({ schoolId }) =
     const loadCurriculumStats = async () => {
         try {
             // Fetch curriculum-specific stats
-            const { data: standards } = await supabase
+            const { data: standards } = await api
                 .from('curriculum_standards')
                 .select('id, code, name');
 
@@ -36,7 +36,7 @@ export const CurriculumToggle: React.FC<{ schoolId: string }> = ({ schoolId }) =
 
             const statsPromises = standards.map(async (standard) => {
                 // Get branches using this curriculum
-                const { data: branches } = await supabase
+                const { data: branches } = await api
                     .from('school_branches')
                     .select('id')
                     .eq('school_id', schoolId)
@@ -45,12 +45,12 @@ export const CurriculumToggle: React.FC<{ schoolId: string }> = ({ schoolId }) =
                 const branchIds = branches?.map(b => b.id) || [];
 
                 // Get stats for this curriculum
-                const { count: studentCount } = await supabase
+                const { count: studentCount } = await api
                     .from('students')
                     .select('*', { count: 'exact', head: true })
                     .in('branch_id', branchIds);
 
-                const { count: subjectCount } = await supabase
+                const { count: subjectCount } = await api
                     .from('curriculum_subjects')
                     .select('*', { count: 'exact', head: true })
                     .eq('standard_id', standard.id);

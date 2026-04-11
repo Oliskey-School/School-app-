@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { FlaskConicalIcon, FlameIcon, DropletsIcon, AlertTriangleIcon, SearchIcon, RotateCcwIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface VirtualScienceLabGameProps {
     onBack: () => void;
@@ -199,11 +200,24 @@ const VirtualScienceLabGame: React.FC<VirtualScienceLabGameProps> = ({ onBack })
         }
 
         if (success) {
-            setScore(prev => prev + 50);
             setFeedback("Experiment Complete! Great job!");
             speak("Experiment Success!");
             confetti();
             addXP(100);
+
+            // PERSIST TO DATABASE
+            api.submitGameScore({
+                game_id: 'virtual-science-lab',
+                game_name: 'Virtual Science Lab',
+                score: score + 50,
+                metadata: {
+                    experimentId: expId,
+                    experimentTitle: exp.title,
+                    ph: currentPh,
+                    state: currentState,
+                    contents: contents.map(c => c.id)
+                }
+            }).catch(err => console.error("Failed to save science score:", err));
 
             // Wait and next
             setTimeout(() => {

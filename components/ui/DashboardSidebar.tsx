@@ -222,3 +222,53 @@ export const ParentSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolN
     );
 };
 
+export const InspectorSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolName, logoUrl }: { activeScreen: string, setActiveScreen: (screen: string) => void, onLogout?: () => void, schoolName?: string, logoUrl?: string }) => {
+    const navItems = [
+        { id: 'overview', icon: <HomeIcon />, label: 'Home' },
+        { id: 'schoolSearch', icon: <BuildingLibraryIcon />, label: 'Search Schools' },
+        { id: 'inspectionHistory', icon: <AnalyticsIcon />, label: 'History' },
+    ];
+
+    return (
+        <div className="h-full flex flex-col bg-white border-r border-gray-200">
+            <div className="p-6 flex items-center space-x-3 border-b border-gray-100">
+                {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
+                ) : (
+                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'I'}</span>
+                    </div>
+                )}
+                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Ministry of Education'}</span>
+            </div>
+
+            <nav className="flex-1 py-6 overflow-y-auto">
+                <div className="space-y-1">
+                    {navItems.map(item => (
+                        <SidebarItem
+                            key={item.id}
+                            icon={item.icon}
+                            label={item.label}
+                            isActive={activeScreen === item.id}
+                            onClick={() => setActiveScreen(item.id)}
+                            activeColor="text-indigo-600"
+                        />
+                    ))}
+                </div>
+            </nav>
+
+            {onLogout && (
+                <div className="p-4 border-t border-gray-100">
+                    <button
+                        onClick={onLogout}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                        <LogoutIcon className="h-6 w-6" />
+                        <span className="font-medium">Logout</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+

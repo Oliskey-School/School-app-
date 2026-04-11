@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Activity, ActivityCategory, ExtracurricularEvent } from '../../types';
-import { mockActivities } from '../../data';
-import { ACTIVITY_CATEGORY_CONFIG, ChevronLeftIcon, ChevronRightIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { ACTIVITY_CATEGORY_CONFIG, ChevronLeftIcon, ChevronRightIcon, StarIcon, TrophyIcon, UsersIcon, SparklesIcon } from '../../constants';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -11,7 +10,8 @@ type FilterType = 'All' | ActivityCategory;
 const ExtracurricularsScreen: React.FC = () => {
     const { user } = useAuth();
     const [activeFilter, setActiveFilter] = useState<FilterType>('All');
-    const [signedUpActivities, setSignedUpActivities] = useState<Set<number>>(new Set());
+    const [activities, setActivities] = useState<Activity[]>([]);
+    const [signedUpActivities, setSignedUpActivities] = useState<Set<string>>(new Set());
     const [eventsByDate, setEventsByDate] = useState<{ [key: string]: ExtracurricularEvent[] }>({});
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -22,22 +22,19 @@ const ExtracurricularsScreen: React.FC = () => {
             if (!user?.id) return;
             setLoading(true);
             try {
-                // 1. Fetch user's signed-up activities
-                const { data: participants } = await supabase
-                    .from('extracurricular_participants')
-                    .select('activity_id')
-                    .eq('student_user_id', user.id);
+                // 1. Fetch joinable activities
+                const allActivities = await api.getExtracurriculars();
+                setActivities(allActivities);
 
-                if (participants) {
-                    setSignedUpActivities(new Set(participants.map(p => p.activity_id)));
-                }
+                // 2. Fetch user's signed-up activities
+                const myActivities = await api.getMyExtracurriculars();
+                setSignedUpActivities(new Set(myActivities.map((p: any) => p.activity_id)));
 
-                // 2. Fetch real calendar events
-                const { data: events } = await supabase
-                    .from('extracurricular_events')
-                    .select('*')
-                    .gte('date', new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toISOString())
-                    .lte('date', new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0).toISOString());
+                // 3. Fetch real calendar events
+                const events = await api.getExtracurricularEvents(
+                    new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toISOString(),
+                    new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0).toISOString()
+                );
 
                 if (events) {
                     const mappedEvents = events.reduce((acc: any, event: any) => {
@@ -55,6 +52,7 @@ const ExtracurricularsScreen: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error fetching extracurriculars:", error);
+                toast.error("Failed to load extracurricular data.");
             } finally {
                 setLoading(false);
             }
@@ -78,17 +76,11 @@ const ExtracurricularsScreen: React.FC = () => {
         try {
             if (isCurrentlySignedUp) {
                 // Leave
-                await supabase
-                    .from('extracurricular_participants')
-                    .delete()
-                    .eq('student_user_id', user.id)
-                    .eq('activity_id', activityId);
+                await api.leaveExtracurricular(activityId);
                 toast.success("Successfully left the activity.");
             } else {
                 // Join
-                await supabase
-                    .from('extracurricular_participants')
-                    .insert({ student_user_id: user.id, activity_id: activityId });
+                await api.joinExtracurricular(activityId);
                 toast.success("Successfully signed up for the activity!");
             }
         } catch (error) {
@@ -104,9 +96,19 @@ const ExtracurricularsScreen: React.FC = () => {
     };
 
     const filteredActivities = useMemo(() => {
-        if (activeFilter === 'All') return mockActivities;
-        return mockActivities.filter(a => a.category === activeFilter);
-    }, [activeFilter]);
+        if (activeFilter === 'All') return activities;
+        return activities.filter(a => a.category === activeFilter);
+    }, [activeFilter, activities]);
+
+    const getIcon = (iconName: string) => {
+        switch (iconName?.toLowerCase()) {
+            case 'trophy': return TrophyIcon;
+            case 'star': return StarIcon;
+            case 'users': return UsersIcon;
+            case 'sparkles': return SparklesIcon;
+            default: return UsersIcon;
+        }
+    };
 
     // Calendar Logic
     const firstDayOfMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), [currentDate]);
@@ -139,9 +141,9 @@ const ExtracurricularsScreen: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {filteredActivities.map(activity => {
-                                    const isSignedUp = signedUpActivities.has(activity.id);
-                                    const config = ACTIVITY_CATEGORY_CONFIG[activity.category];
-                                    const Icon = activity.icon;
+                                    const isSignedUp = signedUpActivities.has(activity.id.toString()) || signedUpActivities.has(activity.id as any);
+                                    const config = ACTIVITY_CATEGORY_CONFIG[activity.category] || ACTIVITY_CATEGORY_CONFIG.Club;
+                                    const Icon = typeof activity.icon === 'string' ? getIcon(activity.icon) : (activity.icon || UsersIcon);
                                     return (
                                         <div key={activity.id} className={`p-4 rounded-xl shadow-sm border-l-4 ${config.bg} ${config.color.replace('text-', 'border-')}`}>
                                             <div className="flex items-start space-x-3">

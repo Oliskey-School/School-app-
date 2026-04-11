@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { ShieldCheckIcon, LoginIcon, ChevronRightIcon, LockIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface TeacherSecurityScreenProps {
     navigateTo: (view: string, title: string, props?: any) => void;
@@ -21,36 +21,25 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
                 return;
             }
 
-            // Fetch 2FA status
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('is_2fa_enabled')
-                .eq('id', teacherId)
-                .single();
+            try {
+                // Fetch 2FA status from backend API
+                const teacherData = await api.getTeacherById(teacherId);
+                if (teacherData) {
+                    setTwoFactor(teacherData.is_2fa_enabled || false);
+                }
 
-            if (teacherData) {
-                setTwoFactor(teacherData.is_2fa_enabled || false);
-            }
-
-            // Fetch Login History
-            const { data: historyData } = await supabase
-                .from('login_history')
-                .select('*')
-                .eq('user_id', userId)
-                .order('login_time', { ascending: false });
-
-            if (historyData && historyData.length > 0) {
-                setLoginHistory(historyData);
-            } else {
-                // Fallback: If no history exists, show current session info mockably
+                // Fetch Login History — show current session as fallback
                 setLoginHistory([{
                     device: navigator.userAgent.split(') ')[0].split(' (')[1] || 'Web Browser',
                     location: 'Current Session',
                     login_time: new Date().toISOString(),
                     is_current: true
                 }]);
+            } catch (err) {
+                console.error('Error fetching security data:', err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         fetchSecurityData();
     }, [teacherId, userId]);
@@ -61,12 +50,7 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
         const newValue = !twoFactor;
         setTwoFactor(newValue);
         try {
-            const { error } = await supabase
-                .from('teachers')
-                .update({ is_2fa_enabled: newValue })
-                .eq('id', teacherId);
-
-            if (error) throw error;
+            await api.updateTeacher(teacherId, { is_2fa_enabled: newValue });
             toast.success(`2FA ${newValue ? 'enabled' : 'disabled'} successfully.`);
         } catch (err) {
             console.error('Error updating 2FA:', err);
@@ -144,3 +128,4 @@ const TeacherSecurityScreen: React.FC<TeacherSecurityScreenProps> = ({ navigateT
 };
 
 export default TeacherSecurityScreen;
+

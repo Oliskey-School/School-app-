@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Conversation } from '../../types';
 import ChatScreen from '../shared/ChatScreen';
 import { SearchIcon, PlusIcon, MessagesIcon } from '../../constants';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 const formatTimestamp = (isoDate: string): string => {
     if (!isoDate) return '';
@@ -55,74 +56,35 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
         const fetchConversations = async () => {
             setIsLoading(true);
             try {
-                const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
-                const branchId = profile?.branch_id;
-
-                // Get IDs of conversations I'm in
-                let participationQuery = supabase
-                    .from('conversation_participants')
-                    .select('conversation_id')
-                    .eq('user_id', currentUserId);
-
-                if (schoolId) participationQuery = participationQuery.eq('school_id', schoolId);
-                // branch_id on participants? Usually participants are tied to conversation which is tied to branch.
-                // Let's check conversation table instead for branch filtering.
-
-                const { data: participation, error: pError } = await participationQuery;
-
-                if (pError) throw pError;
-
-                const conversationIds = participation?.map(p => p.conversation_id) || [];
-
-                if (conversationIds.length === 0) {
-                    setRooms([]);
-                    setIsLoading(false);
-                    return;
-                }
-
-                // Fetch conversations details + participants to find the "other" person
-                let convsQuery = supabase
-                    .from('conversations')
-                    .select(`
-                        *,
-                        participants:conversation_participants(
-                            user:users(id, name, avatar_url, role)
-                        )
-                    `)
-                    .in('id', conversationIds);
-
-                if (schoolId) convsQuery = convsQuery.eq('school_id', schoolId);
-                if (branchId && branchId !== 'all') convsQuery = convsQuery.eq('branch_id', branchId);
-
-                const { data: convs, error: cError } = await convsQuery.order('last_message_at', { ascending: false });
-
-                if (cError) throw cError;
+                const convs = await api.getChatRooms();
 
                 // Format for UI
-                const formattedRooms = convs?.map(c => {
+                const formattedRooms = convs.map((c: any) => {
                     // Find other participant for DM name/avatar
                     const otherPart = c.participants?.find((p: any) => p.user?.id !== currentUserId)?.user;
                     // Or if self-chat or fallback
-                    const displayUser = otherPart || c.participants?.[0]?.user;
+                    const displayUser = otherPart || (c.participants?.[0]?.user);
+
+                    const lastMsg = c.messages?.[0];
 
                     return {
                         id: c.id,
-                        displayName: c.name || displayUser?.name || 'Unknown',
-                        displayAvatar: c.name ? null : (displayUser?.avatar_url || 'https://via.placeholder.com/40'), // Group avatar logic if needed
+                        displayName: c.name || displayUser?.name || displayUser?.full_name || 'Unknown',
+                        displayAvatar: c.name ? null : (displayUser?.avatar_url || 'https://via.placeholder.com/40'),
                         lastMessage: {
-                            content: c.last_message_text || 'No messages yet',
-                            created_at: c.last_message_at || c.created_at,
-                            // sender_id not easily available without fetching messages, but harmless for list preview usually
+                            content: lastMsg?.content || 'No messages yet',
+                            created_at: lastMsg?.created_at || c.created_at,
                         },
-                        unreadCount: 0, // Simplified for now
-                        updated_at: c.last_message_at || c.created_at,
-                        is_group: c.type === 'group'
+                        unreadCount: 0, 
+                        updated_at: c.last_message_at || lastMsg?.created_at || c.created_at,
+                        is_group: c.type === 'group' || c.is_group
                     };
-                }) || [];
+                });
 
                 setRooms(formattedRooms);
             } catch (err) {
                 console.error("Error fetching conversations:", err);
+                setRooms([]);
             } finally {
                 setIsLoading(false);
             }
@@ -130,23 +92,38 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
 
         fetchConversations();
 
-        // 2. Realtime Subscriptions
-        const channel = supabase.channel(`admin_chat_list_${currentUserId}`)
-            // Listen for new messages (updates conversation last_message)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, (payload) => {
-                // Re-fetch or optimistically update. Re-fetch is safer for order changes.
-                fetchConversations();
-            })
-            // Listen for new conversations (inserts into participants)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_participants', filter: `user_id=eq.${currentUserId}` }, () => {
-                fetchConversations();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => {};
     }, [currentUserId]);
+
+    useAutoSync(['messages', 'chat_rooms'], () => {
+        console.log('🔄 [AdminMessages] Real-time auto-sync triggered');
+        const fetchConversations = async () => {
+            try {
+                const convs = await api.getChatRooms();
+                const formattedRooms = convs.map((c: any) => {
+                    const otherPart = c.participants?.find((p: any) => p.user?.id !== currentUserId)?.user;
+                    const displayUser = otherPart || (c.participants?.[0]?.user);
+                    const lastMsg = c.messages?.[0];
+                    return {
+                        id: c.id,
+                        displayName: c.name || displayUser?.name || displayUser?.full_name || 'Unknown',
+                        displayAvatar: c.name ? null : (displayUser?.avatar_url || 'https://via.placeholder.com/40'),
+                        lastMessage: {
+                            content: lastMsg?.content || 'No messages yet',
+                            created_at: lastMsg?.created_at || c.created_at,
+                        },
+                        unreadCount: 0, 
+                        updated_at: c.last_message_at || lastMsg?.created_at || c.created_at,
+                        is_group: c.type === 'group' || c.is_group
+                    };
+                });
+                setRooms(formattedRooms);
+            } catch (err) {
+                console.error("Error fetching conversations:", err);
+            }
+        };
+        fetchConversations();
+    });
 
 
     const filteredConversations = useMemo(() => {

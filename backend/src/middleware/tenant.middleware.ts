@@ -58,7 +58,16 @@ export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
 export const requireTenant = async (req: AuthRequest, res: Response, next: NextFunction) => {
     const user = req.user;
 
-    if (!user || !user.school_id) {
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Allow SuperAdmins to bypass tenant requirement for global actions (like SaaS dashboard)
+    if (user.role === 'SUPER_ADMIN' || user.role === 'super_admin') {
+        return next();
+    }
+
+    if (!user.school_id) {
         console.error('❌ [SecurityException] User has no authorized school context.');
         return res.status(403).json({ 
             error: 'SecurityException: Access denied. No valid school context found.' 
@@ -75,7 +84,16 @@ export const requireRole = (allowedRoles: string[]) => {
     return (req: AuthRequest, res: Response, next: NextFunction) => {
         const user = req.user;
 
-        if (!user || !allowedRoles.includes(user.role)) {
+        if (!user) {
+            console.warn(`🚨 [SecurityException] No user found in request`);
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // Normalize both user role and allowed roles to lowercase for comparison
+        const userRoleLower = user.role.toLowerCase();
+        const allowedRolesLower = allowedRoles.map(role => role.toLowerCase());
+
+        if (!allowedRolesLower.includes(userRoleLower)) {
             console.warn(`🚨 [SecurityException] Role Mismatch! User ${user?.email} (${user?.role}) attempted restricted action.`);
             return res.status(403).json({ 
                 error: `SecurityException: This action requires one of the following roles: ${allowedRoles.join(', ')}` 

@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { UsersIcon, ParentNavIcon, TeacherNavIcon, StudentNavIcon, AIIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { api } from '../../lib/api';
-import { supabase } from '../../lib/supabase';
+import { useAutoSync } from '../../hooks/useAutoSync';
+
 import { useAuth } from '../../context/AuthContext';
 
 type Audience = 'all' | 'parents' | 'teachers' | 'students';
@@ -37,44 +37,44 @@ const CommunicationHub: React.FC = () => {
     const [isLoadingData, setIsLoadingData] = useState(true);
     const { user, currentSchool, currentBranchId } = useAuth();
 
+    const loadCounts = async () => {
+        if (!currentSchool?.id) return;
+        try {
+            // Use getDashboardStats which is already integrated and robust
+            const dashStats = await api.getDashboardStats(currentSchool.id, currentBranchId || undefined);
+
+            setStats({
+                parents: dashStats.totalParents || 0,
+                teachers: dashStats.totalTeachers || 0,
+                students: dashStats.totalStudents || 0,
+            });
+        } catch (err) {
+            console.error("Error loading recipient counts:", err);
+        }
+    };
+
+    const loadNotices = async () => {
+        if (!currentSchool?.id) return;
+        try {
+            const data = await api.getNotices(currentSchool.id);
+            setNotices(data);
+        } catch (err) {
+            console.error("Error loading notices:", err);
+        } finally {
+            setIsLoadingData(false);
+        }
+    };
+
     useEffect(() => {
-        const loadCounts = async () => {
-            if (!currentSchool?.id) return;
-            try {
-                // We'll use a raw query to get counts for the dashboard-like experience
-                const { data: profiles, error } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('school_id', currentSchool.id);
-
-                if (error) throw error;
-
-                const counts = {
-                    parents: profiles.filter(p => p.role === 'parent').length,
-                    teachers: profiles.filter(p => p.role === 'teacher').length,
-                    students: profiles.filter(p => p.role === 'student').length,
-                };
-                setStats(counts);
-            } catch (err) {
-                console.error("Error loading recipient counts:", err);
-            }
-        };
-
-        const loadNotices = async () => {
-            if (!currentSchool?.id) return;
-            try {
-                const data = await api.getNotices(currentSchool.id);
-                setNotices(data);
-            } catch (err) {
-                console.error("Error loading notices:", err);
-            } finally {
-                setIsLoadingData(false);
-            }
-        };
-
         loadCounts();
         loadNotices();
     }, [currentSchool?.id]);
+
+    useAutoSync(['notices', 'students', 'parents', 'teachers'], () => {
+        console.log('🔄 [CommunicationHub] Real-time auto-sync triggered');
+        loadCounts();
+        loadNotices();
+    });
 
 
     const audiences: { id: Audience, label: string, icon: React.ReactNode }[] = [
@@ -92,7 +92,7 @@ const CommunicationHub: React.FC = () => {
         }
         setIsGenerating(true);
         try {
-            const ai = getAIClient(import.meta.env.VITE_GEMINI_API_KEY || '');
+            const ai = getAIClient();
             const audienceText = selectedAudience === 'all' ? 'everyone (students, parents, and teachers)' : `the ${selectedAudience}`;
             const response = await ai.models.generateContent({
                 model: 'gemini-2.0-flash',
@@ -138,34 +138,27 @@ const CommunicationHub: React.FC = () => {
             const audienceList = selectedAudience === 'all' ? ['all'] : [selectedAudience];
 
             // 1. Create the persistent Notice
+            // Strip out school_id/branch_id as backend handles these via JWT context
             await api.createNotice({
-                school_id: currentSchool.id,
-                branch_id: currentBranchId, // Pass the active branch ID
                 title,
                 content: message,
-                audience: audienceList as string[],
-                created_by: user.id,
+                audience: audienceList,
                 category: 'General',
-                is_pinned: false,
-                timestamp: new Date().toISOString()
+                is_pinned: false
             });
 
             // 2. Create the Real-time Notification Alert
-            // This ensures users see the red badge and get a toast immediately via existing hooks
             try {
                 await api.createNotification({
-                    school_id: currentSchool.id,
                     user_id: null, // Broadcast notification (null targets audience)
                     audience: audienceList,
                     title: `New Announcement: ${title}`,
                     message: message.substring(0, 150) + (message.length > 150 ? '...' : ''), // Preview
                     category: 'Alert',
-                    is_read: false,
-                    created_at: new Date().toISOString()
+                    is_read: false
                 });
             } catch (notificationError) {
                 console.error('Failed to create notification alert:', notificationError);
-                // We don't block the UI success for this, as the main notice was saved.
             }
 
             toast.success(`Announcement sent to ${selectedAudience}`);

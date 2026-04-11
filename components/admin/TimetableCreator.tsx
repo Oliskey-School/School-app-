@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { generateTimetableLocal, AlgoInput, GeneratedScheduleResult } from '../../lib/timetableAlgorithm';
 import {
     CalendarIcon,
@@ -21,7 +20,7 @@ import {
     SUBJECT_COLORS
 } from '../../constants';
 import { deduplicateClasses } from '../../utils/classUtils';
-import { api } from '../../lib/api';
+
 
 // --- TYPES ---
 
@@ -200,7 +199,7 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
             }
 
             // 2. Delete existing for these classes
-            const { error: deleteError } = await supabase
+            const { error: deleteError } = await api
                 .from('timetable')
                 .delete()
                 .in('class_name', classesToSave)
@@ -210,7 +209,7 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
 
             // 3. Insert new
             if (entriesToInsert.length > 0) {
-                const { error: insertError } = await supabase
+                const { error: insertError } = await api
                     .from('timetable')
                     .insert(entriesToInsert);
 
@@ -337,7 +336,7 @@ const TimetableCreator: React.FC<{ navigateTo: (path: string) => void, initialCl
         const teacher = allTeachers.find(t => t.name === teacherName);
         if (!teacher) return null;
 
-        const { data, error } = await supabase
+        const { data, error } = await api
             .from('timetable')
             .select('class_name')
             .eq('school_id', schoolId)

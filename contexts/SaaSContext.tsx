@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { SaaSSchool, Plan } from '../types';
+import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 interface SaaSContextType {
     isSuperAdmin: boolean;
@@ -26,27 +27,20 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [schools, setSchools] = useState<SaaSSchool[]>([]);
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
 
     // Initial Check
     useEffect(() => {
-        checkSuperAdminStatus();
-    }, []);
+        if (user) {
+            checkSuperAdminStatus();
+        } else {
+            setLoading(false);
+        }
+    }, [user]);
 
     const checkSuperAdminStatus = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setLoading(false);
-                return;
-            }
-
-            const { data, error } = await supabase
-                .from('super_admins')
-                .select('id')
-                .eq('user_id', user.id)
-                .single();
-
-            if (data || user.email === 'admin@demo.com') {
+            if (user?.role === 'SUPER_ADMIN' || user?.email === 'admin@demo.com') {
                 setIsSuperAdmin(true);
                 await refreshAll();
             }
@@ -57,53 +51,21 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    // Real-time Subscription
-    useEffect(() => {
-        if (!isSuperAdmin) return;
-
-        const channel = supabase
-            .channel('saas-schools-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'schools' },
-                (payload) => {
-                    console.log('Real-time School Update:', payload);
-                    refreshSchools();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [isSuperAdmin]);
-
     const refreshSchools = async () => {
-        const { data, error } = await supabase
-            .from('schools')
-            .select(`
-                *,
-                plan:plans(name, price_monthly)
-            `)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching schools:', error);
-        } else {
+        try {
+            const data = await api.getSchools();
             setSchools(data as any || []);
+        } catch (error) {
+            console.error('Error fetching schools:', error);
         }
     };
 
     const refreshPlans = async () => {
-        const { data, error } = await supabase
-            .from('plans')
-            .select('*')
-            .order('price_monthly');
-
-        if (error) {
+        try {
+            const data = await api.getPlans();
+            setPlans(data as any || []);
+        } catch (error) {
             console.error('Error fetching plans:', error);
-        } else {
-            setPlans(data as Plan[] || []);
         }
     };
 
@@ -124,7 +86,7 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         totalSchools: schools.length,
         activeSubscriptions: schools.filter(s => s.subscription_status === 'active').length,
         pendingApprovals: schools.filter(s => s.status === 'pending').length,
-        growthMRR: 15.5 // Simulated growth percentage
+        growthMRR: 15.5 
     };
 
     return (

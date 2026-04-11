@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { MessageSquare, Send, Calendar, Users, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -60,7 +60,7 @@ const SMSLessonManager: React.FC = () => {
     const fetchLessons = async () => {
         try {
             if (!schoolId) return;
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('sms_lessons')
                 .select('*')
                 .eq('school_id', schoolId)
@@ -78,7 +78,7 @@ const SMSLessonManager: React.FC = () => {
     const fetchSchedules = async () => {
         try {
             if (!schoolId) return;
-            const { data, error } = await supabase
+            const { data, error } = await api
                 .from('sms_schedules')
                 .select(`
                   *,
@@ -114,7 +114,7 @@ const SMSLessonManager: React.FC = () => {
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('sms_lessons')
                 .insert({
                     school_id: schoolId,
@@ -146,7 +146,7 @@ const SMSLessonManager: React.FC = () => {
 
         try {
             // Get recipient count
-            const { count } = await supabase
+            const { count } = await api
                 .from('sms_contacts')
                 .select('*', { count: 'exact', head: true })
                 .eq('school_id', schoolId)
@@ -155,7 +155,7 @@ const SMSLessonManager: React.FC = () => {
             const recipientCount = count || 0;
             const estimatedCost = recipientCount * 2.5; // ₦2.50 per SMS
 
-            const { error } = await supabase
+            const { error } = await api
                 .from('sms_schedules')
                 .insert({
                     lesson_id: selectedLessonId,
@@ -507,3 +507,4 @@ const SMSLessonManager: React.FC = () => {
 };
 
 export default SMSLessonManager;
+

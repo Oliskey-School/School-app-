@@ -3,6 +3,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SwordsIcon, ShieldIcon, ZapIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 import confetti from 'canvas-confetti';
 
 interface MathBattleArenaGameProps {
@@ -147,6 +148,18 @@ const MathBattleArenaGame: React.FC<MathBattleArenaGameProps> = ({ onBack }) => 
         if (qTimerRef.current) clearInterval(qTimerRef.current);
         if (score > 100) unlockBadge('math-whiz');
         confetti({ origin: { y: 0.8 } });
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'math-battle',
+            game_name: 'Math Battle Arena',
+            score: score,
+            metadata: {
+                streak,
+                playerHealth,
+                enemyHealth
+            }
+        }).catch(err => console.error("Failed to save math battle score:", err));
     };
 
     const restartGame = () => {

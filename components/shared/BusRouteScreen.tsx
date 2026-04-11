@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PhoneIcon, BusVehicleIcon, ClockIcon, UsersIcon } from '../../constants';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { api } from '../../lib/api';

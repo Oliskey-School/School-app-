@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Student } from '../../../types';
 import { Timer, MapPin, Award, PauseIcon, CheckCircle, XCircle, Zap, Globe, LifeBuoy } from 'lucide-react';
+import { api } from '../../../lib/api';
 import { toast } from 'react-hot-toast';
 
 interface GeoGuesserGameScreenProps {
@@ -126,6 +127,15 @@ const GeoGuesserGameScreen: React.FC<GeoGuesserGameScreenProps> = ({ navigateTo,
                 generateRound();
             } else {
                 setGameState('finished');
+                // Save score
+                if (score > 0) {
+                    api.submitGameScore({
+                        game_id: 'geoguesser',
+                        game_name: 'GeoGuesser',
+                        score,
+                        metadata: { streak, grade: student?.grade }
+                    }).catch(console.error);
+                }
             }
         }, 1500); // 1.5s delay to see result
     };
@@ -141,6 +151,15 @@ const GeoGuesserGameScreen: React.FC<GeoGuesserGameScreenProps> = ({ navigateTo,
                 generateRound();
             } else {
                 setGameState('finished');
+                // Save score
+                if (score > 0) {
+                    api.submitGameScore({
+                        game_id: 'geoguesser',
+                        game_name: 'GeoGuesser',
+                        score,
+                        metadata: { streak, grade: student?.grade }
+                    }).catch(console.error);
+                }
             }
         }, 1500);
     };

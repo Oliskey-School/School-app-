@@ -188,8 +188,8 @@ const AssignFeePage: React.FC<AssignFeePageProps> = ({
                                                                 students={students}
                                                                 value={field.value}
                                                                 onChange={(val) => form.setFieldValue('studentId', val)}
-                                                                error={errors.studentId}
-                                                                touched={touched.studentId}
+                                                                error={errors.studentId as string}
+                                                                touched={touched.studentId as boolean}
                                                             />
                                                         )}
                                                     </Field>

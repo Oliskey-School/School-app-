@@ -1,233 +1,652 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import bcrypt from 'bcryptjs';
+import { EmailService } from './email.service';
+import { IdGeneratorService } from './idGenerator.service';
+import { Role } from '@prisma/client';
+import { SocketService } from './socket.service';
 
 export class ParentService {
     static async getParents(schoolId: string, branchId?: string) {
-        let query = supabase
-            .from('parents')
-            .select(`
-                *,
-                parent_children (
-                    student_id,
-                    students (id, name, grade, section)
-                )
-            `)
-            .eq('school_id', schoolId);
+        const parents = await (prisma.parent.findMany as any)({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            include: {
+                children: {
+                    include: {
+                        student: true
+                    }
+                }
+            },
+            orderBy: { full_name: 'asc' }
+        });
 
-        if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
-        }
-
-        const { data, error } = await query.order('name');
-
-        if (error) throw new Error(error.message);
-        return (data || []).map((p: any) => ({
+        return (parents || []).map((p: any) => ({
             ...p,
-            childIds: p.parent_children?.map((pc: any) => pc.student_id) || []
+            childIds: p.children?.map((pc: any) => pc.student_id) || [],
+            childrenNames: p.children?.map((pc: any) => pc.student?.full_name).filter(Boolean) || []
         }));
     }
 
-    static async createParent(schoolId: string, branchId: string | undefined, parentData: any) {
-        const insertData = { ...parentData, school_id: schoolId };
+    static async linkChild(schoolId: string, branchId: string | undefined, parentId: string, studentId: string) {
+        const result = await (prisma.parentChild.create as any)({
+            data: {
+                parent_id: parentId,
+                student_id: studentId,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : null
+            }
+        });
 
-        if (branchId && branchId !== 'all') {
-            insertData.branch_id = branchId;
+        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'link_child', parentId, studentId });
+        return result;
+    }
+
+    static async unlinkChild(schoolId: string, branchId: string | undefined, parentId: string, studentId: string) {
+        const result = await (prisma.parentChild.deleteMany as any)({
+            where: {
+                parent_id: parentId,
+                student_id: studentId,
+                school_id: schoolId
+            }
+        });
+
+        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'unlink_child', parentId, studentId });
+        return result;
+    }
+
+    static async getParentsByClassId(schoolId: string, branchId: string | undefined, classId: string) {
+        const enrollments = await (prisma.studentEnrollment.findMany as any)({
+            where: {
+                class_id: classId,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            include: {
+                student: {
+                    include: {
+                        parents: {
+                            include: {
+                                parent: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const parents: any[] = [];
+        const seenParentIds = new Set();
+
+        (enrollments || []).forEach((en: any) => {
+            en.student?.parents?.forEach((p: any) => {
+                if (p.parent && !seenParentIds.has(p.parent.id)) {
+                    seenParentIds.add(p.parent.id);
+                    parents.push(p.parent);
+                }
+            });
+        });
+
+        return parents;
+    }
+
+    static async createParent(schoolId: string, branchId: string | undefined, parentData: any) {
+        const { email, full_name, phone, address, occupation, relationship, emergency_contact, sendCredentials = true } = parentData;
+        
+        if (!email || !full_name) {
+            throw new Error('Email and full name are required');
         }
 
-        const { data, error } = await supabase
-            .from('parents')
-            .insert([insertData])
-            .select()
-            .single();
+        const result = await prisma.$transaction(async (tx) => {
+            let user = await tx.user.findUnique({
+                where: { email: email.toLowerCase() }
+            });
 
-        if (error) throw new Error(error.message);
-        return data;
+            let generatedPassword: string | null = null;
+            let loginId: string | null = null;
+
+            if (!user) {
+                generatedPassword = this.generateRandomPassword();
+                const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
+                let schoolGeneratedId: string | null = null;
+                if (schoolId && branchId) {
+                    try {
+                        schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'parent');
+                        loginId = schoolGeneratedId;
+                    } catch (err) {
+                        console.warn('[ParentService] ID generation failed:', err);
+                    }
+                }
+
+                user = await (tx.user.create as any)({
+                    data: {
+                        email: email.toLowerCase(),
+                        password_hash: hashedPassword,
+                        full_name,
+                        role: Role.PARENT,
+                        school_id: schoolId,
+                        branch_id: branchId && branchId !== 'all' ? branchId : null,
+                        school_generated_id: schoolGeneratedId,
+                        email_verified: false,
+                        initial_password: generatedPassword,
+                        updated_at: new Date()
+                    }
+                });
+
+                loginId = schoolGeneratedId || email;
+            } else {
+                loginId = user.school_generated_id || user.email;
+            }
+
+            const parent = await (tx.parent.upsert as any)({
+                where: { user_id: user.id },
+                create: {
+                    user_id: user.id,
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : null,
+                    full_name,
+                    email: email.toLowerCase(),
+                    phone,
+                    address,
+                    occupation,
+                    relationship,
+                    emergency_contact,
+                    school_generated_id: user.school_generated_id,
+                    updated_at: new Date()
+                },
+                update: {
+                    full_name,
+                    email: email.toLowerCase(),
+                    phone,
+                    address,
+                    occupation,
+                    relationship,
+                    emergency_contact,
+                    school_generated_id: user.school_generated_id,
+                    updated_at: new Date()
+                }
+            });
+
+            // 3. Link Children if provided
+            const { childIds } = parentData;
+            if (childIds && Array.isArray(childIds) && childIds.length > 0) {
+                // Resolve student IDs
+                const students = await tx.student.findMany({
+                    where: {
+                        school_id: schoolId,
+                        OR: [
+                            { id: { in: childIds } },
+                            { school_generated_id: { in: childIds } }
+                        ]
+                    },
+                    select: { id: true }
+                });
+
+                if (students.length > 0) {
+                    const relations = students.map(s => ({
+                        parent_id: parent.id,
+                        student_id: s.id,
+                        school_id: schoolId,
+                        branch_id: branchId && branchId !== 'all' ? branchId : null
+                    }));
+
+                    await (tx.parentChild.createMany as any)({
+                        data: relations,
+                        skipDuplicates: true
+                    });
+                }
+            }
+
+            await (tx.schoolMembership.upsert as any)({
+                where: {
+                    school_id_user_id: {
+                        school_id: schoolId,
+                        user_id: user.id
+                    }
+                },
+                create: {
+                    school_id: schoolId,
+                    user_id: user.id,
+                    base_role: Role.PARENT,
+                    is_active: true,
+                    updated_at: new Date()
+                },
+                update: {}
+            });
+
+            return {
+                parent,
+                userId: user.id,
+                email: user.email,
+                loginId: loginId || email,
+                password: generatedPassword,
+            };
+        });
+
+        // Send Email outside of transaction
+        if (sendCredentials && result.password) {
+            try {
+                const school = await prisma.school.findUnique({
+                    where: { id: schoolId },
+                    select: { name: true }
+                });
+                
+                await EmailService.sendCredentialsEmail(
+                    email,
+                    full_name,
+                    'Parent',
+                    result.loginId || email,
+                    result.password,
+                    school?.name
+                );
+            } catch (emailError) {
+                console.error('[ParentService] Failed to send credentials email:', emailError);
+            }
+        }
+
+        return {
+            ...result,
+            credentialsSent: sendCredentials && !!result.password
+        };
+    }
+
+    private static generateRandomPassword(length: number = 8): string {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
     }
 
     static async getParentById(schoolId: string, branchId: string | undefined, id: string) {
-        let query = supabase
-            .from('parents')
-            .select(`
-                *,
-                parent_children (
-                    student_id,
-                    students (id, name, grade, section)
-                )
-            `)
-            .eq('school_id', schoolId)
-            .eq('id', id);
+        const parent = await (prisma.parent.findFirst as any)({
+            where: {
+                id: id,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            include: {
+                children: {
+                    include: {
+                        student: true
+                    }
+                }
+            }
+        });
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
+        if (!parent) throw new Error('Parent not found');
 
-        const { data, error } = await query.single();
-
-        if (error) throw new Error(error.message);
         return {
-            ...data,
-            childIds: data.parent_children?.map((pc: any) => pc.student_id) || []
+            ...parent,
+            childIds: parent.children?.map((pc: any) => pc.student_id) || []
         };
     }
 
     static async updateParent(schoolId: string, branchId: string | undefined, id: string, updates: any) {
-        let query = supabase
-            .from('parents')
-            .update(updates)
-            .eq('id', id)
-            .eq('school_id', schoolId);
+        return await prisma.$transaction(async (tx) => {
+            const updatedParent = await (tx.parent.update as any)({
+                where: { id: id },
+                data: updates
+            });
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
+            if (updates.school_generated_id !== undefined || updates.full_name !== undefined) {
+                const userData: any = {};
+                if (updates.school_generated_id !== undefined) userData.school_generated_id = updates.school_generated_id;
+                if (updates.full_name !== undefined) userData.full_name = updates.full_name;
 
-        const { data, error } = await query
-            .select()
-            .single();
+                if (updatedParent.user_id) {
+                    await tx.user.update({
+                        where: { id: updatedParent.user_id },
+                        data: userData
+                    });
+                }
+            }
 
-        if (error) throw new Error(error.message);
-        return data;
+            SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'update', parentId: id });
+            return updatedParent;
+        });
+    }
+
+    static async getParentProfile(schoolId: string, branchId: string | undefined, userId: string) {
+        return await (prisma.parent.findUnique as any)({
+            where: { user_id: userId },
+            include: {
+                user: true
+            }
+        });
     }
 
     static async deleteParent(schoolId: string, branchId: string | undefined, id: string) {
-        let query = supabase
-            .from('parents')
-            .delete()
-            .eq('id', id)
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { error } = await query;
-
-        if (error) throw new Error(error.message);
+        await (prisma.parent.delete as any)({
+            where: { id: id }
+        });
+        
+        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'delete', parentId: id });
         return true;
     }
 
     static async getChildren(schoolId: string, branchId: string | undefined, parentUserId: string) {
-        // 1. Resolve parent_id from user_id
-        const { data: parent } = await supabase
-            .from('parents')
-            .select('id')
-            .eq('user_id', parentUserId)
-            .eq('school_id', schoolId)
-            .single();
+        const parent = await prisma.parent.findUnique({
+            where: { user_id: parentUserId }
+        });
 
         if (!parent) return [];
 
-        // 2. Get student IDs from parent_children bridge table
-        let query = supabase
-            .from('parent_children')
-            .select('student_id')
-            .eq('parent_id', parent.id)
-            .eq('school_id', schoolId);
+        const relations = await (prisma.parentChild.findMany as any)({
+            where: {
+                parent_id: parent.id,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            include: {
+                student: {
+                    include: {
+                        academic_performance: true,
+                        behavior_notes: true,
+                        report_cards: true
+                    }
+                }
+            }
+        });
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data: relations, error: relError } = await query;
-        if (relError || !relations || relations.length === 0) return [];
-
-        const studentIds = relations.map(r => r.student_id);
-
-        // 3. Fetch the specific students
-        let studentQuery = supabase
-            .from('students')
-            .select(`
-                *,
-                academic_performance (*),
-                behavior_records (*),
-                report_cards (*)
-            `)
-            .in('id', studentIds)
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            studentQuery = studentQuery.or(`branch_id.eq.${branchId},branch_id.is.null`);
-        }
-
-        const { data: students, error } = await studentQuery.order('name');
-
-        if (error) throw new Error(error.message);
-        return students || [];
+        return (relations || []).map((r: any) => r.student);
     }
 
     static async createAppointment(schoolId: string, branchId: string | undefined, appointmentData: any) {
-        const insertData = {
-            ...appointmentData,
-            school_id: schoolId
-        };
-
-        if (branchId && branchId !== 'all') {
-            insertData.branch_id = branchId;
-        }
-
-        const { data, error } = await supabase
-            .from('appointments')
-            .insert([insertData])
-            .select()
-            .single();
-
-        if (error) throw new Error(error.message);
-        return data;
+        return await (prisma.appointment.create as any)({
+            data: {
+                ...appointmentData,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : null,
+                date: new Date(appointmentData.date)
+            }
+        });
     }
 
     static async volunteerSignup(schoolId: string, branchId: string | undefined, signupData: any) {
-        // 1. Insert signup
-        const insertData = {
-            ...signupData,
-            school_id: schoolId
-        };
+        return await prisma.$transaction(async (tx) => {
+            const signup = await (tx.volunteerSignup.create as any)({
+                data: {
+                    ...signupData,
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : null
+                }
+            });
 
-        if (branchId && branchId !== 'all') {
-            insertData.branch_id = branchId;
-        }
-
-        const { data, error } = await supabase
-            .from('volunteer_signups')
-            .insert([insertData])
-            .select()
-            .single();
-
-        if (error) throw new Error(error.message);
-
-        // 2. Increment slots_filled
-        if (signupData.opportunity_id) {
-            const { data: opp } = await supabase
-                .from('volunteering_opportunities')
-                .select('slots_filled')
-                .eq('id', signupData.opportunity_id)
-                .single();
-
-            if (opp) {
-                await supabase
-                    .from('volunteering_opportunities')
-                    .update({ slots_filled: ((opp as any).slots_filled || 0) + 1 })
-                    .eq('id', signupData.opportunity_id);
+            if (signupData.opportunity_id) {
+                await (tx.volunteeringOpportunity.update as any)({
+                    where: { id: signupData.opportunity_id },
+                    data: {
+                        slots_filled: { increment: 1 }
+                    }
+                });
             }
-        }
 
-        return data;
+            SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'volunteer_signup', signupId: signup.id });
+            return signup;
+        });
     }
 
-    static async markNotificationRead(schoolId: string, branchId: string | undefined, notificationId: string | number) {
-        let query = supabase
-            .from('notifications')
-            .update({ is_read: true })
-            .eq('id', notificationId)
-            .eq('school_id', schoolId);
+    static async markNotificationRead(schoolId: string, branch_id: string | undefined, notificationId: string) {
+        return await prisma.notification.update({
+            where: { id: notificationId },
+            data: { is_read: true }
+        });
+    }
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
+    static async getResources(schoolId: string) {
+        return await (prisma as any).resource.findMany({
+            where: { school_id: schoolId },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+    static async getVolunteeringOpportunities(schoolId: string, branchId: string | undefined) {
+        return await prisma.volunteeringOpportunity.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            include: {
+                _count: {
+                    select: { signups: true }
+                }
+            },
+            orderBy: { date: 'asc' }
+        });
+    }
+
+    static async signupForOpportunity(schoolId: string, opportunityId: string, parentId: string) {
+        const signup = await (prisma.volunteerSignup.create as any)({
+            data: {
+                school_id: schoolId,
+                opportunity_id: opportunityId,
+                parent_id: parentId,
+                status: 'PENDING'
+            }
+        });
+
+        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'opportunity_signup', opportunityId });
+        return signup;
+    }
+
+    static async getVolunteeringStats(parentId: string) {
+        const signupsCount = await (prisma.volunteerSignup.count as any)({
+            where: { parent_id: parentId, status: 'APPROVED' }
+        });
+
+        return { totalHours: signupsCount * 2, badges: [] };
+    }
+
+    static async getChildOverview(schoolId: string, branchId: string | undefined, studentId: string) {
+        // 1. Get Student basic info
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+            select: {
+                id: true,
+                full_name: true,
+                grade: true,
+                section: true,
+                school_id: true,
+                branch_id: true,
+                school: { select: { name: true } }
+            }
+        });
+
+        if (!student) throw new Error('Student not found');
+
+        // 2. Get latest Attendance
+        const attendance = await prisma.attendance.findFirst({
+            where: { student_id: studentId },
+            orderBy: { date: 'desc' },
+            select: { status: true, date: true }
+        });
+
+        // 3. Get Assignments due (Count of assignments for student's class that haven't been submitted)
+        // First find class_id for student
+        const enrollment = await prisma.studentEnrollment.findFirst({
+            where: { student_id: studentId, status: 'Active' },
+            select: { class_id: true }
+        });
+
+        let assignmentsDueCount = 0;
+        if (enrollment) {
+            const submissions = await prisma.assignmentSubmission.findMany({
+                where: { student_id: studentId },
+                select: { assignment_id: true }
+            });
+            const submittedIds = submissions.map(s => s.assignment_id);
+
+            assignmentsDueCount = await prisma.assignment.count({
+                where: {
+                    class_id: enrollment.class_id,
+                    due_date: { gte: new Date() },
+                    id: { notIn: submittedIds }
+                }
+            });
         }
 
-        const { data, error } = await query
-            .select()
-            .single();
+        // 4. Get Fee Balance
+        const fees = await prisma.studentFee.findMany({
+            where: { student_id: studentId, status: { not: 'Paid' } },
+            select: { amount: true, paid_amount: true }
+        });
+        const feeBalance = fees.reduce((sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0);
 
-        if (error) throw new Error(error.message);
-        return data;
+        // 5. Get Latest Result
+        const latestPerformance = await prisma.academicPerformance.findFirst({
+            where: { student_id: studentId },
+            orderBy: { created_at: 'desc' }
+        });
+
+        return {
+            id: student.id,
+            name: student.full_name,
+            grade: `${student.grade}${student.section || ''}`,
+            school_name: student.school.name,
+            attendance: {
+                status: attendance?.status || 'No record',
+                date: attendance?.date
+            },
+            assignments_due: assignmentsDueCount,
+            fee_balance: feeBalance,
+            latest_result: latestPerformance ? {
+                subject: latestPerformance.subject,
+                score: latestPerformance.score,
+                trend: latestPerformance.score >= 70 ? 'up' : 'down'
+            } : undefined
+        };
+    }
+
+    static async getStudentFees(schoolId: string, branchId: string | undefined, studentId: string) {
+        return await prisma.studentFee.findMany({
+            where: {
+                student_id: studentId,
+                school_id: schoolId
+            },
+            orderBy: { due_date: 'asc' }
+        });
+    }
+
+    static async recordPayment(schoolId: string, branchId: string | undefined, paymentData: any) {
+        const { fee_id, student_id, amount, reference, payment_method, purpose } = paymentData;
+
+        return await prisma.$transaction(async (tx) => {
+            // 1. Create Payment record
+            const payment = await tx.payment.create({
+                data: {
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : null,
+                    student_id,
+                    fee_id,
+                    amount,
+                    reference,
+                    payment_method,
+                    purpose: purpose || 'fee_payment',
+                    status: 'Completed',
+                    payment_date: new Date()
+                }
+            });
+
+            // 2. Update StudentFee if applicable
+            if (fee_id) {
+                const fee = await tx.studentFee.findUnique({
+                    where: { id: fee_id }
+                });
+
+                if (fee) {
+                    const newPaidAmount = (fee.paid_amount || 0) + amount;
+                    const newStatus = newPaidAmount >= fee.amount ? 'Paid' : 'Partial';
+
+                    await tx.studentFee.update({
+                        where: { id: fee_id },
+                        data: {
+                            paid_amount: newPaidAmount,
+                            status: newStatus,
+                            updated_at: new Date()
+                        }
+                    });
+                }
+            }
+
+            SocketService.emitToSchool(schoolId, 'finance:updated', { action: 'record_payment', paymentId: payment.id, studentId: student_id });
+            return payment;
+        });
+    }
+
+    // ==========================================
+    // SUPPLEMENTARY FEATURES (Phase 2)
+    // ==========================================
+
+    static async getPTAMeetings(schoolId: string, branchId: string | undefined) {
+        return await prisma.pTAMeeting.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                is_past: false
+            },
+            orderBy: { date: 'asc' }
+        });
+    }
+
+    static async getLearningResources(schoolId: string, branchId: string | undefined) {
+        return await prisma.resource.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+            },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+    static async getParentMessages(schoolId: string, parentUserId: string) {
+        return await prisma.message.findMany({
+            where: {
+                school_id: schoolId,
+                OR: [
+                    { sender_id: parentUserId },
+                    { receiver_id: parentUserId }
+                ]
+            },
+            include: {
+                sender: { select: { id: true, full_name: true, role: true, avatar_url: true } },
+                receiver: { select: { id: true, full_name: true, role: true, avatar_url: true } }
+            },
+            orderBy: { created_at: 'asc' }
+        });
+    }
+
+    static async getNotifications(schoolId: string, branchId: string | undefined, userId: string) {
+        return await prisma.notification.findMany({
+            where: {
+                school_id: schoolId,
+                OR: [
+                    { user_id: userId },
+                    { audience: { hasSome: ['parent', 'all'] } }
+                ],
+                ...(branchId && branchId !== 'all' ? { OR: [{ branch_id: branchId }, { branch_id: null }] } : {})
+            },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+
+    static async sendMessage(schoolId: string, branchId: string | undefined, senderId: string, receiverId: string, content: string) {
+        return await prisma.message.create({
+            data: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : null,
+                sender_id: senderId,
+                receiver_id: receiverId,
+                content
+            },
+            include: {
+                sender: { select: { id: true, full_name: true, role: true, avatar_url: true } },
+                receiver: { select: { id: true, full_name: true, role: true, avatar_url: true } }
+            }
+        });
     }
 }

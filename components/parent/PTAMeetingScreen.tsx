@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { PTAMeeting } from '../../types';
 import { CalendarIcon, ClockIcon, UsersIcon, CheckCircleIcon } from '../../constants';
 
@@ -14,15 +14,9 @@ const PTAMeetingScreen: React.FC = () => {
 
     const fetchUpcomingMeeting = async () => {
         try {
-            // Fetch meetings that are NOT past, order by date ascending (soonest first)
-            const { data, error } = await supabase
-                .from('pta_meetings')
-                .select('*')
-                .eq('is_past', false)
-                .order('date', { ascending: true })
-                .limit(1);
+            // Fetch meetings via unified API
+            const data = await api.getParentPTAMeetings();
 
-            if (error) throw error;
 
             if (data && data.length > 0) {
                 const m = data[0];

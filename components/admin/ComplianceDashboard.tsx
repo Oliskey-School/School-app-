@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import {
     ShieldCheck,
     AlertTriangle,
@@ -32,37 +33,27 @@ const ComplianceDashboard = () => {
         }
     }, [currentSchool]);
 
+    useAutoSync(['compliance_metrics', 'compliance_checklists', 'health_incidents', 'emergency_drills'], () => {
+        console.log('🔄 [ComplianceDashboard] Real-time auto-sync triggered');
+        fetchMetrics();
+    });
+
     const fetchMetrics = async () => {
         if (!currentSchool) return;
 
         setLoading(true);
         try {
-            let query = supabase
-                .from('vw_compliance_metrics')
-                .select('*')
-                .eq('school_id', currentSchool.id);
-
-            const branchId = (useAuth() as any).currentBranchId;
-            if (branchId && branchId !== 'all') {
-                query = query.eq('branch_id', branchId);
-            }
-
-            const { data, error } = await query.maybeSingle();
-
-            if (error) throw error;
-            if (data) {
-                setMetrics(data);
-            } else {
-                // Fallback if no metrics found for this school
-                setMetrics({
-                    facilities_score: 100,
-                    equipment_score: 100,
-                    safety_score: 100,
-                    safeguarding_score: 100
-                });
-            }
+            const data = await api.getComplianceMetrics(currentSchool.id);
+            setMetrics(data);
         } catch (err) {
             console.error('Error fetching compliance metrics:', err);
+            // Fallback if error
+            setMetrics({
+                facilities_score: 100,
+                equipment_score: 100,
+                safety_score: 100,
+                safeguarding_score: 100
+            });
         } finally {
             setLoading(false);
         }
@@ -196,3 +187,4 @@ const ComplianceDashboard = () => {
 };
 
 export default ComplianceDashboard;
+

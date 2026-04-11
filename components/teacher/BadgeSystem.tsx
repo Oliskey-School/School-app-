@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import {
     StarIcon,
@@ -31,44 +31,12 @@ const BadgeSystem: React.FC = () => {
     const fetchBadges = async () => {
         try {
             setLoading(true);
-
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) {
-                setLoading(false);
-                return;
+            // Fetch badges via backend API - returns {badges, totalPoints}
+            const result = await api.getTeacherBadges();
+            if (result) {
+                setBadges(result.badges || []);
+                setTotalPoints(result.totalPoints || 0);
             }
-
-            // Get all badges
-            const { data: allBadges } = await supabase
-                .from('pd_badges')
-                .select('*');
-
-            // Get earned badges
-            const { data: earnedBadges } = await supabase
-                .from('teacher_badges')
-                .select('badge_id, earned_at')
-                .eq('teacher_id', teacherData.id);
-
-            const earnedMap = new Map(earnedBadges?.map(b => [b.badge_id, b.earned_at]) || []);
-
-            const formatted: Badge[] = (allBadges || []).map((b: any) => ({
-                id: b.id,
-                name: b.name,
-                description: b.description,
-                icon_url: b.icon_url,
-                criteria: b.criteria,
-                points: b.points,
-                is_earned: earnedMap.has(b.id),
-                earned_at: earnedMap.get(b.id)
-            }));
-
-            setBadges(formatted);
-            setTotalPoints(formatted.filter(b => b.is_earned).reduce((sum, b) => sum + b.points, 0));
         } catch (error: any) {
             console.error('Error fetching badges:', error);
         } finally {
@@ -163,3 +131,4 @@ const BadgeSystem: React.FC = () => {
 };
 
 export default BadgeSystem;
+

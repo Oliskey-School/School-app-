@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import { CalendarIcon, CheckCircleIcon } from '../../constants';
@@ -34,22 +34,16 @@ const CounselingAppointments: React.FC = () => {
     const fetchAppointments = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('counseling_appointments')
-                .select('*, students(full_name)')
-                .eq('student_id', profile.id)
-                .order('requested_date', { ascending: false });
-
-            if (error) throw error;
+            const data = await api.getCounselingAppointments({ student_id: profile.id });
 
             const formatted = (data || []).map((a: any) => ({
                 ...a,
-                student_name: a.students?.full_name
+                student_name: a.student?.full_name || a.student?.name
             }));
 
             setAppointments(formatted);
         } catch (error: any) {
-            console.error('Error:', error);
+            console.error('Error fetching counseling appointments:', error);
         } finally {
             setLoading(false);
         }
@@ -58,13 +52,12 @@ const CounselingAppointments: React.FC = () => {
     const handleBooking = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const { error } = await supabase.from('counseling_appointments').insert({
+            await api.bookCounseling({
                 student_id: profile.id,
+                school_id: profile.school_id,
                 ...formData,
                 status: 'Pending'
             });
-
-            if (error) throw error;
 
             toast.success('Appointment request sent!');
             setShowBooking(false);
@@ -76,6 +69,7 @@ const CounselingAppointments: React.FC = () => {
             fetchAppointments();
         } catch (error: any) {
             toast.error('Failed to book appointment');
+            console.error(error);
         }
     };
 

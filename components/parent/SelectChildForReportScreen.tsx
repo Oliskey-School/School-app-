@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { ChevronRightIcon, ReportIcon } from '../../constants';
 
@@ -16,38 +16,17 @@ const SelectChildForReportScreen: React.FC<SelectChildForReportScreenProps> = ({
 
   useEffect(() => {
     const fetchChildren = async () => {
-      // IMPORTANT: student_parent_links uses user_id (UUID from auth.users), not parents.id
-      const effectiveParentUserId = currentUserId || (await supabase.auth.getUser()).data.user?.id;
-
-      if (!effectiveParentUserId) {
-        setLoading(false);
-        return;
-      }
       try {
-        const { data: relations } = await supabase
-          .from('student_parent_links')
-          .select('student_user_id')
-          .eq('school_id', schoolId)
-          .eq('parent_user_id', effectiveParentUserId);
-
-        if (relations && relations.length > 0) {
-          const studentUserIds = relations.map(r => r.student_user_id);
-          const { data: students } = await supabase
-            .from('students')
-            .select('*')
-            .eq('school_id', schoolId)
-            .in('user_id', studentUserIds);
-
-          if (students) {
-            const mappedStudents = students.map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              avatarUrl: s.avatar_url,
-              grade: s.grade,
-              section: s.section
-            } as Student));
-            setChildren(mappedStudents);
-          }
+        const data = await api.getMyChildren();
+        if (data) {
+          const mappedStudents = data.map((s: any) => ({
+            id: s.id,
+            name: s.name || s.full_name || 'Unknown Student',
+            avatarUrl: s.avatar_url,
+            grade: s.grade || s.class?.name || '',
+            section: s.section || ''
+          } as Student));
+          setChildren(mappedStudents);
         }
       } catch (err) {
         console.error("Error fetching children for report:", err);

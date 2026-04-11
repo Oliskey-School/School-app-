@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { BriefcaseIcon, UserIcon, QuoteIcon, CheckIcon, XIcon, AwardIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface SharkTankGameProps {
     onBack: () => void;
@@ -131,6 +132,19 @@ const SharkTankGame: React.FC<SharkTankGameProps> = ({ onBack }) => {
                 confetti();
                 addXP(50);
             }
+
+            // PERSIST TO DATABASE
+            api.submitGameScore({
+                game_id: 'shark-tank',
+                game_name: 'Literary Shark Tank',
+                score: pitchScore,
+                metadata: {
+                    scenario: currentScenario.id,
+                    thesis: currentScenario.thesis,
+                    evidenceCount: selectedEvidence.length,
+                    outcome: pitchScore >= 500 ? 'funded' : 'rejected'
+                }
+            }).catch(err => console.error("Failed to save shark tank score:", err));
         }, 2000);
     };
 

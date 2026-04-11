@@ -29,3 +29,13 @@ export const getResources = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const deleteResource = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        await ResourceService.deleteResource(id as string);
+        res.json({ message: 'Resource deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

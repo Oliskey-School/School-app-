@@ -5,12 +5,14 @@ import { requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
-// Only Super Admins can list or create schools via this API (or open signup)
-// For now, let's allow public creation for "Sign up your school" flow if needed,
-// but usually that's a separate auth flow.
-// Based on instructions, we'll protect list, maybe open create.
-
+router.get('/public', SchoolController.listSchools);
 router.post('/', SchoolController.createSchool); // Public registration
+router.post('/onboard', SchoolController.onboardSchool);
+
+// Pilot Onboarding Routes (must be before /:id)
+router.get('/pilot-onboarding', authenticate, SchoolController.getPilotOnboarding);
+router.put('/pilot-onboarding', authenticate, SchoolController.savePilotProgress);
+
 router.get('/', authenticate, requireRole(['SuperAdmin']), SchoolController.listSchools);
 router.get('/:id', authenticate, SchoolController.getSchoolById);
 

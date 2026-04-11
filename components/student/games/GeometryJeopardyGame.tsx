@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { HelpCircleIcon, CheckCircleIcon, XCircleIcon, AwardIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface GeometryJeopardyGameProps {
     onBack: () => void;
@@ -144,6 +145,17 @@ const GeometryJeopardyGame: React.FC<GeometryJeopardyGameProps> = ({ onBack }) =
             // Save Winnings
             const currentTotal = parseInt(localStorage.getItem('jeopardy_total_winnings') || '0');
             localStorage.setItem('jeopardy_total_winnings', (currentTotal + score).toString());
+
+            // PERSIST TO DATABASE
+            api.submitGameScore({
+                game_id: 'geometry-jeopardy',
+                game_name: 'Geometry Jeopardy',
+                score: score,
+                metadata: {
+                    totalWinnings: currentTotal + score,
+                    boardCleared: true
+                }
+            }).catch(err => console.error("Failed to save jeopardy score:", err));
         }
     };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, Award, TrendingUp, BookOpen, Download, FileText, Users, LogOut, Settings, Camera, ChevronRight, Bell, Shield, Book } from 'lucide-react'; // Using Lucide icons for consistency with Professional profile
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Student } from '../../types';
 import { ExamIcon, LogoutIcon, SchoolIcon } from '../../constants'; // Keep custom icons where needed
 import { RefreshCw as RefreshIcon } from 'lucide-react';
@@ -51,30 +51,27 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
     const fetchStudentData = async () => {
         setLoading(true);
         try {
-            const { data } = await supabase
-                .from('students')
-                .select('*')
-                .eq('id', studentId)
-                .single();
+            const data = await api.getStudentProfile(studentId);
 
             if (data) {
                 setStudent({
                     ...data,
                     name: data.name,
                     email: data.email,
-                    phone: data.parent_phone || 'N/A', // Assuming parent phone as contact for student profile
+                    phone: data.parentPhone || data.parent_phone || 'N/A',
                     class_name: `Grade ${data.grade}${data.section}`,
-                    admission_number: data.school_generated_id,
-                    date_of_birth: data.birthday,
+                    admission_number: data.schoolGeneratedId || data.school_generated_id,
+                    date_of_birth: data.birthday || data.date_of_birth,
                     address: data.address || 'School Address',
-                    guardian_name: data.parent_name || 'Parent',
-                    guardian_phone: data.parent_phone || 'N/A',
-                    attendance_rate: data.attendance_status === 'Present' ? 98 : 95, // Mock if not tracked
-                    average_grade: 88, // Mock
+                    guardian_name: data.parentName || data.parent_name || 'Parent',
+                    guardian_phone: data.parentPhone || data.parent_phone || 'N/A',
+                    attendance_rate: data.attendanceRate || 95,
+                    average_grade: data.averageGrade || 88,
                 });
             }
         } catch (error) {
             console.error('Error fetching student:', error);
+            toast.error('Failed to load full profile data');
         } finally {
             setLoading(false);
         }
@@ -398,3 +395,4 @@ function EventItem({ date, title }: any) {
         </div>
     );
 }
+

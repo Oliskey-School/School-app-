@@ -1,8 +1,26 @@
 {
-  "servers": {
+  "mcpServers": {
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=ikowlorheeyrsbgvlhvg"
+    },
+    "docker": {
+      "command": "npx.cmd",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-docker"
+      ],
+      "env": {
+        "DOCKER_HOST": "npipe:////./pipe/docker_engine"
+      }
+    },
+    "postgresql": {
+      "command": "npx.cmd",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:password123@127.0.0.1:5432/postgres"
+      ]
     }
   }
 }

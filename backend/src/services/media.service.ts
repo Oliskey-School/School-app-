@@ -1,5 +1,3 @@
-import { supabase } from '../config/supabase';
-
 export class MediaService {
     static async sendSMSLesson(schoolId: string, payload: any) {
         console.log(`[Media] SMS Lesson Sent for school ${schoolId}`, payload);

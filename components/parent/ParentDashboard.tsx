@@ -26,7 +26,7 @@ import {
 } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
 import PremiumLoader from '../ui/PremiumLoader';
-import { supabase } from '../../lib/supabase';
+
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
 import { realtimeService } from '../../services/RealtimeService';
 import { syncEngine } from '../../lib/syncEngine';
@@ -62,9 +62,13 @@ import ChatScreen from '../shared/ChatScreen';
 import SchoolUtilitiesScreen from '../parent/SchoolUtilitiesScreen';
 import GlobalSearchScreen from '../shared/GlobalSearchScreen';
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+import ParentTodayWidget from '../parent/ParentTodayWidget';
 
 
 import ParentChangePasswordScreen from '../parent/ParentChangePasswordScreen';
+import { UnifiedParentHome } from './UnifiedParentHome';
+import { FeesPiggyBank } from './FeesPiggyBank';
+import { SmartCalendar } from './SmartCalendar';
 
 // Phase 5: Parent & Community Empowerment Components
 import VolunteerSignup from '../parent/VolunteerSignup';
@@ -153,32 +157,29 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
                     classId: student.current_class_id || undefined
                 });
 
-                // 2. Fetch Submissions
-                const { data: submissionsData } = await supabase
-                    .from('assignment_submissions')
-                    .select('*')
-                    .eq('student_id', student.id);
-
                 if (assignmentsData) {
-                    const merged: StudentAssignment[] = (assignmentsData || []).map((a: any) => ({
-                        id: a.id,
-                        title: a.title,
-                        description: a.description,
-                        className: a.class_name,
-                        subject: a.subject,
-                        dueDate: a.due_date,
-                        totalStudents: a.total_students || 0,
-                        submissionsCount: a.submissions_count || 0,
-                        submission: submissionsData?.find((s: any) => s.assignment_id === a.id) ? {
-                            id: submissionsData.find((s: any) => s.assignment_id === a.id).id,
-                            assignmentId: a.id,
-                            student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
-                            submittedAt: submissionsData.find((s: any) => s.assignment_id === a.id).submitted_at,
-                            isLate: false,
-                            status: submissionsData.find((s: any) => s.assignment_id === a.id).grade ? 'Graded' : 'Ungraded',
-                            grade: submissionsData.find((s: any) => s.assignment_id === a.id).grade
-                        } : undefined
-                    }));
+                    const merged: StudentAssignment[] = (assignmentsData || []).map((a: any) => {
+                        const submission = a.AssignmentSubmission?.find((s: any) => s.student_id === student.id);
+                        return {
+                            id: a.id,
+                            title: a.title,
+                            description: a.description,
+                            className: a.class_name,
+                            subject: a.subject,
+                            dueDate: a.due_date,
+                            totalStudents: a.total_students || 0,
+                            submissionsCount: a.submissions_count || 0,
+                            submission: submission ? {
+                                id: submission.id,
+                                assignmentId: a.id,
+                                student: { id: student.id, name: student.name, avatarUrl: student.avatarUrl },
+                                submittedAt: submission.submitted_at,
+                                isLate: false,
+                                status: submission.grade ? 'Graded' : 'Ungraded',
+                                grade: submission.grade
+                            } : undefined
+                        };
+                    });
                     setAssignments(merged);
                 }
             } catch (err) {
@@ -394,71 +395,7 @@ const ChildDetailScreen = ({ student, initialTab, navigateTo, schoolId, currentB
     );
 };
 
-const ParentDashboardContent = ({ navigateTo, schoolId, currentUser, version, students, forceUpdate }: { navigateTo: (view: string, title: string, props?: any) => void, schoolId?: string, currentUser?: any, version?: number, students: Student[], forceUpdate: () => void }) => {
-    const [childrenStats, setChildrenStats] = useState<any[]>([]);
-    const quickAccessItems = [
-        { label: 'Bus Route', icon: <BusVehicleIcon className="h-7 w-7" />, action: () => navigateTo('busRoute', 'Bus Route') },
-        { label: 'Calendar', icon: <CalendarIcon className="h-7 w-7" />, action: () => navigateTo('calendar', 'School Calendar') },
-        { label: 'Noticeboard', icon: <MegaphoneIcon className="h-7 w-7" />, action: () => navigateTo('noticeboard', 'Noticeboard') },
-        { label: 'Appointments', icon: <CalendarPlusIcon className="h-7 w-7" />, action: () => navigateTo('appointments', 'Book Appointment') },
-    ];
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            if (students.length === 0) return;
-            const ids = students.map(s => s.id);
-            try {
-                const today = new Date().toISOString();
-                const [allFees, allAttendance, allAssignments, allEnrollments] = await Promise.all([
-                    api.bulkFetchFees(ids, ['pending', 'partial']),
-                    api.bulkFetchAttendance(ids),
-                    api.getAssignments(schoolId as string),
-                    supabase.from('student_enrollments').select('student_id, class_id, classes(name, section)').in('student_id', ids)
-                ]);
-                const stats = students.map(student => {
-                    const studentFees = (allFees || []).filter((f: any) => f.studentId === student.id);
-                    const feeInfo = studentFees.length > 0 ? { totalDue: studentFees.reduce((sum: number, fee: any) => sum + (fee.amount - (fee.paidAmount || 0)), 0), nextDueDate: studentFees[0]?.dueDate, status: studentFees[0]?.status || 'pending' } : null;
-                    const studentAtt = (allAttendance || []).filter((a: any) => a.student_id === student.id);
-                    const presentCount = studentAtt.filter((a: any) => a.status === 'Present').length;
-                    const attendancePercentage = studentAtt.length > 0 ? Math.round((presentCount / studentAtt.length) * 100) : 0;
-                    const nextHomework = (allAssignments || []).find((a: any) => a.class_name?.toLowerCase().includes(String(student.grade).toLowerCase()) && a.class_name?.toLowerCase().includes(String(student.section).toLowerCase()));
-                    const studentEnrollments = (allEnrollments.data || [])
-                        .filter((e: any) => e.student_id === student.id)
-                        .map((e: any) => `${e.classes.name}${e.classes.section ? ` (${e.classes.section})` : ''}`);
-                    return { student, feeInfo, nextHomework: nextHomework ? { subject: nextHomework.subject, title: nextHomework.title } : null, attendancePercentage, enrollments: studentEnrollments };
-                });
-                setChildrenStats(stats);
-            } catch (err) { console.error("Error batch fetching dashboard stats:", err); }
-        };
-        fetchStats();
-    }, [students, schoolId, currentUser?.id]);
-
-    // Auto-sync
-    useAutoSync(['student_fees', 'student_attendance', 'assignments'], () => {
-        console.log('🔄 [ParentDashboard] Auto-sync triggered');
-        // Re-fetch stats in the effect by using forceUpdate or the trigger. For now, we can just force update.
-        forceUpdate();
-    });
-
-    const childColorThemes = [{ bg: '#3b82f6', text: '#1e40af' }, { bg: '#ec4899', text: '#831843' }];
-
-    return (
-        <div className="p-4 lg:p-6 bg-gray-50">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    {!currentUser?.user_metadata?.email_verified && (
-                        <EmailVerificationPrompt />
-                    )}
-                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-center mb-4"><h3 className="text-lg font-bold text-gray-800">School Utilities</h3><button onClick={() => navigateTo('schoolUtilities', 'School Utilities')} className="text-sm text-blue-600 hover:text-blue-800 font-medium">View All</button></div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{quickAccessItems.map(item => (<button key={item.label} onClick={item.action} className="bg-gray-50 p-4 rounded-xl flex flex-col items-center justify-center space-y-2 hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200"><div className="text-blue-600">{item.icon}</div><span className="font-semibold text-gray-700 text-center text-xs">{item.label}</span></button>))}</div>
-                    </div>
-                    {childrenStats.map((data, index) => (<ChildStatCard key={data.student.id} data={data} navigateTo={navigateTo} colorTheme={childColorThemes[index % childColorThemes.length]} />))}
-                </div>
-            </div>
-        </div>
-    );
-};
+// Consolidated data fetching logic moved to ParentDashboard main component
 
 interface ParentDashboardProps {
     onLogout?: () => void;
@@ -472,8 +409,37 @@ import { api } from '../../lib/api';
 
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { currentSchool, currentBranchId, user } = useAuth();
-    const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'dashboard', title: 'Parent Dashboard' }]);
-    const [activeBottomNav, setActiveBottomNav] = useState('home');
+    
+    // 1. Initialize viewStack from localStorage or default
+    const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
+        const saved = localStorage.getItem(`parent_view_stack_${user?.id}`);
+        try {
+            return saved ? JSON.parse(saved) : [{ view: 'dashboard', title: 'Parent Dashboard' }];
+        } catch (e) {
+            return [{ view: 'dashboard', title: 'Parent Dashboard' }];
+        }
+    });
+
+    // 2. Initialize activeBottomNav from localStorage or default
+    const [activeBottomNav, setActiveBottomNav] = useState(() => {
+        return localStorage.getItem(`parent_bottom_nav_${user?.id}`) || 'home';
+    });
+
+    // 3. Persist navigation state to localStorage
+    useEffect(() => {
+        if (user?.id) {
+            localStorage.setItem(`parent_view_stack_${user?.id}`, JSON.stringify(viewStack));
+            localStorage.setItem(`parent_bottom_nav_${user?.id}`, activeBottomNav);
+        }
+    }, [viewStack, activeBottomNav, user?.id]);
+    const handleLogout = () => {
+        if (user?.id) {
+            localStorage.removeItem(`parent_view_stack_${user?.id}`);
+            localStorage.removeItem(`parent_bottom_nav_${user?.id}`);
+        }
+        onLogout?.();
+    };
+
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [parentId, setParentId] = useState<string | null>(null);
@@ -485,81 +451,114 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     });
     const [students, setStudents] = useState<Student[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(true);
-    const schoolId = currentSchool?.id;
+    const [loadingProfile, setLoadingProfile] = useState(false);
+    const [profileError, setProfileError] = useState(false);
+    const [profileFetched, setProfileFetched] = useState(false);
+    // Derive schoolId from multiple possible sources to handle auth timing issues
+    const schoolId = currentSchool?.id || (user as any)?.school_id || (user as any)?.schoolId;
     const notificationCount = useRealtimeNotifications('parent');
     const forceUpdate = () => setVersion(v => v + 1);
 
+    // 4. Consolidated Initial Data Load
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-                const { data: userData } = await supabase.from('users').select('id').eq('email', authUser.email).single();
-                setCurrentUserId(userData ? userData.id : authUser?.id || '');
-            }
-        };
-        getUser();
-    }, [currentUser]);
-
-    const fetchProfile = async () => {
-        if (!schoolId) return;
-        let query = supabase.from('parents').select('id, name, email, phone, avatar_url, school_generated_id').eq('school_id', schoolId);
-        const email = user?.email || currentUser?.email;
-        if (email) query = query.ilike('email', email);
-        const { data, error } = await query.maybeSingle();
-        if (data) { setParentId(data.id); setParentProfile({ name: data.name || 'Parent', avatarUrl: data.avatar_url || 'https://i.pravatar.cc/150?u=parent', schoolGeneratedId: data.school_generated_id }); }
-    };
-
-    useEffect(() => { fetchProfile(); }, [currentUser, schoolId]);
-
-    useEffect(() => {
-        const fetchChildren = async () => {
+        const initData = async () => {
             if (!schoolId) return;
-            setLoadingStudents(true);
-            try {
-                const studentsData = await api.getMyChildren();
-                if (studentsData) {
-                    setStudents(studentsData.map((s: any) => ({
-                        id: s.id,
-                        name: s.name,
-                        email: s.email || '',
-                        avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
-                        grade: s.grade,
-                        section: s.section,
-                        attendanceStatus: s.attendance_status || 'Present',
-                        birthday: s.birthday,
-                        schoolGeneratedId: s.school_generated_id,
-                        academicPerformance: (s.academic_performance || []).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
-                        behaviorNotes: (s.behavior_records || []).map((b: any) => ({ id: b.id, date: b.date, type: b.type, title: b.title, note: b.description || '', by: b.reporter_name || 'Teacher' })),
-                        reportCards: (s.report_cards || []).filter((r: any) => r.status === 'Published').map((r: any) => ({ term: r.term, session: r.session, status: r.status }))
-                    } as any)));
+
+            // Start multiple parallel flows
+            const flows = [];
+
+            // Flow A: Auth User Info (from AuthContext — no Supabase needed)
+            flows.push((async () => {
+                if (user?.id) {
+                    setCurrentUserId(user.id);
                 }
-            } catch (err) {
-                console.warn("Error fetching children via Hybrid API:", err);
-            } finally {
-                setLoadingStudents(false);
-            }
+            })());
+
+            // Flow B: Parent Profile & Children
+            flows.push((async () => {
+                if (profileFetched) return;
+                
+                try {
+                    setLoadingProfile(true);
+                    const profile = await api.getMyParentProfile();
+                    if (profile) {
+                        setParentId(profile.id);
+                        setParentProfile({
+                            name: profile.name || profile.full_name || 'Parent',
+                            avatarUrl: profile.avatar_url || 'https://i.pravatar.cc/150?u=parent',
+                            schoolGeneratedId: profile.school_generated_id
+                        });
+
+                        // Fetch children now that we have parentId
+                        const childrenData = await api.getMyChildren();
+                        if (childrenData) {
+                            setStudents(childrenData.map((s: any) => ({
+                                id: s.id,
+                                name: s.name || s.full_name || '',
+                                email: s.email || '',
+                                avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
+                                grade: s.grade,
+                                section: s.section,
+                                attendanceStatus: s.attendance_status || 'Present',
+                                birthday: s.birthday,
+                                schoolGeneratedId: s.school_generated_id,
+                                academicPerformance: (s.academic_performance || []).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
+                                behaviorNotes: (s.behavior_notes || []).map((b: any) => ({ id: b.id, date: b.date, type: b.category, title: b.category, note: b.note || '', by: b.reporter_name || 'Teacher' })),
+                                reportCards: (s.report_cards || []).filter((r: any) => r.status === 'Published').map((r: any) => ({ term: r.term, session: r.session, status: r.status }))
+                            } as any)));
+                        }
+                    } else {
+                        setProfileError(true);
+                    }
+                } catch (err) {
+                    console.error("Error in Parent Portal data load:", err);
+                    setProfileError(true);
+                } finally {
+                    setLoadingProfile(false);
+                    setLoadingStudents(false);
+                    setProfileFetched(true);
+                }
+            })());
+
+            await Promise.all(flows);
         };
-        fetchChildren();
-    }, [parentId, schoolId, version, user]);
+
+        if (schoolId) initData();
+    }, [schoolId, user?.id, version]);
 
     useEffect(() => { const currentView = viewStack[viewStack.length - 1]; setIsHomePage(currentView.view === 'dashboard' && !isSearchOpen); }, [viewStack, isSearchOpen, setIsHomePage]);
 
-    const navigateTo = (view: string, title: string, props: any = {}) => { setViewStack(stack => [...stack, { view, props, title }]); };
-    const handleBack = () => { if (viewStack.length > 1) setViewStack(stack => stack.slice(0, -1)); };
-    const handleBottomNavClick = (screen: string) => {
-        setActiveBottomNav(screen);
-        switch (screen) {
-            case 'home': setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }]); break;
-            case 'fees': setViewStack([{ view: 'feeStatus', title: 'Fee Status' }]); break;
-            case 'reports': setViewStack([{ view: 'selectReport', title: 'Select Report Card' }]); break;
-            case 'messages': setViewStack([{ view: 'messages', title: 'Messages' }]); break;
-            case 'more': setViewStack([{ view: 'more', title: 'More Options' }]); break;
-            default: setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }]);
+    const navigateTo = (view: string, title: string, props: any = {}) => {
+        React.startTransition(() => {
+            setViewStack(stack => [...stack, { view, props, title }]);
+        });
+    };
+    const handleBack = () => {
+        if (viewStack.length > 1) {
+            React.startTransition(() => {
+                setViewStack(stack => stack.slice(0, -1));
+            });
         }
+    };
+    const handleBottomNavClick = (screen: string) => {
+        React.startTransition(() => {
+            setActiveBottomNav(screen);
+            switch (screen) {
+                case 'home': setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }]); break;
+                case 'fees': setViewStack([{ view: 'feeStatus', title: 'Fee Status' }]); break;
+                case 'reports': setViewStack([{ view: 'selectReport', title: 'Select Report Card' }]); break;
+                case 'messages': setViewStack([{ view: 'messages', title: 'Messages' }]); break;
+                case 'more': setViewStack([{ view: 'more', title: 'More Options' }]); break;
+                default: setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }]);
+            }
+        });
     };
 
     const viewComponents: { [key: string]: React.ComponentType<any> } = {
-        dashboard: (props: any) => <ParentDashboardContent {...props} />,
+        dashboard: UnifiedParentHome,
+        piggyBank: (props: any) => <FeesPiggyBank {...props} />,
+        smartCalendar: SmartCalendar,
+        todaySummary: (props: any) => <ParentTodayWidget {...props} />,
         childDetail: ChildDetailScreen, examSchedule: ExamSchedule, noticeboard: (props: any) => <NoticeboardScreen {...props} userType="parent" />,
         notifications: (props: any) => <NotificationsScreen {...props} userType="parent" navigateTo={navigateTo} />,
         calendar: CalendarScreen, library: LibraryScreen, busRoute: BusRouteScreen, feeStatus: (props: any) => <FeeStatusScreen {...props} parentId={parentId} />,
@@ -578,10 +577,39 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     const ComponentToRender = viewComponents[currentNavigation.view];
     const commonProps = { navigateTo, onLogout, handleBack, forceUpdate, parentId, currentUser: user, currentUserId, schoolId, currentBranchId, version, students, loading: loadingStudents };
 
+    // Only show loading for parent profile if we have schoolId and it's actually loading
+    if (loadingProfile && !parentId && schoolId) {
+        return <PremiumLoader message="Syncing parent profile..." />;
+    }
+
+    if (profileError && !parentId) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen p-6 text-center bg-gray-50">
+                <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">👪</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Parent Profile Not Found</h2>
+                    <p className="text-gray-600 mb-6">
+                        We couldn't find a parent record linked to your account.
+                        Please contact the school administrator to link your account to your children.
+                    </p>
+                    <button
+                        onClick={() => onLogout?.()}
+                        className="w-full py-3 px-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors shadow-lg shadow-green-200"
+                    >
+                        Back to Login
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <DashboardLayout
             title={currentNavigation.title}
             onBack={viewStack.length > 1 ? handleBack : undefined}
+            onLogout={handleLogout}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
         >

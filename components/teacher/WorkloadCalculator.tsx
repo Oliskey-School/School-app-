@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { ChartBarIcon, ClockIcon, UsersIcon } from '../../constants';
 
@@ -23,25 +23,11 @@ const WorkloadCalculator: React.FC = () => {
     const fetchWorkload = async () => {
         try {
             setLoading(true);
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) return;
-
-            const { data } = await supabase
-                .from('teacher_workload')
-                .select('*')
-                .eq('teacher_id', teacherData.id)
-                .order('week_start_date', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (data) {
-                setWorkload(data);
-            }
+            const myProfile = await api.getMe();
+            const teacherId = myProfile?.teacher_id || myProfile?.id;
+            if (!teacherId) return;
+            const data = await api.getTeacherWorkload(teacherId);
+            if (data) setWorkload(data);
         } catch (error: any) {
             console.error('Error:', error);
         } finally {
@@ -113,3 +99,4 @@ const WorkloadCalculator: React.FC = () => {
 };
 
 export default WorkloadCalculator;
+

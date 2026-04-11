@@ -4,6 +4,7 @@ import GameShell from './GameShell';
 import { useGamification } from '../../../context/GamificationContext';
 import confetti from 'canvas-confetti';
 import { MapIcon, CheckIcon, LockIcon, StarIcon, ScrollIcon } from 'lucide-react';
+import { api } from '../../../lib/api';
 
 interface VocabularyAdventureGameProps {
     onBack: () => void;
@@ -210,10 +211,21 @@ const VocabularyAdventureGame: React.FC<VocabularyAdventureGameProps> = ({ onBac
 
     const handleLevelComplete = () => {
         setLevelComplete(true);
-        setScore(prev => prev + 100);
         addXP(50);
         confetti({ particleCount: 100, spread: 70 });
         speak("Level Complete!");
+
+        // PERSIST TO DATABASE
+        api.submitGameScore({
+            game_id: 'vocabulary-adventure',
+            game_name: 'Vocabulary Adventure',
+            score: score + 100,
+            metadata: {
+                levelId: currentLevelId,
+                levelTitle: currentLevelData?.title,
+                maxUnlocked: maxUnlockedLevel
+            }
+        }).catch(err => console.error("Failed to save vocab adventure score:", err));
 
         setTimeout(() => {
             setShowMap(true); // Return to map

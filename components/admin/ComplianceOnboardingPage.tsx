@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import {
     FileText, CheckCircle, Upload,
     ChevronRight, ChevronLeft, Building2, AlertCircle,
@@ -72,23 +73,15 @@ export default function ComplianceOnboardingPage({
 
         try {
             if (field === 'curriculumType') {
-                await supabase
-                    .from('schools')
-                    .update({ curriculum_type: value })
-                    .eq('id', schoolId);
+                await api.put(`/schools/${schoolId}`, { curriculum_type: value });
                 console.log('✅ Curriculum auto-saved');
             } else if (DOC_TYPE_MAP[field]) {
                 const docType = DOC_TYPE_MAP[field];
-                const branchId = (supabase as any).currentBranchId; // Assuming it's available or we need to pass it
-                await supabase
-                    .from('school_documents')
-                    .upsert({
-                        school_id: schoolId,
-                        branch_id: branchId,
-                        document_type: docType,
-                        expiry_date: value,
-                        verification_status: 'Pending'
-                    }, { onConflict: 'school_id,document_type,branch_id' });
+                await api.post('/infrastructure/documents', {
+                    document_type: docType,
+                    expiry_date: value,
+                    verification_status: 'Pending'
+                });
                 console.log(`✅ ${docType} expiry auto-saved`);
             }
         } catch (err) {
@@ -96,75 +89,69 @@ export default function ComplianceOnboardingPage({
         }
     };
 
-    useEffect(() => {
-        const fetchExistingDocs = async () => {
-            if (!schoolId) return;
-            setFetching(true);
+    const fetchExistingDocs = async () => {
+        if (!schoolId) return;
+        setFetching(true);
+        try {
+            // Fetch Documents
+            const docResult = await api.get('/infrastructure/documents') as any;
+            const docs = docResult.data || [];
+
+            // Fetch School for curriculum
+            let school: any = null;
             try {
-                // Fetch Documents
-                let query = supabase
-                    .from('school_documents')
-                    .select('*')
-                    .eq('school_id', schoolId);
-
-                const branchId = (supabase as any).currentBranchId;
-                if (branchId && branchId !== 'all') {
-                    query = query.eq('branch_id', branchId);
-                }
-                const { data: docs, error } = await query;
-
-                if (error) throw error;
-
-                // Fetch School for curriculum
-                const { data: school, error: schoolErr } = await supabase
-                    .from('schools')
-                    .select('curriculum_type')
-                    .eq('id', schoolId)
-                    .single();
-
-                if (schoolErr && schoolErr.code !== 'PGRST116') throw schoolErr;
-
-                if (docs || school) {
-                    setFormData(prev => {
-                        const next = { ...prev };
-                        if (school?.curriculum_type) {
-                            next.curriculumType = school.curriculum_type as any;
-                        }
-
-                        docs?.forEach(doc => {
-                            switch (doc.document_type) {
-                                case 'CAC':
-                                    next.cacExpiryDate = doc.expiry_date || '';
-                                    break;
-                                case 'MinistryApproval':
-                                    next.ministryExpiryDate = doc.expiry_date || '';
-                                    break;
-                                case 'FireSafety':
-                                    next.fireSafetyExpiry = doc.expiry_date || '';
-                                    break;
-                                case 'Health':
-                                    next.healthExpiry = doc.expiry_date || '';
-                                    break;
-                                case 'Insurance':
-                                    next.insuranceExpiry = doc.expiry_date || '';
-                                    break;
-                                case 'BuildingPlan':
-                                    next.buildingExpiry = doc.expiry_date || '';
-                                    break;
-                            }
-                        });
-                        return next;
-                    });
-                }
-            } catch (err) {
-                console.error("Error fetching existing compliance data:", err);
-            } finally {
-                setFetching(false);
+                school = await api.get(`/schools/${schoolId}`);
+            } catch (e) {
+                console.log('School fetch failed:', e);
             }
-        };
 
+            if (docs.length > 0 || school) {
+                setFormData(prev => {
+                    const next = { ...prev };
+                    if (school?.curriculum_type) {
+                        next.curriculumType = school.curriculum_type as any;
+                    }
+
+                    docs?.forEach((doc: any) => {
+                        switch (doc.document_type || doc.type) {
+                            case 'CAC':
+                                next.cacExpiryDate = doc.expiry_date || '';
+                                break;
+                            case 'MinistryApproval':
+                                next.ministryExpiryDate = doc.expiry_date || '';
+                                break;
+                            case 'FireSafety':
+                                next.fireSafetyExpiry = doc.expiry_date || '';
+                                break;
+                            case 'Health':
+                                next.healthExpiry = doc.expiry_date || '';
+                                break;
+                            case 'Insurance':
+                                next.insuranceExpiry = doc.expiry_date || '';
+                                break;
+                            case 'BuildingPlan':
+                                next.buildingExpiry = doc.expiry_date || '';
+                                break;
+                        }
+                    });
+                    return next;
+                });
+            }
+        } catch (err) {
+            console.error("Error fetching existing compliance data:", err);
+        } finally {
+            setFetching(false);
+        }
+    };
+
+    useEffect(() => {
         fetchExistingDocs();
     }, [schoolId]);
+
+    useAutoSync(['school_documents', 'schools'], () => {
+        console.log('🔄 [ComplianceOnboarding] Real-time auto-sync triggered');
+        fetchExistingDocs();
+    });
 
     const handleInputChange = (field: keyof DocumentData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -182,18 +169,8 @@ export default function ComplianceOnboardingPage({
                     field.includes('Cert') ? 'safety' :
                         field.includes('insurance') ? 'insurance' : 'building';
 
-                const fileName = `${Date.now()}_${file.name}`;
-                const { data, error } = await supabase.storage
-                    .from('school-compliance')
-                    .upload(`${schoolId}/${folder}/${fileName}`, file);
-
-                if (error) throw error;
-
-                const { data: urlData } = supabase.storage
-                    .from('school-compliance')
-                    .getPublicUrl(data.path);
-
-                const publicUrl = urlData.publicUrl;
+                const response = await api.uploadFileWithCategory(file, folder);
+                const publicUrl = response.url;
 
                 // Map file field to doc type for DB update
                 let docType = '';
@@ -205,14 +182,11 @@ export default function ComplianceOnboardingPage({
                 if (field === 'buildingApproval') docType = 'BuildingPlan';
 
                 if (docType) {
-                    await supabase
-                        .from('school_documents')
-                        .upsert({
-                            school_id: schoolId,
-                            document_type: docType,
-                            file_url: publicUrl,
-                            verification_status: 'Pending'
-                        }, { onConflict: 'school_id,document_type' });
+                    await api.post('/infrastructure/documents', {
+                        document_type: docType,
+                        file_url: publicUrl,
+                        verification_status: 'Pending'
+                    });
 
                     console.log(`✅ ${docType} file uploaded and linked`);
                     toast({
@@ -266,64 +240,48 @@ export default function ComplianceOnboardingPage({
     const handleSubmit = async () => {
         setLoading(true);
         try {
-            const uploadDocument = async (file: File | undefined, folder: string) => {
+            const uploadFileManually = async (file: File | undefined, category: string) => {
                 if (!file) return null;
-                const fileName = `${Date.now()}_${file.name}`;
-                const { data, error } = await supabase.storage
-                    .from('school-compliance')
-                    .upload(`${schoolId}/${folder}/${fileName}`, file);
-
-                if (error) throw error;
-
-                const { data: urlData } = supabase.storage
-                    .from('school-compliance')
-                    .getPublicUrl(data.path);
-
-                return urlData.publicUrl;
+                const response = await api.uploadFileWithCategory(file, category);
+                return response.url;
             };
 
-            // Upload all documents
-            const documentUrls: any = {
-                cac: await uploadDocument(formData.cacDocument, 'legal'),
-                ministryApproval: await uploadDocument(formData.ministryApproval, 'legal'),
-                fireSafety: await uploadDocument(formData.fireSafetyCert, 'safety'),
-                health: await uploadDocument(formData.healthCert, 'safety'),
-                insurance: await uploadDocument(formData.insuranceDoc, 'insurance'),
-                building: await uploadDocument(formData.buildingApproval, 'building'),
-            };
+            // Upload all documents sequentially or in parallel
+            // Note: handleFileChange already auto-uploads, but handleSubmit ensures everything is synced
+            const [
+                cacUrl,
+                ministryUrl,
+                fireSafetyUrl,
+                healthUrl,
+                insuranceUrl,
+                buildingUrl
+            ] = await Promise.all([
+                uploadFileManually(formData.cacDocument, 'legal'),
+                uploadFileManually(formData.ministryApproval, 'legal'),
+                uploadFileManually(formData.fireSafetyCert, 'safety'),
+                uploadFileManually(formData.healthCert, 'safety'),
+                uploadFileManually(formData.insuranceDoc, 'insurance'),
+                uploadFileManually(formData.buildingApproval, 'building')
+            ]);
 
-            // Create document records
-            const documents = [
-                { document_type: 'CAC', file_url: documentUrls.cac, expiry_date: formData.cacExpiryDate },
-                { document_type: 'MinistryApproval', file_url: documentUrls.ministryApproval, expiry_date: formData.ministryExpiryDate },
-                { document_type: 'FireSafety', file_url: documentUrls.fireSafety, expiry_date: formData.fireSafetyExpiry },
-                { document_type: 'Health', file_url: documentUrls.health, expiry_date: formData.healthExpiry },
-                { document_type: 'Insurance', file_url: documentUrls.insurance, expiry_date: formData.insuranceExpiry },
-                { document_type: 'BuildingPlan', file_url: documentUrls.building, expiry_date: formData.buildingExpiry },
-            ].filter(doc => doc.file_url);
+            // Create document records in backend
+            const docsToCreate = [
+                { document_type: 'CAC', file_url: cacUrl, expiry_date: formData.cacExpiryDate },
+                { document_type: 'MinistryApproval', file_url: ministryUrl, expiry_date: formData.ministryExpiryDate },
+                { document_type: 'FireSafety', file_url: fireSafetyUrl, expiry_date: formData.fireSafetyExpiry },
+                { document_type: 'Health', file_url: healthUrl, expiry_date: formData.healthExpiry },
+                { document_type: 'Insurance', file_url: insuranceUrl, expiry_date: formData.insuranceExpiry },
+                { document_type: 'BuildingPlan', file_url: buildingUrl, expiry_date: formData.buildingExpiry },
+            ].filter(doc => doc.file_url || doc.expiry_date);
 
-            if (documents.length > 0) {
-                const { error } = await supabase
-                    .from('school_documents')
-                    .upsert(
-                        documents.map(doc => ({
-                            school_id: schoolId,
-                            ...doc,
-                            verification_status: 'Pending'
-                        })),
-                        { onConflict: 'school_id,document_type' }
-                    );
-
-                if (error) throw error;
+            // Send each record to the infrastructure/documents endpoint
+            // The backend handles upsert logic based on school_id and type
+            for (const doc of docsToCreate) {
+                await api.createDocument(doc);
             }
 
             // Update school curriculum type
-            const { error: schoolError } = await supabase
-                .from('schools')
-                .update({ curriculum_type: formData.curriculumType })
-                .eq('id', schoolId);
-
-            if (schoolError) throw schoolError;
+            await api.updateSchoolInfo(schoolId, { curriculum_type: formData.curriculumType });
 
             toast({
                 title: 'Compliance Documents Submitted!',
@@ -642,3 +600,4 @@ export default function ComplianceOnboardingPage({
         </div>
     );
 }
+

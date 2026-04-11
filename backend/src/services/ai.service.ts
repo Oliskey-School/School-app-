@@ -1,65 +1,58 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class AiService {
     static async getGeneratedResources(schoolId: string, branchId: string | undefined, teacherId: string) {
-        let query = supabase
-            .from('generated_resources')
-            .select('*')
-            .eq('teacher_id', teacherId)
-            .eq('school_id', schoolId);
+        const where: any = {
+            teacher_id: teacherId,
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
         }
 
-        const { data, error } = await query
-            .order('updated_at', { ascending: false });
-
-        if (error) throw new Error(error.message);
-        return data || [];
+        return prisma.generatedResource.findMany({
+            where,
+            orderBy: { updated_at: 'desc' }
+        });
     }
 
     static async saveGeneratedResource(schoolId: string, branchId: string | undefined, resourceData: any) {
-        // Find existing to decide update or insert
-        let query = supabase
-            .from('generated_resources')
-            .select('id')
-            .eq('teacher_id', resourceData.teacher_id)
-            .eq('subject', resourceData.subject)
-            .eq('class_name', resourceData.class_name)
-            .eq('school_id', schoolId);
+        const where: any = {
+            teacher_id: resourceData.teacher_id,
+            subject: resourceData.subject,
+            class_name: resourceData.class_name,
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
         }
 
-        const { data: existing } = await query.maybeSingle();
+        const existing = await prisma.generatedResource.findFirst({ where });
 
         if (existing) {
-            const { data, error } = await supabase
-                .from('generated_resources')
-                .update({ ...resourceData, updated_at: new Date().toISOString() })
-                .eq('id', existing.id)
-                .select()
-                .single();
-            if (error) throw new Error(error.message);
-            return data;
+            const result = await prisma.generatedResource.update({
+                where: { id: existing.id },
+                data: { ...resourceData, updated_at: new Date() }
+            });
+            SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'update_ai_resource', resourceId: existing.id });
+            return result;
         } else {
-            const insertData: any = {
-                ...resourceData,
-                school_id: schoolId
-            };
+            const insertData: any = { ...resourceData, school_id: schoolId };
             if (branchId && branchId !== 'all') {
                 insertData.branch_id = branchId;
             }
-
-            const { data, error } = await supabase
-                .from('generated_resources')
-                .insert([insertData])
-                .select()
-                .single();
-            if (error) throw new Error(error.message);
-            return data;
+            const result = await prisma.generatedResource.create({ data: insertData });
+            SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'create_ai_resource', resourceId: result.id });
+            return result;
         }
     }
 }

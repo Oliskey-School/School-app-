@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { api } from '../../lib/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
+
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -31,7 +32,7 @@ interface Incident {
     incident_date: string;
     parent_notified: boolean;
     student_id: string;
-    students?: { name: string };
+    student?: { full_name: string };
 }
 
 interface Drill {
@@ -345,7 +346,7 @@ const IncidentTab = ({ incidents, setIsAdding }: IncidentTabProps) => (
                         </div>
                         <div className="flex-grow">
                             <div className="flex justify-between">
-                                <h3 className="font-bold text-gray-900">{inc.incident_type} - {inc.students?.name || 'Unknown Student'}</h3>
+                                <h3 className="font-bold text-gray-900">{inc.incident_type} - {inc.student?.full_name || 'Unknown Student'}</h3>
                                 <span className="text-xs font-bold text-gray-400">{new Date(inc.incident_date).toLocaleString()}</span>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">{inc.description}</p>
@@ -477,9 +478,9 @@ const SafetyHealthLogs = () => {
     const { currentSchool, currentBranchId } = useAuth();
     const [activeTab, setActiveTab] = useState<TabType>('incidents');
     const [loading, setLoading] = useState(true);
-    const [incidents, setIncidents] = useState<Incident[]>([]);
-    const [drills, setDrills] = useState<Drill[]>([]);
-    const [policies, setPolicies] = useState<Policy[]>([]);
+    const [incidents, setIncidents] = useState<any[]>([]);
+    const [drills, setDrills] = useState<any[]>([]);
+    const [policies, setPolicies] = useState<any[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [students, setStudents] = useState<{ id: string, name: string }[]>([]);
     const [formData, setFormData] = useState<any>({});
@@ -490,34 +491,27 @@ const SafetyHealthLogs = () => {
         }
     }, [activeTab, currentSchool]);
 
+    useAutoSync(['health_incidents', 'emergency_drills', 'safeguarding_policies', 'students'], () => {
+        console.log('🔄 [SafetyHealthLogs] Real-time auto-sync triggered');
+        fetchData();
+    });
+
     const fetchData = async () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
             if (activeTab === 'incidents') {
-                const { data } = await supabase
-                    .from('health_incident_logs')
-                    .select('*, students(name)')
-                    .eq('school_id', currentSchool.id)
-                    .order('incident_date', { ascending: false });
-                if (data) setIncidents(data);
+                const data = await api.getHealthIncidents(currentSchool.id);
+                setIncidents(data || []);
 
                 const studentsData = await api.getStudents(currentSchool.id, currentBranchId || undefined, { includeUntagged: true });
-                if (studentsData) setStudents((studentsData || []).map((s: any) => ({ id: s.id, name: s.name })));
+                if (studentsData) setStudents((studentsData || []).map((s: any) => ({ id: s.id, name: s.full_name || s.name })));
             } else if (activeTab === 'drills') {
-                const { data } = await supabase
-                    .from('emergency_drills')
-                    .select('*')
-                    .eq('school_id', currentSchool.id)
-                    .order('drill_date', { ascending: false });
-                if (data) setDrills(data);
+                const data = await api.getEmergencyDrills(currentSchool.id);
+                setDrills(data || []);
             } else if (activeTab === 'safeguarding') {
-                const { data } = await supabase
-                    .from('safeguarding_policies')
-                    .select('*')
-                    .eq('school_id', currentSchool.id)
-                    .order('effective_date', { ascending: false });
-                if (data) setPolicies(data);
+                const data = await api.getSafeguardingPolicies(currentSchool.id);
+                setPolicies(data || []);
             }
         } catch (error: any) {
             console.error('Error fetching data:', error);
@@ -531,7 +525,6 @@ const SafetyHealthLogs = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-            let table = '';
             let data = { ...formData, school_id: currentSchool.id };
 
             // Validation
@@ -541,25 +534,22 @@ const SafetyHealthLogs = () => {
                     setLoading(false);
                     return;
                 }
-                table = 'health_incident_logs';
+                await api.createHealthIncident(data, currentSchool.id);
             } else if (activeTab === 'drills') {
                 if (!formData.drill_type || !formData.drill_date) {
                     toast.error('Please fill in all required fields marked with *');
                     setLoading(false);
                     return;
                 }
-                table = 'emergency_drills';
+                await api.createEmergencyDrill(data, currentSchool.id);
             } else if (activeTab === 'safeguarding') {
                 if (!formData.title || !formData.effective_date || !formData.document_url) {
                     toast.error('Please fill in all required fields marked with *');
                     setLoading(false);
                     return;
                 }
-                table = 'safeguarding_policies';
+                await api.createSafeguardingPolicy(data, currentSchool.id);
             }
-
-            const { error } = await supabase.from(table).insert(data);
-            if (error) throw error;
 
             toast.success('Record saved successfully');
             setIsAdding(false);

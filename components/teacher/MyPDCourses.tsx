@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -35,50 +35,18 @@ const MyPDCourses: React.FC = () => {
     const fetchEnrolledCourses = async () => {
         try {
             setLoading(true);
-
-            const { data: teacherData } = await supabase
-                .from('teachers')
-                .select('id')
-                .eq('email', profile.email)
-                .single();
-
-            if (!teacherData) {
-                setLoading(false);
-                return;
-            }
-
-            const { data, error } = await supabase
-                .from('teacher_course_enrollments')
-                .select(`
-          id,
-          progress_percentage,
-          status,
-          enrolled_at,
-          pd_courses (
-            id,
-            title,
-            description,
-            instructor,
-            duration_hours
-          )
-        `)
-                .eq('teacher_id', teacherData.id)
-                .order('enrolled_at', { ascending: false });
-
-            if (error) throw error;
-
+            const data = await api.getMyPDCourses();
             const formatted: EnrolledCourse[] = (data || []).map((item: any) => ({
-                id: item.pd_courses?.id || 0,
+                id: item.course_id || item.pd_courses?.id || 0,
                 enrollment_id: item.id,
-                title: item.pd_courses?.title || 'Unknown',
-                description: item.pd_courses?.description || '',
-                instructor: item.pd_courses?.instructor || '',
-                duration_hours: item.pd_courses?.duration_hours || 0,
-                progress_percentage: item.progress_percentage,
-                status: item.status,
+                title: item.title || item.pd_courses?.title || 'Unknown',
+                description: item.description || item.pd_courses?.description || '',
+                instructor: item.instructor || item.pd_courses?.instructor || '',
+                duration_hours: item.duration_hours || item.pd_courses?.duration_hours || 0,
+                progress_percentage: item.progress_percentage || 0,
+                status: item.status || 'In Progress',
                 enrolled_at: item.enrolled_at
             }));
-
             setCourses(formatted);
         } catch (error: any) {
             console.error('Error fetching courses:', error);
@@ -213,3 +181,4 @@ const MyPDCourses: React.FC = () => {
 };
 
 export default MyPDCourses;
+

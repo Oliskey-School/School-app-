@@ -1,121 +1,177 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
+import { SocketService } from './socket.service';
 
 export class ClassService {
     static async getClasses(schoolId: string, branchId: string | undefined, teacherId?: string) {
         if (teacherId) {
-            // Join with class_teachers to get classes AND subjects assigned to this teacher
-            let query = supabase
-                .from('class_teachers')
-                .select(`
-                    class_id,
-                    subject_id,
-                    classes!inner(id, name, grade, section, school_id, branch_id),
-                    subjects!inner(id, name, school_id)
-                `)
-                .eq('teacher_id', teacherId)
-                .eq('school_id', schoolId);
+            const classTeachers = await prisma.classTeacher.findMany({
+                where: {
+                    teacher_id: teacherId,
+                    class: {
+                        school_id: schoolId,
+                        branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                    }
+                },
+                include: {
+                    class: true
+                }
+            });
 
-            if (branchId && branchId !== 'all') {
-                query = query.or(`branch_id.eq.${branchId},branch_id.is.null`, { foreignTable: 'classes' });
-            }
-
-            const { data, error } = await query;
-            if (error) throw new Error(error.message);
-
-            // Flatten structure for easier consumption
-            return data.map((item: any) => ({
-                id: item.classes.id,
-                name: item.classes.name,
-                grade: item.classes.grade,
-                section: item.classes.section,
-                subject: item.subjects.name,
-                subject_id: item.subjects.id,
-                school_id: item.classes.school_id,
-                branch_id: item.classes.branch_id
+            return classTeachers.map((item: any) => ({
+                id: item.class.id,
+                name: item.class.name,
+                grade: item.class.grade,
+                section: item.class.section,
+                subject: item.subject?.name || 'Assigned',
+                subject_id: item.subject_id,
+                school_id: item.class.school_id,
+                branch_id: item.class.branch_id
             }));
         } else {
-            let query = supabase
-                .from('classes')
-                .select(`
-                    *,
-                    students!students_class_id_fkey (id)
-                `)
-                .eq('school_id', schoolId);
-
-            if (branchId && branchId !== 'all') {
-                // Classes filter
-                query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
-                // Note: supabase-js nested filtering for counts is complex, 
-                // we will handle the count in the map below.
-            }
-
-            const { data, error } = await query
-                .order('grade', { ascending: true })
-                .order('section', { ascending: true });
-
-            if (error) throw new Error(error.message);
-
-            // Map to include student count and clean up students array
-            return (data || []).map((cls: any) => {
-                const { students, ...classInfo } = cls;
-                return {
-                    ...classInfo,
-                    student_count: students?.length || 0,
-                    studentCount: students?.length || 0
-                };
+            const classes = await prisma.class.findMany({
+                where: {
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                },
+                include: {
+                    _count: {
+                        select: { enrollments: true }
+                    }
+                },
+                orderBy: [
+                    { grade: 'desc' },
+                    { section: 'asc' }
+                ]
             });
+
+            return classes.map((cls: any) => ({
+                ...cls,
+                student_count: cls._count.enrollments,
+                studentCount: cls._count.enrollments
+            }));
         }
     }
 
     static async createClass(schoolId: string, branchId: string | undefined, classData: any) {
-        const insertData: any = { ...classData, school_id: schoolId };
-        if (branchId && branchId !== 'all') {
-            insertData.branch_id = branchId;
-        }
-
-        const { data, error } = await supabase
-            .from('classes')
-            .insert([insertData])
-            .select()
-            .single();
-
-        if (error) throw new Error(error.message);
-        return data;
+        const { level, ...rest } = classData;
+        const result = await prisma.class.create({
+            data: {
+                ...rest,
+                level_category: level || rest.level_category,
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : null
+            }
+        });
+        
+        SocketService.emitToSchool(schoolId, 'class:updated', { action: 'create', classId: result.id });
+        return result;
     }
 
     static async updateClass(schoolId: string, branchId: string | undefined, id: string, updates: any) {
-        let query = supabase
-            .from('classes')
-            .update(updates)
-            .eq('id', id)
-            .eq('school_id', schoolId);
+        const { level, ...rest } = updates;
+        const result = await prisma.class.update({
+            where: { id: id },
+            data: {
+                ...rest,
+                level_category: level || rest.level_category
+            }
+        });
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { data, error } = await query
-            .select()
-            .single();
-
-        if (error) throw new Error(error.message);
-        return data;
+        SocketService.emitToSchool(schoolId, 'class:updated', { action: 'update', classId: id });
+        return result;
     }
 
     static async deleteClass(schoolId: string, branchId: string | undefined, id: string) {
-        let query = supabase
-            .from('classes')
-            .delete()
-            .eq('id', id)
-            .eq('school_id', schoolId);
-
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
-
-        const { error } = await query;
-
-        if (error) throw new Error(error.message);
+        await prisma.class.delete({
+            where: { id: id }
+        });
+        
+        SocketService.emitToSchool(schoolId, 'class:updated', { action: 'delete', classId: id });
         return true;
+    }
+
+    static async getClassSubjects(schoolId: string, grade: number, section: string) {
+        const targetClass = await prisma.class.findFirst({
+            where: {
+                school_id: schoolId,
+                grade: grade,
+                section: section
+            },
+            include: {
+                subjects: true
+            }
+        });
+
+        return targetClass?.subjects || [];
+    }
+
+    static async getClass(schoolId: string, classId: string) {
+        const cls = await prisma.class.findFirst({
+            where: {
+                id: classId,
+                school_id: schoolId
+            },
+            include: {
+                _count: {
+                    select: { enrollments: true }
+                }
+            }
+        });
+
+        if (!cls) return null;
+
+        return {
+            ...cls,
+            student_count: cls._count.enrollments,
+            studentCount: cls._count.enrollments
+        };
+    }
+
+    static async getClassStudents(schoolId: string, classId: string) {
+        const enrollments = await prisma.studentEnrollment.findMany({
+            where: {
+                class_id: classId,
+                class: {
+                    school_id: schoolId
+                }
+            },
+            include: {
+                student: true
+            }
+        });
+
+        return enrollments.map((e: any) => ({
+            id: e.student.id,
+            name: (e.student as any).full_name || e.student.name,
+            email: e.student.email,
+            grade: e.student.grade,
+            section: e.student.section,
+            avatar_url: e.student.avatar_url,
+            school_generated_id: e.student.school_generated_id,
+            attendance_status: e.student.attendance_status,
+            gender: e.student.gender,
+            phone: e.student.phone,
+            birthday: e.student.dob || e.student.birthday || e.student.dateOfBirth,
+            status: e.student.status
+        }));
+    }
+
+    static async initializeStandardClasses(schoolId: string, classes: any[], branchId: string | undefined) {
+        const results = [];
+        for (const cls of classes) {
+            const created = await prisma.class.create({
+                data: {
+                    name: cls.name,
+                    grade: cls.grade,
+                    section: cls.section,
+                    level_category: cls.level,
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : null
+                }
+            });
+            results.push(created);
+        }
+        SocketService.emitToSchool(schoolId, 'class:updated', { action: 'initialize_standard' });
+        return results;
     }
 }

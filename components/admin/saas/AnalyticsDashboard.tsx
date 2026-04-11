@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import {
     TrendingUp,
@@ -75,58 +75,19 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
         try {
             setLoading(true);
 
-            // Fetch dashboard stats
-            const [schoolsData, paymentsData, subscriptionsData, usersData] = await Promise.all([
-                supabase.from('schools').select('id, status, created_at'),
-                supabase.from('payments').select('amount, status, created_at'),
-                supabase.from('subscriptions').select('id, status, plan_id, plans(name)'),
-                supabase.from('users').select('id, created_at')
+            // Fetch specialized analytics data
+            const [overview, charts] = await Promise.all([
+                api.getSaaSAnalyticsOverview(),
+                api.getSaaSAnalyticsCharts()
             ]);
 
-            // Calculate stats
-            const schools = schoolsData.data || [];
-            const payments = paymentsData.data || [];
-            const subscriptions = subscriptionsData.data || [];
-            const users = usersData.data || [];
+            setStats(overview);
+            setUserGrowthData(charts.userGrowth || []);
+            setRevenueData(charts.revenueTrend || []);
+            setPlanDistribution(charts.planDist || []);
 
-            const completedPayments = payments.filter(p => p.status === 'completed');
-            const totalRevenue = completedPayments.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0);
-
-            // Monthly revenue (last 30 days)
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const monthlyRevenue = completedPayments
-                .filter(p => new Date(p.created_at) > thirtyDaysAgo)
-                .reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0);
-
-            setStats({
-                totalSchools: schools.length,
-                activeSchools: schools.filter(s => s.status === 'active').length,
-                totalRevenue,
-                monthlyRevenue,
-                totalUsers: users.length,
-                activeSubscriptions: subscriptions.filter(s => s.status === 'active').length
-            });
-
-            // Generate user growth data (last 6 months)
-            const userGrowth = generateMonthlyData(users, 6);
-            setUserGrowthData(userGrowth);
-
-            // Generate revenue data (last 6 months)
-            const revenue = generateMonthlyRevenueData(completedPayments, 6);
-            setRevenueData(revenue);
-
-            // Plan distribution
-            const planCounts: { [key: string]: number } = {};
-            subscriptions.forEach((sub: any) => {
-                const planName = sub.plans?.name || 'Unknown';
-                planCounts[planName] = (planCounts[planName] || 0) + 1;
-            });
-            const planDist = Object.entries(planCounts).map(([name, value]) => ({ name, value: Number(value) }));
-            setPlanDistribution(planDist as ChartData[]);
-
-            // School activity (last 7 days)
-            const activity = generateDailyActivityData(schools, 7);
+            // Generate daily activity data based on total schools
+            const activity = generateDailyActivityData(overview.totalSchools, 7);
             setSchoolActivityData(activity);
 
         } catch (error) {
@@ -136,49 +97,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
         }
     };
 
-    const generateMonthlyData = (items: any[], months: number): ChartData[] => {
-        const data: ChartData[] = [];
-        const now = new Date();
-
-        for (let i = months - 1; i >= 0; i--) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-            const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
-
-            const count = items.filter(item => {
-                const createdAt = new Date(item.created_at);
-                return createdAt >= date && createdAt < nextMonth;
-            }).length;
-
-            data.push({ name: monthName, value: count, users: count });
-        }
-
-        return data;
-    };
-
-    const generateMonthlyRevenueData = (payments: any[], months: number): ChartData[] => {
-        const data: ChartData[] = [];
-        const now = new Date();
-
-        for (let i = months - 1; i >= 0; i--) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-            const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
-
-            const revenue = payments
-                .filter(p => {
-                    const createdAt = new Date(p.created_at);
-                    return createdAt >= date && createdAt < nextMonth;
-                })
-                .reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0);
-
-            data.push({ name: monthName, value: revenue, revenue });
-        }
-
-        return data;
-    };
-
-    const generateDailyActivityData = (schools: any[], days: number): ChartData[] => {
+    const generateDailyActivityData = (schoolCount: number, days: number): ChartData[] => {
         const data: ChartData[] = [];
         const now = new Date();
 
@@ -187,8 +106,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ navigate
             date.setDate(date.getDate() - i);
             const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
 
-            // Simulate activity (in real app, fetch from usage_analytics table)
-            const activeSchools = Math.floor(Math.random() * schools.length * 0.8);
+            // Simulate activity based on school count
+            const activeSchools = Math.floor(Math.random() * schoolCount * 0.8);
 
             data.push({ name: dayName, value: activeSchools, schools: activeSchools });
         }
@@ -416,3 +335,4 @@ const StatCard: React.FC<{
 );
 
 export default AnalyticsDashboard;
+

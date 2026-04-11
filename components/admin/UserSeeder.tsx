@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import bcrypt from 'bcryptjs';
 
 const DEFAULTS = [
@@ -23,7 +23,7 @@ export const UserSeeder: React.FC = () => {
 
                 // 1. Insert into PUBLIC.USERS
                 // Check if exists first to avoid duplicates
-                const { data: existingUser } = await supabase
+                const { data: existingUser } = await api
                     .from('users')
                     .select('id')
                     .eq('email', user.email)
@@ -32,7 +32,7 @@ export const UserSeeder: React.FC = () => {
                 let userId = existingUser?.id;
 
                 if (!userId) {
-                    const { data: newUser, error: userError } = await supabase
+                    const { data: newUser, error: userError } = await api
                         .from('users')
                         .insert([{
                             email: user.email,
@@ -49,7 +49,7 @@ export const UserSeeder: React.FC = () => {
 
                 // 2. Insert into ROLE TABLE
                 if (user.type === 'Teacher') {
-                    const { error } = await supabase.from('teachers').upsert({
+                    const { error } = await api.from('teachers').upsert({
                         user_id: userId,
                         name: user.name,
                         email: user.email,
@@ -57,7 +57,7 @@ export const UserSeeder: React.FC = () => {
                     }, { onConflict: 'email' });
                     if (error) console.error('Teacher insert error:', error);
                 } else if (user.type === 'Student') {
-                    const { error } = await supabase.from('students').upsert({
+                    const { error } = await api.from('students').upsert({
                         user_id: userId,
                         name: user.name,
                         grade: 10,
@@ -66,7 +66,7 @@ export const UserSeeder: React.FC = () => {
                     }, { onConflict: 'id' }); // Students usually don't have unique email constraint in schema shown, but let's assume valid
                     if (error) console.error('Student insert error:', error);
                 } else if (user.type === 'Parent') {
-                    const { error } = await supabase.from('parents').upsert({
+                    const { error } = await api.from('parents').upsert({
                         email: user.email, // Parents table uses email as unique, but wait, schema says name, email, phone... 
                         // Wait, parents usually don't link to user_id in the schema I saw?
                         // Schema: id, name, email unique. No user_id column in snippet 574!
@@ -82,7 +82,7 @@ export const UserSeeder: React.FC = () => {
 
                 // 3. Create AUTH_ACCOUNT (Custom Auth Table)
                 const hashedPassword = await bcrypt.hash(user.password, 10);
-                const { error: authAccError } = await supabase
+                const { error: authAccError } = await api
                     .from('auth_accounts')
                     .upsert([{
                         username: user.username,
@@ -102,7 +102,7 @@ export const UserSeeder: React.FC = () => {
                 // We attempt to signUp. If user exists, it returns generic response or specific error.
                 // We just try it.
                 setStatus(`Registering Auth for ${user.type}...`);
-                const { error: authError } = await supabase.auth.signUp({
+                const { error: authError } = await api.auth.signUp({
                     email: user.email,
                     password: user.password,
                     options: {
@@ -120,7 +120,7 @@ export const UserSeeder: React.FC = () => {
                 }
 
                 // Important: SignOut immediately so next loop doesn't use this session
-                await supabase.auth.signOut();
+                await api.auth.signOut();
             }
 
             setStatus('Seeding Complete! You can now login.');
@@ -141,7 +141,7 @@ export const UserSeeder: React.FC = () => {
             // 0. Attempt to delete from Auth Users (Requires 'delete_auth_user_by_email' RPC function)
             // This is critical to ensure passwords can be reset
             for (const user of DEFAULTS) {
-                const { error: rpcError } = await supabase.rpc('delete_auth_user_by_email', { email_input: user.email });
+                const { error: rpcError } = await api.rpc('delete_auth_user_by_email', { email_input: user.email });
                 if (rpcError) {
                     console.warn(`Could not delete auth user ${user.email} (function might not exist or permission denied):`, rpcError.message);
                 }
@@ -149,20 +149,20 @@ export const UserSeeder: React.FC = () => {
 
             // Delete in order to respect Foreign Keys
             // 1. Child tables first
-            await supabase.from('auth_accounts').delete().neq('id', 0);
-            await supabase.from('teacher_subjects').delete().neq('id', 0);
-            await supabase.from('teacher_classes').delete().neq('id', 0);
-            await supabase.from('parent_children').delete().neq('id', 0);
+            await api.from('auth_accounts').delete().neq('id', 0);
+            await api.from('teacher_subjects').delete().neq('id', 0);
+            await api.from('teacher_classes').delete().neq('id', 0);
+            await api.from('parent_children').delete().neq('id', 0);
 
             // 2. Role tables
-            await supabase.from('teachers').delete().neq('id', 0);
-            await supabase.from('students').delete().neq('id', 0);
-            await supabase.from('parents').delete().neq('id', 0);
+            await api.from('teachers').delete().neq('id', 0);
+            await api.from('students').delete().neq('id', 0);
+            await api.from('parents').delete().neq('id', 0);
 
             // 3. Main users table (Check if ID is numeric or UUID, assuming numeric based on types.ts but generic check is safer)
             // If users table uses UUID, neq('id', 0) might fail type check if 0 is int. 
             // We'll use a safer filter: id is not null. 
-            await supabase.from('users').delete().not('id', 'is', null);
+            await api.from('users').delete().not('id', 'is', null);
 
             setStatus('All accounts cleared. You can now Seed Data.');
         } catch (err: any) {
@@ -193,3 +193,4 @@ export const UserSeeder: React.FC = () => {
         </div>
     );
 };
+

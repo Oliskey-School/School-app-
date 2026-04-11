@@ -1,13 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import api from '../api';
 
 interface UseRealtimeQueryOptions<T> {
     table: string;
     select?: string;
-    filter?: (query: any) => any;
+    filter?: any; // Simple object filter for now
     orderBy?: { column: string; ascending?: boolean };
     enabled?: boolean;
+    pollInterval?: number;
     onInsert?: (record: T) => void;
     onUpdate?: (record: T) => void;
     onDelete?: (record: T) => void;
@@ -25,37 +25,26 @@ interface UseRealtimeQueryReturn<T> {
 }
 
 /**
- * Enhanced Realtime Query Hook
+ * Enhanced Query Hook (Polling Replacement for Realtime)
  * 
- * Provides real-time subscriptions with optimistic updates, error handling,
- * and automatic reconnection.
- * 
- * @example
- * const { data, loading, optimisticInsert } = useRealtimeQuery({
- *   table: 'assignments',
- *   filter: (q) => q.eq('teacher_id', teacherId),
- *   orderBy: { column: 'created_at', ascending: false }
- * });
+ * Provides polling-based data fetching with optimistic updates and error handling.
  */
 export function useRealtimeQuery<T = any>(
     options: UseRealtimeQueryOptions<T>
 ): UseRealtimeQueryReturn<T> {
     const {
         table,
-        select = '*',
         filter,
-        orderBy,
         enabled = true,
-        onInsert,
-        onUpdate,
-        onDelete
+        pollInterval = 10000, // Default to 10 seconds
+        onUpdate
     } = options;
 
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
-    const [isSubscribed, setIsSubscribed] = useState(false);
     const [refetchTrigger, setRefetchTrigger] = useState(0);
+    const prevDataRef = useRef<string>('');
 
     // Optimistic update helpers
     const optimisticInsert = useCallback((record: Partial<T>) => {
@@ -84,34 +73,43 @@ export function useRealtimeQuery<T = any>(
             return;
         }
 
-        let channel: RealtimeChannel;
         let isMounted = true;
+        let intervalId: NodeJS.Timeout;
 
-        const fetchInitialData = async () => {
+        const fetchData = async () => {
             try {
-                setLoading(true);
-                setError(null);
-
-                let query = supabase.from(table).select(select);
-
-                if (filter) {
-                    query = filter(query as any) as any;
+                // Determine which API method to call based on table name
+                // This is a mapping layer until all endpoints are fully standardized
+                let result: T[] = [];
+                
+                if (table === 'students') {
+                    result = await api.getStudents(filter?.school_id, filter?.branch_id) as any;
+                } else if (table === 'teachers') {
+                    result = await api.getTeachers(filter?.school_id, filter?.branch_id) as any;
+                } else if (table === 'classes') {
+                    result = await api.getClasses(filter?.school_id, filter?.branch_id) as any;
+                } else if (table === 'notices') {
+                    result = await api.getNotices(filter?.school_id, filter?.branch_id) as any;
+                } else {
+                    // Generic fallback if we don't have a specific mapping
+                    console.warn(`[useRealtimeQuery] No specific API mapping for table: ${table}. Polling may not work.`);
+                    return;
                 }
-
-                if (orderBy) {
-                    query = query.order(orderBy.column, { ascending: orderBy.ascending ?? true });
-                }
-
-                const { data: initialData, error: fetchError } = await query;
-
-                if (fetchError) throw fetchError;
 
                 if (isMounted) {
-                    setData((initialData as T[]) || []);
+                    const dataString = JSON.stringify(result);
+                    if (dataString !== prevDataRef.current) {
+                        setData(result);
+                        prevDataRef.current = dataString;
+                        if (prevDataRef.current !== '') {
+                            onUpdate?.(result as any);
+                        }
+                    }
                     setLoading(false);
+                    setError(null);
                 }
             } catch (err: any) {
-                console.error(`[useRealtimeQuery] Error fetching ${table}:`, err);
+                console.error(`[useRealtimeQuery] Error polling ${table}:`, err);
                 if (isMounted) {
                     setError(err);
                     setLoading(false);
@@ -119,89 +117,20 @@ export function useRealtimeQuery<T = any>(
             }
         };
 
-        const setupRealtimeSubscription = () => {
-            channel = supabase
-                .channel(`realtime:${table}:${Date.now()}`)
-                .on(
-                    'postgres_changes',
-                    { event: 'INSERT', schema: 'public', table },
-                    (payload) => {
-                        if (!isMounted) return;
-
-                        console.log(`[Realtime] INSERT on ${table}:`, payload.new);
-
-                        setData(prev => {
-                            // Remove any optimistic records (they'll be replaced by real data)
-                            const withoutOptimistic = prev.filter(item => !(item as any)._optimistic);
-                            return [...withoutOptimistic, payload.new as T];
-                        });
-
-                        onInsert?.(payload.new as T);
-                    }
-                )
-                .on(
-                    'postgres_changes',
-                    { event: 'UPDATE', schema: 'public', table },
-                    (payload) => {
-                        if (!isMounted) return;
-
-                        console.log(`[Realtime] UPDATE on ${table}:`, payload.new);
-
-                        setData(prev => prev.map(item =>
-                            (item as any).id === (payload.new as any).id
-                                ? { ...(payload.new as T), _optimistic: false }
-                                : item
-                        ));
-
-                        onUpdate?.(payload.new as T);
-                    }
-                )
-                .on(
-                    'postgres_changes',
-                    { event: 'DELETE', schema: 'public', table },
-                    (payload) => {
-                        if (!isMounted) return;
-
-                        console.log(`[Realtime] DELETE on ${table}:`, payload.old);
-
-                        setData(prev => prev.filter(item => (item as any).id !== (payload.old as any).id));
-
-                        onDelete?.(payload.old as T);
-                    }
-                )
-                .subscribe((status) => {
-                    console.log(`[Realtime] Subscription status for ${table}:`, status);
-
-                    if (status === 'SUBSCRIBED') {
-                        setIsSubscribed(true);
-                    } else if (status === 'CHANNEL_ERROR') {
-                        console.error(`[Realtime] Subscription error for ${table}`);
-                        setIsSubscribed(false);
-                    } else if (status === 'TIMED_OUT') {
-                        console.error(`[Realtime] Subscription timeout for ${table}`);
-                        setIsSubscribed(false);
-                    }
-                });
-        };
-
-        fetchInitialData().then(() => {
-            setupRealtimeSubscription();
-        });
+        fetchData();
+        intervalId = setInterval(fetchData, pollInterval);
 
         return () => {
             isMounted = false;
-            if (channel) {
-                console.log(`[Realtime] Unsubscribing from ${table}`);
-                supabase.removeChannel(channel);
-            }
+            if (intervalId) clearInterval(intervalId);
         };
-    }, [table, select, enabled, orderBy?.column, orderBy?.ascending, refetchTrigger]);
+    }, [table, enabled, pollInterval, refetchTrigger, JSON.stringify(filter)]);
 
     return {
         data,
         loading,
         error,
-        isSubscribed,
+        isSubscribed: true, // Mocked for compatibility
         optimisticInsert,
         optimisticUpdate,
         optimisticDelete,

@@ -1,56 +1,72 @@
-import { supabase } from '../config/supabase';
+import prisma from '../config/database';
 
 export class ReportCardService {
     static async getReportCards(schoolId: string, branchId: string | undefined, teacherId?: string) {
-        let query;
-
-        if (teacherId) {
-            // Join with class_teachers via student's class
-            query = supabase
-                .from('report_cards')
-                .select('*, students!inner(id, current_class_id, class_teachers!inner(teacher_id))')
-                .eq('school_id', schoolId)
-                .eq('students.class_teachers.teacher_id', teacherId);
-        } else {
-            query = supabase
-                .from('report_cards')
-                .select('*, students!inner(id, current_class_id)')
-                .eq('school_id', schoolId);
-        }
+        const where: any = {
+            school_id: schoolId
+        };
 
         if (branchId && branchId !== 'all') {
-            query = query.or(`branch_id.eq.${branchId},branch_id.is.null`);
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
         }
 
-        const { data, error } = await query
-            .order('session', { ascending: false })
-            .order('term', { ascending: false });
+        if (teacherId) {
+            where.Student = {
+                StudentEnrollment: {
+                    some: {
+                        Class: {
+                            ClassTeacher: {
+                                some: { teacher_id: teacherId }
+                            }
+                        }
+                    }
+                }
+            };
+        }
 
-        if (error) throw new Error(error.message);
-        return data || [];
+        const reports = await prisma.reportCard.findMany({
+            where,
+            include: {
+                Student: true
+            },
+            orderBy: [
+                { session: 'desc' },
+                { term: 'desc' }
+            ]
+        });
+
+        return reports.map(r => ({
+            ...r,
+            status: r.is_published ? 'Published' : 'Submitted'
+        }));
     }
 
     static async updateStatus(schoolId: string, branchId: string | undefined, id: string, status: string) {
-        const updateData: any = { status };
-        if (status === 'Published') {
-            updateData.published_at = new Date().toISOString();
-        }
+        const isPublished = status === 'Published';
+        const updateData: any = { is_published: isPublished };
 
-        let query = supabase
-            .from('report_cards')
-            .update(updateData)
-            .eq('id', id)
-            .eq('school_id', schoolId);
+        const where: any = {
+            id,
+            school_id: schoolId
+        };
 
-        if (branchId && branchId !== 'all') {
-            query = query.eq('branch_id', branchId);
-        }
+        // Note: Prisma's 'update' only allows unique identifiers in 'where'. 
+        // We use 'updateMany' to filter by multiple fields safely.
+        await prisma.reportCard.updateMany({
+            where,
+            data: updateData
+        });
 
-        const { data, error } = await query
-            .select()
-            .single();
+        const updated = await prisma.reportCard.findUnique({
+            where: { id }
+        });
 
-        if (error) throw new Error(error.message);
-        return data;
+        return {
+            ...updated,
+            status: updated?.is_published ? 'Published' : 'Submitted'
+        };
     }
 }

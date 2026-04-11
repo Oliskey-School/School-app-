@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { Award, Users, DollarSign, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -74,7 +74,7 @@ const ScholarshipManagement: React.FC = () => {
     const fetchScholarships = async () => {
         try {
             if (!schoolId) return;
-            let query = supabase
+            let query = api
                 .from('scholarships')
                 .select('*')
                 .eq('school_id', schoolId);
@@ -98,7 +98,7 @@ const ScholarshipManagement: React.FC = () => {
     const fetchApplications = async () => {
         try {
             if (!schoolId) return;
-            let query = supabase
+            let query = api
                 .from('scholarship_applications')
                 .select(`
                   *,
@@ -124,7 +124,7 @@ const ScholarshipManagement: React.FC = () => {
     const fetchRecipients = async () => {
         try {
             if (!schoolId) return;
-            let query = supabase
+            let query = api
                 .from('scholarship_recipients')
                 .select(`
                   *,
@@ -151,7 +151,7 @@ const ScholarshipManagement: React.FC = () => {
         try {
             if (!schoolId) return;
             // Total scholarships
-            let totalQuery = supabase
+            let totalQuery = api
                 .from('scholarships')
                 .select('*', { count: 'exact', head: true })
                 .eq('school_id', schoolId);
@@ -164,7 +164,7 @@ const ScholarshipManagement: React.FC = () => {
             setTotalScholarships(totalCount || 0);
 
             // Total awarded
-            let awardedQuery = supabase
+            let awardedQuery = api
                 .from('scholarship_recipients')
                 .select('*, students!inner(school_id, branch_id)', { count: 'exact', head: true })
                 .eq('students.school_id', schoolId);
@@ -177,7 +177,7 @@ const ScholarshipManagement: React.FC = () => {
             setTotalAwarded(awardedCount || 0);
 
             // Pending applications
-            let pendingQuery = supabase
+            let pendingQuery = api
                 .from('scholarship_applications')
                 .select('*, students!inner(school_id, branch_id)', { count: 'exact', head: true })
                 .eq('students.school_id', schoolId)
@@ -201,7 +201,7 @@ const ScholarshipManagement: React.FC = () => {
         }
 
         try {
-            const { error } = await supabase
+            const { error } = await api
                 .from('scholarships')
                 .insert({
                     scholarship_name: scholarshipName,
@@ -234,13 +234,13 @@ const ScholarshipManagement: React.FC = () => {
     const handleApproveApplication = async (applicationId: number, scholarshipId: number, studentId: number) => {
         try {
             // Update application status
-            await supabase
+            await api
                 .from('scholarship_applications')
                 .update({ status: 'Approved' })
                 .eq('id', applicationId);
 
             // Create recipient record
-            await supabase
+            await api
                 .from('scholarship_recipients')
                 .insert({
                     scholarship_id: scholarshipId,
@@ -252,7 +252,7 @@ const ScholarshipManagement: React.FC = () => {
             // Update scholarship slots
             const scholarship = scholarships.find(s => s.id === scholarshipId);
             if (scholarship) {
-                await supabase
+                await api
                     .from('scholarships')
                     .update({ slots_filled: scholarship.slots_filled + 1 })
                     .eq('id', scholarshipId);
@@ -271,7 +271,7 @@ const ScholarshipManagement: React.FC = () => {
 
     const handleRejectApplication = async (applicationId: number) => {
         try {
-            await supabase
+            await api
                 .from('scholarship_applications')
                 .update({ status: 'Rejected' })
                 .eq('id', applicationId);
@@ -646,3 +646,4 @@ const ScholarshipManagement: React.FC = () => {
 };
 
 export default ScholarshipManagement;
+

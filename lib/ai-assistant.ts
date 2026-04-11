@@ -1,7 +1,7 @@
 
-import { supabase } from './supabase';
+import { api } from './api';
 
-const BACKEND_URL = 'http://localhost:5000'; // Should be env var in production
+
 
 export interface AIResponse {
     answer: string;
@@ -15,28 +15,12 @@ export interface AIResponse {
 
 export const generateAIResponse = async (question: string, options: { image_needed?: boolean } = {}): Promise<AIResponse> => {
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-
-        const response = await fetch(`${BACKEND_URL}/api/ai/assistant`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token || ''}`
-            },
-            body: JSON.stringify({
-                question,
-                options
-            })
+        const data = await api.post<AIResponse>('/ai/assistant', {
+            question,
+            options
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Backend API Error: ${response.status} ${errorText}`);
-        }
-
-        const data = await response.json();
-        return data as AIResponse;
+        
+        return data;
 
     } catch (error: any) {
         console.error("AI Assistant Error:", error);
@@ -52,3 +36,4 @@ export const generateAIResponse = async (question: string, options: { image_need
         };
     }
 };
+

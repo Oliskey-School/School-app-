@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { api } from './api';
 
 /**
  * SMS Provider Simulation (e.g., Termii, Twilio, or AWS SNS)
@@ -31,18 +31,13 @@ export const notifyStudentsAndParents = async (opts: {
 
     // 1. Resolve student list
     if (opts.studentIds && opts.studentIds.length > 0) {
-      const { data, error } = await supabase
-        .from('students')
-        .select('id,user_id,name,grade,section')
-        .in('id', opts.studentIds as number[]);
-      if (!error && data) students = data;
+      students = await api.getStudentsByIds(opts.studentIds);
     } else if (opts.className) {
-      const className = opts.className.trim();
-      const { data, error } = await supabase
-        .from('students')
-        .select('id,user_id,name,grade,section')
-        .or(`grade.eq.${className},section.eq.${className}`);
-      if (!error && data) students = data;
+      // className could be a grade or section name, handled by getStudents
+      students = await api.getStudents({
+        grade: isNaN(Number(opts.className)) ? undefined : Number(opts.className),
+        section: isNaN(Number(opts.className)) ? opts.className : undefined
+      });
     }
 
     if (!students || students.length === 0) {
@@ -54,7 +49,7 @@ export const notifyStudentsAndParents = async (opts: {
     for (const student of students) {
       // Student in-app notification
       try {
-        await supabase.from('notifications').insert({
+        await api.createNotification({
           recipient_type: 'student',
           recipient_id: student.user_id || student.id,
           title: opts.title || 'Class Update',
@@ -67,21 +62,12 @@ export const notifyStudentsAndParents = async (opts: {
 
       // Parent notifications (In-app + SMS)
       try {
-        const { data: parentLinks } = await supabase
-          .from('parent_children')
-          .select('parent_id')
-          .eq('student_id', student.id);
+        const parents = await api.getParentsByStudentId(student.id);
 
-        if (parentLinks && parentLinks.length > 0) {
-          const parentIds = parentLinks.map((p: any) => p.parent_id);
-          const { data: parents } = await supabase
-            .from('parents')
-            .select('id,user_id,name,phone_number')
-            .in('id', parentIds);
-
-          for (const parent of parents || []) {
+        if (parents && parents.length > 0) {
+          for (const parent of parents) {
             // Parent in-app notification
-            await supabase.from('notifications').insert({
+            await api.createNotification({
               recipient_type: 'parent',
               recipient_id: parent.user_id || parent.id,
               title: opts.title || `School update regarding ${student.name}`,
@@ -106,3 +92,4 @@ export const notifyStudentsAndParents = async (opts: {
     return { success: false, error: err.message };
   }
 };
+

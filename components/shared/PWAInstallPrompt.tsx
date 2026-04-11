@@ -1,95 +1,212 @@
 import React from 'react';
-import { usePWAInstall } from '../../lib/pwa';
+import { usePWAInstall, isStandalone } from '../../lib/pwa';
+import { useAuth } from '../../context/AuthContext';
 
-export function PWAInstallPrompt() {
+const DISMISS_KEY = 'pwa-install-dismissed';
+const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function isDismissed(): boolean {
+    const ts = localStorage.getItem(DISMISS_KEY);
+    if (!ts) return false;
+    return Date.now() - parseInt(ts, 10) < DISMISS_DURATION_MS;
+}
+
+export default function PWAInstallPrompt() {
+    const { user } = useAuth();
     const { canInstall, isInstalled, promptInstall } = usePWAInstall();
     const [showPrompt, setShowPrompt] = React.useState(false);
-    const [dismissed, setDismissed] = React.useState(false);
 
+    // Show the prompt immediately when the user logs in on the web (not the installed app)
     React.useEffect(() => {
-        // Show prompt after 30 seconds if not installed and not dismissed
-        const timer = setTimeout(() => {
-            if (canInstall && !dismissed) {
-                setShowPrompt(true);
-            }
-        }, 30000);
+        if (!user) return;                // Not logged in yet
+        if (isStandalone()) return;       // Already running as installed app
+        if (isInstalled) return;           // Just got installed
+        if (isDismissed()) return;         // User dismissed recently
 
-        return () => clearTimeout(timer);
-    }, [canInstall, dismissed]);
+        // Show right away on login
+        setShowPrompt(true);
+    }, [user, isInstalled]);
+
+    // Also hide if they install the app mid-session
+    React.useEffect(() => {
+        if (isInstalled) setShowPrompt(false);
+    }, [isInstalled]);
 
     const handleInstall = async () => {
-        const accepted = await promptInstall();
-        if (accepted) {
-            setShowPrompt(false);
+        if (canInstall) {
+            // Native browser install prompt available — use it
+            const accepted = await promptInstall();
+            if (accepted) {
+                setShowPrompt(false);
+                return;
+            }
         }
+        // Fallback: just close the banner (browser may not support native prompt)
+        setShowPrompt(false);
     };
 
     const handleDismiss = () => {
         setShowPrompt(false);
-        setDismissed(true);
-        // Remember dismissal for 7 days
-        localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+        localStorage.setItem(DISMISS_KEY, Date.now().toString());
     };
 
-    if (isInstalled || !canInstall || !showPrompt) {
-        return null;
-    }
+    if (!showPrompt || !user) return null;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:bottom-4 md:left-4 md:right-auto md:max-w-md">
-            <div className="bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden animate-slide-up">
-                <div className="p-6">
-                    <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0">
-                            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                                <svg className="w-6 h-6 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                                </svg>
-                            </div>
+        <div
+            className="fixed z-[9999] animate-slide-up"
+            style={{
+                bottom: '1rem',
+                right: '1rem',
+                left: 'auto',
+                maxWidth: '360px',
+                width: 'calc(100% - 2rem)',
+            }}
+        >
+            <div
+                style={{
+                    background: '#ffffff',
+                    borderRadius: '14px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                    border: '1px solid #e5e7eb',
+                    overflow: 'hidden',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                }}
+            >
+                {/* Header */}
+                <div style={{ padding: '16px 16px 12px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        {/* App Icon */}
+                        <div
+                            style={{
+                                flexShrink: 0,
+                                width: '44px',
+                                height: '44px',
+                                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            {/* Simple A-shape like the screenshot */}
+                            <svg width="22" height="22" viewBox="0 0 20 20" fill="white">
+                                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                            </svg>
                         </div>
 
-                        <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        {/* Text */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <h3
+                                style={{
+                                    margin: 0,
+                                    fontSize: '15px',
+                                    fontWeight: 700,
+                                    color: '#111827',
+                                    lineHeight: 1.3,
+                                }}
+                            >
                                 Install School App
                             </h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Install for quick access and offline use. Works even without internet!
+                            <p
+                                style={{
+                                    margin: '4px 0 0',
+                                    fontSize: '13px',
+                                    color: '#6b7280',
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Install for quick access and offline use.
+                                Works even without internet!
                             </p>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleInstall}
-                                    className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition"
-                                >
-                                    Install Now
-                                </button>
-                                <button
-                                    onClick={handleDismiss}
-                                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
-                                >
-                                    Not Now
-                                </button>
-                            </div>
                         </div>
 
+                        {/* Close button */}
                         <button
                             onClick={handleDismiss}
-                            className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+                            aria-label="Close install prompt"
+                            style={{
+                                flexShrink: 0,
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '2px',
+                                color: '#9ca3af',
+                                lineHeight: 1,
+                            }}
                         >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                    fillRule="evenodd"
+                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                    clipRule="evenodd"
+                                />
                             </svg>
+                        </button>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '14px' }}>
+                        <button
+                            id="pwa-install-now-btn"
+                            onClick={handleInstall}
+                            style={{
+                                flex: 1,
+                                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '10px 16px',
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'opacity 0.15s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                        >
+                            Install Now
+                        </button>
+                        <button
+                            id="pwa-install-later-btn"
+                            onClick={handleDismiss}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#6b7280',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                padding: '10px 8px',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            Not Now
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        <span>Fast, reliable, and works offline</span>
-                    </div>
+                {/* Footer badge */}
+                <div
+                    style={{
+                        background: '#f9fafb',
+                        borderTop: '1px solid #f3f4f6',
+                        padding: '8px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                    }}
+                >
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="#6b7280">
+                        <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                            clipRule="evenodd"
+                        />
+                    </svg>
+                    <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                        Fast, reliable, and works offline
+                    </span>
                 </div>
             </div>
         </div>

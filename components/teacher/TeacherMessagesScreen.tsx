@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Conversation } from '../../types';
 import ChatScreen from '../shared/ChatScreen';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
@@ -62,67 +62,21 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
     const fetchConversations = useCallback(async () => {
         setLoading(true);
         try {
-            const schoolId = user?.user_metadata?.school_id || user?.app_metadata?.school_id;
-            const branchId = profile?.branch_id;
-
-            // 1. Get IDs of conversations I am in
-            let partQuery = supabase
-                .from('conversation_participants')
-                .select('conversation_id')
-                .eq('user_id', myId);
-
-            if (schoolId) partQuery = partQuery.eq('school_id', schoolId);
-
-            const { data: myParticipations, error: partError } = await partQuery;
-
-            if (partError) throw partError;
-            if (!myParticipations || myParticipations.length === 0) {
-                setConversations([]);
-                setLoading(false);
-                return;
-            }
-
-            const conversationIds = myParticipations.map(p => p.conversation_id);
-
-            // 2. Fetch the conversation metadata (last message, etc.)
-            let convQuery = supabase
-                .from('conversations')
-                .select('*')
-                .in('id', conversationIds);
-
-            if (schoolId) convQuery = convQuery.eq('school_id', schoolId);
-            if (branchId && branchId !== 'all') convQuery = convQuery.eq('branch_id', branchId);
-
-            const { data: conversationList, error: convoError } = await convQuery
-                .order('last_message_at', { ascending: false });
-
-            if (convoError) throw convoError;
-
-            // 3. Fetch the OTHER participants for these conversations to get name/avatar
-            const { data: otherParticipants, error: otherPartError } = await supabase
-                .from('conversation_participants')
-                .select(`
-                        conversation_id,
-                        user:users!user_id (id, name, avatar_url, role)
-                    `)
-                .in('conversation_id', conversationIds)
-                .neq('user_id', myId); // Exclude me
-
-            if (otherPartError) throw otherPartError;
+            const data = await api.getConversations();
 
             // 4. Merge Data
-            const enrichedConversations: LocalConversation[] = conversationList.map((c: any) => {
+            const enrichedConversations: LocalConversation[] = data.map((c: any) => {
                 // Find the other participant for this conversation
-                const pData = otherParticipants?.find((p: any) => p.conversation_id === c.id);
-                // Safely access user, handling potential array return from join
-                const userData = (pData as any)?.user;
-                const other = Array.isArray(userData) ? userData[0] : userData;
+                const otherParticipant = c.participants?.find((p: any) => p.user_id !== myId);
+                const other = otherParticipant?.user;
 
                 // Fallback if no other participant (e.g. self chat or formatting error)
-                const participantName = other?.name || c.name || 'Unknown User';
+                const participantName = other?.full_name || other?.name || c.name || 'Unknown User';
                 const participantAvatar = other?.avatar_url || '';
                 const participantRole = other?.role || 'User';
                 const participantId = other?.id || 0;
+
+                const lastMsg = c.messages && c.messages.length > 0 ? c.messages[0] : null;
 
                 return {
                     id: c.id,
@@ -133,10 +87,10 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
                         role: participantRole
                     },
                     lastMessage: {
-                        text: c.last_message_text || c.last_message || 'Start a conversation',
-                        timestamp: c.last_message_at || new Date().toISOString()
+                        text: lastMsg?.content || 'Start a conversation',
+                        timestamp: lastMsg?.created_at || c.last_message_at || new Date().toISOString()
                     },
-                    unreadCount: 0, // Need to implement read count logic later
+                    unreadCount: c.unread_count || 0,
                     messages: []
                 };
             });
@@ -153,40 +107,11 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
     useEffect(() => {
         fetchConversations();
 
-        // Realtime Subscription
-        const channel = supabase
-            .channel('public:conversations')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'conversations' },
-                (payload) => {
-                    if (payload.eventType === 'INSERT') {
-                        fetchConversations();
-                    } else if (payload.eventType === 'UPDATE') {
-                        const updated = payload.new;
-                        setConversations(prev => {
-                            const exists = prev.find(c => c.id === updated.id);
-                            if (exists) {
-                                const others = prev.filter(c => c.id !== updated.id);
-                                return [{
-                                    ...exists,
-                                    lastMessage: {
-                                        text: updated.last_message_text || exists.lastMessage.text,
-                                        timestamp: updated.last_message_at || exists.lastMessage.timestamp
-                                    }
-                                }, ...others];
-                            } else {
-                                fetchConversations();
-                                return prev;
-                            }
-                        });
-                    }
-                }
-            )
-            .subscribe();
+        // Realtime updates handled by backend polling fallback
+        const interval = setInterval(fetchConversations, 10000); // Polling as fallback
 
         return () => {
-            supabase.removeChannel(channel);
+            clearInterval(interval);
         };
     }, [fetchConversations]);
 

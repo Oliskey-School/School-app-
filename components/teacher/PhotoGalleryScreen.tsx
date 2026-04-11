@@ -1,9 +1,33 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ChevronRightIcon, XCircleIcon, ChevronLeftIcon } from '../../constants';
-import { mockPhotos } from '../../data';
+// import { mockPhotos } from '../../data';
+import { api } from '../../lib/api';
+import CenteredLoader from '../ui/CenteredLoader';
 
 const PhotoGalleryScreen: React.FC = () => {
+    const [photos, setPhotos] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+
+    useEffect(() => {
+        const fetchPhotos = async () => {
+            try {
+                const data = await api.getGalleryPhotos();
+                // Map the data to the UI format — ensure the field names match the component's expectations
+                const formattedPhotos = data.map((p: any) => ({
+                    id: p.id,
+                    imageUrl: p.file_url || p.url || p.imageUrl,
+                    caption: p.caption || 'No caption'
+                }));
+                setPhotos(formattedPhotos);
+            } catch (err) {
+                console.error('Error fetching photos:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPhotos();
+    }, []);
 
     const handleOpenPhoto = useCallback((index: number) => {
         setSelectedPhotoIndex(index);
@@ -15,20 +39,22 @@ const PhotoGalleryScreen: React.FC = () => {
 
     const handleNextPhoto = useCallback(() => {
         if (selectedPhotoIndex === null) return;
-        setSelectedPhotoIndex((prevIndex) => (prevIndex! + 1) % mockPhotos.length);
-    }, [selectedPhotoIndex]);
+        setSelectedPhotoIndex((prevIndex) => (prevIndex! + 1) % photos.length);
+    }, [selectedPhotoIndex, photos.length]);
 
     const handlePrevPhoto = useCallback(() => {
         if (selectedPhotoIndex === null) return;
-        setSelectedPhotoIndex((prevIndex) => (prevIndex! - 1 + mockPhotos.length) % mockPhotos.length);
-    }, [selectedPhotoIndex]);
+        setSelectedPhotoIndex((prevIndex) => (prevIndex! - 1 + photos.length) % photos.length);
+    }, [selectedPhotoIndex, photos.length]);
+
+    if (loading) return <CenteredLoader message="Loading gallery..." />;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
             {/* Photo Grid */}
             <main className="flex-grow p-4 overflow-y-auto">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {mockPhotos.map((photo, index) => (
+                    {photos.map((photo, index) => (
                         <button
                             key={photo.id}
                             onClick={() => handleOpenPhoto(index)}
@@ -45,11 +71,16 @@ const PhotoGalleryScreen: React.FC = () => {
                             </p>
                         </button>
                     ))}
+                    {photos.length === 0 && (
+                        <div className="col-span-full py-20 text-center text-gray-500">
+                            No photos found in the school gallery.
+                        </div>
+                    )}
                 </div>
             </main>
 
             {/* Lightbox/Modal for selected photo */}
-            {selectedPhotoIndex !== null && (
+            {selectedPhotoIndex !== null && photos.length > 0 && (
                 <div 
                     className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in"
                     onClick={handleClosePhoto}
@@ -61,12 +92,12 @@ const PhotoGalleryScreen: React.FC = () => {
                         {/* Image and Caption */}
                         <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
                             <img
-                                src={mockPhotos[selectedPhotoIndex].imageUrl}
-                                alt={mockPhotos[selectedPhotoIndex].caption}
+                                src={photos[selectedPhotoIndex].imageUrl}
+                                alt={photos[selectedPhotoIndex].caption}
                                 className="w-full h-auto max-h-[70vh] object-contain"
                             />
                             <p id="photo-caption" className="p-4 text-center font-semibold text-gray-800">
-                                {mockPhotos[selectedPhotoIndex].caption}
+                                {photos[selectedPhotoIndex].caption}
                             </p>
                         </div>
                         

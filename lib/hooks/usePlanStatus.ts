@@ -1,15 +1,5 @@
-/**
- * usePlanStatus
- *
- * Fetches the current school's plan status (limits, usage, trial info) from
- * the get_plan_status() Supabase RPC and exposes it to any component.
- *
- * Usage:
- *   const { planStatus, loading, canAddStudent, canAddTeacher, trialDaysLeft } = usePlanStatus();
- */
-
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import api from '../api';
 import { useAuth } from '../../context/AuthContext';
 
 export interface PlanLimits {
@@ -51,7 +41,8 @@ const DEFAULT_STATUS: PlanStatus = {
 };
 
 export function usePlanStatus() {
-    const { schoolId } = useAuth() as any;
+    const { currentSchool, isDemo } = useAuth();
+    const schoolId = currentSchool?.id;
     const [planStatus, setPlanStatus] = useState<PlanStatus>(DEFAULT_STATUS);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -67,15 +58,11 @@ export function usePlanStatus() {
         const fetch = async () => {
             setLoading(true);
             try {
-                const { data, error: rpcError } = await supabase.rpc('get_plan_status', {
-                    p_school_id: schoolId,
-                });
+                const data = await api.getPlanStatus(schoolId);
 
                 if (cancelled) return;
 
-                if (rpcError) {
-                    setError(rpcError.message);
-                } else if (data && !data.error) {
+                if (data && !data.error) {
                     setPlanStatus(data as PlanStatus);
                 }
             } catch (e: any) {
@@ -99,6 +86,6 @@ export function usePlanStatus() {
         trialDaysLeft: planStatus.trial_days_left,
         isExpired: planStatus.is_expired,
         effectivePlan: planStatus.effective_plan,
-        isDemo: schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1',
+        isDemo,
     };
 }

@@ -30,19 +30,15 @@ const AnonymousReporting: React.FC = () => {
             const code = generateTrackingCode();
             const hash = generateReportHash(formData);
 
-            const { error } = await api.createAnonymousReport({
+            await api.createAnonymousReport({
                 report_hash: hash,
                 track_code: code,
                 category: formData.category,
                 severity: formData.severity,
-                description_encrypted: formData.description, // Would encrypt in production
+                description_encrypted: formData.description,
                 location: formData.location,
                 status: 'New'
-            }, { useBackend: true })
-                .then(() => ({ error: null }))
-                .catch(err => ({ error: err }));
-
-            if (error) throw error;
+            });
 
             setTrackingCode(code);
             setShowSuccess(true);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { api } from '../api';
 import { Fee } from '../../types';
 
 export interface UseFeesResult {
@@ -17,23 +17,30 @@ export function useFees(filters?: { studentId?: string | number; status?: string
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
+    const transformFee = (f: any): Fee => ({
+        id: f.id,
+        studentId: f.student_id,
+        amount: f.total_fee,
+        paidAmount: f.paid_amount,
+        dueDate: f.due_date,
+        status: f.status,
+        title: f.title || 'School Fee'
+    });
+
     const fetchFees = useCallback(async () => {
         try {
             setLoading(true);
-            let query = supabase.from('student_fees').select('*');
+            const schoolId = sessionStorage.getItem('school_id') || undefined;
+            
+            // Map filters to expected API structure
+            const apiFilters = {
+                ...filters,
+                schoolId
+            };
+            
+            const data = await api.getFees(apiFilters);
 
-            if (filters?.studentId) {
-                query = query.eq('student_id', filters.studentId);
-            }
-            if (filters?.status) {
-                query = query.eq('status', filters.status);
-            }
-
-            const { data, error: fetchError } = await query.order('due_date', { ascending: false });
-
-            if (fetchError) throw fetchError;
-
-            const transformedFees: Fee[] = (data || []).map(transformSupabaseFee);
+            const transformedFees: Fee[] = (data || []).map(transformFee);
 
             setFees(transformedFees);
             setError(null);
@@ -48,42 +55,21 @@ export function useFees(filters?: { studentId?: string | number; status?: string
 
     useEffect(() => {
         fetchFees();
-
-        const channel = supabase
-            .channel('student-fees-changes')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'student_fees' },
-                (payload) => {
-                    console.log('Fee change detected:', payload);
-                    fetchFees();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, [fetchFees]);
 
     const createFee = async (feeData: Partial<Fee>): Promise<Fee | null> => {
         try {
-            const { data, error: insertError } = await supabase
-                .from('student_fees')
-                .insert([{
-                    student_id: feeData.studentId,
-                    total_fee: feeData.amount,
-                    paid_amount: feeData.paidAmount,
-                    due_date: feeData.dueDate,
-                    status: feeData.status,
-                    title: feeData.title || 'School Fee'
-                }])
-                .select()
-                .single();
+            const data = await api.createFee({
+                student_id: feeData.studentId,
+                total_fee: feeData.amount,
+                paid_amount: feeData.paidAmount,
+                due_date: feeData.dueDate,
+                status: feeData.status,
+                title: feeData.title || 'School Fee',
+                school_id: sessionStorage.getItem('school_id')
+            });
 
-            if (insertError) throw insertError;
-
-            return transformSupabaseFee(data);
+            return transformFee(data);
         } catch (err) {
             console.error('Error creating fee:', err);
             setError(err as Error);
@@ -93,23 +79,16 @@ export function useFees(filters?: { studentId?: string | number; status?: string
 
     const updateFee = async (id: string | number, updates: Partial<Fee>): Promise<Fee | null> => {
         try {
-            const { data, error: updateError } = await supabase
-                .from('student_fees')
-                .update({
-                    student_id: updates.studentId,
-                    total_fee: updates.amount,
-                    paid_amount: updates.paidAmount,
-                    due_date: updates.dueDate,
-                    status: updates.status,
-                    title: updates.title
-                })
-                .eq('id', id)
-                .select()
-                .single();
+            const data = await api.updateFee(String(id), {
+                student_id: updates.studentId,
+                total_fee: updates.amount,
+                paid_amount: updates.paidAmount,
+                due_date: updates.dueDate,
+                status: updates.status,
+                title: updates.title
+            });
 
-            if (updateError) throw updateError;
-
-            return transformSupabaseFee(data);
+            return transformFee(data);
         } catch (err) {
             console.error('Error updating fee:', err);
             setError(err as Error);
@@ -119,13 +98,7 @@ export function useFees(filters?: { studentId?: string | number; status?: string
 
     const deleteFee = async (id: string | number): Promise<boolean> => {
         try {
-            const { error: deleteError } = await supabase
-                .from('student_fees')
-                .delete()
-                .eq('id', id);
-
-            if (deleteError) throw deleteError;
-
+            await api.deleteFee(String(id));
             return true;
         } catch (err) {
             console.error('Error deleting fee:', err);
@@ -143,13 +116,3 @@ export function useFees(filters?: { studentId?: string | number; status?: string
         deleteFee,
     };
 }
-
-const transformSupabaseFee = (f: any): Fee => ({
-    id: f.id,
-    studentId: f.student_id,
-    amount: f.total_fee,
-    paidAmount: f.paid_amount,
-    dueDate: f.due_date,
-    status: f.status,
-    title: f.title || 'School Fee'
-});

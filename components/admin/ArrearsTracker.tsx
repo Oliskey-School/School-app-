@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -9,10 +9,11 @@ import {
     CalendarIcon,
     CheckCircleIcon
 } from '../../constants';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface Arrears {
-    id: number;
-    teacher_id: number;
+    id: string;
+    teacher_id: string;
     teacher_name: string;
     amount_owed: number;
     reason: string;
@@ -26,7 +27,6 @@ const ArrearsTracker: React.FC = () => {
     const [filter, setFilter] = useState<'all' | 'pending' | 'paid' | 'partial'>('all');
     const [loading, setLoading] = useState(true);
     const [selectedArrear, setSelectedArrear] = useState<Arrears | null>(null);
-    const [paymentAmount, setPaymentAmount] = useState(0);
 
     const { currentSchool } = useAuth();
     const schoolId = currentSchool?.id;
@@ -36,40 +36,26 @@ const ArrearsTracker: React.FC = () => {
         if (schoolId) {
             fetchArrears();
         }
-    }, [schoolId]);
+    }, [schoolId, branchId]);
+
+    useAutoSync(['salary_payments'], () => {
+        console.log('🔄 [ArrearsTracker] Real-time auto-sync triggered');
+        fetchArrears();
+    });
 
     const fetchArrears = async () => {
         try {
             setLoading(true);
             if (!schoolId) return;
 
-            let query = supabase
-                .from('arrears')
-                .select(`
-          *,
-          teachers!inner (
-            full_name,
-            school_id,
-            branch_id
-          )
-        `)
-                .eq('teachers.school_id', schoolId);
-
-            if (branchId) {
-                query = query.eq('teachers.branch_id', branchId);
-            }
-
-            const { data, error } = await query
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const data = await api.getSalaryArrears(schoolId, branchId || undefined);
 
             const formatted: Arrears[] = (data || []).map((item: any) => ({
                 id: item.id,
                 teacher_id: item.teacher_id,
-                teacher_name: item.teachers?.full_name || 'Unknown',
+                teacher_name: item.teacher?.full_name || 'Unknown',
                 amount_owed: item.amount_owed,
-                reason: item.reason,
+                reason: item.reason || 'No reason provided',
                 due_date: item.due_date,
                 status: item.status,
                 created_at: item.created_at
@@ -88,12 +74,7 @@ const ArrearsTracker: React.FC = () => {
         if (!selectedArrear) return;
 
         try {
-            const { error } = await supabase
-                .from('arrears')
-                .update({ status: 'Paid' })
-                .eq('id', selectedArrear.id);
-
-            if (error) throw error;
+            await api.updateSalaryArrearStatus(selectedArrear.id, 'Paid');
 
             toast.success('Arrear marked as paid');
             setSelectedArrear(null);
@@ -288,3 +269,4 @@ const ArrearsTracker: React.FC = () => {
 };
 
 export default ArrearsTracker;
+

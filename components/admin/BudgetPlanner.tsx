@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import { DollarSign, Plus, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAutoSync } from '../../hooks/useAutoSync';
 
 interface BudgetEntry {
     id: string;
@@ -37,6 +38,11 @@ const BudgetPlanner: React.FC = () => {
         }
     }, [schoolId]);
 
+    useAutoSync(['budgets'], () => {
+        console.log('🔄 [BudgetPlanner] Real-time auto-sync triggered');
+        fetchBudgets();
+    });
+
     const fetchBudgets = async () => {
         if (!schoolId) {
             setLoading(false);
@@ -44,20 +50,19 @@ const BudgetPlanner: React.FC = () => {
         }
         try {
             setLoading(true);
-            let query = supabase
-                .from('budgets')
-                .select('*')
-                .eq('school_id', schoolId);
+            const data = await api.getBudgets(schoolId, branchId || undefined);
+            
+            const rows: BudgetEntry[] = (data || []).map((item: any) => ({
+                id: item.id,
+                school_id: item.school_id,
+                branch_id: item.branch_id,
+                fiscal_year: item.fiscal_year,
+                category: item.category,
+                allocated_amount: item.allocated_amount,
+                spent_amount: item.spent_amount,
+                created_at: item.created_at
+            }));
 
-            if (branchId) {
-                query = query.eq('branch_id', branchId);
-            }
-
-            const { data, error } = await query
-                .order('fiscal_year', { ascending: false });
-
-            if (error) throw error;
-            const rows: BudgetEntry[] = data || [];
             setEntries(rows);
 
             // Derive unique fiscal years
@@ -80,17 +85,15 @@ const BudgetPlanner: React.FC = () => {
             return;
         }
         try {
-            const { error } = await supabase
-                .from('budgets')
-                .insert({
-                    school_id: schoolId,
-                    branch_id: branchId,
-                    fiscal_year: newFiscalYear,
-                    category: newCategory,
-                    allocated_amount: Number(newAllocated),
-                    spent_amount: Number(newSpent) || 0,
-                });
-            if (error) throw error;
+            await api.createBudget({
+                school_id: schoolId,
+                branch_id: branchId,
+                fiscal_year: newFiscalYear,
+                category: newCategory,
+                allocated_amount: Number(newAllocated),
+                spent_amount: Number(newSpent) || 0,
+            });
+            
             toast.success('Budget entry created!');
             setShowCreateModal(false);
             resetForm();
@@ -306,3 +309,4 @@ const BudgetPlanner: React.FC = () => {
 };
 
 export default BudgetPlanner;
+

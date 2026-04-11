@@ -1,11 +1,20 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+
+// Load .env from the root directory
+const envPath = path.resolve(process.cwd(), '.env');
+console.log(`[EnvConfig] Loading .env from: ${envPath}`);
+const result = dotenv.config({ path: envPath });
+if (result.error) {
+    console.error(`[EnvConfig] Error loading .env:`, result.error);
+} else {
+    console.log(`[EnvConfig] Successfully loaded .env variables: ${Object.keys(result.parsed || {}).join(', ')}`);
+}
 
 export const config = {
     port: process.env.BACKEND_PORT || process.env.PORT || 5000,
     jwtSecret: process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-prod',
-    supabaseUrl: process.env.SUPABASE_URL || '',
-    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
+    databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:password123@127.0.0.1:5432/school_app',
     env: process.env.NODE_ENV || 'development'
 };
 
@@ -18,6 +27,6 @@ if (config.jwtSecret === 'fallback-dev-secret-do-not-use-in-prod') {
     console.warn('⚠️  WARNING: Using fallback JWT secret. Security is compromised.');
 }
 
-if (!config.supabaseUrl || !config.supabaseServiceKey) {
-    console.warn('⚠️  Supabase URL or Service Key missing. Realtime and DB features may fail.');
+if (!config.databaseUrl) {
+    console.warn('⚠️  DATABASE_URL not set. Using local Docker PostgreSQL default.');
 }
