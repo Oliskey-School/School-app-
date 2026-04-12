@@ -119,12 +119,12 @@ export const getAttendanceByStudent = async (req: AuthRequest, res: Response) =>
 
 export const bulkFetchAttendance = async (req: AuthRequest, res: Response) => {
     try {
-        const { studentIds } = req.body;
+        const { studentIds, startDate, endDate } = req.body;
         if (!Array.isArray(studentIds)) {
             return res.status(400).json({ message: 'studentIds array is required' });
         }
         const branchId = req.user.branch_id || req.body.branch_id;
-        const result = await AttendanceService.getAttendanceByStudentIds(req.user.school_id, branchId, studentIds);
+        const result = await AttendanceService.getAttendanceByStudentIds(req.user.school_id, branchId, studentIds, startDate, endDate);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

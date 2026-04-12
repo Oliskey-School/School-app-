@@ -115,7 +115,72 @@ export class DemoSeederService {
                 }
             }
 
-            // 4. Ensure Demo Parent is specifically linked to Demo Student
+            // 5. Ensure Demo Classes and Subjects Exist
+            const subjects = [
+                { id: 'subj-MATH', name: 'Mathematics', code: 'MATH' },
+                { id: 'subj-SCI', name: 'Science', code: 'SCI' },
+                { id: 'subj-ENG', name: 'English', code: 'ENG' },
+                { id: 'subj-SOC', name: 'Social Studies', code: 'SOC' }
+            ];
+
+            for (const sub of subjects) {
+                await prisma.subject.upsert({
+                    where: { id: sub.id },
+                    update: {},
+                    create: { ...sub, school_id: demoSchoolId }
+                });
+            }
+
+            const classes = [
+                { id: 'class-10-A', name: 'Grade 10A', grade: 10, section: 'A' },
+                { id: 'class-11-A', name: 'Grade 11A', grade: 11, section: 'A' },
+                { id: 'class-12-A', name: 'Grade 12A', grade: 12, section: 'A' }
+            ];
+
+            for (const cls of classes) {
+                await prisma.class.upsert({
+                    where: { id: cls.id },
+                    update: {},
+                    create: { ...cls, school_id: demoSchoolId, branch_id: demoBranchId }
+                });
+            }
+
+            // 6. Link Demo Teachers to Classes
+            const demoAssignments = [
+                { email: 'john.smith@demo.com', classId: 'class-10-A', subjectId: 'subj-MATH', id: 'ct-demo-1' },
+                { email: 'teacher2@school.com', classId: 'class-11-A', subjectId: 'subj-ENG', id: 'ct-demo-2' },
+                { email: 'teacher3@school.com', classId: 'class-12-A', subjectId: 'subj-SCI', id: 'ct-demo-3' }
+            ];
+
+            for (const assign of demoAssignments) {
+                const user = await prisma.user.findUnique({ where: { email: assign.email } });
+                if (user) {
+                    const profile = await prisma.teacher.findUnique({ where: { user_id: user.id } });
+                    if (profile) {
+                        await prisma.classTeacher.upsert({
+                            where: { id: assign.id },
+                            update: { 
+                                teacher_id: profile.id,
+                                class_id: assign.classId,
+                                subject_id: assign.subjectId,
+                                school_id: demoSchoolId,
+                                branch_id: demoBranchId
+                            },
+                            create: {
+                                id: assign.id,
+                                teacher_id: profile.id,
+                                class_id: assign.classId,
+                                subject_id: assign.subjectId,
+                                is_primary: true,
+                                school_id: demoSchoolId,
+                                branch_id: demoBranchId
+                            }
+                        });
+                    }
+                }
+            }
+
+            // 7. Ensure Demo Parent is specifically linked to Demo Student
             const parentDbUser = await prisma.user.findUnique({ where: { email: (AuthService as any).DEMO_USERS['parent'].email } });
             const studentDbUser = await prisma.user.findUnique({ where: { email: (AuthService as any).DEMO_USERS['student'].email } });
             
@@ -142,7 +207,7 @@ export class DemoSeederService {
                 }
             }
 
-            console.log('✅ Demo DB Accounts verified & synchronized.');
+            console.log('✅ Demo DB Accounts and Assignments verified & synchronized.');
         } catch (error) {
             console.error('❌ Failed to verify Demo DB Accounts:', error);
         }

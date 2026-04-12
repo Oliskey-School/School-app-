@@ -35,10 +35,46 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
     const [description, setDescription] = useState('');
     const [questions, setQuestions] = useState<WarningQuestionState[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [savedQuizId, setSavedQuizId] = useState<string | null>(() => {
+        return localStorage.getItem('draftQuizId');
+    });
 
     // Derived state for saving
     const [schoolId, setSchoolId] = useState<string | null>(null);
     const [profileId, setProfileId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchExistingQuiz = async () => {
+            if (!savedQuizId) return;
+            try {
+                const data = await api.getQuiz(savedQuizId);
+                if (data) {
+                    setTitle(data.title || '');
+                    setSubject(data.subject || '');
+                    setSelectedClassId(data.class_id || '');
+                    setDuration(data.time_limit || 30);
+                    setDescription(data.description || '');
+                    
+                    if (data.questions && data.questions.length > 0) {
+                        const mappedQuestions: WarningQuestionState[] = data.questions.map((q: any) => ({
+                            id: q.id,
+                            text: q.question_text,
+                            type: q.question_type === 'multiple_choice' ? 'MultipleChoice' : 'Theory',
+                            points: q.points,
+                            options: q.options || []
+                        }));
+                        setQuestions(mappedQuestions);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch existing quiz:", err);
+                localStorage.removeItem('draftQuizId');
+                setSavedQuizId(null);
+            }
+        };
+
+        fetchExistingQuiz();
+    }, [savedQuizId]);
 
     useEffect(() => {
         if (currentSchool?.id) {
@@ -104,8 +140,8 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
         setQuestions(questions.filter(q => q.id !== id));
     };
 
-    const handleSaveQuiz = async () => {
-        if (!title || !subject || questions.length === 0) {
+    const handleSaveQuiz = async (targetStatus: 'draft' | 'pending' | 'published' = 'published') => {
+        if (!title || !subject || (targetStatus !== 'draft' && questions.length === 0)) {
             toast.error('Please provide a title, subject, and at least one question.');
             return;
         }
@@ -127,6 +163,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
         try {
             // 1. Organize Quiz Record
             const quizPayload = {
+                id: savedQuizId,
                 title,
                 subject,
                 class_id: selectedClassId || null,
@@ -135,7 +172,8 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 branch_id: currentBranch?.id || null,
                 duration_minutes: duration,
                 description,
-                is_published: true,
+                status: targetStatus,
+                is_published: targetStatus === 'published',
                 is_active: true
             };
 
@@ -158,13 +196,21 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 };
             });
 
-            await api.createQuizWithQuestions(schoolId, currentBranch?.id || undefined, {
+            const result = await api.createQuizWithQuestions(schoolId, currentBranch?.id || undefined, {
                 quiz: quizPayload,
                 questions: formattedQuestions
             });
 
-            toast.success('Quiz created successfully!');
-            onClose();
+            if (result && result.id) {
+                setSavedQuizId(result.id);
+                localStorage.setItem('draftQuizId', result.id);
+            }
+
+            toast.success(targetStatus === 'draft' ? 'Draft saved successfully!' : 'Quiz submitted for approval!');
+            if (targetStatus !== 'draft') {
+                localStorage.removeItem('draftQuizId');
+                onClose();
+            }
 
         } catch (error: any) {
             console.error('Error creating quiz:', error);
@@ -184,15 +230,23 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 </div>
                 <div className="flex space-x-3">
                     <button onClick={onClose} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg">
-                        Cancel
+                        Close
                     </button>
                     <button
-                        onClick={handleSaveQuiz}
+                        onClick={() => handleSaveQuiz('draft')}
                         disabled={isSubmitting}
-                        className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+                        className="px-4 py-2 bg-gray-600 text-white font-bold rounded-lg shadow hover:bg-gray-700 disabled:opacity-50 flex items-center space-x-2"
                     >
                         <SaveIcon className="w-5 h-5" />
-                        <span>{isSubmitting ? 'Saving...' : 'Publish Quiz'}</span>
+                        <span>Save Draft</span>
+                    </button>
+                    <button
+                        onClick={() => handleSaveQuiz('pending')}
+                        disabled={isSubmitting}
+                        className="px-6 py-2 bg-purple-600 text-white font-bold rounded-lg shadow hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2"
+                    >
+                        <CheckCircleIcon className="w-5 h-5" />
+                        <span>{isSubmitting ? 'Submitting...' : 'Submit'}</span>
                     </button>
                 </div>
             </div>

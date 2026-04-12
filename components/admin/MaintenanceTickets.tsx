@@ -6,14 +6,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
 const MaintenanceTickets = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth() as any;
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!currentSchool) return;
         fetchTickets();
-    }, [currentSchool]);
+    }, [currentSchool, currentBranchId]);
 
     useAutoSync(['maintenance_tickets'], () => {
         console.log('🔄 [MaintenanceTickets] Real-time auto-sync triggered');
@@ -23,24 +23,11 @@ const MaintenanceTickets = () => {
     const fetchTickets = async () => {
         if (!currentSchool) return;
         try {
-            const branchId = (useAuth() as any).currentBranchId; // Or access from context if available
-
-            let query = api
-                .from('maintenance_tickets')
-                .select('*, assets!inner(asset_name, school_id, branch_id)')
-                .eq('assets.school_id', currentSchool.id);
-
-            if (branchId && branchId !== 'all') {
-                query = query.eq('branch_id', branchId);
-            }
-
-            const { data, error } = await query.order('created_at', { ascending: false });
-
-            if (error) throw error;
+            setLoading(true);
+            const data = await api.getMaintenanceTickets(currentBranchId || undefined);
             setTickets(data || []);
         } catch (error) {
             console.error('Error fetching tickets:', error);
-            // toast.error('Failed to load tickets'); // Suppress for empty tables
         } finally {
             setLoading(false);
         }

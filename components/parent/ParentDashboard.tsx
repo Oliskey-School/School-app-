@@ -570,6 +570,14 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         volunteerSignup: VolunteerSignup, conferenceScheduling: ConferenceScheduling, surveysAndPolls: SurveysAndPolls, donationPortal: DonationPortal, communityResources: CommunityResourceDirectory, referralSystem: ReferralSystem, panicButton: PanicButton, mentalHealthResources: MentalHealthResources,
     };
 
+    // Expose navigation for automated E2E audits (runs every render so keys are always fresh)
+    useEffect(() => {
+        if (window.__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true') {
+            window.PARENT_NAVIGATE = navigateTo;
+            window.PARENT_COMPONENTS = Object.keys(viewComponents);
+        }
+    });
+
     const currentNavigation = viewStack[viewStack.length - 1];
     const ComponentToRender = viewComponents[currentNavigation.view];
     const commonProps = { navigateTo, onLogout, handleBack, forceUpdate, parentId, currentUser: user, currentUserId, schoolId, currentBranchId, version, students, loading: loadingStudents };

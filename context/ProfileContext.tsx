@@ -90,7 +90,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         try {
             const { api } = await import('../lib/api');
-            const result = await api.updateStudent(profile.id, updates);
+            const role = profile.role?.toLowerCase();
+            
+            if (role === 'teacher' || role === 'admin') {
+                await api.updateTeacher(profile.id, updates);
+            } else {
+                await api.updateStudent(profile.id, updates);
+            }
+            
             return { error: null };
         } catch (error) {
             return { error };

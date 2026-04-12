@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { api } from '../../lib/api';
 import bcrypt from 'bcryptjs';
 
@@ -9,7 +9,7 @@ const DEFAULTS = [
     { type: 'Student', name: 'Sam Student', email: 'student@school.com', username: 'student', password: 'student123' },
 ];
 
-export const UserSeeder: React.FC = () => {
+const UserSeeder: React.FC = () => {
     const [status, setStatus] = useState<string>('');
     const [loading, setLoading] = useState(false);
 
@@ -194,3 +194,4 @@ export const UserSeeder: React.FC = () => {
     );
 };
 
+export default UserSeeder;

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
 import onboardingRoutes from './onboarding.routes';
+import { authenticate } from '../middleware/auth.middleware';
+import { requireTenant } from '../middleware/tenant.middleware';
 import userRoutes from './user.routes';
 import schoolRoutes from './school.routes';
 import inviteRoutes from './invite.routes';
@@ -57,6 +59,8 @@ import adminHubRoutes from './admin-hub.routes';
 import saasAnalyticsRoutes from './saas-analytics.routes';
 import conferenceRoutes from './conference.routes';
 import counselingRoutes from './counseling.routes';
+import maintenanceRoutes from './maintenance.routes';
+import * as QuizController from '../controllers/quiz.controller';
 
 const router = Router();
 
@@ -86,7 +90,7 @@ router.use('/quizzes', quizRoutes);
 router.use('/lesson-plans', lessonPlanRoutes);
 router.use('/forum', forumRoutes);
 router.use('/transactions', transactionRoutes);
-router.use('/timetable', timetableRoutes);
+router.use('/timetables', timetableRoutes);
 router.use('/virtual-classes', virtualClassRoutes);
 router.use('/academic', academicRoutes);
 router.use('/external-exams', externalExamRoutes);
@@ -109,18 +113,18 @@ router.use('/parent-auth', parentAuthRoutes);
 router.use('/hostels', hostelRoutes);
 router.use('/transport', transportRoutes);
 router.use('/chat', chatRoutes);
+router.use('/conversations', chatRoutes);
 router.use('/plans', planRoutes);
 router.use('/anonymous-reports', anonymousReportRoutes);
 router.use('/games', gameRoutes);
+router.use('/gamification', gameRoutes);
 router.use('/pd', pdRoutes);
 router.use('/inspections', inspectionRoutes);
 router.use('/academic-policies', policyRoutes);
 router.use('/infrastructure', infrastructureRoutes);
 router.use('/behavior', behaviorRoutes);
 router.use('/admin-hub', adminHubRoutes);
-router.use('/saas-analytics', saasAnalyticsRoutes);
-router.use('/conferences', conferenceRoutes);
-router.use('/counseling', counselingRoutes);
+router.get('/cbt/exams', authenticate, requireTenant, QuizController.getQuizzes);
 
 router.use('/', inviteRoutes);
 

@@ -259,6 +259,7 @@ const curriculum: { [stage: string]: any } = {
 };
 
 export const getCurriculum = (level: string, department?: Department): CurriculumSubject[] => {
+  if (!level) return [];
   const parts = level.split(' ');
   const stage = parts[0];
   const classLevel = parts.slice(1).join(' ');

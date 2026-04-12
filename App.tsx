@@ -234,7 +234,9 @@ const App: React.FC = () => {
     PushNotificationManager.initialize();
 
     const initializeOfflineFirst = async () => {
-      if ((window as any).__AUDIT_MODE__) {
+      const isAuditMode = (window as any).__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true';
+      if (isAuditMode) {
+        window.__AUDIT_MODE__ = true; // Persist to window so components can check it
         console.log('🛡️ Audit Mode Detected: Skipping initialization delays...');
         setIsInitializing(false);
         return;

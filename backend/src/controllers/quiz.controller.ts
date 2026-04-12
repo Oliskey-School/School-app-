@@ -44,11 +44,24 @@ export const createQuizWithQuestions = async (req: AuthRequest, res: Response): 
     }
 };
 
+export const getQuiz = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const result = await QuizService.getQuiz(req.user.school_id, req.params.id as string);
+        if (!result) {
+            res.status(404).json({ success: false, message: 'Quiz not found' });
+            return;
+        }
+        res.status(200).json(result);
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export const updateQuizStatus = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { is_published, branch_id } = req.body;
+        const { branch_id, ...updateData } = req.body;
         const branchId = req.user.branch_id || branch_id;
-        const result = await QuizService.updateQuizStatus(req.user.school_id, branchId, req.params.id as string, is_published);
+        const result = await QuizService.updateQuizStatus(req.user.school_id, branchId, req.params.id as string, updateData);
         res.status(200).json(result);
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });

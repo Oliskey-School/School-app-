@@ -19,7 +19,7 @@ interface IDVerificationRequest {
     };
 }
 
-export function IDVerificationPanel() {
+export default function IDVerificationPanel() {
     const { currentSchool } = useAuth();
     const [requests, setRequests] = useState<IDVerificationRequest[]>([]);
     const [loading, setLoading] = useState(true);

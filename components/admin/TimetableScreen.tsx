@@ -38,22 +38,12 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
             const classLevelMap = new Map<string, string>();
             classesData?.forEach((c: any) => classLevelMap.set(c.name, c.level));
 
-            // Fetch timetable entries - Strict Data Isolation
-            let timetableQuery = api
-                .from('timetable')
-                .select('class_name, updated_at, status')
-                .eq('school_id', schoolId);
-
-            if (currentBranchId && currentBranchId !== 'all') {
-                timetableQuery = timetableQuery.eq('branch_id', currentBranchId);
-            }
-
-            const { data, error } = await timetableQuery;
+            const data = await api.getTimetables(schoolId, (currentBranchId && currentBranchId !== 'all') ? currentBranchId : undefined);
 
             if (data) {
                 // Group by class name
                 const grouped = data.reduce((acc: any, entry: any) => {
-                    const className = entry.class_name;
+                    const className = entry.class_name || 'Unknown Class';
                     // Skip if we don't know the class level (optional safety)
                     const level = classLevelMap.get(className) || 'Junior'; // Default to Junior if unknown, or handle otherwise
 
@@ -107,7 +97,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
 
         // Then filter by Status
         if (statusFilter === 'all') return true;
-        return tt.status.toLowerCase() === statusFilter;
+        return tt.status?.toLowerCase() === statusFilter;
     });
 
     const formatDate = (dateStr: string) => {
@@ -194,7 +184,7 @@ const TimetableOverview: React.FC<TimetableOverviewProps> = ({ navigateTo, schoo
                             >
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex items-center space-x-3">
-                                        <div className={`p-2.5 rounded-lg ${tt.className.includes('SS') ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                        <div className={`p-2.5 rounded-lg ${(tt.className || '').includes('SS') ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
                                             <CalendarIcon className="w-6 h-6" />
                                         </div>
                                         <div>

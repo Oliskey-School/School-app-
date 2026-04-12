@@ -116,14 +116,21 @@ const ClassGradebookScreen: React.FC<{
             try {
                 const teacher = await api.getMyTeacherProfile();
                 if (teacher && teacher.classes) {
-                    const realClasses = teacher.classes.map((tc: any) => ({
-                        id: tc.class.id,
-                        name: tc.class.name,
-                        grade: tc.class.grade,
-                        section: tc.class.section,
-                        subject: tc.subject || teacher.subject_specialty || 'General',
-                        studentCount: tc.class._count?.enrollments || 0
-                    }));
+                    const realClasses = teacher.classes.map((tc: any) => {
+                        // tc.subject can be a string, a Subject object, or undefined
+                        const subjectVal = tc.subject;
+                        const subjectName = typeof subjectVal === 'object' && subjectVal !== null
+                            ? (subjectVal.name || subjectVal.code || 'General')
+                            : (subjectVal || teacher.subject_specialty || 'General');
+                        return {
+                            id: tc.class.id,
+                            name: tc.class.name,
+                            grade: tc.class.grade,
+                            section: tc.class.section,
+                            subject: subjectName,
+                            studentCount: tc.class._count?.enrollments || 0
+                        };
+                    });
                     setClasses(realClasses);
                     if (realClasses.length > 0) {
                         setSelectedClass(realClasses[0].id);
@@ -297,7 +304,7 @@ const ClassGradebookScreen: React.FC<{
                     academicRecords
                 };
 
-                const success = await api.upsertReportCard(entry.studentId, reportCardToSave, entry.schoolId, currentBranchId);
+                const success = await api.upsertReportCard(entry.studentId, reportCardToSave, currentSchool?.id || schoolId, currentBranchId);
                 if (success) {
                     successCount++;
                 } else {
@@ -366,7 +373,7 @@ const ClassGradebookScreen: React.FC<{
                             }}
                             className="w-full sm:w-64 p-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 font-medium focus:ring-2 focus:ring-purple-500 shadow-sm"
                         >
-                            {classes.map(c => <option key={c.id} value={c.id}>{c.name} - {c.subject}</option>)}
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name} - {typeof c.subject === 'object' ? (c.subject as any)?.name ?? 'General' : c.subject}</option>)}
                         </select>
 
                         <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">

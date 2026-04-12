@@ -61,44 +61,70 @@ export const useTeacherClasses = (teacherId?: string | null, branchId?: string |
                     const finalClasses: ClassInfo[] = [];
                     const finalSubjects: Subject[] = [];
                     const finalAssignments: TeacherAssignment[] = [];
-                    const addedClassKeys = new Set<string>();
-                    const addedSubjectKeys = new Set<string>();
+                    const addedClassIds = new Set<string>();
+                    const addedSubjectIds = new Set<string>();
 
-                    // Process classes and assignments from teacherData
-                    // My updated Service returns teacher.classes which is ClassTeacher[]
                     if (teacherData.classes && Array.isArray(teacherData.classes)) {
                         teacherData.classes.forEach((item: any) => {
                             const c = item.class;
-                            const subjectName = item.subject || 'General'; // Current schema might not have subject on ClassTeacher yet, but let's be safe
+                            const s = item.subject;
 
                             if (c) {
-                                const key = `${c.id}`;
-                                if (!addedClassKeys.has(key)) {
+                                // Add to classes list if not already there OR if it's a different subject assignment
+                                // Note: For the UI dropdown, we might want unique classes, but for specific assignments, 
+                                // we need the subject context.
+                                const classKey = `${c.id}-${s?.name || 'General'}`;
+                                if (!addedClassIds.has(classKey)) {
                                     finalClasses.push({
                                         id: c.id,
                                         name: c.name,
                                         grade: c.grade,
                                         section: c.section || '',
-                                        subject: subjectName,
+                                        subject: s?.name || 'General',
                                         studentCount: c.student_count || 0,
                                         schoolId: c.school_id
                                     });
-                                    addedClassKeys.add(key);
+                                    addedClassIds.add(classKey);
                                 }
-                                
-                                // Mapping subjects if they exist - For now we use some defaults or the ones from the class
-                                // In a real app, ClassTeacher would have a subject_id or the teacher has a subjects list
+
+                                if (s) {
+                                    if (!addedSubjectIds.has(s.id)) {
+                                        finalSubjects.push({
+                                            id: s.id,
+                                            name: s.name,
+                                            code: s.code
+                                        } as Subject);
+                                        addedSubjectIds.add(s.id);
+                                    }
+
+                                    finalAssignments.push({
+                                        classId: c.id,
+                                        subjectId: s.id
+                                    });
+                                }
                             }
                         });
                     }
 
-                    setClasses(deduplicateClasses(finalClasses));
-                    // Subjects might come from a different endpoint or the teacher profile could be expanded
-                    // For demo, we'll extract from classes or use the teacher's subject specialty
-                    if (teacherData.subject_specialty) {
-                        setSubjects([{ id: 'specialty', name: teacherData.subject_specialty }]);
+                    // Fallback if no specific subjects assigned, use subject_specialty if available
+                    if (finalSubjects.length === 0 && teacherData.subject_specialty) {
+                        const specialties = Array.isArray(teacherData.subject_specialty) 
+                            ? teacherData.subject_specialty 
+                            : [teacherData.subject_specialty];
+                        
+                        specialties.forEach((spec: string, idx: number) => {
+                            const id = `specialty-${idx}`;
+                            finalSubjects.push({ id, name: spec } as Subject);
+                            
+                            // Map this specialty to all assigned classes as a fallback
+                            finalClasses.forEach(c => {
+                                finalAssignments.push({ classId: c.id, subjectId: id });
+                            });
+                        });
                     }
-                    
+
+                    setClasses(finalClasses);
+                    setSubjects(finalSubjects);
                     setAssignments(finalAssignments);
                 }
 

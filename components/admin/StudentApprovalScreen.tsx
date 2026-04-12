@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { UserCheck, XCircle, Key, Eye, EyeOff } from 'lucide-react';
 import { AdminAuthService } from '../../lib/admin-auth-service';
 import { api } from '../../lib/api';
 
-export const StudentApprovalScreen: React.FC = () => {
+const StudentApprovalScreen: React.FC = () => {
     const [pendingStudents, setPendingStudents] = useState<any[]>([]);
     const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
 
@@ -46,7 +46,7 @@ export const StudentApprovalScreen: React.FC = () => {
                                 </span>
                                 <div className="flex items-center gap-1 text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
                                     <Key className="w-3 h-3" />
-                                    <span>{showPassword[student.id] ? student.temp_password : '••••••••'}</span>
+                                    <span>{showPassword[student.id] ? student.temp_password : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢'}</span>
                                     <button onClick={() => setShowPassword({ ...showPassword, [student.id]: !showPassword[student.id] })}>
                                         {showPassword[student.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                                     </button>
@@ -78,3 +78,4 @@ export const StudentApprovalScreen: React.FC = () => {
     );
 };
 
+export default StudentApprovalScreen;

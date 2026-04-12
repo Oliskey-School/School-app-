@@ -94,22 +94,26 @@ export class TeacherService {
                 }
             });
 
-            // 4. Link Subjects/Classes (Assuming many-to-many or specific structure)
-            // Note: class_teachers is the junction table in our Prisma schema
+            // 4. Link Subjects/Classes
             if (classes && Array.isArray(classes)) {
-                for (const classId of classes) {
+                for (const item of classes) {
+                    const classId = typeof item === 'string' ? item : item.classId;
+                    const subjectId = typeof item === 'string' ? undefined : item.subjectId;
+
                     const existingClass = await tx.class.findUnique({ where: { id: classId } });
                     if (existingClass) {
                         await (tx.classTeacher.upsert as any)({
                             where: {
-                                class_id_teacher_id: {
+                                class_id_teacher_id_subject_id: {
                                     class_id: classId,
-                                    teacher_id: teacher.id
+                                    teacher_id: teacher.id,
+                                    subject_id: subjectId || null
                                 }
                             },
                             create: {
                                 teacher_id: teacher.id,
                                 class_id: classId,
+                                subject_id: subjectId || null,
                                 is_primary: false
                             },
                             update: {}
@@ -191,8 +195,23 @@ export class TeacherService {
         if (school_generated_id !== undefined) prismaData.school_generated_id = school_generated_id;
 
         return await prisma.$transaction(async (tx) => {
+            // Find teacher record first to handle cases where id passed is user_id
+            const teacher = await tx.teacher.findFirst({
+                where: {
+                    OR: [
+                        { id: id },
+                        { user_id: id }
+                    ],
+                    school_id: schoolId
+                }
+            });
+
+            if (!teacher) {
+                throw new Error('Teacher record not found');
+            }
+
             const updatedTeacher = await tx.teacher.update({
-                where: { id: id },
+                where: { id: teacher.id },
                 data: prismaData
             });
 
@@ -216,14 +235,18 @@ export class TeacherService {
                     where: { teacher_id: id }
                 });
 
-                for (const classId of classes) {
-                    // Check if class exists to prevent foreign key errors (classes might be basic string arrays in mock)
+                for (const item of classes) {
+                    const classId = typeof item === 'string' ? item : item.classId;
+                    const subjectId = typeof item === 'string' ? undefined : item.subjectId;
+
+                    // Check if class exists to prevent foreign key errors
                     const existingClass = await tx.class.findUnique({ where: { id: classId } });
                     if (existingClass) {
                         await tx.classTeacher.create({
                             data: {
                                 teacher_id: id,
                                 class_id: classId,
+                                subject_id: subjectId || null,
                                 is_primary: false
                             } as any
                         });
@@ -326,7 +349,8 @@ export class TeacherService {
                 user: true,
                 classes: {
                     include: {
-                        class: true
+                        class: true,
+                        subject: true
                     }
                 }
             }
@@ -460,19 +484,11 @@ export class TeacherService {
      * Get appointments for a teacher
      */
     static async getTeacherAppointments(schoolId: string, branchId: string | undefined, teacherId: string) {
-        return await (prisma.appointment.findMany as any)({
+        return await prisma.appointment.findMany({
             where: {
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined,
                 teacher_id: teacherId
-            },
-            include: {
-                Student: {
-                    select: { full_name: true }
-                },
-                Parent: {
-                    select: { full_name: true, avatar_url: true }
-                }
             },
             orderBy: { date: 'desc' }
         });

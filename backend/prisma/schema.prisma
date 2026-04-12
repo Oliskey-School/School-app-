@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma-client"
 }
 
 datasource db {
@@ -95,13 +94,18 @@ model School {
   plan                       Plan?                     @relation(fields: [plan_id], references: [id])
   plan_id                    Int?
   emergency_alerts           EmergencyAlert[]
-  health_incidents           HealthIncident[]
+  incidents                  HealthIncident[]
   emergency_drills           EmergencyDrill[]
   safeguarding_policies       SafeguardingPolicy[]
+  class_teachers              ClassTeacher[]
+  teacher_availabilities     TeacherAvailability[]
+  parent_teacher_conferences ParentTeacherConference[]
+  counseling_appointments    CounselingAppointment[]
   saved_reports              SavedReport[]
   data_requests              DataRequest[]
   invoices                   Invoice[]
   backups                    Backup[]
+  maintenance_tickets        MaintenanceTicket[]
   parental_consents          ParentalConsent[]
   kanban_columns             KanbanColumn[]
   vendors                    Vendor[]
@@ -139,6 +143,7 @@ model Branch {
   budgets                Budget[]
   announcements          Announcement[]
   virtual_class_sessions VirtualClassSession[]
+  class_teachers         ClassTeacher[]
 
   @@unique([school_id, code])
 }
@@ -219,6 +224,9 @@ model Student {
   invoices              Invoice[]
   parental_consents     ParentalConsent[]
   health_incidents      HealthIncident[]
+  counseling_appointments CounselingAppointment[]
+  conferences           ParentTeacherConference[]
+  exam_results          ExamResult[]
 }
 
 model Teacher {
@@ -232,6 +240,7 @@ model Teacher {
   phone                  String?
   avatar_url             String?
   status                 String                @default("Active")
+  subject_specialty      String[]
   curriculum_eligibility String[]
   compliance_documents   Json?
   created_at             DateTime              @default(now())
@@ -262,6 +271,9 @@ model Teacher {
   mentor_matches         MentoringMatch[]      @relation("MentorMatches")
   mentee_matches         MentoringMatch[]      @relation("MenteeMatches")
   certificates           PDCertificate[]
+  availabilities         TeacherAvailability[]
+  conferences            ParentTeacherConference[]
+  counseling_sessions    CounselingAppointment[] @relation("CounselorAppointments")
 }
 
 model TeacherAttendance {
@@ -303,6 +315,7 @@ model Parent {
   children            ParentChild[]
   savings_plans       SavingsPlan[]
   EventRSVP           EventRSVP[]
+  conferences         ParentTeacherConference[]
 }
 
 model ParentChild {
@@ -409,12 +422,18 @@ model ClassTeacher {
   id         String   @id @default(uuid())
   class_id   String
   teacher_id String
+  subject_id String?
   is_primary Boolean  @default(false)
+  school_id  String
+  branch_id  String?
   created_at DateTime @default(now())
   class      Class    @relation(fields: [class_id], references: [id], onDelete: Cascade)
   teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  subject    Subject? @relation(fields: [subject_id], references: [id], onDelete: SetNull)
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch     Branch?  @relation(fields: [branch_id], references: [id])
 
-  @@unique([class_id, teacher_id])
+  @@unique([class_id, teacher_id, subject_id])
 }
 
 model Attendance {
@@ -440,9 +459,10 @@ model Assignment {
   due_date     DateTime
   is_published Boolean                @default(false)
   teacher_id   String?
-  created_at   DateTime               @default(now())
-  updated_at   DateTime               @updatedAt
-  class        Class                  @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  attachment_url String?
+  created_at     DateTime               @default(now())
+  updated_at     DateTime               @updatedAt
+  class          Class                  @relation(fields: [class_id], references: [id], onDelete: Cascade)
   teacher      Teacher?               @relation(fields: [teacher_id], references: [id])
   submissions  AssignmentSubmission[]
 }
@@ -475,7 +495,9 @@ model ReportCard {
   total_students_in_class Int?
   attendance_count        Int?
   principal_remark        String?
+  teacher_remark          String?
   academic_records        Json?
+  status                  String   @default("Draft")
   is_published            Boolean  @default(false)
   created_at              DateTime @default(now())
   updated_at              DateTime @updatedAt
@@ -833,6 +855,7 @@ model Subject {
   branch            Branch?           @relation(fields: [branch_id], references: [id])
   curriculum_topics CurriculumTopic[]
   classes           Class[]
+  class_teachers    ClassTeacher[]
 }
 
 model ExamBody {
@@ -884,6 +907,7 @@ model Exam {
   passing_marks Float?
   start_time    DateTime?
   end_time      DateTime?
+  date          DateTime?
   duration      Int?
   is_published  Boolean      @default(false)
   created_at    DateTime     @default(now())
@@ -908,6 +932,7 @@ model ExamResult {
   updated_at DateTime @updatedAt
   school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   branch     Branch?  @relation(fields: [branch_id], references: [id])
+  student    Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
   exam       Exam     @relation(fields: [exam_id], references: [id], onDelete: Cascade)
 }
 
@@ -1083,8 +1108,9 @@ model ForumTopic {
   content       String?
   author_id     String?
   author_name   String?
-  author_role   String?
-  category      String?
+  author_role       String?
+  author_avatar_url String?
+  category          String?
   last_activity DateTime    @default(now())
   post_count    Int         @default(0)
   is_pinned     Boolean     @default(false)
@@ -1101,8 +1127,9 @@ model ForumPost {
   topic_id    String
   author_id   String?
   author_name String?
-  author_role String?
-  content     String
+  author_role       String?
+  author_avatar_url String?
+  content           String
   is_pinned   Boolean    @default(false)
   created_at  DateTime   @default(now())
   updated_at  DateTime   @updatedAt
@@ -1155,6 +1182,7 @@ model Quiz {
   description  String?
   time_limit   Int? // in minutes
   total_marks  Float
+  status       String           @default("draft") // draft, pending, approved, rejected
   is_published Boolean          @default(false)
   created_at   DateTime         @default(now())
   updated_at   DateTime         @updatedAt
@@ -1833,6 +1861,24 @@ model Asset {
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
   school            School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  maintenance_tickets MaintenanceTicket[]
+}
+
+model MaintenanceTicket {
+  id              String   @id @default(uuid())
+  school_id       String
+  branch_id       String?
+  asset_id        String
+  ticket_number   String?
+  issue_title     String
+  issue_description String?
+  priority        String   @default("Medium") // Low, Medium, High, Urgent
+  status          String   @default("Open") // Open, In Progress, Resolved, Cancelled
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  asset           Asset    @relation(fields: [asset_id], references: [id], onDelete: Cascade)
 }
 
 model SchoolDocument {
@@ -1949,7 +1995,7 @@ model Backup {
   size        Int?
   status      String   @default("Completed")
   created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  updated_at  DateTime @default(now()) @updatedAt
   school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 }
 
@@ -2083,7 +2129,7 @@ model Vendor {
   rating         Float    @default(0)
   status         String   @default("Active")
   created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  updated_at     DateTime @default(now()) @updatedAt
   school         School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 }
 
@@ -2099,7 +2145,7 @@ model ExternalIntegration {
   last_sync_at               DateTime?
   school_registration_number String?
   created_at                 DateTime  @default(now())
-  updated_at                 DateTime  @updatedAt
+  updated_at                 DateTime  @default(now()) @updatedAt
   school                     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
 }
 
@@ -2115,7 +2161,7 @@ model ThirdPartyApp {
   total_installs Int      @default(0)
   rating         Float    @default(0)
   created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  updated_at     DateTime @default(now()) @updatedAt
 }
 
 model AppInstallation {
@@ -2141,4 +2187,61 @@ model SyncLog {
   records_succeeded Int      @default(0)
   error_message     String?
   created_at        DateTime @default(now())
+}
+
+model TeacherAvailability {
+  id              String   @id @default(uuid())
+  teacher_id      String
+  school_id       String
+  date            DateTime
+  time_start      String
+  time_end        String
+  is_available    Boolean  @default(true)
+  location        String?
+  conference_type String?  // Virtual, In-Person
+  created_at      DateTime @default(now())
+  teacher         Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+}
+
+model ParentTeacherConference {
+  id               String   @id @default(uuid())
+  school_id        String
+  parent_id        String
+  teacher_id       String
+  student_id       String
+  scheduled_date   DateTime
+  scheduled_time   String
+  duration_minutes Int      @default(30)
+  conference_type  String   @default("In-Person")
+  meeting_link     String?
+  location         String?
+  status           String   @default("Scheduled")
+  parent_notes     String?
+  teacher_notes    String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  
+  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  parent           Parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  teacher          Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  student          Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+}
+
+model CounselingAppointment {
+  id               String   @id @default(uuid())
+  school_id        String
+  student_id       String
+  counselor_id     String?
+  requested_date   DateTime
+  confirmed_date   DateTime?
+  appointment_type String   @default("Initial Consultation")
+  reason           String?
+  status           String   @default("Pending")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  
+  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student          Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  counselor        Teacher? @relation("CounselorAppointments", fields: [counselor_id], references: [id])
 }

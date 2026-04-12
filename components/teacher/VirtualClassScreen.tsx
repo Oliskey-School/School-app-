@@ -367,11 +367,12 @@ const VirtualClassScreen: React.FC = () => {
                 const session = await api.createVirtualClassSession({
                     teacher_id: user.id,
                     class_id: cls.id,
+                    title: `Live Session: ${subject} for ${cls.grade}`,
                     subject: subject,
                     topic: topic,
                     status: 'active',
                     start_time: new Date().toISOString(),
-                    meeting_link: 'internal_jitsi'
+                    meeting_url: 'internal_jitsi'
                 });
 
                 await api.createNotification({

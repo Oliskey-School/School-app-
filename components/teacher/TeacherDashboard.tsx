@@ -75,6 +75,19 @@ import MyPaymentHistory from '../teacher/MyPaymentHistory';
 import { QuickAttendance } from './QuickAttendance';
 import { GradebookGrid } from './GradebookGrid';
 
+// Missing Audit Components
+import AttendanceTrackSelector from '../teacher/AttendanceTrackSelector';
+import BadgeSystem from '../teacher/BadgeSystem';
+import CertificateViewer from '../teacher/CertificateViewer';
+import CourseCatalog from '../teacher/CourseCatalog';
+import MentoringMatching from '../teacher/MentoringMatching';
+import MyPDCourses from '../teacher/MyPDCourses';
+import PDCalendar from '../teacher/PDCalendar';
+import RecognitionPlatform from '../teacher/RecognitionPlatform';
+import ResourceSharing from '../teacher/ResourceSharing';
+import StudentCredentialsScreen from '../teacher/StudentCredentialsScreen';
+import WorkloadCalculator from '../teacher/WorkloadCalculator';
+
 // Lazy load AddStudentScreen for teachers
 const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
 
@@ -125,10 +138,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     getUserData();
   }, [currentUser]);
 
-  // Real-time Service Integration is now handled via useAutoSync in individual components
-  // and globally via the SyncEngine which is initialized in App.tsx/AuthContext
-
   // Profile State
+
   const [teacherProfile, setTeacherProfile] = useState<{
     name: string;
     avatarUrl: string;
@@ -176,8 +187,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
         console.warn("No teacher profile found via API.");
         setProfileError(true);
       }
-    } catch (err) {
-      console.error("Profile Fetch Error:", err);
+    } catch (err: any) {
+      console.error("Profile Fetch Error:", err.message);
       setProfileError(true);
     } finally {
       setLoadingProfile(false);
@@ -242,7 +253,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     });
   };
 
-  const viewComponents = {
+  const viewComponents: any = {
     overview: TeacherOverview,
     quickAttendance: QuickAttendance,
     bulkGradebook: GradebookGrid,
@@ -283,7 +294,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     teacherChangePassword: TeacherChangePasswordScreen,
     lessonPlanner: LessonPlannerScreen,
     lessonPlanDetail: LessonPlanDetailScreen,
-    suggestActivity: (props: any) => <AIActivitySuggester {...props} subject={props.subject || commonProps.teacherProfile.subject || ''} handleBack={handleBack} />,
+    suggestActivity: (props: any) => <AIActivitySuggester {...props} subject={props.subject || teacherProfile.subject || ''} handleBack={handleBack} />,
     lessonContent: LessonContentScreen,
     assignmentView: AssignmentViewScreen,
     detailedLessonNote: DetailedLessonNoteScreen,
@@ -298,7 +309,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     virtualClass: VirtualClassScreen,
     resources: TeacherResourcesScreen,
     cbtScores: CBTScoresScreen,
-    cbtManagement: (props: any) => <CBTManagementScreen {...props} schoolId={commonProps.schoolId} />,
+    cbtManagement: (props: any) => <CBTManagementScreen {...props} schoolId={effectiveSchoolId} />,
     addStudent: AddStudentScreen,
     quizBuilder: (props: any) => <QuizBuilderScreen {...props} teacherId={teacherId || ''} onClose={handleBack} />,
     classGradebook: (props: any) => <ClassGradebookScreen {...props} teacherId={teacherId || ''} handleBack={handleBack} />,
@@ -307,10 +318,38 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     payslips: (props: any) => <PayslipViewer {...props} teacherId={teacherId || ''} />,
     salaryProfile: (props: any) => <TeacherSalaryProfile {...props} teacherId={teacherId || ''} />,
     paymentHistory: (props: any) => <MyPaymentHistory {...props} teacherId={teacherId || ''} />,
+
+    // Additional Audit Registered Views
+    attendanceTrackSelector: AttendanceTrackSelector,
+    badgeSystem: BadgeSystem,
+    certificateViewer: CertificateViewer,
+    courseCatalog: CourseCatalog,
+    mentoringMatching: MentoringMatching,
+    myPDCourses: MyPDCourses,
+    pdCalendar: PDCalendar,
+    recognitionPlatform: RecognitionPlatform,
+    resourceSharing: ResourceSharing,
+    studentCredentials: StudentCredentialsScreen,
+    workloadCalculator: WorkloadCalculator,
   };
 
   const currentNavigation = viewStack[viewStack.length - 1];
   const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
+
+  // --- AUDIT SYSTEM EXPOSURE ---
+  useEffect(() => {
+    // Expose registry early, even if profile is loading
+    (window as any).TEACHER_NAVIGATE = navigateTo;
+    (window as any).TEACHER_COMPONENTS = Object.keys(viewComponents);
+    console.log('🛡️ [TeacherDashboard] Audit triggers exposed to window.');
+    
+    return () => {
+      delete (window as any).TEACHER_NAVIGATE;
+      delete (window as any).TEACHER_COMPONENTS;
+    };
+  }, [navigateTo]);
+  // -----------------------------
+
 
   const commonProps = {
     navigateTo,

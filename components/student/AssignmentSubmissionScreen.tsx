@@ -36,8 +36,18 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
   const [existingSubmission, setExistingSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const subjectColor = SUBJECT_COLORS[assignment.subject] || 'bg-gray-100 text-gray-800';
+  const subjectColor = (assignment && assignment.subject) ? SUBJECT_COLORS[assignment.subject] : 'bg-gray-100 text-gray-800';
   const { currentSchool, user, currentBranchId } = useAuth(); // Need school_id, branch_id and user_id for insert
+
+  if (!assignment) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center h-full text-center bg-gray-50">
+        <h2 className="text-xl font-bold text-red-600">Assignment Not Found</h2>
+        <p className="text-gray-600 mt-2">The requested assignment details are unavailable.</p>
+        <button onClick={handleBack} className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg">Go Back</button>
+      </div>
+    );
+  }
 
   // Load existing submission
   const loadSubmission = React.useCallback(async () => {

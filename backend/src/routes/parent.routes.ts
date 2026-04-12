@@ -11,6 +11,7 @@ router.use(requireTenant);
 router.get('/me', getMyProfile);
 router.get('/me/children', getMyChildren);
 router.get('/class/:classId', getParentsByClassId);
+router.get('/by-class/:classId', getParentsByClassId);
 router.get('/:id/children', getChildrenForParent);
 router.get('/', getParents);
 router.post('/', createParent);

@@ -6,6 +6,9 @@ test.describe('Teacher Dashboard Comprehensive Testing', () => {
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
+        await page.evaluate(() => {
+            localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+        });
         await page.waitForLoadState('networkidle');
 
         // Login via Demo

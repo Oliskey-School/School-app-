@@ -321,7 +321,7 @@ export class AcademicService {
             student_id: studentId,
             term,
             session,
-            status: reportBase?.is_published ? 'Published' : 'Draft',
+            status: reportBase?.status || (reportBase?.is_published ? 'Published' : 'Draft'),
             position: reportBase?.position_in_class,
             total_students: reportBase?.total_students_in_class,
             academic_records: academicRecords,
@@ -451,7 +451,8 @@ export class AcademicService {
                 ? await tx.reportCard.update({
                     where: { id: existingRC.id },
                     data: {
-                        is_published: status === 'Published' || status === 'Submitted',
+                        status: status || existingRC.status || 'Draft',
+                        is_published: status === 'Published',
                         total_score: totalScore,
                         average_score: avgScore,
                         academic_records: academicRecords as any,
@@ -466,7 +467,8 @@ export class AcademicService {
                         student_id: studentId,
                         term,
                         session,
-                        is_published: status === 'Published' || status === 'Submitted',
+                        status: status || 'Draft',
+                        is_published: status === 'Published',
                         total_score: totalScore,
                         average_score: avgScore,
                         academic_records: academicRecords as any,

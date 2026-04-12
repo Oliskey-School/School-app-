@@ -18,9 +18,9 @@ const SimpleLineChart = ({ data, color }: { data: { month: string, percentage: n
     const height = 150;
     const padding = 30;
     const maxValue = 100;
-    const stepX = (width - padding * 2) / (data.length - 1);
+    const stepX = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
     const stepY = (height - padding * 2) / maxValue;
-    const points = data.map((d, i) => `${padding + i * stepX},${height - padding - d.percentage * stepY}`).join(' ');
+    const points = data.length > 0 ? data.map((d, i) => `${padding + i * stepX},${height - padding - d.percentage * stepY}`).join(' ') : "";
 
     return (
         <div className="relative">
@@ -135,8 +135,12 @@ const AttendanceScreen: React.FC<AttendanceScreenProps> = ({ studentId }) => {
         });
 
         const trendData = Object.entries(monthlyTrends)
-            .map(([month, data]) => ({ month, percentage: Math.round((data.present / data.total) * 100) }))
-            .sort((a, b) => new Date(`1 ${a.month} 2024`) > new Date(`1 ${b.month} 2024`) ? 1 : -1)
+            .map(([month, data]) => ({ month, percentage: Math.round((data.present / (data.total || 1)) * 100) }))
+            .sort((a, b) => {
+                const dateA = new Date(`1 ${a.month} 2024`);
+                const dateB = new Date(`1 ${b.month} 2024`);
+                return dateA.getTime() - dateB.getTime();
+            })
             .slice(-4); 
 
         return { percentage, trendData };

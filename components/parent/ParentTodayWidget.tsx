@@ -54,9 +54,9 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
     const fetchTodayUpdate = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.getParentTodayUpdate();
-            setChildren(data.children);
-            setFeedItems(data.feedItems);
+            const data = await api.getParentTodayUpdate(user?.id || '');
+            setChildren(data?.children || []);
+            setFeedItems(data?.feedItems || []);
         } catch (err: any) {
             console.error('Failed to fetch today update:', err);
             setError(err.message);

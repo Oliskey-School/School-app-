@@ -8,8 +8,11 @@ import { api } from '../../lib/api';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 
-const formatDistanceToNow = (date: string | Date) => {
+const formatDistanceToNow = (date: string | Date | undefined | null) => {
+  if (!date) return 'Never';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return 'Invalid date';
+  
   const diff = Math.floor((new Date().getTime() - d.getTime()) / 1000);
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;

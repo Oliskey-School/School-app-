@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Payment Plan Creation Modal
  * Allows admins to set up installment plans when assigning fees
  */
@@ -16,7 +16,7 @@ interface PaymentPlanModalProps {
     onSuccess: () => void;
 }
 
-export const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
+const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     feeId,
     studentId,
     totalAmount,
@@ -225,3 +225,5 @@ export const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
         </div>
     );
 };
+
+export default PaymentPlanModal;

@@ -69,7 +69,14 @@ class ExpressApiClient {
         }
 
         const text = await response.text();
-        return text ? JSON.parse(text) : {} as T;
+        try {
+            return text ? JSON.parse(text) : {} as T;
+        } catch (e) {
+            console.error(`[API] JSON Parse Error at ${endpoint}:`, e);
+            console.error(`[API] Raw response text:`, text);
+            // If it's not JSON, return the text as cast to T if T is string, else empty object
+            return text as unknown as T;
+        }
     }
 
     async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -327,6 +334,10 @@ class ExpressApiClient {
         return this.get(`/students/${id}`);
     }
 
+    async getStudentProfile(id: string): Promise<any> {
+        return this.getStudentById(id);
+    }
+
     async getStudent(id: string): Promise<any> {
         return this.getSubstituteStudent(id);
     }
@@ -370,12 +381,29 @@ class ExpressApiClient {
         return this.post('/students/bulk-status-update', { ids, status, branchId });
     }
 
-    async getStudentsByClass(grade: number, section: string, schoolId?: string, branchId?: string | null): Promise<any[]> {
+    async getStudentsByClass(arg1: any, arg2?: any, arg3?: any, arg4?: any): Promise<any[]> {
+        let grade: any, section: any, schoolId: any, branchId: any;
+        
+        if (typeof arg1 === 'number' || (typeof arg1 === 'string' && !isNaN(parseInt(arg1)) && arg1.length < 5)) {
+            // Probably (grade, section, schoolId, branchId)
+            grade = arg1;
+            section = arg2;
+            schoolId = arg3;
+            branchId = arg4;
+        } else {
+            // Probably (schoolId, grade, section, branchId)
+            schoolId = arg1;
+            grade = arg2;
+            section = arg3;
+            branchId = arg4;
+        }
+
         const queryParams = new URLSearchParams();
-        queryParams.append('grade', grade.toString());
-        queryParams.append('section', section);
-        if (schoolId) queryParams.append('schoolId', schoolId);
-        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (grade) queryParams.append('grade', String(grade));
+        if (section) queryParams.append('section', String(section));
+        if (schoolId) queryParams.append('schoolId', String(schoolId));
+        if (branchId && branchId !== 'all') queryParams.append('branchId', String(branchId));
+        
         return this.get(`/students/by-class?${queryParams.toString()}`);
     }
 
@@ -387,11 +415,15 @@ class ExpressApiClient {
         return this.get(`/students/email/${email}`);
     }
 
-    async getStudentDashboard(): Promise<any> {
+    async getMyDashboardOverview(): Promise<any> {
         return this.get('/students/me/dashboard');
     }
 
-    async getStudentPerformance(studentId: string | number): Promise<any[]> {
+    async getMyStudentProfile(): Promise<any> {
+        return this.get('/students/me');
+    }
+
+    async getStudentPerformance(): Promise<any[]> {
         try {
             return await this.get(`/students/me/performance`);
         } catch (err) {
@@ -401,6 +433,17 @@ class ExpressApiClient {
 
     async linkStudentToClasses(studentId: string, classIds: string[]): Promise<any> {
         return this.post(`/students/${studentId}/classes`, { classIds });
+    }
+
+    async getSubjects(schoolId: string, branchId?: string, grade?: number): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (grade) queryParams.append('grade', grade.toString());
+        return this.get(`/subjects?${queryParams.toString()}`);
+    }
+
+    async getMySubjects(): Promise<any[]> {
+        return this.get('/students/me/subjects');
     }
 
     // ============================================
@@ -423,6 +466,130 @@ class ExpressApiClient {
 
     async getMyTeacherProfile(): Promise<any> {
         return this.get('/teachers/me');
+    }
+
+    async getMyQuizResults(): Promise<any[]> {
+        try {
+            return await this.get('/students/me/quiz-results');
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async getMyPerformance(): Promise<any> {
+        return this.get('/students/me/performance');
+    }
+
+    async getGrades(studentIds: (string | number)[], subject: string, term: string, schoolId?: string, branchId?: string): Promise<any[]> {
+        return this.post('/academic/grades', {
+            studentIds,
+            subject,
+            term,
+            schoolId,
+            branchId
+        });
+    }
+
+    async saveGrade(data: any, schoolId?: string, branchId?: string): Promise<any> {
+        return this.put('/academic/grade', {
+            ...data,
+            schoolId,
+            branchId
+        });
+    }
+
+    async getStudentReportStats(studentId: string): Promise<any> {
+        try {
+            const report = await this.get(`/academic/report-card-details?studentId=${studentId}&term=First Term&session=2024/2025`);
+            if (!report) return { avgScore: 0, attendancePct: 100, performance: [] };
+            
+            const records = (report as any).academic_records || [];
+            const avgScore = records.length > 0 
+                ? records.reduce((acc: number, r: any) => acc + (r.total || 0), 0) / records.length 
+                : 0;
+                
+            return {
+                avgScore: Math.round(avgScore),
+                attendancePct: 100, // Mock for now
+                performance: records.map((r: any) => ({
+                    subject: r.subject,
+                    score: r.total
+                }))
+            };
+        } catch (err) {
+            return { avgScore: 0, attendancePct: 100, performance: [] };
+        }
+    }
+
+    async getAcademicPerformance(filters: any = {}): Promise<any[]> {
+        const queryParams = new URLSearchParams(filters);
+        return this.get(`/academic/performance?${queryParams.toString()}`);
+    }
+
+    async getMyFees(): Promise<any[]> {
+        return this.get('/students/me/fees');
+    }
+
+    async getMyAchievements(): Promise<any[]> {
+        return this.get('/students/me/achievements');
+    }
+
+    async getMyStudentStats(): Promise<any> {
+        try {
+            return await this.get('/students/me/stats');
+        } catch {
+            return { attendanceRate: 0, assignmentsSubmitted: 0, averageScore: 0, studyHours: 0, achievements: 0 };
+        }
+    }
+
+    async getMyAttendance(): Promise<any[]> {
+        return this.get('/students/me/attendance');
+    }
+
+    async getMyReportCards(): Promise<any[]> {
+        return this.get('/students/me/report-cards');
+    }
+
+    async getExtracurriculars(schoolId?: string): Promise<any[]> {
+        return this.get(`/activities${schoolId ? `?school_id=${schoolId}` : ''}`);
+    }
+
+    async getMySubmissions(): Promise<any[]> {
+        return this.get('/students/me/submissions');
+    }
+
+    async getTimetable(branchId?: string, className?: string, teacherId?: string): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (branchId) params.append('branchId', branchId);
+        if (className) params.append('className', className);
+        if (teacherId) params.append('teacherId', teacherId);
+        
+        const qs = params.toString();
+        return this.get(`/timetables${qs ? `?${qs}` : ''}`);
+    }
+
+    async getMyExtracurriculars(): Promise<any[]> {
+        return this.get('/students/me/activities');
+    }
+
+    async getExtracurricularEvents(schoolId: string): Promise<any[]> {
+        return this.get(`/activities/events?school_id=${schoolId}`);
+    }
+
+    async joinExtracurricular(activityId: string): Promise<any> {
+        return this.post(`/activities/${activityId}/join`, {});
+    }
+
+    async leaveExtracurricular(activityId: string): Promise<any> {
+        return this.post(`/activities/${activityId}/leave`, {});
+    }
+
+    async getLeaderboard(type: string = 'global'): Promise<any[]> {
+        try {
+            return await this.get(`/gamification/scores/leaderboard/${type}`);
+        } catch (err) {
+            return [];
+        }
     }
 
     async createTeacher(data: any): Promise<any> {
@@ -468,13 +635,21 @@ class ExpressApiClient {
         return this.put(`/teachers/attendance/${attendanceId}/approve`, { status });
     }
 
-    async getTeacherAttendance(schoolId: string, filters: any = {}): Promise<any[]> {
-        const queryParams = new URLSearchParams({ ...filters, schoolId });
-        try {
-            return await this.get(`/teachers/attendance?${queryParams.toString()}`);
-        } catch (err) {
-            return [];
-        }
+
+    async bulkFetchAttendance(studentIds: string[], startDate?: string, endDate?: string, branchId?: string): Promise<any[]> {
+        return this.post('/attendance/bulk-fetch', { studentIds, startDate, endDate, branchId });
+    }
+
+    // getTimetable moved to core section above
+
+    async getMaintenanceTickets(branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/maintenance?${queryParams.toString()}`);
+    }
+
+    async createMaintenanceTicket(data: any): Promise<any> {
+        return this.post('/maintenance', data);
     }
 
 
@@ -484,6 +659,33 @@ class ExpressApiClient {
 
     async getTeacherEvaluation(teacherId: string, schoolId: string): Promise<any> {
         return this.get(`/teachers/${teacherId}/evaluation?schoolId=${schoolId}`);
+    }
+
+    async getAppointments(filters: any = {}): Promise<any[]> {
+        const queryParams = new URLSearchParams(filters);
+        try {
+            return await this.get(`/counseling?${queryParams.toString()}`);
+        } catch (err) {
+            console.error('[API] getAppointments error:', err);
+            return [];
+        }
+    }
+
+    async getTeacherAppointments(): Promise<any[]> {
+        try {
+            return await this.get('/teachers/me/appointments');
+        } catch (err) {
+            console.error('[API] getTeacherAppointments error:', err);
+            return [];
+        }
+    }
+
+    async updateAppointmentStatus(id: string, status: string): Promise<any> {
+        return this.put(`/teachers/appointments/${id}/status`, { status });
+    }
+
+    async updateCounselingAppointmentStatus(id: string, status: string): Promise<any> {
+        return this.patch(`/counseling/${id}/status`, { status });
     }
 
     // ============================================
@@ -550,6 +752,10 @@ class ExpressApiClient {
         await this.delete(`/parents/${id}`);
     }
 
+    async getMyParentProfile(): Promise<any> {
+        return this.get('/parents/me');
+    }
+
     async getMyChildren(): Promise<any[]> {
         return this.get('/parents/me/children');
     }
@@ -577,6 +783,70 @@ class ExpressApiClient {
 
     async getChildrenForParent(parentId: string): Promise<any[]> {
         return this.get(`/parents/${parentId}/children`);
+    }
+
+    async getChildOverview(studentId: string): Promise<any> {
+        try {
+            return await this.get(`/parents/child-overview/${studentId}`);
+        } catch {
+            // Return safe fallback to prevent dashboard crash
+            return {
+                id: studentId,
+                name: 'Child',
+                grade: 'N/A',
+                school_name: '',
+                attendance: { status: 'unknown' },
+                assignments_due: 0,
+                fee_balance: 0
+            };
+        }
+    }
+
+    async getParentTodayUpdate(parentId: string, studentId?: string): Promise<any> {
+        try {
+            const qs = studentId ? `?studentId=${studentId}` : '';
+            return await this.get(`/parents/${parentId}/today-update${qs}`);
+        } catch {
+            return {};
+        }
+    }
+
+    async getParentNotifications(parentId?: string): Promise<any[]> {
+        try {
+            return await this.get('/notifications/me');
+        } catch {
+            return [];
+        }
+    }
+
+    async getParentPTAMeetings(schoolId?: string): Promise<any[]> {
+        try {
+            const qs = schoolId ? `?schoolId=${schoolId}` : '';
+            return await this.get(`/pta/meetings${qs}`);
+        } catch {
+            return [];
+        }
+    }
+
+    async getMyVolunteerSignups(): Promise<any[]> {
+        try {
+            return await this.get('/volunteering/me');
+        } catch {
+            return [];
+        }
+    }
+
+    async getVolunteeringOpportunities(schoolId?: string): Promise<any[]> {
+        try {
+            const qs = schoolId ? `?schoolId=${schoolId}` : '';
+            return await this.get(`/volunteering${qs}`);
+        } catch {
+            return [];
+        }
+    }
+
+    async volunteerSignup(opportunityId: string, data?: any): Promise<any> {
+        return this.post(`/volunteering/${opportunityId}/signup`, data || {});
     }
 
     // ============================================
@@ -745,6 +1015,10 @@ class ExpressApiClient {
         }
     }
 
+    async deletePayment(id: string): Promise<void> {
+        await this.delete(`/fees/payments/${id}`);
+    }
+
     async getStudentFees(studentId: string): Promise<any[]> {
         try {
             return await this.get(`/fees/student/${studentId}`);
@@ -802,6 +1076,53 @@ class ExpressApiClient {
         return this.get(`/report-cards?${queryParams.toString()}`);
     }
 
+    // Virtual Class
+    async getVirtualClassSessions(schoolId: string, branchId?: string, teacherId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (teacherId) queryParams.append('teacherId', teacherId);
+        return await this.get(`/virtual-classes?${queryParams.toString()}`);
+    }
+
+    async createVirtualClassSession(data: any): Promise<any> {
+        return await this.post('/virtual-classes', data);
+    }
+
+    async recordVirtualAttendance(sessionId: string, studentId: string): Promise<any> {
+        return await this.post('/virtual-classes/attendance', { sessionId, studentId });
+    }
+
+    // Quizzes
+    async getQuizzes(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        try {
+            return await this.get(`/quizzes?${queryParams.toString()}`);
+        } catch {
+            return [];
+        }
+    }
+
+    async getQuiz(quizId: string): Promise<any> {
+        return this.get(`/quizzes/${quizId}`);
+    }
+
+    async createQuizWithQuestions(data: any): Promise<any> {
+        return this.post('/quizzes/upload', data);
+    }
+
+    async updateQuizStatus(quizId: string, data: { status?: string, is_published?: boolean }): Promise<any> {
+        return this.put(`/quizzes/${quizId}/status`, data);
+    }
+
+    async deleteQuiz(quizId: string): Promise<void> {
+        await this.delete(`/quizzes/${quizId}`);
+    }
+
+    async submitQuizResult(data: any): Promise<any> {
+        return this.post('/quizzes/submit', data);
+    }
+
     async publishReportCards(schoolId: string, term: string, session: string): Promise<any> {
         return this.post('/report-cards/publish', { schoolId, term, session });
     }
@@ -821,31 +1142,17 @@ class ExpressApiClient {
         return this.get(`/academic/generated-resources?schoolId=${schoolId}`);
     }
 
+    async getResources(schoolId?: string): Promise<any[]> {
+        return this.getGeneratedResources(schoolId || '');
+    }
+
     async saveGeneratedResource(schoolId: string, data: any): Promise<any> {
         return this.post(`/academic/generated-resources?schoolId=${schoolId}`, data);
     }
 
-    // ============================================
-    // CBT & QUIZZES
-    // ============================================
     async getCBTExams(teacherId?: string): Promise<any[]> {
         const query = teacherId ? `?teacherId=${teacherId}` : '';
         return this.get(`/cbt/exams${query}`);
-    }
-
-    async createQuizWithQuestions(schoolIdOrData: any, branchId?: string, data?: any): Promise<any> {
-        if (typeof schoolIdOrData === 'string') {
-            return this.post(`/cbt/quizzes?schoolId=${schoolIdOrData}${branchId ? `&branchId=${branchId}` : ''}`, data);
-        }
-        return this.post('/cbt/quizzes', schoolIdOrData);
-    }
-
-    async updateQuizStatus(id: string, isPublished: boolean): Promise<any> {
-        return this.patch(`/cbt/quizzes/${id}/status`, { isPublished });
-    }
-
-    async deleteQuiz(id: string): Promise<any> {
-        return this.delete(`/cbt/quizzes/${id}`);
     }
 
     async getBehaviorNotesByStudent(studentId: string): Promise<any[]> {
@@ -882,17 +1189,7 @@ class ExpressApiClient {
         return this.post('/academic/sync', { subjectId, source });
     }
 
-    async getSubjects(schoolId?: string, branchId?: string, curriculumId?: string | number): Promise<any[]> {
-        const queryParams = new URLSearchParams();
-        if (schoolId) queryParams.append('schoolId', schoolId);
-        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
-        if (curriculumId) queryParams.append('curriculumId', curriculumId.toString());
-        try {
-            return await this.get(`/subjects?${queryParams.toString()}`);
-        } catch (err) {
-            return [];
-        }
-    }
+    // getSubjects moved to core section above
 
     async getClassSubjects(gradeOrId: number | string, section?: string): Promise<any[]> {
         if (typeof gradeOrId === 'string' && !section) {
@@ -913,30 +1210,6 @@ class ExpressApiClient {
         await this.delete(`/subjects/${id}`);
     }
 
-    async getGrades(studentIdsOrId: string | number | (string | number)[], subject?: string, term?: string, schoolId?: string, branchId?: string, options: any = {}): Promise<any[]> {
-        if ((typeof studentIdsOrId === 'string' || typeof studentIdsOrId === 'number') && !subject) {
-            return this.get(`/students/${studentIdsOrId}/grades`);
-        }
-        const queryParams = new URLSearchParams();
-        if (Array.isArray(studentIdsOrId)) queryParams.append('studentIds', studentIdsOrId.join(','));
-        else queryParams.append('studentId', String(studentIdsOrId));
-        
-        if (subject) queryParams.append('subject', subject);
-        if (term) queryParams.append('term', term);
-        if (schoolId) queryParams.append('schoolId', schoolId);
-        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
-
-        return this.get(`/academic/grades?${queryParams.toString()}`);
-    }
-
-    async saveGrade(data: any, schoolId?: string, branchId?: string, options: any = {}): Promise<any> {
-        const queryParams = new URLSearchParams();
-        if (schoolId) queryParams.append('schoolId', schoolId);
-        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
-        
-        const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
-        return this.post(`/academic/grades${query}`, data);
-    }
 
     // ============================================
     // ASSIGNMENTS
@@ -988,16 +1261,21 @@ class ExpressApiClient {
         }
     }
 
-    async createExam(data: any): Promise<any> {
-        return this.post('/exams', data);
+    async createExam(schoolId: string, branchId: string | undefined, data: any): Promise<any> {
+        return this.post('/exams', { ...data, schoolId, branchId });
     }
 
-    async updateExam(id: string, data: any): Promise<any> {
-        return this.put(`/exams/${id}`, data);
+    async updateExam(id: string, schoolId: string, branchId: string | undefined, data: any): Promise<any> {
+        return this.put(`/exams/${id}`, { ...data, schoolId, branchId });
     }
 
-    async deleteExam(id: string): Promise<void> {
-        await this.delete(`/exams/${id}`);
+    async deleteExam(id: string, schoolId: string, branchId: string | null | undefined): Promise<void> {
+        await this.delete(`/exams/${id}`, {
+            headers: {
+                'X-School-Id': schoolId,
+                ...(branchId ? { 'X-Branch-Id': branchId } : {})
+            }
+        });
     }
 
     async getExamResults(schoolId: string, branchId?: string): Promise<any[]> {
@@ -1031,8 +1309,21 @@ class ExpressApiClient {
         }
     }
 
-    async getQuizzes(schoolId?: string): Promise<any[]> {
-        return this.get(`/quizzes${schoolId ? `?schoolId=${schoolId}` : ''}`);
+    async getAssignment(id: string): Promise<any> {
+        return this.get(`/assignments/${id}`);
+    }
+
+
+    async submitAssignment(assignmentId: string, data: any): Promise<any> {
+        return this.post(`/assignments/${assignmentId}/submit`, data);
+    }
+
+    async getAssignmentSubmission(assignmentId: string): Promise<any> {
+        return this.get(`/assignments/${assignmentId}/submission`);
+    }
+
+    async submitQuiz(quizId: string, payload: any): Promise<any> {
+        return this.post(`/quizzes/${quizId}/submit`, payload);
     }
 
     // ============================================
@@ -1045,6 +1336,7 @@ class ExpressApiClient {
     async getAttendance(classId: string, date: string): Promise<any[]> {
         return this.getAttendanceByClass(classId, date);
     }
+
 
     async getAttendanceByDate(schoolId: string, date: string): Promise<any[]> {
         return this.get(`/attendance?schoolId=${schoolId}&date=${date}`);
@@ -1090,18 +1382,7 @@ class ExpressApiClient {
     // ============================================
     // TIMETABLE
     // ============================================
-    async getTimetable(branchId?: string, className?: string, teacherId?: string): Promise<any[]> {
-        const queryParams = new URLSearchParams();
-        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
-        if (className) queryParams.append('className', className);
-        if (teacherId) queryParams.append('teacherId', teacherId);
-        
-        try {
-            return await this.get(`/timetables?${queryParams.toString()}`);
-        } catch (err) {
-            return [];
-        }
-    }
+    // getTimetable moved to core section above
 
     async createTimetable(data: any): Promise<any> {
         return this.post('/timetables', data);
@@ -1494,11 +1775,13 @@ class ExpressApiClient {
     }
 
     async getConversations(userId?: string, schoolId?: string, branchId?: string): Promise<any[]> {
-        const queryParams = new URLSearchParams();
-        if (userId) queryParams.append('userId', userId);
-        if (schoolId) queryParams.append('schoolId', schoolId);
-        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
-        return this.get(`/conversations?${queryParams.toString()}`);
+        const params = new URLSearchParams();
+        if (userId) params.append('userId', userId);
+        if (schoolId) params.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') params.append('branchId', branchId);
+        
+        const qs = params.toString();
+        return this.get(`/conversations${qs ? `?${qs}` : ''}`);
     }
 
     async getForumData(): Promise<any> {
@@ -1565,14 +1848,18 @@ class ExpressApiClient {
     // ============================================
     // FORUM & COMMUNITY
     // ============================================
-    async getForumPosts(schoolId: string, branchId?: string): Promise<any[]> {
+    async getForumTopics(schoolId: string, branchId?: string): Promise<any[]> {
         const queryParams = new URLSearchParams({ schoolId });
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
-        try {
-            return await this.get(`/forum/posts?${queryParams.toString()}`);
-        } catch (err) {
-            return [];
-        }
+        return this.get(`/forum/topics?${queryParams.toString()}`);
+    }
+
+    async createForumTopic(data: any): Promise<any> {
+        return this.post('/forum/topics', data);
+    }
+
+    async getForumPosts(topicId: string): Promise<any[]> {
+        return this.get(`/forum/topics/${topicId}/posts`);
     }
 
     async createForumPost(data: any): Promise<any> {
@@ -1872,156 +2159,8 @@ class ExpressApiClient {
     }
 
     // ============================================
-    // STUDENT PORTAL
+    // STUDENT PORTAL (Methods moved to appropriate sections above)
     // ============================================
-
-    async getMyStudentProfile(): Promise<any> {
-        return this.fetch('/students/me');
-    }
-
-    async getStudentProfile(id: string): Promise<any> {
-        return this.fetch(`/students/${id}`);
-    }
-
-    async getMyDashboardOverview(): Promise<any> {
-        return this.fetch('/students/me/dashboard');
-    }
-
-    async getMySubjects(): Promise<any[]> {
-        return this.fetch('/students/me/subjects');
-    }
-
-    async getStudentCurriculumTopics(subjectId: string, term: string): Promise<any[]> {
-        return this.fetch(`/students/curriculum/${subjectId}/topics?term=${term}`);
-    }
-
-    async getMyPerformance(): Promise<any> {
-        return this.fetch('/students/me/performance');
-    }
-
-    async getMyReportCards(): Promise<any[]> {
-        return this.fetch('/students/me/report-cards');
-    }
-
-    async getMyQuizResults(): Promise<any[]> {
-        return this.fetch('/students/me/quiz-results');
-    }
-
-    async getQuizDetails(id: string): Promise<any> {
-        return this.fetch(`/quizzes/${id}`);
-    }
-
-    async getQuizQuestions(id: string): Promise<any[]> {
-        return this.fetch(`/quizzes/${id}/questions`);
-    }
-
-    async getMyFees(): Promise<any[]> {
-        return this.fetch('/students/me/fees');
-    }
-
-    async getMyAttendance(): Promise<any[]> {
-        return this.fetch('/students/me/attendance');
-    }
-
-    async getMySubmissions(): Promise<any[]> {
-        return this.fetch('/students/me/submissions');
-    }
-
-    async getAssignmentSubmission(id: string): Promise<any> {
-        return this.fetch(`/assignments/submissions/${id}`);
-    }
-
-    async getAssignment(id: string): Promise<any> {
-        return this.fetch(`/assignments/${id}`);
-    }
-
-    async submitAssignment(id: string, data: any): Promise<any> {
-        return this.post(`/assignments/${id}/submit`, data);
-    }
-
-    async getMyParentProfile(): Promise<any> {
-        return this.fetch('/parents/me');
-    }
-
-    async getChildOverview(childId: string): Promise<any> {
-        return this.fetch(`/parents/children/${childId}/overview`);
-    }
-
-    async getParentTodayUpdate(): Promise<any> {
-        return this.fetch('/parents/today-update');
-    }
-
-    async getParentNotifications(): Promise<any[]> {
-        return this.fetch('/parents/notifications');
-    }
-
-    async markNotificationRead(id: string | number): Promise<any> {
-        return this.post(`/notifications/${id}/read`, {});
-    }
-
-    async getTransactions(schoolId: string, feeId: string): Promise<any[]> {
-        return this.fetch(`/payments/transactions?schoolId=${schoolId}&feeId=${feeId}`);
-    }
-
-    async getParentPTAMeetings(): Promise<any[]> {
-        return this.fetch('/parents/pta-meetings');
-    }
-
-    async createAppointment(data: any): Promise<any> {
-        return this.post('/appointments', data);
-    }
-
-    async getVolunteeringOpportunities(): Promise<any[]> {
-        return this.fetch('/parents/volunteering');
-    }
-
-    async getMyVolunteerSignups(): Promise<any[]> {
-        return this.fetch('/parents/volunteering/my-signups');
-    }
-
-    async volunteerSignup(data: any): Promise<any> {
-        return this.post('/parents/volunteering/signup', data);
-    }
-
-    async getMyExtracurriculars(): Promise<any[]> {
-        return this.get('/extracurriculars/me');
-    }
-
-    async getExtracurriculars(): Promise<any[]> {
-        return this.get('/extracurriculars');
-    }
-
-    async getExtracurricularEvents(schoolId: string): Promise<any[]> {
-        return this.fetch(`/extracurriculars/events?school_id=${schoolId}`);
-    }
-
-    async joinExtracurricular(activityId: string): Promise<any> {
-        return this.post(`/extracurriculars/${activityId}/join`, {});
-    }
-
-    async leaveExtracurricular(activityId: string): Promise<any> {
-        return this.delete(`/extracurriculars/${activityId}/leave`);
-    }
-
-    async getLeaderboard(gameId: string = 'global'): Promise<any[]> {
-        return this.fetch(`/games/scores/leaderboard/${gameId}`);
-    }
-
-    async getResourceById(id: string): Promise<any> {
-        return this.fetch(`/resources/${id}`);
-    }
-
-    async getRelatedResources(subject: string, excludeId: string): Promise<any[]> {
-        return this.fetch(`/resources/related?subject=${subject}&exclude=${excludeId}`);
-    }
-
-    async getMyStudentStats(): Promise<any> {
-        return this.fetch('/students/me/stats');
-    }
-
-    async getMyAchievements(): Promise<any> {
-        return this.fetch('/students/me/achievements');
-    }
 
     // ============================================
     // ADMIN / CONTENT MANAGEMENT
@@ -2579,6 +2718,18 @@ class ExpressApiClient {
         };
 
         return builder as any;
+    }
+
+    // ============================================
+    // SYNC ENGINE COMPATIBILITY ALIASES
+    // ============================================
+
+    async recordStudentPayment(data: any): Promise<any> {
+        return this.recordPayment(data);
+    }
+
+    async createLessonNote(data: any): Promise<any> {
+        return this.createLessonPlan(data);
     }
 }
 

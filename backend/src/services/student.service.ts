@@ -287,6 +287,12 @@ export class StudentService {
                 }
             });
 
+            // Also update all enrollments for this student to Active
+            await tx.studentEnrollment.updateMany({
+                where: { student_id: student.id, school_id: schoolId },
+                data: { status: 'Active' }
+            });
+
             // Notify teachers who added this student
             const teacherIds = new Set<string>();
             for (const enrollment of (student as any).enrollments || []) {
@@ -332,12 +338,13 @@ export class StudentService {
         });
     }
 
-    static async getAllStudents(schoolId: string, branchId?: string, classId?: string) {
+    static async getAllStudents(schoolId: string, branchId?: string, classId?: string, status?: string) {
         return await prisma.student.findMany({
             where: {
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined,
-                enrollments: classId ? { some: { class_id: classId } } : undefined
+                status: status || undefined,
+                enrollments: classId ? { some: { class_id: classId, status: status || undefined } } : undefined
             },
             include: {
                 user: true
@@ -898,7 +905,6 @@ export class StudentService {
         if (curriculumId) {
             filteredStudents = filteredStudents.filter(s => s.academic_tracks && s.academic_tracks.length > 0);
         }
-
         return filteredStudents.map(s => ({
             id: s.id,
             name: s.full_name,
@@ -908,5 +914,24 @@ export class StudentService {
             avatarUrl: s.avatar_url,
             schoolId: s.id
         }));
+    }
+
+    static async getPendingStudentsForSchool(schoolId: string, branchId: string | undefined) {
+        return await prisma.student.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                status: 'Pending'
+            },
+            include: {
+                user: true,
+                enrollments: {
+                    include: {
+                        class: true
+                    }
+                }
+            },
+            orderBy: { created_at: 'desc' }
+        });
     }
 }

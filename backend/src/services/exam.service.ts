@@ -23,18 +23,33 @@ export class ExamService {
     }
 
     static async createExam(schoolId: string, branchId: string | undefined, examData: any) {
+        const { type, date, time, className, schoolId: _sid, branchId: _bid, ...rest } = examData;
+        
         const payload: any = {
-            ...examData,
+            ...rest,
+            title: type || 'Exam',
+            exam_type: type,
             school_id: schoolId,
         };
+
+        if (date) {
+            // If time is also provided, combine them for start_time
+            if (time) {
+                const [hours, minutes] = time.split(':');
+                const startTime = new Date(date);
+                startTime.setHours(parseInt(hours), parseInt(minutes));
+                payload.start_time = startTime;
+            } else {
+                payload.start_time = new Date(date);
+            }
+        }
 
         if (branchId && branchId !== 'all') {
             payload.branch_id = branchId;
         }
 
-        if (payload.className) {
-            payload.class_name = payload.className;
-            delete payload.className;
+        if (className) {
+            payload.class_name = className;
         }
 
         const exam = await prisma.exam.create({
@@ -46,11 +61,28 @@ export class ExamService {
     }
 
     static async updateExam(schoolId: string, branchId: string | undefined, id: string, updates: any) {
-        const payload = { ...updates };
+        const { type, date, time, className, schoolId: _sid, branchId: _bid, ...rest } = updates;
+        
+        const payload: any = { ...rest };
 
-        if (payload.className) {
-            payload.class_name = payload.className;
-            delete payload.className;
+        if (type) {
+            payload.title = type;
+            payload.exam_type = type;
+        }
+
+        if (date) {
+            if (time) {
+                const [hours, minutes] = time.split(':');
+                const startTime = new Date(date);
+                startTime.setHours(parseInt(hours), parseInt(minutes));
+                payload.start_time = startTime;
+            } else {
+                payload.start_time = new Date(date);
+            }
+        }
+
+        if (className) {
+            payload.class_name = className;
         }
 
         const whereClause: any = {
@@ -102,22 +134,22 @@ export class ExamService {
         const results = await prisma.examResult.findMany({
             where: whereClause,
             include: {
-                Exam: {
+                exam: {
                     include: {
-                        ExamResult: {
+                        results: {
                             include: {
-                                Student: true
+                                student: true
                             }
                         }
                     }
                 }
-            }
+            } as any
         });
 
         return results.map(r => ({
             ...r,
-            students: (r as any).Exam?.ExamResult?.map((er: any) => ({
-                name: er.Student?.full_name || er.Student?.name
+            students: (r as any).exam?.results?.map((er: any) => ({
+                name: er.student?.full_name || er.student?.name
             })) || []
         }));
     }

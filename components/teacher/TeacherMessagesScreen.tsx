@@ -227,7 +227,7 @@ const TeacherMessagesScreen: React.FC<TeacherMessagesScreenProps> = ({ navigateT
                     {loading ? (
                         <div className="p-8 text-center text-gray-500">Loading chats...</div>
                     ) : filteredConversations.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
+                        <div className="flex-grow h-full flex flex-col items-center justify-center p-8 text-center text-gray-500">
                             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <SearchIcon className="w-6 h-6 text-gray-300" />
                             </div>

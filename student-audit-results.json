@@ -1,0 +1,436 @@
+[
+  {
+    "key": "overview",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "studyBuddy",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "adventureQuest",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "examSchedule",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "noticeboard",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "calendar",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "library",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "curriculum",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "timetable",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "assignments",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "subjects",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "classroom",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "liveClass",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "attendance",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "results",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "finances",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "achievements",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "messages",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "newChat",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "profile",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "editProfile",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "videoLesson",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "assignmentSubmission",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "assignmentFeedback",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "academicReport",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "chat",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "extracurriculars",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "notifications",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "quizzes",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "quizPlayer",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "gamesHub",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "mathSprintLobby",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "mathSprintGame",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "mathSprintResults",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "gamePlayer",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "geoGuesserLobby",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "geoGuesserGame",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "codeChallengeLobby",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "codeChallengeGame",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "peekabooLetters",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "mathBattleArena",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "countingShapesTap",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "simonSays",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "alphabetFishing",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "beanBagToss",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "redLightGreenLight",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "spellingSparkle",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "vocabularyAdventure",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "virtualScienceLab",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "debateDash",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "geometryJeopardy",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "sharkTank",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "physicsLab",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "stockMarket",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "cbtExamGame",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "vocabularyPictionary",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "simpleMachineHunt",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "historicalHotSeat",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "vocabularyNinja",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "schoolUtilities",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "cbtList",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "cbtPlayer",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  }
+]

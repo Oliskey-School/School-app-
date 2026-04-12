@@ -289,6 +289,21 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 }
             }
 
+            // Link each class to each subject for now to ensure availability
+            const classSubjectLinks: any[] = [];
+            const classIds = classes.map(c => classIdMap[c]).filter(Boolean);
+            const subjectIds = subjects.map(s => subjectIdMap[s]).filter(Boolean);
+
+            classIds.forEach(classId => {
+                if (subjectIds.length > 0) {
+                    subjectIds.forEach(subjectId => {
+                        classSubjectLinks.push({ classId, subjectId });
+                    });
+                } else {
+                    classSubjectLinks.push(classId); // Fallback to just class ID
+                }
+            });
+
             const payload = {
                 name,
                 email,
@@ -297,8 +312,8 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 avatar_url: avatarUrl,
                 branch_id: branchId,
                 curriculum_eligibility: curriculumData,
-                subject_specialty: subjects.map(s => subjectIdMap[s]).filter(Boolean),
-                classes: classes.map(c => classIdMap[c]).filter(Boolean),
+                subject_specialty: subjects, // Keep names for specialty display
+                classes: classSubjectLinks,
                 ...complianceDocs
             };
 

@@ -32,7 +32,9 @@ export class AssignmentService {
 
         return assignments.map((a: any) => ({
             ...a,
+            classId: a.class_id,
             class_name: a.class?.name,
+            className: a.class?.name,
             total_students: 0,
             submissions_count: a.submissions?.length || 0
         }));
@@ -140,5 +142,10 @@ export class AssignmentService {
 
         SocketService.emitToSchool(schoolId, 'assignment:updated', { action: 'submit', assignmentId, studentId });
         return submission;
+    }
+    static async deleteAssignment(schoolId: string, id: string) {
+        return await prisma.assignment.delete({
+            where: { id }
+        });
     }
 }

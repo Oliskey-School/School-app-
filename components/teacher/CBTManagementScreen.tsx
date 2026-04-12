@@ -75,6 +75,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const loadInitialData = useCallback(async () => {
+        if (!activeTeacherId) return;
         setLoading(true);
         try {
             const backendExams = await api.getCBTExams(activeTeacherId || undefined);
@@ -154,7 +155,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
             console.log("Parsed questions:", parsedQuestions);
 
             // 1. Create Quiz Record
-            let activeSchoolId = propSchoolId || profile.schoolId;
+            let activeSchoolId = propSchoolId || profile?.schoolId;
             if (!activeSchoolId) {
                 const me = await api.getMe();
                 activeSchoolId = me?.school_id;
@@ -211,7 +212,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
         setExams(prev => prev.map(e => e.id === exam.id ? { ...e, isPublished: newStatus } : e));
 
         try {
-            await api.updateQuizStatus(exam.id, newStatus);
+            await api.updateQuizStatus(exam.id, { is_published: newStatus });
         } catch (error) {
             toast.error("Failed to update status.");
             loadInitialData(); // Revert

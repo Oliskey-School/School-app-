@@ -135,7 +135,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             const dbStudent = await api.getStudentProfile(id.toString());
 
             if (dbStudent) {
-                currentStudent = {
+                const mappedStudent = {
                     ...dbStudent,
                     name: dbStudent.name || `${dbStudent.firstName || dbStudent.first_name || ''} ${dbStudent.lastName || dbStudent.last_name || ''}`.trim(),
                     school_generated_id: dbStudent.schoolGeneratedId || dbStudent.school_generated_id,
@@ -143,7 +143,8 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                     grade: dbStudent.grade || dbStudent.class_name?.match(/\d+/)?.[0] || '10',
                     section: dbStudent.section || dbStudent.class_name?.match(/[A-Z]$/)?.[0] || 'A'
                 };
-                setStudent(currentStudent);
+                setStudent(mappedStudent);
+                currentStudent = mappedStudent;
             }
 
             if (!currentStudent) return;
@@ -173,12 +174,12 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             // 3. Trigger AI Analysis
             generateLearningFocus(currentStudent, statsData.averageScore);
 
-        } catch (error) {
+            } catch (error) {
             console.error('Error fetching profile data:', error);
-        } finally {
+            } finally {
             setLoading(false);
-        }
-    }, [student, generateLearningFocus]);
+            }
+            }, [generateLearningFocus]);
 
     // Real-time synchronization
     useAutoSync(['students', 'grades', 'events', 'activities', 'documents'], () => {

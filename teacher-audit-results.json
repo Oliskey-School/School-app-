@@ -1,0 +1,527 @@
+[
+  {
+    "key": "overview",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "quickAttendance",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "bulkGradebook",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "classDetail",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "studentProfile",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "examManagement",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "selectClassForAttendance",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "markAttendance",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "teacherSelfAttendance",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "attendanceHistory",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "library",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "gallery",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "calendar",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "addExam",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "assignmentCreator",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "assignmentsList",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "classAssignments",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "assignmentSubmissions",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "gradeSubmission",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "curriculumSelection",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "curriculum",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "gradeEntry",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "messages",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "newChat",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "communication",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "reportCardInput",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "collaborationForum",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "createForumTopic",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "forumTopic",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "timetable",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "chat",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "reports",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "reportCardPreview",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "settings",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "editTeacherProfile",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "teacherNotificationSettings",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "teacherSecurity",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "teacherChangePassword",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "lessonPlanner",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "lessonPlanDetail",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "suggestActivity",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "lessonContent",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "assignmentView",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "detailedLessonNote",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "notifications",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "selectTermForReport",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "professionalDevelopment",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "aiPerformanceSummary",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "educationalGames",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "aiGameCreator",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "gamePlayer",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "appointments",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "virtualClass",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "resources",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "cbtScores",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "cbtManagement",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "addStudent",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "quizBuilder",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "classGradebook",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "lessonNotesUpload",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "leaveRequest",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "payslips",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "salaryProfile",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "paymentHistory",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "attendanceTrackSelector",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "badgeSystem",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "certificateViewer",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "courseCatalog",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "mentoringMatching",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "myPDCourses",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "pdCalendar",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "recognitionPlatform",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "resourceSharing",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "studentCredentials",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  },
+  {
+    "key": "workloadCalculator",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
+  }
+]

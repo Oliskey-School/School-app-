@@ -109,12 +109,13 @@ interface TimetableScreenProps {
         userId: string | number;
     },
     students?: any[];
+    student?: any;
     schoolId?: string;
     currentBranchId?: string | null;
     title?: string; // Optional title override
 }
 
-const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, currentBranchId, students }) => {
+const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, currentBranchId, students, student }) => {
     const [timetable, setTimetable] = useState<{ [key: string]: string | null }>({});
     const [teacherAssignments, setTeacherAssignments] = useState<{ [key: string]: string | null }>({});
     const [loading, setLoading] = useState(true);
@@ -132,12 +133,15 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
     }, []);
 
     useEffect(() => {
-        if (context.userType === 'parent' && students && students.length > 0 && !selectedStudent) {
+        if (context?.userType === 'parent' && students && students.length > 0 && !selectedStudent) {
             setSelectedStudent(students[0]);
         }
-    }, [students, context.userType]);
+    }, [students, context?.userType]);
 
     const fetchData = useCallback(async () => {
+        if (!context) return;
+        if (context.userType === 'student' && !student) return;
+        if (context.userType === 'parent' && !selectedStudent) return;
         const studentIdContext = context.userType === 'parent' && selectedStudent ? selectedStudent.id : context.userId;
         const cacheKey = `timetable_${studentIdContext}_${context.userType}`;
 

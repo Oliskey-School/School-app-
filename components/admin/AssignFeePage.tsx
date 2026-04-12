@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 import { Fee } from '../../types';
 
 import { CheckCircle, ArrowLeft, Trash2 } from 'lucide-react';
-import { PaymentPlanModal } from './PaymentPlanModal';
+import PaymentPlanModal from './PaymentPlanModal';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import SearchableStudentSelect from '../shared/SearchableStudentSelect';

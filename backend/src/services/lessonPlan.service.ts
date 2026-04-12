@@ -25,9 +25,17 @@ export class LessonPlanService {
     }
 
     static async createLessonPlan(schoolId: string, branchId: string | undefined, planData: any) {
+        // Map camelCase fields to snake_case for Prisma
+        // Destructure ALL camelCase variants so they don't leak into the spread
+        const { teacherId, classId, subjectId, fileUrl, schoolId: _s, branchId: _b, ...rest } = planData;
+        
         const plan = await prisma.lessonNote.create({
             data: {
-                ...planData,
+                ...rest,
+                teacher_id: teacherId,
+                class_id: classId,
+                subject_id: subjectId,
+                file_url: fileUrl,
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : null
             }
@@ -38,6 +46,13 @@ export class LessonPlanService {
     }
 
     static async updateLessonPlan(schoolId: string, branchId: string | undefined, id: string, updates: any) {
+        const { teacherId, classId, subjectId, fileUrl, ...rest } = updates;
+        const data: any = { ...rest };
+        if (teacherId) data.teacher_id = teacherId;
+        if (classId) data.class_id = classId;
+        if (subjectId) data.subject_id = subjectId;
+        if (fileUrl) data.file_url = fileUrl;
+
         const where: any = {
             id,
             school_id: schoolId
@@ -49,7 +64,7 @@ export class LessonPlanService {
 
         const plan = await prisma.lessonNote.update({
             where,
-            data: updates
+            data
         });
 
         SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'update_lesson_plan', planId: id });

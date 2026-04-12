@@ -12,6 +12,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/', getChatRooms);
 router.get('/rooms', getChatRooms);
 router.get('/rooms/:roomId/messages', getChatMessages);
 router.post('/rooms/:roomId/messages', sendMessage);

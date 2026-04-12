@@ -14,11 +14,11 @@ export class ReportCardService {
         }
 
         if (teacherId) {
-            where.Student = {
-                StudentEnrollment: {
+            where.student = {
+                enrollments: {
                     some: {
-                        Class: {
-                            ClassTeacher: {
+                        class: {
+                            teachers: {
                                 some: { teacher_id: teacherId }
                             }
                         }
@@ -30,7 +30,7 @@ export class ReportCardService {
         const reports = await prisma.reportCard.findMany({
             where,
             include: {
-                Student: true
+                student: true
             },
             orderBy: [
                 { session: 'desc' },
@@ -40,13 +40,16 @@ export class ReportCardService {
 
         return reports.map(r => ({
             ...r,
-            status: r.is_published ? 'Published' : 'Submitted'
+            status: r.status || (r.is_published ? 'Published' : 'Submitted')
         }));
     }
 
     static async updateStatus(schoolId: string, branchId: string | undefined, id: string, status: string) {
         const isPublished = status === 'Published';
-        const updateData: any = { is_published: isPublished };
+        const updateData: any = { 
+            is_published: isPublished,
+            status: status
+        };
 
         const where: any = {
             id,
@@ -66,7 +69,7 @@ export class ReportCardService {
 
         return {
             ...updated,
-            status: updated?.is_published ? 'Published' : 'Submitted'
+            status: updated?.status || (updated?.is_published ? 'Published' : 'Submitted')
         };
     }
 }

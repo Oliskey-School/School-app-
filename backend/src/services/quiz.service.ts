@@ -33,32 +33,95 @@ export class QuizService {
 
     static async createQuizWithQuestions(schoolId: string, branchId: string | undefined, payload: { quiz: any, questions: any[] }) {
         return await prisma.$transaction(async (tx) => {
-            const quizData = await tx.quiz.create({
-                data: {
-                    ...payload.quiz,
-                    school_id: schoolId,
-                    branch_id: branchId && branchId !== 'all' ? branchId : null
-                }
-            });
+            const { quiz, questions } = payload;
+            // Extract and strip unknown/camelCase fields from the quiz payload
+            const {
+                subject,          // free-text subject name from the form
+                duration_minutes, // not in schema — maps to time_limit
+                is_active,        // not in schema — ignore
+                status: statusFromPayload,
+                subject_id: subjectIdFromPayload,
+                ...quizRest
+            } = quiz;
 
-            if (payload.questions && payload.questions.length > 0) {
-                await tx.quizQuestion.createMany({
-                    data: payload.questions.map((q, index) => ({
-                        ...q,
-                        quiz_id: quizData.id,
+            const status = statusFromPayload || 'draft';
+
+            // Resolve subject_id: prefer an explicit id, otherwise look up by name
+            let subject_id = subjectIdFromPayload;
+            if (!subject_id && subject) {
+                const found = await tx.subject.findFirst({
+                    where: { school_id: schoolId, name: { equals: subject, mode: 'insensitive' } }
+                });
+                if (found) {
+                    subject_id = found.id;
+                } else {
+                    // Fallback: pick any subject in the school
+                    const fallback = await tx.subject.findFirst({ where: { school_id: schoolId } });
+                    subject_id = fallback?.id;
+                }
+            }
+
+            if (!subject_id) {
+                throw new Error(`Subject "${subject}" not found. Please add it in the Subjects section first.`);
+            }
+
+            // Calculate total_marks from questions (default 1 per question if not set)
+            const total_marks = questions.reduce((sum, q) => sum + (q.marks || q.points || 1), 0) || questions.length || 1;
+
+            let quizData;
+            if (quiz.id) {
+                // UPDATE existing quiz
+                quizData = await tx.quiz.update({
+                    where: { id: quiz.id },
+                    data: {
+                        ...quizRest,
+                        status: status || 'draft',
+                        subject_id,
+                        time_limit: duration_minutes ?? quizRest.time_limit ?? null,
+                        total_marks,
                         school_id: schoolId,
-                        branch_id: branchId && branchId !== 'all' ? branchId : null,
-                        order_index: index
-                    }))
+                        branch_id: branchId && branchId !== 'all' ? branchId : null
+                    }
+                });
+                // Delete existing questions to simplify re-insertion (or we could sync them)
+                await tx.quizQuestion.deleteMany({ where: { quiz_id: quiz.id } });
+            } else {
+                // CREATE new quiz
+                quizData = await tx.quiz.create({
+                    data: {
+                        ...quizRest,
+                        status: status || 'draft',
+                        subject_id,
+                        time_limit: duration_minutes ?? quizRest.time_limit ?? null,
+                        total_marks,
+                        school_id: schoolId,
+                        branch_id: branchId && branchId !== 'all' ? branchId : null
+                    }
                 });
             }
 
-            SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'create_quiz', quizId: quizData.id });
+            if (questions && questions.length > 0) {
+                await tx.quizQuestion.createMany({
+                    data: questions.map((q, index) => {
+                        const { id: qId, marks, question_order, ...qRest } = q;
+                        return {
+                            ...qRest,
+                            points: marks || q.points || 1,
+                            quiz_id: quizData.id,
+                            school_id: schoolId,
+                            branch_id: branchId && branchId !== 'all' ? branchId : null,
+                            order_index: question_order ?? index
+                        };
+                    })
+                });
+            }
+
+            SocketService.emitToSchool(schoolId, 'academic:updated', { action: quiz.id ? 'update_quiz' : 'create_quiz', quizId: quizData.id });
             return quizData;
         });
     }
 
-    static async updateQuizStatus(schoolId: string, branchId: string | undefined, id: string, isPublished: boolean) {
+    static async updateQuizStatus(schoolId: string, branchId: string | undefined, id: string, data: { is_published?: boolean, status?: string }) {
         const where: any = {
             id,
             school_id: schoolId
@@ -70,10 +133,10 @@ export class QuizService {
 
         const quiz = await prisma.quiz.update({
             where,
-            data: { is_published: isPublished }
+            data
         });
 
-        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'update_quiz_status', quizId: id, isPublished });
+        SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'update_quiz_status', quizId: id, ...data });
         return quiz;
     }
 
@@ -95,6 +158,17 @@ export class QuizService {
 
         SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'submit_quiz', quizId: payload.quiz_id, studentId: payload.student_id });
         return submission;
+    }
+
+    static async getQuiz(schoolId: string, id: string) {
+        return await prisma.quiz.findUnique({
+            where: { id },
+            include: {
+                questions: {
+                    orderBy: { order_index: 'asc' }
+                }
+            }
+        });
     }
 
     static async deleteQuiz(schoolId: string, branchId: string | undefined, id: string) {

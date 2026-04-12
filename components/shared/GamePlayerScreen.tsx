@@ -14,6 +14,16 @@ const GamePlayerScreen: React.FC<GamePlayerScreenProps> = ({ game, mode, handleB
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
 
+  if (!game || !game.questions || game.questions.length === 0) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center h-full text-center bg-gray-50">
+        <h2 className="text-xl font-bold text-red-600">Game Data Not Found</h2>
+        <p className="text-gray-600 mt-2">The selected game is currently unavailable or has no questions.</p>
+        <button onClick={handleBack} className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg">Go Back</button>
+      </div>
+    );
+  }
+
   const currentQuestion = game.questions[currentQuestionIndex];
 
   const handleAnswerSelect = (answer: string) => {

@@ -60,38 +60,25 @@ const AttendanceHeatmap: React.FC<AttendanceHeatmapProps> = ({ schoolId }) => {
     };
 
     const fetchHeatmapData = async () => {
+        if (!schoolId) return;
         try {
             setLoading(true);
+            
+            // First fetch all students for this school/branch to get their IDs
+            const students = await api.getStudents({ schoolId, branchId: currentBranchId || undefined });
+            const studentIds = students.map((s: any) => s.id);
 
-            let query = api
-                .from('attendance_heatmaps')
-                .select(`
-                    *,
-                    classes (class_name)
-                `)
-                .gte('date', dateRange.start)
-                .lte('date', dateRange.end)
-                .order('date', { ascending: false });
-
-            if (selectedClass !== 'all') {
-                query = query.eq('class_id', selectedClass);
+            if (studentIds.length === 0) {
+                setHeatmapData([]);
+                return;
             }
 
-            const { data, error } = await api
-                .from('student_attendance')
-                .select(`
-                    date,
-                    status,
-                    students (
-                        class_id,
-                        classes (class_name)
-                    )
-                `)
-                .eq('school_id', schoolId)
-                .gte('date', dateRange.start)
-                .lte('date', dateRange.end);
-
-            if (error) throw error;
+            const data = await api.bulkFetchAttendance(
+                studentIds,
+                dateRange.start,
+                dateRange.end,
+                currentBranchId || undefined
+            );
 
             // Process data to create heatmap
             const processedData = processAttendanceData(data || []);

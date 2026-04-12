@@ -203,7 +203,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                     {isLoading ? (
                         <div className="p-8 text-center text-gray-400">Loading chats...</div>
                     ) : filteredConversations.length === 0 ? (
-                        <div className="flex-grow p-8 text-center bg-gray-50/30 flex flex-col items-center justify-center">
+                        <div className="flex-grow h-full p-8 text-center bg-gray-50/30 flex flex-col items-center justify-center">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                 <MessagesIcon className="w-6 h-6 text-gray-300" />
                             </div>

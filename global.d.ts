@@ -9,6 +9,15 @@ declare global {
         };
         google: any;
         FlutterwaveCheckout: (options: any) => void;
+        __AUDIT_MODE__: boolean;
+        STUDENT_NAVIGATE: (view: string, title: string, props: any) => void;
+        STUDENT_COMPONENTS: string[];
+        TEACHER_NAVIGATE: (view: string, title: string, props: any) => void;
+        TEACHER_COMPONENTS: string[];
+        ADMIN_NAVIGATE: (view: string, title: string, props: any) => void;
+        ADMIN_COMPONENTS: string[];
+        PARENT_NAVIGATE: (view: string, title: string, props: any) => void;
+        PARENT_COMPONENTS: string[];
     }
 
     interface ImportMeta {

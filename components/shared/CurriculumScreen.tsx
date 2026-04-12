@@ -39,16 +39,16 @@ const CurriculumScreen: React.FC<CurriculumScreenProps> = ({ level, department }
     if (!currentSchool) return;
     setLoading(true);
     try {
-      // Try to find subjects in the DB matching this level
-      const { data, error } = await api
-        .from('subjects')
-        .select('*')
-        .eq('school_id', currentSchool.id)
-        .eq('grade_level_category', level)
-        .eq('is_active', true);
+      // Try to find subjects in the DB matching this school
+      const data = await api.getSubjects(currentSchool.id);
+      
+      // Filter locally for the specific level (if the API doesn't support it yet)
+      const filteredData = data.filter((s: any) => 
+        s.grade_level_category === level && s.is_active !== false
+      );
 
-      if (data && data.length > 0) {
-        setDbSubjects(data.map((s: any) => ({
+      if (filteredData && filteredData.length > 0) {
+        setDbSubjects(filteredData.map((s: any) => ({
           name: s.name,
           category: (s.category as CurriculumSubjectCategory) || 'Core'
         })));

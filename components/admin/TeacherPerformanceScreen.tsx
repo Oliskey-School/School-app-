@@ -96,15 +96,25 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
     // Mock data for the chart
     const performanceData = [85, 92, 88];
 
+    if (!teacher) {
+        return (
+            <div className="flex items-center justify-center h-full bg-gray-50">
+                <div className="text-center p-8 bg-white rounded-xl shadow-sm">
+                    <p className="text-gray-500 mb-4">No teacher selected for performance evaluation.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 space-y-5 overflow-y-auto">
                 {/* Teacher Info */}
                 <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow-sm">
-                     <img src={teacher.avatarUrl} alt={teacher.name} className="w-20 h-20 rounded-full object-cover" />
+                     <img src={teacher.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name || 'User')}`} alt={teacher.name} className="w-20 h-20 rounded-full object-cover" />
                      <div>
                         <p className="font-bold text-xl text-gray-800">{teacher.name}</p>
-                        <p className="font-medium text-gray-500">{teacher.subjects[0]}</p>
+                        <p className="font-medium text-gray-500">{teacher.subjects?.[0] || 'No subject assigned'}</p>
                      </div>
                 </div>
                 

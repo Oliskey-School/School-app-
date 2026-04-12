@@ -125,3 +125,12 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const deleteAssignment = async (req: AuthRequest, res: Response) => {
+    try {
+        await AssignmentService.deleteAssignment(req.user.school_id, req.params.id as string);
+        res.status(204).send();
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

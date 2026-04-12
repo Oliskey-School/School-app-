@@ -45,10 +45,9 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
         const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
         const branchId = getEffectiveBranchId(req.user, requestedBranch);
         const classId = (req.query.class_id as string) || (req.query.classId as string);
+        const status = req.query.status as string;
         
-        // If teacher, StudentService.getAllStudents already handles filtering by school.
-        // We could add more specific teacher-class filtering in StudentService if needed.
-        const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId);
+        const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId, status);
 
         res.json(result);
     } catch (error: any) {
@@ -365,6 +364,31 @@ export const getStudentsByClass = async (req: AuthRequest, res: Response) => {
         }
 
         const students = await StudentService.getStudentsByClass(schoolId, branchId, grade, section, curriculumId);
+        res.json(students);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getPendingApprovals = async (req: AuthRequest, res: Response) => {
+    try {
+        const requestedBranch = (req.query.branch_id as string) || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, requestedBranch);
+        const result = await StudentService.getPendingStudentsForSchool(req.user.school_id, branchId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId as any) || (req.query.branch_id as any));
+        const classId = req.params.classId;
+        const status = req.query.status as string;
+
+        const students = await StudentService.getAllStudents(schoolId, branchId as any, classId, status as any);
         res.json(students);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

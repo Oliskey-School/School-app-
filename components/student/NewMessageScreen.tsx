@@ -80,7 +80,7 @@ const StudentNewChatScreen: React.FC<StudentNewChatScreenProps> = ({ navigateTo,
     const filteredUsers = useMemo(() => {
         const sourceList = activeTab === 'Teachers' ? teachers : classmates;
         return sourceList.filter(user =>
-            user.name.toLowerCase().includes(searchTerm.toLowerCase())
+            (user.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
         );
     }, [searchTerm, activeTab, teachers, classmates]);
 

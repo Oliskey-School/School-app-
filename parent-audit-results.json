@@ -1,0 +1,176 @@
+[
+  {
+    "key": "dashboard",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "piggyBank",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "smartCalendar",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "todaySummary",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "childDetail",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "examSchedule",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "noticeboard",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "notifications",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "calendar",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "library",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "busRoute",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "feeStatus",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "selectReport",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "reportCard",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "timetable",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "more",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "editParentProfile",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "feedback",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "notificationSettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "securitySettings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "parentChangePassword",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "learningResources",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "schoolPolicies",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "ptaMeetings",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "photoGallery",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "volunteering",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "permissionSlips",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "appointments",
+    "frontend": true,
+    "api": true,
+    "db": true
+  },
+  {
+    "key": "aiParentingTips",
+    "frontend": true,
+    "api": true,
+    "db": true
+  }
+]

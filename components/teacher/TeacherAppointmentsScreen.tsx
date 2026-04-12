@@ -49,7 +49,7 @@ const TeacherAppointmentsScreen: React.FC<TeacherAppointmentsScreenProps> = ({ t
     const fetchAppointments = async () => {
         setLoading(true);
         try {
-            const data = await api.getAppointments();
+            const data = await api.getTeacherAppointments();
             setAppointments(data || []);
         } catch (error) {
             console.error('Error fetching appointments:', error);

@@ -21,7 +21,9 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = req.user.branch_id || req.query.branchId as string || req.query.branch_id as string;
+        teacherId = teacherId || req.query.teacher_id as string;
+
         const result = await TimetableService.getTimetable(
             req.user.school_id,
             branchId as string,

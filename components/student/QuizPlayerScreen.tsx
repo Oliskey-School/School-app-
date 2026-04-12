@@ -82,7 +82,8 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
     try {
       const targetId = cbtExamId || quizId;
       if (!targetId) {
-        throw new Error("No Quiz ID provided");
+        setLoading(false);
+        return;
       }
 
       // 1. Fetch Quiz Metadata
