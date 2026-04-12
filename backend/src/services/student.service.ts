@@ -761,7 +761,8 @@ export class StudentService {
     }
 
     static async getMySubjects(schoolId: string, studentId: string) {
-        const enrollment = await prisma.studentEnrollment.findFirst({
+        // 1. Try to find active enrollment
+        let enrollment = await prisma.studentEnrollment.findFirst({
             where: { student_id: studentId, status: 'Active' },
             include: { 
                 class: {
@@ -772,8 +773,45 @@ export class StudentService {
             }
         });
 
-        if (!enrollment) return [];
-        return enrollment.class.subjects;
+        // 2. If no active enrollment, try ANY enrollment
+        if (!enrollment) {
+            enrollment = await prisma.studentEnrollment.findFirst({
+                where: { student_id: studentId },
+                include: { 
+                    class: {
+                        include: {
+                            subjects: true
+                        }
+                    }
+                }
+            });
+        }
+
+        if (enrollment && enrollment.class.subjects.length > 0) {
+            return enrollment.class.subjects;
+        }
+
+        // 3. Fallback: Lookup subjects by student's grade/section directly
+        const student = await prisma.student.findUnique({
+            where: { id: studentId }
+        });
+
+        if (student) {
+            const classRecord = await prisma.class.findFirst({
+                where: { 
+                    school_id: schoolId,
+                    grade: student.grade,
+                    section: student.section
+                },
+                include: { subjects: true }
+            });
+
+            if (classRecord && classRecord.subjects.length > 0) {
+                return classRecord.subjects;
+            }
+        }
+
+        return [];
     }
 
     static async getMyActivities(schoolId: string, studentId: string) {

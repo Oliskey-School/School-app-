@@ -449,8 +449,15 @@ export class ParentService {
     }
 
     static async getChildren(schoolId: string, branchId: string | undefined, parentUserId: string) {
-        const parent = await prisma.parent.findUnique({
-            where: { user_id: parentUserId }
+        // Resolve parent by either user_id or id for robustness
+        const parent = await prisma.parent.findFirst({
+            where: {
+                OR: [
+                    { user_id: parentUserId },
+                    { id: parentUserId }
+                ],
+                school_id: schoolId
+            }
         });
 
         if (!parent) return [];
@@ -585,15 +592,37 @@ export class ParentService {
             select: { status: true, date: true }
         });
 
-        // 3. Get Assignments due (Count of assignments for student's class that haven't been submitted)
-        // First find class_id for student
-        const enrollment = await prisma.studentEnrollment.findFirst({
+        // 3. Get Assignments due
+        // Fallback-enabled enrollment lookup
+        let enrollment = await prisma.studentEnrollment.findFirst({
             where: { student_id: studentId, status: 'Active' },
             select: { class_id: true }
         });
 
+        if (!enrollment) {
+            enrollment = await prisma.studentEnrollment.findFirst({
+                where: { student_id: studentId },
+                select: { class_id: true }
+            });
+        }
+
+        let classId = enrollment?.class_id;
+
+        // Final fallback: Look up class by grade/section
+        if (!classId) {
+            const fallbackClass = await prisma.class.findFirst({
+                where: {
+                    school_id: schoolId,
+                    grade: student.grade,
+                    section: student.section
+                },
+                select: { id: true }
+            });
+            classId = fallbackClass?.id;
+        }
+
         let assignmentsDueCount = 0;
-        if (enrollment) {
+        if (classId) {
             const submissions = await prisma.assignmentSubmission.findMany({
                 where: { student_id: studentId },
                 select: { assignment_id: true }
@@ -602,7 +631,7 @@ export class ParentService {
 
             assignmentsDueCount = await prisma.assignment.count({
                 where: {
-                    class_id: enrollment.class_id,
+                    class_id: classId,
                     due_date: { gte: new Date() },
                     id: { notIn: submittedIds }
                 }
