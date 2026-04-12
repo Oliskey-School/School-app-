@@ -78,8 +78,9 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
 
 export const getMyChildren = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.query.branchId as string;
-        const result = await ParentService.getChildren(req.user.school_id, branchId, req.user.id);
+        // Parents should see ALL their children linked across the entire school,
+        // so we explicitly pass undefined for branchId to bypass any branch-specific filtering.
+        const result = await ParentService.getChildren(req.user.school_id, undefined, req.user.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
