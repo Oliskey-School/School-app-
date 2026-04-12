@@ -95,6 +95,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         dispatchLegacyUpdate('classes');
     });
 
+    socket.on('parent:updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['parents'] });
+        queryClient.invalidateQueries({ queryKey: ['students'] });
+        queryClient.invalidateQueries({ queryKey: ['parent_student_links'] });
+        dispatchLegacyUpdate('parents');
+        dispatchLegacyUpdate('students');
+        dispatchLegacyUpdate('parent_student_links');
+    });
+
     socket.on('teacher:updated', () => {
         queryClient.invalidateQueries({ queryKey: ['teachers'] });
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
