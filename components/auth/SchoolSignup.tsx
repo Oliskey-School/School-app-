@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { SchoolLogoIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
 
 interface SchoolSignupProps {
     onComplete: (email: string, role: string) => void;
@@ -161,29 +162,21 @@ const SchoolSignup: React.FC<SchoolSignupProps> = ({ onComplete, onBack }) => {
     const handleLaunch = async () => {
         setLoading(true);
         try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            const res = await fetch(`${API_BASE}/schools/onboard`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    schoolName,
-                    schoolCode,
-                    schoolEmail,
-                    phone,
-                    address,
-                    state,
-                    mainBranchName,
-                    mainBranchCode,
-                    additionalBranches: extraBranches.map(b => ({ name: b.name, code: b.code })),
-                    adminName,
-                    adminEmail,
-                    adminPassword,
-                    planType,
-                }),
+            const data: any = await api.post('/schools/onboard', {
+                schoolName,
+                schoolCode,
+                schoolEmail,
+                phone,
+                address,
+                state,
+                mainBranchName,
+                mainBranchCode,
+                additionalBranches: extraBranches.map(b => ({ name: b.name, code: b.code })),
+                adminName,
+                adminEmail,
+                adminPassword,
+                planType,
             });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Failed to create school.');
 
             toast.success(`${schoolName} is live! Your 30-day trial has started.`);
             setTimeout(() => onComplete(adminEmail, 'admin'), 1500);

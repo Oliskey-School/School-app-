@@ -134,36 +134,25 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         setIsLoading(true);
 
         try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             
-            const res = await fetch(`${API_BASE}/schools/onboard`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    schoolName: formData.schoolName,
-                    schoolCode: formData.schoolCode.toUpperCase(),
-                    motto: formData.motto,
-                    address: formData.address,
-                    phone: formData.phone,
-                    logoUrl: formData.logoUrl,
-                    adminName: formData.adminName,
-                    adminEmail: formData.adminEmail,
-                    adminPassword: formData.adminPassword,
-                    branchNames: branchNames.map(b => b.name),
-                    mainBranchCode: branchNames[0]?.code || 'MAIN',
-                    additionalBranches: branchNames.slice(1).map(b => ({
-                        name: b.name,
-                        code: b.code
-                    })),
-                    planType: 'free'
-                })
+            const data: any = await api.post('/schools/onboard', {
+                schoolName: formData.schoolName,
+                schoolCode: formData.schoolCode.toUpperCase(),
+                motto: formData.motto,
+                address: formData.address,
+                phone: formData.phone,
+                logoUrl: formData.logoUrl,
+                adminName: formData.adminName,
+                adminEmail: formData.adminEmail,
+                adminPassword: formData.adminPassword,
+                branchNames: branchNames.map(b => b.name),
+                mainBranchCode: branchNames[0]?.code || 'MAIN',
+                additionalBranches: branchNames.slice(1).map(b => ({
+                    name: b.name,
+                    code: b.code
+                })),
+                planType: 'free'
             });
-
-            const data = await res.json();
-            
-            if (!res.ok) {
-                throw new Error(data.message || 'School creation failed');
-            }
 
             setVerificationData({
                 userId: data.data?.adminUserId,
@@ -199,23 +188,11 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         }
 
         try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            
-            const res = await fetch(`${API_BASE}/verification/verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: verificationData?.email,
-                    code: otpCode,
-                    purpose: 'email_verification'
-                })
+            const data: any = await api.post('/verification/verify', {
+                email: verificationData?.email,
+                code: otpCode,
+                purpose: 'email_verification'
             });
-
-            const data = await res.json();
-            
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Verification failed');
-            }
 
             toast.success('Email verified! Logging you in...');
 
@@ -238,22 +215,10 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         
         setIsLoading(true);
         try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            
-            const res = await fetch(`${API_BASE}/verification/resend`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: verificationData.email,
-                    purpose: 'email_verification'
-                })
+            const data: any = await api.post('/verification/resend', {
+                email: verificationData.email,
+                purpose: 'email_verification'
             });
-
-            const data = await res.json();
-            
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Failed to resend code');
-            }
 
             toast.success('New verification code sent!');
             setOtpCode('');

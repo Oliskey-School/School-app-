@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DashboardType } from '../../types';
+import { api } from '../../lib/api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const VerifyEmail: React.FC = () => {
     const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
@@ -26,14 +26,7 @@ const VerifyEmail: React.FC = () => {
 
                 if (!token) throw new Error("No verification token found in URL.");
 
-                const res = await fetch(`${API_BASE}/auth/verify-email`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token })
-                });
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || 'Verification failed');
+                const data: any = await api.post('/auth/verify-email', { token });
 
                 setStatus('success');
                 setMessage('Verification successful! Welcome.');

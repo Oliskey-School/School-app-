@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
 
 interface EmailVerificationScreenProps {
   email: string;
@@ -32,23 +33,12 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ email
     }
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       
-      const res = await fetch(`${API_URL}/verification/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          code: otpCode,
-          purpose: 'email_verification'
-        })
+      const data: any = await api.post('/verification/verify', {
+        email,
+        code: otpCode,
+        purpose: 'email_verification'
       });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Verification failed');
-      }
 
       setSuccess(true);
       toast.success('Email verified successfully!');
@@ -66,22 +56,11 @@ const EmailVerificationScreen: React.FC<EmailVerificationScreenProps> = ({ email
   const handleResend = async () => {
     setIsLoading(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       
-      const res = await fetch(`${API_URL}/verification/resend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          purpose: 'email_verification'
-        })
+      const data: any = await api.post('/verification/resend', {
+        email,
+        purpose: 'email_verification'
       });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to resend');
-      }
 
       toast.success('New code sent to your email');
       setOtpCode('');

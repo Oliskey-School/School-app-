@@ -60,7 +60,7 @@ const InviteAcceptScreen: React.FC = () => {
                 }
 
                 const accessToken = tokenParams.get('access_token');
-                const refreshToken = tokenParams.get('refresh_token');
+                // const refreshToken = tokenParams.get('refresh_token'); // Not used currently in local backend flow
                 const inviteRole = contextParams.get('role') || '';
 
                 setRole(inviteRole);
@@ -70,49 +70,41 @@ const InviteAcceptScreen: React.FC = () => {
                     throw new Error(tokenParams.get('error_description')?.replace(/\+/g, ' ') || 'Invite link error');
                 }
 
-                if (!accessToken || !refreshToken) {
-                    // Maybe Supabase already handled the session via detectSessionInUrl
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) throw new Error('No valid tokens found. The invite link may have expired.');
+                // If no token in URL, check localStorage
+                const localToken = localStorage.getItem('auth_token');
+                const tokenToUse = accessToken || localToken;
+
+                if (!tokenToUse) {
+                    throw new Error('No valid tokens found. The invite link may have expired.');
                 }
 
-                // 2. Set the session
+                // 2. Set the session (local token storage)
                 setMessage('Verifying your invitation...');
-                if (accessToken && refreshToken) {
-                    const { error: sessionError } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
-                    if (sessionError) throw sessionError;
+                if (accessToken) {
+                    localStorage.setItem('auth_token', accessToken);
                 }
 
                 // 3. Call the backend to generate school_generated_id
                 setMessage('Generating your school ID...');
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) throw new Error('Session could not be established.');
+                const currentToken = localStorage.getItem('auth_token');
+                if (!currentToken) throw new Error('Session could not be established.');
 
-                const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                const res = await fetch(`${apiBase}/invite/complete`, {
-                    method: 'POST',
+                const data: any = await api.post('/invite/complete', {}, {
                     headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${session.access_token}`,
+                        Authorization: `Bearer ${currentToken}`,
                     },
                 });
 
-                let genId: string | null = null;
-                if (res.ok) {
-                    const body = await res.json();
-                    genId = body.school_generated_id || null;
-                    setSchoolGeneratedId(genId);
-                }
+                const genId = data.school_generated_id || null;
+                setSchoolGeneratedId(genId);
                 // Non-critical: if complete fails, user can still log in
 
                 setStatus('success');
                 setMessage('Welcome! Your account is ready.');
 
                 // 4. Redirect after brief welcome display
-                const finalRole = inviteRole || session.user.user_metadata?.role || 'admin';
+                // Attempt to get role from user metadata or fallback
+                const finalRole = inviteRole || 'admin';
                 const destination = ROLE_DASHBOARD[finalRole.toLowerCase()] || '/';
 
                 setTimeout(() => {
