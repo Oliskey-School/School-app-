@@ -195,13 +195,20 @@ const AuthenticatedApp: React.FC = () => {
   }
 
   if (!user || !role) {
-    if (authView === 'signup') {
-      return <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />;
-    }
-    if (authView === 'create-school') {
-      return <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />;
-    }
-    return <Login onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        {authView === 'signup' ? (
+          <Signup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
+        ) : authView === 'create-school' ? (
+          <CreateSchoolSignup onNavigateToLogin={() => React.startTransition(() => setAuthView('login'))} />
+        ) : (
+          <Login 
+            onNavigateToSignup={() => React.startTransition(() => setAuthView('signup'))} 
+            onNavigateToCreateSchool={() => React.startTransition(() => setAuthView('create-school'))} 
+          />
+        )}
+      </Suspense>
+    );
   }
 
   if (isChatOpen) {
@@ -314,10 +321,12 @@ const App: React.FC = () => {
       ) : (
         <div className="font-sans w-full min-h-screen bg-[#F0F2F5] flex flex-col overflow-x-hidden">
           <div className="relative w-full flex-1 flex flex-col overflow-x-hidden">
-            <Suspense fallback={<LoadingScreen />}>
-              <AuthenticatedApp />
-            </Suspense>
-            <PWAInstallPrompt />
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingScreen />}>
+                <AuthenticatedApp />
+                <PWAInstallPrompt />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
       )}
