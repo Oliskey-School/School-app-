@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { SocketService } from './socket.service';
-
-const prisma = new PrismaClient();
 
 export class AnonymousReportService {
     static async create(data: {
