@@ -2,18 +2,12 @@ import { InspectionTemplate } from '../types/inspector';
 
 // Backend API base URL — uses Vite proxy /api in dev, direct URL otherwise
 const getApiBaseUrl = () => {
-    const envUrl = import.meta.env.VITE_API_URL;
-    if (envUrl) {
-        // Enforce /api suffix if missing from the environment variable
-        return envUrl.endsWith('/api') ? envUrl : `${envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl}/api`;
-    }
-    
-    // Default to relative /api for production to use Vercel rewrites or same-domain backend
-    return '/api';
+    // TEMPORARY: Direct Railway URL to test if Vercel proxy is the bottleneck
+    return 'https://school-app-production-a59a.up.railway.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
-console.log(`📡 [API] Base URL resolved to: ${API_BASE_URL}`);
+console.log(`📡 [API-TEST] Direct Railway URL: ${API_BASE_URL}`);
 
 const getAuthToken = async (): Promise<string | null> => {
     // Priority 1: Check localStorage for our custom backend JWT
