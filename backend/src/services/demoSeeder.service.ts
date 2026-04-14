@@ -158,22 +158,28 @@ export class DemoSeederService {
                     const profile = await prisma.teacher.findUnique({ where: { user_id: user.id } });
                     if (profile) {
                         await prisma.classTeacher.upsert({
-                            where: { id: assign.id },
+                            where: { 
+                                class_id_teacher_id_subject_id: {
+                                    class_id: assign.classId,
+                                    teacher_id: profile.id,
+                                    subject_id: assign.subjectId || null
+                                }
+                            },
                             update: { 
-                                teacher_id: profile.id,
-                                class_id: assign.classId,
-                                subject_id: assign.subjectId,
-                                school_id: demoSchoolId,
-                                branch_id: demoBranchId
+                                school: { connect: { id: demoSchoolId } },
+                                branch: demoBranchId ? { connect: { id: demoBranchId } } : undefined,
+                                teacher: { connect: { id: profile.id } },
+                                class: { connect: { id: assign.classId } },
+                                subject: assign.subjectId ? { connect: { id: assign.subjectId } } : undefined
                             },
                             create: {
                                 id: assign.id,
-                                teacher_id: profile.id,
-                                class_id: assign.classId,
-                                subject_id: assign.subjectId,
-                                is_primary: true,
-                                school_id: demoSchoolId,
-                                branch_id: demoBranchId
+                                school: { connect: { id: demoSchoolId } },
+                                branch: demoBranchId ? { connect: { id: demoBranchId } } : undefined,
+                                teacher: { connect: { id: profile.id } },
+                                class: { connect: { id: assign.classId } },
+                                subject: assign.subjectId ? { connect: { id: assign.subjectId } } : undefined,
+                                is_primary: true
                             }
                         });
                     }

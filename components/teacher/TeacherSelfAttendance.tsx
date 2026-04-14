@@ -14,6 +14,7 @@ interface TeacherAttendance {
     status: string;
     approval_status: string;
     check_in: string;
+    check_out?: string;
 }
 
 interface TeacherSelfAttendanceProps {
@@ -123,20 +124,51 @@ const TeacherSelfAttendance: React.FC<TeacherSelfAttendanceProps> = ({ navigateT
                 </div>
 
                 {todayStatus ? (
-                    <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-green-100 rounded-lg">
-                                <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                    <div className="space-y-4">
+                        <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-100 rounded-lg">
+                                    <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Check-in Time</p>
+                                    <p className="text-lg font-bold text-gray-800">{todayStatus.check_in}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Check-in Time</p>
-                                <p className="text-lg font-bold text-gray-800">{todayStatus.check_in}</p>
-                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(todayStatus.approval_status)}`}>
+                                {(todayStatus.approval_status || 'Pending').charAt(0).toUpperCase() + (todayStatus.approval_status || 'Pending').slice(1)}
+                            </span>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(todayStatus.approval_status)}`}>
-                            {(todayStatus.approval_status || 'Pending').charAt(0).toUpperCase() + (todayStatus.approval_status || 'Pending').slice(1)}
-                        </span>
 
+                        {todayStatus.check_out ? (
+                            <div className="bg-blue-50 rounded-xl p-4 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                        <CheckCircleIcon className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Check-out Time</p>
+                                        <p className="text-lg font-bold text-gray-800">{todayStatus.check_out}</p>
+                                    </div>
+                                </div>
+                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                                    Completed
+                                </span>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleCheckIn}
+                                disabled={submitting}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-100 transition-all active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
+                            >
+                                {submitting ? (
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                    <CheckCircleIcon className="h-5 w-5" />
+                                )}
+                                {submitting ? 'Processing...' : 'Mark Attendance (Check Out)'}
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <button

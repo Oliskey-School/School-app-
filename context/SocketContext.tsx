@@ -200,6 +200,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         dispatchLegacyUpdate('resources');
     });
 
+    socket.on('assignment:updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['assignments'] });
+        queryClient.invalidateQueries({ queryKey: ['academic'] });
+        dispatchLegacyUpdate('assignments');
+        dispatchLegacyUpdate('academic');
+    });
+
+    socket.on('submission:updated', () => {
+        queryClient.invalidateQueries({ queryKey: ['submissions'] });
+        dispatchLegacyUpdate('submissions');
+        dispatchLegacyUpdate('assignment_submissions');
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;

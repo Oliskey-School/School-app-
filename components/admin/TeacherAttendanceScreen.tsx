@@ -14,6 +14,7 @@ type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Pending' | 'Not Marked
 interface TeacherWithAttendance extends Teacher {
     attendanceStatus: AttendanceStatus;
     checkInTime?: string;
+    checkOutTime?: string;
     attendanceId?: string;
     full_name?: string;
     avatar_url?: string;
@@ -57,6 +58,7 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
                     ...teacher,
                     attendanceStatus: status,
                     checkInTime: record?.check_in,
+                    checkOutTime: record?.check_out,
                     attendanceId: record?.id
                 };
             });
@@ -184,12 +186,13 @@ const TeacherAttendanceScreen: React.FC<TeacherAttendanceScreenProps> = ({ navig
                                     <img src={teacher.avatar_url || teacher.avatarUrl || 'https://i.pravatar.cc/150'} alt={teacher.full_name || teacher.name || 'Teacher'} className="w-12 h-12 rounded-full object-cover" />
                                     <div className="flex-grow">
                                         <p className="font-bold text-gray-800">{teacher.full_name || teacher.name || 'Teacher'}</p>
-                                        <div className="flex items-center space-x-2">
-                                            <p className={`text-sm font-semibold ${statusStyles[teacher.attendanceStatus].text}`}>
-                                                Status: {teacher.attendanceStatus}
-                                            </p>
-                                            {teacher.checkInTime && <p className="text-xs text-gray-400">({new Date(teacher.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</p>}
-                                        </div>
+                                            <div className="flex items-center space-x-2">
+                                                <p className={`text-sm font-semibold ${statusStyles[teacher.attendanceStatus].text}`}>
+                                                    Status: {teacher.attendanceStatus}
+                                                </p>
+                                                {teacher.checkInTime && <p className="text-xs text-gray-500">In: {teacher.checkInTime}</p>}
+                                                {teacher.checkOutTime && <p className="text-xs text-blue-500 ml-1">Out: {teacher.checkOutTime}</p>}
+                                            </div>
                                     </div>
                                 </button>
                                 {/* Removed direct toggles for clarity on "Sync" context - Admin should Approve primarily, but here we can leave simple display or add back interactions later if requested. Keeping it cleanup for now to emphasize the real status. */}

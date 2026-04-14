@@ -56,6 +56,8 @@ test_output_utf8.txt
 !hooks/**/*.ts
 !types/**/*.ts
 !utils/**/*.ts
+!services/**/*.ts
+!services/**/*.tsx
 !tests/**/*.ts
 !*.config.ts
 !*.config.js

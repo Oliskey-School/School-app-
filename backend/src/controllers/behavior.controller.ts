@@ -17,10 +17,21 @@ export const getBehaviorNotes = async (req: any, res: Response) => {
 export const createBehaviorNote = async (req: any, res: Response) => {
     try {
         const { schoolId, branchId } = req.query;
-        // In many cases, the teacher_id will be the logged-in user if they are a teacher
-        // For simplicity, we assume req.user has a teacher profile id if relevant, 
-        // or we use a fallback if not provided.
-        const teacherId = req.body.teacher_id || req.user.id; 
+        let teacherId = req.body.teacher_id || req.body.teacherId;
+
+        // If teacherId is not provided, try to find it from the logged-in user
+        if (!teacherId && req.user.role === 'TEACHER') {
+            const teacher = await (prisma as any).teacher.findUnique({
+                where: { user_id: req.user.id }
+            });
+            if (teacher) {
+                teacherId = teacher.id;
+            }
+        }
+
+        if (!teacherId) {
+            return res.status(400).json({ message: 'Teacher ID is required and could not be resolved.' });
+        }
         
         const note = await BehaviorService.createNote(
             schoolId as string || req.user.school_id,

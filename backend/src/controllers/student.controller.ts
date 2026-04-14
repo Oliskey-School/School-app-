@@ -126,6 +126,9 @@ export const getMyPerformance = async (req: AuthRequest, res: Response) => {
         const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
+        // If user is a teacher, they might only want to see their subjects, 
+        // but for a student viewing their OWN profile, we show everything.
+        // Role check is important here.
         const result = await StudentService.getPerformance(req.user.school_id, req.user.branch_id, student.id);
         res.json(result);
     } catch (error: any) {
@@ -136,7 +139,20 @@ export const getMyPerformance = async (req: AuthRequest, res: Response) => {
 export const getStudentPerformance = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
-        const result = await StudentService.getPerformance(req.user.school_id, branchId, req.params.id as string);
+        const role = req.user.role;
+        let subjectFilter: string | string[] | undefined = req.query.subject as string;
+
+        // If the requester is a TEACHER, restrict to their subjects unless they are viewing a specific subject
+        if (role === 'TEACHER' && !subjectFilter) {
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id }
+            });
+            if (teacher && teacher.subject_specialty && teacher.subject_specialty.length > 0) {
+                subjectFilter = teacher.subject_specialty;
+            }
+        }
+
+        const result = await StudentService.getPerformance(req.user.school_id, branchId, req.params.id as string, subjectFilter);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -390,6 +406,16 @@ export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
 
         const students = await StudentService.getAllStudents(schoolId, branchId as any, classId, status as any);
         res.json(students);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        const studentId = req.params.id;
+        const result = await StudentService.getStudentSubjects(schoolId, studentId);
+        res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

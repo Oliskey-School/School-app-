@@ -1,7 +1,10 @@
 
-import React from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { SchoolLogoIcon, DocumentTextIcon, XCircleIcon, PublishIcon, getFormattedClassName } from '../../constants';
-import { Student } from '../../types';
+import { Student, Teacher } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
+import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 
 interface TeacherReportCardPreviewScreenProps {
   student: Student;
@@ -23,7 +26,58 @@ const InfoField: React.FC<{ label: string; value: string | number }> = ({ label,
 );
 
 const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenProps> = ({ student, handleBack, onPublish }) => {
-    
+    const { user: authUser } = useAuth();
+    const [currentUserTeacher, setCurrentUserTeacher] = useState<Teacher | null>(null);
+    const { classes: teacherClasses, subjects: teacherSubjects, loading: loadingPermissions } = useTeacherClasses();
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            if (!authUser) return;
+            try {
+                const teacher = await api.getMyTeacherProfile();
+                if (!teacher) return;
+
+                if (!loadingPermissions) {
+                    setCurrentUserTeacher({
+                        ...teacher,
+                        subjects: teacherSubjects.map(s => s.name),
+                        classes: teacherClasses.map(c => getFormattedClassName(c.grade, c.section))
+                    } as any);
+                }
+            } catch (err) {
+                console.error("Error fetching teacher profile:", err);
+            }
+        };
+        fetchUser();
+    }, [authUser, teacherClasses, teacherSubjects, loadingPermissions]);
+
+    const isClassTeacher = useMemo(() => {
+        if (!currentUserTeacher || !student) return false;
+        const studentClass = getFormattedClassName(student.grade, student.section);
+        // Matching by full class name or grade number (as fallback or for general grade teachers)
+        return currentUserTeacher.classes?.some((c: string) => 
+            c === studentClass || 
+            c.includes(studentClass) || 
+            c.includes(`${student.grade}`)
+        );
+    }, [student, currentUserTeacher]);
+
+    const isSubjectTeacher = useCallback((subjectName: string) => {
+        if (!currentUserTeacher) return false;
+        
+        // Match with assigned subjects
+        const isAssigned = currentUserTeacher.subjects?.includes(subjectName);
+        
+        // Also check assignments for class/subject combination
+        const studentClass = getFormattedClassName(student.grade, student.section);
+        const hasAssignment = teacherClasses?.some(c => 
+            getFormattedClassName(c.grade, c.section) === studentClass && 
+            (c.subject === subjectName || c.subject?.name === subjectName)
+        );
+
+        return isAssigned || hasAssignment;
+    }, [currentUserTeacher, student, teacherClasses]);
+
     const report = student.reportCards?.[student.reportCards.length - 1];
     const isPublished = report?.status === 'Published';
 
@@ -40,6 +94,10 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
             </div>
         );
     }
+
+    const filteredRecords = (report.academicRecords || []).filter(record => 
+        isClassTeacher || isSubjectTeacher(record.subject)
+    );
 
     const SKILL_BEHAVIOUR_DOMAINS = ['Neatness', 'Punctuality', 'Politeness', 'Respect for Others', 'Participation in Class', 'Homework Completion', 'Teamwork/Cooperation', 'Attentiveness', 'Creativity', 'Honesty/Integrity'];
     const PSYCHOMOTOR_SKILLS = ['Handwriting', 'Drawing/Art Skills', 'Craft Skills', 'Music & Dance', 'Sports Participation'];
@@ -79,30 +137,40 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
                         <table className="min-w-full border">
                             <thead className="bg-gray-50"><tr className="text-left text-gray-600"><th className="p-2 border">Subject</th><th className="p-2 border w-14 text-center">CA</th><th className="p-2 border w-14 text-center">Exam</th><th className="p-2 border w-14 text-center">Total</th><th className="p-2 border w-12 text-center">Grade</th><th className="p-2 border">Remark</th></tr></thead>
                             <tbody>
-                                {report.academicRecords.map((record, index) => (
-                                    <tr key={index}><td className="p-1 border font-semibold text-gray-800">{record.subject}</td><td className="p-1 border text-center">{record.ca}</td><td className="p-1 border text-center">{record.exam}</td><td className="p-1 border text-center font-bold text-gray-800">{record.total}</td><td className="p-1 border text-center font-bold text-gray-800">{record.grade}</td><td className="p-1 border text-gray-700 italic">"{record.remark}"</td></tr>
-                                ))}
+                                {filteredRecords.length > 0 ? (
+                                    filteredRecords.map((record, index) => (
+                                        <tr key={index}><td className="p-1 border font-semibold text-gray-800">{record.subject}</td><td className="p-1 border text-center">{record.ca}</td><td className="p-1 border text-center">{record.exam}</td><td className="p-1 border text-center font-bold text-gray-800">{record.total}</td><td className="p-1 border text-center font-bold text-gray-800">{record.grade}</td><td className="p-1 border text-gray-700 italic">"{record.remark}"</td></tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={6} className="p-4 text-center text-gray-500 italic">No assigned subjects found for this students report.</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                        <div><SectionHeader title="Skills & Behaviour" /><table className="w-full text-sm"><tbody>{SKILL_BEHAVIOUR_DOMAINS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20 text-center font-bold">{report.skills[skill] || '-'}</td></tr>))}</tbody></table></div>
-                        <div><SectionHeader title="Psychomotor Skills" /><table className="w-full text-sm"><tbody>{PSYCHOMOTOR_SKILLS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20 text-center font-bold">{report.psychomotor[skill] || '-'}</td></tr>))}</tbody></table></div>
-                    </div>
+                    {(isClassTeacher || loadingPermissions === false) && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                                <div><SectionHeader title="Skills & Behaviour" /><table className="w-full text-sm"><tbody>{SKILL_BEHAVIOUR_DOMAINS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20 text-center font-bold">{report.skills?.[skill] || '-'}</td></tr>))}</tbody></table></div>
+                                <div><SectionHeader title="Psychomotor Skills" /><table className="w-full text-sm"><tbody>{PSYCHOMOTOR_SKILLS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20 text-center font-bold">{report.psychomotor?.[skill] || '-'}</td></tr>))}</tbody></table></div>
+                            </div>
 
-                    <SectionHeader title="Attendance Record" />
-                    <div className="grid grid-cols-4 gap-4 text-sm text-center">
-                        <div><p className="text-xs text-gray-500">Total Days</p><p className="font-bold text-lg">{report.attendance.total}</p></div>
-                        <div><p className="text-xs text-gray-500">Present</p><p className="font-bold text-lg">{report.attendance.present}</p></div>
-                        <div><p className="text-xs text-gray-500">Absent</p><p className="font-bold text-lg">{report.attendance.absent}</p></div>
-                        <div><p className="text-xs text-gray-500">Late</p><p className="font-bold text-lg">{report.attendance.late}</p></div>
-                    </div>
+                            <SectionHeader title="Attendance Record" />
+                            <div className="grid grid-cols-4 gap-4 text-sm text-center">
+                                <div><p className="text-xs text-gray-500">Total Days</p><p className="font-bold text-lg">{report.attendance?.total || 0}</p></div>
+                                <div><p className="text-xs text-gray-500">Present</p><p className="font-bold text-lg">{report.attendance?.present || 0}</p></div>
+                                <div><p className="text-xs text-gray-500">Absent</p><p className="font-bold text-lg">{report.attendance?.absent || 0}</p></div>
+                                <div><p className="text-xs text-gray-500">Late</p><p className="font-bold text-lg">{report.attendance?.late || 0}</p></div>
+                            </div>
 
-                    <div className="mt-6 space-y-4">
-                        <div><label className="font-semibold text-sm text-gray-700">Teacher's Comment:</label><p className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-md text-gray-800 italic">"{report.teacherComment}"</p></div>
-                        <div><label className="font-semibold text-sm text-gray-700">Principal's Comment:</label><p className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-md text-gray-800 italic">"{report.principalComment}"</p></div>
-                    </div>
+                            <div className="mt-6 space-y-4">
+                                <div><label className="font-semibold text-sm text-gray-700">Teacher's Comment:</label><p className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-md text-gray-800 italic">"{report.teacherComment || 'No comment yet.'}"</p></div>
+                                <div><label className="font-semibold text-sm text-gray-700">Principal's Comment:</label><p className="w-full mt-1 p-2 text-sm bg-gray-50 rounded-md text-gray-800 italic">"{report.principalComment || 'No comment yet.'}"</p></div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

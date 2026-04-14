@@ -87,7 +87,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       }
 
       // 1. Fetch Quiz Metadata
-      const quizData = await api.getQuizDetails(targetId);
+      const quizData = await api.getQuizDetails(String(targetId));
 
       setQuizInfo({
         id: quizData.id,
@@ -101,7 +101,7 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       }
 
       // 2. Fetch Questions
-      const questionsData = await api.getQuizQuestions(targetId);
+      const questionsData = await api.getQuizQuestions(String(targetId));
 
       // Map to local Question format
       const mappedQuestions: Question[] = (questionsData || []).map((q: any) => {
@@ -228,11 +228,12 @@ const QuizPlayerScreen: React.FC<QuizPlayerScreenProps> = ({ quizId, cbtExamId, 
       if (!studentId) throw new Error("Student ID missing");
 
       // BACKEND SUBMISSION
-      await api.submitQuiz(quizInfo?.id, {
+      await api.submitQuiz(String(quizInfo?.id), {
         score: percentage,
         total_questions: questions.length,
         answers: answersLog,
         focus_violations: focusViolations,
+        student_id: String(studentId)
       });
 
       toast.dismiss();

@@ -27,6 +27,10 @@ export class QuizService {
 
         return await prisma.quiz.findMany({
             where,
+            include: {
+                class: { select: { id: true, name: true } },
+                subject: { select: { id: true, name: true } }
+            },
             orderBy: { created_at: 'desc' }
         });
     }
@@ -184,5 +188,31 @@ export class QuizService {
         const result = await prisma.quiz.delete({ where });
         SocketService.emitToSchool(schoolId, 'academic:updated', { action: 'delete_quiz', quizId: id });
         return true;
+    }
+
+    static async getQuizSubmissions(schoolId: string, branchId: string | undefined, quizId: string) {
+        const where: any = {
+            quiz_id: quizId,
+            school_id: schoolId
+        };
+
+        if (branchId && branchId !== 'all') {
+            where.branch_id = branchId;
+        }
+
+        return await prisma.quizSubmission.findMany({
+            where,
+            include: {
+                student: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        school_generated_id: true,
+                        avatar_url: true
+                    }
+                }
+            },
+            orderBy: { submitted_at: 'desc' }
+        });
     }
 }

@@ -498,6 +498,7 @@ model ReportCard {
   principal_remark        String?
   teacher_remark          String?
   academic_records        Json?
+  status                  String   @default("Draft")
   is_published            Boolean  @default(false)
   created_at              DateTime @default(now())
   updated_at              DateTime @updatedAt
@@ -856,6 +857,7 @@ model Subject {
   curriculum_topics CurriculumTopic[]
   classes           Class[]
   class_teachers    ClassTeacher[]
+  quizzes           Quiz[]
 }
 
 model ExamBody {
@@ -907,6 +909,7 @@ model Exam {
   passing_marks Float?
   start_time    DateTime?
   end_time      DateTime?
+  date          DateTime?
   duration      Int?
   is_published  Boolean      @default(false)
   created_at    DateTime     @default(now())
@@ -1181,12 +1184,16 @@ model Quiz {
   description  String?
   time_limit   Int? // in minutes
   total_marks  Float
+  type         String           @default("QUIZ") // QUIZ, EXAM, TEST
+  is_cbt       Boolean          @default(false)
+  status       String           @default("draft") // draft, pending, approved, rejected
   is_published Boolean          @default(false)
   created_at   DateTime         @default(now())
   updated_at   DateTime         @updatedAt
   class        Class            @relation(fields: [class_id], references: [id], onDelete: Cascade)
   teacher      Teacher          @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
   school       School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  subject      Subject          @relation(fields: [subject_id], references: [id], onDelete: Cascade)
   questions    QuizQuestion[]
   submissions  QuizSubmission[]
 }

@@ -493,9 +493,15 @@ export class StudentService {
         return result;
     }
 
-    static async getPerformance(schoolId: string, branchId: string | undefined, studentId: string) {
+    static async getPerformance(schoolId: string, branchId: string | undefined, studentId: string, subject?: string | string[]) {
         return await prisma.academicPerformance.findMany({
-            where: { student_id: studentId, school_id: schoolId },
+            where: { 
+                student_id: studentId, 
+                school_id: schoolId,
+                ...(subject ? {
+                    subject: typeof subject === 'string' ? subject : { in: subject }
+                } : {})
+            },
             orderBy: { created_at: 'desc' }
         });
     }
@@ -821,6 +827,12 @@ export class StudentService {
         return [];
     }
 
+    static async getStudentSubjects(schoolId: string, studentId: string) {
+        // This is essentially same as getMySubjects but for admin/teacher use on specific student
+        return this.getMySubjects(schoolId, studentId);
+    }
+
+
     static async getMyActivities(schoolId: string, studentId: string) {
         return await prisma.studentActivity.findMany({
             where: { student_id: studentId },
@@ -892,6 +904,12 @@ export class StudentService {
             include: {
                 student: {
                     include: {
+                        user: {
+                            select: {
+                                avatar_url: true,
+                                school_generated_id: true
+                            }
+                        },
                         academic_tracks: curriculumId ? {
                             where: { curriculum_id: curriculumId, status: 'Active' }
                         } : false
@@ -910,9 +928,11 @@ export class StudentService {
             name: s.full_name,
             first_name: s.full_name.split(' ')[0],
             last_name: s.full_name.split(' ').slice(1).join(' '),
-            admission_number: s.school_generated_id || `S-${s.id.substring(0, 5)}`,
-            avatarUrl: s.avatar_url,
-            schoolId: s.id
+            admission_number: s.school_generated_id || s.user?.school_generated_id || `S-${s.id.substring(0, 5)}`,
+            school_generated_id: s.school_generated_id || s.user?.school_generated_id,
+            avatar_url: s.avatar_url || s.user?.avatar_url,
+            avatarUrl: s.avatar_url || s.user?.avatar_url,
+            schoolId: s.school_generated_id || s.user?.school_generated_id || s.id // UUID as fallback
         }));
     }
 

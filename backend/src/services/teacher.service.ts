@@ -111,9 +111,11 @@ export class TeacherService {
                                 }
                             },
                             create: {
-                                teacher_id: teacher.id,
-                                class_id: classId,
-                                subject_id: subjectId || null,
+                                school: { connect: { id: schoolId } },
+                                branch: branchId ? { connect: { id: branchId } } : undefined,
+                                teacher: { connect: { id: teacher.id } },
+                                class: { connect: { id: classId } },
+                                subject: subjectId ? { connect: { id: subjectId } } : undefined,
                                 is_primary: false
                             },
                             update: {}
@@ -244,11 +246,13 @@ export class TeacherService {
                     if (existingClass) {
                         await tx.classTeacher.create({
                             data: {
-                                teacher_id: id,
-                                class_id: classId,
-                                subject_id: subjectId || null,
+                                school: { connect: { id: schoolId } },
+                                branch: branchId ? { connect: { id: branchId } } : undefined,
+                                teacher: { connect: { id: teacher.id } },
+                                class: { connect: { id: classId } },
+                                subject: subjectId ? { connect: { id: subjectId } } : undefined,
                                 is_primary: false
-                            } as any
+                            }
                         });
                     }
                 }
@@ -282,27 +286,52 @@ export class TeacherService {
         const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const checkIn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
-        const result = await prisma.teacherAttendance.upsert({
+        const existing = await prisma.teacherAttendance.findUnique({
             where: {
                 teacher_id_date: {
                     teacher_id: teacher.id,
                     date: date
                 }
-            },
-            create: {
-                teacher_id: teacher.id,
-                school_id: schoolId,
-                branch_id: branchId || teacher.branch_id,
-                date: date,
-                status: 'present',
-                approval_status: 'pending',
-                check_in: checkIn
-            },
-            update: {
-                check_in: checkIn,
-                status: 'present'
             }
         });
+
+        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+        let result;
+        if (!existing) {
+            // First activity of the day: Check-in
+            result = await prisma.teacherAttendance.create({
+                data: {
+                    teacher_id: teacher.id,
+                    school_id: schoolId,
+                    branch_id: branchId || teacher.branch_id,
+                    date: date,
+                    status: 'present',
+                    approval_status: 'pending',
+                    check_in: timeString
+                }
+            });
+        } else if (!existing.check_out) {
+            // Already checked in, now checking out
+            result = await prisma.teacherAttendance.update({
+                where: { id: existing.id },
+                data: {
+                    check_out: timeString,
+                    status: 'present'
+                }
+            });
+        } else {
+            // Already checked out, maybe re-checking in? Let's just update check-in for now
+            // or we could allow multiple check-ins if needed, but the schema is 1 per day.
+            result = await prisma.teacherAttendance.update({
+                where: { id: existing.id },
+                data: {
+                    check_in: timeString,
+                    check_out: null, // Reset check-out on re-check-in
+                    status: 'present'
+                }
+            });
+        }
 
         SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'attendance_submit', teacherId: teacher.id });
         return result;

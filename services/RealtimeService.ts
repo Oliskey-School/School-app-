@@ -19,7 +19,12 @@ class RealtimeService {
 
         console.log(`🔌 Initializing Global Background Polling for School: ${schoolId}`);
 
-        // Start polling for notifications every 30 seconds
+        // Initialize WebSocket for real-time instant updates
+        import('../lib/socketService').then(({ socketService }) => {
+            socketService.initialize(schoolId);
+        });
+
+        // Start polling for notifications every 30 seconds as fallback/extra
         this.interval = setInterval(() => this.pollUpdates(), 30000);
         this.pollUpdates(); // Initial poll
     }

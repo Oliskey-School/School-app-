@@ -41,10 +41,10 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
             if (data) {
                 setStudents(data.map((s: any) => ({
                     id: s.id,
-                    schoolId: s.school_generated_id,
+                    schoolId: s.school_generated_id || s.schoolId || s.admission_number,
                     name: s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
                     email: s.email || '',
-                    avatarUrl: s.avatar_url || 'https://i.pravatar.cc/150',
+                    avatarUrl: s.avatar_url || s.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name || s.full_name || 'U')}&background=random`,
                     grade: s.grade,
                     section: s.section,
                     department: s.department,

@@ -25,7 +25,13 @@ export class AssignmentService {
                 due_date: 'desc'
             },
             include: {
-                class: true,
+                class: {
+                    include: {
+                        _count: {
+                            select: { enrollments: true }
+                        }
+                    }
+                },
                 submissions: true
             }
         });
@@ -35,7 +41,7 @@ export class AssignmentService {
             classId: a.class_id,
             class_name: a.class?.name,
             className: a.class?.name,
-            total_students: 0,
+            total_students: a.class?._count?.enrollments || 0,
             submissions_count: a.submissions?.length || 0
         }));
     }

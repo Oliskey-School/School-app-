@@ -10,9 +10,10 @@ import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 interface TeacherReportsScreenProps {
     navigateTo: (view: string, title: string, props: any) => void;
     teacherId?: string | null;
+    teacherProfile?: any;
 }
 
-const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo, teacherId }) => {
+const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo, teacherId, teacherProfile }) => {
     const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
     const [students, setStudents] = useState<Student[]>([]);
 
@@ -64,13 +65,23 @@ const TeacherReportsScreen: React.FC<TeacherReportsScreenProps> = ({ navigateTo,
                 const studentsWithStats = await Promise.all(studentsData.map(async (s: any) => {
                     try {
                         const stats = await api.getStudentReportStats(s.id);
+                        let perf = stats?.performance || [];
+
+                        // Filter performance if not Class Teacher
+                        const isClassTeacher = teacherProfile?.assignedClasses?.some((c: any) => c.id === selectedClass.id);
+                        const isSubjectTeacher = (subj: string) => teacherProfile?.assignedSubjects?.some((as: any) => as.name.toLowerCase() === subj.toLowerCase());
+
+                        if (!isClassTeacher && teacherProfile) {
+                            perf = perf.filter((p: any) => isSubjectTeacher(p.subject));
+                        }
+
                         return {
                             ...s,
                             name: s.name,
                             avatarUrl: s.avatar_url,
                             gradeAverage: stats?.avgScore || 0,
                             attendancePercentage: stats?.attendancePct || 100,
-                            academicPerformance: stats?.performance || []
+                            academicPerformance: perf
                         };
                     } catch {
                         return { ...s, gradeAverage: 0, attendancePercentage: 100 };

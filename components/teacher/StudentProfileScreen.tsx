@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Student, BehaviorNote } from '../../types';
-import { DocumentTextIcon, BookOpenIcon, ClipboardListIcon, CheckCircleIcon, PlusIcon, SUBJECT_COLORS, ReportIcon } from '../../constants';
-import { fetchBehaviorNotes, createBehaviorNote, fetchAcademicPerformance } from '../../lib/database';
+import { DocumentTextIcon, BookOpenIcon, ClipboardListIcon, CheckCircleIcon, PlusIcon, SUBJECT_COLORS, ReportIcon, TrashIcon } from '../../constants';
+import { fetchBehaviorNotes, createBehaviorNote, deleteBehaviorNote, fetchAcademicPerformance } from '../../lib/database';
 import { useAuth } from '../../context/AuthContext';
 
 interface StudentProfileScreenProps {
     student: Student;
     navigateTo: (view: string, title: string, props: any) => void;
     handleBack: () => void;
+    teacherId?: string;
 }
 
-const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack }) => {
+const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack, teacherId }) => {
     const { user } = useAuth();
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
     const [academicRecords, setAcademicRecords] = useState<any[]>([]);
@@ -49,14 +50,19 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
         }
 
         try {
+            // FIX: If teacher is in demo mode, we MUST use the DEMO_SCHOOL_ID to satisfy the backend check
+            const isDemo = (user as any)?.is_demo || (user?.app_metadata as any)?.is_demo;
+            const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+            
             const success = await createBehaviorNote({
                 studentId: student.id,
-                schoolId: student.schoolId || (student as any).school_id || (user?.app_metadata as any)?.school_id || '',
+                teacherId: teacherId, // Passed from prop
+                schoolId: isDemo ? DEMO_SCHOOL_ID : (student.schoolId || (student as any).school_id || (user?.app_metadata as any)?.school_id || ''),
                 branchId: (student as any).branchId || (student as any).branch_id || (user?.app_metadata as any)?.branch_id,
                 title: newNoteTitle,
                 note: newNote,
                 type: newNoteType,
-                category: 'General', // Added missing category
+                category: 'General', 
                 date: new Date().toISOString().split('T')[0],
                 teacherName: user?.user_metadata?.full_name || 'Teacher',
             });
@@ -77,6 +83,41 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
         }
     };
 
+    const handleDeleteNote = async (id: string) => {
+        if (!window.confirm('Are you sure you want to delete this note?')) return;
+        
+        try {
+            const success = await deleteBehaviorNote(id);
+            if (success) {
+                toast.success('Note deleted successfully');
+                loadData();
+            } else {
+                toast.error('Failed to delete note');
+            }
+        } catch (error) {
+            console.error('Error deleting behavior note:', error);
+            toast.error('An error occurred while deleting the note');
+        }
+    };
+
+    const getGradeName = (grade: number) => {
+        // If we have a class name that clearly states the level, use it as a hint
+        const className = (student as any).className || '';
+        if (className.toUpperCase().includes('SSS') || className.toUpperCase().includes('SENIOR')) {
+            if (grade >= 1 && grade <= 3) return `SSS ${grade}`;
+        }
+        if (className.toUpperCase().includes('JSS') || className.toUpperCase().includes('JUNIOR')) {
+            if (grade >= 1 && grade <= 3) return `JSS ${grade}`;
+        }
+
+        // Default absolute mapping for Oliskey system
+        if (grade >= 7 && grade <= 9) return `JSS ${grade - 6}`;
+        if (grade >= 10 && grade <= 12) return `SSS ${grade - 9}`;
+        
+        // Fallback or primary
+        return `Grade ${grade}`;
+    };
+
     return (
         <div className="p-4 bg-gray-50 h-full overflow-y-auto">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pb-20">
@@ -85,7 +126,7 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                     <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover border-4 border-purple-100" />
                     <div>
                         <h3 className="text-xl font-bold text-gray-800">{student.name}</h3>
-                        <p className="text-gray-500 font-medium">Grade {student.grade}{student.section}</p>
+                        <p className="text-gray-500 font-medium">{getGradeName(student.grade || 0)}{student.section}</p>
                         <p className="text-xs text-gray-400 mb-1">
                             ID: {student.schoolGeneratedId || student.schoolId || 'Pending Generation'}
                         </p>
@@ -114,22 +155,42 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                         <h4 className="font-bold text-gray-800">Academic Performance</h4>
                     </div>
                     <div className="space-y-2">
-                        {academicRecords.length > 0 ? (
-                            academicRecords.map((record, idx) => (
-                                <div key={`${record.subject}-${idx}`} className={`p-3 rounded-lg flex justify-between items-center ${SUBJECT_COLORS[record.subject] || 'bg-gray-100'}`}>
-                                    <div>
-                                        <span className="font-semibold block">{record.subject}</span>
-                                        <span className="text-xs text-gray-500">{record.term}</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="font-bold text-lg block">{record.score}%</span>
-                                        <span className="text-xs font-medium bg-white px-2 py-0.5 rounded border">{record.grade}</span>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-gray-400 text-sm text-center py-4">No academic records found.</p>
-                        )}
+                        {(() => {
+                            const terms = ['First Term', 'Second Term', 'Third Term'];
+                            return terms.map(termName => {
+                                const record = academicRecords.find(r => 
+                                    (r.term || '').toLowerCase() === termName.toLowerCase()
+                                );
+                                
+                                if (record) {
+                                    return (
+                                        <div key={termName} className={`p-3 rounded-lg flex justify-between items-center ${SUBJECT_COLORS[record.subject] || 'bg-indigo-50 border border-indigo-100'}`}>
+                                            <div>
+                                                <span className="font-semibold block">{record.subject}</span>
+                                                <span className="text-xs text-gray-500">{termName}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-bold text-lg block">{record.score}%</span>
+                                                <span className="text-xs font-medium bg-white px-2 py-0.5 rounded border">{record.grade}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                } else {
+                                    return (
+                                        <div key={termName} className="p-3 rounded-lg flex justify-between items-center bg-gray-50 border border-dashed border-gray-200 opacity-60">
+                                            <div>
+                                                <span className="font-medium text-gray-400 block">Pending Result</span>
+                                                <span className="text-xs text-gray-400">{termName}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-bold text-gray-300 block">--%</span>
+                                                <span className="text-[10px] font-bold text-gray-200 uppercase tracking-tighter">No Data</span>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                            });
+                        })()}
                     </div>
                 </div>
 
@@ -183,8 +244,19 @@ const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, na
                                 return (
                                     <div key={note.id} className={`p-3 rounded-lg border-l-4 ${isPositive ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
                                         <div className="flex justify-between items-start">
-                                            <h5 className={`font-bold ${isPositive ? 'text-green-800' : 'text-red-800'}`}>{note.title}</h5>
-                                            <p className="text-xs text-gray-500 font-medium flex-shrink-0 ml-2">{new Date(note.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                            <div className="flex-grow">
+                                                <h5 className={`font-bold ${isPositive ? 'text-green-800' : 'text-red-800'}`}>{note.title}</h5>
+                                            </div>
+                                            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                                                <p className="text-xs text-gray-500 font-medium">{new Date(note.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                                <button 
+                                                    onClick={() => handleDeleteNote(note.id)}
+                                                    className="p-1 hover:bg-gray-200 rounded-full transition-colors text-gray-400 hover:text-red-500"
+                                                    title="Delete note"
+                                                >
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                         <p className="text-sm text-gray-700 mt-1">{note.note}</p>
                                         <p className="text-xs text-gray-500 text-right mt-2 italic">- {note.by}</p>

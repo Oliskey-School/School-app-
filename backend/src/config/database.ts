@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma-client';
 
 const prismaClientSingleton = () => {
   const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:password123@127.0.0.1:5432/school_app';

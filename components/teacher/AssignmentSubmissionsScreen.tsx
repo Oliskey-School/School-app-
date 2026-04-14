@@ -17,14 +17,14 @@ interface AssignmentSubmissionsScreenProps {
 const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGrade: (submission: Submission) => void }> = ({ student, submission, onGrade }) => (
     <div className="bg-white rounded-xl shadow-sm p-3 flex items-center space-x-3">
         {student.avatarUrl ? (
-            <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
+            <img src={student.avatarUrl} alt={student.name || 'Student'} className="w-12 h-12 rounded-full object-cover" />
         ) : (
             <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold">
-                {student.name.charAt(0)}
+                {student.name?.charAt(0) || '?'}
             </div>
         )}
         <div className="flex-grow">
-            <p className="font-bold text-gray-800">{student.name}</p>
+            <p className="font-bold text-gray-800">{student.name || 'Unknown Student'}</p>
             <div className="flex items-center text-sm text-gray-500 space-x-2">
                 <span>{new Date(submission.submittedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
                 <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${submission.isLate ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
@@ -51,14 +51,14 @@ const SubmissionCard: React.FC<{ student: Student; submission: Submission; onGra
 const NotSubmittedCard: React.FC<{ student: Student; onRemind: (student: Student) => void }> = ({ student, onRemind }) => (
     <div className="bg-white rounded-xl shadow-sm p-3 flex items-center space-x-3">
         {student.avatarUrl ? (
-            <img src={student.avatarUrl} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
+            <img src={student.avatarUrl} alt={student.name || 'Student'} className="w-12 h-12 rounded-full object-cover" />
         ) : (
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-500 font-bold">
-                {student.name.charAt(0)}
+                {student.name?.charAt(0) || '?'}
             </div>
         )}
         <div className="flex-grow">
-            <p className="font-bold text-gray-800">{student.name}</p>
+            <p className="font-bold text-gray-800">{student.name || 'Unknown Student'}</p>
             <p className="text-sm text-red-500 font-semibold">Not Submitted</p>
         </div>
         <button
@@ -204,14 +204,29 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
         });
     };
 
-    const handleRemind = (student: Student) => {
-        // Navigate to Chat with this student
-        navigateTo('chat', student.name, {
-            participantId: student.id,
-            participantRole: 'Student',
-            participantName: student.name,
-            participantAvatar: student.avatarUrl
-        });
+    const handleRemind = async (student: Student) => {
+        if (!student.user_id) {
+            toast.error("Cannot send reminder: Student has no user account");
+            return;
+        }
+
+        try {
+            await api.createNotification({
+                school_id: schoolId,
+                user_id: student.user_id,
+                category: 'Homework',
+                title: 'Assignment Reminder',
+                message: `Reminder to submit your assignment: "${assignment.title}"`,
+                timestamp: new Date().toISOString(),
+                is_read: false,
+                audience: ['student']
+            } as any);
+
+            toast.success(`Reminder sent to ${student.name}`);
+        } catch (err) {
+            console.error("Error sending reminder:", err);
+            toast.error("Failed to send reminder");
+        }
     };
 
     const handleDeleteAssignment = async () => {

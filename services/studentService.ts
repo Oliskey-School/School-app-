@@ -162,6 +162,16 @@ export async function createBehaviorNote(noteData: any): Promise<boolean> {
     }
 }
 
+export async function deleteBehaviorNote(id: string): Promise<boolean> {
+    try {
+        await api.deleteBehaviorNote(id);
+        return true;
+    } catch (err) {
+        console.error('Error deleting behavior note:', err);
+        return false;
+    }
+}
+
 // ============================================
 // ACADEMIC PERFORMANCE
 // ============================================
@@ -208,16 +218,13 @@ export async function upsertReportCard(reportData: any): Promise<boolean> {
 
 export async function fetchStudentSubjects(studentId: string | number): Promise<any[]> {
     try {
-        // Most student subjects are class-based in this system
-        const student = await fetchStudentById(studentId);
-        if (!student) return [];
-        
-        return await api.getClassSubjects(student.grade as number, student.section as string);
+        return await api.getStudentSubjects(studentId.toString());
     } catch (err) {
         console.error('Error fetching student subjects:', err);
         return [];
     }
 }
+
 
 
 

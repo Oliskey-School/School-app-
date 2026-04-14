@@ -29,11 +29,15 @@ export class BehaviorService {
     static async createNote(schoolId: string, branchId: string | undefined, teacherId: string, data: any) {
         const note = await prisma.behaviorNote.create({
             data: {
-                ...data,
+                student_id: data.student_id || data.studentId,
+                teacher_id: teacherId,
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : null,
-                teacher_id: teacherId,
-                date: data.date ? new Date(data.date) : new Date()
+                note: data.note,
+                category: data.category || 'General',
+                type: (data.type || 'neutral').toLowerCase() as any,
+                date: data.date ? new Date(data.date) : new Date(),
+                parent_visible: data.parent_visible !== undefined ? data.parent_visible : true
             }
         });
 

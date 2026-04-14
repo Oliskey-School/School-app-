@@ -87,4 +87,5 @@ process.on('uncaughtException', (err) => {
 });
 
 start();
-// force restart
+// force restart - Antigravity triggered cleanup
+

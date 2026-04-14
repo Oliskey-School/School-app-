@@ -16,6 +16,7 @@ interface AuthAccount {
     created_at: string;
     is_active: boolean;
     name?: string;
+    initial_password?: string;
 }
 
 const UserAccountsScreen: React.FC = () => {
@@ -207,7 +208,7 @@ const UserAccountsScreen: React.FC = () => {
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono bg-gray-50 px-2 py-1 rounded border border-gray-200">
                                                     {visiblePasswords.has(account.id)
-                                                        ? getExpectedPassword(account.name || '')
+                                                        ? (account.initial_password || account.username || '********')
                                                         : '••••••••'}
                                                 </span>
                                                 <button
@@ -298,7 +299,7 @@ const UserAccountsScreen: React.FC = () => {
                                         <div className="flex items-center space-x-2">
                                             <span className="text-gray-500 text-xs uppercase">Password:</span>
                                             <span className="font-mono text-gray-700">
-                                                {visiblePasswords.has(account.id) ? getExpectedPassword(account.name || '') : '••••••••'}
+                                                {visiblePasswords.has(account.id) ? (account.initial_password || account.username || '********') : '••••••••'}
                                             </span>
                                         </div>
                                         <button
@@ -347,7 +348,7 @@ const UserAccountsScreen: React.FC = () => {
                 {/* Note on Passwords */}
                 <div className="mt-4 text-xs text-gray-500 bg-blue-50 p-3 rounded-lg border border-blue-100">
                     <p className="font-semibold text-blue-800">Note on Passwords:</p>
-                    <p>User passwords follow a pattern: <span className="font-mono bg-white px-1 rounded">surname + "1234"</span>. Click the eye icon to view/hide the generated password for each user. For security, passwords are encrypted in the database. If a user needs a new password, use the "Reset" button.</p>
+                    <p>User passwords shown here are the <span className="font-mono bg-white px-1 rounded">initial credentials</span> generated during registration. Click the eye icon to view/hide the password for each user. For security, passwords are encrypted in the database. If a user needs a new password, use the "Reset" button.</p>
                 </div>
             </div>
 

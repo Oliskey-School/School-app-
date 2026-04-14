@@ -107,8 +107,20 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const isSubjectTeacher = useCallback((subjectName: string) => {
         if (isAdmin) return true;
         if (!currentUserTeacher) return false;
-        return currentUserTeacher.subjects?.includes(subjectName);
-    }, [currentUserTeacher, isAdmin]);
+        
+        // Exact match with assigned subjects
+        const isAssigned = currentUserTeacher.subjects?.includes(subjectName);
+        
+        // Also check assignments for class/subject combination for higher precision
+        const studentClass = getFormattedClassName(student.grade, student.section);
+        const hasAssignment = teacherClasses?.some(c => 
+            getFormattedClassName(c.grade, c.section) === studentClass && 
+            c.subject === subjectName
+        );
+
+        return isAssigned || hasAssignment;
+    }, [currentUserTeacher, isAdmin, student, teacherClasses]);
+
 
     const canEditGeneralSections = isAdmin || isClassTeacher;
 
@@ -147,22 +159,28 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
         setLoading(true);
         try {
             // 1. Fetch Existing Report
-            // Hardcoded session for now, ideally passed in props or current session
-            const currentSession = "2023/2024";
+            // Use the session passed in props instead of hardcoded 2023/2024
+            const currentSession = session || "2024/2025";
             const report = await api.getReportCard(student.id, term, currentSession);
+
             setExistingReport(report);
 
             // 2. Fetch Expected Subjects
             // Fetch subjects for this student (based on class/registered)
             const subjects = await api.getStudentSubjects(student.id);
-            const expectedSubjects = subjects.map((s: any) => s.name);
+            const expectedSubjects = (subjects || []).map((s: any) => s.name);
 
             // 3. Merge Data
             const existingRecordsMap = new Map<string, ReportCardAcademicRecord>();
             if (report) {
-                report.academicRecords.forEach(rec => {
-                    existingRecordsMap.set(rec.subject, rec);
-                });
+                const records = report.academicRecords || report.academic_records || [];
+                if (Array.isArray(records)) {
+                    records.forEach(rec => {
+                        if (rec && rec.subject) {
+                            existingRecordsMap.set(rec.subject, rec);
+                        }
+                    });
+                }
             }
 
             const allSubjectNames = Array.from(new Set([...expectedSubjects, ...existingRecordsMap.keys()]));
@@ -199,16 +217,16 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             setAcademicData(initialData);
 
             if (report) {
-                setSkills(report.skills);
-                setPsychomotor(report.psychomotor);
+                setSkills(report.skills || {});
+                setPsychomotor(report.psychomotor || {});
                 setAttendance({
-                    total: report.attendance.total.toString(),
-                    present: report.attendance.present.toString(),
-                    absent: report.attendance.absent.toString(),
-                    late: report.attendance.late.toString(),
+                    total: (report.attendance?.total ?? '115').toString(),
+                    present: (report.attendance?.present ?? '').toString(),
+                    absent: (report.attendance?.absent ?? '').toString(),
+                    late: (report.attendance?.late ?? '').toString(),
                 });
-                setTeacherComment(report.teacherComment);
-                setPrincipalComment(report.principalComment);
+                setTeacherComment(report.teacherComment || '');
+                setPrincipalComment(report.principalComment || '');
             }
         } catch (err) {
             console.error("Error loading report card data:", err);
@@ -392,71 +410,75 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                             </tr>
                         </thead>
                         <tbody className="text-sm">
-                            {academicData.map((record, index) => {
-                                const canEditScores = isSubjectTeacher(record.subject);
+                            {academicData
+                                .filter(record => isAdmin || isClassTeacher || isSubjectTeacher(record.subject))
+                                .map((record) => {
+                                    // Use the original index from academicData for state updates
+                                    const actualIndex = academicData.findIndex(d => d.subject === record.subject);
+                                    const canEditScores = isSubjectTeacher(record.subject);
 
-                                return (
-                                    <tr key={index} className={canEditScores ? '' : 'bg-gray-50'}>
-                                        <td className="p-1 border font-semibold text-gray-800">{record.subject}</td>
-                                        <td className="p-1 border">
-                                            <input
-                                                type="number"
-                                                max="20"
-                                                min="0"
-                                                value={record.test1}
-                                                disabled={!canEditScores || isLocked}
-                                                onChange={e => handleAcademicChange(index, 'test1', e.target.value)}
-                                                className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.test1, 20)}`}
-                                                placeholder="T1"
-                                            />
-                                        </td>
-                                        <td className="p-1 border">
-                                            <input
-                                                type="number"
-                                                max="20"
-                                                min="0"
-                                                value={record.test2}
-                                                disabled={!canEditScores || isLocked}
-                                                onChange={e => handleAcademicChange(index, 'test2', e.target.value)}
-                                                className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.test2, 20)}`}
-                                                placeholder="T2"
-                                            />
-                                        </td>
-                                        <td className="p-1 border">
-                                            <input
-                                                type="number"
-                                                max="60"
-                                                min="0"
-                                                value={record.exam}
-                                                disabled={!canEditScores || isLocked}
-                                                onChange={e => handleAcademicChange(index, 'exam', e.target.value)}
-                                                className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.exam, 60)}`}
-                                                placeholder="Exam"
-                                            />
-                                        </td>
-                                        <td className="p-1 border text-center font-bold text-gray-800">{record.total}</td>
-                                        <td className="p-1 border text-center font-bold text-gray-800">{record.grade}</td>
-                                        <td className="p-1 border">
-                                            <div className="flex items-center gap-1">
-                                                <input type="text" value={record.remark} disabled={!canEditScores || isLocked} onChange={e => handleAcademicChange(index, 'remark', e.target.value)} className="w-full border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed" />
-                                                {canEditScores && !isLocked && (
-                                                    <button type="button" onClick={() => handleGenerateRemark(index)} disabled={generatingRemarkIndex === index} className="p-1 text-purple-600 bg-purple-100 rounded hover:bg-purple-200 disabled:opacity-50" aria-label="Generate remark with AI">
-                                                        {generatingRemarkIndex === index ? (<div className="w-4 h-4 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin"></div>) : (<AIIcon className="w-4 h-4" />)}
-                                                    </button>
-                                                )}
-                                                {(!canEditScores || isLocked) && <LockIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
+                                    return (
+                                        <tr key={record.subject} className={canEditScores ? '' : 'bg-gray-50'}>
+                                            <td className="p-1 border font-semibold text-gray-800">{record.subject}</td>
+                                            <td className="p-1 border">
+                                                <input
+                                                    type="number"
+                                                    max="20"
+                                                    min="0"
+                                                    value={record.test1}
+                                                    disabled={!canEditScores || isLocked}
+                                                    onChange={e => handleAcademicChange(actualIndex, 'test1', e.target.value)}
+                                                    className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.test1, 20)}`}
+                                                    placeholder="T1"
+                                                />
+                                            </td>
+                                            <td className="p-1 border">
+                                                <input
+                                                    type="number"
+                                                    max="20"
+                                                    min="0"
+                                                    value={record.test2}
+                                                    disabled={!canEditScores || isLocked}
+                                                    onChange={e => handleAcademicChange(actualIndex, 'test2', e.target.value)}
+                                                    className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.test2, 20)}`}
+                                                    placeholder="T2"
+                                                />
+                                            </td>
+                                            <td className="p-1 border">
+                                                <input
+                                                    type="number"
+                                                    max="60"
+                                                    min="0"
+                                                    value={record.exam}
+                                                    disabled={!canEditScores || isLocked}
+                                                    onChange={e => handleAcademicChange(actualIndex, 'exam', e.target.value)}
+                                                    className={`w-full text-center border rounded text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed ${getScoreInputStyle(record.exam, 60)}`}
+                                                    placeholder="Exam"
+                                                />
+                                            </td>
+                                            <td className="p-1 border text-center font-bold text-gray-800">{record.total}</td>
+                                            <td className="p-1 border text-center font-bold text-gray-800">{record.grade}</td>
+                                            <td className="p-1 border">
+                                                <div className="flex items-center gap-1">
+                                                    <input type="text" value={record.remark} disabled={!canEditScores || isLocked} onChange={e => handleAcademicChange(actualIndex, 'remark', e.target.value)} className="w-full border border-gray-300 rounded bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed" />
+                                                    {canEditScores && !isLocked && (
+                                                        <button type="button" onClick={() => handleGenerateRemark(actualIndex)} disabled={generatingRemarkIndex === actualIndex} className="p-1 text-purple-600 bg-purple-100 rounded hover:bg-purple-200 disabled:opacity-50" aria-label="Generate remark with AI">
+                                                            {generatingRemarkIndex === actualIndex ? (<div className="w-4 h-4 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin"></div>) : (<AIIcon className="w-4 h-4" />)}
+                                                        </button>
+                                                    )}
+                                                    {(!canEditScores || isLocked) && <LockIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
                         </tbody>
                     </table>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                    <div><SectionHeader title="Skills & Behaviour" /><table className="w-full text-sm"><tbody>{SKILL_BEHAVIOUR_DOMAINS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={skills[skill] || ''} onChange={val => setSkills(p => ({ ...p, [skill]: val }))} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
-                    <div><SectionHeader title="Psychomotor Skills" /><table className="w-full text-sm"><tbody>{PSYCHOMOTOR_SKILLS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={psychomotor[skill] || ''} onChange={val => setPsychomotor(p => ({ ...p, [skill]: val }))} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
+                    <div><SectionHeader title="Skills & Behaviour" /><table className="w-full text-sm"><tbody>{SKILL_BEHAVIOUR_DOMAINS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={(skills || {})[skill] || ''} onChange={val => setSkills(p => ({ ...p, [skill]: val }))} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
+                    <div><SectionHeader title="Psychomotor Skills" /><table className="w-full text-sm"><tbody>{PSYCHOMOTOR_SKILLS.map(skill => (<tr key={skill}><td className="py-1 text-gray-800">{skill}</td><td className="w-20"><RatingSelector disabled={!canEditGeneralSections || isLocked} value={(psychomotor || {})[skill] || ''} onChange={val => setPsychomotor(p => ({ ...p, [skill]: val }))} options={RATING_OPTIONS} /></td></tr>))}</tbody></table></div>
                 </div>
 
                 <SectionHeader title="Attendance Record" />

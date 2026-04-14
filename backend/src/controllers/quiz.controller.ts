@@ -87,3 +87,13 @@ export const deleteQuiz = async (req: AuthRequest, res: Response): Promise<void>
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+export const getQuizSubmissions = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const branchId = req.user.branch_id || req.query.branchId as string;
+        const result = await QuizService.getQuizSubmissions(req.user.school_id, branchId, req.params.id as string);
+        res.status(200).json(result);
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

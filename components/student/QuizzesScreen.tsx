@@ -32,6 +32,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
 
       const filteredItems = (quizzesData || [])
         .filter((q: any) => {
+          if (!q.is_published) return false;
           const isExam = q.type === 'EXAM' || q.type === 'TEST' || q.is_cbt;
           if (activeCategory === 'cbt' && !isExam) return false;
           if (activeCategory === 'quiz' && isExam) return false;

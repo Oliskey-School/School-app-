@@ -21,7 +21,7 @@ const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
                 if (data) {
                     const formattedResults: CBTResult[] = data.map((sub: any) => {
                         const score = parseFloat(sub.score);
-                        const total = 100;
+                        const total = test.totalMarks || 100;
                         const percentage = score;
 
                         return {

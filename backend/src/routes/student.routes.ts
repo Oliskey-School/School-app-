@@ -28,7 +28,8 @@ import {
     getStudentBehaviorNotes,
     getStudentsByClass,
     getStudentsByClassId,
-    getPendingApprovals
+    getPendingApprovals,
+    getStudentSubjects
 } from '../controllers/student.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { enforceTenant } from '../middleware/tenant.middleware';
@@ -56,6 +57,7 @@ router.get('/:id/performance', authenticate, getStudentPerformance);
 router.get('/:id/academic-performance', authenticate, getStudentPerformance);
 router.get('/:id/academic-records', authenticate, getStudentPerformance);
 router.get('/:id/behavior-notes', authenticate, getStudentBehaviorNotes);
+router.get('/:id/subjects', authenticate, getStudentSubjects);
 
 router.post('/enroll', authenticate, requirePlanCapacity('student'), enforceTenant(studentSchema), enrollStudent);
 router.post('/:id/approve', authenticate, approveStudent);

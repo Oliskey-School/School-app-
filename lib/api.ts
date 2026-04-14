@@ -53,13 +53,25 @@ class ExpressApiClient {
 
         if (!response.ok) {
             const errorText = await response.text();
-            let error = { message: 'An unknown error occurred' };
+            console.error(`[API] Error Response from ${endpoint}:`, {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText
+            });
+
+            let error = { message: '' };
             try {
-                if (errorText) error = JSON.parse(errorText);
+                if (errorText) {
+                    const parsed = JSON.parse(errorText);
+                    error.message = parsed.message || parsed.error || '';
+                }
             } catch (e) {
                 // Not JSON error
+                console.warn(`[API] Could not parse error response as JSON from ${endpoint}`);
             }
-            throw new Error(error.message || `Error ${response.status}: ${response.statusText}`);
+
+            const errorMessage = error.message || `Error ${response.status}: ${response.statusText}`;
+            throw new Error(errorMessage);
         }
 
         // Handle empty responses (204 No Content, etc)
@@ -404,11 +416,19 @@ class ExpressApiClient {
         if (schoolId) queryParams.append('schoolId', String(schoolId));
         if (branchId && branchId !== 'all') queryParams.append('branchId', String(branchId));
         
-        return this.get(`/students/by-class?${queryParams.toString()}`);
+        const data = await this.get<any[]>(`/students/by-class?${queryParams.toString()}`);
+        return (data || []).map(student => ({
+            ...student,
+            name: student.name || student.full_name || 'Unknown Student'
+        }));
     }
 
     async getStudentsByClassId(classId: string): Promise<any[]> {
-        return this.get(`/students/class/${classId}`);
+        const data = await this.get<any[]>(`/students/class/${classId}`);
+        return (data || []).map(student => ({
+            ...student,
+            name: student.name || student.full_name || 'Unknown Student'
+        }));
     }
 
     async getStudentByEmail(email: string): Promise<any> {
@@ -606,6 +626,23 @@ class ExpressApiClient {
 
     async getTeacherClasses(teacherId: string): Promise<any[]> {
         return this.get(`/teachers/${teacherId}/classes`);
+    }
+
+    async getTeacherAttendance(schoolId: string, filters: { branchId?: string; date?: string; status?: string; teacher_id?: string; startDate?: string; endDate?: string } = {}): Promise<any[]> {
+        const queryParams = new URLSearchParams({ schoolId });
+        if (filters.branchId && filters.branchId !== 'all') queryParams.append('branchId', filters.branchId);
+        if (filters.date) queryParams.append('date', filters.date);
+        if (filters.status) queryParams.append('status', filters.status);
+        if (filters.teacher_id) queryParams.append('teacher_id', filters.teacher_id);
+        if (filters.startDate) queryParams.append('startDate', filters.startDate);
+        if (filters.endDate) queryParams.append('endDate', filters.endDate);
+
+        try {
+            return await this.get(`/teachers/attendance?${queryParams.toString()}`);
+        } catch (err) {
+            console.error('[API] getTeacherAttendance error:', err);
+            return [];
+        }
     }
 
     async getTeacherAttendanceHistory(limit: number = 30): Promise<any[]> {
@@ -1093,8 +1130,9 @@ class ExpressApiClient {
     }
 
     // Quizzes
-    async getQuizzes(schoolId: string, branchId?: string): Promise<any[]> {
-        const queryParams = new URLSearchParams({ schoolId });
+    async getQuizzes(schoolId?: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
         try {
             return await this.get(`/quizzes?${queryParams.toString()}`);
@@ -1105,6 +1143,15 @@ class ExpressApiClient {
 
     async getQuiz(quizId: string): Promise<any> {
         return this.get(`/quizzes/${quizId}`);
+    }
+
+    async getQuizQuestions(quizId: string): Promise<any[]> {
+        const quiz = await this.getQuiz(quizId);
+        return quiz?.questions || [];
+    }
+
+    async getQuizDetails(quizId: string): Promise<any> {
+        return this.getQuiz(quizId);
     }
 
     async createQuizWithQuestions(data: any): Promise<any> {
@@ -1134,6 +1181,7 @@ class ExpressApiClient {
     async getStudentAcademicRecords(studentId: string): Promise<any[]> {
         return this.get(`/students/${studentId}/academic-records`);
     }
+
 
     // ============================================
     // GENERATED RESOURCES & AI
@@ -1236,7 +1284,15 @@ class ExpressApiClient {
     }
 
     async getAssignmentSubmissions(assignmentId: string): Promise<any[]> {
-        return this.get(`/assignments/${assignmentId}/submissions`);
+        const data = await this.get<any[]>(`/assignments/${assignmentId}/submissions`);
+        // Map backend full_name to frontend name if missing
+        return (data || []).map(submission => ({
+            ...submission,
+            student: submission.student ? {
+                ...submission.student,
+                name: submission.student.name || submission.student.full_name || 'Unknown Student'
+            } : null
+        }));
     }
 
     async getSubmissions(assignmentId: string): Promise<any[]> {
@@ -1292,6 +1348,20 @@ class ExpressApiClient {
         return this.get(`/academic/curricula/${id}`);
     }
 
+    async getStudentCurriculumTopics(subjectId: string, term?: string): Promise<any[]> {
+        const queryParams = term ? `?term=${term}` : '';
+        try {
+            return await this.get(`/academic/curricula/${subjectId}/topics${queryParams}`);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async getStudentSubjects(studentId: string | number): Promise<any[]> {
+        return this.get(`/students/${studentId}/subjects`);
+    }
+
+
     async upsertExamResults(data: any): Promise<any> {
         return this.post('/exams/results/upsert', data);
     }
@@ -1323,7 +1393,8 @@ class ExpressApiClient {
     }
 
     async submitQuiz(quizId: string, payload: any): Promise<any> {
-        return this.post(`/quizzes/${quizId}/submit`, payload);
+        // Ensure quiz_id is in payload as backend expects quizzes/submit
+        return this.post('/quizzes/submit', { ...payload, quiz_id: quizId });
     }
 
     // ============================================
@@ -1949,6 +2020,10 @@ class ExpressApiClient {
 
     async createBehaviorNote(data: any): Promise<any> {
         return this.post('/behavior/notes', data);
+    }
+
+    async deleteBehaviorNote(id: string): Promise<void> {
+        await this.delete(`/behavior/notes/${id}`);
     }
 
     // ============================================

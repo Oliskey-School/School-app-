@@ -13,6 +13,7 @@ router.get('/', QuizController.getQuizzes);
 router.post('/upload', QuizController.createQuizWithQuestions);
 router.post('/submit', QuizController.submitQuizResult);
 router.get('/:id', QuizController.getQuiz);
+router.get('/:id/submissions', QuizController.getQuizSubmissions);
 router.put('/:id/status', QuizController.updateQuizStatus);
 router.delete('/:id', QuizController.deleteQuiz);
 
