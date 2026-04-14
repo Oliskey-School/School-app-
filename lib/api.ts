@@ -13,6 +13,7 @@ const getApiBaseUrl = () => {
 };
 
 const API_BASE_URL = getApiBaseUrl();
+console.log(`📡 [API] Base URL resolved to: ${API_BASE_URL}`);
 
 const getAuthToken = async (): Promise<string | null> => {
     // Priority 1: Check localStorage for our custom backend JWT

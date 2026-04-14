@@ -11,11 +11,14 @@ const app = express();
 
 // 0. VERY FIRST: Manual Preflight Handler for production reliability
 app.use((req, res, next) => {
-    // Log all incoming requests for debugging in Railway
+    // Standardize URL: Remove trailing slash
+    if (req.url.length > 1 && req.url.endsWith('/')) {
+        req.url = req.url.slice(0, -1);
+    }
+
     if (req.method === 'OPTIONS') {
-        process.stdout.write(`🔍 [PREFLIGHT] ${req.url} - Origin: ${req.headers.origin}\n`);
+        process.stdout.write(`🔍 [PREFLIGHT] ${req.method} ${req.url} - Origin: ${req.headers.origin}\n`);
         
-        // Handle preflight manually to bypass any router/middleware issues
         res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
         res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-school-id, Accept, X-Requested-With, application-id');
@@ -99,7 +102,17 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+// 3. API Routes - Support both prefixed and non-prefixed for proxy flexibility
 app.use('/api', routes);
+app.use('/', (req, res, next) => {
+    // If it hasn't matched anything else (like /health or static), try the API routes
+    // This allows Railway to handle direct requests or misconfigured proxies
+    if (req.path.startsWith('/auth') || req.path.startsWith('/students') || req.path.startsWith('/teachers')) {
+        return routes(req, res, next);
+    }
+    next();
+});
 
 // 404 Handler
 app.use((req, res) => {
