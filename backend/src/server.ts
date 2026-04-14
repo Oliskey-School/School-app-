@@ -1,4 +1,5 @@
 import { app } from './app';
+import http from 'http';
 import { config } from './config/env';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -35,7 +36,11 @@ const start = async () => {
     }
 
     try {
-        const httpServer = require('http').createServer(app);
+        const httpServer = http.createServer((req, res) => {
+            // raw log for Railway debugging
+            console.log(`📡 [RAW-HTTP] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
+            return app(req, res);
+        });
         const { SocketService } = require('./services/socket.service');
         SocketService.init(httpServer);
 
