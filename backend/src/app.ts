@@ -9,51 +9,46 @@ import routes from './routes';
 
 const app = express();
 
-// 0. VERY FIRST: Handle CORS and Preflight
+// 0. VERY FIRST: Manual Preflight Handler for production reliability
+app.use((req, res, next) => {
+    // Log all incoming requests for debugging in Railway
+    if (req.method === 'OPTIONS') {
+        process.stdout.write(`🔍 [PREFLIGHT] ${req.url} - Origin: ${req.headers.origin}\n`);
+        
+        // Handle preflight manually to bypass any router/middleware issues
+        res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-school-id, Accept, X-Requested-With, application-id');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        
+        return res.status(204).end();
+    }
+    
+    // Normal request logging
+    process.stdout.write(`${new Date().toISOString()} [${req.method}] ${req.url} - Origin: ${req.headers.origin}\n`);
+    next();
+});
+
+// Standard CORS configuration
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow all origins in development
         if (process.env.NODE_ENV !== 'production' || !origin) {
             return callback(null, true);
         }
-
-        const allowedOrigins = [
-            'http://localhost:3000', 
-            'http://localhost:5173', 
-            'http://localhost:4173', 
-            'http://localhost:3001'
-        ];
         
-        const isVercelOrigin = origin.endsWith('.vercel.app');
-        const isRailwayOrigin = origin.endsWith('.railway.app');
-        const isLocalhost = allowedOrigins.includes(origin);
-        
-        // Custom production URL from env if set
-        const customProdUrl = process.env.FRONTEND_URL;
-        const isCustomProd = customProdUrl && origin === customProdUrl;
-
-        if (isLocalhost || isVercelOrigin || isRailwayOrigin || isCustomProd) {
+        // Permissive check for vercel and railway domains for better production stability
+        if (origin.endsWith('.vercel.app') || origin.endsWith('.railway.app') || origin === process.env.FRONTEND_URL) {
             callback(null, true);
         } else {
-            console.warn(`[CORS] Rejected origin: ${origin}`);
-            callback(new Error('CORS not allowed'), false);
+            console.warn(`[CORS] Request from: ${origin}`);
+            callback(null, true); // Temporarily true to debug if origin mismatch is causing 405
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'Accept', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'Accept', 'X-Requested-With', 'application-id'],
     credentials: true,
     optionsSuccessStatus: 204
 }));
-
-// Request logger for debugging
-app.use((req, res, next) => {
-    if (req.method === 'OPTIONS') {
-        console.log(`🔍 [PREFLIGHT] ${req.url} - Origin: ${req.headers.origin}`);
-    } else {
-        console.log(`${new Date().toISOString()} [${req.method}] ${req.url} - Origin: ${req.headers.origin}`);
-    }
-    next();
-});
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
