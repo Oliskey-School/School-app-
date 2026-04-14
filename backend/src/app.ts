@@ -9,6 +9,19 @@ import routes from './routes';
 
 const app = express();
 
+// 1. Core Middlewares
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Relaxed CORS for production debugging - will tighten once stable
+app.use(cors({
+    origin: true, // Echoes the request origin
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'Accept', 'X-Requested-With', 'application-id'],
+    credentials: true,
+    maxAge: 86400
+}));
+
 // 0. VERY FIRST: Manual Preflight Handler for production reliability
 app.use((req, res, next) => {
     // Standardize URL: Remove trailing slash
@@ -17,12 +30,14 @@ app.use((req, res, next) => {
     }
 
     if (req.method === 'OPTIONS') {
-        process.stdout.write(`🔍 [PREFLIGHT] ${req.method} ${req.url} - Origin: ${req.headers.origin}\n`);
+        const origin = req.headers.origin || '*';
+        process.stdout.write(`🔍 [PREFLIGHT] ${req.method} ${req.url} - Origin: ${origin}\n`);
         
-        res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+        res.header('Access-Control-Allow-Origin', origin);
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
         res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-school-id, Accept, X-Requested-With, application-id');
         res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Max-Age', '86400');
         
         return res.status(204).end();
     }
@@ -31,27 +46,6 @@ app.use((req, res, next) => {
     process.stdout.write(`${new Date().toISOString()} [${req.method}] ${req.url} - Origin: ${req.headers.origin}\n`);
     next();
 });
-
-// Standard CORS configuration
-app.use(cors({
-    origin: function (origin, callback) {
-        if (process.env.NODE_ENV !== 'production' || !origin) {
-            return callback(null, true);
-        }
-        
-        // Permissive check for vercel and railway domains for better production stability
-        if (origin.endsWith('.vercel.app') || origin.endsWith('.railway.app') || origin === process.env.FRONTEND_URL) {
-            callback(null, true);
-        } else {
-            console.warn(`[CORS] Request from: ${origin}`);
-            callback(null, true); // Temporarily true to debug if origin mismatch is causing 405
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'Accept', 'X-Requested-With', 'application-id'],
-    credentials: true,
-    optionsSuccessStatus: 204
-}));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -103,15 +97,13 @@ app.get('/health', (req, res) => {
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// 3. API Routes - Support both prefixed and non-prefixed for proxy flexibility
+// 3. API Routes - Standardized Mount
 app.use('/api', routes);
 app.use('/', (req, res, next) => {
-    // If it hasn't matched anything else (like /health or static), try the API routes
-    // This allows Railway to handle direct requests or misconfigured proxies
-    if (req.path.startsWith('/auth') || req.path.startsWith('/students') || req.path.startsWith('/teachers')) {
-        return routes(req, res, next);
-    }
-    next();
+    // If it's not a root health check and not a static file, pass it to api routes
+    // This catches prefixed and non-prefixed calls regardless of proxy behavior
+    if (req.url === '/' || req.url === '/health') return next();
+    return routes(req, res, next);
 });
 
 // 404 Handler
