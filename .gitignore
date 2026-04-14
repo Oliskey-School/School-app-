@@ -60,6 +60,7 @@ test_output_utf8.txt
 !utils/**/*.ts
 !services/**/*.ts
 !services/**/*.tsx
+!api/**/*.ts
 !tests/**/*.ts
 !*.config.ts
 !*.config.js
