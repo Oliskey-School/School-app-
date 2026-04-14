@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { BehaviorService } from '../services/behavior.service';
+import prisma from '../config/database';
 
 export const getBehaviorNotes = async (req: any, res: Response) => {
     try {
@@ -21,7 +22,7 @@ export const createBehaviorNote = async (req: any, res: Response) => {
 
         // If teacherId is not provided, try to find it from the logged-in user
         if (!teacherId && req.user.role === 'TEACHER') {
-            const teacher = await (prisma as any).teacher.findUnique({
+            const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id }
             });
             if (teacher) {
@@ -47,7 +48,8 @@ export const createBehaviorNote = async (req: any, res: Response) => {
 
 export const deleteBehaviorNote = async (req: Request, res: Response) => {
     try {
-        await BehaviorService.deleteNote(req.params.id);
+        const { id } = req.params;
+        await BehaviorService.deleteNote(id as string);
         res.status(204).send();
     } catch (error: any) {
         res.status(500).json({ message: error.message });

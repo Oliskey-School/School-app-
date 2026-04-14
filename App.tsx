@@ -241,10 +241,19 @@ const App: React.FC = () => {
     PushNotificationManager.initialize();
 
     const initializeOfflineFirst = async () => {
+      // Add a global 10-second fail-safe to ensure the app ALWAYS loads
+      const failSafeTimeout = setTimeout(() => {
+        if (isInitializing) {
+          console.warn('⚠️ Initialization taking too long. Triggering fail-safe display...');
+          setIsInitializing(false);
+        }
+      }, 10000);
+
       const isAuditMode = (window as any).__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true';
       if (isAuditMode) {
         window.__AUDIT_MODE__ = true; // Persist to window so components can check it
         console.log('🛡️ Audit Mode Detected: Skipping initialization delays...');
+        clearTimeout(failSafeTimeout);
         setIsInitializing(false);
         return;
       }
@@ -260,10 +269,10 @@ const App: React.FC = () => {
         };
 
         const initTasks = [
-          withTimeout(runMigrations(), 15000, 'Migrations')
+          withTimeout(runMigrations(), 8000, 'Migrations')
             .then(() => setInitProgress(40))
             .catch(err => console.warn(`⚠️ Offline migrations took longer than expected. Continuing...`)),
-          withTimeout(requestBackgroundSync(), 15000, 'BackgroundSync')
+          withTimeout(requestBackgroundSync(), 8000, 'BackgroundSync')
             .catch(err => console.log(`ℹ️ Background sync synchronization still pending. Continuing UI load.`))
         ];
 
@@ -286,10 +295,12 @@ const App: React.FC = () => {
         
         // Reduced timeout for snappier feel
         setTimeout(() => {
+          clearTimeout(failSafeTimeout);
           setIsInitializing(false);
         }, 200);
       } catch (error) {
         console.error('❌ Initialization failed:', error);
+        clearTimeout(failSafeTimeout);
         setIsInitializing(false);
       }
     };

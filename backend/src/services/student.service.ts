@@ -2,7 +2,7 @@ import prisma from '../config/database';
 import { NotificationService } from './notification.service';
 import { IdGeneratorService } from './idGenerator.service';
 import bcrypt from 'bcryptjs';
-import { Role } from '../../generated/prisma-client';
+import { Role } from '@prisma/client';
 import { SocketService } from './socket.service';
 
 export class StudentService {

@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { Prisma, PrismaClient } from '../../generated/prisma-client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 /**
  * Role code mapping — canonical list used by both backend and frontend.

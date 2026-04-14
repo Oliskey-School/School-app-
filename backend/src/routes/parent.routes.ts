@@ -28,11 +28,15 @@ router.put('/notifications/:id/read', markNotificationRead);
 
 // Phase 2 Supplementary Routes
 router.get('/pta-meetings', getPTAMeetings);
+router.get('/pta/meetings', getPTAMeetings); // Frontend compatibility
 router.get('/learning-resources', getLearningResources);
 router.get('/messages', getParentMessages);
 router.post('/messages', sendMessage);
 router.get('/notifications', getNotifications);
 router.get('/volunteering-opportunities', getVolunteeringOpportunities);
+router.get('/volunteering/opportunities', getVolunteeringOpportunities); // Frontend compatibility
+router.post('/volunteering/signups', volunteerSignup); // Frontend compatibility
+router.post('/volunteer/signups', volunteerSignup); // Alternate spelling
 
 // Savings Piggy Bank Routes
 import { getParentPlans, createPlan, addFunds } from '../controllers/savings.controller';

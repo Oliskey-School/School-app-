@@ -22,4 +22,7 @@ router.delete('/bulk', authenticate, requireRole(['SuperAdmin']), SchoolControll
 
 router.put('/:id', authenticate, SchoolController.updateSchool);
 
+router.get('/:id/policies', authenticate, SchoolController.getSchoolPolicies);
+router.get('/:id/photos', authenticate, SchoolController.getSchoolPhotos);
+
 export default router;

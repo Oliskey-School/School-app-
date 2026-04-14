@@ -196,4 +196,18 @@ export class SchoolService {
         SocketService.emitToSchool(schoolId, 'school:updated', { action: 'delete_branch', branchId: id });
         return result;
     }
+
+    static async getSchoolPolicies(schoolId: string) {
+        return await prisma.schoolPolicy.findMany({
+            where: { school_id: schoolId },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+    static async getSchoolPhotos(schoolId: string) {
+        return await prisma.schoolGallery.findMany({
+            where: { school_id: schoolId },
+            orderBy: { created_at: 'desc' }
+        });
+    }
 }

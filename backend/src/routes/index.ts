@@ -80,6 +80,8 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/classes', classRoutes);
 router.use('/subjects', subjectRoutes);
 router.use('/parents', parentRoutes);
+router.use('/pta', parentRoutes);
+router.use('/volunteering', parentRoutes);
 router.use('/notices', noticeRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/notifications', notificationRoutes);

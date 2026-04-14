@@ -3,6 +3,7 @@
     "dev": "vite",
     "predev": "npm run clean",
     "build": "vite build",
+    "postinstall": "npx prisma generate",
     "vercel-build": "npx prisma generate && vite build",
     "preview": "vite preview",
     "test": "vitest",

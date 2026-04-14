@@ -12,11 +12,30 @@ const app = express();
 // 0. VERY FIRST: Handle CORS and Preflight
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow all origins in development or if origin is in allowed list
-        const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173', 'http://localhost:3001'];
-        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+        // Allow all origins in development
+        if (process.env.NODE_ENV !== 'production' || !origin) {
+            return callback(null, true);
+        }
+
+        const allowedOrigins = [
+            'http://localhost:3000', 
+            'http://localhost:5173', 
+            'http://localhost:4173', 
+            'http://localhost:3001'
+        ];
+        
+        const isVercelOrigin = origin.endsWith('.vercel.app');
+        const isRailwayOrigin = origin.endsWith('.railway.app');
+        const isLocalhost = allowedOrigins.includes(origin);
+        
+        // Custom production URL from env if set
+        const customProdUrl = process.env.FRONTEND_URL;
+        const isCustomProd = customProdUrl && origin === customProdUrl;
+
+        if (isLocalhost || isVercelOrigin || isRailwayOrigin || isCustomProd) {
             callback(null, true);
         } else {
+            console.warn(`[CORS] Rejected origin: ${origin}`);
             callback(new Error('CORS not allowed'), false);
         }
     },
@@ -47,7 +66,7 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "https://api.dicebear.com"],
-            connectSrc: ["'self'", "http://localhost:5000"],
+            connectSrc: ["'self'", "http://localhost:5000", "https://*.vercel.app", "https://*.railway.app"],
         },
     },
     crossOriginEmbedderPolicy: false,

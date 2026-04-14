@@ -94,3 +94,23 @@ export const deleteSchoolsBulk = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getSchoolPolicies = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const result = await SchoolService.getSchoolPolicies(id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getSchoolPhotos = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = req.params.id as string;
+        const result = await SchoolService.getSchoolPhotos(id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

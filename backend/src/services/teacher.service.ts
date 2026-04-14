@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { IdGeneratorService } from './idGenerator.service';
-import { Role } from '../../generated/prisma-client';
+import { PrismaClient, Role } from '@prisma/client';
 import { SocketService } from './socket.service';
 
 export class TeacherService {
