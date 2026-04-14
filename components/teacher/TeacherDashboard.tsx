@@ -74,6 +74,7 @@ import TeacherSalaryProfile from '../teacher/TeacherSalaryProfile';
 import MyPaymentHistory from '../teacher/MyPaymentHistory';
 import { QuickAttendance } from './QuickAttendance';
 import { GradebookGrid } from './GradebookGrid';
+import AssessmentsHub from '../teacher/AssessmentsHub';
 
 // Missing Audit Components
 import AttendanceTrackSelector from '../teacher/AttendanceTrackSelector';
@@ -318,6 +319,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     payslips: (props: any) => <PayslipViewer {...props} teacherId={teacherId || ''} />,
     salaryProfile: (props: any) => <TeacherSalaryProfile {...props} teacherId={teacherId || ''} />,
     paymentHistory: (props: any) => <MyPaymentHistory {...props} teacherId={teacherId || ''} />,
+    assessmentsHub: (props: any) => <AssessmentsHub {...props} teacherId={teacherId || ''} />,
 
     // Additional Audit Registered Views
     attendanceTrackSelector: AttendanceTrackSelector,

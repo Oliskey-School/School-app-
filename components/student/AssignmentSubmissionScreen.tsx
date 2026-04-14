@@ -55,7 +55,7 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
       const data = await api.getAssignmentSubmission(assignment.id);
       if (data) {
         setExistingSubmission(data);
-        setTextAnswer(data.submission_text || '');
+        setTextAnswer(data.text_submission || data.submission_text || '');
       }
     } catch (err) {
       console.error("Error loading submission:", err);
@@ -101,9 +101,9 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
 
       // Submission payload is handled by the backend, but we can pass content
       const submissionPayload = {
-        submission_text: textAnswer,
-        attachment_url: fileNames || (existingSubmission?.attachment_url),
-        status: 'submitted',
+        text_submission: textAnswer,
+        file_url: fileNames || (existingSubmission?.file_url),
+        status: 'Submitted',
       };
 
       // Upsert via Backend API (Bypass RLS)

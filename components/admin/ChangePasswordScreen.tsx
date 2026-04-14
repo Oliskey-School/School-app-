@@ -36,7 +36,10 @@ const ChangePasswordScreen: React.FC = () => {
 
         setLoading(true);
         try {
-            await api.patch('/auth/update-password', { password: newPassword });
+            await api.patch('/auth/update-password', { 
+                currentPassword, 
+                newPassword 
+            });
             setMessage("Password changed successfully!");
             setCurrentPassword('');
             setNewPassword('');

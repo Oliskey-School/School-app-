@@ -53,7 +53,10 @@ const ParentChangePasswordScreen: React.FC = () => {
         setLoading(true);
         const loadingToast = toast.loading("Updating password...");
         try {
-            await api.patch('/auth/update-password', { password: newPassword });
+            await api.patch('/auth/update-password', { 
+                currentPassword, 
+                newPassword 
+            });
 
             toast.success("Password updated successfully!", { id: loadingToast });
             setCurrentPassword('');

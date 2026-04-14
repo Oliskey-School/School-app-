@@ -130,8 +130,10 @@ export class AssignmentService {
     }
 
     static async submitAssignment(schoolId: string, branchId: string | undefined, studentId: string, assignmentId: string, submissionData: any) {
+        // Map frontend fields to Prisma fields if needed
         const insertData: any = {
-            ...submissionData,
+            text_submission: submissionData.text_submission || submissionData.submission_text || submissionData.content,
+            file_url: submissionData.file_url || submissionData.attachment_url || submissionData.files,
             student_id: studentId,
             assignment_id: assignmentId,
             status: 'Submitted',
@@ -140,7 +142,10 @@ export class AssignmentService {
 
         const submission = await prisma.assignmentSubmission.upsert({
             where: {
-                id: submissionData.id || 'new-submission' 
+                student_id_assignment_id: {
+                    student_id: studentId,
+                    assignment_id: assignmentId
+                }
             },
             create: insertData,
             update: insertData
@@ -149,6 +154,18 @@ export class AssignmentService {
         SocketService.emitToSchool(schoolId, 'assignment:updated', { action: 'submit', assignmentId, studentId });
         return submission;
     }
+
+    static async getAssignmentSubmission(schoolId: string, studentId: string, assignmentId: string) {
+        return await prisma.assignmentSubmission.findUnique({
+            where: {
+                student_id_assignment_id: {
+                    student_id: studentId,
+                    assignment_id: assignmentId
+                }
+            }
+        });
+    }
+
     static async deleteAssignment(schoolId: string, id: string) {
         return await prisma.assignment.delete({
             where: { id }

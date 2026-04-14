@@ -23,7 +23,7 @@ router.post('/confirm-email', AuthController.confirmEmail);
 router.post('/verify-email', AuthController.verifyEmail);
 router.patch('/update-email', AuthController.updateEmail);
 router.patch('/update-username', AuthController.updateUsername);
-router.patch('/update-password', AuthController.updatePassword);
+router.patch('/update-password', authenticate, AuthController.updatePassword);
 router.post('/admin/change-password', authenticate, AuthController.adminChangePassword);
 router.post('/admin/reset-password', authenticate, AuthController.resetUserPassword);
 router.get('/memberships/:userId', authenticate, AuthController.getMemberships);

@@ -14,7 +14,7 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
         }
 
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const result = await StudentService.enrollStudent(schoolId, branchId, req.body, req.user.role);
+        const result = await StudentService.enrollStudent(schoolId, branchId, req.body, req.user.role, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
         console.error('Enrollment controller error:', error);
@@ -273,11 +273,23 @@ export const unlinkGuardian = async (req: AuthRequest, res: Response) => {
 
 export const assignStudentToClass = async (req: AuthRequest, res: Response) => {
     try {
-        const { classId } = req.body;
-        if (!classId) return res.status(400).json({ message: 'Class ID is required' });
-
+        const { classId, classIds } = req.body;
+        const studentId = req.params.id as string;
+        const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
-        const result = await StudentService.assignStudentToClass(req.user.school_id, branchId, req.params.id as string, classId);
+
+        if (classIds && Array.isArray(classIds)) {
+            // Handle multiple assignments
+            const results = [];
+            for (const cId of classIds) {
+                results.push(await StudentService.assignStudentToClass(schoolId, branchId, studentId, cId));
+            }
+            return res.json(results);
+        }
+
+        if (!classId) return res.status(400).json({ message: 'Class ID or Class IDs array is required' });
+
+        const result = await StudentService.assignStudentToClass(schoolId, branchId, studentId, classId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

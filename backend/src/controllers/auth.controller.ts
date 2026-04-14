@@ -108,8 +108,14 @@ export const updateUsername = async (req: Request, res: Response) => {
 
 export const updatePassword = async (req: Request, res: Response) => {
     try {
-        const { userId, newPassword } = req.body;
-        const result = await AuthService.updatePassword(userId, newPassword);
+        const userId = (req as any).user.id;
+        const { currentPassword, newPassword } = req.body;
+        
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: 'Current password and new password are required' });
+        }
+        
+        const result = await AuthService.updatePassword(userId, currentPassword, newPassword);
         res.json(result);
     } catch (error: any) {
         res.status(400).json({ message: error.message });

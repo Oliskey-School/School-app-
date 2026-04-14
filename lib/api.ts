@@ -1,13 +1,12 @@
 import { InspectionTemplate } from '../types/inspector';
 
 // Backend API base URL — uses Vite proxy /api in dev, direct URL otherwise
-const API_BASE_URL = import.meta.env.VITE_API_URL ||
-    (typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1' ||
-            window.location.hostname.includes('host.docker.internal'))
-        ? '/api'
-        : ((import.meta.env as any).DEV ? '/api' : 'http://localhost:5000/api'));
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+    (typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || 
+     window.location.hostname === '127.0.0.1') 
+    ? '/api' 
+    : '/api'); // Default to relative /api for production to use Vercel rewrites or same-domain backend
 
 const getAuthToken = async (): Promise<string | null> => {
     // Priority 1: Check localStorage for our custom backend JWT
@@ -451,8 +450,14 @@ class ExpressApiClient {
         }
     }
 
+    async syncStudentClasses(studentId: string, classIds: string[]): Promise<any> {
+        console.log('🔄 [API] Syncing student classes (batch):', { studentId, classIds });
+        // Use batch call supported by updated backend controller
+        return this.post(`/students/${studentId}/assign-class`, { classIds });
+    }
+
     async linkStudentToClasses(studentId: string, classIds: string[]): Promise<any> {
-        return this.post(`/students/${studentId}/classes`, { classIds });
+        return this.syncStudentClasses(studentId, classIds);
     }
 
     async getSubjects(schoolId: string, branchId?: string, grade?: number): Promise<any[]> {
@@ -728,10 +733,12 @@ class ExpressApiClient {
     // ============================================
     // CLASSES
     // ============================================
-    async getClasses(schoolId?: string, branchId?: string, ...args: any[]): Promise<any[]> {
+    async getClasses(schoolId?: string, branchId?: string, includeAll: boolean = false): Promise<any[]> {
         const queryParams = new URLSearchParams();
         if (schoolId) queryParams.append('schoolId', schoolId);
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (includeAll) queryParams.append('includeAll', 'true');
+        
         try {
             return await this.get(`/classes?${queryParams.toString()}`);
         } catch (err) {
@@ -803,6 +810,11 @@ class ExpressApiClient {
 
     async linkParentToChild(parentId: string, studentId: string, schoolId: string): Promise<any> {
         return this.post('/parents/link-child', { parentId, studentId, schoolId });
+    }
+
+    async linkParentToChildUnique(parentId: string, studentId: string, schoolId: string): Promise<any> {
+        // Fallback to standard link-child since the unique endpoint is 404ing
+        return this.linkParentToChild(parentId, studentId, schoolId);
     }
 
     async linkStudentToParent(parentId: string, studentIdOrCode: string, relationshipOrSchoolId: string, schoolId?: string): Promise<any> {

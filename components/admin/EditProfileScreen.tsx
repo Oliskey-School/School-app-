@@ -15,10 +15,12 @@ const EditProfileScreen: React.FC = () => {
 
     // Initialize form with profile data
     useEffect(() => {
-        setName(profile.name);
-        setEmail(profile.email);
-        setPhone(profile.phone);
-        setAvatar(profile.avatarUrl);
+        if (profile) {
+            setName(profile.name || '');
+            setEmail(profile.email || '');
+            setPhone(profile.phone || '');
+            setAvatar(profile.avatarUrl || '');
+        }
     }, [profile]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,7 +103,7 @@ const EditProfileScreen: React.FC = () => {
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 font-mono text-xs font-bold bg-gray-100 rounded-l-lg h-full px-2 border-r border-gray-300">ID</span>
                                 <input
                                     type="text"
-                                    value={formatId(customId || (profile as any).schoolGeneratedId || "0001")}
+                                    value={formatId(customId || (profile as any)?.schoolGeneratedId || "0001")}
                                     readOnly
                                     className="w-full pl-12 pr-3 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg font-mono font-bold"
                                 />

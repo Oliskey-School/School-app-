@@ -111,10 +111,12 @@ export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
 export const linkChild = async (req: AuthRequest, res: Response) => {
     try {
         const { parentId, studentId } = req.body;
+        console.log('📡 [ParentController] linkChild called with:', { parentId, studentId });
         const branchId = req.user.branch_id || req.body.branch_id;
         const result = await ParentService.linkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(201).json(result);
     } catch (error: any) {
+        console.error('❌ [ParentController] linkChild error:', error.message);
         res.status(500).json({ message: error.message });
     }
 };

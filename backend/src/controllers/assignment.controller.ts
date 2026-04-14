@@ -88,6 +88,29 @@ export const getSubmissions = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getAssignmentSubmission = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await prisma.student.findUnique({
+            where: { user_id: req.user.id },
+            select: { id: true }
+        });
+
+        if (!student) {
+            return res.status(403).json({ message: 'Only students have personal assignment submissions' });
+        }
+
+        const result = await AssignmentService.getAssignmentSubmission(
+            req.user.school_id,
+            student.id,
+            req.params.id as string
+        );
+        res.json(result);
+    } catch (error: any) {
+        console.error('[AssignmentController] getAssignmentSubmission error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const gradeSubmission = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;

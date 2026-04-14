@@ -1,5 +1,5 @@
-import { api } from '../lib/api';
-import { Parent } from '../types';
+import { api } from '@/lib/api';
+import { Parent } from '@/types';
 
 /**
  * Parent Service
@@ -39,7 +39,7 @@ export async function fetchParents(schoolId: string, branchId?: string): Promise
 export async function fetchParentsByClassId(classId: string): Promise<Parent[]> {
     if (!classId) return [];
     try {
-        const data = await api.getParentsByClassId(classId);
+        const data = await api.getParentsByClass(classId);
         return (data || []).map(transformParent);
     } catch (err) {
         console.error(`Error fetching parents for class ${classId}:`, err);

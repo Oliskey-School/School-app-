@@ -24,7 +24,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const { currentSchool, currentBranchId, user } = useAuth(); // Added user and currentBranchId
 
     // Triple-layer schoolId detection
-    const schoolId = profile.schoolId || currentSchool?.id;
+    const schoolId = profile?.schoolId || currentSchool?.id;
 
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [fullName, setFullName] = useState('');
@@ -94,19 +94,20 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     useEffect(() => {
         const loadClasses = async () => {
             try {
-                const classes = await api.getClasses(schoolId);
+                // Fetch ALL classes for the school/branch so teachers can enroll students in any class
+                const classes = await api.getClasses(schoolId, currentBranchId || undefined, true);
                 setAvailableClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);
             }
         };
         if (schoolId) loadClasses();
-    }, [schoolId]);
+    }, [schoolId, currentBranchId]);
 
     useAutoSync(['classes'], () => {
         const loadClasses = async () => {
             try {
-                const classes = await api.getClasses(schoolId);
+                const classes = await api.getClasses(schoolId, currentBranchId || undefined, true);
                 setAvailableClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);
@@ -192,11 +193,15 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     };
 
     const filteredParents = useMemo(() => {
-        return availableParents.filter(p => 
-            (p.name && p.name.toLowerCase().includes(searchParentTerm.toLowerCase())) ||
-            (p.email && p.email.toLowerCase().includes(searchParentTerm.toLowerCase())) ||
-            (p.school_generated_id && p.school_generated_id.toLowerCase().includes(searchParentTerm.toLowerCase()))
-        );
+        const term = searchParentTerm.toLowerCase();
+        return availableParents.filter(p => {
+            const name = p.name || p.full_name || '';
+            const email = p.email || '';
+            const sid = p.school_generated_id || '';
+            return name.toLowerCase().includes(term) || 
+                   email.toLowerCase().includes(term) || 
+                   sid.toLowerCase().includes(term);
+        });
     }, [availableParents, searchParentTerm]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -223,17 +228,18 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
             const studentData = {
                 firstName,
                 lastName,
+                fullName,
                 email: !studentToEdit ? `${fullName.toLowerCase().replace(/\s+/g, '.')}@student.school.com` : undefined,
-                gender: gender ? gender.toLowerCase() : undefined,
-                dateOfBirth: birthday,
+                gender: gender || undefined,
+                dob: birthday,
                 grade,
                 section,
                 class_id: selectedClassIds[0],
                 selectedClassIds,
                 department,
                 school_id: schoolId,
-                branch_id: currentBranchId || profile.branchId || null,
-                admissionNumber,
+                branch_id: currentBranchId || profile?.branchId || null,
+                admission_number: admissionNumber,
                 address: studentAddress,
                 parentId: !showNewParentForm ? selectedParentId : undefined,
                 parentName: showNewParentForm ? guardianName : undefined,
@@ -244,27 +250,42 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
             if (studentToEdit) {
                 // UPDATE
+                console.log('🚀 [AddStudentScreen] Updating student:', studentToEdit.id, {
+                    full_name: fullName,
+                    dob: birthday,
+                    school_id: schoolId,
+                    address: studentAddress,
+                    admission_number: admissionNumber
+                });
                 await api.updateStudent(studentToEdit.id, {
-                    name: fullName,
-                    first_name: firstName,
-                    last_name: lastName,
-                    department: department || null,
-                    birthday: birthday || null,
+                    full_name: fullName,
+                    dob: birthday ? new Date(birthday).toISOString() : null,
                     avatar_url: avatarUrl,
-                    admission_number: admissionNumber || null,
-                    address: studentAddress || null,
                     gender: gender || null,
+                    department: department || null,
+                    branch_id: currentBranchId || profile?.branchId || null,
+                    school_id: schoolId,
+                    address: studentAddress || null,
+                    admission_number: admissionNumber || null
                 } as any);
 
                 // Sync Enrollments
-                await api.linkStudentToClasses(studentToEdit.id, selectedClassIds);
+                await api.syncStudentClasses(studentToEdit.id, selectedClassIds);
 
                 // Guardian Update
                 if (!showNewParentForm && selectedParentId) {
-                    await api.linkParentToChild(selectedParentId, studentToEdit.id, schoolId);
+                    try {
+                        await api.linkParentToChildUnique(selectedParentId, studentToEdit.id, schoolId);
+                    } catch (linkErr) {
+                        console.warn('⚠️ Non-critical error linking guardian:', linkErr);
+                        // We swallow this error because the student update itself was successful
+                    }
                 }
 
-                toast.success('Student updated successfully!');
+                const isTeacher = profile.role === 'teacher' || profile.role === 'TEACHER';
+                toast.success(isTeacher 
+                    ? 'Student enrollment submitted and pending admin approval.' 
+                    : 'Student enrolled successfully.');
             } else {
                 // CREATE via Backend
                 const result = await api.enrollStudent(studentData);
@@ -515,10 +536,10 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                                         className={`w-full text-left p-3 flex items-center gap-3 transition-colors ${selectedParentId === parent.id ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-white'}`}
                                                     >
                                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${selectedParentId === parent.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                                            {parent.name.charAt(0)}
+                                                            {(parent.name || parent.full_name || '?').charAt(0)}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="text-sm font-bold text-gray-800 truncate">{parent.name}</p>
+                                                            <p className="text-sm font-bold text-gray-800 truncate">{parent.name || parent.full_name || 'Unnamed Parent'}</p>
                                                             <p className="text-[10px] text-gray-500 truncate">{parent.email || parent.school_generated_id}</p>
                                                         </div>
                                                         {selectedParentId === parent.id && (

@@ -19,6 +19,9 @@ interface ExamOfficerDashboardProps {
 
 const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { profile } = useProfile();
+    
+    if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading exam dashboard...</div>;
+
     const [examStats, setExamStats] = useState({
         upcomingExams: 4,
         totalCandidates: 450,

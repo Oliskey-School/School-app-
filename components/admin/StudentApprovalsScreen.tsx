@@ -300,6 +300,12 @@ const StudentApprovalsScreen: React.FC<StudentApprovalsScreenProps> = ({ handleB
                                                     <div>
                                                         <p className="font-bold text-gray-800 decoration-indigo-500/30 group-hover:underline underline-offset-2">{student.full_name || student.name}</p>
                                                         <p className="text-xs text-gray-400 font-medium truncate max-w-[150px] sm:max-w-xs">{student.email}</p>
+                                                        {student.creator && (
+                                                            <div className="flex items-center gap-1 mt-1">
+                                                                <span className="w-1 h-1 bg-indigo-400 rounded-full"></span>
+                                                                <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-tight">Source: {student.creator.full_name}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>

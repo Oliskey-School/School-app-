@@ -40,6 +40,15 @@ const AssignmentFeedbackScreen: React.FC<AssignmentFeedbackScreenProps> = ({ ass
       if (data) {
         // Fetch submission too
         const sub = await api.getAssignmentSubmission(initialAssignment.id);
+        
+        let mappedFiles: any[] = [];
+        if (sub?.file_url) {
+          mappedFiles = sub.file_url.split(',').map((name: string) => ({
+            name: name.trim(),
+            size: 0
+          }));
+        }
+
         setAssignment({
           ...data,
           submission: sub ? {
@@ -48,11 +57,11 @@ const AssignmentFeedbackScreen: React.FC<AssignmentFeedbackScreenProps> = ({ ass
             student: { id: sub.student_id, name: 'You', avatarUrl: '' },
             submittedAt: sub.submitted_at,
             isLate: sub.is_late,
-            files: sub.files || [],
+            files: mappedFiles,
             status: sub.status,
             grade: sub.grade,
             feedback: sub.feedback,
-            textSubmission: sub.submission_text
+            textSubmission: sub.text_submission || sub.submission_text
           } : null
         });
       }

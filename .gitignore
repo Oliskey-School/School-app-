@@ -25,6 +25,8 @@ dist-ssr
 .vite
 .env
 .env.local
+.env.production
+.env*
 
 # Owner-only secrets folder
 owner/secrets/
@@ -79,3 +81,5 @@ test_output_utf8.txt
 !backend/tsconfig.json
 !backend/.gitignore
 !backend/README.md
+.vercel
+*.tmp*

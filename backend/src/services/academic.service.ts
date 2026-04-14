@@ -4,6 +4,15 @@ import { SocketService } from './socket.service';
 export class AcademicService {
     static async saveGrade(schoolId: string, branchId: string | undefined, studentId: string | number, subject: string, term: string, score: number, session: string) {
         const id = String(studentId);
+
+        const student = await prisma.student.findUnique({
+            where: { id: id },
+            select: { status: true }
+        });
+
+        if (!student || student.status !== 'Active') {
+            throw new Error('Grades can only be saved for students with Active status.');
+        }
         
         const existing = await prisma.academicPerformance.findFirst({
             where: {
@@ -80,6 +89,11 @@ export class AcademicService {
         if (branchId && branchId !== 'all') {
             whereClause.branch_id = branchId;
         }
+
+        // Only include active students in analytics
+        whereClause.student = {
+            status: 'Active'
+        };
 
         if (selectedTerm && selectedTerm !== 'current' && selectedTerm !== 'all') {
             whereClause.term = selectedTerm;

@@ -57,17 +57,46 @@ export class ParentService {
             studentId = student.id;
         }
 
-        const result = await (prisma.parentChild.create as any)({
-            data: {
-                parent_id: resolvedParentId,
-                student_id: studentId,
-                school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : null
-            }
-        });
+        console.log('🛠️ [ParentService] Manually linking child to parent:', { resolvedParentId, studentId });
+        
+        try {
+            // Manual check to avoid any weird upsert behavior
+            const existing = await prisma.parentChild.findFirst({
+                where: {
+                    parent_id: resolvedParentId,
+                    student_id: studentId
+                }
+            });
 
-        SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'link_child', parentId: resolvedParentId, studentId });
-        return result;
+            if (existing) {
+                console.log('✅ [ParentService] Relationship already exists, returning existing record.');
+                return existing;
+            }
+
+            const result = await (prisma.parentChild.create as any)({
+                data: {
+                    parent_id: resolvedParentId,
+                    student_id: studentId,
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : null
+                }
+            });
+
+            SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'link_child', parentId: resolvedParentId, studentId });
+            return result;
+        } catch (err: any) {
+            if (err.message?.includes('Unique constraint') || err.code === 'P2002') {
+                console.log('✅ [ParentService] Caught Unique constraint, finding existing record...');
+                const existing = await prisma.parentChild.findFirst({
+                    where: {
+                        parent_id: resolvedParentId,
+                        student_id: studentId
+                    }
+                });
+                if (existing) return existing;
+            }
+            throw err;
+        }
     }
 
     static async unlinkChild(schoolId: string, branchId: string | undefined, parentId: string, studentIdOrCode: string) {

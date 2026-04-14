@@ -374,15 +374,31 @@ export class AuthService {
         return { token, user: { ...user, role: membership.base_role } };
     }
 
-    static async updatePassword(userId: string, newPassword: string) {
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { password_hash: hashedPassword, initial_password: newPassword }
+    static async updatePassword(userId: string, currentPassword: string, newPassword: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId }
         });
 
-        if (user.school_id) {
-            SocketService.emitToSchool(user.school_id, 'auth:updated', { action: 'password_update', userId });
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isMatch) {
+            throw new Error('Incorrect current password');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { 
+                password_hash: hashedPassword,
+                initial_password: newPassword
+            }
+        });
+
+        if (updatedUser.school_id) {
+            SocketService.emitToSchool(updatedUser.school_id, 'auth:updated', { action: 'password_update', userId });
         }
         return { success: true, message: 'Password updated successfully' };
     }

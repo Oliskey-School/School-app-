@@ -47,8 +47,9 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
             }
         }
 
+        const includeAll = req.query.includeAll === 'true' || req.query.include_all === 'true';
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
-        const result = await ClassService.getClasses(req.user.school_id, branchId, teacherId);
+        const result = await ClassService.getClasses(req.user.school_id, branchId, includeAll ? undefined : teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

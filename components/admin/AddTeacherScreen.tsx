@@ -126,7 +126,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const { currentSchool, currentBranchId } = useAuth();
 
     // Triple-layer schoolId detection
-    const schoolId = profile.schoolId || currentSchool?.id;
+    const schoolId = profile?.schoolId || currentSchool?.id;
     const branchId = currentBranchId || profile.branchId || null;
 
     const [name, setName] = useState('');
@@ -163,7 +163,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             // Fetch Subjects
             const sData = await api.getSubjects(schoolId, branchId || undefined);
             if (sData) {
-                setValidSubjects(sData.map((d: any) => d.name));
+                // Ensure unique names for React keys
+                const uniqueNames = Array.from(new Set(sData.map((d: any) => d.name)));
+                setValidSubjects(uniqueNames);
                 const sMap: Record<string, string> = {};
                 sData.forEach((s: any) => { sMap[s.name] = s.id; });
                 setSubjectIdMap(sMap);
@@ -172,7 +174,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             // Fetch Classes
             const cData = await api.getClasses(schoolId, branchId || undefined);
             if (cData) {
-                setValidClasses(cData.map((d: any) => d.name));
+                // Ensure unique names for React keys
+                const uniqueNames = Array.from(new Set(cData.map((d: any) => d.name)));
+                setValidClasses(uniqueNames);
                 const map: Record<string, string> = {};
                 cData.forEach((c: any) => { map[c.name] = c.id; });
                 setClassIdMap(map);
@@ -305,7 +309,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             });
 
             const payload = {
-                name,
+                full_name: name,
                 email,
                 phone,
                 status,

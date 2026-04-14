@@ -57,6 +57,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
     const [avatar, setAvatar] = useState(user?.avatarUrl || '');
     const [email, setEmail] = useState(user?.email || '');
     const [username, setUsername] = useState(authUser?.user_metadata?.username || '');
+    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -175,8 +176,12 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
 
         setUpdatingPassword(true);
         try {
-            await api.updateStudent(authUser?.id || '', { password: newPassword });
+            await api.patch('/auth/update-password', { 
+                currentPassword, 
+                newPassword 
+            });
             toast.success('Password updated successfully!');
+            setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
         } catch (err: any) {
@@ -293,6 +298,16 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                                         <div className="flex items-center space-x-2 mb-2">
                                             <LockIcon className="w-4 h-4 text-orange-500" />
                                             <span className="text-xs font-bold text-orange-700 uppercase">Change Password</span>
+                                        </div>
+
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                value={currentPassword}
+                                                onChange={e => setCurrentPassword(e.target.value)}
+                                                className="w-full bg-white border border-orange-100 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent block p-3 transition-all"
+                                                placeholder="Current Password"
+                                            />
                                         </div>
 
                                         <div className="relative">

@@ -10,7 +10,7 @@ import {
     Download, Eye, GraduationCap, CheckCircle,
     Award, TrendingUp, Mail, Phone, MapPin,
     Edit, Share2, Settings, Bell, ChevronRight,
-    Clock, Target, Briefcase, Globe, Copy
+    Clock, Target, Briefcase, Globe, Copy, Lock
 } from 'lucide-react';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { fetchAcademicPerformance, fetchStudentStats, fetchUpcomingEvents, fetchStudentActivities, fetchStudentDocuments } from '../../lib/database';
@@ -341,9 +341,16 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                         Share Profile
                                     </Button>
                                     {navigateTo && (
-                                        <Button onClick={() => navigateTo('editProfile', 'Edit Profile')} className="w-full sm:w-auto bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm order-3">
-                                            <Settings className="w-4 h-4" />
-                                        </Button>
+                                        <>
+                                            <Button onClick={() => navigateTo('editProfile', 'Edit Profile')} className="w-full sm:w-auto bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm order-3">
+                                                <Settings className="w-4 h-4 mr-2" />
+                                                Edit Profile
+                                            </Button>
+                                            <Button onClick={() => navigateTo('changePassword', 'Change Password')} className="w-full sm:w-auto bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm order-4">
+                                                <Lock className="w-4 h-4 mr-2" />
+                                                Change Password
+                                            </Button>
+                                        </>
                                     )}
                                 </div>
                             </div>

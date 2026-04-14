@@ -6,7 +6,7 @@ import { Role } from '@prisma/client';
 import { SocketService } from './socket.service';
 
 export class StudentService {
-    static async enrollStudent(schoolId: string, branchId: string | undefined, enrollmentData: any, creatorRole?: string) {
+    static async enrollStudent(schoolId: string, branchId: string | undefined, enrollmentData: any, creatorRole: string, creatorId?: string) {
         const {
             firstName,
             lastName,
@@ -23,7 +23,8 @@ export class StudentService {
             throw new Error('First name and last name are required for enrollment.');
         }
 
-        const isTeacherAdded = creatorRole === 'TEACHER';
+        const roleString = (creatorRole || '').toUpperCase();
+        const isTeacherAdded = roleString === 'TEACHER';
         const initialStatus = isTeacherAdded ? 'Pending' : (enrollmentData.status || 'Active');
 
         const fullName = `${firstName} ${lastName}`;
@@ -82,10 +83,13 @@ export class StudentService {
                     email: studentEmail,
                     dob: dateOfBirth ? new Date(dateOfBirth) : null,
                     gender: gender,
+                    address: enrollmentData.address || null,
+                    admission_number: enrollmentData.admission_number || enrollmentData.admissionNumber || null,
                     grade: enrollmentData.grade ?? 1,
                     section: enrollmentData.section ?? 'A',
                     curriculum_type: curriculumType,
                     status: initialStatus,
+                    created_by: creatorId,
                     updated_at: new Date()
                 },
                 update: {
@@ -93,10 +97,13 @@ export class StudentService {
                     email: studentEmail,
                     dob: dateOfBirth ? new Date(dateOfBirth) : null,
                     gender: gender,
+                    address: enrollmentData.address || null,
+                    admission_number: enrollmentData.admission_number || enrollmentData.admissionNumber || null,
                     grade: enrollmentData.grade ?? 1,
                     section: enrollmentData.section ?? 'A',
                     curriculum_type: curriculumType,
                     status: initialStatus,
+                    created_by: creatorId,
                     updated_at: new Date()
                 }
             });
@@ -190,7 +197,24 @@ export class StudentService {
             }
 
             // 5. Create Enrollments for Selected Classes
-            const classIds = enrollmentData.selectedClassIds || (enrollmentData.class_id ? [enrollmentData.class_id] : []);
+            let classIds = enrollmentData.selectedClassIds || (enrollmentData.class_id ? [enrollmentData.class_id] : []);
+            
+            // Fallback: If no explicit class IDs, try to find a matching class by grade and section
+            if (classIds.length === 0 && enrollmentData.grade !== undefined && enrollmentData.section) {
+                const matchedClass = await tx.class.findFirst({
+                    where: {
+                        school_id: schoolId,
+                        grade: Number(enrollmentData.grade),
+                        section: enrollmentData.section,
+                        ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+                    },
+                    select: { id: true }
+                });
+                if (matchedClass) {
+                    classIds = [matchedClass.id];
+                }
+            }
+
             if (classIds.length > 0) {
                 for (const classId of classIds) {
                     await tx.studentEnrollment.upsert({
@@ -231,6 +255,33 @@ export class StudentService {
                 action: 'enroll', 
                 studentId: student.id 
             });
+
+            // Notify Admins if student is Pending
+            if (initialStatus === 'Pending') {
+                const admins = await tx.user.findMany({
+                    where: {
+                        school_id: schoolId,
+                        role: 'ADMIN' as any,
+                        status: 'Active' as any
+                    },
+                    select: { id: true }
+                });
+
+                for (const admin of admins) {
+                    await tx.notification.create({
+                        data: {
+                            school_id: schoolId,
+                            branch_id: branchId && branchId !== 'all' ? branchId : null,
+                            user_id: admin.id,
+                            title: 'New Student Approval Required',
+                            message: `Teacher ${enrollmentData.teacherName || 'A teacher'} has enrolled a new student: ${student.full_name}. Action required for approval.`,
+                            category: 'System',
+                            audience: ['admin'],
+                            updated_at: new Date()
+                        } as any
+                    });
+                }
+            }
 
             return result;
         });
@@ -338,13 +389,15 @@ export class StudentService {
         });
     }
 
-    static async getAllStudents(schoolId: string, branchId?: string, classId?: string, status?: string) {
+    static async getAllStudents(schoolId: string, branchId?: string, classId?: string, status: string = 'Active') {
+        const queryStatus = status === 'all' ? undefined : status;
+        
         return await prisma.student.findMany({
             where: {
                 school_id: schoolId,
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined,
-                status: status || undefined,
-                enrollments: classId ? { some: { class_id: classId, status: status || undefined } } : undefined
+                status: queryStatus || undefined,
+                enrollments: classId ? { some: { class_id: classId, status: queryStatus || undefined } } : undefined
             },
             include: {
                 user: true
@@ -701,22 +754,21 @@ export class StudentService {
         const today = new Date();
         const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
 
-        // 1. Get student's enrolled class
-        const enrollment = await prisma.studentEnrollment.findFirst({
+        // 1. Get ALL student's enrolled classes
+        const enrollments = await prisma.studentEnrollment.findMany({
             where: { student_id: studentId, status: 'Active' },
             include: { class: true }
         });
 
-        if (!enrollment) return { timetable: [], assignments: [], quizzes: [], stats: null };
+        if (enrollments.length === 0) return { timetable: [], assignments: [], quizzes: [], stats: null };
 
-        const classId = enrollment.class_id;
-        const className = enrollment.class.name;
+        const classIds = enrollments.map(e => e.class_id);
 
         const [timetable, assignments, quizzes, stats, notifications] = await Promise.all([
-            // Today's Timetable
+            // Today's Timetable (from all sections student is in)
             prisma.timetable.findMany({
                 where: { 
-                    class_id: classId,
+                    class_id: { in: classIds },
                     day_of_week: dayOfWeek,
                     school_id: schoolId
                 },
@@ -725,7 +777,7 @@ export class StudentService {
             // Pending Assignments
             prisma.assignment.findMany({
                 where: {
-                    class_id: classId,
+                    class_id: { in: classIds },
                     due_date: { gte: today },
                     is_published: true,
                     submissions: {
@@ -738,13 +790,16 @@ export class StudentService {
             // Upcoming Quizzes
             prisma.quiz.findMany({
                 where: {
-                    class_id: classId,
+                    OR: [
+                        { class_id: { in: classIds } },
+                        { class_id: null, school_id: schoolId } // School-wide quizzes
+                    ],
                     is_published: true,
                     submissions: {
                         none: { student_id: studentId }
                     }
                 },
-                take: 5,
+                take: 10, // Increased to show more variety
                 orderBy: { created_at: 'desc' }
             }),
             // Stats
@@ -769,7 +824,8 @@ export class StudentService {
             quizzes,
             stats,
             notifications,
-            class: enrollment.class
+            classes: enrollments.map(e => e.class),
+            primaryClass: enrollments.find(e => e.is_primary)?.class || enrollments[0].class
         };
     }
 
@@ -945,6 +1001,12 @@ export class StudentService {
             },
             include: {
                 user: true,
+                creator: {
+                    select: {
+                        full_name: true,
+                        role: true
+                    }
+                },
                 enrollments: {
                     include: {
                         class: true

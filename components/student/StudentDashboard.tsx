@@ -87,6 +87,7 @@ const SchoolUtilitiesScreen = lazy(() => import('../parent/SchoolUtilitiesScreen
 const GamePlayerScreen = lazy(() => import('../shared/GamePlayerScreen'));
 const StudentCBTListScreen = lazy(() => import('./cbt/StudentCBTListScreen'));
 const StudentCBTPlayerScreen = lazy(() => import('./cbt/StudentCBTPlayerScreen'));
+const StudentChangePasswordScreen = lazy(() => import('./StudentChangePasswordScreen'));
 
 const DashboardSuspenseFallback = () => (
     <PremiumLoader message="Loading dashboard module..." />
@@ -111,28 +112,44 @@ const TodayFocus: React.FC<{
     
     // Determine the highest priority task
     const nextTask = useMemo(() => {
+        // Prioritize what's due soonest
         if (assignments.length > 0) {
             const hw = assignments[0];
+            const dueDate = new Date(hw.due_date);
+            const diff = dueDate.getTime() - Date.now();
+            const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            
             return {
                 title: hw.title,
                 subject: hw.subject || 'General',
-                dueDate: new Date(hw.due_date || hw.dueDate).toLocaleDateString('en-GB'),
-                timeRemaining: '2 days', // In a real app, calculate this
+                dueDate: dueDate.toLocaleDateString(),
+                timeRemaining: daysLeft > 0 ? `${daysLeft}d` : 'Today',
                 type: 'assignment' as const,
-                onClick: () => navigateTo('assignmentSubmission', 'Submit Assignment', { assignment: hw })
+                onClick: () => navigateTo('assignmentSubmission', 'Submit Assignment', { assignment: hw }),
+                totalCount: assignments.length + quizzes.length
             };
         }
+
         if (quizzes.length > 0) {
             const quiz = quizzes[0];
+            const dueDate = quiz.due_date ? new Date(quiz.due_date) : new Date();
+            const diff = dueDate.getTime() - Date.now();
+            const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
             return {
                 title: quiz.title,
-                subject: quiz.subject || quiz.subjects?.name || 'General',
-                dueDate: quiz.start_time ? new Date(quiz.start_time).toLocaleDateString('en-GB') : 'Now',
-                timeRemaining: 'Today',
+                subject: quiz.subject_id || 'General',
+                dueDate: dueDate.toLocaleDateString(),
+                timeRemaining: daysLeft > 0 ? `${daysLeft}d` : 'Soon',
                 type: 'quiz' as const,
-                onClick: () => navigateTo('quizPlayer', quiz.title, { quizId: quiz.id, student })
+                onClick: () => navigateTo('quizPlayer', quiz.title, { 
+                    [quiz.is_cbt ? 'cbtExamId' : 'quizId']: quiz.id, 
+                    student 
+                }),
+                totalCount: quizzes.length
             };
         }
+
         return null;
     }, [assignments, quizzes, navigateTo, student]);
 
@@ -141,7 +158,14 @@ const TodayFocus: React.FC<{
             <h3 className="font-bold text-lg text-gray-800 ml-1">Your Focus</h3>
             
             {nextTask ? (
-                <NextUpTask {...nextTask} />
+                <div className="space-y-2">
+                    <NextUpTask {...nextTask} />
+                    {nextTask.totalCount > 1 && (
+                        <p className="text-[10px] text-gray-500 text-center font-medium bg-gray-100/50 py-1 rounded-full">
+                            + {nextTask.totalCount - 1} more assessment{(nextTask.totalCount - 1) > 1 ? 's' : ''} waiting for you
+                        </p>
+                    )}
+                </div>
             ) : (
                 <div className="bg-white p-6 rounded-3xl shadow-sm text-center">
                     <SparklesIcon className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
@@ -548,6 +572,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         schoolUtilities: SchoolUtilitiesScreen,
         cbtList: StudentCBTListScreen,
         cbtPlayer: StudentCBTPlayerScreen,
+        changePassword: StudentChangePasswordScreen,
     }), []);
 
     // --- AUDIT SYSTEM EXPOSURE ---

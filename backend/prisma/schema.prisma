@@ -195,6 +195,8 @@ model Student {
   department            String?
   gender                String?
   dob                   DateTime?
+  address               String?
+  admission_number      String?
   curriculum_type       String?
   avatar_url            String?
   status                String                 @default("Active")
@@ -476,11 +478,13 @@ model AssignmentSubmission {
   status        String     @default("Submitted")
   grade         Float?
   feedback      String?
-  content       String?
-  files         Json?
+  text_submission String?
+  file_url      String?
   created_at    DateTime   @default(now())
   assignment    Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
   student       Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id, assignment_id])
 }
 
 model ReportCard {

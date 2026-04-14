@@ -174,7 +174,9 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 description,
                 status: targetStatus,
                 is_published: targetStatus === 'published',
-                is_active: true
+                is_active: true,
+                type: 'QUIZ',
+                is_cbt: false
             };
 
             // 2. Format Questions

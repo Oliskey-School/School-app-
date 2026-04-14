@@ -39,8 +39,8 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
     } | null>(null);
 
     // School and Branch IDs
-    const schoolId = profile.schoolId || currentSchool?.id;
-    const branchId = currentBranchId || profile.branchId || null;
+    const schoolId = profile?.schoolId || currentSchool?.id;
+    const branchId = currentBranchId || profile?.branchId || null;
 
     useEffect(() => {
         const loadParentData = async () => {

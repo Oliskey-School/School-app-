@@ -36,10 +36,11 @@ export class DashboardService {
                     prisma.classTeacher.count({
                         where: { teacher_id: teacherId }
                     }),
-                    // 2. Count unique students in classes assigned to this teacher
+                    // 2. Count unique students in classes assigned to this teacher (Active only)
                     prisma.student.count({
                         where: {
                             school_id: schoolId,
+                            status: 'Active',
                             enrollments: {
                                 some: {
                                     class: {
@@ -273,7 +274,7 @@ export class DashboardService {
                 feeData,
                 workloadData
             ] = await Promise.all([
-                prisma.student.count({ where: baseWhere }),
+                prisma.student.count({ where: { ...baseWhere, status: 'Active' } }),
                 prisma.teacher.count({ where: baseWhere }),
                 prisma.parent.count({ where: baseWhere }),
                 prisma.class.count({ where: baseWhere }),

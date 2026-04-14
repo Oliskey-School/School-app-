@@ -40,7 +40,7 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
     const [duration, setDuration] = useState(60);
     const [totalMarks, setTotalMarks] = useState(60);
-    const [uploadType, setUploadType] = useState<'Test' | 'Exam'>('Test');
+    const [uploadType, setUploadType] = useState<'EXAM' | 'TEST' | 'QUIZ'>('EXAM');
 
     const teacherClasses = useMemo(() => {
         const groups = new Map<string, any>();
@@ -166,19 +166,6 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 }
             }
 
-            const quizPayload = {
-                title: file.name.replace('.xlsx', '').replace('.xls', ''),
-                description: uploadType,
-                status: 'draft',
-                class_id: selectedClassId,
-                subject_id: selectedSubjectId,
-                duration_minutes: duration,
-                total_marks: totalMarks,
-                teacher_id: activeTeacherId,
-                school_id: activeSchoolId,
-                is_published: false
-            };
-
             const questionsPayload = parsedQuestions.map((q, index) => ({
                 question_text: q.question_text,
                 question_type: 'multiple_choice',
@@ -187,6 +174,22 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 marks: q.marks,
                 question_order: index + 1
             }));
+
+            const quizPayload = {
+                title: file.name.replace('.xlsx', '').replace('.xls', ''),
+                description: `${uploadType} created via Excel upload on ${new Date().toLocaleDateString()}`,
+                status: 'draft',
+                class_id: selectedClassId,
+                subject_id: selectedSubjectId,
+                duration_minutes: Number(duration),
+                total_marks: totalMarks,
+                teacher_id: activeTeacherId,
+                school_id: activeSchoolId,
+                is_published: true,
+                type: uploadType,
+                is_cbt: true,
+                questions: questionsPayload
+            };
 
             await api.createQuizWithQuestions({
                 quiz: quizPayload,
@@ -254,9 +257,19 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                             <ExamIcon className="w-5 h-5 mr-2 text-indigo-600" />
                             Upload Question Bank
                         </h3>
-                        <div className="flex bg-white rounded-lg p-1 border border-slate-200">
-                            <button onClick={() => setUploadType('Test')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${uploadType === 'Test' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Test</button>
-                            <button onClick={() => setUploadType('Exam')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${uploadType === 'Exam' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>Exam</button>
+                        <div className="flex bg-gray-100 p-1.5 rounded-2xl w-fit">
+                            {(['EXAM', 'TEST', 'QUIZ'] as const).map((type) => (
+                                <button
+                                    key={type}
+                                    onClick={() => setUploadType(type)}
+                                    className={`px-8 py-2.5 rounded-xl font-bold transition-all ${uploadType === type
+                                        ? 'bg-white text-orange-600 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                >
+                                    {type === 'QUIZ' ? 'CBT QUIZ' : type}
+                                </button>
+                            ))}
                         </div>
                     </div>
 

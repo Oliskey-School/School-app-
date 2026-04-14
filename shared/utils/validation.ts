@@ -20,7 +20,7 @@ export const studentSchema = yup.object().shape({
     name: yup.string().min(2, 'Name too short').max(100, 'Name too long').nullable(),
     firstName: yup.string().required('First name is required'),
     lastName: yup.string().required('Last name is required'),
-    grade: yup.number().integer().min(-3).max(12).nullable(),
+    grade: yup.number().integer().min(-3).max(15).nullable(),
     section: yup.string().max(10).nullable(),
     gender: yup.string().transform(v => v?.toLowerCase()).oneOf(['male', 'female', 'other']).nullable(),
     email: yup.string().email('Invalid email address').nullable(),

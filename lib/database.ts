@@ -13,7 +13,7 @@ import {
     Message,
     ReportCard,
     Bus
-} from '../types';
+} from '@/types';
 
 // Explicitly export common helpers from central utility to resolve star export conflicts
 export {
@@ -34,16 +34,16 @@ export {
  * All data fetching happens here - NO mock data!
  */
 
-export * from '../services/studentService';
-export * from '../services/financeService';
-export * from '../services/authService';
-export * from '../services/parentService';
-export * from '../services/teacherService';
-export * from '../services/classService';
-export * from '../services/eventService';
-export * from '../services/examService';
-export * from '../services/assignmentService';
-export * from '../services/quizService';
+export * from '@/services/studentService';
+export * from '@/services/financeService';
+export * from '@/services/authService';
+export * from '@/services/parentService';
+export * from '@/services/teacherService';
+export * from '@/services/classService';
+export * from '@/services/eventService';
+export * from '@/services/examService';
+export * from '@/services/assignmentService';
+export * from '@/services/quizService';
 
 /**
  * Fetch audit logs from the backend

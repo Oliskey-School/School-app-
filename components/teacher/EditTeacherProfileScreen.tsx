@@ -28,6 +28,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
 
     // Account Security State
     const [username, setUsername] = useState(authUser?.user_metadata?.username || '');
+    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -162,8 +163,12 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
 
         setUpdatingPassword(true);
         try {
-            await api.patch('/auth/update-password', { password: newPassword });
+            await api.patch('/auth/update-password', { 
+                currentPassword, 
+                newPassword 
+            });
             toast.success('Password updated successfully!');
+            setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
         } catch (err: any) {
@@ -270,6 +275,16 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                                         <div className="flex items-center space-x-2 mb-2">
                                             <LockIcon className="w-4 h-4 text-purple-600" />
                                             <span className="text-xs font-bold text-purple-700 uppercase">Change Password</span>
+                                        </div>
+
+                                        <div className="relative">
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                value={currentPassword}
+                                                onChange={e => setCurrentPassword(e.target.value)}
+                                                className="w-full bg-white border border-purple-200 text-gray-800 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block p-3 transition-all"
+                                                placeholder="Current Password"
+                                            />
                                         </div>
 
                                         <div className="relative">

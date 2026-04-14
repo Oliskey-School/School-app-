@@ -27,7 +27,7 @@ const BusDutyRosterScreen: React.FC<BusDutyRosterProps> = ({ schoolId: propSchoo
     const { profile, refreshProfile } = useProfile();
 
     // Multi-source schoolId detection
-    const schoolId = propSchoolId || profile.schoolId || currentSchool?.id;
+    const schoolId = propSchoolId || profile?.schoolId || currentSchool?.id;
 
     const [buses, setBuses] = useState<Bus[]>([]);
     const [isAddingBus, setIsAddingBus] = useState(false);

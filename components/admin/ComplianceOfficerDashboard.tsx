@@ -24,6 +24,9 @@ interface ComplianceOfficerDashboardProps {
 const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { profile } = useProfile();
     const { currentSchool } = useAuth();
+
+    if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading compliance profile...</div>;
+
     const [complianceStats, setComplianceStats] = useState({
         activeAudits: 0,
         completedAudits: 0,

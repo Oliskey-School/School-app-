@@ -22,20 +22,25 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
     setLoading(true);
 
     try {
-      const [quizzesData, submissions] = await Promise.all([
+      // 1. Fetch Quizzes and Submissions
+      const [quizzesData, submissionData] = await Promise.all([
         api.getQuizzes(),
         api.getMyQuizResults()
       ]);
 
       const subMap: Record<string, any> = {};
-      submissions?.forEach((s: any) => { subMap[s.quiz_id] = s; });
+      submissionData?.forEach((s: any) => { subMap[s.quiz_id] = s; });
 
-      const filteredItems = (quizzesData || [])
+      // 2. Fetch Assignments and Submissions (if active category is quiz)
+      let finalItems: any[] = [];
+
+      // Process Quizzes
+      const filteredQuizzes = (quizzesData || [])
         .filter((q: any) => {
           if (!q.is_published) return false;
-          const isExam = q.type === 'EXAM' || q.type === 'TEST' || q.is_cbt;
-          if (activeCategory === 'cbt' && !isExam) return false;
-          if (activeCategory === 'quiz' && isExam) return false;
+          const isCbt = q.is_cbt === true;
+          if (activeCategory === 'cbt' && !isCbt) return false;
+          if (activeCategory === 'quiz' && isCbt) return false;
           return true;
         })
         .map((q: any) => ({
@@ -45,13 +50,40 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
           className: q.class ? `Grade ${q.class.grade}${q.class.section || ''}` : `Grade ${q.grade || ''}`,
           durationMinutes: q.duration_minutes,
           submission: subMap[q.id],
-          type: activeCategory
+          type: 'quiz',
+          originalType: q.type,
+          isCbt: q.is_cbt
         }));
 
-      setItems(filteredItems);
+      finalItems = [...filteredQuizzes];
+
+      // Add Assignments if in Quiz category
+      if (activeCategory === 'quiz') {
+        const [assignmentsData, assignmentSubmissions] = await Promise.all([
+          api.getAssignments(student.schoolId || '', { classId: undefined }),
+          api.getMySubmissions()
+        ]);
+
+        const aSubMap: Record<string, any> = {};
+        assignmentSubmissions?.forEach((s: any) => { aSubMap[s.assignment_id] = s; });
+
+        const mappedAssignments = (assignmentsData || []).map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          subject: a.subject,
+          className: a.class_name || 'General',
+          dueDate: a.due_date,
+          submission: aSubMap[a.id],
+          type: 'assignment'
+        }));
+
+        finalItems = [...finalItems, ...mappedAssignments];
+      }
+
+      setItems(finalItems);
 
     } catch (err: any) {
-      console.warn('Error fetching quizzes:', err);
+      console.warn('Error fetching content:', err);
       setItems([]);
     } finally {
       setLoading(false);
@@ -66,7 +98,9 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
   }, [fetchContent]);
 
   const handleStart = (item: any) => {
-    if (item.type === 'cbt') {
+    if (item.type === 'assignment') {
+      navigateTo('assignmentSubmission', 'Submit Assignment', { assignment: item });
+    } else if (item.isCbt) {
       navigateTo('quizPlayer', item.title, { cbtExamId: item.id, student });
     } else {
       navigateTo('quizPlayer', item.title, { quizId: item.id, student });
@@ -194,7 +228,13 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
                         <h4 className={`font-bold truncate pr-2 transition-colors ${item.submission ? 'text-gray-500' : 'text-gray-900 group-hover:text-orange-600'}`}>{item.title}</h4>
                         <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 mt-1">
                           <span className="bg-gray-100 font-medium px-2 py-0.5 rounded-md">{item.subject}</span>
-                          {item.durationMinutes > 0 && (
+                          {item.type === 'assignment' && item.dueDate && (
+                            <span className="flex items-center bg-gray-50 px-2 py-0.5 rounded-md">
+                              <ClockIcon className="w-3.5 h-3.5 mr-1 text-gray-400" />
+                              Due: {new Date(item.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
+                          {item.type === 'quiz' && item.durationMinutes > 0 && (
                             <span className="flex items-center bg-gray-50 px-2 py-0.5 rounded-md">
                               <ClockIcon className="w-3.5 h-3.5 mr-1 text-gray-400" />
                               {item.durationMinutes}m

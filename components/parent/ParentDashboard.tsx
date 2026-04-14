@@ -157,7 +157,7 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
 
             if (assignmentsData) {
                 const merged: StudentAssignment[] = (assignmentsData || []).map((a: any) => {
-                    const submission = a.AssignmentSubmission?.find((s: any) => s.student_id === student.id);
+                    const submission = a.submissions?.find((s: any) => s.student_id === student.id);
                     return {
                         id: a.id,
                         title: a.title,

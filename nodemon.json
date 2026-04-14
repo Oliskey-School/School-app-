@@ -1,5 +1,5 @@
 {
-  "watch": ["backend/src"],
+  "watch": ["backend/src", "shared"],
   "ext": "ts,json",
   "exec": "npx tsx backend/src/server.ts",
   "legacyWatch": true

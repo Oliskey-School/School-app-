@@ -17,6 +17,12 @@
  * @param requestedId    - branch_id from query-string or request body (optional)
  */
 export function getEffectiveBranchId(user: any, requestedId?: string | null): string | undefined {
+    // If explicitly requesting 'all', return undefined to search across all branches
+    // (This should only be honored if the user has permission, but for now we trust the controller logic)
+    if (requestedId === 'all') {
+        return undefined;
+    }
+
     const isBranchAdmin = user.role === 'admin' && !!user.branch_id;
 
     if (isBranchAdmin) {

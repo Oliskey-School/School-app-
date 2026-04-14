@@ -1,4 +1,4 @@
-import { School } from '../types';
+import { School } from '@/types';
 
 export type InspectionStatus = 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
 export type InspectionItemStatus = 'Pass' | 'Fail' | 'N/A';
