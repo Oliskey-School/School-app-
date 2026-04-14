@@ -93,8 +93,6 @@ app.use('/api', limiter);
 
 app.use(morgan('dev'));
 
-// Ensure all preflight requests are handled explicitly
-app.options('*', cors());
 
 // Basic health check
 app.get('/', (req, res) => {
