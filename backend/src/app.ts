@@ -82,7 +82,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api', routes);
 
 // [DEBUG] Catch-all for POST to see if it reaches here
-app.post('(.*)', (req, res, next) => {
+app.post('*path', (req, res, next) => {
     console.log(`📡 [DEBUG-POST] Unmatched POST to ${req.url}`);
     next();
 });

@@ -2,7 +2,10 @@ import { InspectionTemplate } from '../types/inspector';
 
 // Backend API base URL — uses Vite proxy /api in dev, direct URL otherwise
 const getApiBaseUrl = () => {
-    // TEMPORARY: Direct Railway URL to test if Vercel proxy is the bottleneck
+    // Dynamic detection: use localhost if running locally, otherwise use Railway
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return 'http://localhost:5000/api';
+    }
     return 'https://school-app-production-a59a.up.railway.app/api';
 };
 

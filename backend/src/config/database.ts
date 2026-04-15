@@ -44,9 +44,16 @@ if (process.env.NODE_ENV === 'production') {
     .catch((err) => {
       console.error('❌ [Prisma] Production database connection FAILED:');
       console.error('   Error Trace:', err.message);
-      if (process.env.DATABASE_URL) {
-        const urlMatch = process.env.DATABASE_URL.match(/@(.*)\//);
-        console.error('   Host Attempted:', urlMatch ? urlMatch[1] : 'Unknown');
+      
+      const dbUrl = process.env.DATABASE_URL || '';
+      if (dbUrl) {
+        const hostMatch = dbUrl.match(/@([^:/]+)/);
+        console.error('   Host Attempted:', hostMatch ? hostMatch[1] : 'Unknown');
+        
+        if (dbUrl.includes('supabase') || dbUrl.includes('pooler')) {
+            console.error('   💡 Tip: Check if the Supabase pooler is active and credentials are correct.');
+            console.error('   💡 Current DB Host seems to be a Supabase pooler.');
+        }
       }
     });
 }

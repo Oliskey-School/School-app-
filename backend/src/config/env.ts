@@ -1,14 +1,17 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env from the root directory
+// Load .env from the root directory — only log if not in production
 const envPath = path.resolve(process.cwd(), '.env');
-console.log(`[EnvConfig] Loading .env from: ${envPath}`);
 const result = dotenv.config({ path: envPath });
+
 if (result.error) {
-    console.error(`[EnvConfig] Error loading .env:`, result.error);
+    // Only warn in development; production typically uses system environment variables
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[EnvConfig] Missed .env loading: ${result.error.message}`);
+    }
 } else {
-    console.log(`[EnvConfig] Successfully loaded .env variables: ${Object.keys(result.parsed || {}).join(', ')}`);
+    console.log(`[EnvConfig] Successfully loaded .env variables`);
 }
 
 export const config = {
