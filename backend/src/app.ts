@@ -52,14 +52,19 @@ app.use(helmet({
 const isProduction = process.env.NODE_ENV === 'production';
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 200, // 200 requests per 15 min per IP in production
+    limit: 5000, // Increased from 200 to 5000 to handle background polling and dashboard load
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
     skip: (req) => {
-        // Skip rate limiting in development and for preflight OPTIONS requests
+        // Skip rate limiting in development, for preflight OPTIONS requests, and for localhost
         if (process.env.NODE_ENV !== 'production') return true;
         if (req.method === 'OPTIONS') return true;
+        
+        // Robust localhost check
+        const ip = req.ip || req.connection.remoteAddress;
+        if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') return true;
+        
         return false;
     },
 });

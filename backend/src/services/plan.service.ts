@@ -13,6 +13,20 @@ export class PlanService {
         });
     }
 
+    static async getPlanStatus(schoolId: string) {
+        return await prisma.school.findUnique({
+            where: { id: schoolId },
+            select: {
+                subscription_status: true,
+                is_premium: true,
+                plan_type: true,
+                trial_ends_at: true,
+                plan_id: true,
+                plan: true
+            }
+        });
+    }
+
     static async createPlan(data: any) {
         return await prisma.plan.create({
             data: {

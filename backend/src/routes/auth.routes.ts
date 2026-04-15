@@ -8,7 +8,7 @@ const router = Router();
 // Rate limiter for demo endpoints — stricter than global limit
 const demoLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 30,
+    limit: 1000, // Increased from 30 to 1000 to prevent 429 during active testing
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Too many demo login attempts, please try again later.' },
