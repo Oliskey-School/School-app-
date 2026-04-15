@@ -63,7 +63,7 @@ export function usePlanStatus() {
                 if (cancelled) return;
 
                 if (data && !data.error) {
-                    setPlanStatus(data as PlanStatus);
+                    setPlanStatus(prev => ({ ...prev, ...data }));
                 }
             } catch (e: any) {
                 if (!cancelled) setError(e.message);

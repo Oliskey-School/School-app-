@@ -12,6 +12,7 @@ export class DemoSeederService {
      * Runs quickly on server startup or when trigged to ensure the Demo subset is seeded.
      */
     static async ensureDemoData() {
+        console.log('🌱 [Maintenance] Ensuring Demo Data isolation (Demo School Only)...');
         try {
             const demoSchoolId = AuthService.DEMO_SCHOOL_ID;
             const demoBranchId = AuthService.DEMO_BRANCH_ID;

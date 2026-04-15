@@ -12,6 +12,18 @@ const start = async () => {
     
     while (retries > 0 && !dbConnected) {
         try {
+            // Run migrations in production before ensuring demo data
+            if (process.env.NODE_ENV === 'production') {
+                try {
+                    const { execSync } = require('child_process');
+                    console.log('🔄 [Production] Verifying database migrations...');
+                    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+                    console.log('✅ [Production] Database migrations up to date.');
+                } catch (migrationErr: any) {
+                    console.error('⚠️ [Production] Migration check skipped or failed:', migrationErr.message);
+                }
+            }
+
             const { DemoSeederService } = require('./services/demoSeeder.service');
             await DemoSeederService.ensureDemoData();
             dbConnected = true;
@@ -48,6 +60,14 @@ const start = async () => {
             console.log(`🚀 Server running on port ${config.port} in ${config.env} mode`);
             console.log(`📍 API Base URL: http://localhost:${config.port}/api`);
             console.log(`🔌 Real-time sync (Socket.io) enabled.`);
+
+            // Initialize Demo Reset Service (will only run in production)
+            try {
+                const { DemoResetService } = require('./services/demoReset.service');
+                DemoResetService.init();
+            } catch (err) {
+                console.warn('⚠️ [DemoReset] Could not initialize reset service:', err);
+            }
         });
 
         // Handle server errors (e.g. port already in use)

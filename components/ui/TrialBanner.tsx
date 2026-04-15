@@ -22,12 +22,17 @@ const TrialBanner: React.FC<TrialBannerProps> = ({ onUpgradeClick }) => {
 
     if (loading || isDemo) return null;
 
-    const studentPct = planStatus.limits.max_students < 2_000_000_000
-        ? planStatus.usage.students / planStatus.limits.max_students
+    const limits = planStatus?.limits || { max_students: 50, max_teachers: 10 };
+    const usage = planStatus?.usage || { students: 0, teachers: 0 };
+
+    const studentPct = (limits.max_students || 50) < 2_000_000_000
+        ? (usage.students || 0) / (limits.max_students || 50)
         : 0;
-    const teacherPct = planStatus.limits.max_teachers < 2_000_000_000
-        ? planStatus.usage.teachers / planStatus.limits.max_teachers
+
+    const teacherPct = (limits.max_teachers || 10) < 2_000_000_000
+        ? (usage.teachers || 10) / (limits.max_teachers || 10)
         : 0;
+
     const nearLimit = studentPct >= 0.85 || teacherPct >= 0.85;
 
     // Nothing to show
@@ -75,8 +80,8 @@ const TrialBanner: React.FC<TrialBannerProps> = ({ onUpgradeClick }) => {
 
     if (nearLimit) {
         const resource = studentPct >= 0.85 ? 'students' : 'teachers';
-        const used = resource === 'students' ? planStatus.usage.students : planStatus.usage.teachers;
-        const max = resource === 'students' ? planStatus.limits.max_students : planStatus.limits.max_teachers;
+        const used = resource === 'students' ? usage.students : usage.teachers;
+        const max = resource === 'students' ? limits.max_students : limits.max_teachers;
         return (
             <div className="bg-indigo-600 text-white px-4 py-3 flex items-center gap-3">
                 <AlertTriangle className="w-5 h-5 flex-shrink-0" />

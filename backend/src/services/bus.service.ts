@@ -86,4 +86,39 @@ export class BusService {
         SocketService.emitToSchool(schoolId, 'transport:updated', { action: 'delete_bus', busId });
         return true;
     }
+
+    static async getStudentBus(schoolId: string, studentId: string) {
+        const assignment = await prisma.transportAssignment.findFirst({
+            where: { student_id: studentId, status: 'active' },
+            include: {
+                route: {
+                    include: {
+                        stops: { orderBy: { stop_order: 'asc' } }
+                    }
+                }
+            }
+        });
+
+        if (!assignment) return null;
+
+        const bus = await prisma.transportBus.findFirst({
+            where: {
+                school_id: schoolId,
+                status: 'active',
+                OR: [{ route_name: assignment.route.route_name }]
+            }
+        });
+
+        return {
+            id: bus?.id || assignment.route.id,
+            name: bus?.name || assignment.route.bus_number,
+            routeName: assignment.route.route_name,
+            driverName: bus?.driver_name || assignment.route.driver_name,
+            driverPhone: assignment.route.driver_phone || '+234 000 000 0000',
+            plateNumber: bus?.plate_number || 'N/A',
+            capacity: bus?.capacity || assignment.route.capacity,
+            status: bus?.status || assignment.route.status,
+            stops: assignment.route.stops
+        };
+    }
 }

@@ -45,3 +45,19 @@ export const deleteBus = async (req: AuthRequest, res: Response) => {
         res.status(400).json({ message: error.message });
     }
 };
+
+export const getStudentBus = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id as string;
+        const studentId = req.params.studentId as string;
+        const bus = await BusService.getStudentBus(schoolId, studentId);
+        
+        if (!bus) {
+            return res.status(404).json({ message: 'No bus assignment found for this student.' });
+        }
+        
+        res.json(bus);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

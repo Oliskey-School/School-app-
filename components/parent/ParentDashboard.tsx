@@ -441,17 +441,17 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     const [parentId, setParentId] = useState<string | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [parentProfile, setParentProfile] = useState<{ name: string; avatarUrl: string; schoolGeneratedId?: string }>({ 
-        name: 'Parent', 
-        avatarUrl: 'https://i.pravatar.cc/150?u=parent', 
-        schoolGeneratedId: user?.user_metadata?.school_generated_id || 'Pending Generation' 
+        name: user?.user_metadata?.full_name || 'Parent', 
+        avatarUrl: user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.full_name || 'Parent')}&background=random`, 
+        schoolGeneratedId: user?.user_metadata?.school_generated_id || '...' 
     });
     const [students, setStudents] = useState<Student[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(true);
     const [loadingProfile, setLoadingProfile] = useState(false);
     const [profileError, setProfileError] = useState(false);
     const [profileFetched, setProfileFetched] = useState(false);
-    // Derive schoolId from multiple possible sources to handle auth timing issues
-    const schoolId = currentSchool?.id || (user as any)?.school_id || (user as any)?.schoolId;
+    // Derive schoolId from core sources
+    const schoolId = currentSchool?.id || (user as any)?.school_id;
     const notificationCount = useRealtimeNotifications('parent');
     const forceUpdate = () => setVersion(v => v + 1);
 

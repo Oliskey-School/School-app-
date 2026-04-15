@@ -64,7 +64,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
         load();
     }, [load]);
 
-    if (loading) return <div>Loading portal...</div>;
+    if (loading) return <div className="flex items-center justify-center h-screen bg-gray-50"><p className="text-indigo-600 font-medium animate-pulse">Loading child data...</p></div>;
     if (children.length === 0) return (
         <div className="flex flex-col items-center justify-center h-[60vh] p-6 text-center">
             <UserCircle2 className="w-20 h-20 text-gray-300 mb-4" />
@@ -119,7 +119,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         </AnimatePresence>
 
                         <p className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">
-                            {child.grade} · {child.school_name || 'Demo School'}
+                            {child.grade} {child.school_name ? `· ${child.school_name}` : ''}
                         </p>
                     </div>
                     <div className="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
@@ -148,7 +148,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         ].map((item, i) => (
                             <button 
                                 key={i} 
-                                onClick={() => navigateTo(item.view, item.title)}
+                                onClick={() => navigateTo(item.view, item.title, item.view === 'busRoute' ? { studentId: child.id } : {})}
                                 className="flex flex-col items-center gap-2 group p-2 rounded-xl hover:bg-gray-50 transition-colors"
                             >
                                 <div className={`${item.bg} p-3 rounded-2xl group-hover:scale-110 transition-transform`}>

@@ -13,6 +13,7 @@
     "server": "nodemon",
     "start": "npx tsx backend/src/server.ts",
     "db:migrate": "npx prisma migrate dev",
+    "db:deploy": "npx prisma migrate deploy",
     "db:push": "npx prisma db push",
     "db:reset": "npx prisma migrate reset --force",
     "db:seed": "npx tsx prisma/seed.ts",

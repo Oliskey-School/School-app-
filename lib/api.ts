@@ -905,18 +905,10 @@ class ExpressApiClient {
 
     async getChildOverview(studentId: string): Promise<any> {
         try {
-            return await this.get(`/parents/child-overview/${studentId}`);
-        } catch {
-            // Return safe fallback to prevent dashboard crash
-            return {
-                id: studentId,
-                name: 'Child',
-                grade: 'N/A',
-                school_name: '',
-                attendance: { status: 'unknown' },
-                assignments_due: 0,
-                fee_balance: 0
-            };
+            return await this.get(`/parents/me/children/${studentId}/overview`);
+        } catch (error) {
+            console.error(`[API] Failed to fetch child overview for ${studentId}:`, error);
+            throw error;
         }
     }
 
@@ -1061,9 +1053,18 @@ class ExpressApiClient {
 
     async getBusDetails(schoolId: string): Promise<any> {
         try {
-            return await this.get(`/bus?school_id=${schoolId}`);
+            return await this.get(`/buses?school_id=${schoolId}`);
         } catch (error) {
             console.error('Error fetching bus details:', error);
+            return null;
+        }
+    }
+
+    async getStudentBus(studentId: string): Promise<any> {
+        try {
+            return await this.get(`/buses/student/${studentId}`);
+        } catch (error) {
+            console.error(`Error fetching bus for student ${studentId}:`, error);
             return null;
         }
     }
