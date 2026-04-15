@@ -11,6 +11,7 @@
     "test:run": "vitest run",
     "test:clean": "npx rimraf .playwright-results .playwright-report && npx playwright test",
     "server": "nodemon",
+    "start": "npx tsx backend/src/server.ts",
     "db:migrate": "npx prisma migrate dev",
     "db:push": "npx prisma db push",
     "db:reset": "npx prisma migrate reset --force",

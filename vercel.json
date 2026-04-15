@@ -27,7 +27,6 @@
         }
     ],
     "rewrites": [
-        { "source": "/api/:path*", "destination": "https://school-app-production-a59a.up.railway.app/api/:path*" },
         { "source": "/(.*)", "destination": "/index.html" }
     ]
 }

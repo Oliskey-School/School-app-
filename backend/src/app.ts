@@ -9,11 +9,7 @@ import routes from './routes';
 
 const app = express();
 
-// 1. Core Middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Relaxed CORS for production debugging - will tighten once stable
+// 1. CORS - MUST BE FIRST for proper preflight handling
 app.use(cors({
     origin: true, // Echoes the request origin
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -22,35 +18,22 @@ app.use(cors({
     maxAge: 86400
 }));
 
-// 0. VERY FIRST: Manual Preflight Handler for production reliability
-app.use((req, res, next) => {
-    // Standardize URL: Remove trailing slash
-    if (req.url.length > 1 && req.url.endsWith('/')) {
-        req.url = req.url.slice(0, -1);
-    }
-
-    if (req.method === 'OPTIONS') {
-        const origin = req.headers.origin || '*';
-        process.stdout.write(`🔍 [PREFLIGHT] ${req.method} ${req.url} - Origin: ${origin}\n`);
-        
-        res.header('Access-Control-Allow-Origin', origin);
-        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-school-id, Accept, X-Requested-With, application-id');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Max-Age', '86400');
-        
-        return res.status(204).end();
-    }
-    
-    // Normal request logging
-    process.stdout.write(`${new Date().toISOString()} [${req.method}] ${req.url} - Origin: ${req.headers.origin}\n`);
-    next();
-});
-
+// 2. Core Middlewares
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// 1. Hardened Security Headers
+// 3. Logging
+app.use(morgan('dev'));
+
+// 3. Standardize URL: Remove trailing slash
+app.use((req, res, next) => {
+    if (req.url.length > 1 && req.url.endsWith('/')) {
+        req.url = req.url.slice(0, -1);
+    }
+    next();
+});
+
+// 4. Security Headers
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -65,7 +48,7 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
-// 2. Global Rate Limiting (Production only — disabled in development to avoid stale windows)
+// 5. Global Rate Limiting
 const isProduction = process.env.NODE_ENV === 'production';
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -83,10 +66,7 @@ const limiter = rateLimit({
 
 app.use('/api', limiter);
 
-app.use(morgan('dev'));
-
-
-// Basic health check
+// 6. Basic health check
 app.get('/', (req, res) => {
     res.json({ status: 'ok', service: 'School SaaS Backend' });
 });
@@ -97,16 +77,28 @@ app.get('/health', (req, res) => {
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// 3. API Routes - Standardized Mount
+
+// 7. API Routes - Standardized Mount
 app.use('/api', routes);
-app.use('/', (req, res, next) => {
-    // If it's not a root health check and not a static file, pass it to api routes
-    // This catches prefixed and non-prefixed calls regardless of proxy behavior
-    if (req.url === '/' || req.url === '/health') return next();
-    return routes(req, res, next);
+
+// [DEBUG] Catch-all for POST to see if it reaches here
+app.post('*', (req, res, next) => {
+    console.log(`📡 [DEBUG-POST] Unmatched POST to ${req.url}`);
+    next();
 });
 
-// 404 Handler
+// Fallback for non-prefixed calls (legacy or proxy compatibility)
+app.use((req, res, next) => {
+    // If it's not an API call and not already handled, it's a 404
+    if (!req.url.startsWith('/api')) {
+        // But we allow health checks without prefix
+        if (req.url === '/' || req.url === '/health') return next();
+    }
+    // Otherwise, we don't allow non-prefixed API calls anymore for clarity
+    next();
+});
+
+// 8. 404 Handler
 app.use((req, res) => {
     res.status(404).json({ 
         error: 'Not Found', 
@@ -114,21 +106,18 @@ app.use((req, res) => {
     });
 });
 
-// Global Error Handler
+// 9. Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error('🔥 [Global Error]');
     console.error('   Path:', req.path);
     console.error('   Method:', req.method);
     console.error('   Error Name:', err.name);
     console.error('   Error Message:', err.message);
-    if (err.stack) {
-        console.error('   Stack:', err.stack);
-    }
     
     res.status(err.status || 500).json({
         error: err.name || 'Internal Server Error',
         message: err.message || 'An unexpected error occurred.',
-        path: req.path // Include path for easier debugging
+        path: req.path
     });
 });
 

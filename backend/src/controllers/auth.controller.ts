@@ -234,6 +234,7 @@ export const checkUsername = async (req: Request, res: Response) => {
  * POST /api/auth/demo/login
  */
 export const demoLogin = async (req: Request, res: Response) => {
+    console.log(`🔌 [AUTH] Demo Login attempt for role: ${req.body?.role} from IP: ${req.ip}`);
     try {
         const { role } = req.body;
         if (!role) {
