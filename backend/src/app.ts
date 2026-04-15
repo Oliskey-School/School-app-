@@ -9,11 +9,11 @@ import routes from './routes';
 
 const app = express();
 
-// 1. Core Middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 1. Body parsers — must come before any route or middleware that reads req.body
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Relaxed CORS for production debugging - will tighten once stable
+// 2. CORS — allow all origins with the required methods/headers
 app.use(cors({
     origin: true, // Echoes the request origin
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -22,9 +22,9 @@ app.use(cors({
     maxAge: 86400
 }));
 
-// 0. VERY FIRST: Manual Preflight Handler for production reliability
+// 3. Preflight handler + trailing-slash normalisation + request logging
 app.use((req, res, next) => {
-    // Standardize URL: Remove trailing slash
+    // Normalise URL: strip trailing slash so /api/auth/demo/login/ works too
     if (req.url.length > 1 && req.url.endsWith('/')) {
         req.url = req.url.slice(0, -1);
     }
@@ -32,25 +32,22 @@ app.use((req, res, next) => {
     if (req.method === 'OPTIONS') {
         const origin = req.headers.origin || '*';
         process.stdout.write(`🔍 [PREFLIGHT] ${req.method} ${req.url} - Origin: ${origin}\n`);
-        
+
         res.header('Access-Control-Allow-Origin', origin);
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
         res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-school-id, Accept, X-Requested-With, application-id');
         res.header('Access-Control-Allow-Credentials', 'true');
         res.header('Access-Control-Max-Age', '86400');
-        
+
         return res.status(204).end();
     }
-    
+
     // Normal request logging
     process.stdout.write(`${new Date().toISOString()} [${req.method}] ${req.url} - Origin: ${req.headers.origin}\n`);
     next();
 });
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// 1. Hardened Security Headers
+// 4. Hardened Security Headers
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -65,8 +62,7 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
-// 2. Global Rate Limiting (Production only — disabled in development to avoid stale windows)
-const isProduction = process.env.NODE_ENV === 'production';
+// 5. Global Rate Limiting (Production only — disabled in development to avoid stale windows)
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     limit: 200, // 200 requests per 15 min per IP in production
@@ -97,14 +93,8 @@ app.get('/health', (req, res) => {
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// 3. API Routes - Standardized Mount
+// 6. API Routes
 app.use('/api', routes);
-app.use('/', (req, res, next) => {
-    // If it's not a root health check and not a static file, pass it to api routes
-    // This catches prefixed and non-prefixed calls regardless of proxy behavior
-    if (req.url === '/' || req.url === '/health') return next();
-    return routes(req, res, next);
-});
 
 // 404 Handler
 app.use((req, res) => {
