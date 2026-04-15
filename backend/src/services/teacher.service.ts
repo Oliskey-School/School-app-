@@ -372,7 +372,7 @@ export class TeacherService {
     }
 
     static async getTeacherProfileByUserId(schoolId: string, userId: string) {
-        return await prisma.teacher.findFirst({
+        let teacher = await prisma.teacher.findFirst({
             where: { user_id: userId, school_id: schoolId },
             include: { 
                 user: true,
@@ -384,6 +384,31 @@ export class TeacherService {
                 }
             }
         });
+
+        // Self-Healing: If user is a TEACHER or ADMIN but has no Teacher record, create one
+        if (!teacher) {
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            const allowedRoles = [Role.TEACHER, Role.ADMIN, Role.SUPER_ADMIN, Role.PROPRIETOR];
+            if (user && allowedRoles.includes(user.role as any)) {
+                console.log(`🛠️ [TeacherService] Self-healing: Creating missing teacher record for user ${userId} (${user.role})`);
+                teacher = await (prisma.teacher.create as any)({
+                    data: {
+                        user_id: userId,
+                        school_id: user.school_id,
+                        branch_id: user.branch_id,
+                        full_name: user.full_name,
+                        email: user.email,
+                        status: 'Active',
+                        updated_at: new Date()
+                    },
+                    include: {
+                        user: true,
+                        classes: true
+                    }
+                });
+            }
+        }
+        return teacher;
     }
 
     static async saveTeacherAttendance(schoolId: string, branchId: string | undefined, records: any[]) {

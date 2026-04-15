@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    CheckCircle2, BookOpen, Wallet, Bell, BarChart3, 
-    ChevronRight, ChevronDown, UserCircle2,
+    CircleCheck, BookOpen, Wallet, Bell, BarChart3, 
+    ChevronRight, ChevronDown, CircleUser,
     Bus, Calendar, Megaphone, CalendarPlus
 } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -67,7 +67,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
     if (loading) return <div className="flex items-center justify-center h-screen bg-gray-50"><p className="text-indigo-600 font-medium animate-pulse">Loading child data...</p></div>;
     if (children.length === 0) return (
         <div className="flex flex-col items-center justify-center h-[60vh] p-6 text-center">
-            <UserCircle2 className="w-20 h-20 text-gray-300 mb-4" />
+            <CircleUser className="w-20 h-20 text-gray-300 mb-4" />
             <h2 className="text-xl font-bold text-gray-700">No Children Linked</h2>
             <p className="text-gray-500 mt-2">We couldn't find any students linked to your parent account.<br/>If this is a mistake, please contact the school administration.</p>
         </div>
@@ -111,7 +111,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                                 <p className={`font-bold text-sm ${idx === activeChildIndex ? 'text-indigo-600' : 'text-gray-700'}`}>{c.name}</p>
                                                 <p className="text-xs text-gray-500">{c.grade}</p>
                                             </div>
-                                            {idx === activeChildIndex && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
+                                            {idx === activeChildIndex && <CircleCheck className="w-4 h-4 text-indigo-600" />}
                                         </button>
                                     ))}
                                 </motion.div>
@@ -126,7 +126,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                         {user?.user_metadata?.avatar_url ? (
                             <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
-                            <UserCircle2 className="w-8 h-8 text-gray-400" />
+                            <CircleUser className="w-8 h-8 text-gray-400" />
                         )}
                     </div>
                 </div>
@@ -171,7 +171,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-emerald-50 p-3 rounded-xl">
-                            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                            <CircleCheck className="w-6 h-6 text-emerald-600" />
                         </div>
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Attendance</p>

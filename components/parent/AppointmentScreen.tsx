@@ -3,7 +3,7 @@ import { useAutoSync } from '../../hooks/useAutoSync';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { Teacher, AppointmentSlot, Student } from '../../types';
-import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CalendarIcon, UserIcon, StudentNavIcon } from '../../constants';
+import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CalendarIcon, UserIcon, StudentNavIcon, CircleUser } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 
 // Inline mock data to guarantee availability
@@ -58,12 +58,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
             if (data) {
                 const mappedTeachers = data
-                    .filter((t: any) => t.user_id && t.status === 'Active')
+                    .filter((t: any) => t.status?.toLowerCase() === 'active')
                     .map((t: any) => ({
                         id: t.id,
                         user_id: t.user_id,
-                        name: t.name,
-                        avatarUrl: t.avatar_url,
+                        name: t.full_name || t.name || 'Unknown Teacher',
+                        avatarUrl: t.avatar_url || t.avatarUrl,
                         subjects: t.subjects || [],
                         classes: t.classes || [],
                         status: t.status,
@@ -298,37 +298,49 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                             </div>
 
                             <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
-                                {activeTeachers.map(teacher => (
-                                    <button
-                                        key={teacher.id}
-                                        onClick={() => setSelectedTeacher(teacher)}
-                                        className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
-                                            ? 'bg-white border-green-500 ring-2 ring-green-200 shadow-lg scale-105'
-                                            : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-md'
-                                            }`}
-                                    >
-                                        <div className="relative inline-block mb-3">
-                                            {teacher.avatarUrl ? (
-                                                <img
-                                                    src={teacher.avatarUrl}
-                                                    alt={teacher.name}
-                                                    className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
-                                                />
-                                            ) : (
-                                                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center border-2 border-white shadow-sm text-green-600 font-bold text-xl">
-                                                    {teacher.name.charAt(0)}
-                                                </div>
-                                            )}
-                                            {selectedTeacher?.id === teacher.id && (
-                                                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
-                                                    <CheckCircleIcon className="w-3 h-3 text-white" />
-                                                </div>
-                                            )}
+                                {activeTeachers.length > 0 ? (
+                                    activeTeachers.map(teacher => (
+                                        <button
+                                            key={teacher.id}
+                                            onClick={() => setSelectedTeacher(teacher)}
+                                            className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
+                                                ? 'bg-white border-green-500 ring-2 ring-green-200 shadow-lg scale-105'
+                                                : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-md'
+                                                }`}
+                                        >
+                                            <div className="relative inline-block mb-3">
+                                                {teacher.avatarUrl ? (
+                                                    <img
+                                                        src={teacher.avatarUrl}
+                                                        alt={teacher.name}
+                                                        className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
+                                                    />
+                                                ) : (
+                                                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center border-2 border-white shadow-sm text-green-600 font-bold text-xl">
+                                                        {teacher.name.charAt(0)}
+                                                    </div>
+                                                )}
+                                                {selectedTeacher?.id === teacher.id && (
+                                                    <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
+                                                        <CheckCircleIcon className="w-3 h-3 text-white" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <h3 className="font-bold text-gray-800 text-sm truncate">{teacher.name}</h3>
+                                            <p className="text-xs text-gray-500 mt-1 truncate">{teacher.subjects[0] || 'General'}</p>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center w-full py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                            <CircleUser className="w-8 h-8 text-gray-400" />
                                         </div>
-                                        <h3 className="font-bold text-gray-800 text-sm truncate">{teacher.name}</h3>
-                                        <p className="text-xs text-gray-500 mt-1 truncate">{teacher.subjects[0] || 'General'}</p>
-                                    </button>
-                                ))}
+                                        <h3 className="text-lg font-semibold text-gray-900">No teachers found</h3>
+                                        <p className="text-sm text-gray-500 max-w-xs text-center">
+                                            We couldn't find any active teachers for this school branch. Please contact the school admin.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </section>
                     </div>

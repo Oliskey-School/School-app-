@@ -912,6 +912,10 @@ class ExpressApiClient {
         }
     }
 
+    async createAppointment(data: any): Promise<any> {
+        return this.post('/parents/appointments', data);
+    }
+
     async getParentTodayUpdate(parentId: string, studentId?: string): Promise<any> {
         try {
             const qs = studentId ? `?studentId=${studentId}` : '';
@@ -1148,8 +1152,10 @@ class ExpressApiClient {
 
     async getStudentFees(studentId: string): Promise<any[]> {
         try {
-            return await this.get(`/fees/student/${studentId}`);
+            const response = await this.post<any>('/fees/bulk-fetch', { studentIds: [studentId] });
+            return response.data || response || [];
         } catch (err) {
+            console.error('[API] getStudentFees error:', err);
             return [];
         }
     }
@@ -2434,9 +2440,11 @@ class ExpressApiClient {
         }
     }
 
-    // ============================================
+    // ================= ==========================
     // STUDENT PORTAL (Methods moved to appropriate sections above)
     // ============================================
+
+
 
     // ============================================
     // ADMIN / CONTENT MANAGEMENT

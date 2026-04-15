@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import {
     BookOpen,
-    CheckCircle2,
+    CircleCheck,
     Clock,
     CreditCard,
     Bus,
@@ -106,7 +106,7 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
 
     const getFeedIcon = (type: string) => {
         switch (type) {
-            case 'attendance': return CheckCircle2;
+            case 'attendance': return CircleCheck;
             case 'homework': return BookOpen;
             case 'fee': return CreditCard;
             case 'event': return Calendar;
@@ -139,7 +139,7 @@ const ParentTodayWidget = ({ navigateTo }: { navigateTo: (view: string, title: s
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button onClick={() => navigateTo('attendanceOverview', 'Attendance')} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 text-left hover:shadow-md transition-all">
                     <div className="flex justify-between items-start">
-                        <div className="p-2 rounded-2xl bg-emerald-50"><CheckCircle2 className="w-5 h-5 text-emerald-600" /></div>
+                        <div className="p-2 rounded-2xl bg-emerald-50"><CircleCheck className="w-5 h-5 text-emerald-600" /></div>
                         <span className="text-2xl">{attendanceIcon}</span>
                     </div>
                     <p className="font-bold text-gray-800 mt-3 capitalize">{child.attendance_status.replace('_', ' ')}</p>

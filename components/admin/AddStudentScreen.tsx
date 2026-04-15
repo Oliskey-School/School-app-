@@ -134,7 +134,22 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         if (studentToEdit) {
             setSelectedImage(studentToEdit.avatarUrl);
             setFullName(studentToEdit.name || studentToEdit.full_name || '');
-            setBirthday(studentToEdit.birthday || '');
+            
+            // Format DOB for HTML date input (YYYY-MM-DD)
+            const rawDob = studentToEdit.dob || studentToEdit.birthday || studentToEdit.dateOfBirth || '';
+            let formattedDob = '';
+            if (rawDob) {
+                try {
+                    const dateObj = new Date(rawDob);
+                    if (!isNaN(dateObj.getTime())) {
+                        formattedDob = dateObj.toISOString().split('T')[0];
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse DOB:', rawDob);
+                    formattedDob = '';
+                }
+            }
+            setBirthday(formattedDob);
             setDepartment(studentToEdit.department || '');
 
             // Fetch Student Details (including Enrollments and Guardian Info)

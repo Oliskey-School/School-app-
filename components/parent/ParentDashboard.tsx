@@ -26,6 +26,9 @@ import {
 } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
 import PremiumLoader from '../ui/PremiumLoader';
+import PremiumModal from '../ui/PremiumModal';
+import SchoolContextSwitcher from '../ui/SchoolContextSwitcher';
+
 
 import { getHomeworkStatus } from '../../utils/homeworkUtils';
 import { realtimeService } from '../../services/RealtimeService';
@@ -33,45 +36,47 @@ import { syncEngine } from '../../lib/syncEngine';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
 // Import all view components
+import AttendanceScreen from '../student/AttendanceScreen';
+import FeeStatusScreen from './FeeStatusScreen';
+import SelectChildForReportScreen from './SelectChildForReportScreen';
+import ReportCardScreen from './ReportCardScreen';
+import TimetableScreen from '../shared/TimetableScreen';
+import ParentProfileScreen from './ParentProfileScreen';
+import EditParentProfileScreen from './EditParentProfileScreen';
+import FeedbackScreen from './FeedbackScreen';
+import ParentNotificationSettingsScreen from './ParentNotificationSettingsScreen';
+import ParentSecurityScreen from './ParentSecurityScreen';
+import LearningResourcesScreen from './LearningResourcesScreen';
+import SchoolPoliciesScreen from './SchoolPoliciesScreen';
+import PTAMeetingScreen from './PTAMeetingScreen';
+import ParentPhotoGalleryScreen from './ParentPhotoGalleryScreen';
+import VolunteeringScreen from './VolunteeringScreen';
+import PermissionSlipScreen from './PermissionSlipScreen';
+import AppointmentScreen from './AppointmentScreen';
+import AIParentingTipsScreen from './AIParentingTips';
+import ParentMessagesScreen from './ParentMessagesScreen';
+import ParentNewChatScreen from './ParentNewChatScreen';
+import ChatScreen from '../shared/ChatScreen';
+import SchoolUtilitiesScreen from './SchoolUtilitiesScreen';
+import LinkChildScreen from './LinkChildScreen';
+import GlobalSearchScreen from '../shared/GlobalSearchScreen';
+import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
+import ParentTodayWidget from './ParentTodayWidget';
+import ParentChangePasswordScreen from './ParentChangePasswordScreen';
+import { UnifiedParentHome } from './UnifiedParentHome';
+import { FeesPiggyBank } from './FeesPiggyBank';
+import { SmartCalendar } from './SmartCalendar';
+
+// Shared View Components
 import ExamSchedule from '../shared/ExamSchedule';
 import NoticeboardScreen from '../shared/NoticeboardScreen';
 import NotificationsScreen from '../shared/NotificationsScreen';
 import CalendarScreen from '../shared/CalendarScreen';
 import LibraryScreen from '../shared/LibraryScreen';
 import BusRouteScreen from '../shared/BusRouteScreen';
-import FeeStatusScreen from '../parent/FeeStatusScreen';
-import ReportCardScreen from '../parent/ReportCardScreen';
-import SelectChildForReportScreen from '../parent/SelectChildForReportScreen';
-import TimetableScreen from '../shared/TimetableScreen';
-import ParentProfileScreen from '../parent/ParentProfileScreen';
-import EditParentProfileScreen from '../parent/EditParentProfileScreen';
-import FeedbackScreen from '../parent/FeedbackScreen';
-import ParentNotificationSettingsScreen from '../parent/ParentNotificationSettingsScreen';
-import ParentSecurityScreen from '../parent/ParentSecurityScreen';
-import LearningResourcesScreen from '../parent/LearningResourcesScreen';
-import SchoolPoliciesScreen from '../parent/SchoolPoliciesScreen';
-import PTAMeetingScreen from '../parent/PTAMeetingScreen';
-import ParentPhotoGalleryScreen from '../parent/ParentPhotoGalleryScreen';
-import VolunteeringScreen from '../parent/VolunteeringScreen';
-import PermissionSlipScreen from '../parent/PermissionSlipScreen';
-import AppointmentScreen from '../parent/AppointmentScreen';
-import AIParentingTipsScreen from '../parent/AIParentingTips';
-import ParentMessagesScreen from '../parent/ParentMessagesScreen';
-import ParentNewChatScreen from '../parent/ParentNewChatScreen';
-import ChatScreen from '../shared/ChatScreen';
-import SchoolUtilitiesScreen from '../parent/SchoolUtilitiesScreen';
-import GlobalSearchScreen from '../shared/GlobalSearchScreen';
-import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
-import ParentTodayWidget from '../parent/ParentTodayWidget';
-
-
-import ParentChangePasswordScreen from '../parent/ParentChangePasswordScreen';
-import { UnifiedParentHome } from './UnifiedParentHome';
-import { FeesPiggyBank } from './FeesPiggyBank';
-import { SmartCalendar } from './SmartCalendar';
 
 // Phase 5: Parent & Community Empowerment Components
-import VolunteerSignup from '../parent/VolunteerSignup';
+import VolunteerSignup from './VolunteerSignup';
 import ConferenceScheduling from '../shared/ConferenceScheduling';
 import SurveysAndPolls from '../shared/SurveysAndPolls';
 import DonationPortal from '../shared/DonationPortal';
@@ -438,7 +443,9 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
 
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
     const [parentId, setParentId] = useState<string | null>(null);
+
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [parentProfile, setParentProfile] = useState<{ name: string; avatarUrl: string; schoolGeneratedId?: string }>({ 
         name: user?.user_metadata?.full_name || 'Parent', 
@@ -505,7 +512,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                 }
             } catch (err) {
                 console.error("Error in Parent Portal data load:", err);
-                // setProfileError(true); // Don't block entirely on transient errors
+                setProfileError(true);
             } finally {
                 setLoadingProfile(false);
                 setLoadingStudents(false);
@@ -556,18 +563,69 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         piggyBank: (props: any) => <FeesPiggyBank {...props} />,
         smartCalendar: SmartCalendar,
         todaySummary: (props: any) => <ParentTodayWidget {...props} />,
-        childDetail: ChildDetailScreen, examSchedule: ExamSchedule, noticeboard: (props: any) => <NoticeboardScreen {...props} userType="parent" />,
+        childDetail: (props: any) => (
+            <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-50 rounded-3xl min-h-[60vh]">
+                <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ChartBarIcon className="w-8 h-8 text-indigo-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-800">Student Profile</h2>
+                    <p className="text-gray-500 mt-2">The enhanced profile view is being optimized.<br/>Please use the Report Card or Academics tabs for now.</p>
+                    <button 
+                        onClick={() => props.navigateTo('dashboard', 'Parent Dashboard')}
+                        className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+                    >
+                        Back to Dashboard
+                    </button>
+                </div>
+            </div>
+        ),
+        examSchedule: ExamSchedule,
+        noticeboard: (props: any) => <NoticeboardScreen {...props} userType="parent" />,
         notifications: (props: any) => <NotificationsScreen {...props} userType="parent" navigateTo={navigateTo} />,
-        calendar: CalendarScreen, library: LibraryScreen, busRoute: BusRouteScreen, feeStatus: (props: any) => <FeeStatusScreen {...props} parentId={parentId} />,
+        calendar: CalendarScreen,
+        library: LibraryScreen,
+        busRoute: BusRouteScreen,
+        feeStatus: (props: any) => <FeeStatusScreen {...props} parentId={parentId} />,
         selectReport: (props: any) => <SelectChildForReportScreen {...props} parentId={parentId} />,
-        reportCard: ReportCardScreen, timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'parent', userId: parentId || '' }} students={students} />, more: ParentProfileScreen, editParentProfile: EditParentProfileScreen,
-        feedback: FeedbackScreen, notificationSettings: ParentNotificationSettingsScreen, securitySettings: ParentSecurityScreen,
+        reportCard: ReportCardScreen,
+        timetable: (props: any) => <TimetableScreen {...props} context={{ userType: 'parent', userId: parentId || '' }} students={students} />,
+        more: ParentProfileScreen,
+        editParentProfile: EditParentProfileScreen,
+        feedback: FeedbackScreen,
+        notificationSettings: ParentNotificationSettingsScreen,
+        securitySettings: ParentSecurityScreen,
         parentChangePassword: ParentChangePasswordScreen,
-        learningResources: LearningResourcesScreen, schoolPolicies: SchoolPoliciesScreen, ptaMeetings: PTAMeetingScreen, photoGallery: ParentPhotoGalleryScreen,
-        volunteering: VolunteeringScreen, permissionSlips: PermissionSlipScreen, appointments: (props: any) => <AppointmentScreen {...props} parentId={user?.id} students={students} />,
-        aiParentingTips: AIParentingTipsScreen, messages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.participant?.name || 'Chat', { conversation: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,
-        newChat: ParentNewChatScreen, chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId ?? 0} />, schoolUtilities: SchoolUtilitiesScreen,
-        volunteerSignup: VolunteerSignup, conferenceScheduling: ConferenceScheduling, surveysAndPolls: SurveysAndPolls, donationPortal: DonationPortal, communityResources: CommunityResourceDirectory, referralSystem: ReferralSystem, panicButton: PanicButton, mentalHealthResources: MentalHealthResources,
+        learningResources: LearningResourcesScreen,
+        schoolPolicies: SchoolPoliciesScreen,
+        ptaMeetings: PTAMeetingScreen,
+        photoGallery: ParentPhotoGalleryScreen,
+        volunteering: VolunteeringScreen,
+        permissionSlips: PermissionSlipScreen,
+        appointments: (props: any) => <AppointmentScreen {...props} parentId={user?.id} students={students} />,
+        aiParentingTips: AIParentingTipsScreen,
+        messages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.participant?.name || 'Chat', { conversation: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,
+        newChat: ParentNewChatScreen,
+        chat: (props: any) => <ChatScreen {...props} currentUserId={currentUserId ?? 0} />,
+        schoolUtilities: SchoolUtilitiesScreen,
+        volunteerSignup: VolunteerSignup,
+        conferenceScheduling: ConferenceScheduling,
+        surveysAndPolls: SurveysAndPolls,
+        donationPortal: DonationPortal,
+        communityResources: CommunityResourceDirectory || (() => null),
+        referralSystem: ReferralSystem || (() => null),
+        panicButton: PanicButton || (() => null),
+        mentalHealthResources: MentalHealthResources || (() => null),
+        attendance: (props: any) => <AttendanceScreen {...props} />,
+        // Alias mappings for widget navigation
+        attendanceOverview: (props: any) => <AttendanceScreen {...props} />,
+        parentMessages: (props: any) => <ParentMessagesScreen {...props} onSelectChat={(convo: any) => navigateTo('chat', convo.participant?.name || 'Chat', { conversation: convo })} onNewChat={() => navigateTo('newChat', 'New Chat')} />,
+        schoolCalendar: CalendarScreen,
+        assignments: (props: any) => {
+            const student = props.student || students[0];
+            return student ? <ChildDetailScreen {...props} student={student} initialTab="academics" /> : <UnifiedParentHome {...props} />;
+        },
+        linkChild: (props: any) => <LinkChildScreen {...props} />,
     };
 
     // Expose navigation for automated E2E audits (runs every render so keys are always fresh)
@@ -579,7 +637,26 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     });
 
     const currentNavigation = viewStack[viewStack.length - 1];
-    const ComponentToRender = viewComponents[currentNavigation.view];
+    
+    // Safety check for Component rendering
+    const ComponentToRender = viewComponents[currentNavigation.view] || (() => (
+        <div className="flex flex-col items-center justify-center h-[60vh] p-8 text-center bg-gray-50 rounded-3xl m-4">
+            <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ExclamationCircleIcon className="w-8 h-8 text-amber-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">Feature Coming Soon</h2>
+                <p className="text-gray-500 mt-2">The requested view "{currentNavigation.view}" is being optimized or is not available for your account yet.</p>
+                <button 
+                    onClick={() => setViewStack([{ view: 'dashboard', title: 'Parent Dashboard' }])}
+                    className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+                >
+                    Back to Home
+                </button>
+            </div>
+        </div>
+    ));
+
     const commonProps = { navigateTo, onLogout, handleBack, forceUpdate, parentId, currentUser: user, currentUserId, schoolId, currentBranchId, version, students, loading: loadingStudents };
 
     // Only show loading for parent profile if we have schoolId and it's actually loading
@@ -618,7 +695,13 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
         >
-            <div key={`${viewStack.length}-${version}`} className="w-full h-full">
+            <div key={`${viewStack.length}-${version}`} className="w-full h-full flex flex-col">
+                <div className="absolute top-0 right-0 p-4 z-30 pointer-events-none">
+                    <div className="pointer-events-auto">
+                        <SchoolContextSwitcher currentSchoolName={currentSchool?.name || 'My School'} />
+                    </div>
+                </div>
+
                 <Suspense fallback={<DashboardSuspenseFallback />}>
                     <ComponentToRender {...commonProps} {...currentNavigation.props} />
                 </Suspense>
@@ -626,7 +709,13 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
             <Suspense fallback={<DashboardSuspenseFallback />}>
                 {isSearchOpen && <GlobalSearchScreen onClose={() => setIsSearchOpen(false)} navigateTo={navigateTo} dashboardType={DashboardType.Parent} />}
             </Suspense>
+            <PremiumModal 
+                isOpen={isPremiumModalOpen} 
+                onClose={() => setIsPremiumModalOpen(false)} 
+                featureName="Advanced Student Insights" 
+            />
         </DashboardLayout>
+
     );
 };
 

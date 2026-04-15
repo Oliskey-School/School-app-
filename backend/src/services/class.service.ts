@@ -31,7 +31,10 @@ export class ClassService {
             const classes = await prisma.class.findMany({
                 where: {
                     school_id: schoolId,
-                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                    OR: [
+                        { branch_id: branchId && branchId !== 'all' ? branchId : undefined },
+                        { branch_id: null }
+                    ]
                 },
                 include: {
                     _count: {

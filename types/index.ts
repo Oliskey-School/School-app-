@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 
 // SaaS Types
 export interface School {
@@ -142,8 +142,9 @@ export interface Student {
 
   // Personal Info (Database Fields)
   gender?: string; // TEXT ('Male' | 'Female')
-  birthday?: string; // DATE (dob column in DB) - YYYY-MM-DD
-  dateOfBirth?: string; // Alias for birthday (backwards compatibility)
+  dob?: string; // DATE (dob column in DB) - YYYY-MM-DD
+  birthday?: string; // Alias for dob
+  dateOfBirth?: string; // Alias for dob
   address?: string; // TEXT (âš ï¸ orphaned - not in form)
   avatarUrl: string; // avatar_url TEXT
 

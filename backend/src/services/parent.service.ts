@@ -444,11 +444,12 @@ export class ParentService {
             }
         });
 
-        // Self-Healing: If user is a PARENT but has no Parent record, create one
+        // Self-Healing: If user is a PARENT/ADMIN/TEACHER/PROPRIETOR but has no Parent record, create one
         if (!parent) {
             const user = await prisma.user.findUnique({ where: { id: userId } });
-            if (user && user.role === Role.PARENT) {
-                console.log(`🛠️ [ParentService] Self-healing: Creating missing parent record for user ${userId}`);
+            const allowedRoles = [Role.PARENT, Role.ADMIN, Role.SUPER_ADMIN, Role.PROPRIETOR, Role.TEACHER];
+            if (user && allowedRoles.includes(user.role as any)) {
+                console.log(`🛠️ [ParentService] Self-healing: Creating missing parent record for user ${userId} (${user.role})`);
                 parent = await (prisma.parent.create as any)({
                     data: {
                         user_id: userId,

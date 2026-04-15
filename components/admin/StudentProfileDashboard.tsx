@@ -229,6 +229,48 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                             )}
                         </section>
 
+                        {/* Personal Information Card */}
+                        <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
+                                    <Edit className="w-3 h-3 text-indigo-600" />
+                                </div>
+                                <h3 className="font-bold text-gray-800">Personal Profile</h3>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                                    <span className="text-xs font-semibold text-gray-500 uppercase">Gender</span>
+                                    <span className="text-sm font-bold text-gray-800">{student.gender || 'Not Specified'}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                                    <span className="text-xs font-semibold text-gray-500 uppercase">Date of Birth</span>
+                                    <span className="text-sm font-bold text-gray-800">
+                                        {student.dob || student.birthday || student.dateOfBirth 
+                                            ? new Date(student.dob || student.birthday || student.dateOfBirth || '').toLocaleDateString()
+                                            : 'Not Specified'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-gray-50">
+                                    <span className="text-xs font-semibold text-gray-500 uppercase">Admission #</span>
+                                    <span className="text-sm font-bold text-gray-800">{student.admission_number || 'N/A'}</span>
+                                </div>
+                                <div className="py-2">
+                                    <span className="text-xs font-semibold text-gray-500 uppercase block mb-1">Address</span>
+                                    <p className="text-sm text-gray-700 leading-relaxed italic">
+                                        {student.address || 'No address provided'}
+                                    </p>
+                                </div>
+                                {student.parentName && (
+                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                        <span className="text-xs font-bold text-indigo-600 uppercase block mb-2">Guardian Contact</span>
+                                        <p className="text-sm font-bold text-gray-800 mb-1">{student.parentName}</p>
+                                        <p className="text-xs text-gray-500">{student.parentPhone || student.parentEmail || ''}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
                         {/* Attendance Summary */}
                         <section className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                             <div className="flex items-center gap-2 mb-6">

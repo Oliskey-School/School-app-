@@ -262,7 +262,7 @@ export class StudentService {
                     where: {
                         school_id: schoolId,
                         role: 'ADMIN' as any,
-                        status: 'Active' as any
+                        is_active: true
                     },
                     select: { id: true }
                 });
@@ -408,7 +408,7 @@ export class StudentService {
 
 
     static async getStudentById(schoolId: string, branchId: string | undefined, id: string) {
-        return await prisma.student.findFirst({
+        const student = await prisma.student.findFirst({
             where: {
                 id: id,
                 school_id: schoolId,
@@ -427,6 +427,15 @@ export class StudentService {
                 }
             }
         });
+
+        if (student) {
+            return {
+                ...student,
+                birthday: student.dob, // Defensive mapping for frontend
+                dateOfBirth: student.dob
+            };
+        }
+        return null;
     }
 
     static async updateStudent(schoolId: string, branchId: string | undefined, id: string, updates: any) {
@@ -479,11 +488,12 @@ export class StudentService {
             include: { user: true }
         });
 
-        // Self-Healing: If user is a STUDENT but has no Student record, create one
+        // Self-Healing: If user is a STUDENT/ADMIN but has no Student record, create one
         if (!student) {
             const user = await prisma.user.findUnique({ where: { id: userId } });
-            if (user && user.role === Role.STUDENT) {
-                console.log(`🛠️ [StudentService] Self-healing: Creating missing student record for user ${userId}`);
+            const allowedRoles = [Role.STUDENT, Role.ADMIN, Role.SUPER_ADMIN, Role.PROPRIETOR];
+            if (user && allowedRoles.includes(user.role as any)) {
+                console.log(`🛠️ [StudentService] Self-healing: Creating missing student record for user ${userId} (${user.role})`);
                 
                 // For demo/self-healing, we provide minimal defaults if missing
                 student = await (prisma.student.create as any)({
