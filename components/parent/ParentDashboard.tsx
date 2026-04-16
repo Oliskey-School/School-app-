@@ -408,6 +408,34 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 
+// Helper to strip heavy props before saving to localStorage to prevent QuotaExceededError
+const pruneViewStack = (stack: ViewStackItem[]): ViewStackItem[] => {
+    // Limit stack depth to prevent overflow
+    const limitedStack = stack.length > 8 ? stack.slice(-8) : stack;
+    
+    return limitedStack.map(item => {
+        if (!item.props) return item;
+        
+        // Create a shallow copy of props
+        const prunedProps = { ...item.props };
+        
+        // Remove known heavy data objects
+        // We keep IDs so components can re-derive data from the main students array in commonProps
+        const heavyFields = ['student', 'academicPerformance', 'behaviorNotes', 'reportCards', 'students', 'allTeachers'];
+        heavyFields.forEach(field => {
+            if (prunedProps[field]) {
+                // Preserve ID if it's a student object
+                if (field === 'student' && prunedProps[field].id && !prunedProps.studentId) {
+                    prunedProps.studentId = prunedProps[field].id;
+                }
+                delete prunedProps[field];
+            }
+        });
+        
+        return { ...item, props: prunedProps };
+    });
+};
+
 const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { currentSchool, currentBranchId, user } = useAuth();
     
@@ -429,8 +457,24 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
     // 3. Persist navigation state to localStorage
     useEffect(() => {
         if (user?.id) {
-            localStorage.setItem(`parent_view_stack_${user?.id}`, JSON.stringify(viewStack));
-            localStorage.setItem(`parent_bottom_nav_${user?.id}`, activeBottomNav);
+            try {
+                const prunedStack = pruneViewStack(viewStack);
+                localStorage.setItem(`parent_view_stack_${user?.id}`, JSON.stringify(prunedStack));
+                localStorage.setItem(`parent_bottom_nav_${user?.id}`, activeBottomNav);
+            } catch (e) {
+                console.warn('Failed to save dashboard state to localStorage:', e);
+                // If it fails, we at least don't crash. 
+                // We could try clearing other items if it's a QuotaExceededError
+                if (e instanceof Error && e.name === 'QuotaExceededError') {
+                    // Try to save just the current view to at least have some persistence
+                    try {
+                        const minimalStack = [{ view: viewStack[viewStack.length - 1].view, title: viewStack[viewStack.length - 1].title }];
+                        localStorage.setItem(`parent_view_stack_${user?.id}`, JSON.stringify(minimalStack));
+                    } catch (innerE) {
+                        // Give up persistence for now
+                    }
+                }
+            }
         }
     }, [viewStack, activeBottomNav, user?.id]);
     const handleLogout = () => {
@@ -502,6 +546,8 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                             attendanceStatus: s.attendance_status || 'Present',
                             birthday: s.birthday,
                             schoolGeneratedId: s.school_generated_id,
+                            schoolId: s.school_id,
+                            branchId: s.branch_id,
                             academicPerformance: (s.academic_performance || []).map((a: any) => ({ subject: a.subject, score: a.total || a.score })),
                             behaviorNotes: (s.behavior_notes || []).map((b: any) => ({ id: b.id, date: b.date, type: b.category, title: b.category, note: b.note || '', by: b.reporter_name || 'Teacher' })),
                             reportCards: (s.report_cards || []).filter((r: any) => r.status === 'Published').map((r: any) => ({ term: r.term, session: r.session, status: r.status }))

@@ -330,6 +330,8 @@ export class AcademicService {
         });
 
         // 4. Return aggregated report
+        const academicData = reportBase?.academic_records as any || {};
+        
         return {
             id: reportBase?.id || 'temp-id',
             student_id: studentId,
@@ -338,17 +340,17 @@ export class AcademicService {
             status: reportBase?.status || (reportBase?.is_published ? 'Published' : 'Draft'),
             position: reportBase?.position_in_class,
             total_students: reportBase?.total_students_in_class,
-            academic_records: academicRecords,
+            academic_records: academicRecords.length > 0 ? academicRecords : (academicData.grades || academicData),
             attendance: {
                 total: reportBase?.attendance_count || 0,
-                present: reportBase?.attendance_count || 0, // Mocking for now
+                present: reportBase?.attendance_count || 0,
                 absent: 0,
                 late: 0
             },
             teacher_comment: reportBase?.teacher_remark || '', 
             principal_comment: reportBase?.principal_remark || '',
-            skills: {}, 
-            psychomotor: {}
+            skills: academicData.skills || {}, 
+            psychomotor: academicData.psychomotor || {}
         };
     }
 
@@ -461,6 +463,13 @@ export class AcademicService {
             const totalScore = academicRecords.reduce((acc: number, r: any) => acc + (r.total || 0), 0);
             const avgScore = academicRecords.length > 0 ? totalScore / academicRecords.length : 0;
 
+            // Prepare the structured JSON for academic_records to include everything
+            const academicRecordsJson = {
+                grades: academicRecords,
+                skills: skills || {},
+                psychomotor: psychomotor || {}
+            };
+
             const result = existingRC 
                 ? await tx.reportCard.update({
                     where: { id: existingRC.id },
@@ -469,7 +478,7 @@ export class AcademicService {
                         is_published: status === 'Published',
                         total_score: totalScore,
                         average_score: avgScore,
-                        academic_records: academicRecords as any,
+                        academic_records: academicRecordsJson as any,
                         attendance_count: attendance?.present || 0,
                         principal_remark: principalComment || data.principal_remark,
                         teacher_remark: teacherComment || data.teacher_remark,
@@ -485,7 +494,7 @@ export class AcademicService {
                         is_published: status === 'Published',
                         total_score: totalScore,
                         average_score: avgScore,
-                        academic_records: academicRecords as any,
+                        academic_records: academicRecordsJson as any,
                         attendance_count: attendance?.present || 0,
                         principal_remark: principalComment || data.principal_remark,
                         teacher_remark: teacherComment || data.teacher_remark,

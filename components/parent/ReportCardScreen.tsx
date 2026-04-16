@@ -195,20 +195,23 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
         [student]
     );
 
-    const [activeTerm, setActiveTerm] = useState<string | null>(publishedReportsSummary[0]?.term || null);
+    const [activeReportKey, setActiveReportKey] = useState<string | null>(
+        publishedReportsSummary[0] ? `${publishedReportsSummary[0].term}|${publishedReportsSummary[0].session}` : null
+    );
     const [activeReport, setActiveReport] = useState<ReportCard | null>(null);
     const [loading, setLoading] = useState(false);
 
     const fetchDetails = useCallback(async () => {
-        if (!activeTerm || !student.id) return;
+        if (!activeReportKey || !student.id) return;
 
-        // Find session from summary
-        const summary = publishedReportsSummary.find(r => r.term === activeTerm);
+        // Find session and term from key
+        const [term, session] = activeReportKey.split('|');
+        const summary = publishedReportsSummary.find(r => r.term === term && r.session === session);
         if (!summary) return;
 
         setLoading(true);
         try {
-            const details = await api.getReportCardDetails(student.id, activeTerm, summary.session);
+            const details = await api.getReportCardDetails(student.id, term, session);
             if (details) {
                 // Map database fields to interface if necessary
                 const formattedReport: ReportCard = {
@@ -230,7 +233,7 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
         } finally {
             setLoading(false);
         }
-    }, [activeTerm, student.id, publishedReportsSummary]);
+    }, [activeReportKey, student.id, publishedReportsSummary]);
 
     // Real-time synchronization
     useAutoSync(['report_cards', 'academic_records'], fetchDetails);
@@ -257,16 +260,21 @@ const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
             <div className="max-w-4xl mx-auto">
                 <div className="mb-4 flex justify-between items-center print:hidden">
                     <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg overflow-x-auto scrollbar-hide">
-                        {publishedReportsSummary.map(report => (
-                            <button
-                                key={report.term}
-                                onClick={() => setActiveTerm(report.term)}
-                                className={`px-3 py-1.5 text-sm font-sans font-semibold rounded-md transition-colors whitespace-nowrap ${activeTerm === report.term ? 'bg-white text-green-600 shadow-sm' : 'text-gray-600'
-                                    }`}
-                            >
-                                {report.term}
-                            </button>
-                        ))}
+                        {publishedReportsSummary.map(report => {
+                            const reportKey = `${report.term}|${report.session}`;
+                            const isUniqueSession = publishedReportsSummary.filter(r => r.term === report.term).length > 1;
+                            
+                            return (
+                                <button
+                                    key={reportKey}
+                                    onClick={() => setActiveReportKey(reportKey)}
+                                    className={`px-3 py-1.5 text-sm font-sans font-semibold rounded-md transition-colors whitespace-nowrap ${activeReportKey === reportKey ? 'bg-white text-green-600 shadow-sm' : 'text-gray-600'
+                                        }`}
+                                >
+                                    {report.term} {isUniqueSession ? `(${report.session})` : ''}
+                                </button>
+                            );
+                        })}
                     </div>
                     <button
                         onClick={handlePrint}

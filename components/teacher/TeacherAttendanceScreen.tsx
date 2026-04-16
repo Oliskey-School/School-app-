@@ -109,6 +109,26 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
                 } as unknown as Student;
             });
 
+            // Check for local draft
+            const storageKey = `attendance_draft_${classInfo.id}_${selectedDate}`;
+            const savedDraft = localStorage.getItem(storageKey);
+            if (savedDraft) {
+                try {
+                    const draft = JSON.parse(savedDraft);
+                    // Only apply draft if it contains the same students (to avoid mismatches)
+                    const draftStudentIds = new Set(draft.map((d: any) => String(d.id)));
+                    const currentStudentIds = new Set(studentsWithAttendance.map(s => String(s.id)));
+                    
+                    if (draft.length === studentsWithAttendance.length && 
+                        [...currentStudentIds].every(id => draftStudentIds.has(id))) {
+                        setStudents(draft);
+                        return;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse attendance draft:", e);
+                }
+            }
+
             setStudents(studentsWithAttendance);
 
         } catch (err) {
@@ -122,6 +142,14 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Save draft to localStorage whenever students array changes
+    useEffect(() => {
+        if (students.length > 0 && !isLoading) {
+            const storageKey = `attendance_draft_${classInfo.id}_${selectedDate}`;
+            localStorage.setItem(storageKey, JSON.stringify(students));
+        }
+    }, [students, classInfo.id, selectedDate, isLoading]);
 
     useAutoSync(['attendance', 'students'], fetchData);
 
@@ -169,6 +197,8 @@ const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = 
         try {
             await api.saveAttendance(upsertData);
             toast.success(`Attendance for ${selectedDate} saved successfully!`);
+            // Clear draft after successful save
+            localStorage.removeItem(`attendance_draft_${classInfo.id}_${selectedDate}`);
         } catch (err) {
             console.error('Error submitting attendance:', err);
             toast.error('Failed to save attendance.');

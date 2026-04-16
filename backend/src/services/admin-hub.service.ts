@@ -210,14 +210,19 @@ export class NotificationSettingService {
     }
 
     static async updateSettings(userId: string, data: any) {
+        // Map the flat object from frontend into the categories Json field
+        const settingsData = {
+            categories: data
+        };
+
         // @ts-ignore
         return prisma.notificationSetting.upsert({
             where: { user_id: userId },
             create: {
                 user_id: userId,
-                ...data
+                ...settingsData
             },
-            update: data
+            update: settingsData
         });
     }
 }

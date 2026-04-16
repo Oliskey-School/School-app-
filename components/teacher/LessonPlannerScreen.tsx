@@ -189,6 +189,44 @@ const LessonPlannerScreen: React.FC<{
     const [term3Scheme, setTerm3Scheme] = useState<SchemeWeek[]>([{ week: 1, topic: '', subTopics: [] }]);
     const [isGenerating, setIsGenerating] = useState(false);
 
+    const storageKey = `lesson_planner_draft_${teacherId}`;
+
+    // Load draft on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+                const draft = JSON.parse(saved);
+                if (draft.selectedSubjectId) setSelectedSubjectId(draft.selectedSubjectId);
+                if (draft.selectedClassId) setSelectedClassId(draft.selectedClassId);
+                if (draft.subject) setSubject(draft.subject);
+                if (draft.className) setClassName(draft.className);
+                if (draft.term1Scheme) setTerm1Scheme(draft.term1Scheme);
+                if (draft.term2Scheme) setTerm2Scheme(draft.term2Scheme);
+                if (draft.term3Scheme) setTerm3Scheme(draft.term3Scheme);
+                if (draft.activeTerm) setActiveTerm(draft.activeTerm);
+            }
+        } catch (e) {
+            console.error("Failed to load lesson planner draft:", e);
+        }
+    }, [storageKey]);
+
+    // Save draft on change
+    useEffect(() => {
+        const draft = {
+            selectedSubjectId,
+            selectedClassId,
+            subject,
+            className,
+            term1Scheme,
+            term2Scheme,
+            term3Scheme,
+            activeTerm,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(storageKey, JSON.stringify(draft));
+    }, [selectedSubjectId, selectedClassId, subject, className, term1Scheme, term2Scheme, term3Scheme, activeTerm, storageKey]);
+
     const effectiveTeacherId = teacherId || '';
 
     const fetchHistory = useCallback(async () => {

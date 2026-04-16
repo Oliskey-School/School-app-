@@ -69,6 +69,44 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const [existingReport, setExistingReport] = useState<ReportCard | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+    const storageKey = `report_card_draft_${student.id}_${term}_${session}`;
+
+    // Load draft from localStorage on mount (after initial data load)
+    const loadDraft = useCallback(() => {
+        try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+                const draft = JSON.parse(saved);
+                if (draft.academicData) setAcademicData(draft.academicData);
+                if (draft.skills) setSkills(draft.skills);
+                if (draft.psychomotor) setPsychomotor(draft.psychomotor);
+                if (draft.attendance) setAttendance(draft.attendance);
+                if (draft.teacherComment) setTeacherComment(draft.teacherComment);
+                if (draft.principalComment) setPrincipalComment(draft.principalComment);
+                return true;
+            }
+        } catch (e) {
+            console.error("Failed to load draft:", e);
+        }
+        return false;
+    }, [storageKey]);
+
+    // Save draft to localStorage whenever data changes
+    useEffect(() => {
+        if (loading) return; // Don't save while initial loading is happening
+        
+        const draft = {
+            academicData,
+            skills,
+            psychomotor,
+            attendance,
+            teacherComment,
+            principalComment,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(storageKey, JSON.stringify(draft));
+    }, [academicData, skills, psychomotor, attendance, teacherComment, principalComment, storageKey, loading]);
+
     // Fetch Teacher Profile for permissions check
     const [currentUserTeacher, setCurrentUserTeacher] = useState<Teacher | null>(null);
 
@@ -228,6 +266,10 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                 setTeacherComment(report.teacherComment || '');
                 setPrincipalComment(report.principalComment || '');
             }
+
+            // After loading from API, check if there's a newer local draft
+            loadDraft();
+
         } catch (err) {
             console.error("Error loading report card data:", err);
             toast.error("Failed to load report card data.");
@@ -348,6 +390,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
 
         if (success) {
             toast.success(`Report card has been ${status === 'Draft' ? 'saved as a draft' : 'submitted for review'}.`);
+            localStorage.removeItem(storageKey);
             handleBack();
         } else {
             toast.error("Failed to save report card. Please try again.");

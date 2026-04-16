@@ -84,7 +84,10 @@ router.use('/pta', parentRoutes);
 router.use('/volunteering', parentRoutes);
 router.use('/notices', noticeRoutes);
 router.use('/attendance', attendanceRoutes);
-router.use('/notifications', notificationRoutes);
+router.use('/notifications', (req, res, next) => {
+    console.log(`🔔 [Index] Notification route hit: ${req.method} ${req.url}`);
+    next();
+}, notificationRoutes);
 router.use('/report-cards', reportCardRoutes);
 router.use('/assignments', assignmentRoutes);
 router.use('/exams', examRoutes);

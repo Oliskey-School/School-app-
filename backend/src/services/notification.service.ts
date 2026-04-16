@@ -3,20 +3,50 @@ import { SocketService } from './socket.service';
 
 export class NotificationService {
     static async createNotification(schoolId: string, branchId: string | undefined, notificationData: any) {
-        // Destructure to prevent conflicts with explicitly provided IDs
-        const { school_id, branch_id, ...data } = notificationData;
+        console.log('🔔 [NotificationService] createNotification received:', JSON.stringify(notificationData));
+        const { 
+            school_id, 
+            branch_id, 
+            user_id, 
+            recipient_id, 
+            recipient_type, 
+            audience,
+            title,
+            message,
+            category,
+            is_read,
+            metadata // Extract to avoid passing to Prisma if not in schema
+        } = notificationData;
+
+        // Map recipient_id to user_id if provided
+        const targetUserId = user_id || recipient_id;
+        
+        // Map recipient_type to audience if provided
+        let targetAudience = Array.isArray(audience) ? audience : [];
+        if (recipient_type && !targetAudience.includes(recipient_type)) {
+            targetAudience.push(recipient_type);
+        }
+
+        const dataToCreate = {
+            title,
+            message,
+            category: category || 'System',
+            user_id: targetUserId,
+            audience: targetAudience,
+            is_read: is_read || false,
+            school_id: schoolId,
+            branch_id: branchId && branchId !== 'all' ? branchId : null
+        };
+        
+        console.log('🔔 [NotificationService] Prisma data payload:', JSON.stringify(dataToCreate));
 
         const notification = await prisma.notification.create({
-            data: {
-                ...data,
-                school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : null
-            }
+            data: dataToCreate
         });
 
         // Emit to specific user if targeted
-        if (data.user_id) {
-            SocketService.emit(`user:${data.user_id}:notification`, notification);
+        if (targetUserId) {
+            SocketService.emit(`user:${targetUserId}:notification`, notification);
         } else {
             // Emit to school if it's a broadcast
             SocketService.emitToSchool(schoolId, 'notification:received', notification);
@@ -98,6 +128,50 @@ export class NotificationService {
                 ]
             },
             orderBy: { sent_at: 'desc' }
+        });
+    }
+
+    // Notification Settings
+    static async getSettingsByUserId(userId: string) {
+        let settings = await prisma.notificationSetting.findUnique({
+            where: { user_id: userId }
+        });
+
+        if (!settings) {
+            // Initialize with defaults if not exists
+            const defaultCategories = {
+                emailAlerts: true,
+                pushNotifications: true,
+                weeklySummary: false,
+                assignmentReminders: true,
+                attendanceAlerts: true,
+                paymentReminders: true
+            };
+
+            settings = await prisma.notificationSetting.create({
+                data: {
+                    user_id: userId,
+                    categories: defaultCategories,
+                    digest_time: '19:00'
+                }
+            });
+        }
+
+        return settings;
+    }
+
+    static async updateSettingsByUserId(userId: string, data: any) {
+        return await prisma.notificationSetting.upsert({
+            where: { user_id: userId },
+            update: {
+                categories: data,
+                updated_at: new Date()
+            },
+            create: {
+                user_id: userId,
+                categories: data,
+                digest_time: '19:00'
+            }
         });
     }
 }

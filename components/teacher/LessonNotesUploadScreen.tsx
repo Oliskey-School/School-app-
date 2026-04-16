@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { BookOpenIcon, PlusIcon, UploadIcon, CheckCircleIcon, ClockIcon, getFormattedClassName } from '../../constants';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useAuth } from '../../context/AuthContext';
+import { usePersistentForm } from '../../hooks/usePersistentForm';
 
 interface LessonNotesUploadScreenProps {
     handleBack: () => void;
@@ -14,24 +15,48 @@ interface LessonNotesUploadScreenProps {
     currentBranchId?: string | null;
 }
 
+const INITIAL_FORM_DATA = {
+    selectedClassId: '',
+    selectedSubjectId: '',
+    term: 'First Term',
+    week: 1,
+    title: '',
+    content: '',
+    fileUrl: ''
+};
+
 const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handleBack, teacherId, schoolId, currentBranchId }) => {
-    const [selectedClassId, setSelectedClassId] = useState<string>('');
-    const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
-    const [term, setTerm] = useState<string>('First Term');
-    const [week, setWeek] = useState<number>(1);
-    const [title, setTitle] = useState<string>('');
-    const [content, setContent] = useState<string>('');
-    const [fileUrl, setFileUrl] = useState<string>('');
+    const { formData, updateField, clearDraft } = usePersistentForm(
+        `lesson_note_draft_${teacherId}`,
+        INITIAL_FORM_DATA
+    );
+    
+    const { 
+        selectedClassId, 
+        selectedSubjectId, 
+        term, 
+        week, 
+        title, 
+        content, 
+        fileUrl 
+    } = formData;
+
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const { user, currentSchool } = useAuth(); // Standard hook call
     const { classes: rawClasses, subjects: allSubjects, assignments: rawAssignments, loading: classesLoading } = useTeacherClasses(teacherId);
 
     const classes = React.useMemo(() => {
-        return rawClasses.map(c => ({
-            id: c.id as any,
-            name: getFormattedClassName(c.grade, c.section)
-        }));
+        const uniqueClasses = new Map();
+        rawClasses.forEach(c => {
+            if (!uniqueClasses.has(c.id)) {
+                uniqueClasses.set(c.id, {
+                    id: c.id as any,
+                    name: getFormattedClassName(c.grade, c.section)
+                });
+            }
+        });
+        return Array.from(uniqueClasses.values());
     }, [rawClasses]);
 
     // EXCLUSIVE: Filter subjects based on selected class to ensure strict assignment
@@ -77,9 +102,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
 
             if (success) {
                 toast.success("Lesson note uploaded successfully!");
-                setTitle('');
-                setContent('');
-                setFileUrl('');
+                clearDraft();
             } else {
                 toast.error("Failed to upload note.");
             }
@@ -115,7 +138,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
-                                <select value={term} onChange={e => setTerm(e.target.value)} className="w-full p-2 border rounded-lg">
+                                <select value={term} onChange={e => updateField('term', e.target.value)} className="w-full p-2 border rounded-lg">
                                     <option>First Term</option>
                                     <option>Second Term</option>
                                     <option>Third Term</option>
@@ -123,14 +146,14 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Week</label>
-                                <input type="number" min="1" max="13" value={week} onChange={e => setWeek(parseInt(e.target.value))} className="w-full p-2 border rounded-lg" />
+                                <input type="number" min="1" max="13" value={week} onChange={e => updateField('week', parseInt(e.target.value))} className="w-full p-2 border rounded-lg" />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                                <select value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} className="w-full p-2 border rounded-lg">
+                                <select value={selectedSubjectId} onChange={e => updateField('selectedSubjectId', e.target.value)} className="w-full p-2 border rounded-lg">
                                     <option value="">Select Subject</option>
                                     {filteredSubjects.map(s => (
                                         <option key={s.id} value={s.id}>{s.name} ({s.gradeLevel || 'Gen'})</option>
@@ -139,7 +162,7 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                                <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="w-full p-2 border rounded-lg">
+                                <select value={selectedClassId} onChange={e => updateField('selectedClassId', e.target.value)} className="w-full p-2 border rounded-lg">
                                     <option value="">Select Class</option>
                                     {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
@@ -148,19 +171,19 @@ const LessonNotesUploadScreen: React.FC<LessonNotesUploadScreenProps> = ({ handl
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Note Title</label>
-                            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., Introduction to Photosynthesis" className="w-full p-2 border rounded-lg" />
+                            <input type="text" value={title} onChange={e => updateField('title', e.target.value)} placeholder="e.g., Introduction to Photosynthesis" className="w-full p-2 border rounded-lg" />
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Content / Summary</label>
-                            <textarea rows={5} value={content} onChange={e => setContent(e.target.value)} placeholder="Brief summary of the lesson..." className="w-full p-2 border rounded-lg"></textarea>
+                            <textarea rows={5} value={content} onChange={e => updateField('content', e.target.value)} placeholder="Brief summary of the lesson..." className="w-full p-2 border rounded-lg"></textarea>
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Attachment (Optional URL)</label>
                             <div className="flex items-center gap-2">
                                 <UploadIcon className="w-5 h-5 text-gray-400" />
-                                <input type="text" value={fileUrl} onChange={e => setFileUrl(e.target.value)} placeholder="https://..." className="w-full p-2 border rounded-lg" />
+                                <input type="text" value={fileUrl} onChange={e => updateField('fileUrl', e.target.value)} placeholder="https://..." className="w-full p-2 border rounded-lg" />
                             </div>
                             <p className="text-xs text-gray-400 mt-1">Paste a link to your Google Drive or Drop box file.</p>
                         </div>

@@ -52,6 +52,14 @@ export class OnboardingService {
         });
         if (existingCode) throw new Error(`School code "${schoolCode}" is already taken. Please choose a different one.`);
 
+        // Check for existing admin email
+        const existingUser = await prisma.user.findUnique({
+            where: { email: data.adminEmail }
+        });
+        if (existingUser) {
+            throw new Error('Email/Gmail exist before use a diffrent Gmail/Email');
+        }
+
         const schoolSlug = data.schoolName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') + '-' + Date.now().toString(36);
         const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const passwordHash = await bcrypt.hash(data.adminPassword, 12);

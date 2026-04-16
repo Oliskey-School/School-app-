@@ -135,9 +135,53 @@ export const unlinkChild = async (req: AuthRequest, res: Response) => {
 export const createAppointment = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = req.user.branch_id || req.body.branch_id;
-        const result = await ParentService.createAppointment(req.user.school_id, branchId, req.body);
+        const schoolId = req.user.school_id;
+        
+        console.log('📅 [ParentController] createAppointment body:', JSON.stringify(req.body));
+        
+        const { 
+            starts_at, date, title, description, reason,
+            parent_id, requested_by_parent_id,
+            teacher_id,
+            student_id, student_user_id
+        } = req.body;
+
+        // Extremely robust date parsing
+        const rawDate = starts_at || date || req.body.starts_at || req.body.date;
+        if (!rawDate) {
+            return res.status(400).json({ message: 'Appointment date is required' });
+        }
+
+        const appointmentDate = new Date(rawDate);
+        if (isNaN(appointmentDate.getTime())) {
+            console.error('❌ [ParentController] Invalid date received:', rawDate);
+            return res.status(400).json({ message: `Invalid appointment date: ${rawDate}` });
+        }
+
+        console.log('📅 [ParentController] Parsed date:', appointmentDate.toISOString());
+
+        // Prepare data for Prisma
+        const prismaData = {
+            school_id: schoolId,
+            branch_id: (branchId && branchId !== 'all') ? branchId : null,
+            parent_id: parent_id || requested_by_parent_id,
+            teacher_id: teacher_id,
+            student_id: student_id || student_user_id,
+            title: title || `Meeting for Student`,
+            description: description || reason || 'No details provided',
+            date: appointmentDate,
+            status: 'Pending'
+        };
+
+        console.log('📅 [ParentController] Prisma data:', JSON.stringify({ ...prismaData, date: prismaData.date.toISOString() }));
+
+        const result = await (prisma as any).appointment.create({
+            data: prismaData
+        });
+        
         res.status(201).json(result);
     } catch (error: any) {
+        console.error('🔥 [ParentController] createAppointment Error:', error);
         res.status(500).json({ message: error.message });
     }
 };

@@ -72,35 +72,37 @@ export class QuizService {
             // Calculate total_marks from questions (default 1 per question if not set)
             const total_marks = questions.reduce((sum, q) => sum + (q.marks || q.points || 1), 0) || questions.length || 1;
 
+            // Prepare clean data for Prisma (Unchecked input style)
+            const { id: _unusedId, ...restOfQuiz } = quizRest as any;
+            const prismaData = {
+                title: quizRest.title,
+                description: quizRest.description,
+                status: status || 'draft',
+                subject_id,
+                class_id: quizRest.class_id,
+                teacher_id: quizRest.teacher_id,
+                school_id: schoolId,
+                branch_id: (branchId && branchId !== 'all') ? branchId : (quizRest.branch_id || null),
+                time_limit: duration_minutes ?? quizRest.time_limit ?? null,
+                total_marks,
+                is_published: quizRest.is_published ?? false,
+                is_cbt: quizRest.is_cbt ?? false,
+                type: quizRest.type || 'QUIZ'
+            };
+
             let quizData;
             if (quiz.id) {
                 // UPDATE existing quiz
                 quizData = await tx.quiz.update({
                     where: { id: quiz.id },
-                    data: {
-                        ...quizRest,
-                        status: status || 'draft',
-                        subject_id,
-                        time_limit: duration_minutes ?? quizRest.time_limit ?? null,
-                        total_marks,
-                        school_id: schoolId,
-                        branch_id: branchId && branchId !== 'all' ? branchId : null
-                    }
+                    data: prismaData
                 });
                 // Delete existing questions to simplify re-insertion (or we could sync them)
                 await tx.quizQuestion.deleteMany({ where: { quiz_id: quiz.id } });
             } else {
                 // CREATE new quiz
                 quizData = await tx.quiz.create({
-                    data: {
-                        ...quizRest,
-                        status: status || 'draft',
-                        subject_id,
-                        time_limit: duration_minutes ?? quizRest.time_limit ?? null,
-                        total_marks,
-                        school_id: schoolId,
-                        branch_id: branchId && branchId !== 'all' ? branchId : null
-                    }
+                    data: prismaData
                 });
             }
 

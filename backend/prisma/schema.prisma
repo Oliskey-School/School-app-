@@ -248,6 +248,10 @@ model Teacher {
   compliance_documents   Json?
   created_at             DateTime              @default(now())
   updated_at             DateTime              @updatedAt
+  british_qualification    String?
+  degree_certificate       String?
+  notification_preferences Json?                 @default("{\"newSubmission\": true, \"parentMessage\": true, \"weeklySummary\": false}")
+  trcn_certificate         String?
   behavior_notes         BehaviorNote[]
   classes                ClassTeacher[]
   branch                 Branch?               @relation(fields: [branch_id], references: [id])

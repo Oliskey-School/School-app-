@@ -149,7 +149,7 @@ const ClassGradebookScreen: React.FC<{
         setLoading(true);
         try {
 
-            const clsObj = classes.find(c => c.id === selectedClass);
+            const clsObj = classes.find(c => c.id === selectedClass && c.subject === selectedSubject);
             if (!clsObj) {
                 setLoading(false);
                 return;
@@ -353,8 +353,8 @@ const ClassGradebookScreen: React.FC<{
                                 }}
                                 className="text-[10px] font-black uppercase tracking-widest bg-gray-50 border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-purple-200"
                             >
-                                {filteredTerms.map(t => (
-                                    <option key={t.id || t.name} value={t.id || t.name}>
+                                {filteredTerms.map((t, idx) => (
+                                    <option key={`${t.id || t.name}-${idx}`} value={t.id || t.name}>
                                         {t.name}
                                     </option>
                                 ))}
@@ -365,15 +365,20 @@ const ClassGradebookScreen: React.FC<{
 
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         <select
-                            value={selectedClass}
+                            value={`${selectedClass}|${selectedSubject}`}
                             onChange={e => {
-                                const cls = classes.find(c => c.id === e.target.value);
-                                setSelectedClass(e.target.value);
-                                if (cls) setSelectedSubject(cls.subject);
+                                const [clsId, subject] = e.target.value.split('|');
+                                const cls = classes.find(c => c.id === clsId && c.subject === subject);
+                                setSelectedClass(clsId);
+                                if (cls) setSelectedSubject(subject);
                             }}
                             className="w-full sm:w-64 p-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 font-medium focus:ring-2 focus:ring-purple-500 shadow-sm"
                         >
-                            {classes.map(c => <option key={c.id} value={c.id}>{c.name} - {typeof c.subject === 'object' ? (c.subject as any)?.name ?? 'General' : c.subject}</option>)}
+                            {classes.map((c, idx) => (
+                                <option key={`${c.id}-${c.subject}-${idx}`} value={`${c.id}|${c.subject}`}>
+                                    {c.name} - {typeof c.subject === 'object' ? (c.subject as any)?.name ?? 'General' : c.subject}
+                                </option>
+                            ))}
                         </select>
 
                         <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">

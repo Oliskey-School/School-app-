@@ -211,7 +211,7 @@ export class ParentService {
                         school_id: schoolId,
                         branch_id: branchId && branchId !== 'all' ? branchId : null,
                         school_generated_id: schoolGeneratedId,
-                        email_verified: false,
+                        email_verified: true,
                         initial_password: generatedPassword,
                         updated_at: new Date()
                     }
@@ -254,7 +254,9 @@ export class ParentService {
             // 3. Link Children if provided
             const { childIds } = parentData;
             if (childIds && Array.isArray(childIds) && childIds.length > 0) {
-                // Resolve student IDs
+                console.log(`🔗 [ParentService] Attempting to link ${childIds.length} students to parent ${parent.id}`);
+                
+                // Resolve student IDs (handles both UUIDs and school_generated_ids)
                 const students = await tx.student.findMany({
                     where: {
                         school_id: schoolId,
@@ -263,7 +265,7 @@ export class ParentService {
                             { school_generated_id: { in: childIds } }
                         ]
                     },
-                    select: { id: true }
+                    select: { id: true, full_name: true, school_generated_id: true }
                 });
 
                 if (students.length > 0) {
@@ -274,10 +276,14 @@ export class ParentService {
                         branch_id: branchId && branchId !== 'all' ? branchId : null
                     }));
 
-                    await (tx.parentChild.createMany as any)({
+                    const linkedResult = await (tx.parentChild.createMany as any)({
                         data: relations,
                         skipDuplicates: true
                     });
+                    
+                    console.log(`✅ [ParentService] Successfully linked students. Count: ${linkedResult.count || 0}`);
+                } else {
+                    console.warn(`⚠️ [ParentService] No matching students found for IDs: ${childIds.join(', ')}`);
                 }
             }
 
@@ -513,13 +519,53 @@ export class ParentService {
     }
 
     static async createAppointment(schoolId: string, branchId: string | undefined, appointmentData: any) {
+        console.log('[ParentService] createAppointment received:', JSON.stringify(appointmentData));
+        const { 
+            requested_by_parent_id, 
+            teacher_id, 
+            student_user_id, 
+            reason, 
+            starts_at, 
+            ends_at,
+            title,
+            description,
+            parent_id,
+            student_id,
+            date
+        } = appointmentData;
+
+        // Resolve date from starts_at (frontend) or date (backup)
+        const rawDate = starts_at || date;
+        const appointmentDate = new Date(rawDate);
+        
+        console.log('[ParentService] Resolved date:', { 
+            rawDate, 
+            appointmentDate: appointmentDate.toISOString(), 
+            isValid: !isNaN(appointmentDate.getTime()) 
+        });
+
+        // Final fallback if date is still invalid
+        if (isNaN(appointmentDate.getTime())) {
+             console.error('[ParentService] Invalid date for appointment:', { starts_at, date });
+             throw new Error('Invalid appointment date. Please provide a valid date.');
+        }
+
+        const dataToCreate = {
+            school_id: schoolId,
+            branch_id: branchId && branchId !== 'all' ? branchId : null,
+            parent_id: parent_id || requested_by_parent_id,
+            teacher_id: teacher_id,
+            student_id: student_id || student_user_id,
+            title: title || `Appointment regarding Student`,
+            description: description || reason || 'No details provided',
+            date: appointmentDate,
+            status: 'Pending'
+        };
+        
+        console.log('[ParentService] Prisma data payload:', JSON.stringify(dataToCreate));
+
         return await (prisma.appointment.create as any)({
-            data: {
-                ...appointmentData,
-                school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : null,
-                date: new Date(appointmentData.date)
-            }
+            data: dataToCreate
         });
     }
 
@@ -599,105 +645,122 @@ export class ParentService {
     }
 
     static async getChildOverview(schoolId: string, branchId: string | undefined, studentId: string) {
-        // 1. Get Student basic info
-        const student = await prisma.student.findUnique({
-            where: { id: studentId },
-            select: {
-                id: true,
-                full_name: true,
-                grade: true,
-                section: true,
-                school_id: true,
-                branch_id: true,
-                school: { select: { name: true } }
-            }
-        });
-
-        if (!student) throw new Error('Student not found');
-
-        // 2. Get latest Attendance
-        const attendance = await prisma.attendance.findFirst({
-            where: { student_id: studentId },
-            orderBy: { date: 'desc' },
-            select: { status: true, date: true }
-        });
-
-        // 3. Get Assignments due
-        // Fallback-enabled enrollment lookup
-        let enrollment = await prisma.studentEnrollment.findFirst({
-            where: { student_id: studentId, status: 'Active' },
-            select: { class_id: true }
-        });
-
-        if (!enrollment) {
-            enrollment = await prisma.studentEnrollment.findFirst({
-                where: { student_id: studentId },
-                select: { class_id: true }
-            });
-        }
-
-        let classId = enrollment?.class_id;
-
-        // Final fallback: Look up class by grade/section
-        if (!classId) {
-            const fallbackClass = await prisma.class.findFirst({
-                where: {
-                    school_id: schoolId,
-                    grade: student.grade,
-                    section: student.section
-                },
-                select: { id: true }
-            });
-            classId = fallbackClass?.id;
-        }
-
-        let assignmentsDueCount = 0;
-        if (classId) {
-            const submissions = await prisma.assignmentSubmission.findMany({
-                where: { student_id: studentId },
-                select: { assignment_id: true }
-            });
-            const submittedIds = submissions.map(s => s.assignment_id);
-
-            assignmentsDueCount = await prisma.assignment.count({
-                where: {
-                    class_id: classId,
-                    due_date: { gte: new Date() },
-                    id: { notIn: submittedIds }
+        console.log(`🔍 [ParentService] Fetching child overview for student: ${studentId}, school: ${schoolId}`);
+        try {
+            // 1. Get Student basic info
+            console.log('   [1/5] Querying student basic info...');
+            const student = await prisma.student.findUnique({
+                where: { id: studentId },
+                select: {
+                    id: true,
+                    full_name: true,
+                    grade: true,
+                    section: true,
+                    school_id: true,
+                    branch_id: true,
+                    school: { select: { name: true } }
                 }
             });
+
+            if (!student) {
+                console.warn(`   ⚠️ Student ${studentId} not found`);
+                throw new Error('Student not found');
+            }
+            console.log(`   ✅ Found student: ${student.full_name}`);
+
+            // 2. Get latest Attendance
+            console.log('   [2/5] Querying latest attendance...');
+            const attendance = await prisma.attendance.findFirst({
+                where: { student_id: studentId },
+                orderBy: { date: 'desc' },
+                select: { status: true, date: true }
+            });
+            console.log(`   ✅ Attendance status: ${attendance?.status || 'No record'}`);
+
+            // 3. Get Assignments due
+            console.log('   [3/5] Querying assignments due...');
+            let enrollment = await prisma.studentEnrollment.findFirst({
+                where: { student_id: studentId, status: 'Active' },
+                select: { class_id: true }
+            });
+
+            if (!enrollment) {
+                enrollment = await prisma.studentEnrollment.findFirst({
+                    where: { student_id: studentId },
+                    select: { class_id: true }
+                });
+            }
+
+            let classId = enrollment?.class_id;
+
+            if (!classId) {
+                const fallbackClass = await prisma.class.findFirst({
+                    where: {
+                        school_id: schoolId,
+                        grade: student.grade,
+                        section: student.section
+                    },
+                    select: { id: true }
+                });
+                classId = fallbackClass?.id;
+            }
+
+            let assignmentsDueCount = 0;
+            if (classId) {
+                const submissions = await prisma.assignmentSubmission.findMany({
+                    where: { student_id: studentId },
+                    select: { assignment_id: true }
+                });
+                const submittedIds = submissions.map(s => s.assignment_id);
+
+                assignmentsDueCount = await prisma.assignment.count({
+                    where: {
+                        class_id: classId,
+                        due_date: { gte: new Date() },
+                        id: { notIn: submittedIds }
+                    }
+                });
+            }
+            console.log(`   ✅ Assignments due: ${assignmentsDueCount}`);
+
+            // 4. Get Fee Balance
+            console.log('   [4/5] Querying fee balance...');
+            const fees = await prisma.studentFee.findMany({
+                where: { student_id: studentId, status: { not: 'Paid' } },
+                select: { amount: true, paid_amount: true }
+            });
+            const feeBalance = fees.reduce((sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0);
+            console.log(`   ✅ Fee balance: ${feeBalance}`);
+
+            // 5. Get Latest Result
+            console.log('   [5/5] Querying latest performance...');
+            const latestPerformance = await prisma.academicPerformance.findFirst({
+                where: { student_id: studentId },
+                orderBy: { created_at: 'desc' }
+            });
+            console.log(`   ✅ Latest subject: ${latestPerformance?.subject || 'None'}`);
+
+            return {
+                id: student.id,
+                name: student.full_name,
+                grade: `${student.grade}${student.section || ''}`,
+                school_name: student.school.name,
+                attendance: {
+                    status: attendance?.status || 'No record',
+                    date: attendance?.date
+                },
+                assignments_due: assignmentsDueCount,
+                fee_balance: feeBalance,
+                latest_result: latestPerformance ? {
+                    subject: latestPerformance.subject,
+                    score: latestPerformance.score,
+                    trend: latestPerformance.score >= 70 ? 'up' : 'down'
+                } : undefined
+            };
+        } catch (error: any) {
+            console.error(`❌ [ParentService] Detailed error in getChildOverview for ${studentId}:`, error);
+            throw error;
         }
-
-        // 4. Get Fee Balance
-        const fees = await prisma.studentFee.findMany({
-            where: { student_id: studentId, status: { not: 'Paid' } },
-            select: { amount: true, paid_amount: true }
-        });
-        const feeBalance = fees.reduce((sum, f) => sum + (f.amount - (f.paid_amount || 0)), 0);
-
-        // 5. Get Latest Result
-        const latestPerformance = await prisma.academicPerformance.findFirst({
-            where: { student_id: studentId },
-            orderBy: { created_at: 'desc' }
-        });
-
-        return {
-            id: student.id,
-            name: student.full_name,
-            grade: `${student.grade}${student.section || ''}`,
-            school_name: student.school.name,
-            attendance: {
-                status: attendance?.status || 'No record',
-                date: attendance?.date
-            },
-            assignments_due: assignmentsDueCount,
-            fee_balance: feeBalance,
-            latest_result: latestPerformance ? {
-                subject: latestPerformance.subject,
-                score: latestPerformance.score,
-                trend: latestPerformance.score >= 70 ? 'up' : 'down'
-            } : undefined
-        };
     }
 
     static async getStudentFees(schoolId: string, branchId: string | undefined, studentId: string) {

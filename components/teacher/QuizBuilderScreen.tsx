@@ -2,79 +2,78 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { PlusIcon, TrashIcon, SaveIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
-import { Question } from '../../types';
+import { Question, QuestionOption } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { useBranch } from '../../context/BranchContext';
-
+import { usePersistentForm } from '../../hooks/usePersistentForm';
 
 interface QuizBuilderScreenProps {
     teacherId?: number; // Kept for compatibility but ignored for logic
     onClose: () => void;
 }
 
-// Temporary local type for form state before saving
-interface WarningQuestionState {
-    id: number; // temp id
-    text: string;
-    type: 'MultipleChoice' | 'Theory';
-    options: { id: string; text: string; isCorrect: boolean }[];
-    points: number;
-}
+const INITIAL_FORM_DATA = {
+    title: '',
+    subject: '',
+    selectedClassId: '',
+    duration: 30,
+    description: '',
+    questions: [] as Question[],
+    savedQuizId: null as string | null
+};
 
 const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherId: passedTeacherId }) => {
     const { user, currentSchool } = useAuth();
     const { currentBranch } = useBranch();
-    // Pass user.id to the hook. The hook handles null/undefined gracefully.
-    const { classes: teacherClasses, loading: classesLoading } = useTeacherClasses(user?.id);
+    
+    const { formData, setFormData, updateField, clearDraft } = usePersistentForm(
+        `quiz_builder_draft_${user?.id}`,
+        INITIAL_FORM_DATA
+    );
 
-    const [title, setTitle] = useState('');
-    const [subject, setSubject] = useState('');
-    const [selectedClassId, setSelectedClassId] = useState('');
-    const [duration, setDuration] = useState(30);
-    const [description, setDescription] = useState('');
-    const [questions, setQuestions] = useState<WarningQuestionState[]>([]);
+    const { 
+        title, 
+        subject, 
+        selectedClassId, 
+        duration, 
+        description, 
+        questions, 
+        savedQuizId 
+    } = formData;
+
+    const setQuestions = (newQuestions: Question[] | ((prev: Question[]) => Question[])) => {
+        if (typeof newQuestions === 'function') {
+            updateField('questions', newQuestions(questions));
+        } else {
+            updateField('questions', newQuestions);
+        }
+    };
+
+    const setSavedQuizId = (id: string | null) => updateField('savedQuizId', id);
+    const setTitle = (val: string) => updateField('title', val);
+    const setSubject = (val: string) => updateField('subject', val);
+    const setSelectedClassId = (val: string) => updateField('selectedClassId', val);
+    const setDuration = (val: number) => updateField('duration', val);
+    const setDescription = (val: string) => updateField('description', val);
+
+    // Pass user.id to the hook. The hook handles null/undefined gracefully.
+    const { classes: rawTeacherClasses, loading: classesLoading } = useTeacherClasses(user?.id);
+
+    const teacherClasses = React.useMemo(() => {
+        const seen = new Set();
+        return rawTeacherClasses.filter(c => {
+            if (seen.has(c.id)) return false;
+            seen.add(c.id);
+            return true;
+        });
+    }, [rawTeacherClasses]);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [savedQuizId, setSavedQuizId] = useState<string | null>(() => {
-        return localStorage.getItem('draftQuizId');
-    });
 
     // Derived state for saving
     const [schoolId, setSchoolId] = useState<string | null>(null);
     const [profileId, setProfileId] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchExistingQuiz = async () => {
-            if (!savedQuizId) return;
-            try {
-                const data = await api.getQuiz(savedQuizId);
-                if (data) {
-                    setTitle(data.title || '');
-                    setSubject(data.subject || '');
-                    setSelectedClassId(data.class_id || '');
-                    setDuration(data.time_limit || 30);
-                    setDescription(data.description || '');
-                    
-                    if (data.questions && data.questions.length > 0) {
-                        const mappedQuestions: WarningQuestionState[] = data.questions.map((q: any) => ({
-                            id: q.id,
-                            text: q.question_text,
-                            type: q.question_type === 'multiple_choice' ? 'MultipleChoice' : 'Theory',
-                            points: q.points,
-                            options: q.options || []
-                        }));
-                        setQuestions(mappedQuestions);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to fetch existing quiz:", err);
-                localStorage.removeItem('draftQuizId');
-                setSavedQuizId(null);
-            }
-        };
-
-        fetchExistingQuiz();
-    }, [savedQuizId]);
 
     useEffect(() => {
         if (currentSchool?.id) {
@@ -92,8 +91,9 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
     }, [currentSchool, user]);
 
     const addQuestion = (type: 'MultipleChoice' | 'Theory') => {
-        const newQ: WarningQuestionState = {
+        const newQ: Question = {
             id: Date.now(),
+            quizId: savedQuizId || '',
             text: '',
             type,
             options: type === 'MultipleChoice' ? [
@@ -114,7 +114,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
 
     const updateOptionText = (qId: number, optId: string, text: string) => {
         setQuestions(questions.map(q => {
-            if (q.id === qId) {
+            if (q.id === qId && q.options) {
                 return {
                     ...q,
                     options: q.options.map(o => o.id === optId ? { ...o, text } : o)
@@ -126,7 +126,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
 
     const setCorrectOption = (qId: number, optId: string) => {
         setQuestions(questions.map(q => {
-            if (q.id === qId) {
+            if (q.id === qId && q.options) {
                 return {
                     ...q,
                     options: q.options.map(o => ({ ...o, isCorrect: o.id === optId }))
@@ -198,19 +198,18 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                 };
             });
 
-            const result = await api.createQuizWithQuestions(schoolId, currentBranch?.id || undefined, {
+            const result = await api.createQuizWithQuestions({
                 quiz: quizPayload,
                 questions: formattedQuestions
             });
 
             if (result && result.id) {
                 setSavedQuizId(result.id);
-                localStorage.setItem('draftQuizId', result.id);
             }
 
             toast.success(targetStatus === 'draft' ? 'Draft saved successfully!' : 'Quiz submitted for approval!');
             if (targetStatus !== 'draft') {
-                localStorage.removeItem('draftQuizId');
+                clearDraft();
                 onClose();
             }
 
@@ -343,7 +342,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                     {questions.map((q, index) => (
                         <div key={q.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative group transition-all hover:shadow-md">
                             <div className="absolute top-4 right-4">
-                                <button onClick={() => removeQuestion(q.id)} className="text-gray-400 hover:text-red-500">
+                                <button onClick={() => removeQuestion(Number(q.id))} className="text-gray-400 hover:text-red-500">
                                     <TrashIcon className="w-5 h-5" />
                                 </button>
                             </div>
@@ -354,17 +353,17 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                                     <input
                                         type="text"
                                         value={q.text}
-                                        onChange={e => updateQuestionText(q.id, e.target.value)}
+                                        onChange={e => updateQuestionText(Number(q.id), e.target.value)}
                                         placeholder="Enter your question here..."
                                         className="w-full text-lg font-medium border-b border-gray-200 outline-none focus:border-blue-500 pb-2 bg-transparent"
                                     />
 
-                                    {q.type === 'MultipleChoice' && (
+                                    {q.type === 'MultipleChoice' && q.options && (
                                         <div className="space-y-3 mt-4">
                                             {q.options.map((opt) => (
                                                 <div key={opt.id} className="flex items-center space-x-3">
                                                     <button
-                                                        onClick={() => setCorrectOption(q.id, opt.id)}
+                                                        onClick={() => setCorrectOption(Number(q.id), opt.id)}
                                                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${opt.isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
                                                             }`}
                                                         title="Mark as correct answer"
@@ -374,7 +373,7 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
                                                     <input
                                                         type="text"
                                                         value={opt.text}
-                                                        onChange={e => updateOptionText(q.id, opt.id, e.target.value)}
+                                                        onChange={e => updateOptionText(Number(q.id), opt.id, e.target.value)}
                                                         className={`flex-grow p-2 border rounded-lg outline-none text-sm ${opt.isCorrect ? 'border-green-200 bg-green-50/30' : 'border-gray-200 focus:border-blue-500'}`}
                                                         placeholder={`Option ${opt.id}`}
                                                     />
@@ -407,5 +406,3 @@ const QuizBuilderScreen: React.FC<QuizBuilderScreenProps> = ({ onClose, teacherI
 };
 
 export default QuizBuilderScreen;
-
-

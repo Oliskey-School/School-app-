@@ -761,82 +761,95 @@ export class StudentService {
     }
 
     static async getDashboardOverview(schoolId: string, studentId: string, branchId?: string) {
-        const today = new Date();
-        const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
+        console.log(`🔍 [StudentService] Fetching dashboard overview for student: ${studentId}, school: ${schoolId}`);
+        try {
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
 
-        // 1. Get ALL student's enrolled classes
-        const enrollments = await prisma.studentEnrollment.findMany({
-            where: { student_id: studentId, status: 'Active' },
-            include: { class: true }
-        });
+            // 1. Get ALL student's enrolled classes
+            console.log('   [1/5] Querying active enrollments...');
+            const enrollments = await prisma.studentEnrollment.findMany({
+                where: { student_id: studentId, status: 'Active' },
+                include: { class: true }
+            });
 
-        if (enrollments.length === 0) return { timetable: [], assignments: [], quizzes: [], stats: null };
+            if (enrollments.length === 0) {
+                console.warn(`   ⚠️ No active enrollments found for student ${studentId}`);
+                return { timetable: [], assignments: [], quizzes: [], stats: null };
+            }
 
-        const classIds = enrollments.map(e => e.class_id);
+            const classIds = enrollments.map(e => e.class_id);
+            console.log(`   ✅ Found ${enrollments.length} active classes: ${classIds.join(', ')}`);
 
-        const [timetable, assignments, quizzes, stats, notifications] = await Promise.all([
-            // Today's Timetable (from all sections student is in)
-            prisma.timetable.findMany({
-                where: { 
-                    class_id: { in: classIds },
-                    day_of_week: dayOfWeek,
-                    school_id: schoolId
-                },
-                orderBy: { start_time: 'asc' }
-            }),
-            // Pending Assignments
-            prisma.assignment.findMany({
-                where: {
-                    class_id: { in: classIds },
-                    due_date: { gte: today },
-                    is_published: true,
-                    submissions: {
-                        none: { student_id: studentId }
-                    }
-                },
-                take: 5,
-                orderBy: { due_date: 'asc' }
-            }),
-            // Upcoming Quizzes
-            prisma.quiz.findMany({
-                where: {
-                    OR: [
-                        { class_id: { in: classIds } },
-                        { class_id: null, school_id: schoolId } // School-wide quizzes
-                    ],
-                    is_published: true,
-                    submissions: {
-                        none: { student_id: studentId }
-                    }
-                },
-                take: 10, // Increased to show more variety
-                orderBy: { created_at: 'desc' }
-            }),
-            // Stats
-            this.getStudentStats(schoolId, studentId),
-            // Recent system notifications
-            prisma.notification.findMany({
-                where: {
-                    school_id: schoolId,
-                    OR: [
-                        { user_id: studentId }, // Specific to student
-                        { audience: { has: 'student' } } // Generic student audience
-                    ]
-                },
-                take: 5,
-                orderBy: { created_at: 'desc' }
-            })
-        ]);
+            console.log('   [2/5] Running dashboard queries parallelly (timetable, assignments, quizzes, stats, notifications)...');
+            const [timetable, assignments, quizzes, stats, notifications] = await Promise.all([
+                // Today's Timetable (from all sections student is in)
+                prisma.timetable.findMany({
+                    where: { 
+                        class_id: { in: classIds },
+                        day_of_week: dayOfWeek,
+                        school_id: schoolId
+                    },
+                    orderBy: { start_time: 'asc' }
+                }),
+                // Pending Assignments
+                prisma.assignment.findMany({
+                    where: {
+                        class_id: { in: classIds },
+                        due_date: { gte: today },
+                        is_published: true,
+                        submissions: {
+                            none: { student_id: studentId }
+                        }
+                    },
+                    take: 5,
+                    orderBy: { due_date: 'asc' }
+                }),
+                // Upcoming Quizzes
+                prisma.quiz.findMany({
+                    where: {
+                        OR: [
+                            { class_id: { in: classIds } },
+                            { class_id: null, school_id: schoolId } // School-wide quizzes
+                        ],
+                        is_published: true,
+                        submissions: {
+                            none: { student_id: studentId }
+                        }
+                    },
+                    take: 10, // Increased to show more variety
+                    orderBy: { created_at: 'desc' }
+                }),
+                // Stats
+                this.getStudentStats(schoolId, studentId),
+                // Recent system notifications
+                prisma.notification.findMany({
+                    where: {
+                        school_id: schoolId,
+                        OR: [
+                            { user_id: studentId }, // Specific to student
+                            { audience: { has: 'student' } } // Generic student audience
+                        ]
+                    },
+                    take: 5,
+                    orderBy: { created_at: 'desc' }
+                })
+            ]);
+            console.log('   ✅ All queries completed successfully');
 
-        return {
-            timetable,
-            assignments,
-            quizzes,
-            stats,
-            notifications,
-            classes: enrollments.map(e => e.class),
-            primaryClass: enrollments.find(e => e.is_primary)?.class || enrollments[0].class
-        };
+            return {
+                timetable,
+                assignments,
+                quizzes,
+                stats,
+                notifications,
+                classes: enrollments.map(e => e.class),
+                primaryClass: enrollments.find(e => e.is_primary)?.class || enrollments[0].class
+            };
+        } catch (error: any) {
+            console.error(`❌ [StudentService] Detailed error in getDashboardOverview for student ${studentId}:`, error);
+            throw error;
+        }
     }
 
     static async getMySubjects(schoolId: string, studentId: string) {

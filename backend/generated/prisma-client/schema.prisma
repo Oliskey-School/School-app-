@@ -195,6 +195,8 @@ model Student {
   department              String?
   gender                  String?
   dob                     DateTime?
+  address                 String?
+  admission_number        String?
   curriculum_type         String?
   avatar_url              String?
   status                  String                    @default("Active")
@@ -231,50 +233,54 @@ model Student {
 }
 
 model Teacher {
-  id                     String                    @id @default(uuid())
-  user_id                String                    @unique
-  school_id              String
-  branch_id              String?
-  school_generated_id    String?
-  full_name              String
-  email                  String?
-  phone                  String?
-  avatar_url             String?
-  status                 String                    @default("Active")
-  subject_specialty      String[]
-  curriculum_eligibility String[]
-  compliance_documents   Json?
-  created_at             DateTime                  @default(now())
-  updated_at             DateTime                  @updatedAt
-  behavior_notes         BehaviorNote[]
-  classes                ClassTeacher[]
-  branch                 Branch?                   @relation(fields: [branch_id], references: [id])
-  school                 School                    @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  user                   User                      @relation("UserToTeacher", fields: [user_id], references: [id], onDelete: Cascade)
-  attendance             TeacherAttendance[]
-  office_hours           TeacherOfficeHour[]
-  virtual_classes        VirtualClassSession[]
-  resources              Resource[]
-  assignments            Assignment[]
-  lesson_notes           LessonNote[]
-  quizzes                Quiz[]
-  salaries               TeacherSalary[]
-  payslips               Payslip[]
-  timetables             Timetable[]
-  salary_arrears         SalaryArrear[]
-  educational_games      EducationalGame[]
-  leave_requests         LeaveRequest[]
-  pd_enrollments         PDEnrollment[]
-  lesson_plans           LessonPlan[]
-  badges                 TeacherBadge[]
-  recognitions           TeacherRecognition[]      @relation("TeacherRecognitions")
-  given_recognitions     TeacherRecognition[]      @relation("GivenRecognitions")
-  mentor_matches         MentoringMatch[]          @relation("MentorMatches")
-  mentee_matches         MentoringMatch[]          @relation("MenteeMatches")
-  certificates           PDCertificate[]
-  availabilities         TeacherAvailability[]
-  conferences            ParentTeacherConference[]
-  counseling_sessions    CounselingAppointment[]   @relation("CounselorAppointments")
+  id                       String                    @id @default(uuid())
+  user_id                  String                    @unique
+  school_id                String
+  branch_id                String?
+  school_generated_id      String?
+  full_name                String
+  email                    String?
+  phone                    String?
+  avatar_url               String?
+  status                   String                    @default("Active")
+  subject_specialty        String[]
+  curriculum_eligibility   String[]
+  compliance_documents     Json?
+  created_at               DateTime                  @default(now())
+  updated_at               DateTime                  @updatedAt
+  british_qualification    String?
+  degree_certificate       String?
+  notification_preferences Json?                     @default("{\"newSubmission\": true, \"parentMessage\": true, \"weeklySummary\": false}")
+  trcn_certificate         String?
+  behavior_notes           BehaviorNote[]
+  classes                  ClassTeacher[]
+  branch                   Branch?                   @relation(fields: [branch_id], references: [id])
+  school                   School                    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  user                     User                      @relation("UserToTeacher", fields: [user_id], references: [id], onDelete: Cascade)
+  attendance               TeacherAttendance[]
+  office_hours             TeacherOfficeHour[]
+  virtual_classes          VirtualClassSession[]
+  resources                Resource[]
+  assignments              Assignment[]
+  lesson_notes             LessonNote[]
+  quizzes                  Quiz[]
+  salaries                 TeacherSalary[]
+  payslips                 Payslip[]
+  timetables               Timetable[]
+  salary_arrears           SalaryArrear[]
+  educational_games        EducationalGame[]
+  leave_requests           LeaveRequest[]
+  pd_enrollments           PDEnrollment[]
+  lesson_plans             LessonPlan[]
+  badges                   TeacherBadge[]
+  recognitions             TeacherRecognition[]      @relation("TeacherRecognitions")
+  given_recognitions       TeacherRecognition[]      @relation("GivenRecognitions")
+  mentor_matches           MentoringMatch[]          @relation("MentorMatches")
+  mentee_matches           MentoringMatch[]          @relation("MenteeMatches")
+  certificates             PDCertificate[]
+  availabilities           TeacherAvailability[]
+  conferences              ParentTeacherConference[]
+  counseling_sessions      CounselingAppointment[]   @relation("CounselorAppointments")
 }
 
 model TeacherAttendance {
@@ -469,18 +475,20 @@ model Assignment {
 }
 
 model AssignmentSubmission {
-  id            String     @id @default(uuid())
-  assignment_id String
-  student_id    String
-  submitted_at  DateTime   @default(now())
-  status        String     @default("Submitted")
-  grade         Float?
-  feedback      String?
-  content       String?
-  files         Json?
-  created_at    DateTime   @default(now())
-  assignment    Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
-  student       Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  id              String     @id @default(uuid())
+  assignment_id   String
+  student_id      String
+  submitted_at    DateTime   @default(now())
+  status          String     @default("Submitted")
+  grade           Float?
+  feedback        String?
+  text_submission String?
+  file_url        String?
+  created_at      DateTime   @default(now())
+  assignment      Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  student         Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id, assignment_id])
 }
 
 model ReportCard {

@@ -63,3 +63,23 @@ export const getMyPlatformNotifications = async (req: AuthRequest, res: Response
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getNotificationSettings = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user.id;
+        const result = await NotificationService.getSettingsByUserId(userId);
+        res.json(result.categories);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateNotificationSettings = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user.id;
+        const result = await NotificationService.updateSettingsByUserId(userId, req.body);
+        res.json(result.categories);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

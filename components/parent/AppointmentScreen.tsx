@@ -5,6 +5,7 @@ import { api } from '../../lib/api';
 import { Teacher, AppointmentSlot, Student } from '../../types';
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CheckCircleIcon, CalendarIcon, UserIcon, StudentNavIcon, CircleUser } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
+import PremiumLoader from '../ui/PremiumLoader';
 
 // Inline mock data to guarantee availability
 const mockAppointmentSlots: AppointmentSlot[] = [
@@ -101,14 +102,12 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
         return days;
     }, []);
 
-    // In a real app, this would be an API call based on teacher and date
     const availableSlots = useMemo(() => {
         if (!selectedTeacher) return [];
         return mockAppointmentSlots;
     }, [selectedTeacher, selectedDate]);
 
-    const handleBooking = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleBooking = async () => {
         if (!selectedStudent || !selectedTeacher || !selectedSlot || !reason) {
             toast.error("Please select a student, teacher, time slot, and provide a reason.");
             return;
@@ -121,7 +120,6 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
         setIsBooking(true);
         try {
-            // Parse time (e.g., "08:00 AM")
             const [time, modifier] = selectedSlot.split(' ');
             let [hours, minutes] = time.split(':').map(Number);
             if (modifier === 'PM' && hours < 12) hours += 12;
@@ -134,34 +132,20 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
             endsAt.setMinutes(startsAt.getMinutes() + 30);
 
             const appointmentData = await api.createAppointment({
-                requested_by_parent_id: parentId,
-                staff_user_id: selectedTeacher.user_id,
+                parent_id: parentId,
                 teacher_id: selectedTeacher.id,
-                student_user_id: selectedStudent.user_id,
+                student_id: selectedStudent.id,
+                title: `Meeting for ${selectedStudent.name}`,
+                description: reason,
+                date: startsAt.toISOString(),
+                staff_user_id: selectedTeacher.user_id,
                 staff_type: 'teacher',
                 starts_at: startsAt.toISOString(),
                 ends_at: endsAt.toISOString(),
-                reason: reason,
                 branch_id: selectedStudent.branchId || currentBranchId,
                 school_id: currentSchool.id
             });
 
-            console.log("Booking Payload:", {
-                school_id: currentSchool.id,
-                requested_by_parent_id: parentId,
-                staff_user_id: selectedTeacher.user_id,
-                teacher_id: selectedTeacher.id,
-                student_user_id: selectedStudent.user_id,
-                staff_type: 'teacher',
-                starts_at: startsAt.toISOString(),
-                ends_at: endsAt.toISOString(),
-                reason: reason,
-                status: 'Pending'
-            });
-
-            // api.createAppointment throws on error, so if we got here it succeeded
-
-            // Trigger Notification for Teacher
             if (selectedTeacher.user_id) {
                 try {
                     await api.createNotification({
@@ -177,11 +161,10 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                     });
                 } catch (notifError) {
                     console.error("Failed to send notification:", notifError);
-                    // Don't block success UI if notification fails
                 }
             }
             setIsBooked(true);
-
+            toast.success("Appointment scheduled successfully!");
         } catch (err) {
             console.error("Booking error:", err);
             toast.error("Failed to book appointment. Please try again.");
@@ -243,190 +226,207 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
     return (
         <div className="flex flex-col h-full bg-gray-50/50">
-            {/* Main Content Area */}
             <main className="flex-grow overflow-y-auto pb-24 no-scrollbar">
                 <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
+                    <div className="mb-2">
+                        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Parent-Teacher Appointment</h1>
+                        <p className="text-gray-500 mt-2 font-medium">Schedule a meeting with your child's teachers to discuss their academic progress.</p>
+                    </div>
 
-                    {/* Step 1: Student Selection */}
-                    <section>
-                        <div className="flex items-center mb-4">
-                            <span className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold mr-3 text-sm">1</span>
-                            <h2 className="text-xl font-bold text-gray-800">Select Student</h2>
-                        </div>
-
-                        <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
-                            {students.map(student => (
-                                <button
-                                    key={student.id}
-                                    onClick={() => setSelectedStudent(student)}
-                                    className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedStudent?.id === student.id
-                                        ? 'bg-white border-sky-500 ring-2 ring-sky-200 shadow-lg scale-105'
-                                        : 'bg-white border-gray-200 hover:border-sky-300 hover:shadow-md'
-                                        }`}
-                                >
-                                    <div className="relative inline-block mb-3">
-                                        {student.avatarUrl ? (
-                                            <img
-                                                src={student.avatarUrl}
-                                                alt={student.name}
-                                                className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
-                                            />
-                                        ) : (
-                                            <div className="w-16 h-16 rounded-full bg-sky-100 flex items-center justify-center border-2 border-white shadow-sm text-sky-600 font-bold text-xl">
-                                                {student.name.charAt(0)}
-                                            </div>
-                                        )}
-                                        {selectedStudent?.id === student.id && (
-                                            <div className="absolute -bottom-1 -right-1 bg-sky-500 rounded-full p-1 border-2 border-white">
-                                                <CheckCircleIcon className="w-3 h-3 text-white" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <h3 className="font-bold text-gray-800 text-sm truncate">{student.name}</h3>
-                                    <p className="text-xs text-gray-500 mt-1 truncate">Grade {student.grade}</p>
-                                </button>
-                            ))}
-                        </div>
-                    </section>
-
-                    {/* Step 2: Teacher Selection */}
-                    <div className={`transition-opacity duration-500 ${selectedStudent ? 'opacity-100' : 'opacity-40 pointer-events-none filter blur-sm'}`}>
-                        <section>
-                            <div className="flex items-center mb-4">
-                                <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">2</span>
-                                <h2 className="text-xl font-bold text-gray-800">Select Teacher</h2>
+                    {students.length === 0 ? (
+                        <div className="bg-white rounded-3xl p-12 text-center shadow-sm border border-gray-100 mt-8 max-w-2xl mx-auto">
+                            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <CalendarIcon className="w-10 h-10 text-green-600" />
                             </div>
+                            <h2 className="text-2xl font-bold text-gray-800">No Students Linked</h2>
+                            <p className="text-gray-500 mt-4 leading-relaxed">
+                                You need to link your account to at least one student before you can book appointments with teachers. 
+                                Linking ensures you see the correct teachers for your child's classes.
+                            </p>
+                            <button 
+                                onClick={() => navigateTo('linkChild', 'Link Child')}
+                                className="mt-8 px-8 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-100 hover:bg-green-700 transition-all flex items-center mx-auto space-x-2"
+                            >
+                                <span>Link a Student Now</span>
+                                <ChevronRightIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <section>
+                                <div className="flex items-center mb-4">
+                                    <span className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold mr-3 text-sm">1</span>
+                                    <h2 className="text-xl font-bold text-gray-800">Select Student</h2>
+                                </div>
 
-                            <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
-                                {activeTeachers.length > 0 ? (
-                                    activeTeachers.map(teacher => (
+                                <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
+                                    {students.map(student => (
                                         <button
-                                            key={teacher.id}
-                                            onClick={() => setSelectedTeacher(teacher)}
-                                            className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
-                                                ? 'bg-white border-green-500 ring-2 ring-green-200 shadow-lg scale-105'
-                                                : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-md'
+                                            key={student.id}
+                                            onClick={() => setSelectedStudent(student)}
+                                            className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedStudent?.id === student.id
+                                                ? 'bg-white border-sky-500 ring-2 ring-sky-200 shadow-lg scale-105'
+                                                : 'bg-white border-gray-200 hover:border-sky-300 hover:shadow-md'
                                                 }`}
                                         >
                                             <div className="relative inline-block mb-3">
-                                                {teacher.avatarUrl ? (
+                                                {student.avatarUrl ? (
                                                     <img
-                                                        src={teacher.avatarUrl}
-                                                        alt={teacher.name}
+                                                        src={student.avatarUrl}
+                                                        alt={student.name}
                                                         className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
                                                     />
                                                 ) : (
-                                                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center border-2 border-white shadow-sm text-green-600 font-bold text-xl">
-                                                        {teacher.name.charAt(0)}
+                                                    <div className="w-16 h-16 rounded-full bg-sky-100 flex items-center justify-center border-2 border-white shadow-sm text-sky-600 font-bold text-xl">
+                                                        {student.name.charAt(0)}
                                                     </div>
                                                 )}
-                                                {selectedTeacher?.id === teacher.id && (
-                                                    <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
+                                                {selectedStudent?.id === student.id && (
+                                                    <div className="absolute -bottom-1 -right-1 bg-sky-500 rounded-full p-1 border-2 border-white">
                                                         <CheckCircleIcon className="w-3 h-3 text-white" />
                                                     </div>
                                                 )}
                                             </div>
-                                            <h3 className="font-bold text-gray-800 text-sm truncate">{teacher.name}</h3>
-                                            <p className="text-xs text-gray-500 mt-1 truncate">{teacher.subjects[0] || 'General'}</p>
-                                        </button>
-                                    ))
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center w-full py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                            <CircleUser className="w-8 h-8 text-gray-400" />
-                                        </div>
-                                        <h3 className="text-lg font-semibold text-gray-900">No teachers found</h3>
-                                        <p className="text-sm text-gray-500 max-w-xs text-center">
-                                            We couldn't find any active teachers for this school branch. Please contact the school admin.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                    </div>
-
-                    {/* Step 3 & 4 Combined Container */}
-                    <div className={`transition-opacity duration-500 ${selectedTeacher ? 'opacity-100' : 'opacity-40 pointer-events-none filter blur-sm'}`}>
-                        {/* Step 3: Date & Time */}
-                        <section className="mb-8">
-                            <div className="flex items-center mb-4">
-                                <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">3</span>
-                                <h2 className="text-xl font-bold text-gray-800">Date & Time</h2>
-                            </div>
-
-                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                                {/* Date Strip */}
-                                <div className="flex justify-between items-center mb-6 overflow-x-auto pb-2 no-scrollbar">
-                                    {calendarDays.map((date, idx) => {
-                                        const isSelected = date.toDateString() === selectedDate.toDateString();
-                                        return (
-                                            <button
-                                                key={idx}
-                                                onClick={() => setSelectedDate(date)}
-                                                className={`flex flex-col items-center justify-center min-w-[3.5rem] py-3 rounded-xl transition-all ${isSelected
-                                                    ? 'bg-green-600 text-white shadow-md transform scale-105'
-                                                    : 'text-gray-500 hover:bg-gray-50'
-                                                    }`}
-                                            >
-                                                <span className="text-xs font-medium uppercase">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                                <span className="text-lg font-bold mt-1">{date.getDate()}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Divider */}
-                                <div className="h-px bg-gray-100 w-full mb-6"></div>
-
-                                {/* Time Slots */}
-                                <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-                                    {availableSlots.map(slot => (
-                                        <button
-                                            key={slot.time}
-                                            onClick={() => !slot.isBooked && setSelectedSlot(slot.time)}
-                                            disabled={slot.isBooked}
-                                            className={`py-2 px-3 text-sm font-semibold rounded-lg border transition-all ${slot.isBooked
-                                                ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed decoration-slice line-through'
-                                                : selectedSlot === slot.time
-                                                    ? 'bg-green-50 border-green-500 text-green-700 ring-1 ring-green-500'
-                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-600'
-                                                }`}
-                                        >
-                                            {slot.time}
+                                            <h3 className="font-bold text-gray-800 text-sm truncate">{student.name}</h3>
+                                            <p className="text-xs text-gray-500 mt-1 truncate">Grade {student.grade}</p>
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-                        </section>
+                            </section>
 
-                        {/* Step 3: Reason */}
-                        <section>
-                            <div className="flex items-center mb-4">
-                                <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">4</span>
-                                <h2 className="text-xl font-bold text-gray-800">Details</h2>
-                            </div>
-                            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-4">
-                                <textarea
-                                    id="reason"
-                                    value={reason}
-                                    onChange={e => setReason(e.target.value)}
-                                    rows={4}
-                                    placeholder="Briefly describe what you'd like to discuss..."
-                                    className="w-full p-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-green-100 text-gray-700 placeholder-gray-400 resize-none transition-shadow"
-                                />
-                                <div className="text-right mt-2 text-xs text-gray-400">{reason.length} / 500</div>
+                            <div className={`transition-opacity duration-500 ${selectedStudent ? 'opacity-100' : 'opacity-40 pointer-events-none filter blur-sm'}`}>
+                                <section>
+                                    <div className="flex items-center mb-4">
+                                        <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">2</span>
+                                        <h2 className="text-xl font-bold text-gray-800">Select Teacher</h2>
+                                    </div>
 
-                                <button
-                                    onClick={handleBooking}
-                                    disabled={isBooking || !selectedStudent || !selectedTeacher || !selectedSlot || !reason}
-                                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-100 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center space-x-2"
-                                >
-                                    <span>{isBooking ? 'Booking...' : 'Confirm Appointment'}</span>
-                                    <ChevronRightIcon className="w-5 h-5" />
-                                </button>
+                                    <div className="flex space-x-4 overflow-x-auto pb-4 px-2 -mx-2 no-scrollbar">
+                                        {activeTeachers.length > 0 ? (
+                                            activeTeachers.map(teacher => (
+                                                <button
+                                                    key={teacher.id}
+                                                    onClick={() => setSelectedTeacher(teacher)}
+                                                    className={`flex-none w-40 p-4 rounded-2xl border transition-all duration-300 text-center relative group ${selectedTeacher?.id === teacher.id
+                                                        ? 'bg-white border-green-500 ring-2 ring-green-200 shadow-lg scale-105'
+                                                        : 'bg-white border-gray-200 hover:border-green-300 hover:shadow-md'
+                                                        }`}
+                                                >
+                                                    <div className="relative inline-block mb-3">
+                                                        {teacher.avatarUrl ? (
+                                                            <img
+                                                                src={teacher.avatarUrl}
+                                                                alt={teacher.name}
+                                                                className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center border-2 border-white shadow-sm text-green-600 font-bold text-xl">
+                                                                {teacher.name.charAt(0)}
+                                                            </div>
+                                                        )}
+                                                        {selectedTeacher?.id === teacher.id && (
+                                                            <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white">
+                                                                <CheckCircleIcon className="w-3 h-3 text-white" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <h3 className="font-bold text-gray-800 text-sm truncate">{teacher.name}</h3>
+                                                    <p className="text-xs text-gray-500 mt-1 truncate">{teacher.subjects?.[0] || 'General'}</p>
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center w-full py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                                    <CircleUser className="w-8 h-8 text-gray-400" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-gray-900">No teachers found</h3>
+                                                <p className="text-sm text-gray-500 max-w-xs text-center">
+                                                    We couldn't find any active teachers for this branch. Please contact school admin.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
                             </div>
-                        </section>
-                    </div>
+
+                            <div className={`transition-opacity duration-500 ${selectedTeacher ? 'opacity-100' : 'opacity-40 pointer-events-none filter blur-sm'}`}>
+                                <section className="mb-8">
+                                    <div className="flex items-center mb-4">
+                                        <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">3</span>
+                                        <h2 className="text-xl font-bold text-gray-800">Date & Time</h2>
+                                    </div>
+
+                                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                                        <div className="flex justify-between items-center mb-6 overflow-x-auto pb-2 no-scrollbar">
+                                            {calendarDays.map((date, idx) => {
+                                                const isSelected = date.toDateString() === selectedDate.toDateString();
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => setSelectedDate(date)}
+                                                        className={`flex flex-col items-center justify-center min-w-[3.5rem] py-3 rounded-xl transition-all ${isSelected
+                                                            ? 'bg-green-600 text-white shadow-md transform scale-105'
+                                                            : 'text-gray-500 hover:bg-gray-50'
+                                                            }`}
+                                                    >
+                                                        <span className="text-xs font-medium uppercase">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                                        <span className="text-lg font-bold mt-1">{date.getDate()}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="h-px bg-gray-100 w-full mb-6"></div>
+
+                                        <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                                            {availableSlots.map(slot => (
+                                                <button
+                                                    key={slot.time}
+                                                    onClick={() => !slot.isBooked && setSelectedSlot(slot.time)}
+                                                    disabled={slot.isBooked}
+                                                    className={`py-2 px-3 text-sm font-semibold rounded-lg border transition-all ${slot.isBooked
+                                                        ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed line-through'
+                                                        : selectedSlot === slot.time
+                                                            ? 'bg-green-50 border-green-500 text-green-700 ring-1 ring-green-500'
+                                                            : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-600'
+                                                        }`}
+                                                >
+                                                    {slot.time}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <div className="flex items-center mb-4">
+                                        <span className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold mr-3 text-sm">4</span>
+                                        <h2 className="text-xl font-bold text-gray-800">Details</h2>
+                                    </div>
+                                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-4">
+                                        <textarea
+                                            id="reason"
+                                            value={reason}
+                                            onChange={e => setReason(e.target.value)}
+                                            rows={4}
+                                            placeholder="Briefly describe what you'd like to discuss..."
+                                            className="w-full p-4 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-green-100 text-gray-700 placeholder-gray-400 resize-none transition-shadow"
+                                        />
+                                        <div className="text-right mt-2 text-xs text-gray-400">{reason.length} / 500</div>
+
+                                        <button
+                                            onClick={handleBooking}
+                                            disabled={isBooking || !selectedStudent || !selectedTeacher || !selectedSlot || !reason}
+                                            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-100 disabled:bg-gray-200 disabled:shadow-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-[0.98] flex items-center justify-center space-x-2"
+                                        >
+                                            <span>{isBooking ? 'Booking...' : 'Confirm Appointment'}</span>
+                                            <ChevronRightIcon className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
+                        </>
+                    )}
                 </div>
             </main>
         </div>

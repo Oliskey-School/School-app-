@@ -22,16 +22,27 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// 3. Logging
-app.use(morgan('dev'));
-
 // 3. Standardize URL: Remove trailing slash
 app.use((req, res, next) => {
+    // Early diagnostic for the problematic endpoint
+    if (req.url.includes('/api/auth/demo/login')) {
+        console.log(`🔌 [DIAGNOSTIC] Request to ${req.url} | Method: ${req.method} | IP: ${req.ip} | Origin: ${req.headers.origin}`);
+    }
+
     if (req.url.length > 1 && req.url.endsWith('/')) {
         req.url = req.url.slice(0, -1);
     }
+
+    // Diagnostic for notifications
+    if (req.url.includes('/notifications')) {
+        console.log(`🔔 [DIAGNOSTIC-GLOBAL] ${req.method} ${req.url} from ${req.headers.origin || 'unknown'}`);
+    }
+    
     next();
 });
+
+// 4. Logging
+app.use(morgan('dev'));
 
 // 4. Security Headers
 app.use(helmet({

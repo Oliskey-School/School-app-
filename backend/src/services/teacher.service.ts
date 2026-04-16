@@ -139,7 +139,10 @@ export class TeacherService {
         return await prisma.teacher.findMany({
             where: {
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                OR: (branchId && branchId !== 'all') ? [
+                    { branch_id: branchId },
+                    { branch_id: null }
+                ] : undefined
             },
             include: {
                 user: true
@@ -183,7 +186,8 @@ export class TeacherService {
             curriculum_eligibility,
             subject_specialty,
             classes,
-            school_generated_id
+            school_generated_id,
+            notification_preferences
         } = updates;
 
         const prismaData: any = {};
@@ -195,6 +199,7 @@ export class TeacherService {
         if (curriculum_eligibility !== undefined) prismaData.curriculum_eligibility = curriculum_eligibility;
         if (subject_specialty !== undefined) prismaData.subject_specialty = subject_specialty;
         if (school_generated_id !== undefined) prismaData.school_generated_id = school_generated_id;
+        if (notification_preferences !== undefined) prismaData.notification_preferences = notification_preferences;
 
         return await prisma.$transaction(async (tx) => {
             // Find teacher record first to handle cases where id passed is user_id
@@ -407,6 +412,17 @@ export class TeacherService {
                     }
                 });
             }
+        }
+        if (teacher && teacher.classes) {
+            // Deduplicate classes based on class_id and subject_id
+            const seen = new Set();
+            const uniqueClasses = teacher.classes.filter(c => {
+                const key = `${c.class_id}-${c.subject_id || 'null'}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            teacher.classes = uniqueClasses;
         }
         return teacher;
     }

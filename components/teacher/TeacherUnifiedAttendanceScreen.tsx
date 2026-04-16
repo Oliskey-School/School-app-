@@ -17,6 +17,15 @@ const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceP
     // New Hook for classes
     const { classes: allClasses, loading, error } = useTeacherClasses(teacherId);
 
+    const uniqueClasses = React.useMemo(() => {
+        const seen = new Set();
+        return allClasses.filter(c => {
+            if (seen.has(c.id)) return false;
+            seen.add(c.id);
+            return true;
+        });
+    }, [allClasses]);
+
     const handleSelectClass = (classInfo: any) => {
         const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section);
         navigateTo('markAttendance', `Attendance: ${formattedClassName}`, { classInfo });
@@ -34,7 +43,7 @@ const TeacherSelectClassForAttendance: React.FC<TeacherSelectClassForAttendanceP
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {allClasses.map(classInfo => {
+                {uniqueClasses.map(classInfo => {
                     const formattedClassName = getFormattedClassName(classInfo.grade, classInfo.section);
 
                     return (
