@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "scripts": {
     "dev": "vite",
     "predev": "npm run clean",

@@ -94,8 +94,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     useEffect(() => {
         const loadClasses = async () => {
             try {
-                // Fetch ALL classes for the school/branch so teachers can enroll students in any class
-                const classes = await api.getClasses(schoolId, currentBranchId || undefined, true);
+                // Fetch ALL classes for the school so students can be enrolled in any class across branches
+                const classes = await api.getClasses(schoolId, 'all', true);
                 setAvailableClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);
@@ -107,7 +107,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     useAutoSync(['classes'], () => {
         const loadClasses = async () => {
             try {
-                const classes = await api.getClasses(schoolId, currentBranchId || undefined, true);
+                const classes = await api.getClasses(schoolId, 'all', true);
                 setAvailableClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);

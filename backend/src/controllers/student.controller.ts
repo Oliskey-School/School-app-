@@ -416,7 +416,7 @@ export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
         const classId = req.params.classId;
         const status = req.query.status as string;
 
-        const students = await StudentService.getAllStudents(schoolId, branchId as any, classId, status as any);
+        const students = await StudentService.getAllStudents(schoolId as any, branchId as any, classId as any, status as any);
         res.json(students);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

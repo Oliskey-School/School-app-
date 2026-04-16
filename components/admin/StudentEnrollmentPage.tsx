@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
-import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon, AcademicCapIcon, HomeIcon, PhoneIcon, MailIcon, DEFAULT_STANDARD_CLASSES } from '../../constants';
+import { UserIcon, BookOpenIcon, CheckCircleIcon, UploadIcon, IdentificationIcon, AcademicCapIcon, HomeIcon, PhoneIcon, MailIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { checkUserLimit } from '../../lib/usage-limits';
+import { api } from '../../lib/api';
 
 interface EnrollmentPageProps {
     onComplete: () => void;
@@ -15,7 +16,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
     const { profile } = useProfile();
     const [loading, setLoading] = useState(false);
 
-    // Unified Form State
+    const [availableClasses, setAvailableClasses] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         parentName: '',
         parentEmail: '',
@@ -25,11 +26,40 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
         studentLastName: '',
         studentDob: '',
         studentGender: 'Male',
+        classId: '',
         grade: -3,
         section: 'A',
         curriculum: 'NIGERIAN' as 'NIGERIAN' | 'BRITISH' | 'DUAL'
     });
     const [uploadedDocs, setUploadedDocs] = useState<File[]>([]);
+
+    useEffect(() => {
+        const loadClasses = async () => {
+            const sid = schoolId || profile.schoolId;
+            if (sid) {
+                try {
+                    // Fetch ALL classes for the school across all branches
+                    const classes = await api.getClasses(sid, 'all', true);
+                    setAvailableClasses(classes || []);
+                    if (classes && classes.length > 0) {
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            classId: classes[0].id,
+                            grade: classes[0].grade,
+                            section: classes[0].section 
+                        }));
+                    }
+                } catch (err) {
+                    console.error("Error loading classes:", err);
+                }
+            }
+        };
+        loadClasses();
+    }, [schoolId, profile.schoolId]);
+
+    const selectedClass = useMemo(() => {
+        return availableClasses.find(c => c.id === formData.classId);
+    }, [availableClasses, formData.classId]);
 
     const handleChange = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -37,7 +67,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
 
     const handleSubmit = async () => {
         // Validation
-        const required = ['parentName', 'parentEmail', 'parentPhone', 'studentFirstName', 'studentLastName', 'studentDob', 'grade', 'section'];
+        const required = ['parentName', 'parentEmail', 'parentPhone', 'studentFirstName', 'studentLastName', 'studentDob', 'classId'];
         const missing = required.filter(field => !formData[field as keyof typeof formData]);
 
         if (missing.length > 0) {
@@ -60,7 +90,7 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
             // Map frontend fields to backend expected payload
             const payload = {
                 school_id: schoolId || profile.schoolId,
-                branch_id: currentBranchId,
+                branch_id: selectedClass?.branch_id || currentBranchId,
                 firstName: formData.studentFirstName,
                 lastName: formData.studentLastName,
                 dateOfBirth: formData.studentDob,
@@ -69,15 +99,14 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
                 parentEmail: formData.parentEmail,
                 parentPhone: formData.parentPhone,
                 parentAddress: formData.parentAddress,
-                grade: Number(formData.grade),
-                section: formData.section,
+                class_id: formData.classId,
+                grade: Number(selectedClass?.grade || formData.grade),
+                section: selectedClass?.section || formData.section,
                 curriculumType: formData.curriculum === 'NIGERIAN' ? 'Nigerian' :
                     formData.curriculum === 'BRITISH' ? 'British' : 'Both',
                 documentUrls: {} // Placeholder for actual doc upload logic
             };
 
-            // @ts-ignore - api.enrollStudent is defined in lib/api.ts
-            const { api } = await import('../../lib/api');
             await api.enrollStudent(payload);
 
             toast.success('Enrollment submitted successfully!');
@@ -174,31 +203,28 @@ const StudentEnrollmentPage: React.FC<EnrollmentPageProps> = ({ onComplete, hand
                                             <option>Female</option>
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="label text-xs sm:text-sm">Assigned Class / Grade</label>
+                                    <div className="sm:col-span-2">
+                                        <label className="label text-xs sm:text-sm">Assigned Class (Academic Level)</label>
                                         <select
                                             className="input-field"
-                                            value={formData.grade}
-                                            onChange={e => handleChange('grade', Number(e.target.value))}
+                                            value={formData.classId}
+                                            onChange={e => {
+                                                const clss = availableClasses.find(c => c.id === e.target.value);
+                                                setFormData(prev => ({ 
+                                                    ...prev, 
+                                                    classId: e.target.value,
+                                                    grade: clss?.grade || prev.grade,
+                                                    section: clss?.section || prev.section
+                                                }));
+                                            }}
                                         >
-                                            {DEFAULT_STANDARD_CLASSES.map(cls => (
-                                                <option key={cls.grade} value={cls.grade}>{cls.name}</option>
+                                            <option value="">Select a class...</option>
+                                            {availableClasses.map(cls => (
+                                                <option key={cls.id} value={cls.id}>
+                                                    {cls.name} {cls.section ? `(${cls.section})` : ''} 
+                                                    {cls.branch_id ? ` - Branch: ${cls.branch_id.slice(0, 8)}` : ''}
+                                                </option>
                                             ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="label text-xs sm:text-sm">Section</label>
-                                        <select
-                                            className="input-field"
-                                            value={formData.section}
-                                            onChange={e => handleChange('section', e.target.value)}
-                                        >
-                                            <option value="A">Section A</option>
-                                            <option value="B">Section B</option>
-                                            <option value="C">Section C</option>
-                                            <option value="D">Section D</option>
-                                            <option value="E">Section E</option>
-                                            <option value="F">Section F</option>
                                         </select>
                                     </div>
                                 </div>
