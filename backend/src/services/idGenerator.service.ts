@@ -63,7 +63,7 @@ export class IdGeneratorService {
             throw new Error(`IdGenerator: Cannot find or default a branch for school_id=${schoolId}`);
         }
 
-        const schoolCode = school.slug.substring(0, 5).toUpperCase();
+        const schoolCode = school.code.toUpperCase();
         const branchCode = (branch as any).code.substring(0, 10).toUpperCase();
 
         const nextNumber = await IdGeneratorService.getNextSequence(

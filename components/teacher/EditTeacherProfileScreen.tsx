@@ -42,8 +42,10 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
             try {
                 // Use unified API client
                 const teacher = await api.getTeacherById(profile.id);
-                if (teacher?.subjects) {
-                    setSubjects(Array.isArray(teacher.subjects) ? teacher.subjects : [teacher.subjects]);
+                // Backend now maps subject_specialty to subjects
+                const teacherSubjects = teacher?.subjects || teacher?.subject_specialty;
+                if (teacherSubjects) {
+                    setSubjects(Array.isArray(teacherSubjects) ? teacherSubjects : [teacherSubjects]);
                 }
             } catch (err) {
                 console.error('Error fetching teacher data:', err);
@@ -109,20 +111,14 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
         setSaving(true);
 
         try {
-            // 2. Use updateProfile from Context
+            // 2. Use updateProfile from Context - updated to include subjects
+            // This is now the single source of truth for updates
             await updateProfile({
                 full_name: name,
                 avatar_url: avatar,
-                phone
+                phone,
+                subjects // Passed to api.updateTeacher via ProfileContext
             });
-
-            // 3. Update subjects in the 'teachers' table specifically
-            if (profile.id) {
-                await api.updateTeacher(profile.id, {
-                    name: name, // Sync name back to teachers table too
-                    subjects
-                });
-            }
 
             toast.success('Profile updated successfully!');
 

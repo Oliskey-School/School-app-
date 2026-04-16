@@ -53,6 +53,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
 
         if (authUser) {
+            // If user ID changed (role switch), clear first to avoid stale data flash
+            if (profile && profile.id !== (authUser.id || authUser.userId)) {
+                setProfile(null);
+                setIsLoading(true);
+            }
+
             // Use authUser data directly to avoid another fetch
             const mappedProfile: UserProfile = {
                 ...authUser,
@@ -94,9 +100,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             
             if (role === 'teacher' || role === 'admin') {
                 await api.updateTeacher(profile.id, updates);
+            } else if (role === 'parent') {
+                await api.updateParent(profile.id, updates);
             } else {
                 await api.updateStudent(profile.id, updates);
             }
+            
+            // CRITICAL: Trigger global auth refresh to sync Header icon
+            await refreshUser();
             
             return { error: null };
         } catch (error) {

@@ -288,7 +288,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    const activeSchoolId = schoolId || profile?.schoolId || user?.user_metadata?.school_id;
+    const activeSchoolId = schoolId || user?.school_id || profile?.schoolId || user?.user_metadata?.school_id;
 
     // Use React Query for dashboard stats for better caching and speed
     const { data: stats, isLoading: isLoadingStats, isError, error, refetch } = useQuery({

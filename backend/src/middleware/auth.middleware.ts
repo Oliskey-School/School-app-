@@ -62,7 +62,9 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             where: { id: decoded.id },
             include: {
                 school: true,
-                branch: true
+                branch: true,
+                teacher_profile: true,
+                parent_profile: true
             }
         });
 
@@ -74,6 +76,9 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         console.log(`✅ [Auth Success] User: ${user.email}`);
 
+        // Extract phone from whichever profile is available
+        const phone = user.teacher_profile?.phone || user.parent_profile?.phone || null;
+
         req.user = {
             id: user.id,
             email: user.email,
@@ -82,6 +87,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             branch_id: user.branch_id,
             school_generated_id: user.school_generated_id,
             full_name: user.full_name,
+            phone: phone, // Add phone number
             school: user.school, // Add school object
             branch: user.branch  // Add branch object
         };

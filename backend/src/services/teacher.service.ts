@@ -136,7 +136,7 @@ export class TeacherService {
     }
 
     static async getAllTeachers(schoolId: string, branchId?: string) {
-        return await prisma.teacher.findMany({
+        const teachers = await prisma.teacher.findMany({
             where: {
                 school_id: schoolId,
                 OR: (branchId && branchId !== 'all') ? [
@@ -149,6 +149,12 @@ export class TeacherService {
             },
             orderBy: { full_name: 'asc' }
         });
+
+        // Ensure we use the User account email as source of truth
+        return teachers.map(t => ({
+            ...t,
+            email: t.user?.email || t.email
+        }));
     }
 
     static async getTeacherById(schoolId: string, branchId: string | undefined, id: string) {
@@ -169,8 +175,16 @@ export class TeacherService {
         });
 
         if (teacher) {
+            // Priority: User account email is source of truth
+            const displayEmail = teacher.user?.email || teacher.email;
+            
             // Note: Subjects are handled via Class relationships in this schema
-            return teacher;
+            // but for simple profile view, we use subject_specialty mapped to subjects
+            return {
+                ...teacher,
+                email: displayEmail,
+                subjects: teacher.subject_specialty
+            };
         }
         return null;
     }
@@ -197,7 +211,11 @@ export class TeacherService {
         if (status !== undefined) prismaData.status = status;
         if (avatar_url !== undefined) prismaData.avatar_url = avatar_url;
         if (curriculum_eligibility !== undefined) prismaData.curriculum_eligibility = curriculum_eligibility;
-        if (subject_specialty !== undefined) prismaData.subject_specialty = subject_specialty;
+        
+        // Handle both subjects (frontend) and subject_specialty (backend/DB)
+        const effectiveSubjects = subject_specialty || updates.subjects;
+        if (effectiveSubjects !== undefined) prismaData.subject_specialty = effectiveSubjects;
+        
         if (school_generated_id !== undefined) prismaData.school_generated_id = school_generated_id;
         if (notification_preferences !== undefined) prismaData.notification_preferences = notification_preferences;
 
@@ -217,29 +235,40 @@ export class TeacherService {
                 throw new Error('Teacher record not found');
             }
 
-            const updatedTeacher = await tx.teacher.update({
-                where: { id: teacher.id },
-                data: prismaData
-            });
+            // Sync email and name to User table if provided and different
+            // Sync identity fields to User table for global persistence
+            if (email || name || full_name || avatar_url) {
+                const userUpdate: any = {};
+                if (email) userUpdate.email = email.toLowerCase();
+                if (name || full_name) userUpdate.full_name = name || full_name;
+                if (avatar_url !== undefined) userUpdate.avatar_url = avatar_url;
 
-            // Update user record if ID or name changed
-            if (school_generated_id !== undefined || name || full_name) {
-                const userData: any = {};
-                if (school_generated_id !== undefined) userData.school_generated_id = school_generated_id;
-                if (name || full_name) userData.full_name = name || full_name;
-
-                if (updatedTeacher.user_id) {
+                if (teacher.user_id) {
                     await tx.user.update({
-                        where: { id: updatedTeacher.user_id },
-                        data: userData
+                        where: { id: teacher.user_id },
+                        data: userUpdate
                     });
                 }
+            }
+
+            const updatedTeacher = await tx.teacher.update({
+                where: { id: teacher.id },
+                data: prismaData,
+                include: { user: true }
+            });
+
+            // Update user record if generated ID changed
+            if (school_generated_id !== undefined && updatedTeacher.user_id) {
+                await tx.user.update({
+                    where: { id: updatedTeacher.user_id },
+                    data: { school_generated_id }
+                });
             }
 
             // Update classes if provided
             if (classes && Array.isArray(classes)) {
                 await tx.classTeacher.deleteMany({
-                    where: { teacher_id: id }
+                    where: { teacher_id: teacher.id }
                 });
 
                 for (const item of classes) {
@@ -263,8 +292,13 @@ export class TeacherService {
                 }
             }
 
-            SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'update', teacherId: id });
-            return updatedTeacher;
+            SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'update', teacherId: teacher.id });
+            
+            // Return combined data with user email as source of truth
+            return {
+                ...updatedTeacher,
+                email: updatedTeacher.user?.email || updatedTeacher.email
+            };
         });
     }
 
@@ -377,6 +411,7 @@ export class TeacherService {
     }
 
     static async getTeacherProfileByUserId(schoolId: string, userId: string) {
+        console.log(`🔍 [TeacherService] Fetching profile for user ${userId} in school ${schoolId}`);
         let teacher = await prisma.teacher.findFirst({
             where: { user_id: userId, school_id: schoolId },
             include: { 
@@ -390,17 +425,82 @@ export class TeacherService {
             }
         });
 
+        // Sync Logic: If teacher name/email/ID doesn't match User name/email/ID, update teacher
+        if (teacher && teacher.user) {
+            const mismatch = 
+                teacher.full_name !== teacher.user.full_name || 
+                teacher.email !== teacher.user.email ||
+                (teacher.school_generated_id && teacher.user.school_generated_id !== teacher.school_generated_id);
+
+            if (mismatch) {
+                console.log(`🔄 [TeacherService] Syncing teacher profile for ${userId} with User data...`);
+                teacher = await prisma.teacher.update({
+                    where: { id: teacher.id },
+                    data: {
+                        full_name: teacher.user.full_name,
+                        email: teacher.user.email,
+                        school_generated_id: teacher.user.school_generated_id || teacher.school_generated_id
+                    },
+                    include: { 
+                        user: true,
+                        classes: {
+                            include: {
+                                class: true,
+                                subject: true
+                            }
+                        }
+                    }
+                });
+
+                // Sync back to User record if missing ID but Teacher table has it
+                if (teacher.school_generated_id && !teacher.user.school_generated_id) {
+                    await prisma.user.update({
+                        where: { id: teacher.user_id },
+                        data: { school_generated_id: teacher.school_generated_id }
+                    });
+                }
+            }
+        }
+
         // Self-Healing: If user is a TEACHER or ADMIN but has no Teacher record, create one
         if (!teacher) {
+            console.log(`⚠️ [TeacherService] No teacher record found for user ${userId}. Attempting self-healing...`);
             const user = await prisma.user.findUnique({ where: { id: userId } });
-            const allowedRoles = [Role.TEACHER, Role.ADMIN, Role.SUPER_ADMIN, Role.PROPRIETOR];
-            if (user && allowedRoles.includes(user.role as any)) {
-                console.log(`🛠️ [TeacherService] Self-healing: Creating missing teacher record for user ${userId} (${user.role})`);
+            
+            if (!user) {
+                console.error(`❌ [TeacherService] User ${userId} not found even for self-healing.`);
+                return null;
+            }
+
+            // Robust role check (case-insensitive and supports both enum/string)
+            const userRole = (user.role as string).toUpperCase();
+            const allowedRoles = ['TEACHER', 'ADMIN', 'SUPER_ADMIN', 'PROPRIETOR', 'BURSAR', 'COMPLIANCE_OFFICER'];
+            
+            console.log(`👤 [TeacherService] User role: ${userRole}, School ID: ${user.school_id}, Role allowed: ${allowedRoles.includes(userRole)}`);
+
+            if (allowedRoles.includes(userRole)) {
+                console.log(`🛠️ [TeacherService] Self-healing: Creating missing teacher record for user ${userId} (${userRole})`);
+                
+                // Fallback to arguments if user record is missing IDs (common in some migration states)
+                const effectiveSchoolId = user.school_id || schoolId;
+                const effectiveBranchId = user.branch_id || (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' ? '7601cbea-e1ba-49d6-b59b-412a584cb94f' : undefined);
+
+                // Try to generate a standard school ID if missing
+                let schoolGeneratedId = user.school_generated_id;
+                if (!schoolGeneratedId && effectiveSchoolId && effectiveBranchId) {
+                    try {
+                        schoolGeneratedId = await IdGeneratorService.generateSchoolId(effectiveSchoolId, effectiveBranchId as string, 'teacher');
+                    } catch (idErr: any) {
+                        console.warn('[TeacherService] Could not generate school ID during self-healing:', idErr.message);
+                    }
+                }
+
                 teacher = await (prisma.teacher.create as any)({
                     data: {
                         user_id: userId,
-                        school_id: user.school_id,
-                        branch_id: user.branch_id,
+                        school_id: effectiveSchoolId,
+                        branch_id: effectiveBranchId,
+                        school_generated_id: schoolGeneratedId,
                         full_name: user.full_name,
                         email: user.email,
                         status: 'Active',
@@ -408,12 +508,23 @@ export class TeacherService {
                     },
                     include: {
                         user: true,
-                        classes: true
+                        classes: {
+                            include: {
+                                class: true,
+                                subject: true
+                            }
+                        }
                     }
                 });
+                console.log(`✅ [TeacherService] Self-healing successful for ${userId}`);
+            } else {
+                console.warn(`⚠️ [TeacherService] Self-healing skipped: Role ${userRole} not in allowed list.`);
             }
         }
         if (teacher && teacher.classes) {
+            // Map subject_specialty to subjects for frontend
+            (teacher as any).subjects = teacher.subject_specialty;
+            
             // Deduplicate classes based on class_id and subject_id
             const seen = new Set();
             const uniqueClasses = teacher.classes.filter(c => {

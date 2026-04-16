@@ -109,7 +109,7 @@ const AuthenticatedApp: React.FC = () => {
       requestNotificationPermission();
 
       // Initialize Realtime Service
-      let schoolId = user.user_metadata?.school_id || (user as any).school_id || user.app_metadata?.school_id;
+      let schoolId = (user as any).school_id || user.user_metadata?.school_id || user.app_metadata?.school_id;
 
       // Fix for demo users who might not have school_id in metadata
       const isDemoAccount = user.email?.includes('demo') || user.user_metadata?.is_demo;

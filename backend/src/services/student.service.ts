@@ -445,18 +445,17 @@ export class StudentService {
                 data: updates
             });
 
-            // Update user record if ID or name changed
-            if (updates.school_generated_id !== undefined || updates.full_name !== undefined) {
-                const userData: any = {};
-                if (updates.school_generated_id !== undefined) userData.school_generated_id = updates.school_generated_id;
-                if (updates.full_name !== undefined) userData.full_name = updates.full_name;
-
-                if (updatedStudent.user_id) {
-                    await tx.user.update({
-                        where: { id: updatedStudent.user_id },
-                        data: userData
-                    });
-                }
+            // Sync back to User record for universal persistence
+            if (updatedStudent.user_id) {
+                await tx.user.update({
+                    where: { id: updatedStudent.user_id },
+                    data: {
+                        full_name: updates.full_name,
+                        email: updates.email,
+                        avatar_url: updates.avatar_url,
+                        school_generated_id: updates.school_generated_id
+                    }
+                });
             }
 
             SocketService.emitToSchool(schoolId, 'student:updated', { action: 'update', studentId: id });
@@ -487,6 +486,35 @@ export class StudentService {
             where: { user_id: userId, school_id: schoolId },
             include: { user: true }
         });
+
+        // Identity Auto-Sync: Reconcile Student profile with primary User record
+        if (student && student.user) {
+            const userIdentityMismatch = 
+                student.full_name !== student.user.full_name || 
+                student.email !== student.user.email ||
+                (student.school_generated_id && student.user.school_generated_id !== student.school_generated_id);
+                
+            if (userIdentityMismatch) {
+                console.log(`🔄 [StudentService] Syncing student profile for ${userId} with User data...`);
+                student = await prisma.student.update({
+                    where: { id: student.id },
+                    data: {
+                        full_name: student.user.full_name,
+                        email: student.user.email,
+                        school_generated_id: student.user.school_generated_id || student.school_generated_id
+                    },
+                    include: { user: true }
+                });
+
+                // Sync back to User if missing ID but Student table has it
+                if (student.school_generated_id && !student.user.school_generated_id) {
+                    await prisma.user.update({
+                        where: { id: student.user_id },
+                        data: { school_generated_id: student.school_generated_id }
+                    });
+                }
+            }
+        }
 
         // Self-Healing: If user is a STUDENT/ADMIN but has no Student record, create one
         if (!student) {

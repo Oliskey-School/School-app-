@@ -397,7 +397,12 @@ export class ParentService {
                 if (updatedParent.user_id) {
                     await tx.user.update({
                         where: { id: updatedParent.user_id },
-                        data: userData
+                        data: {
+                            full_name: parentData.full_name,
+                            email: parentData.email,
+                            avatar_url: parentData.avatar_url,
+                            school_generated_id: parentData.school_generated_id
+                        }
                     });
                 }
             }
@@ -445,10 +450,39 @@ export class ParentService {
     static async getParentProfile(schoolId: string, branchId: string | undefined, userId: string) {
         let parent = await (prisma.parent.findUnique as any)({
             where: { user_id: userId },
-            include: {
-                user: true
-            }
+            include: { user: true }
         });
+        
+        // Identity Auto-Sync: Reconcile Parent records with User record
+        if (parent && parent.user) {
+            const userIdentityMismatch = 
+                parent.full_name !== parent.user.full_name || 
+                parent.email !== parent.user.email ||
+                (parent.school_generated_id && parent.user.school_generated_id !== parent.school_generated_id);
+                
+            if (userIdentityMismatch) {
+                console.log(`🔄 [ParentService] Syncing parent profile for ${userId} with User data...`);
+                
+                // Sync Parent record to User data
+                parent = await prisma.parent.update({
+                    where: { id: parent.id },
+                    data: {
+                        full_name: parent.user.full_name,
+                        email: parent.user.email,
+                        school_generated_id: parent.user.school_generated_id || parent.school_generated_id
+                    },
+                    include: { user: true }
+                });
+
+                // Correct User table if it's missing the ID but Parent table has it
+                if (parent.school_generated_id && !parent.user.school_generated_id) {
+                    await prisma.user.update({
+                        where: { id: parent.user_id },
+                        data: { school_generated_id: parent.school_generated_id }
+                    });
+                }
+            }
+        }
 
         // Self-Healing: If user is a PARENT/ADMIN/TEACHER/PROPRIETOR but has no Parent record, create one
         if (!parent) {

@@ -64,11 +64,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
         if (id.split('_').length >= 4) return id;
 
         // Force 'OLISKEY' for demo mode
-        const schoolCode = user?.user_metadata?.school_code || 'OLISKEY';
-        const branchCode = user?.user_metadata?.branch_code || 'MAIN';
+        const schoolCode = user?.school_code || user?.user_metadata?.school_code || 'OLISKEY';
+        const branchCode = user?.branch_code || user?.user_metadata?.branch_code || 'MAIN';
         
         // Priority for role detection: 1. Auth role enum, 2. Profile role, 3. Metadata role, 4. Fallback Admin
-        const rawRole = role || profile?.role || user?.user_metadata?.role || user?.app_metadata?.role || 'Admin';
+        const rawRole = role || profile?.role || user?.role || user?.user_metadata?.role || 'Admin';
         const userRole = (typeof rawRole === 'string') ? (rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase()) : rawRole;
 
         return formatSchoolId(id, userRole as string, schoolCode, branchCode);
@@ -188,16 +188,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                 {!hideHeader && (
                     <Header
                         title={title || 'Dashboard'}
-                        // Use profile.avatar_url (live state) -> fallback to user metadata (stable auth) -> empty
-                        avatarUrl={profile?.avatar_url || user?.user_metadata?.avatar_url || ''}
+                        // Use profile.avatar_url (live state) -> fallback to top-level user field -> Supabase metadata -> empty
+                        avatarUrl={profile?.avatar_url || user?.avatar_url || user?.user_metadata?.avatar_url || ''}
                         bgColor={theme?.mainBg || 'bg-blue-700'}
                         onLogout={handleLogout}
                         onBack={onBack}
                         onMenuClick={() => setIsMobileMenuOpen(true)}
                         notificationCount={notificationCount}
                         className="w-full flex-shrink-0"
-                        userName={profile?.full_name || user?.user_metadata?.full_name} // Also sync name
-                        customId={formatId(profile?.school_generated_id || user?.user_metadata?.school_generated_id)}
+                        userName={user?.full_name || profile?.full_name || user?.user_metadata?.full_name || 'User'}
+                        customId={formatId(user?.school_generated_id || profile?.school_generated_id || user?.user_metadata?.school_generated_id)}
                     />
                 )}
 

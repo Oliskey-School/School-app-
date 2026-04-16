@@ -167,7 +167,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       setLoadingProfile(true);
       setProfileError(false);
       
-      if (!schoolId) {
+      if (!effectiveSchoolId) {
           setLoadingProfile(false);
           return;
       }

@@ -195,8 +195,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
     // Memoize schoolId derivation to prevent unnecessary recalculations
     const schoolId = React.useMemo(() => {
-        return currentSchool?.id || profile?.schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
-    }, [currentSchool?.id, profile?.schoolId, user?.user_metadata?.school_id, user?.app_metadata?.school_id]);
+        return currentSchool?.id || user?.school_id || profile?.schoolId || user?.user_metadata?.school_id || user?.app_metadata?.school_id;
+    }, [currentSchool?.id, profile?.schoolId, user?.school_id, user?.user_metadata?.school_id, user?.app_metadata?.school_id]);
 
     // Optimize initialization effect - only run when auth loading changes or schoolId is set
     useEffect(() => {
