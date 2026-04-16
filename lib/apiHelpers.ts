@@ -28,7 +28,8 @@ export function getGrade(grade: number | string): string {
 }
 
 // Backend API base URL for fallback when RLS blocks demo queries
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from './config';
+export { API_BASE_URL };
 
 /**
  * Fetch data from the backend API (uses service role key, bypasses RLS)

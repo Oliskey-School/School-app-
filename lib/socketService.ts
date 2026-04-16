@@ -1,10 +1,7 @@
 import { io, Socket } from 'socket.io-client';
+import { SOCKET_URL } from './config';
 
 // The backend URL - adjust if different from API base
-const SOCKET_URL = import.meta.env.VITE_API_URL || 
-                  (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-                    ? 'http://localhost:5000' 
-                    : '');
 
 class SocketService {
     private socket: Socket | null = null;

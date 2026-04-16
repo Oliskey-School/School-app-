@@ -1,16 +1,8 @@
 import { InspectionTemplate } from '../types/inspector';
 
-// Backend API base URL — uses Vite proxy /api in dev, direct URL otherwise
-const getApiBaseUrl = () => {
-    // Dynamic detection: use localhost if running locally, otherwise use Railway
-    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-        return 'http://localhost:5000/api';
-    }
-    return 'https://school-app-production-a59a.up.railway.app/api';
-};
+import { API_BASE_URL } from './config';
 
-const API_BASE_URL = getApiBaseUrl();
-console.log(`📡 [API-TEST] Direct Railway URL: ${API_BASE_URL}`);
+console.log(`📡 [API-TEST] Base URL: ${API_BASE_URL}`);
 
 const getAuthToken = async (): Promise<string | null> => {
     // Priority 1: Check localStorage for our custom backend JWT

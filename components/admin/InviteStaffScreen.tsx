@@ -92,7 +92,9 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
             // Use the admin API to send the invitation (with auth token)
             const { data: sessionData } = await api.auth.getSession();
             const token = sessionData.session?.access_token;
-            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { API_BASE_URL } from '../../lib/config';
+
+            const apiBase = API_BASE_URL;
             const response = await fetch(`${apiBase}/invite-user`, {
                 method: 'POST',
                 headers: {
