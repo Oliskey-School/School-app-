@@ -1,6 +1,13 @@
 import prisma from '../config/database';
-import { seedDemoSchool } from '../../../prisma/seed';
 import { AuthService } from './auth.service';
+
+let seedDemoSchool: any;
+try {
+    // Attempt to load the seed function; handle cases where it might be missing in certain environments
+    seedDemoSchool = require('../../../prisma/seed').seedDemoSchool;
+} catch (err) {
+    console.warn('⚠️ [DemoReset] Seed module not found. Sync may be incomplete.');
+}
 
 /**
  * DemoResetService - Periodically resets the demo environment to its original state.

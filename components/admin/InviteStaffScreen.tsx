@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { API_BASE_URL } from '../../lib/config';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -92,8 +93,6 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
             // Use the admin API to send the invitation (with auth token)
             const { data: sessionData } = await api.auth.getSession();
             const token = sessionData.session?.access_token;
-import { API_BASE_URL } from '../../lib/config';
-
             const apiBase = API_BASE_URL;
             const response = await fetch(`${apiBase}/invite-user`, {
                 method: 'POST',

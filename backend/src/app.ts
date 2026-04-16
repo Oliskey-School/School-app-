@@ -10,8 +10,25 @@ import routes from './routes';
 const app = express();
 
 // 1. CORS - MUST BE FIRST for proper preflight handling
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5000',
+    'https://school-app-oliskeylee.vercel.app',
+    'https://school-app-git-main-oliskeylee.vercel.app',
+    'https://school-app-production-a59a.up.railway.app'
+];
+
 app.use(cors({
-    origin: true, // Echoes the request origin
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('vercel.app')) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Fallback to true during migration but log it
+            console.log(`📡 [CORS] Request from unknown origin: ${origin}`);
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'Accept', 'X-Requested-With', 'application-id'],
     credentials: true,
