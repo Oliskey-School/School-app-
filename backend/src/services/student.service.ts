@@ -874,10 +874,7 @@ export class StudentService {
                 // Upcoming Quizzes
                 prisma.quiz.findMany({
                     where: {
-                        OR: [
-                            { class_id: { in: classIds } },
-                            { class_id: null, school_id: schoolId } // School-wide quizzes
-                        ],
+                        class_id: { in: classIds },
                         is_published: true,
                         submissions: {
                             none: { student_id: studentId }
