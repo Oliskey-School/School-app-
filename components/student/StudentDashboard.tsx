@@ -642,31 +642,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
                         <Suspense fallback={<DashboardSuspenseFallback />}>
                             {ComponentToRender ? (() => {
                                 // Prepare props for specific components
-                                const componentProps = { ...currentNavigation.props, ...commonProps, student, studentId: student?.id, handleBack };
+                                const componentProps = { ...currentNavigation.props, ...commonProps, student, studentId: student?.id, onBack: handleBack, handleBack };
                                 
-                                // Audit Mode Mocks
-                                if (window.__AUDIT_MODE__ && !currentNavigation.props?.assignment) {
-                                    if (currentNavigation.view === 'assignmentSubmission' || currentNavigation.view === 'assignmentFeedback') {
-                                        componentProps.assignment = { 
-                                            id: 1, 
-                                            title: 'Mock Assignment', 
-                                            subject: 'Math', 
-                                            dueDate: new Date().toISOString(),
-                                            submission: { 
-                                                status: 'Graded', 
-                                                grade: 85, 
-                                                feedback: 'Excellent work! Audit Mode Text: abcdefghijklmnopqrstuvwxyz1234567890' 
-                                            } 
-                                        };
-                                    }
-                                }
-                                if (window.__AUDIT_MODE__ && !currentNavigation.props?.test && currentNavigation.view === 'cbtPlayer') {
-                                    componentProps.test = { id: 1, title: 'Mock Test', duration: 60, questions: [{ id: 1, text: 'Question 1', options: ['A', 'B'], answer: 'A' }] };
-                                }
-                                if (window.__AUDIT_MODE__ && !currentNavigation.props?.game && currentNavigation.view === 'gamePlayer') {
-                                    componentProps.game = { id: 1, title: 'Mock Game', type: 'quiz', questions: [] };
-                                }
-
                                 // Additional prop injection
                                 if (currentNavigation.view === 'curriculum') {
                                     componentProps.level = student?.level;

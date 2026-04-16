@@ -13,19 +13,7 @@ interface Question {
     correctAnswer: number;
 }
 
-// Mock Exam Data (JAMB Style)
-const MOCK_QUESTIONS: Question[] = [
-    { id: 1, subject: 'Mathematics', text: 'If 2x + 3 = 11, what is the value of x?', options: ['2', '3', '4', '5'], correctAnswer: 2 },
-    { id: 2, subject: 'Mathematics', text: 'Simplify: (3√2 + 2√3)(3√2 - 2√3)', options: ['6', '7', '8', '12'], correctAnswer: 0 },
-    { id: 3, subject: 'English', text: 'Choose the option opposite in meaning to the underlined word: He is a *notorious* criminal.', options: ['Famous', 'Popular', 'Innocent', 'Reputable'], correctAnswer: 3 },
-    { id: 4, subject: 'English', text: 'From the options, choose the word that correctly completes the sentence: The man was charged ___ murder.', options: ['with', 'for', 'of', 'on'], correctAnswer: 0 },
-    { id: 5, subject: 'Physics', text: 'Which of the following is a scalar quantity?', options: ['Velocity', 'Momentum', 'Force', 'Temperature'], correctAnswer: 3 },
-    { id: 6, subject: 'Physics', text: 'A car travels at 20m/s for 10 seconds. Calculate the distance covered.', options: ['2m', '20m', '100m', '200m'], correctAnswer: 3 },
-    { id: 7, subject: 'Chemistry', text: 'The atomic number of an element is determined by the number of:', options: ['Protons', 'Neutrons', 'Electrons', 'Nucleons'], correctAnswer: 0 },
-    { id: 8, subject: 'Biology', text: 'The powerhouse of the cell is the:', options: ['Nucleus', 'Mitochondria', 'Ribosome', 'Golgi body'], correctAnswer: 1 },
-    { id: 9, subject: 'General', text: 'Who is the current President of Nigeria (2024)?', options: ['Bola Ahmed Tinubu', 'Muhammadu Buhari', 'Goodluck Jonathan', 'Olusegun Obasanjo'], correctAnswer: 0 },
-    { id: 10, subject: 'General', text: 'What is the capital of Canada?', options: ['Toronto', 'Vancouver', 'Montreal', 'Ottawa'], correctAnswer: 3 },
-];
+// AI generated questions will be used. Fallback to empty if AI fails.
 
 import { generateExamQuestions, AIQuestion } from '../../../lib/gemini';
 import { Loader2, Sparkles, BookOpen } from 'lucide-react';
@@ -41,12 +29,8 @@ import { useGamification } from '../../../context/GamificationContext'; // Added
 // ... imports
 import { format } from 'date-fns';
 
-// Mock Leaderboard
-const LEADERBOARD = [
-    { name: "David O.", score: 95, time: "05:20" },
-    { name: "Sarah A.", score: 92, time: "06:15" },
-    { name: "Michael B.", score: 88, time: "05:45" },
-];
+// Real leaderboard should be fetched from API
+const LEADERBOARD: any[] = [];
 
 const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
     // ... existing state
@@ -125,18 +109,19 @@ const CBTExamGame: React.FC<CBTExamGameProps> = ({ onBack }) => {
         setGameState('loading');
         try {
             const aiQuestions = await generateExamQuestions(selectedSubject, "General Revision", difficulty, 10);
-            const finalQuestions = aiQuestions.length > 0 ? aiQuestions : MOCK_QUESTIONS as unknown as AIQuestion[];
-            setQuestions(finalQuestions);
-            setGameState('playing');
-            setTimeLeft(15 * 60);
-            setStartTime(Date.now());
+            if (aiQuestions && aiQuestions.length > 0) {
+                setQuestions(aiQuestions);
+                setGameState('playing');
+                setTimeLeft(15 * 60);
+                setStartTime(Date.now());
+            } else {
+                toast.error("Failed to generate questions. Please try again.");
+                setGameState('setup');
+            }
         } catch (e) {
             console.error(e);
-            toast.error("Using offline questions.");
-            setQuestions(MOCK_QUESTIONS as unknown as AIQuestion[]);
-            setGameState('playing');
-            setTimeLeft(15 * 60);
-            setStartTime(Date.now());
+            toast.error("Connection error. Could not generate questions.");
+            setGameState('setup');
         }
     };
 

@@ -8,21 +8,6 @@ import { useAuth } from '../../context/AuthContext';
 import PremiumLoader from '../ui/PremiumLoader';
 
 // Inline mock data to guarantee availability
-const mockAppointmentSlots: AppointmentSlot[] = [
-    { time: '08:00 AM', isBooked: false },
-    { time: '08:30 AM', isBooked: true },
-    { time: '09:00 AM', isBooked: false },
-    { time: '09:30 AM', isBooked: false },
-    { time: '10:00 AM', isBooked: false },
-    { time: '10:30 AM', isBooked: true },
-    { time: '11:00 AM', isBooked: false },
-    { time: '11:30 AM', isBooked: false },
-    { time: '01:00 PM', isBooked: false },
-    { time: '01:30 PM', isBooked: false },
-    { time: '02:00 PM', isBooked: false },
-    { time: '02:30 PM', isBooked: false },
-];
-
 interface AppointmentScreenProps {
     parentId?: string | null;
     students: Student[];
@@ -41,6 +26,8 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
 
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [loadingTeachers, setLoadingTeachers] = useState(true);
+    const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
 
     const fetchTeachers = useCallback(async () => {
         // 1. Get School ID from Students prop
@@ -81,12 +68,39 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
         }
     }, [students, currentSchool?.id, currentBranchId]);
 
+    const fetchAvailability = useCallback(async () => {
+        if (!selectedTeacher) {
+            setAvailableSlots([]);
+            return;
+        }
+
+        setLoadingSlots(true);
+        try {
+            const dateStr = selectedDate.toISOString().split('T')[0];
+            const data = await api.getTeacherAvailability(selectedTeacher.id, dateStr);
+            setAvailableSlots(data || []);
+        } catch (err) {
+            console.error("Error fetching availability:", err);
+            toast.error("Failed to load available slots");
+            setAvailableSlots([]);
+        } finally {
+            setLoadingSlots(false);
+        }
+    }, [selectedTeacher, selectedDate]);
+
     // Real-time synchronization
-    useAutoSync(['teachers', 'appointments'], fetchTeachers);
+    useAutoSync(['teachers', 'appointments', 'availabilities'], () => {
+        fetchTeachers();
+        fetchAvailability();
+    });
 
     useEffect(() => {
         fetchTeachers();
     }, [fetchTeachers]);
+
+    useEffect(() => {
+        fetchAvailability();
+    }, [fetchAvailability]);
 
     const activeTeachers = teachers;
 
@@ -101,11 +115,6 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
         }
         return days;
     }, []);
-
-    const availableSlots = useMemo(() => {
-        if (!selectedTeacher) return [];
-        return mockAppointmentSlots;
-    }, [selectedTeacher, selectedDate]);
 
     const handleBooking = async () => {
         if (!selectedStudent || !selectedTeacher || !selectedSlot || !reason) {

@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { ChevronRightIcon, XCircleIcon, ChevronLeftIcon } from '../../constants';
-// import { mockPhotos } from '../../data';
 import { api } from '../../lib/api';
 import CenteredLoader from '../ui/CenteredLoader';
 

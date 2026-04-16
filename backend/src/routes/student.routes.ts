@@ -29,7 +29,9 @@ import {
     getStudentsByClass,
     getStudentsByClassId,
     getPendingApprovals,
-    getStudentSubjects
+    getStudentSubjects,
+    getMyDocuments,
+    addMyDocument
 } from '../controllers/student.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { enforceTenant } from '../middleware/tenant.middleware';
@@ -52,6 +54,8 @@ router.get('/me/attendance', authenticate, getMyAttendance);
 router.get('/me/subjects', authenticate, getMySubjects);
 router.get('/me/activities', authenticate, getMyActivities);
 router.get('/me/extracurriculars', authenticate, getMyActivities);
+router.get('/me/documents', authenticate, getMyDocuments);
+router.post('/me/documents', authenticate, addMyDocument);
 
 router.get('/:id/performance', authenticate, getStudentPerformance);
 router.get('/:id/academic-performance', authenticate, getStudentPerformance);

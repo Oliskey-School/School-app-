@@ -181,6 +181,33 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             }
             }, [generateLearningFocus]);
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const toastId = toast.loading('Uploading document...');
+        try {
+            // In a real app, you'd upload to S3/Cloudinary first
+            // For now, we simulate the URL
+            const docData = {
+                name: file.name,
+                url: `/uploads/${file.name}`, // Placeholder
+                type: file.type,
+                size: `${(file.size / 1024).toFixed(1)} KB`
+            };
+
+            const { uploadStudentDocument } = await import('../../services/studentService');
+            const success = await uploadStudentDocument(student.id, docData);
+            
+            if (success) {
+                toast.success('Document uploaded successfully', { id: toastId });
+                fetchProfileData(student.id); // Refresh documents
+            }
+        } catch (error: any) {
+            toast.error('Upload failed: ' + error.message, { id: toastId });
+        }
+    };
+
     // Real-time synchronization
     useAutoSync(['students', 'grades', 'events', 'activities', 'documents'], () => {
         if (studentId || initialStudent?.id) {
@@ -599,8 +626,24 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
 
                         <TabsContent value="documents" className="p-6 lg:p-8">
                             <Card className="border-slate-200 shadow-sm">
-                                <CardHeader className="border-b border-slate-100">
+                                 <CardHeader className="border-b border-slate-100 flex flex-row items-center justify-between">
                                     <CardTitle>Student Documents</CardTitle>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="file"
+                                            id="doc-upload"
+                                            className="hidden"
+                                            onChange={handleFileUpload}
+                                        />
+                                        <Button 
+                                            size="sm" 
+                                            className="bg-orange-600 hover:bg-orange-700 text-white"
+                                            onClick={() => document.getElementById('doc-upload')?.click()}
+                                        >
+                                            <Share2 className="w-4 h-4 mr-2" />
+                                            Upload New
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="divide-y divide-slate-100">
                                     {documents.length > 0 ? documents.map((doc, i) => (

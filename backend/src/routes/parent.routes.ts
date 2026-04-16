@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getParents, createParent, getParentById, updateParent, deleteParent, getMyChildren, getChildrenForParent, createAppointment, volunteerSignup, markNotificationRead, getParentsByClassId, getMyProfile, getChildOverview, getStudentFees, recordPayment, getPTAMeetings, getLearningResources, getParentMessages, sendMessage, getNotifications, getVolunteeringOpportunities, linkChild, unlinkChild } from '../controllers/parent.controller';
+import { getParents, createParent, getParentById, updateParent, deleteParent, getMyChildren, getChildrenForParent, createAppointment, volunteerSignup, markNotificationRead, getParentsByClassId, getMyProfile, getChildOverview, getStudentFees, recordPayment, getPTAMeetings, getLearningResources, getParentMessages, sendMessage, getNotifications, getVolunteeringOpportunities, linkChild, unlinkChild, getComplaints, createComplaint, getParentTodayUpdate, getTeacherAvailability } from '../controllers/parent.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 
@@ -43,6 +43,12 @@ import { getParentPlans, createPlan, addFunds } from '../controllers/savings.con
 router.get('/savings/plans', getParentPlans);
 router.post('/savings/plans', createPlan);
 router.post('/savings/plans/deposit', addFunds);
+
+router.get('/me/today-update', getParentTodayUpdate);
+router.get('/:parentId/today-update', getParentTodayUpdate); // External support
+router.get('/complaints', getComplaints);
+router.post('/complaints', createComplaint);
+router.get('/teachers/:teacherId/availability', getTeacherAvailability);
 
 router.get('/:id', getParentById);
 router.put('/:id', updateParent);

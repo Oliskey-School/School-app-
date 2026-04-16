@@ -112,6 +112,7 @@ model School {
   vendors                    Vendor[]
   external_integrations      ExternalIntegration[]
   app_installations          AppInstallation[]
+  complaints                 Complaint[]
 }
 
 model Branch {
@@ -323,6 +324,7 @@ model Parent {
   savings_plans       SavingsPlan[]
   EventRSVP           EventRSVP[]
   conferences         ParentTeacherConference[]
+  complaints          Complaint[]
 }
 
 model ParentChild {
@@ -2257,4 +2259,23 @@ model CounselingAppointment {
   school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   student          Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
   counselor        Teacher? @relation("CounselorAppointments", fields: [counselor_id], references: [id])
+}
+
+model Complaint {
+  id          String   @id @default(uuid())
+  school_id   String
+  parent_id   String
+  category    String   // Bus Service, Academics, Teacher Conduct, Facilities, Other
+  rating      Int      @default(0)
+  comment     String   @db.Text
+  image_url   String?
+  status      String   @default("Submitted") // Submitted, In Progress, Resolved, Closed
+  timeline    Json?    // Array of { timestamp, status, comment, by }
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  parent      Parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id, parent_id])
 }

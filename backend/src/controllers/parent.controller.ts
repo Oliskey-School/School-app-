@@ -28,7 +28,7 @@ export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
 export const createParent = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = req.user.branch_id || req.body.branch_id;
-        const result = await ParentService.createParent(req.user.school_id, branchId, req.body);
+        const result = await ParentService.createParent(req.user.school_id, branchId, req.body, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
@@ -294,6 +294,47 @@ export const getVolunteeringOpportunities = async (req: AuthRequest, res: Respon
     try {
         const branchId = req.user.branch_id || (req.query.branchId as string);
         const result = await ParentService.getVolunteeringOpportunities(req.user.school_id, branchId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getComplaints = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await ParentService.getComplaints(req.user.school_id, req.user.id);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const createComplaint = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await ParentService.createComplaint(req.user.school_id, req.user.id, req.body);
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getParentTodayUpdate = async (req: AuthRequest, res: Response) => {
+    try {
+        const studentId = req.query.studentId as string;
+        const result = await ParentService.getParentTodayUpdate(req.user.school_id, req.user.id, studentId);
+        res.json(result);
+    } catch (error: any) {
+        console.error('❌ [ParentController] getParentTodayUpdate error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getTeacherAvailability = async (req: AuthRequest, res: Response) => {
+    try {
+        const { teacherId } = req.params;
+        const rawDate = (req.query.date as string) || (new Date().toISOString());
+        const date = new Date(rawDate);
+        const result = await ParentService.getTeacherAvailability(req.user.school_id, teacherId, date);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

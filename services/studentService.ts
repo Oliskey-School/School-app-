@@ -262,14 +262,22 @@ export async function fetchCurriculumTopics(subjectId: string, term?: string): P
 
 export async function fetchStudentDocuments(studentId: string | number): Promise<any[]> {
     try {
-        // Return placeholder documents
-        return [
-            { name: 'Admission Letter.pdf', date: 'Sept 12, 2024', size: '1.2 MB' },
-            { name: 'First Term Result.pdf', date: 'Dec 20, 2024', size: '850 KB' }
-        ];
+        return await api.getMyDocuments();
     } catch (err) {
         console.error('Error fetching student documents:', err);
         return [];
+    }
+}
+
+export async function uploadStudentDocument(studentId: string | number, docData: any): Promise<boolean> {
+    try {
+        await api.addMyDocument(docData);
+        toast.success('Document uploaded successfully');
+        return true;
+    } catch (err) {
+        console.error('Error uploading student document:', err);
+        toast.error('Failed to upload document');
+        return false;
     }
 }
 

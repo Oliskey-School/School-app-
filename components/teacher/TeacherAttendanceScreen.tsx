@@ -4,7 +4,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { CheckCircleIcon, XCircleIcon } from '../../constants';
-// import { mockStudents } from '../../data';
 import DonutChart from '../ui/DonutChart';
 import CenteredLoader from '../ui/CenteredLoader';
 import { THEME_CONFIG } from '../../constants';

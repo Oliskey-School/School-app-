@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 import { AIGame, AIGameQuestion, GameLevel } from '../../types';
-import { mockCustomAIGames } from '../../data';
+import { api } from '../../lib/api';
 import { AIIcon, SparklesIcon, TrashIcon, PlusIcon, XCircleIcon, CheckCircleIcon, EditIcon, PlayIcon, PublishIcon } from '../../constants';
 
 
@@ -113,7 +113,7 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
         if (!game) return;
         setLoading(true);
         try {
-            await api.createGame({
+            await api.createQuiz({
                 title: game.gameName,
                 description: `${game.subject} - ${game.topic}`,
                 game_type: 'quiz',

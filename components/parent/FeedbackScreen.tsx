@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { api } from '../../lib/api';
-import { mockComplaints } from '../../data';
 import { Complaint, ComplaintStatus } from '../../types';
 import { CameraIcon, ChevronRightIcon, StarIcon, CheckCircleIcon, ClockIcon } from '../../constants';
 

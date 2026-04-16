@@ -260,7 +260,8 @@ export class DashboardService {
                 overdueFeesData,
                 timetablePreview,
                 recentActivity,
-                // Trends
+                academicLevelsData, // Unique grades
+                // Trend counters
                 studentsLast30,
                 studentsPrev30,
                 teachersLast30,
@@ -303,6 +304,12 @@ export class DashboardService {
                     orderBy: { created_at: 'desc' },
                     include: { user: true },
                     take: 5
+                }),
+                // Count unique grades (Academic Levels)
+                prisma.class.findMany({
+                    where: baseWhere,
+                    distinct: ['grade'],
+                    select: { grade: true }
                 }),
                 // Trend counters
                 prisma.student.count({ where: { ...baseWhere, created_at: { gte: last30Days } } }),
@@ -448,6 +455,7 @@ export class DashboardService {
                 totalTeachers,
                 totalParents,
                 totalClasses,
+                totalAcademicLevels: (academicLevelsData || []).length, // The unique grades count
                 overdueFees: Math.max(0, overdueFees),
                 unpublishedReports,
                 attendanceRate,

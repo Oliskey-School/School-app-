@@ -175,6 +175,7 @@ model User {
   platform_notifications PlatformNotification[]
   memberships            SchoolMembership[]
   created_students       Student[]              @relation("StudentCreator")
+  created_parents        Parent[]               @relation("ParentCreator")
   student_profile        Student?               @relation("UserToStudent")
   teacher_profile        Teacher?               @relation("UserToTeacher")
   branch                 Branch?                @relation(fields: [branch_id], references: [id])
@@ -320,7 +321,9 @@ model Parent {
   created_at          DateTime                  @default(now())
   updated_at          DateTime                  @updatedAt
   EventRSVP           EventRSVP[]
-  branch              Branch?                   @relation(fields: [branch_id], references: [id])
+  created_by            String?
+  creator               User?                     @relation("ParentCreator", fields: [created_by], references: [id])
+  branch                Branch?                   @relation(fields: [branch_id], references: [id])
   school              School                    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user                User                      @relation("UserToParent", fields: [user_id], references: [id], onDelete: Cascade)
   children            ParentChild[]

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { AnnouncementCategory, Notice } from '../../types';
-// import { mockClasses, mockNotices } from '../../data'; // REMOVED
 import { CameraIcon, StopIcon, XCircleIcon, VideoIcon } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -104,7 +103,7 @@ const TeacherCommunicationScreen: React.FC = () => {
                 timestamp: new Date().toISOString()
             };
 
-            const { error } = await api.createNotice(payload, { useBackend: true })
+            const { error } = await api.createNotice(payload)
                 .then(() => ({ error: null }))
                 .catch(err => ({ error: err }));
 

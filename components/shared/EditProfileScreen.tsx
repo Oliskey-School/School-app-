@@ -140,7 +140,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
             if (onProfileUpdate) {
                 onProfileUpdate({ name, avatarUrl: avatar });
             }
-            onBack(); // Go back after successful save
+            onBack?.(); // Go back after successful save
         } catch (err: any) {
             console.error(err);
             toast.error('Error updating profile: ' + err.message);

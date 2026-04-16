@@ -20,7 +20,6 @@ import {
 } from '../../constants';
 import { RefreshCw as RefreshIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { mockParents } from '../../data';
 import EditParentProfileScreen from './EditParentProfileScreen';
 import LearningResourcesScreen from './LearningResourcesScreen';
 import SchoolPoliciesScreen from './SchoolPoliciesScreen';

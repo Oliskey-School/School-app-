@@ -237,6 +237,7 @@ class ExpressApiClient {
                 unpublishedReports: Number(result.unpublishedReports ?? result.unpublished_reports) || 0,
                 pendingApprovalsCount: Number(result.pendingApprovals ?? result.pending_approvals) || 0,
                 attendancePercentage: Number(result.attendanceRate ?? result.attendance_rate) || 0,
+                totalAcademicLevels: Number(result.totalAcademicLevels ?? result.total_academic_levels) || 0,
                 timetablePreview: result.timetablePreview ?? [],
                 recentActivity: result.recentActivity ?? [],
                 latestHealthLog: result.latestHealthLog ?? null,
@@ -249,7 +250,7 @@ class ExpressApiClient {
         } catch (err) {
             console.error('[API] getDashboardStats error:', err);
             return {
-                totalStudents: 0, totalTeachers: 0, totalParents: 0, totalClasses: 0,
+                totalStudents: 0, totalTeachers: 0, totalParents: 0, totalClasses: 0, totalAcademicLevels: 0,
                 studentTrend: 0, teacherTrend: 0, parentTrend: 0, classTrend: 0,
                 overdueFees: 0, unpublishedReports: 0, pendingApprovalsCount: 0,
                 attendancePercentage: 0, timetablePreview: [], recentActivity: [],
@@ -418,6 +419,14 @@ class ExpressApiClient {
 
     async bulkUpdateStudentStatus(ids: string[], status: string, branchId?: string): Promise<any> {
         return this.post('/students/bulk-status-update', { ids, status, branchId });
+    }
+
+    async getMyDocuments(): Promise<any[]> {
+        return this.get('/students/me/documents');
+    }
+
+    async addMyDocument(data: any): Promise<any> {
+        return this.post('/students/me/documents', data);
     }
 
     async getStudentsByClass(arg1: any, arg2?: any, arg3?: any, arg4?: any): Promise<any[]> {
@@ -919,9 +928,30 @@ class ExpressApiClient {
     async getParentTodayUpdate(parentId: string, studentId?: string): Promise<any> {
         try {
             const qs = studentId ? `?studentId=${studentId}` : '';
-            return await this.get(`/parents/${parentId}/today-update${qs}`);
+            return await this.get(`/parents/me/today-update${qs}`);
         } catch {
             return {};
+        }
+    }
+
+    async getComplaints(): Promise<any[]> {
+        try {
+            return await this.get('/parents/complaints');
+        } catch {
+            return [];
+        }
+    }
+
+    async createComplaint(data: any): Promise<any> {
+        return this.post('/parents/complaints', data);
+    }
+
+    async getTeacherAvailability(teacherId: string, date: string): Promise<any[]> {
+        try {
+            return await this.get(`/parents/teachers/${teacherId}/availability?date=${date}`);
+        } catch {
+            // Fallback for demo if needed
+            return [];
         }
     }
 
@@ -1841,17 +1871,12 @@ class ExpressApiClient {
     // ============================================
     // COMPLAINTS
     // ============================================
-    async getComplaints(): Promise<any[]> {
+    async getAdminComplaints(schoolId: string): Promise<any[]> {
         try {
-            const result = await this.get<any>('/complaints');
-            return result.data || result || [];
+            return await this.get(`/complaints?schoolId=${schoolId}`);
         } catch (err) {
             return [];
         }
-    }
-
-    async createComplaint(data: any): Promise<any> {
-        return this.post('/complaints', data);
     }
 
     // ============================================
@@ -2401,10 +2426,6 @@ class ExpressApiClient {
 
     async updateConferenceStatus(id: string, status: string, notes?: string): Promise<any> {
         return this.patch(`/conferences/${id}/status`, { status, teacher_notes: notes });
-    }
-
-    async getTeacherAvailability(teacherId: string, date: string): Promise<any[]> {
-        return this.get(`/conferences/teachers/${teacherId}/availability?date=${date}`);
     }
 
     async setTeacherAvailability(teacherId: string, schoolId: string, slots: any[]): Promise<any> {

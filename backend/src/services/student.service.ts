@@ -440,22 +440,40 @@ export class StudentService {
 
     static async updateStudent(schoolId: string, branchId: string | undefined, id: string, updates: any) {
         return await prisma.$transaction(async (tx) => {
+            // Support both primary ID and user_id for robustness
+            const student = await tx.student.findFirst({
+                where: {
+                    OR: [
+                        { id: id },
+                        { user_id: id }
+                    ],
+                    school_id: schoolId
+                }
+            });
+
+            if (!student) {
+                throw new Error('Student record to update not found.');
+            }
+
             const updatedStudent = await tx.student.update({
-                where: { id: id },
+                where: { id: student.id },
                 data: updates
             });
 
             // Sync back to User record for universal persistence
             if (updatedStudent.user_id) {
-                await tx.user.update({
-                    where: { id: updatedStudent.user_id },
-                    data: {
-                        full_name: updates.full_name,
-                        email: updates.email,
-                        avatar_url: updates.avatar_url,
-                        school_generated_id: updates.school_generated_id
-                    }
-                });
+                const userUpdates: any = {};
+                if (updates.full_name) userUpdates.full_name = updates.full_name;
+                if (updates.email) userUpdates.email = updates.email;
+                if (updates.avatar_url) userUpdates.avatar_url = updates.avatar_url;
+                if (updates.school_generated_id) userUpdates.school_generated_id = updates.school_generated_id;
+
+                if (Object.keys(userUpdates).length > 0) {
+                    await tx.user.update({
+                        where: { id: updatedStudent.user_id },
+                        data: userUpdates
+                    });
+                }
             }
 
             SocketService.emitToSchool(schoolId, 'student:updated', { action: 'update', studentId: id });
@@ -565,6 +583,26 @@ export class StudentService {
         }
 
         return student;
+    }
+
+    static async getStudentDocuments(schoolId: string, studentId: string) {
+        return await (prisma as any).studentDocument.findMany({
+            where: { student_id: studentId, school_id: schoolId },
+            orderBy: { created_at: 'desc' }
+        });
+    }
+
+    static async addStudentDocument(schoolId: string, studentId: string, data: any) {
+        return await (prisma as any).studentDocument.create({
+            data: {
+                student_id: studentId,
+                school_id: schoolId,
+                name: data.name,
+                url: data.url,
+                type: data.type,
+                size: data.size
+            }
+        });
     }
 
     static async getStudentByStudentId(schoolId: string, branchId: string | undefined, studentId: string) {
@@ -851,7 +889,7 @@ export class StudentService {
                 // Stats
                 this.getStudentStats(schoolId, studentId),
                 // Recent system notifications
-                prisma.notification.findMany({
+                (prisma as any).notification.findMany({
                     where: {
                         school_id: schoolId,
                         OR: [
