@@ -2,7 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
-import { CameraIcon, UserIcon, MailIcon, PhoneIcon, BookOpenIcon, UsersIcon, XCircleIcon, CheckCircleIcon, ChevronDownIcon } from '../../constants';
+import { 
+    CameraIcon, 
+    UserIcon, 
+    MailIcon, 
+    PhoneIcon, 
+    BookOpenIcon, 
+    UsersIcon, 
+    XCircleIcon, 
+    CheckCircleIcon, 
+    ChevronDownIcon,
+    SUBJECTS_LIST
+} from '../../constants';
 import { Teacher } from '../../types';
 import { api } from '../../lib/api';
 import { sendVerificationEmail } from '../../lib/auth';
@@ -132,6 +143,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
+    const [primaryCurriculum, setPrimaryCurriculum] = useState<'Nigerian' | 'British' | 'Both'>('Nigerian');
     const [subjects, setSubjects] = useState<string[]>([]);
     const [classes, setClasses] = useState<string[]>([]);
     const [status, setStatus] = useState<'Active' | 'Inactive' | 'On Leave'>('Active');
@@ -139,17 +151,34 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [branches, setBranches] = useState<string[]>([]);
+    const [selectedBranchNames, setSelectedBranchNames] = useState<string[]>([]);
+    const [branchIdMap, setBranchIdMap] = useState<Record<string, string>>({});
 
     // Phase 7: Curriculum & Compliance
     const [curriculumEligibility, setCurriculumEligibility] = useState<string[]>(['NIGERIAN']); // Default to Nigerian
     const [uploadedDocs, setUploadedDocs] = useState<File[]>([]);
 
-    // Validation Lists
-    const [validSubjects, setValidSubjects] = useState<string[]>([]);
+    const [dbSubjects, setDbSubjects] = useState<any[]>([]);
     const [validClasses, setValidClasses] = useState<string[]>([]);
     const [classIdMap, setClassIdMap] = useState<Record<string, string>>({});
     const [subjectIdMap, setSubjectIdMap] = useState<Record<string, string>>({});
     const [loadingRefs, setLoadingRefs] = useState(true);
+
+    // Dynamic subject filtering based on curriculum
+    const filteredSubjectOptions = useMemo(() => {
+        const dbNames = dbSubjects.map(s => s.name);
+        let standardFiltered = SUBJECTS_LIST;
+        
+        if (primaryCurriculum === 'Nigerian') {
+            standardFiltered = SUBJECTS_LIST.filter(s => s.curriculum === 'Nigerian' || s.curriculum === 'Both');
+        } else if (primaryCurriculum === 'British') {
+            standardFiltered = SUBJECTS_LIST.filter(s => s.curriculum === 'British' || s.curriculum === 'Both');
+        }
+        
+        const standardNames = standardFiltered.map(s => s.name);
+        return Array.from(new Set([...dbNames, ...standardNames])).sort();
+    }, [dbSubjects, primaryCurriculum]);
 
     const [credentials, setCredentials] = useState<{
         username: string;
@@ -160,19 +189,16 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     // Fetch Reference Data
     const fetchRefs = async () => {
         try {
-            // Fetch Subjects
+            // Fetch Subjects from DB
             const sData = await api.getSubjects(schoolId, branchId || undefined);
-            if (sData) {
-                // Ensure unique names for React keys
-                const uniqueNames = Array.from(new Set(sData.map((d: any) => d.name)));
-                setValidSubjects(uniqueNames);
-                const sMap: Record<string, string> = {};
-                sData.forEach((s: any) => { sMap[s.name] = s.id; });
-                setSubjectIdMap(sMap);
-            }
+            setDbSubjects(sData || []);
+            
+            const dbSubjectIdMap: Record<string, string> = {};
+            if (sData) sData.forEach((s: any) => { dbSubjectIdMap[s.name] = s.id; });
+            setSubjectIdMap(dbSubjectIdMap);
 
-            // Fetch Classes
-            const cData = await api.getClasses(schoolId, branchId || undefined);
+            // Fetch Classes - Always fetch all classes across all branches for Admin visibility
+            const cData = await api.getClasses(schoolId, 'all', true);
             if (cData) {
                 // Ensure unique names for React keys
                 const uniqueNames = Array.from(new Set(cData.map((d: any) => d.name)));
@@ -180,6 +206,28 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 const map: Record<string, string> = {};
                 cData.forEach((c: any) => { map[c.name] = c.id; });
                 setClassIdMap(map);
+            }
+
+            // Fetch Branches
+            const bData = await api.getBranches(schoolId);
+            if (bData) {
+                const bNames = bData.map((b: any) => b.name);
+                setBranches(bNames);
+                const bMap: Record<string, string> = {};
+                bData.forEach((b: any) => { bMap[b.name] = b.id; });
+                setBranchIdMap(bMap);
+
+                // Default selection if editing
+                if (teacherToEdit) {
+                    const currentBranches = (teacherToEdit as any).allowed_branch_ids || (teacherToEdit as any).branch_id ? [(teacherToEdit as any).branch_id] : [];
+                    const currentBranchNames = bData
+                        .filter((b: any) => currentBranches.includes(b.id))
+                        .map((b: any) => b.name);
+                    setSelectedBranchNames(currentBranchNames);
+                } else if (currentBranchId) {
+                    const currentBranch = bData.find((b: any) => b.id === currentBranchId);
+                    if (currentBranch) setSelectedBranchNames([currentBranch.name]);
+                }
             }
         } catch (err) {
             console.error("Error fetching reference data:", err);
@@ -218,6 +266,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
             setStatus(teacherToEdit.status || 'Active');
             setAvatar(teacherToEdit.avatarUrl || (teacherToEdit as any).avatar_url || null);
+            setPrimaryCurriculum((teacherToEdit as any).curriculum_type || 'Nigerian');
             
             if ((teacherToEdit as any).curriculum_eligibility) {
                 setCurriculumEligibility((teacherToEdit as any).curriculum_eligibility.map((c: string) => c.toUpperCase()));
@@ -296,7 +345,21 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             // Link each class to each subject for now to ensure availability
             const classSubjectLinks: any[] = [];
             const classIds = classes.map(c => classIdMap[c]).filter(Boolean);
-            const subjectIds = subjects.map(s => subjectIdMap[s]).filter(Boolean);
+            
+            // Create missing subjects if any
+            const updatedSubjectIdMap = { ...subjectIdMap };
+            for (const subjectName of subjects) {
+                if (!updatedSubjectIdMap[subjectName]) {
+                    try {
+                        const newSubject = await api.createSubject({ name: subjectName, school_id: schoolId });
+                        updatedSubjectIdMap[subjectName] = newSubject.id;
+                    } catch (err) {
+                        console.error(`Failed to create subject ${subjectName}:`, err);
+                    }
+                }
+            }
+            
+            const subjectIds = subjects.map(s => updatedSubjectIdMap[s]).filter(Boolean);
 
             classIds.forEach(classId => {
                 if (subjectIds.length > 0) {
@@ -314,8 +377,10 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 phone,
                 status,
                 avatar_url: avatarUrl,
-                branch_id: branchId,
+                branch_id: selectedBranchNames.length > 0 ? branchIdMap[selectedBranchNames[0]] : branchId,
+                allowed_branch_ids: selectedBranchNames.map(name => branchIdMap[name]),
                 curriculum_eligibility: curriculumData,
+                curriculum_type: primaryCurriculum,
                 subject_specialty: subjects, // Keep names for specialty display
                 classes: classSubjectLinks,
                 ...complianceDocs
@@ -374,12 +439,29 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         <InputField id="email" label="Email" value={email} onChange={setEmail} icon={<MailIcon className="w-5 h-5" />} type="email" />
                         <InputField id="phone" label="Phone" value={phone} onChange={setPhone} icon={<PhoneIcon className="w-5 h-5" />} type="tel" />
 
+                        <div>
+                            <label htmlFor="primaryCurriculum" className="block text-sm font-medium text-gray-700 mb-1">Primary Curriculum</label>
+                            <select id="primaryCurriculum" value={primaryCurriculum} onChange={e => setPrimaryCurriculum(e.target.value as any)} className="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-700">
+                                <option value="Nigerian">Nigerian</option>
+                                <option value="British">British</option>
+                                <option value="Both">Both</option>
+                            </select>
+                        </div>
+
+                        <MultiSelect
+                            label="Assigned Branches"
+                            selected={selectedBranchNames}
+                            setSelected={setSelectedBranchNames}
+                            placeholder={loadingRefs ? "Loading branches..." : "Select branches..."}
+                            options={branches}
+                        />
+
                         <MultiSelect
                             label="Subjects"
                             selected={subjects}
                             setSelected={setSubjects}
                             placeholder={loadingRefs ? "Loading subjects..." : "Select subjects..."}
-                            options={validSubjects}
+                            options={filteredSubjectOptions}
                         />
                         <MultiSelect
                             label="Classes"

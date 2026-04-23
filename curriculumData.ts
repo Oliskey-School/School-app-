@@ -273,11 +273,22 @@ export const getCurriculum = (level: string, department?: Department): Curriculu
   }
 
   if (stage === 'SSS') {
-    if (!department) return [];
     const compulsory = curriculum.SSS.compulsory;
-    const dept = curriculum.SSS.departments[department];
-    if (!dept) return [];
-    return [...compulsory, ...dept.core, ...dept.electives];
+    
+    // Combine core and electives from ALL departments
+    const allDeptSubjects: CurriculumSubject[] = [];
+    const seenSubjects = new Set(compulsory.map(s => s.name));
+
+    Object.values(curriculum.SSS.departments).forEach((dept: any) => {
+      [...dept.core, ...dept.electives].forEach(s => {
+        if (!seenSubjects.has(s.name)) {
+          allDeptSubjects.push(s);
+          seenSubjects.add(s.name);
+        }
+      });
+    });
+
+    return [...compulsory, ...allDeptSubjects];
   }
 
   return [];

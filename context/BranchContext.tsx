@@ -26,6 +26,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const canSwitchBranches =
         (role === DashboardType.Proprietor) ||
         (role === DashboardType.SuperAdmin) ||
+        (role === DashboardType.Parent) || // Parents need to switch when switching children
         (role === DashboardType.Admin && !currentBranchId);
 
     useEffect(() => {

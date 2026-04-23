@@ -5,6 +5,7 @@ import { config } from '../config/env';
 import { IdGeneratorService } from './idGenerator.service';
 import { AuditService } from './audit.service';
 import { SocketService } from './socket.service';
+import { VerificationService } from './verification.service';
 
 export enum Role {
     SUPER_ADMIN = 'SUPER_ADMIN',
@@ -76,6 +77,7 @@ export class AuthService {
                 role: role,
                 school_id: data.school_id,
                 branch_id: data.branch_id || null,
+                allowed_branch_ids: data.allowed_branch_ids || (data.branch_id ? [data.branch_id] : []),
                 full_name: data.full_name,
                 email_verified: false,
                 school_generated_id: schoolGeneratedId,
@@ -134,22 +136,57 @@ export class AuthService {
             };
         }
 
-        // Generate Token
+        const { token, refreshToken } = await this.generateTokens(user);
+        return { user, token, refreshToken };
+    }
+
+    static async generateTokens(user: any) {
+        let allowedBranchIds: string[] = user.allowed_branch_ids || [];
+
+        // For Parents: Automatically authorize all branches where their children are enrolled
+        if (user.role === 'PARENT') {
+            const parentRecord = await (prisma.parent.findUnique as any)({
+                where: { user_id: user.id },
+                include: {
+                    children: {
+                        include: {
+                            student: true
+                        }
+                    }
+                }
+            });
+
+            if (parentRecord && parentRecord.children) {
+                const childrenBranchIds = parentRecord.children
+                    .map((pc: any) => pc.student?.branch_id)
+                    .filter(Boolean);
+                
+                // Merge and unique
+                allowedBranchIds = Array.from(new Set([...allowedBranchIds, ...childrenBranchIds]));
+            }
+        }
+
         const payload = {
             id: user.id,
             email: user.email,
             role: user.role,
             school_id: user.school_id,
-            branch_id: user.branch_id
+            branch_id: user.branch_id,
+            allowed_branch_ids: allowedBranchIds
         };
 
-        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
+        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1h' });
+        const refreshToken = jwt.sign(
+            { ...payload, type: 'refresh' }, 
+            config.refreshTokenSecret, 
+            { expiresIn: '7d' }
+        );
 
-        // Log successful login
+        // Log successful login/token generation
         if (user.school_id) {
             await AuditService.createLog(user.school_id, user.branch_id, {
                 user_id: user.id,
-                action: 'Login',
+                action: 'Token Generation',
                 entity_type: 'User',
                 entity_id: user.id
             });
@@ -159,7 +196,7 @@ export class AuthService {
                 await (prisma as any).userSession.create({
                     data: {
                         user_id: user.id,
-                        token_id: token.split('.')[2], // Use signature as token ID
+                        token_id: refreshToken.split('.')[2], // Store refresh token signature
                         is_active: true
                     }
                 });
@@ -168,7 +205,44 @@ export class AuthService {
             }
         }
 
-        return { user, token };
+        return { token, refreshToken };
+    }
+
+    static async refreshAccessToken(refreshToken: string) {
+        try {
+            // 1. Verify refresh token
+            const decoded = jwt.verify(refreshToken, config.refreshTokenSecret) as any;
+            if (decoded.type !== 'refresh') throw new Error('Invalid token type');
+
+            // 2. Check if session is still active
+            const session = await (prisma as any).userSession.findUnique({
+                where: { token_id: refreshToken.split('.')[2] }
+            });
+
+            if (!session || !session.is_active) {
+                throw new Error('Session inactive or revoked');
+            }
+
+            // 3. Find user
+            const user = await prisma.user.findUnique({
+                where: { id: decoded.id },
+                include: { school: true, branch: true }
+            });
+
+            if (!user) throw new Error('User not found');
+
+            // 4. Generate new tokens (Rotate refresh token)
+            // Optional: revoke old session
+            await (prisma as any).userSession.update({
+                where: { id: session.id },
+                data: { is_active: false }
+            });
+
+            return await this.generateTokens(user);
+        } catch (err: any) {
+            console.error('[AuthService] Refresh failed:', err.message);
+            throw new Error('Refresh token invalid or expired');
+        }
     }
 
     static async googleLogin(email: string, name: string) {
@@ -187,41 +261,8 @@ export class AuthService {
             throw new Error('No Data: This account is not registered. Please sign up first.');
         }
 
-        // 2. Generate Token
-        const payload = {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            school_id: user.school_id,
-            branch_id: user.branch_id
-        };
-
-        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
-
-        // Log successful google login
-        if (user.school_id) {
-            await AuditService.createLog(user.school_id, user.branch_id, {
-                user_id: user.id,
-                action: 'Google Login',
-                entity_type: 'User',
-                entity_id: user.id
-            });
-
-            // Create persistent session
-            try {
-                await (prisma as any).userSession.create({
-                    data: {
-                        user_id: user.id,
-                        token_id: token.split('.')[2],
-                        is_active: true
-                    }
-                });
-            } catch (err) {
-                console.warn('Could not create session record:', err);
-            }
-        }
-
-        return { user, token };
+        const { token, refreshToken } = await this.generateTokens(user);
+        return { user, token, refreshToken };
     }
 
     static async createUser(data: any) {
@@ -361,17 +402,9 @@ export class AuthService {
             data: { school_id: schoolId }
         });
 
-        const payload = {
-            id: user.id,
-            email: user.email,
-            role: membership.base_role,
-            school_id: schoolId,
-            branch_id: user.branch_id
-        };
-
-        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
+        const { token, refreshToken } = await this.generateTokens(user);
         SocketService.emitToSchool(schoolId, 'auth:updated', { action: 'switch_school', userId });
-        return { token, user: { ...user, role: membership.base_role } };
+        return { token, refreshToken, user: { ...user, role: membership.base_role } };
     }
 
     static async updatePassword(userId: string, currentPassword: string, newPassword: string) {
@@ -469,9 +502,22 @@ export class AuthService {
     }
 
     static async resendVerification(email: string) {
-        // Mock implementation for now
-        console.log(`Resending verification to ${email}`);
-        return { success: true, message: 'Verification email sent' };
+        const user = await prisma.user.findUnique({
+            where: { email: email.toLowerCase() }
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        const result = await VerificationService.resendVerification(
+            user.id,
+            user.email,
+            user.full_name,
+            'email_verification'
+        );
+
+        return result;
     }
 
     static async confirmEmail(userId: string) {
@@ -510,27 +556,28 @@ export class AuthService {
 
             if (!user) throw new Error('User not found');
 
-            const payload = {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                school_id: user.school_id,
-                branch_id: user.branch_id
-            };
-            const authToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
-
-            return { success: true, message: 'Email confirmed successfully', token: authToken, user };
+            const { token: authToken, refreshToken } = await this.generateTokens(user);
+            return { success: true, message: 'Email confirmed successfully', token: authToken, refreshToken, user };
         } catch (err: any) {
             throw new Error('Invalid or expired verification link.');
         }
     }
 
     static async updateEmail(userId: string, newEmail: string) {
-        await prisma.user.update({
+        const user = await prisma.user.update({
             where: { id: userId },
             data: { email: newEmail.toLowerCase(), email_verified: false }
         });
-        return { success: true, message: 'Email updated' };
+
+        // Trigger new verification code for the new email
+        await VerificationService.createVerification(
+            user.id,
+            user.email,
+            user.full_name,
+            'email_verification'
+        );
+
+        return { success: true, message: 'Email updated and verification code sent' };
     }
 
     static DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
@@ -639,22 +686,10 @@ export class AuthService {
 
             console.log(`[AUTH] ✅ Demo user found: ${demoUser.full_name} (${demoUser.role})`);
 
-            // Return EXACT standard auth payload format for Parity
-            const payload = {
-                id: demoUser.id,
-                email: demoUser.email,
-                role: demoUser.role,
-                school_id: demoUser.school_id,
-                branch_id: demoUser.branch_id,
-                school_generated_id: demoUser.school_generated_id,
-                full_name: demoUser.full_name,
-                is_demo: true,
-            };
-
-            const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1h' });
-
+            const { token, refreshToken } = await this.generateTokens(demoUser);
             return {
                 token,
+                refreshToken,
                 user: demoUser,
             };
         } catch (error: any) {

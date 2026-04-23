@@ -137,6 +137,12 @@ export class SchoolService {
     }
 
     static async deleteSchoolsBulk(schoolId: string, ids: string[]) {
+        const demoSchoolId = config.defaultSchoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+        
+        if (ids.includes(demoSchoolId)) {
+            throw new Error('Deletion protection: Oliskey Demo Academy (ODA) cannot be deleted as it is the default school.');
+        }
+
         const result = await prisma.school.deleteMany({
             where: { id: { in: ids } }
         });

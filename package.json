@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.5.14",
+  "version": "0.5.15",
   "scripts": {
     "dev": "vite",
     "predev": "npm run clean",
@@ -122,12 +122,15 @@
     "nodemon": "^3.1.14",
     "postcss": "8.5.6",
     "prisma": "^5.22.0",
+    "rollup-plugin-visualizer": "^6.0.11",
     "supertest": "7.2.2",
     "tailwindcss": "3.4.17",
+    "terser": "^5.46.1",
     "ts-node": "10.9.2",
     "tsx": "4.21.0",
     "typescript": "5.8.2",
     "vite": "6.2.0",
+    "vite-plugin-compression": "^0.5.1",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "4.0.16"
   }

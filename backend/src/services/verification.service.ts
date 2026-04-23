@@ -2,6 +2,8 @@ import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { EmailService } from './email.service';
 
+import { TestOTPStore } from './test-otp.store';
+
 export interface VerificationResult {
     success: boolean;
     message: string;
@@ -49,6 +51,9 @@ export class VerificationService {
         // Generate new OTP
         const code = this.generateOTP();
         const expiresAt = new Date(Date.now() + this.OTP_EXPIRY_MINUTES * 60 * 1000);
+
+        // Store for testing if needed
+        TestOTPStore.set(email, code);
 
         // Store the code (hashed for security)
         const hashedCode = await bcrypt.hash(code, 10);

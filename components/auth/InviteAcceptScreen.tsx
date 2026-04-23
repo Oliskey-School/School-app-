@@ -60,7 +60,7 @@ const InviteAcceptScreen: React.FC = () => {
                 }
 
                 const accessToken = tokenParams.get('access_token');
-                // const refreshToken = tokenParams.get('refresh_token'); // Not used currently in local backend flow
+                const refreshToken = tokenParams.get('refresh_token');
                 const inviteRole = contextParams.get('role') || '';
 
                 setRole(inviteRole);
@@ -82,6 +82,9 @@ const InviteAcceptScreen: React.FC = () => {
                 setMessage('Verifying your invitation...');
                 if (accessToken) {
                     localStorage.setItem('auth_token', accessToken);
+                }
+                if (refreshToken) {
+                    localStorage.setItem('auth_refresh_token', refreshToken);
                 }
 
                 // 3. Call the backend to generate school_generated_id

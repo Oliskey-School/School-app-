@@ -19,7 +19,7 @@ const NotificationCenter = lazy(() => import('./saas/NotificationCenter'));
 const AuditLogViewer = lazy(() => import('./saas/AuditLogViewer'));
 const RoleManagementScreen = lazy(() => import('./saas/RoleManagementScreen'));
 const SecuritySettings = lazy(() => import('./saas/SecuritySettings'));
-const ProfileSettings = lazy(() => import('../admin/ProfileSettings')); // Reuse settings
+const ProfileSettings = lazy(() => import('./ProfileSettings')); // Reuse settings
 const PaymentGatewaySettings = lazy(() => import('./saas/PaymentGatewaySettings'));
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
 

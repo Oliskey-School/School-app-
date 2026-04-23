@@ -28,14 +28,20 @@ export class ClassService {
                 branch_id: item.class.branch_id
             }));
         } else {
+            const whereClause: any = {
+                school_id: schoolId,
+            };
+
+            // Only filter by branch when a specific branch is requested
+            if (branchId && branchId !== 'all') {
+                whereClause.OR = [
+                    { branch_id: branchId },
+                    { branch_id: null }
+                ];
+            }
+
             const classes = await prisma.class.findMany({
-                where: {
-                    school_id: schoolId,
-                    OR: [
-                        { branch_id: branchId && branchId !== 'all' ? branchId : undefined },
-                        { branch_id: null }
-                    ]
-                },
+                where: whereClause,
                 include: {
                     _count: {
                         select: { enrollments: true }

@@ -49,6 +49,9 @@ const AuthCallback: React.FC = () => {
                     if (response.token) {
                         localStorage.setItem('auth_token', response.token);
                     }
+                    if (response.refreshToken) {
+                        localStorage.setItem('auth_refresh_token', response.refreshToken);
+                    }
 
                     const role = response.user.role || 'admin';
                     console.log(`✅ Verified. User Role: ${role}`);

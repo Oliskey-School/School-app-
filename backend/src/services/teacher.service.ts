@@ -57,6 +57,7 @@ export class TeacherService {
                         role: Role.TEACHER,
                         school_id: schoolId,
                         branch_id: branchId || null,
+                        allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
                         school_generated_id: schoolGeneratedId,
                         initial_password: generatedPassword,
                         email_verified: true // Admin-created teachers are verified by default
@@ -75,6 +76,7 @@ export class TeacherService {
                     avatar_url,
                     school_id: schoolId,
                     branch_id: branchId || null,
+                    allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
                     school_generated_id: schoolGeneratedId,
                     status: 'Active',
                     curriculum_eligibility: data.curriculum_eligibility || ['Nigerian'],
@@ -87,6 +89,7 @@ export class TeacherService {
                     avatar_url,
                     school_id: schoolId,
                     branch_id: branchId || null,
+                    allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
                     school_generated_id: schoolGeneratedId,
                     status: 'Active',
                     curriculum_eligibility: data.curriculum_eligibility,

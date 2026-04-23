@@ -36,9 +36,6 @@ const FeeManagement: React.FC<any> = (props) => {
 
   useEffect(() => {
     if (!schoolId) return;
-
-    loadData();
-
     loadData();
   }, [schoolId, branchId]);
 

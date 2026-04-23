@@ -247,7 +247,7 @@ const App: React.FC = () => {
           console.warn('⚠️ Initialization taking too long. Triggering fail-safe display...');
           setIsInitializing(false);
         }
-      }, 10000);
+      }, 7000); // Reduced from 10s to 7s for a snappier feel
 
       const isAuditMode = (window as any).__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true';
       if (isAuditMode) {
@@ -268,16 +268,14 @@ const App: React.FC = () => {
           ]);
         };
 
-        const initTasks = [
-          withTimeout(runMigrations(), 8000, 'Migrations')
-            .then(() => setInitProgress(40))
-            .catch(err => console.warn(`⚠️ Offline migrations took longer than expected. Continuing...`)),
-          withTimeout(requestBackgroundSync(), 8000, 'BackgroundSync')
-            .catch(err => console.log(`ℹ️ Background sync synchronization still pending. Continuing UI load.`))
-        ];
-
         setInitMessage('Setting up environment...');
-        await Promise.allSettled(initTasks);
+        // Pre-warm the most critical task only
+        await withTimeout(runMigrations(), 5000, 'Migrations')
+          .then(() => setInitProgress(40))
+          .catch(err => console.warn(`⚠️ Offline migrations taking time. Continuing...`));
+        
+        // Defer background sync registration to after initial mount
+        requestBackgroundSync().catch(() => {});
         
         setInitMessage('Starting cache cleanup...');
         setInitProgress(60);

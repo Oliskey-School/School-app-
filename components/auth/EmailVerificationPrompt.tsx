@@ -38,7 +38,7 @@ const EmailVerificationPrompt: React.FC = () => {
     };
 
     // Only show if user is logged in and email is not verified
-    const isVerified = user?.user_metadata?.email_verified === true;
+    const isVerified = user?.email_verified === true || user?.user_metadata?.email_verified === true;
 
     if (isVerified || !user || isDismissed) return null;
 
@@ -107,6 +107,9 @@ const EmailVerificationPrompt: React.FC = () => {
             if (result.success) {
                 toast.success(`Verification email sent to ${newEmail}! Please check your inbox.`);
                 setIsEditing(false);
+                // Refresh user profile after update to see latest email_verified status
+                const { refreshUser } = useAuth();
+                if (refreshUser) refreshUser();
             } else {
                 toast.error(result.message || 'Failed to update email');
             }

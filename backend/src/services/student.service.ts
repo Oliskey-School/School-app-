@@ -916,57 +916,43 @@ export class StudentService {
     }
 
     static async getMySubjects(schoolId: string, studentId: string) {
-        // 1. Try to find active enrollment
-        let enrollment = await prisma.studentEnrollment.findFirst({
-            where: { student_id: studentId, status: 'Active' },
-            include: { 
-                class: {
-                    include: {
-                        subjects: true
-                    }
-                }
-            }
-        });
-
-        // 2. If no active enrollment, try ANY enrollment
-        if (!enrollment) {
-            enrollment = await prisma.studentEnrollment.findFirst({
-                where: { student_id: studentId },
-                include: { 
-                    class: {
-                        include: {
-                            subjects: true
-                        }
-                    }
-                }
-            });
-        }
-
-        if (enrollment && enrollment.class.subjects.length > 0) {
-            return enrollment.class.subjects;
-        }
-
-        // 3. Fallback: Lookup subjects by student's grade/section directly
+        // 1. Get student profile to know their grade
         const student = await prisma.student.findUnique({
-            where: { id: studentId }
+            where: { id: studentId },
+            select: { grade: true, school_id: true }
         });
 
-        if (student) {
-            const classRecord = await prisma.class.findFirst({
-                where: { 
-                    school_id: schoolId,
-                    grade: student.grade,
-                    section: student.section
-                },
-                include: { subjects: true }
-            });
+        if (!student) return [];
 
-            if (classRecord && classRecord.subjects.length > 0) {
-                return classRecord.subjects;
+        // 2. Fetch all subjects for ALL classes in the same grade at this school
+        // This ensures students see all subjects (Science, Arts, etc.) for their level
+        const classesInGrade = await prisma.class.findMany({
+            where: { 
+                school_id: schoolId,
+                grade: student.grade
+            },
+            include: { 
+                subjects: true
             }
+        });
+
+        const subjectMap = new Map<string, any>();
+        classesInGrade.forEach(cls => {
+            cls.subjects.forEach(subject => {
+                subjectMap.set(subject.id, subject);
+            });
+        });
+
+        if (subjectMap.size > 0) {
+            return Array.from(subjectMap.values());
         }
 
-        return [];
+        // 3. Fallback: If no subjects linked to classes yet, return subjects linked to the school matching curriculum
+        const schoolSubjects = await prisma.subject.findMany({
+            where: { school_id: schoolId }
+        });
+        
+        return schoolSubjects;
     }
 
     static async getStudentSubjects(schoolId: string, studentId: string) {

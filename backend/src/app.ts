@@ -11,7 +11,10 @@ const app = express();
 
 // 1. CORS - MUST BE FIRST for proper preflight handling
 const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
     'http://localhost:5173',
+    'http://127.0.0.1:5173',
     'http://localhost:5000',
     'https://school-app-oliskeylee.vercel.app',
     'https://school-app-git-main-oliskeylee.vercel.app',
@@ -30,7 +33,7 @@ app.use(cors({
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'Accept', 'X-Requested-With', 'application-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id'],
     credentials: true,
     maxAge: 86400
 }));

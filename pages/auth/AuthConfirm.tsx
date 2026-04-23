@@ -55,6 +55,9 @@ export const AuthConfirm: React.FC = () => {
                     if (response.token) {
                         localStorage.setItem('auth_token', response.token);
                     }
+                    if (response.refreshToken) {
+                        localStorage.setItem('auth_refresh_token', response.refreshToken);
+                    }
                     
                     setStatus('success');
                     localStorage.setItem('show_welcome_toast', 'true');

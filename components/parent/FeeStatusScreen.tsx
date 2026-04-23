@@ -202,10 +202,9 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
 
     const PremiumStatCard = ({ title, amount, subtitle, icon: Icon, gradient, delay }: { title: string, amount: number, subtitle: string, icon: any, gradient: string, delay: string }) => (
         <div 
-            className={`relative overflow-hidden p-5 rounded-3xl shadow-xl transition-all duration-500 hover:scale-[1.02] bg-gradient-to-br ${gradient} text-white group animate-fade-in-up`}
-            style={{ animationDelay: delay }}
+            className={`relative overflow-hidden p-5 rounded-xl shadow border border-gray-100 bg-gradient-to-br ${gradient} text-white`}
         >
-            <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+            <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
             <div className="relative flex justify-between items-start">
                 <div>
                     <p className="text-sm font-medium opacity-80 mb-1">{title}</p>
@@ -238,13 +237,13 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-tighter">{description}</span>
             </div>
             {active && (
-                <div className={`absolute top-2 right-2 w-2 h-2 rounded-full bg-${color}-500 animate-pulse`} />
+                <div className={`absolute top-2 right-2 w-2 h-2 rounded-full bg-${color}-500`} />
             )}
         </button>
     );
 
     return (
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-10 bg-gray-50/50 min-h-screen rounded-t-[40px] shadow-2xl overflow-hidden">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 bg-gray-50 md:rounded-[40px] shadow-sm min-h-screen border-x border-b border-gray-100">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
@@ -303,9 +302,9 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
             </div>
 
             {/* Main Content Split */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                {/* Left: Fee List (8 cols) */}
-                <div className="lg:col-span-8 space-y-6">
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Left: Fee List */}
+                <div className="flex-1 space-y-6">
                     <div className="flex items-center justify-between">
                         <h2 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
                             Assignments <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-0.5 rounded-full font-black">{fees.length}</span>
@@ -356,10 +355,10 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                     )}
                 </div>
 
-                {/* Right: Payment Method & Tools (4 cols) */}
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-white rounded-[40px] shadow-xl shadow-gray-200/50 p-8 border border-gray-100 sticky top-8">
-                        <div className="flex items-center gap-4 mb-8">
+                {/* Right: Payment Method & Tools */}
+                <div className="w-full lg:w-80 space-y-6">
+                    <div className="bg-white rounded-[40px] shadow-sm p-4 md:p-8 border border-gray-100 sticky top-8">
+                        <div className="flex items-center gap-4 mb-4 md:mb-8">
                             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100">
                                 <Wallet className="w-6 h-6 text-white" />
                             </div>

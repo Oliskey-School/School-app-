@@ -28,39 +28,19 @@ const getDefaultSubjectsForGrade = (grade: number, department?: string): string[
     ];
   }
 
-  // Senior Secondary Science (SS 1-3) - Grades 10-12
+  // Senior Secondary (SS 1-3) - Grades 10-12 - Combined Subjects for all Departments
   if (grade >= 10 && grade <= 12) {
-    if (department === 'Science' || !department) {
-      return [
-        ...coreSubjects,
-        'Physics',
-        'Chemistry',
-        'Biology',
-        'Further Mathematics',
-        'Computer Science',
-        'Agricultural Science'
-      ];
-    } else if (department === 'Arts' || department === 'Humanities') {
-      return [
-        ...coreSubjects,
-        'Literature in English',
-        'Government',
-        'Economics',
-        'Christian Religious Studies',
-        'History',
-        'Geography'
-      ];
-    } else if (department === 'Commercial') {
-      return [
-        ...coreSubjects,
-        'Economics',
-        'Accounting',
-        'Commerce',
-        'Business Studies',
-        'Government',
-        'Data Processing'
-      ];
-    }
+    return [
+      ...coreSubjects,
+      // Science
+      'Physics', 'Chemistry', 'Biology', 'Further Mathematics', 
+      // Arts / Humanities
+      'Literature in English', 'Government', 'Christian Religious Studies', 'History',
+      // Commercial
+      'Economics', 'Accounting', 'Commerce', 'Business Studies',
+      // Tech / General
+      'Computer Science', 'Agricultural Science', 'Geography', 'Data Processing'
+    ];
   }
 
   // Primary level fallback (Grades 1-6)
@@ -290,9 +270,20 @@ const SubjectsScreen: React.FC<SubjectsScreenProps> = ({ navigateTo, student }) 
                           <BookOpenIcon className={`w-6 h-6 ${textColor}`} />
                         </div>
                         <div>
-                          <h3 className="font-bold text-lg text-gray-800">{subjectName}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-lg text-gray-800">{subjectName}</h3>
+                            {subject.curriculum_type && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                subject.curriculum_type.toLowerCase().includes('british') 
+                                ? 'bg-blue-100 text-blue-700' 
+                                : 'bg-green-100 text-green-700'
+                              }`}>
+                                {subject.curriculum_type}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500 font-medium">
-                            View Curriculum
+                            View {subject.curriculum_type || ''} Curriculum
                           </p>
                         </div>
                       </div>

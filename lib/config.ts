@@ -16,7 +16,7 @@ const getBaseUrl = (type: 'api' | 'socket') => {
 
     if (!url) {
         if (isLocal) {
-            url = type === 'api' ? 'http://localhost:5000/api' : 'http://localhost:5000';
+            url = type === 'api' ? 'http://127.0.0.1:5000/api' : 'http://127.0.0.1:5000';
         } else {
             url = type === 'api' ? RAILWAY_API : RAILWAY_SOCKET;
         }

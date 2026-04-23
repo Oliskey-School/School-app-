@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon } from 'lucide-react';
+import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, ChevronDown as ChevronDownIcon } from 'lucide-react';
 import { Student, Department } from '../../types';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { SUBJECTS_LIST } from '../../constants';
 
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
@@ -18,6 +19,104 @@ interface AddStudentScreenProps {
     forceUpdate: () => void;
     handleBack: () => void;
 }
+
+const MultiSelect: React.FC<{
+    label: string;
+    selected: string[];
+    setSelected: React.Dispatch<React.SetStateAction<string[]>>;
+    placeholder: string;
+    options: string[];
+}> = ({ label, selected, setSelected, placeholder, options }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [filterText, setFilterText] = useState('');
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleSelection = (option: string) => {
+        if (selected.includes(option)) {
+            setSelected(selected.filter(item => item !== option));
+        } else {
+            setSelected([...selected, option]);
+        }
+        setFilterText(''); // Reset filter after selection
+    };
+
+    const filteredOptions = options.filter(opt =>
+        opt.toLowerCase().includes(filterText.toLowerCase()) &&
+        !selected.includes(opt)
+    );
+
+    return (
+        <div className="relative" ref={containerRef}>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+
+            {/* Main Input Container */}
+            <div
+                className="min-h-[42px] p-2 border border-gray-300 rounded-lg bg-gray-50 flex flex-wrap gap-2 items-center cursor-text focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all"
+                onClick={() => setIsOpen(true)}
+            >
+                {/* Selected Tags */}
+                {selected.map(item => (
+                    <span key={item} className="flex items-center gap-1 bg-indigo-100 text-indigo-800 text-sm font-medium px-2 py-1 rounded-md">
+                        {item}
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleSelection(item); }}
+                            className="text-indigo-600 hover:text-indigo-800 focus:outline-none"
+                        >
+                            <XMarkIcon className="w-4 h-4" />
+                        </button>
+                    </span>
+                ))}
+
+                {/* Input Field */}
+                <div className="flex-grow flex items-center min-w-[120px]">
+                    <input
+                        type="text"
+                        value={filterText}
+                        onChange={(e) => { setFilterText(e.target.value); setIsOpen(true); }}
+                        onFocus={() => setIsOpen(true)}
+                        placeholder={selected.length === 0 ? placeholder : ""}
+                        className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-400 text-sm"
+                    />
+                </div>
+
+                <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Menu */}
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredOptions.length > 0 ? (
+                        filteredOptions.map(option => (
+                            <div
+                                key={option}
+                                onClick={() => toggleSelection(option)}
+                                className="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-gray-700 flex items-center justify-between"
+                            >
+                                <span>{option}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                            {options.length === 0 ? "No options available" : "No matching options"}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forceUpdate, handleBack }) => {
     const { profile, refreshProfile } = useProfile();
@@ -33,6 +132,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [availableClasses, setAvailableClasses] = useState<any[]>([]);
     const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
     const [department, setDepartment] = useState<Department | ''>('');
+    const [curriculumType, setCurriculumType] = useState<'Nigerian' | 'British' | 'Both'>('Nigerian');
     const [isLoading, setIsLoading] = useState(false);
     const [showCredentialsModal, setShowCredentialsModal] = useState(false);
     const [credentials, setCredentials] = useState<{
@@ -57,6 +157,22 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [showNewParentForm, setShowNewParentForm] = useState(true);
     const [admissionNumber, setAdmissionNumber] = useState(''); // ⚠️ Added orphaned field
     const [studentAddress, setStudentAddress] = useState(''); // ⚠️ Added orphaned field
+    const [subjects, setSubjects] = useState<string[]>([]);
+    const [branches, setBranches] = useState<any[]>([]);
+    const [selectedBranchId, setSelectedBranchId] = useState<string>(currentBranchId || '');
+
+    // Dynamic subject filtering based on curriculum
+    const filteredSubjectOptions = useMemo(() => {
+        let standardFiltered = SUBJECTS_LIST;
+        
+        if (curriculumType === 'Nigerian') {
+            standardFiltered = SUBJECTS_LIST.filter(s => s.curriculum === 'Nigerian' || s.curriculum === 'Both');
+        } else if (curriculumType === 'British') {
+            standardFiltered = SUBJECTS_LIST.filter(s => s.curriculum === 'British' || s.curriculum === 'Both');
+        }
+        
+        return standardFiltered.map(s => s.name).sort();
+    }, [curriculumType]);
 
     const grade = useMemo(() => {
         if (selectedClassIds.length === 0) return 0;
@@ -131,6 +247,23 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     });
 
     useEffect(() => {
+        const loadBranches = async () => {
+            if (schoolId) {
+                try {
+                    const data = await api.getBranches(schoolId);
+                    setBranches(data || []);
+                    if (!selectedBranchId && data.length > 0) {
+                        setSelectedBranchId(data[0].id);
+                    }
+                } catch (err) {
+                    console.error("Error loading branches:", err);
+                }
+            }
+        };
+        loadBranches();
+    }, [schoolId]);
+
+    useEffect(() => {
         if (studentToEdit) {
             setSelectedImage(studentToEdit.avatarUrl);
             setFullName(studentToEdit.name || studentToEdit.full_name || '');
@@ -151,6 +284,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
             }
             setBirthday(formattedDob);
             setDepartment(studentToEdit.department || '');
+            setCurriculumType((studentToEdit as any).curriculum_type || 'Nigerian');
 
             // Fetch Student Details (including Enrollments and Guardian Info)
             const fetchDetails = async () => {
@@ -248,13 +382,14 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 gender: gender || undefined,
                 dob: birthday,
                 grade,
+                branch_id: selectedBranchId,
+                admission_number: admissionNumber,
                 section,
                 class_id: selectedClassIds[0],
                 selectedClassIds,
                 department,
+                curriculum_type: curriculumType,
                 school_id: schoolId,
-                branch_id: currentBranchId || profile?.branchId || null,
-                admission_number: admissionNumber,
                 address: studentAddress,
                 parentId: !showNewParentForm ? selectedParentId : undefined,
                 parentName: showNewParentForm ? guardianName : undefined,
@@ -434,6 +569,31 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                     </div>
                                 </div>
                                 <div>
+                                    <label htmlFor="branchId" className="block text-sm font-medium text-gray-700 mb-1">Assigned Branch</label>
+                                    <select 
+                                        id="branchId" 
+                                        name="branchId" 
+                                        value={selectedBranchId} 
+                                        onChange={e => setSelectedBranchId(e.target.value)} 
+                                        className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                        required
+                                    >
+                                        <option value="">Select Branch...</option>
+                                        {branches.map(b => (
+                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-400 italic">Students are permanently locked to their assigned branch.</p>
+                                </div>
+                                <div>
+                                    <label htmlFor="curriculumType" className="block text-sm font-medium text-gray-700 mb-1">Primary Curriculum</label>
+                                    <select id="curriculumType" value={curriculumType} onChange={e => setCurriculumType(e.target.value as any)} className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="Nigerian">Nigerian</option>
+                                        <option value="British">British</option>
+                                        <option value="Both">Both</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Class Enrollments</label>
                                     <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
                                         {availableClasses.length > 0 ? (
@@ -462,6 +622,14 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                     </div>
                                     <p className="mt-1 text-xs text-gray-400">The first selected class will be treated as the Primary Class.</p>
                                 </div>
+
+                                <MultiSelect
+                                    label="Subjects (Optional Selection)"
+                                    selected={subjects}
+                                    setSelected={setSubjects}
+                                    placeholder="Select subjects for student..."
+                                    options={filteredSubjectOptions}
+                                />
                                 {grade >= 10 && (
                                     <div>
                                         <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-1">Department</label>

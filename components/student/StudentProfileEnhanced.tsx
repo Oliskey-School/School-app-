@@ -26,9 +26,10 @@ interface StudentProfileEnhancedProps {
     studentId?: string | number;
     student?: any; // Accept passed down student object to avoid re-fetching if possible
     navigateTo?: (view: string, title: string, props?: any) => void;
+    initialTab?: string;
 }
 
-export default function StudentProfileEnhanced({ studentId, student: initialStudent, navigateTo }: StudentProfileEnhancedProps) {
+export default function StudentProfileEnhanced({ studentId, student: initialStudent, navigateTo, initialTab }: StudentProfileEnhancedProps) {
     const { customId, formatId, copyToClipboard, copied } = useUserIdentity();
     const [student, setStudent] = useState<any>(initialStudent || null);
     const [loading, setLoading] = useState(!initialStudent);
@@ -390,7 +391,7 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
                 {/* Premium Tabs */}
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-200/50 overflow-hidden">
-                    <Tabs defaultValue="overview" className="w-full">
+                    <Tabs defaultValue={initialTab || 'overview'} className="w-full">
                         <div className="border-b border-slate-200 bg-slate-50/50 px-6">
                             <TabsList className="bg-transparent h-auto p-0 gap-6">
                                 <TabsTrigger

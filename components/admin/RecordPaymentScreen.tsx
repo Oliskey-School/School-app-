@@ -22,7 +22,7 @@ const RecordPaymentScreen: React.FC<RecordPaymentScreenProps> = ({ navigateTo, f
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleBack = () => {
-        navigateTo('fees', 'Fee Management');
+        navigateTo('feeManagement', 'Fee Management');
     };
 
     const handleRecordPayment = async () => {

@@ -304,7 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(true);
         try {
             // Instant Backend fetch - bypassing cached mock logic
-            const { token, user: userData } = await api.demoLogin(roleKey);
+            const { token, refreshToken, user: userData } = await api.demoLogin(roleKey);
             
             if (token && userData) {
                 // Determine dashboard type based on true DB role
@@ -319,7 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 localStorage.removeItem('cached_user_profile');
                 sessionStorage.removeItem('demo_role_token');
 
-                await signIn(dashType, { ...userData, token });
+                await signIn(dashType, { ...userData, token, refreshToken });
             }
         } catch (err: any) {
             console.error("Demo Database Login failed:", err);
@@ -335,7 +335,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(true);
         try {
             const { api } = await import('../lib/api');
-            const { token, user: userData } = await api.googleLogin(email, name || 'Google User');
+            const { token, refreshToken, user: userData } = await api.googleLogin(email, name || 'Google User');
             
             if (token && userData) {
                 // Determine dashboard type based on role
@@ -346,7 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 else if (userRole === 'student') dashType = DashboardType.Student;
                 else if (userRole === 'parent') dashType = DashboardType.Parent;
                 
-                await signIn(dashType, { ...userData, token });
+                await signIn(dashType, { ...userData, token, refreshToken });
                 return { success: true };
             }
             throw new Error('Invalid response from Google Login');

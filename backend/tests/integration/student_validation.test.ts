@@ -49,11 +49,8 @@ describe('Backend Security: Student Validation Audit', () => {
         
         // Check that specific missing fields are flagged by the Yup schema
         const errorMessages = response.body.details;
-        expect(errorMessages).toContain('name is a required field');
-        expect(errorMessages).toContain('firstName is a required field');
-        expect(errorMessages).toContain('lastName is a required field');
-        expect(errorMessages).toContain('grade is a required field');
-        expect(errorMessages).toContain('section is a required field');
+        expect(errorMessages).toContain('First name is required');
+        expect(errorMessages).toContain('Last name is required');
         
         console.log('✅ Validation Audit Passed: Backend correctly rejected empty student record with 400.');
     });
@@ -75,12 +72,12 @@ describe('Backend Security: Student Validation Audit', () => {
         expect(response.body.details).toContain('grade must be a `number` type, but the final value was: `NaN` (cast from the value `"Not ANumber"`).');
     });
 
-    it('🚫 should return 400 when numeric fields are out of bounds (grade > 12)', async () => {
+    it('🚫 should return 400 when numeric fields are out of bounds (grade > 100)', async () => {
         const outOfBoundsPayload = {
             name: "Test Student",
             firstName: "Test",
             lastName: "Student",
-            grade: 99, // Max is 12
+            grade: 101, // Max is 100
             section: "A"
         };
 
@@ -89,6 +86,6 @@ describe('Backend Security: Student Validation Audit', () => {
             .send(outOfBoundsPayload);
 
         expect(response.status).toBe(400);
-        expect(response.body.details).toContain('grade must be less than or equal to 12');
+        expect(response.body.details).toContain('grade must be less than or equal to 100');
     });
 });

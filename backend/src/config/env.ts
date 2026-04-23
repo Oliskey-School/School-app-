@@ -17,8 +17,10 @@ if (result.error) {
 export const config = {
     port: process.env.BACKEND_PORT || process.env.PORT || 5000,
     jwtSecret: process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-prod',
+    refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret',
     databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:password123@127.0.0.1:5432/school_app',
-    env: process.env.NODE_ENV || 'development'
+    env: process.env.NODE_ENV || 'development',
+    defaultSchoolId: process.env.DEFAULT_SCHOOL_ID || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1'
 };
 
 if (!process.env.JWT_SECRET && config.env === 'production') {

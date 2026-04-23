@@ -12,9 +12,10 @@ interface AppointmentScreenProps {
     parentId?: string | null;
     students: Student[];
     navigateTo: (view: string, title: string, props?: any) => void;
+    studentId?: string;
 }
 
-const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, students, navigateTo }) => {
+const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, students, navigateTo, studentId }) => {
     const { currentSchool, currentBranchId } = useAuth();
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
@@ -23,6 +24,10 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
     const [reason, setReason] = useState('');
     const [isBooked, setIsBooked] = useState(false);
     const [isBooking, setIsBooking] = useState(false);
+
+    const [activeTab, setActiveTab] = useState<'book' | 'history'>('book');
+    const [appointments, setAppointments] = useState<any[]>([]);
+    const [loadingAppointments, setLoadingAppointments] = useState(false);
 
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [loadingTeachers, setLoadingTeachers] = useState(true);
@@ -101,6 +106,38 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
     useEffect(() => {
         fetchAvailability();
     }, [fetchAvailability]);
+
+    const fetchAppointments = useCallback(async () => {
+        if (!parentId) return;
+        setLoadingAppointments(true);
+        try {
+            const data = await api.getAppointments({ parent_id: parentId });
+            // Sort by date descending
+            const sorted = (data || []).sort((a: any, b: any) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime());
+            setAppointments(sorted);
+        } catch (err) {
+            console.error("Error fetching appointments:", err);
+        } finally {
+            setLoadingAppointments(false);
+        }
+    }, [parentId]);
+
+    useEffect(() => {
+        if (activeTab === 'history') {
+            fetchAppointments();
+        }
+    }, [activeTab, fetchAppointments]);
+
+    useEffect(() => {
+        if (!selectedStudent) {
+            if (studentId) {
+                const s = students.find(s => s.id === studentId || s.id.toString() === studentId);
+                if (s) setSelectedStudent(s);
+            } else if (students.length === 1) {
+                setSelectedStudent(students[0]);
+            }
+        }
+    }, [students, studentId, selectedStudent]);
 
     const activeTeachers = teachers;
 
@@ -262,7 +299,63 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                         </div>
                     ) : (
                         <>
-                            <section>
+                            <div className="flex space-x-2 bg-gray-200/50 p-1.5 rounded-xl w-max">
+                                <button 
+                                    onClick={() => setActiveTab('book')}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'book' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    Book Appointment
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('history')}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    History & Responses
+                                </button>
+                            </div>
+
+                            {activeTab === 'history' ? (
+                                <div className="space-y-4">
+                                    {loadingAppointments ? (
+                                        <div className="p-12 text-center bg-white rounded-3xl border border-gray-100 shadow-sm mt-8 animate-pulse text-gray-500 font-medium">Loading appointments...</div>
+                                    ) : appointments.length === 0 ? (
+                                        <div className="p-12 text-center bg-white rounded-3xl border border-gray-100 shadow-sm mt-8">
+                                            <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                            <h3 className="text-xl font-bold text-gray-700">No Appointments</h3>
+                                            <p className="text-gray-500 mt-2">You haven't booked any appointments yet.</p>
+                                        </div>
+                                    ) : (
+                                        appointments.map(apt => (
+                                            <div key={apt.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mt-4 transition-all hover:shadow-md">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div>
+                                                        <h3 className="font-bold text-lg text-gray-900">{apt.title || 'Meeting'}</h3>
+                                                        <p className="text-sm font-medium text-gray-500 mt-1 flex items-center gap-1.5">
+                                                            <ClockIcon className="w-4 h-4" />
+                                                            {new Date(apt.starts_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                                        </p>
+                                                    </div>
+                                                    <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${apt.status === 'confirmed' ? 'bg-green-100 text-green-700' : apt.status === 'rejected' ? 'bg-red-100 text-red-700' : apt.status === 'cancelled' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'}`}>
+                                                        {apt.status || 'PENDING'}
+                                                    </span>
+                                                </div>
+                                                <div className="bg-gray-50 p-4 rounded-xl mb-4 text-sm text-gray-700">
+                                                    <span className="font-bold text-gray-400 text-[10px] uppercase tracking-widest block mb-2">Your Request</span>
+                                                    {apt.description}
+                                                </div>
+                                                {apt.notes && (
+                                                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 text-sm">
+                                                        <span className="font-bold text-blue-500 text-[10px] uppercase tracking-widest block mb-2">Teacher's Response</span>
+                                                        <p className="text-gray-800 font-medium">{apt.notes}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <section>
                                 <div className="flex items-center mb-4">
                                     <span className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold mr-3 text-sm">1</span>
                                     <h2 className="text-xl font-bold text-gray-800">Select Student</h2>
@@ -434,6 +527,8 @@ const AppointmentScreen: React.FC<AppointmentScreenProps> = ({ parentId, student
                                     </div>
                                 </section>
                             </div>
+                                </>
+                            )}
                         </>
                     )}
                 </div>

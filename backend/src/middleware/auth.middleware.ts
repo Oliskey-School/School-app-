@@ -48,6 +48,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 role: decoded.role,
                 school_id: DEMO_SCHOOL_ID,
                 branch_id: decoded.branch_id,
+                allowed_branch_ids: decoded.allowed_branch_ids || [],
                 school_generated_id: decoded.school_generated_id,
                 full_name: decoded.full_name,
                 is_demo: true,
@@ -85,11 +86,13 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             role: user.role,
             school_id: user.school_id,
             branch_id: user.branch_id,
+            allowed_branch_ids: user.allowed_branch_ids || [],
             school_generated_id: user.school_generated_id,
             full_name: user.full_name,
-            phone: phone, // Add phone number
-            school: user.school, // Add school object
-            branch: user.branch  // Add branch object
+            phone: phone, 
+            email_verified: user.email_verified, // Added for frontend checks
+            school: user.school,
+            branch: user.branch
         };
 
         next();

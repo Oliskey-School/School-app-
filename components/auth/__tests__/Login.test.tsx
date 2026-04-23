@@ -19,11 +19,14 @@ vi.mock('../../../lib/api', () => ({
     }
 }));
 
+const mockSwitchDemoRole = vi.fn().mockResolvedValue(undefined);
+
 // Mock AuthContext to provide signIn function and prevent auto-initialization
 vi.mock('../../../context/AuthContext', () => ({
     useAuth: () => ({
         signIn: vi.fn().mockResolvedValue(undefined),
         signInWithGoogle: vi.fn(),
+        switchDemoRole: mockSwitchDemoRole,
         loading: false,
         user: null,
     }),
@@ -37,6 +40,7 @@ describe('Login Component Integration Tests', () => {
     });
 
     it('renders login form by default', async () => {
+        mockSwitchDemoRole.mockClear();
         renderWithProviders(<Login onNavigateToSignup={vi.fn()} onNavigateToCreateSchool={vi.fn()} />);
         
         // Use findBy to wait for AuthProvider loading to finish
@@ -112,7 +116,7 @@ describe('Login Component Integration Tests', () => {
             fireEvent.click(adminBtn[0]);
 
             await waitFor(() => {
-                expect(authenticateUser).toHaveBeenCalled();
+                expect(mockSwitchDemoRole).toHaveBeenCalledWith('admin');
             });
         });
     });

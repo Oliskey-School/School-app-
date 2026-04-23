@@ -277,20 +277,53 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
 
     return (
         <div className="flex min-h-screen w-full bg-slate-50 font-sans overflow-hidden">
-            <div className="hidden lg:flex w-80 flex-col bg-indigo-600 p-8 fixed left-0 top-0 h-full z-20 shadow-2xl overflow-hidden">
-                <motion.div
-                    animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500 rounded-full blur-3xl opacity-30"
-                />
-                <motion.div
-                    animate={{ scale: [1, 1.3, 1], rotate: [0, -90, 0] }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-400 rounded-full blur-3xl opacity-20"
-                />
+            {/* Animated Background - Separated for Performance */}
+            <BackgroundDecor />
 
+            <div className="hidden lg:flex w-80 flex-col bg-indigo-600 p-8 fixed left-0 top-0 h-full z-20 shadow-2xl overflow-hidden">
                 <div className="relative z-10 h-full flex flex-col">
-                    {renderSteps()}
+                    <div className="flex flex-col gap-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-white/10 p-2 rounded-lg backdrop-blur-md border border-white/10">
+                                <BuildingLibraryIcon className="w-6 h-6 text-white" />
+                            </div>
+                            <span className="text-xl font-bold tracking-tight text-white">SchoolApp</span>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <h2 className="text-2xl font-bold text-white mb-2">Start your journey</h2>
+                                <p className="text-indigo-200 text-sm">Join thousands of schools managing their operations efficiently.</p>
+                            </div>
+
+                            <div className="space-y-0 relative">
+                                <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-indigo-500/30 z-0 hidden lg:block" />
+
+                                {[1, 2, 3].map((s) => (
+                                    <div key={s} className="relative z-10 flex items-center gap-4 py-2">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
+                                            step >= s
+                                                ? 'bg-white border-white text-indigo-600'
+                                                : 'bg-transparent border-indigo-400 text-indigo-200'
+                                        }`}>
+                                            {step > s ? <CheckCircleIcon className="w-5 h-5" /> : s}
+                                        </div>
+                                        <span className={`text-sm font-medium transition-colors duration-300 ${
+                                            step >= s ? 'text-white' : 'text-indigo-300'
+                                        }`}>
+                                            {s === 1 && 'School Details'}
+                                            {s === 2 && 'Admin Setup'}
+                                            {s === 3 && 'Verify Email'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-auto pt-8 text-xs text-indigo-300">
+                            © 2026 SchoolApp Inc.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -307,19 +340,6 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
                             <span className="text-[10px] uppercase font-black text-indigo-200">/ 3</span>
                         </div>
                     </div>
-                </div>
-
-                <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                    <motion.div
-                        animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }}
-                        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute top-[10%] left-[10%] w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-40"
-                    />
-                    <motion.div
-                        animate={{ x: [0, -40, 0], y: [0, 50, 0], scale: [1, 1.2, 1] }}
-                        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute bottom-[10%] right-[10%] w-[500px] h-[500px] bg-purple-100 rounded-full blur-3xl opacity-30"
-                    />
                 </div>
 
                 <div className="flex-1 flex flex-col justify-center items-center p-4 sm:p-8 lg:p-12 z-10">
@@ -692,5 +712,40 @@ const CreateSchoolSignup: React.FC<CreateSchoolSignupProps> = ({ onNavigateToLog
         </div>
     );
 };
+
+// ==========================================
+// Performance Optimized Background
+// ==========================================
+const BackgroundDecor = React.memo(() => {
+    return (
+        <>
+            <div className="hidden lg:block absolute left-0 top-0 w-80 h-full overflow-hidden pointer-events-none z-10">
+                <motion.div
+                    animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
+                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                    className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500 rounded-full blur-3xl opacity-30"
+                />
+                <motion.div
+                    animate={{ scale: [1, 1.3, 1], rotate: [0, -90, 0] }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-400 rounded-full blur-3xl opacity-20"
+                />
+            </div>
+            
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <motion.div
+                    animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute top-[10%] left-[10%] w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-40"
+                />
+                <motion.div
+                    animate={{ x: [0, -40, 0], y: [0, 50, 0], scale: [1, 1.2, 1] }}
+                    transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute bottom-[10%] right-[10%] w-[500px] h-[500px] bg-purple-100 rounded-full blur-3xl opacity-30"
+                />
+            </div>
+        </>
+    );
+});
 
 export default CreateSchoolSignup;

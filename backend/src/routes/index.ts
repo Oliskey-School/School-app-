@@ -60,7 +60,9 @@ import saasAnalyticsRoutes from './saas-analytics.routes';
 import conferenceRoutes from './conference.routes';
 import counselingRoutes from './counseling.routes';
 import maintenanceRoutes from './maintenance.routes';
+import debugRoutes from './debug.routes';
 import * as QuizController from '../controllers/quiz.controller';
+import { getStudentFeesLegacy } from '../controllers/fee.controller';
 
 const router = Router();
 
@@ -75,6 +77,7 @@ router.use('/schools', schoolRoutes);
 router.use('/students', studentRoutes);
 router.use('/teachers', teacherRoutes);
 router.use('/fees', feeRoutes);
+router.get('/student-fees', authenticate, getStudentFeesLegacy);
 router.use('/buses', busRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/classes', classRoutes);
@@ -130,6 +133,13 @@ router.use('/infrastructure', infrastructureRoutes);
 router.use('/behavior', behaviorRoutes);
 router.use('/admin-hub', adminHubRoutes);
 router.get('/cbt/exams', authenticate, requireTenant, QuizController.getQuizzes);
+
+router.use('/saas-analytics', saasAnalyticsRoutes);
+
+// 🚨 DEBUG ROUTES: Only for testing
+if (process.env.NODE_ENV !== 'production') {
+    router.use('/debug', debugRoutes);
+}
 
 router.use('/', inviteRoutes);
 

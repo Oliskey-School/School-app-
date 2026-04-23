@@ -179,3 +179,23 @@ export const getTransactions = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getStudentFeesLegacy = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id, single } = req.query;
+        const branchId = req.user.branch_id || (req.query.branchId as string);
+        
+        if (id) {
+            const result = await FeeService.getFeeById(req.user.school_id, branchId, id as string);
+            if (single === 'true') {
+                return res.json(result);
+            }
+            return res.json(result ? [result] : []);
+        }
+        
+        const result = await FeeService.getAllFees(req.user.school_id, branchId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

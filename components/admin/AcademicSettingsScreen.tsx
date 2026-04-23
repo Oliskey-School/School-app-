@@ -24,6 +24,7 @@ const AcademicSettingsScreen: React.FC = () => {
 
   const [calendar, setCalendar] = useState({ start: '2024-09-05', end: '2025-06-20' });
   const [grading, setGrading] = useState({ scale: 'percentage', weighted: true });
+  const [curriculumType, setCurriculumType] = useState<'Nigerian' | 'British' | 'Both'>('Nigerian');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -38,13 +39,15 @@ const AcademicSettingsScreen: React.FC = () => {
     setLoading(true);
     const branchId = (useAuth() as any).currentBranchId;
     try {
-      const data = await api.getSystemSettings(schoolId, ['academic_calendar', 'grading_config'], branchId);
+      const data = await api.getSystemSettings(schoolId, ['academic_calendar', 'grading_config', 'curriculum_type'], branchId);
       
       const calendarData = data.find(s => s.key === 'academic_calendar');
       const gradingData = data.find(s => s.key === 'grading_config');
+      const curriculumData = data.find(s => s.key === 'curriculum_type');
 
       if (calendarData) setCalendar(calendarData.value);
       if (gradingData) setGrading(gradingData.value);
+      if (curriculumData) setCurriculumType(curriculumData.value);
     } catch (err) {
       console.error('Failed to load settings:', err);
       toast.error('Error loading academic settings.');
@@ -72,8 +75,16 @@ const AcademicSettingsScreen: React.FC = () => {
 
       await api.updateSystemSettings(schoolId, [
         { key: 'academic_calendar', value: calendar },
-        { key: 'grading_config', value: grading }
+        { key: 'grading_config', value: grading },
+        { key: 'curriculum_type', value: curriculumType }
       ], branchId);
+
+      // Also update school level curriculum type if available
+      try {
+          await api.updateSchoolInfo(schoolId, { curriculum_type: curriculumType });
+      } catch (e) {
+          console.warn("Failed to update school-level curriculum type:", e);
+      }
 
       toast.success('Settings saved successfully!');
     } catch (err: any) {
@@ -127,6 +138,24 @@ const AcademicSettingsScreen: React.FC = () => {
           </Accordion>
           <Accordion title="Enrollment Settings">
             <p className="text-gray-600 text-sm">Configure admission forms, required documents, and application statuses here.</p>
+          </Accordion>
+
+          <Accordion title="Curriculum & Content">
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-700">Primary Curriculum Type</label>
+              <select 
+                value={curriculumType} 
+                onChange={e => setCurriculumType(e.target.value as any)} 
+                className="w-full p-2 border border-gray-300 rounded-md bg-gray-50"
+              >
+                <option value="Nigerian">Nigerian Curriculum</option>
+                <option value="British">British Curriculum</option>
+                <option value="Both">Both (Dual Curriculum)</option>
+              </select>
+              <p className="text-xs text-gray-500 italic mt-1">
+                This setting determines the default subject lists and term structures used throughout the system.
+              </p>
+            </div>
           </Accordion>
         </>
       )}

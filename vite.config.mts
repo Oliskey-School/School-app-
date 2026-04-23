@@ -65,7 +65,12 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
-          // Simplified output for debugging
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-utils': ['axios', 'date-fns', 'lucide-react', 'framer-motion'],
+            'vendor-charts': ['recharts'],
+            'vendor-pdf': ['jspdf', 'jspdf-autotable', 'html2canvas', 'html2pdf.js'],
+          },
         },
       },
     },

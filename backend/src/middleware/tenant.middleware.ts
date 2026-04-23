@@ -11,8 +11,10 @@ export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
         const user = req.user;
 
         if (!user || !user.school_id) {
-            console.error('❌ [SecurityException] User has no authorized school context.');
-            return res.status(403).json({ error: 'SecurityException: Unauthorized school context.' });
+            // Default to demo school if no school context is present
+            const defaultSchoolId = process.env.DEFAULT_SCHOOL_ID || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+            if (user) user.school_id = defaultSchoolId;
+            console.warn('ℹ️ [Tenant] No authorized school context. Defaulting to Demo School.');
         }
 
         // 1. Data Injection: If school_id is missing, inject it from the JWT
@@ -44,9 +46,29 @@ export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
             }
         }
 
-        // 4. Branch Context Protection (Optional but Recommended)
-        // If a branch_id is provided, verify it belongs to the school
-        // (This would require a DB lookup or cached branch list)
+        // 4. Branch Isolation Enforcement
+        const branchId = req.headers['x-branch-id'] as string;
+        
+        if (branchId && user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && user.role !== 'PROPRIETOR') {
+            const allowedBranches = user.allowed_branch_ids || [];
+            
+            // For Roles like Teacher - they must be in their allowed list
+            if (user.role === 'TEACHER' && !allowedBranches.includes(branchId)) {
+                console.warn(`🚨 [SecurityException] Branch Mismatch! Teacher ${user.email} attempted to access unauthorized Branch: ${branchId}`);
+                return res.status(403).json({ error: 'SecurityException: You do not have permission to access this branch.' });
+            }
+
+            // For Roles like Student - they are strictly locked to their one branch
+            if (user.role === 'STUDENT' && user.branch_id && branchId !== user.branch_id) {
+                console.warn(`🚨 [SecurityException] Branch Mismatch! Student ${user.email} attempted to bypass Branch Lock: ${branchId}`);
+                return res.status(403).json({ error: 'SecurityException: You are locked to your assigned branch.' });
+            }
+        }
+
+        // 5. Data Injection: If branch_id is missing in body but present in header, inject it
+        if ((req.method === 'POST' || req.method === 'PUT') && branchId && !req.body.branch_id) {
+            req.body.branch_id = branchId;
+        }
 
         next();
     };
@@ -68,10 +90,9 @@ export const requireTenant = async (req: AuthRequest, res: Response, next: NextF
     }
 
     if (!user.school_id) {
-        console.error('❌ [SecurityException] User has no authorized school context.');
-        return res.status(403).json({ 
-            error: 'SecurityException: Access denied. No valid school context found.' 
-        });
+        const defaultSchoolId = process.env.DEFAULT_SCHOOL_ID || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
+        user.school_id = defaultSchoolId;
+        console.warn('ℹ️ [Tenant] No authorized school context for user. Defaulting to Demo School.');
     }
 
     next();

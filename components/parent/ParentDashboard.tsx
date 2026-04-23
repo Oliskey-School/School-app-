@@ -66,6 +66,7 @@ import ParentChangePasswordScreen from './ParentChangePasswordScreen';
 import { UnifiedParentHome } from './UnifiedParentHome';
 import { FeesPiggyBank } from './FeesPiggyBank';
 import { SmartCalendar } from './SmartCalendar';
+import StudentProfileEnhanced from '../student/StudentProfileEnhanced';
 
 // Shared View Components
 import ExamSchedule from '../shared/ExamSchedule';
@@ -610,21 +611,12 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         smartCalendar: SmartCalendar,
         todaySummary: (props: any) => <ParentTodayWidget {...props} />,
         childDetail: (props: any) => (
-            <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-50 rounded-3xl min-h-[60vh]">
-                <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
-                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <ChartBarIcon className="w-8 h-8 text-indigo-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-800">Student Profile</h2>
-                    <p className="text-gray-500 mt-2">The enhanced profile view is being optimized.<br/>Please use the Report Card or Academics tabs for now.</p>
-                    <button 
-                        onClick={() => props.navigateTo('dashboard', 'Parent Dashboard')}
-                        className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors"
-                    >
-                        Back to Dashboard
-                    </button>
-                </div>
-            </div>
+            <StudentProfileEnhanced 
+                studentId={props.studentId || props.student?.id} 
+                student={props.student} 
+                navigateTo={props.navigateTo} 
+                initialTab={props.initialTab}
+            />
         ),
         examSchedule: ExamSchedule,
         noticeboard: (props: any) => <NoticeboardScreen {...props} userType="parent" />,

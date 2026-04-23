@@ -24,6 +24,10 @@ const EyeOffIcon = ({ size = 20 }: { size?: number }) => (
 
 import { DEMO_ACCOUNTS, DEMO_ROLES_ORDER, DEMO_SCHOOL_ID, DEMO_BRANCH_ID } from '../../lib/mockAuth';
 
+// Global state to prevent multiple initializations of Google Identity Services
+let googleIdentityInitialized = false;
+let googleResponseHandler: ((resp: any) => void) | null = null;
+
 const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool?: () => void }> = ({ onNavigateToSignup, onNavigateToCreateSchool }) => {
   const [view, setView] = useState<'login' | 'school_signup' | 'demo' | 'verify'>('login');
   const [email, setEmail] = useState('');
@@ -39,22 +43,29 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
   const [verificationEmail, setVerificationEmail] = useState('');
   const [verificationUserId, setVerificationUserId] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [googleInitialized, setGoogleInitialized] = useState(false);
+  const [googleInitialized, setGoogleInitialized] = useState(googleIdentityInitialized);
 
   const googleInitRef = useRef(false);
 
   // Initialize Google Identity Services
   useEffect(() => {
+    // Update the global handler to point to this component instance's handler
+    googleResponseHandler = handleGoogleResponse;
+
     const initializeGoogle = () => {
-      if ((window as any).google && !googleInitRef.current) {
+      if ((window as any).google && !googleIdentityInitialized) {
         console.log('🛡️ [Google] Initializing Identity Services...');
         (window as any).google.accounts.id.initialize({
           client_id: "721743639912-8ks885994n29is9595849494.apps.googleusercontent.com", // Placeholder: REPLACE WITH REAL ID
-          callback: handleGoogleResponse,
+          callback: (response: any) => {
+            if (googleResponseHandler) googleResponseHandler(response);
+          },
           auto_select: false,
           cancel_on_tap_outside: true,
         });
-        googleInitRef.current = true;
+        googleIdentityInitialized = true;
+        setGoogleInitialized(true);
+      } else if (googleIdentityInitialized) {
         setGoogleInitialized(true);
       }
     };
@@ -71,6 +82,11 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     } else {
       initializeGoogle();
     }
+
+    return () => {
+      // Don't reset googleIdentityInitialized, but we can clear the handler if needed
+      // Actually, keep it for the next mount if it's the same logical flow
+    };
   }, []);
 
   const handleGoogleResponse = async (response: any) => {

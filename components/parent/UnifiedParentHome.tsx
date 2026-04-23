@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useBranch } from '../../context/BranchContext';
 import { Student } from '../../types';
 
 export interface ChildOverview {
@@ -29,6 +30,7 @@ interface UnifiedParentHomeProps {
 
 export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, schoolId, navigateTo }) => {
     const { user, currentSchool } = useAuth();
+    const { switchBranch } = useBranch();
     const [children, setChildren] = useState<ChildOverview[]>([]);
     const [activeChildIndex, setActiveChildIndex] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -104,6 +106,12 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                                             onClick={() => {
                                                 setActiveChildIndex(idx);
                                                 setIsSwitcherOpen(false);
+                                                
+                                                // 🚨 Switch Branch Context to match the child's branch
+                                                const selectedStudent = students.find(s => s.id === c.id);
+                                                if (selectedStudent?.branchId) {
+                                                    switchBranch(selectedStudent.branchId);
+                                                }
                                             }}
                                             className={`w-full text-left p-4 hover:bg-gray-50 transition-colors flex items-center justify-between ${idx === activeChildIndex ? 'bg-indigo-50/50' : ''}`}
                                         >
@@ -163,10 +171,13 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
 
             {/* Scrollable Card Feed */}
             <div className="p-4 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Daily Report</h3>
+                </div>
                 {/* Attendance Card */}
                 <motion.div 
                     whileTap={{ scale: 0.98 }} 
-                    onClick={() => navigateTo('childDetail', child.name, { student: students[activeChildIndex], initialTab: 'attendance' })}
+                    onClick={() => navigateTo('attendance', 'Attendance', { student: students[activeChildIndex], studentId: child.id })}
                     className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                     <div className="flex items-center gap-4">
@@ -187,7 +198,7 @@ export const UnifiedParentHome: React.FC<UnifiedParentHomeProps> = ({ students, 
                 {/* Assignments Card */}
                 <motion.div 
                     whileTap={{ scale: 0.98 }} 
-                    onClick={() => navigateTo('childDetail', child.name, { student: students[activeChildIndex], initialTab: 'academics' })}
+                    onClick={() => navigateTo('childDetail', child.name, { student: students[activeChildIndex], initialTab: 'academic' })}
                     className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                     <div className="flex items-center gap-4">

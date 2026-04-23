@@ -16,7 +16,18 @@ export const login = async (req: Request, res: Response) => {
             });
         }
         
-        res.json({ token: result.token, user: result.user });
+        res.json({ token: result.token, refreshToken: result.refreshToken, user: result.user });
+    } catch (error: any) {
+        res.status(401).json({ message: error.message });
+    }
+};
+
+export const refresh = async (req: Request, res: Response) => {
+    try {
+        const { refreshToken } = req.body;
+        if (!refreshToken) throw new Error('Refresh token is required');
+        const result = await AuthService.refreshAccessToken(refreshToken);
+        res.json(result);
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }
@@ -26,8 +37,8 @@ export const googleLogin = async (req: Request, res: Response) => {
     try {
         const { email, name } = req.body;
         if (!email) throw new Error('Email is required for Google Login');
-        const { user, token } = await AuthService.googleLogin(email, name);
-        res.json({ token, user });
+        const { user, token, refreshToken } = await AuthService.googleLogin(email, name);
+        res.json({ token, refreshToken, user });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }
@@ -192,7 +203,11 @@ export const switchSchool = async (req: Request, res: Response) => {
         const { userId, schoolId } = req.body;
         if (!userId || !schoolId) throw new Error('userId and schoolId are required');
         const result = await AuthService.switchSchool(userId, schoolId);
-        res.json(result);
+        res.json({ 
+            token: result.token, 
+            refreshToken: result.refreshToken, 
+            user: result.user 
+        });
     } catch (error: any) {
         res.status(400).json({ message: error.message });
     }
