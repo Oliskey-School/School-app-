@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { lazyWithRetry } from '../../lib/lazyRetry';
 import { ChatRoom, ChatUser, Student } from '../../types';
 import { api } from '../../lib/api';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
@@ -258,6 +258,6 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
 // We need to import ChatScreen. 
 // Since I can't easily add import to top without reading again or guessing line numbers safely,
 // I'll assume I can add it by replacing the top block or using lazy.
-const ChatScreen = React.lazy(() => import('../shared/ChatScreen'));
+const ChatScreen = lazyWithRetry(() => import('../shared/ChatScreen'));
 
 export default StudentMessagesScreen;

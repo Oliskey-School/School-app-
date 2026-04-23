@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { lazyWithRetry } from '../../lib/lazyRetry';
 import { api } from '../../lib/api';
 import { PhoneIcon, BusVehicleIcon, ClockIcon, UsersIcon } from '../../constants';
 import { Conversation } from '../../types';
@@ -278,6 +279,6 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
 };
 
 // Lazy load ChatScreen to avoid circular dependencies
-const ChatScreen = React.lazy(() => import('../shared/ChatScreen'));
+const ChatScreen = lazyWithRetry(() => import('../shared/ChatScreen'));
 
 export default ParentMessagesScreen;

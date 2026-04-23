@@ -14,42 +14,9 @@ import { useBranch } from './context/BranchContext';
 import { useAuth } from './context/AuthContext';
 import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { syncEngine } from './lib/syncEngine';
+import { lazyWithRetry } from './lib/lazyRetry';
 
-/**
- * Utility to handle 'Failed to fetch dynamically imported module' errors.
- * This happens when a new version is deployed and the old chunks are gone.
- * It retries the import once after a hard reload.
- */
-const lazyWithRetry = (componentImport: () => Promise<any>) =>
-  lazy(async () => {
-    const pageHasBeenForceRefreshed = JSON.parse(
-      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
-    );
-
-    try {
-      const component = await componentImport();
-      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
-      return component;
-    } catch (error: any) {
-      // Check for fetch errors (ChunkLoadError or TypeError)
-      const isFetchError = error?.name === 'ChunkLoadError' || 
-                          error?.message?.includes('Failed to fetch') ||
-                          error?.message?.includes('dynamic import');
-
-      if (isFetchError && !pageHasBeenForceRefreshed) {
-        console.warn('🔄 Chunk load failed. Force refreshing app to get newest version...');
-        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
-        window.location.reload();
-        // Return a promise that never resolves to avoid rendering while reloading
-        return new Promise(() => {});
-      }
-
-      throw error;
-    }
-  });
-
-// Lazy load all major components
-// Lazy load all major components with retry logic
+// Unified lazy load with shared retry logic
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
 const Login = lazyWithRetry(() => import('./components/auth/Login'));
 const Signup = lazyWithRetry(() => import('./components/auth/Signup'));
@@ -67,6 +34,28 @@ const PWAInstallPrompt = lazyWithRetry(() => import('./components/shared/PWAInst
 const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePrompt'));
 const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErrorPage'));
 
+/**
+ * GLOBAL FAILSFE: Unhandled Promise Rejections
+ * Some chunk errors happen outside of the React lifecycle.
+ * This listener catches them and triggers a recovery refresh.
+ */
+window.addEventListener('unhandledrejection', (event) => {
+  const error = event.reason;
+  const isFetchError = error?.name === 'ChunkLoadError' || 
+                      error?.message?.includes('Failed to fetch') ||
+                      error?.message?.includes('dynamic import');
+
+  const pageHasBeenForceRefreshed = JSON.parse(
+    window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+  );
+
+  if (isFetchError && !pageHasBeenForceRefreshed) {
+    console.warn('⚠️ Global Fetch Error detected. Recovering app...');
+    window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+    window.location.reload();
+  }
+});
+
 // Basic Error Boundary for catching dashboard crashes
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
   state = { hasError: false, error: null };
@@ -76,6 +65,20 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
   componentDidCatch(error: any, errorInfo: any) {
     console.error("Dashboard Crash Caught:", error, errorInfo);
+    
+    // Safety Fallback: If ErrorBoundary catches a module failure that lazyWithRetry missed
+    const isFetchError = error?.name === 'ChunkLoadError' || 
+                        error?.message?.includes('Failed to fetch') ||
+                        error?.message?.includes('dynamic import');
+
+    const pageHasBeenForceRefreshed = JSON.parse(
+      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+    );
+
+    if (isFetchError && !pageHasBeenForceRefreshed) {
+      window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+      this.handleReset();
+    }
   }
   handleReset = () => {
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {

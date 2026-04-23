@@ -20,7 +20,12 @@ const start = async () => {
                     execSync('npx prisma migrate deploy', { stdio: 'inherit' });
                     console.log('✅ [Production] Database migrations up to date.');
                 } catch (migrationErr: any) {
-                    console.error('⚠️ [Production] Migration check skipped or failed:', migrationErr.message);
+                    if (migrationErr.message?.includes('P3005')) {
+                        console.error('❌ [Production] Migration Error P3005: The database is not empty but has no migration history.');
+                        console.error('💡 [Resolution] Run: npx prisma migrate resolve --applied 20260317235016_init --applied 20260317235154_add_membership ...etc');
+                    } else {
+                        console.error('⚠️ [Production] Migration check skipped or failed:', migrationErr.message);
+                    }
                 }
             }
 

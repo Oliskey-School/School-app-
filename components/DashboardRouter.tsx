@@ -4,22 +4,24 @@ import { DashboardType } from '../types';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import VerifiedAdminRoute from './auth/VerifiedAdminRoute';
 
-const PremiumErrorPage = React.lazy(() => import('./ui/PremiumErrorPage'));
-const NotFoundPage = React.lazy(() => import('./ui/NotFoundPage'));
+import { lazyWithRetry } from '../lib/lazyRetry';
 
-// Import Dashboards (Using standard paths)
-const AdminDashboard = React.lazy(() => import('./admin/AdminDashboard'));
-const SuperAdminDashboard = React.lazy(() => import('./admin/SuperAdminDashboard'));
-const TeacherDashboard = React.lazy(() => import('./teacher/TeacherDashboard'));
-const StudentDashboard = React.lazy(() => import('./student/StudentDashboard'));
-const ParentDashboard = React.lazy(() => import('./parent/ParentDashboard'));
-const ProprietorDashboard = React.lazy(() => import('./proprietor/ProprietorDashboard'));
-const InspectorDashboard = React.lazy(() => import('./inspector/InspectorDashboard'));
-const ComplianceOfficerDashboard = React.lazy(() => import('./admin/ComplianceOfficerDashboard'));
-const ExamOfficerDashboard = React.lazy(() => import('./admin/ExamOfficerDashboard'));
-const CounselorDashboard = React.lazy(() => import('./admin/CounselorDashboard'));
-const SubscriptionPage = React.lazy(() => import('./subscription/SubscriptionPage'));
-const ExternalExamsPage = React.lazy(() => import('./admin/ExternalExamsPage'));
+const PremiumErrorPage = lazyWithRetry(() => import('./ui/PremiumErrorPage'));
+const NotFoundPage = lazyWithRetry(() => import('./ui/NotFoundPage'));
+
+// Import Dashboards (Using resilient paths)
+const AdminDashboard = lazyWithRetry(() => import('./admin/AdminDashboard'));
+const SuperAdminDashboard = lazyWithRetry(() => import('./admin/SuperAdminDashboard'));
+const TeacherDashboard = lazyWithRetry(() => import('./teacher/TeacherDashboard'));
+const StudentDashboard = lazyWithRetry(() => import('./student/StudentDashboard'));
+const ParentDashboard = lazyWithRetry(() => import('./parent/ParentDashboard'));
+const ProprietorDashboard = lazyWithRetry(() => import('./proprietor/ProprietorDashboard'));
+const InspectorDashboard = lazyWithRetry(() => import('./inspector/InspectorDashboard'));
+const ComplianceOfficerDashboard = lazyWithRetry(() => import('./admin/ComplianceOfficerDashboard'));
+const ExamOfficerDashboard = lazyWithRetry(() => import('./admin/ExamOfficerDashboard'));
+const CounselorDashboard = lazyWithRetry(() => import('./admin/CounselorDashboard'));
+const SubscriptionPage = lazyWithRetry(() => import('./subscription/SubscriptionPage'));
+const ExternalExamsPage = lazyWithRetry(() => import('./admin/ExternalExamsPage'));
 
 // Simple Loading Component
 const LoadingScreen = () => (

@@ -7,9 +7,10 @@ import PremiumLoader from '../ui/PremiumLoader';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { lazyWithRetry } from '../../lib/lazyRetry';
 
 // Lazy load only the Global Search Screen as it's an overlay
-const GlobalSearchScreen = lazy(() => import('../shared/GlobalSearchScreen'));
+const GlobalSearchScreen = lazyWithRetry(() => import('../shared/GlobalSearchScreen'));
 
 // Import all other view components directly
 import TeacherOverview from './TeacherOverview';
@@ -90,7 +91,7 @@ import StudentCredentialsScreen from './StudentCredentialsScreen';
 import WorkloadCalculator from './WorkloadCalculator';
 
 // Lazy load AddStudentScreen for teachers
-const AddStudentScreen = lazy(() => import('../admin/AddStudentScreen'));
+const AddStudentScreen = lazyWithRetry(() => import('../admin/AddStudentScreen'));
 
 const DashboardSuspenseFallback = () => (
   <PremiumLoader message="Loading teacher workspace..." />

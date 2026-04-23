@@ -6,21 +6,22 @@ import { api } from '../../lib/api';
 import { LogOut, LayoutDashboard, Building, Briefcase, Settings, Menu, X, Bell, User, Search, CreditCard, DollarSign, BarChart, Shield, Users, Lock, Globe } from 'lucide-react';
 import { Header } from './Header'; // Use shared Header
 import { Toaster, toast } from 'react-hot-toast';
+import { lazyWithRetry } from '../../lib/lazyRetry';
 // import { realtimeService } from '../../services/RealtimeService';
 
 // SaaS Imports
-const SchoolManagementScreen = lazy(() => import('./saas/SchoolManagementScreen'));
-const PlanManagementScreen = lazy(() => import('./saas/PlanManagementScreen'));
-const SaaSDashboardOverview = lazy(() => import('./saas/SaaSDashboardOverview'));
-const SubscriptionManagement = lazy(() => import('./saas/SubscriptionManagement'));
-const PaymentDashboard = lazy(() => import('./saas/PaymentDashboard'));
-const AnalyticsDashboard = lazy(() => import('./saas/AnalyticsDashboard'));
-const NotificationCenter = lazy(() => import('./saas/NotificationCenter'));
-const AuditLogViewer = lazy(() => import('./saas/AuditLogViewer'));
-const RoleManagementScreen = lazy(() => import('./saas/RoleManagementScreen'));
-const SecuritySettings = lazy(() => import('./saas/SecuritySettings'));
-const ProfileSettings = lazy(() => import('./ProfileSettings')); // Reuse settings
-const PaymentGatewaySettings = lazy(() => import('./saas/PaymentGatewaySettings'));
+const SchoolManagementScreen = lazyWithRetry(() => import('./saas/SchoolManagementScreen'));
+const PlanManagementScreen = lazyWithRetry(() => import('./saas/PlanManagementScreen'));
+const SaaSDashboardOverview = lazyWithRetry(() => import('./saas/SaaSDashboardOverview'));
+const SubscriptionManagement = lazyWithRetry(() => import('./saas/SubscriptionManagement'));
+const PaymentDashboard = lazyWithRetry(() => import('./saas/PaymentDashboard'));
+const AnalyticsDashboard = lazyWithRetry(() => import('./saas/AnalyticsDashboard'));
+const NotificationCenter = lazyWithRetry(() => import('./saas/NotificationCenter'));
+const AuditLogViewer = lazyWithRetry(() => import('./saas/AuditLogViewer'));
+const RoleManagementScreen = lazyWithRetry(() => import('./saas/RoleManagementScreen'));
+const SecuritySettings = lazyWithRetry(() => import('./saas/SecuritySettings'));
+const ProfileSettings = lazyWithRetry(() => import('./ProfileSettings')); // Reuse settings
+const PaymentGatewaySettings = lazyWithRetry(() => import('./saas/PaymentGatewaySettings'));
 import EmailVerificationPrompt from '../auth/EmailVerificationPrompt';
 
 

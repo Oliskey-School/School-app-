@@ -1,12 +1,17 @@
+import path from 'path';
 import prisma from '../config/database';
 import { AuthService } from './auth.service';
 
 let seedDemoSchool: any;
 try {
-    // Attempt to load the seed function; handle cases where it might be missing in certain environments
-    seedDemoSchool = require('../../../prisma/seed').seedDemoSchool;
+    /**
+     * Resolve the seed path dynamically based on the current working directory.
+     * This handles cases where the app is running from src/ or dist/ in production.
+     */
+    const seedPath = path.resolve(process.cwd(), 'prisma/seed');
+    seedDemoSchool = require(seedPath).seedDemoSchool;
 } catch (err) {
-    console.warn('⚠️ [DemoReset] Seed module not found. Sync may be incomplete.');
+    console.warn('⚠️ [DemoReset] Seed module not found via path.resolve. Sync may be incomplete.');
 }
 
 /**
