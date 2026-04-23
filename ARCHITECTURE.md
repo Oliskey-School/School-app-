@@ -59,7 +59,14 @@ Always run `npx prisma db push` targeting the production database (Supabase) bef
 The `vercel-build` script in `package.json` ensures the Prisma Client is generated synchronously during the Vercel deployment pipeline.
 
 ### 3. Railway Sync
-The master backend on Railway must have its `DATABASE_URL` pointed to the Supabase connection pooler to avoid port 5432 connection limits.
+The master backend on Railway must have its `DATABASE_URL` pointed to the Supabase connection pooler.
+
+### 4. Version Update Policy
+When pushing to production:
+1.  **Semantic Versioning**: Increment the `version` in `package.json`.
+2.  **PWA Refresh**: The `UpdatePrompt` component detects the new version via the Service Worker.
+3.  **User Notification**: Mobile/Web users are prompted with a banner to "Update Now" or "Cancel".
+4.  **Activation**: Clicking "Update" triggers a Service Worker skip-waiting and a hard reload to ensure zero-stale-code sessions.
 
 ---
 *Last Updated: April 2026*

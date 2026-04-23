@@ -5,17 +5,10 @@ import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
 // @ts-ignore
-import { registerSW } from 'virtual:pwa-register';
+// import { registerSW } from 'virtual:pwa-register';
 
 // Register PWA Service Worker for extremely fast loading
-const updateSW = registerSW({
-  onNeedRefresh() {
-    // Optional: show a prompt to user to refresh
-  },
-  onOfflineReady() {
-    console.log('App is ready to work offline');
-  },
-});
+// Service worker is registered via UpdatePrompt component in App.tsx
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

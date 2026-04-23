@@ -69,6 +69,7 @@ test_output_utf8.txt
 !prisma/schema.prisma
 !ddl.sql
 !*.md
+!pwa.d.ts
 !public/
 !backend/prisma/
 !backend/src/

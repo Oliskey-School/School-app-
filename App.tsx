@@ -15,22 +15,57 @@ import { useAuth } from './context/AuthContext';
 import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { syncEngine } from './lib/syncEngine';
 
+/**
+ * Utility to handle 'Failed to fetch dynamically imported module' errors.
+ * This happens when a new version is deployed and the old chunks are gone.
+ * It retries the import once after a hard reload.
+ */
+const lazyWithRetry = (componentImport: () => Promise<any>) =>
+  lazy(async () => {
+    const pageHasBeenForceRefreshed = JSON.parse(
+      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+    );
+
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+      return component;
+    } catch (error: any) {
+      // Check for fetch errors (ChunkLoadError or TypeError)
+      const isFetchError = error?.name === 'ChunkLoadError' || 
+                          error?.message?.includes('Failed to fetch') ||
+                          error?.message?.includes('dynamic import');
+
+      if (isFetchError && !pageHasBeenForceRefreshed) {
+        console.warn('🔄 Chunk load failed. Force refreshing app to get newest version...');
+        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+        window.location.reload();
+        // Return a promise that never resolves to avoid rendering while reloading
+        return new Promise(() => {});
+      }
+
+      throw error;
+    }
+  });
+
 // Lazy load all major components
-const DashboardRouter = lazy(() => import('./components/DashboardRouter'));
-const Login = lazy(() => import('./components/auth/Login'));
-const Signup = lazy(() => import('./components/auth/Signup'));
-const CreateSchoolSignup = lazy(() => import('./components/auth/CreateSchoolSignup'));
-const AuthCallback = lazy(() => import('./components/auth/AuthCallback'));
-const VerifyEmail = lazy(() => import('./components/auth/VerifyEmail'));
-const VerifyEmailScreen = lazy(() => import('./components/auth/VerifyEmailScreen'));
-const InviteAcceptScreen = lazy(() => import('./components/auth/InviteAcceptScreen'));
-const VerificationGuard = lazy(() => import('./components/auth/VerificationGuard'));
-const AIChatScreen = lazy(() => import('./components/shared/AIChatScreen'));
-const AIChatWidget = lazy(() => import('./components/shared/AIChatWidget'));
-const MobileNavigationHandler = lazy(() => import('./components/shared/MobileNavigationHandler'));
-const ContextualMarquee = lazy(() => import('./components/shared/ContextualMarquee'));
-const PWAInstallPrompt = lazy(() => import('./components/shared/PWAInstallPrompt'));
-const PremiumErrorPage = lazy(() => import('./components/ui/PremiumErrorPage'));
+// Lazy load all major components with retry logic
+const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
+const Login = lazyWithRetry(() => import('./components/auth/Login'));
+const Signup = lazyWithRetry(() => import('./components/auth/Signup'));
+const CreateSchoolSignup = lazyWithRetry(() => import('./components/auth/CreateSchoolSignup'));
+const AuthCallback = lazyWithRetry(() => import('./components/auth/AuthCallback'));
+const VerifyEmail = lazyWithRetry(() => import('./components/auth/VerifyEmail'));
+const VerifyEmailScreen = lazyWithRetry(() => import('./components/auth/VerifyEmailScreen'));
+const InviteAcceptScreen = lazyWithRetry(() => import('./components/auth/InviteAcceptScreen'));
+const VerificationGuard = lazyWithRetry(() => import('./components/auth/VerificationGuard'));
+const AIChatScreen = lazyWithRetry(() => import('./components/shared/AIChatScreen'));
+const AIChatWidget = lazyWithRetry(() => import('./components/shared/AIChatWidget'));
+const MobileNavigationHandler = lazyWithRetry(() => import('./components/shared/MobileNavigationHandler'));
+const ContextualMarquee = lazyWithRetry(() => import('./components/shared/ContextualMarquee'));
+const PWAInstallPrompt = lazyWithRetry(() => import('./components/shared/PWAInstallPrompt'));
+const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePrompt'));
+const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErrorPage'));
 
 // Basic Error Boundary for catching dashboard crashes
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
@@ -334,6 +369,7 @@ const App: React.FC = () => {
               <Suspense fallback={<LoadingScreen />}>
                 <AuthenticatedApp />
                 <PWAInstallPrompt />
+                <UpdatePrompt />
               </Suspense>
             </ErrorBoundary>
           </div>
