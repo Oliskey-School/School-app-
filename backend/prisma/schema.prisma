@@ -2301,3 +2301,5 @@ model TeacherEvaluation {
   teacher         Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
   school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 }
+
+
