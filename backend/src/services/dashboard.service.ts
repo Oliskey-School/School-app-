@@ -175,6 +175,7 @@ export class DashboardService {
                             teacher_id: teacherId,
                             day_of_week: now.getDay() || 7 // 1-7 (Mon-Sun)
                         },
+                        include: { class: true },
                         take: 3,
                         orderBy: { start_time: 'asc' }
                     }),
@@ -556,10 +557,34 @@ export class DashboardService {
         });
 
         // 2. Map children to summary
-        const childSummaries = children.map(child => {
+        const childSummaries = await Promise.all(children.map(async child => {
             const attendance = child.attendance[0];
             const feesDue = child.fees.reduce((sum, f) => sum + (f.amount - f.paid_amount), 0);
             const className = child.enrollments[0]?.class?.name || 'Unknown';
+            const classId = child.enrollments[0]?.class_id;
+
+            let homework_pending = 0;
+            if (classId) {
+                const submissions = await prisma.assignmentSubmission.findMany({
+                    where: { student_id: child.id },
+                    select: { assignment_id: true }
+                });
+                const submittedIds = submissions.map(s => s.assignment_id);
+
+                homework_pending = await prisma.assignment.count({
+                    where: {
+                        class_id: classId,
+                        due_date: { gte: today },
+                        ...(submittedIds.length > 0 ? { id: { notIn: submittedIds } } : {})
+                    }
+                });
+            }
+
+            // Get total behavior points
+            const behaviorNotes = await prisma.behaviorNote.aggregate({
+                where: { student_id: child.id },
+                _sum: { points: true }
+            });
 
             return {
                 id: child.id,
@@ -567,13 +592,13 @@ export class DashboardService {
                 class_name: className,
                 avatar_url: child.avatar_url || '',
                 attendance_status: (attendance?.status?.toLowerCase() || 'not_marked') as any,
-                homework_pending: 2, // Mock for now until Assignment model is fully connected to parents
+                homework_pending,
                 fee_due: feesDue,
-                bus_status: 'On Route', // Mock for now
-                behavior_points: 10,
-                upcoming_events: 3
+                bus_status: 'On Route', // Mock for now until Bus feature is fully implemented
+                behavior_points: behaviorNotes._sum.points || 0,
+                upcoming_events: 3 // Kept as mock for simplicity
             };
-        });
+        }));
 
         // 3. Get feed items (recent notifications)
         const notifications = await prisma.notification.findMany({

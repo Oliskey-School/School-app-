@@ -6,7 +6,7 @@ import prisma from '../config/database';
 export const getReportCards = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }

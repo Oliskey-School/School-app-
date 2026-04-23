@@ -112,6 +112,7 @@ model School {
   emergency_drills           EmergencyDrill[]
   incidents                  HealthIncident[]
   safeguarding_policies      SafeguardingPolicy[]
+  Complaint                  Complaint[]
 }
 
 model Branch {
@@ -324,14 +325,15 @@ model Parent {
   created_at          DateTime                  @default(now())
   updated_at          DateTime                  @updatedAt
   EventRSVP           EventRSVP[]
-  created_by            String?
-  creator               User?                     @relation("ParentCreator", fields: [created_by], references: [id])
-  branch                Branch?                   @relation(fields: [branch_id], references: [id])
+  created_by          String?
+  creator             User?                     @relation("ParentCreator", fields: [created_by], references: [id])
+  branch              Branch?                   @relation(fields: [branch_id], references: [id])
   school              School                    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user                User                      @relation("UserToParent", fields: [user_id], references: [id], onDelete: Cascade)
   children            ParentChild[]
   conferences         ParentTeacherConference[]
   savings_plans       SavingsPlan[]
+  Complaint           Complaint[]
 }
 
 model ParentChild {
@@ -540,20 +542,21 @@ model Fee {
 }
 
 model StudentFee {
-  id          String   @id @default(uuid())
-  student_id  String
-  fee_id      String?
-  paid_amount Float    @default(0)
-  status      String   @default("Pending")
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  amount      Float
-  branch_id   String?
-  due_date    DateTime
-  school_id   String
-  title       String
-  fee         Fee?     @relation(fields: [fee_id], references: [id])
-  student     Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  id               String   @id @default(uuid())
+  student_id       String
+  fee_id           String?
+  paid_amount      Float    @default(0)
+  has_payment_plan Boolean  @default(false)
+  status           String   @default("Pending")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  amount           Float
+  branch_id        String?
+  due_date         DateTime
+  school_id        String
+  title            String
+  fee              Fee?     @relation(fields: [fee_id], references: [id])
+  student          Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
 }
 
 model Payment {
@@ -2256,4 +2259,23 @@ enum Role {
   INSPECTOR
   EXAM_OFFICER
   COMPLIANCE_OFFICER
+}
+
+model Complaint {
+  id         String   @id @default(uuid())
+  school_id  String
+  parent_id  String
+  category   String
+  rating     Int      @default(0)
+  comment    String
+  image_url  String?
+  status     String   @default("Submitted")
+  timeline   Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  school School @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  parent Parent @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@map("complaints")
 }

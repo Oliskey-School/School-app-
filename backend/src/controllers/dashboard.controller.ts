@@ -10,7 +10,7 @@ export const getStats = async (req: AuthRequest, res: Response) => {
         const schoolId = req.params.schoolId || req.user.school_id || (req.query.schoolId as string) || (req.query.school_id as string);
         let teacherId = (req.query.teacherId || req.query.teacher_id) as string | undefined;
 
-        if (req.user.role === 'teacher' && !teacherId) {
+        if (req.user.role === 'TEACHER' && !teacherId) {
             console.log('[DashboardController] User is a teacher. Fetching teacher record...');
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },

@@ -32,7 +32,8 @@ const PermissionSlips: React.FC = () => {
         special_instructions: ''
     });
     const [loading, setLoading] = useState(true);
-    const isParent = profile.role === 'Parent';
+    const isParent = profile.role?.toLowerCase() === 'parent';
+    const isAdmin = profile.role?.toLowerCase() === 'admin';
 
     useEffect(() => {
         fetchSlips();

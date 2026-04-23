@@ -66,7 +66,8 @@ interface OnboardingTourProps {
 const OnboardingTour: React.FC<OnboardingTourProps> = ({ role, onComplete, onSkip }) => {
     const [currentStep, setCurrentStep] = useState(0);
 
-    const steps = role === 'admin' ? ADMIN_STEPS : role === 'teacher' ? TEACHER_STEPS : role === 'parent' ? PARENT_STEPS : STUDENT_STEPS;
+    const lowerRole = role?.toLowerCase();
+    const steps = lowerRole === 'admin' ? ADMIN_STEPS : lowerRole === 'teacher' ? TEACHER_STEPS : lowerRole === 'parent' ? PARENT_STEPS : STUDENT_STEPS;
     const step = steps[currentStep];
     const isLast = currentStep === steps.length - 1;
     const progress = ((currentStep + 1) / steps.length) * 100;

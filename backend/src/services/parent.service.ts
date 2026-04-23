@@ -471,13 +471,14 @@ export class ParentService {
         
         // Identity Auto-Sync: Reconcile Parent records with User record
         if (parent && parent.user) {
+            const schoolMismatch = parent.school_id !== schoolId;
             const userIdentityMismatch = 
                 parent.full_name !== parent.user.full_name || 
                 parent.email !== parent.user.email ||
                 (parent.school_generated_id && parent.user.school_generated_id !== parent.school_generated_id);
                 
-            if (userIdentityMismatch) {
-                console.log(`🔄 [ParentService] Syncing parent profile for ${userId} with User data...`);
+            if (userIdentityMismatch || schoolMismatch) {
+                console.log(`🔄 [ParentService] Syncing parent profile for ${userId} with User data (Mismatch or School migration)...`);
                 
                 // Sync Parent record to User data
                 parent = await prisma.parent.update({
@@ -485,6 +486,7 @@ export class ParentService {
                     data: {
                         full_name: parent.user.full_name,
                         email: parent.user.email,
+                        school_id: schoolId,
                         school_generated_id: parent.user.school_generated_id || parent.school_generated_id
                     },
                     include: { user: true }

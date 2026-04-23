@@ -10,7 +10,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
         let classId = req.query.classId as string || req.query.class_id as string;
 
         // 1. Role-based filtering
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }
@@ -22,7 +22,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
                 console.warn(`⚠️ [Backend] No teacher profile found for user ${req.user.id}`);
                 return res.json([]);
             }
-        } else if (req.user.role === 'student') {
+        } else if (req.user.role === 'STUDENT') {
             // Students MUST be filtered by their class
             const student = await prisma.student.findUnique({
                 where: { user_id: req.user.id },

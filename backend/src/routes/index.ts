@@ -61,6 +61,7 @@ import conferenceRoutes from './conference.routes';
 import counselingRoutes from './counseling.routes';
 import maintenanceRoutes from './maintenance.routes';
 import debugRoutes from './debug.routes';
+import paymentPlanRoutes from './paymentPlan.routes';
 import * as QuizController from '../controllers/quiz.controller';
 import { getStudentFeesLegacy } from '../controllers/fee.controller';
 
@@ -132,6 +133,7 @@ router.use('/academic-policies', policyRoutes);
 router.use('/infrastructure', infrastructureRoutes);
 router.use('/behavior', behaviorRoutes);
 router.use('/admin-hub', adminHubRoutes);
+router.use('/payment-plans', paymentPlanRoutes);
 router.get('/cbt/exams', authenticate, requireTenant, QuizController.getQuizzes);
 
 router.use('/saas-analytics', saasAnalyticsRoutes);

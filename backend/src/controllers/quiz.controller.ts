@@ -7,7 +7,7 @@ export const getQuizzes = async (req: AuthRequest, res: Response): Promise<void>
     try {
         const filters: any = { ...req.query };
 
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }

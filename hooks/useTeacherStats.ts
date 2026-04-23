@@ -44,10 +44,16 @@ export const useTeacherStats = (
                 const data = await api.getTeacherDashboardStats(teacherId, schoolId, branchId);
 
                 if (data) {
+                    // Unique classes count for stats (deduplicate by class ID, ignoring subject differences)
+                    const uniqueClassIds = new Set(classes?.map(c => c.id));
+                    const uniqueClassesCount = uniqueClassIds.size;
+                    
+                    // Sum students from classes if not provided by direct API aggregation
                     const studentSum = classes ? classes.reduce((acc, c) => acc + (c.studentCount || 0), 0) : 0;
+                    
                     setStats({
                         totalStudents: data.totalStudents || studentSum,
-                        totalClasses: teacherClasses ? teacherClasses.length : (data.totalClasses || (classes ? classes.length : 0)),
+                        totalClasses: data.totalClasses || uniqueClassesCount,
                         attendanceRate: data.attendanceRate || 0,
                         avgStudentScore: data.avgStudentScore || 0
                     });

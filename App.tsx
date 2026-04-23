@@ -108,11 +108,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-// Simple Loading Component
+// Simple Loading Component mapped to Premium Loader
 const LoadingScreen: React.FC = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-    </div>
+    <PremiumLoader message="Initializing School Workspace..." />
 );
 
 const AuthenticatedApp: React.FC = () => {

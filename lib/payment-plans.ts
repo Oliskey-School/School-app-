@@ -46,21 +46,17 @@ export async function createPaymentPlan(params: CreatePaymentPlanParams): Promis
         const { feeId, studentId, totalAmount, installmentCount, frequency, startDate, customDueDates } = params;
 
         // 1. Create payment plan
-        const { data: plan, error: planError } = await api
-            .from('payment_plans')
-            .insert([{
-                fee_id: feeId,
-                student_id: studentId,
-                total_amount: totalAmount,
-                installment_count: installmentCount,
-                frequency: frequency,
-                status: 'active'
-            }])
-            .select()
-            .single();
+        const plan: any = await api.post('/payment-plans', {
+            fee_id: feeId,
+            student_id: studentId,
+            total_amount: totalAmount,
+            installment_count: installmentCount,
+            frequency: frequency,
+            status: 'active'
+        });
 
-        if (planError || !plan) {
-            console.error('Error creating payment plan:', planError);
+        if (!plan) {
+            console.error('Error creating payment plan');
             return null;
         }
 
@@ -75,27 +71,19 @@ export async function createPaymentPlan(params: CreatePaymentPlanParams): Promis
         );
 
         // 3. Insert installments
-        const { error: installmentsError } = await api
-            .from('installments')
-            .insert(installments);
-
-        if (installmentsError) {
+        try {
+            await api.post('/payment-plans/installments', { installments });
+        } catch (installmentsError) {
             console.error('Error creating installments:', installmentsError);
             // Rollback plan creation
-            await api.from('payment_plans').delete().eq('id', plan.id);
+            await api.delete(`/payment-plans/${plan.id}`);
             return null;
         }
 
         // 4. Update fee to indicate it has a payment plan
-        const { error: feeUpdateError } = await api
-            .from('student_fees')
-            .update({
-                has_payment_plan: true,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', feeId);
-
-        if (feeUpdateError) {
+        try {
+            await api.put(`/student-fees/${feeId}/payment-plan-status`, { has_payment_plan: true });
+        } catch (feeUpdateError) {
             console.error('Error updating fee payment plan status:', feeUpdateError);
             // Don't rollback - the plan is still valid even if we can't update this flag
         }
@@ -177,32 +165,14 @@ function calculateDueDate(startDate: Date, frequency: string, installmentIndex: 
  */
 export async function getPaymentPlan(feeId: string): Promise<{ plan: PaymentPlan; installments: Installment[] } | null> {
     try {
-        // Get plan
-        const { data: plan, error: planError } = await api
-            .from('payment_plans')
-            .select('*')
-            .eq('fee_id', feeId)
-            .single();
-
-        if (planError || !plan) {
-            return null;
-        }
-
-        // Get installments
-        const { data: installments, error: installmentsError } = await api
-            .from('installments')
-            .select('*')
-            .eq('payment_plan_id', plan.id)
-            .order('installment_number');
-
-        if (installmentsError) {
-            console.error('Error fetching installments:', installmentsError);
+        const result: any = await api.get(`/payment-plans/fee/${feeId}`);
+        if (!result || !result.plan) {
             return null;
         }
 
         return {
-            plan: normalizePaymentPlan(plan),
-            installments: (installments || []).map(normalizeInstallment)
+            plan: normalizePaymentPlan(result.plan),
+            installments: (result.installments || []).map(normalizeInstallment)
         };
     } catch (error) {
         console.error('getPaymentPlan error:', error);
@@ -214,13 +184,12 @@ export async function getPaymentPlan(feeId: string): Promise<{ plan: PaymentPlan
  * Check if fee has payment plan
  */
 export async function hasPaymentPlan(feeId: string): Promise<boolean> {
-    const { data } = await api
-        .from('payment_plans')
-        .select('id')
-        .eq('fee_id', feeId)
-        .single();
-
-    return !!data;
+    try {
+        const result: any = await api.get(`/payment-plans/fee/${feeId}`);
+        return !!(result && result.plan);
+    } catch (e) {
+        return false;
+    }
 }
 
 /**
@@ -228,27 +197,7 @@ export async function hasPaymentPlan(feeId: string): Promise<boolean> {
  */
 export async function getUpcomingInstallments(studentId: string, daysAhead: number = 7): Promise<Installment[]> {
     try {
-        const today = new Date();
-        const futureDate = new Date();
-        futureDate.setDate(today.getDate() + daysAhead);
-
-        const { data, error } = await api
-            .from('installments')
-            .select(`
-                *,
-                payment_plans!inner(student_id)
-            `)
-            .eq('payment_plans.student_id', studentId)
-            .in('status', ['pending', 'partial'])
-            .gte('due_date', today.toISOString().split('T')[0])
-            .lte('due_date', futureDate.toISOString().split('T')[0])
-            .order('due_date');
-
-        if (error) {
-            console.error('Error fetching upcoming installments:', error);
-            return [];
-        }
-
+        const data: any = await api.get(`/payment-plans/installments/upcoming?studentId=${studentId}&daysAhead=${daysAhead}`);
         return (data || []).map(normalizeInstallment);
     } catch (error) {
         console.error('getUpcomingInstallments error:', error);
@@ -260,12 +209,12 @@ export async function getUpcomingInstallments(studentId: string, daysAhead: numb
  * Cancel payment plan
  */
 export async function cancelPaymentPlan(planId: number): Promise<boolean> {
-    const { error } = await api
-        .from('payment_plans')
-        .update({ status: 'cancelled' })
-        .eq('id', planId);
-
-    return !error;
+    try {
+        await api.put(`/payment-plans/${planId}/status`, { status: 'cancelled' });
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 /**
@@ -277,32 +226,7 @@ export async function processInstallmentPayment(
     transactionId: number
 ): Promise<boolean> {
     try {
-        // Get current installment
-        const { data: installment } = await api
-            .from('installments')
-            .select('paid_amount, amount')
-            .eq('id', installmentId)
-            .single();
-
-        if (!installment) return false;
-
-        const newPaidAmount = (installment.paid_amount || 0) + amount;
-
-        // Update installment
-        const { error } = await api
-            .from('installments')
-            .update({
-                paid_amount: newPaidAmount,
-                transaction_id: transactionId,
-                // Status will be updated by trigger
-            })
-            .eq('id', installmentId);
-
-        if (error) {
-            console.error('Error updating installment:', error);
-            return false;
-        }
-
+        await api.post(`/payment-plans/installments/${installmentId}/pay`, { amount, transactionId });
         return true;
     } catch (error) {
         console.error('processInstallmentPayment error:', error);

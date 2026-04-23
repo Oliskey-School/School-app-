@@ -415,18 +415,61 @@ export class TeacherService {
 
     static async getTeacherProfileByUserId(schoolId: string, userId: string) {
         console.log(`🔍 [TeacherService] Fetching profile for user ${userId} in school ${schoolId}`);
-        let teacher = await prisma.teacher.findFirst({
-            where: { user_id: userId, school_id: schoolId },
+        // Use findUnique by user_id to ensure we always find the record if it exists
+        // This is more robust as user_id is the global unique identifier for a teacher
+        let teacher = await prisma.teacher.findUnique({
+            where: { user_id: userId },
             include: { 
-                user: true,
+                user: {
+                    include: {
+                        school: true,
+                        branch: true
+                    }
+                },
                 classes: {
                     include: {
-                        class: true,
+                        class: {
+                            include: {
+                                _count: {
+                                    select: { enrollments: true }
+                                }
+                            }
+                        },
                         subject: true
                     }
                 }
             }
         });
+
+        // Migration/Self-Healing: If teacher exists but school_id doesn't match current request,
+        // it means the teacher might have moved schools or the school context in JWT is slightly outdated.
+        if (teacher && teacher.school_id !== schoolId && schoolId) {
+            console.warn(`🔄 [TeacherService] School mismatch for teacher ${teacher.id} (DB: ${teacher.school_id}, Req: ${schoolId}). Updating...`);
+            teacher = await prisma.teacher.update({
+                where: { id: teacher.id },
+                data: { school_id: schoolId },
+                include: {
+                    user: {
+                        include: {
+                            school: true,
+                            branch: true
+                        }
+                    },
+                    classes: {
+                        include: {
+                            class: {
+                                include: {
+                                    _count: {
+                                        select: { enrollments: true }
+                                    }
+                                }
+                            },
+                            subject: true
+                        }
+                    }
+                }
+            });
+        }
 
         // Sync Logic: If teacher name/email/ID doesn't match User name/email/ID, update teacher
         if (teacher && teacher.user) {
@@ -528,15 +571,24 @@ export class TeacherService {
             // Map subject_specialty to subjects for frontend
             (teacher as any).subjects = teacher.subject_specialty;
             
+            // Map student count to a flat field for frontend consumption
+            const mappedClasses = teacher.classes.map(c => ({
+                ...c,
+                class: {
+                    ...c.class,
+                    student_count: (c.class as any)._count?.enrollments || 0
+                }
+            }));
+
             // Deduplicate classes based on class_id and subject_id
             const seen = new Set();
-            const uniqueClasses = teacher.classes.filter(c => {
+            const uniqueClasses = mappedClasses.filter(c => {
                 const key = `${c.class_id}-${c.subject_id || 'null'}`;
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
             });
-            teacher.classes = uniqueClasses;
+            teacher.classes = uniqueClasses as any;
         }
         return teacher;
     }

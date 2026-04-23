@@ -41,6 +41,10 @@ class ExpressApiClient {
             ...((options.headers as any) || {}),
         };
 
+        if (!token && !endpoint.includes('/auth/') && !endpoint.includes('/health')) {
+            console.warn(`🔒 [API-WARN] Missing token for protected endpoint: ${endpoint}`);
+        }
+
         // Inject Branch ID if selected (Admin/Proprietor context)
         const selectedBranchId = localStorage.getItem('selected_branch_id');
         if (selectedBranchId && selectedBranchId !== 'all' && selectedBranchId !== 'null' && selectedBranchId !== 'undefined') {

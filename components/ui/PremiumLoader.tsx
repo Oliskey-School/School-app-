@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * PremiumLoader - A high-end loading component with smooth CSS animations.
  */
 const PremiumLoader: React.FC<{ message?: string; fullScreen?: boolean }> = ({ message = 'Loading professional workspace...', fullScreen = true }) => {
-    return (
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const content = (
         <div className={`flex flex-col items-center justify-center bg-white ${fullScreen ? 'fixed inset-0 z-[10000]' : 'w-full h-full flex-1 min-h-[60vh] z-50 rounded-2xl my-auto'}`}>
             <div className="relative">
                 {/* Main Spinning Ring */}
@@ -40,6 +47,12 @@ const PremiumLoader: React.FC<{ message?: string; fullScreen?: boolean }> = ({ m
             `}</style>
         </div>
     );
+
+    if (fullScreen && mounted) {
+        return createPortal(content, document.body);
+    }
+
+    return content;
 };
 
 export default PremiumLoader;

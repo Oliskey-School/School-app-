@@ -11,7 +11,7 @@ export const createVirtualClassSession = async (req: AuthRequest, res: Response)
             school_id: req.user.school_id
         };
 
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }

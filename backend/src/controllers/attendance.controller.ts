@@ -17,7 +17,7 @@ export const getAttendance = async (req: AuthRequest, res: Response) => {
 
         let targetClassId = classId as string;
 
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }
@@ -27,12 +27,10 @@ export const getAttendance = async (req: AuthRequest, res: Response) => {
 
             // Verify teacher has access to the requested classId if provided
             if (targetClassId && targetClassId !== 'any' && targetClassId !== 'all') {
-                const access = await prisma.classTeacher.findUnique({
+                const access = await prisma.classTeacher.findFirst({
                     where: {
-                        class_id_teacher_id: {
-                            teacher_id: teacher.id,
-                            class_id: targetClassId
-                        }
+                        teacher_id: teacher.id,
+                        class_id: targetClassId
                     }
                 });
 

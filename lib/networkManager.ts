@@ -154,7 +154,7 @@ class NetworkManager extends EventEmitter {
             const response = await fetch(this.pingUrl + '?t=' + Date.now(), {
                 method: 'HEAD',
                 cache: 'no-cache',
-                signal: AbortSignal.timeout(5000) // 5 second timeout
+                signal: AbortSignal.timeout(15000) // Increased to 15s to tolerate poor connection quality
             });
 
             const endTime = performance.now();

@@ -28,7 +28,7 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
 
 export const getAllTeachers = async (req: AuthRequest, res: Response) => {
     try {
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'TEACHER') {
             const result = await TeacherService.getTeacherProfileByUserId(req.user.school_id, req.user.id);
             return res.json(result ? [result] : []);
         }

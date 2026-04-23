@@ -8,7 +8,7 @@ export const getTimetable = async (req: AuthRequest, res: Response) => {
         const { className } = req.query;
         let { teacherId } = req.query;
 
-        if (req.user.role === 'teacher') {
+        if (req.user.role === 'TEACHER') {
             const teacher = await (prisma as any).teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }
