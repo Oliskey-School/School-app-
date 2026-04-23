@@ -17,7 +17,7 @@ const start = async () => {
                 try {
                     const { execSync } = require('child_process');
                     console.log('🔄 [Production] Verifying database migrations...');
-                    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+                    execSync('npx prisma migrate deploy --schema=backend/prisma/schema.prisma', { stdio: 'inherit' });
                     console.log('✅ [Production] Database migrations up to date.');
                 } catch (migrationErr: any) {
                     if (migrationErr.message?.includes('P3005')) {
