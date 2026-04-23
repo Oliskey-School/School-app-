@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import prisma from '../lib/prisma';
+import prisma from '../config/database';
 
 export const createPaymentPlan = async (req: AuthRequest, res: Response) => {
     try {

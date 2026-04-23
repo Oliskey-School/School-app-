@@ -7,57 +7,15 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const start = async () => {
     console.log('🏁 Starting School SaaS Backend...');
     
-    let dbConnected = false;
-    let retries = 5;
-    
-    while (retries > 0 && !dbConnected) {
-        try {
-            // Run migrations in production before ensuring demo data
-            if (process.env.NODE_ENV === 'production') {
-                try {
-                    const { execSync } = require('child_process');
-                    console.log('🔄 [Production] Verifying database migrations...');
-                    execSync('npx prisma migrate deploy --schema=backend/prisma/schema.prisma', { stdio: 'inherit' });
-                    console.log('✅ [Production] Database migrations up to date.');
-                } catch (migrationErr: any) {
-                    if (migrationErr.message?.includes('P3005')) {
-                        console.error('❌ [Production] Migration Error P3005: The database is not empty but has no migration history.');
-                        console.error('💡 [Resolution] Run: npx prisma migrate resolve --applied 20260317235016_init --applied 20260317235154_add_membership ...etc');
-                    } else {
-                        console.error('⚠️ [Production] Migration check skipped or failed:', migrationErr.message);
-                    }
-                }
-            }
-
-            const { DemoSeederService } = require('./services/demoSeeder.service');
-            await DemoSeederService.ensureDemoData();
-            dbConnected = true;
-            console.log('✅ Database connected and demo data verified.');
-        } catch (error: any) {
-            retries--;
-            const isStartingUp = error.message?.includes('the database system is starting up');
-            
-            if (isStartingUp) {
-                console.log(`⏳ Database is still starting up... (${retries} retries left)`);
-            } else {
-                console.error('❌ Database connection error:', error.message);
-            }
-            
-            if (retries === 0) {
-                console.error('💥 Failed to connect to database after multiple attempts. Exiting.');
-                process.exit(1);
-            }
-            
-            await sleep(3000); // Wait 3 seconds before next retry
-        }
-    }
-
+    // 1. Initialize and Start HTTP Server IMMEDIATELY
+    // This ensures health checks pass and "Failed to fetch" errors are avoided even if DB is down.
     try {
         const httpServer = http.createServer((req, res) => {
             // raw log for Railway debugging
             console.log(`📡 [RAW-HTTP] ${req.method} ${req.url} - Origin: ${req.headers.origin}`);
             return app(req, res);
         });
+
         const { SocketService } = require('./services/socket.service');
         SocketService.init(httpServer);
 
@@ -97,13 +55,58 @@ const start = async () => {
         process.on('SIGTERM', shutdown);
         process.on('SIGINT', shutdown);
 
-        // Keep process alive if it somehow loses handles (rare for Express but good practice)
-        setInterval(() => {}, 1000 * 60 * 60);
-
     } catch (error) {
-        console.error('Error starting server:', error);
+        console.error('❌ Fatal error during server startup:', error);
         process.exit(1);
     }
+
+    // 2. Background Database Initialization & Migrations
+    // We run this without blocking the server thread.
+    (async () => {
+        let dbConnected = false;
+        let retries = 20; // Increased retries for background mode
+        
+        while (retries > 0 && !dbConnected) {
+            try {
+                console.log(`📡 [Maintenance] Attempting database connection... (${retries} attempts remaining)`);
+                
+                // Run migrations in production
+                if (process.env.NODE_ENV === 'production') {
+                    try {
+                        const { execSync } = require('child_process');
+                        console.log('🔄 [Production] Verifying database migrations...');
+                        execSync('npx prisma migrate deploy --schema=backend/prisma/schema.prisma', { stdio: 'inherit' });
+                        console.log('✅ [Production] Database migrations up to date.');
+                    } catch (migrationErr: any) {
+                        console.error('⚠️ [Production] Migration failed:', migrationErr.message);
+                        // We continue even if migration fails to allow the app to be "up" (degraded)
+                    }
+                }
+
+                const { DemoSeederService } = require('./services/demoSeeder.service');
+                await DemoSeederService.ensureDemoData();
+                dbConnected = true;
+                console.log('✅ [Database] Connected and demo data verified.');
+            } catch (error: any) {
+                retries--;
+                console.error('❌ [Database] Connection error:', error.message);
+                
+                if (error.message?.includes('P1001')) {
+                    console.error('   💡 Diagnostic: Database host is unreachable. Check if Supabase is paused or if firewall blocks port 6543/5432.');
+                }
+
+                if (retries === 0) {
+                    console.error('💥 [Database] Max retries reached. Backend will stay alive but features requiring DB will fail.');
+                    return;
+                }
+                
+                await sleep(5000); // Wait 5 seconds before next retry
+            }
+        }
+    })();
+
+    // Keep process alive
+    setInterval(() => {}, 1000 * 60 * 60);
 };
 
 // Global error handlers
