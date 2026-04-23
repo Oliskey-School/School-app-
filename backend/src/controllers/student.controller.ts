@@ -13,7 +13,7 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'School ID is required' });
         }
 
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await StudentService.enrollStudent(schoolId, branchId, req.body, req.user.role, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
@@ -31,7 +31,7 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
 export const approveStudent = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await StudentService.approveStudent(schoolId, branchId, req.params.id as string);
         res.status(200).json(result);
     } catch (error: any) {
@@ -103,7 +103,7 @@ export const bulkUpdateStatus = async (req: AuthRequest, res: Response) => {
 
 export const deleteStudent = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id || (req.query.branchId as string));
         await StudentService.deleteStudent(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
@@ -113,7 +113,8 @@ export const deleteStudent = async (req: AuthRequest, res: Response) => {
 
 export const getMyProfile = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const result = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -122,14 +123,15 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
 
 export const getMyPerformance = async (req: AuthRequest, res: Response) => {
     try {
+        const branchId = getEffectiveBranchId(req.user);
         // We need to find the student ID first
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
         // If user is a teacher, they might only want to see their subjects, 
         // but for a student viewing their OWN profile, we show everything.
         // Role check is important here.
-        const result = await StudentService.getPerformance(req.user.school_id, req.user.branch_id, student.id);
+        const result = await StudentService.getPerformance(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -171,10 +173,11 @@ export const getStudentBehaviorNotes = async (req: AuthRequest, res: Response) =
 
 export const getMyQuizResults = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
-        const result = await StudentService.getQuizResults(req.user.school_id, req.user.branch_id, student.id);
+        const result = await StudentService.getQuizResults(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -183,10 +186,11 @@ export const getMyQuizResults = async (req: AuthRequest, res: Response) => {
 
 export const getMySubmissions = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
-        const result = await StudentService.getStudentSubmissions(req.user.school_id, req.user.branch_id, student.id);
+        const result = await StudentService.getStudentSubmissions(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -207,10 +211,11 @@ export const getMyFees = async (req: AuthRequest, res: Response) => {
 
 export const getMyReportCards = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
-        const result = await StudentService.getReportCards(req.user.school_id, req.user.branch_id, student.id);
+        const result = await StudentService.getReportCards(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -308,7 +313,8 @@ export const removeStudentFromClass = async (req: AuthRequest, res: Response) =>
 
 export const getMyStats = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
         const result = await StudentService.getStudentStats(req.user.school_id, student.id);
@@ -320,7 +326,8 @@ export const getMyStats = async (req: AuthRequest, res: Response) => {
 
 export const getMyAchievements = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
         const result = await StudentService.getStudentAchievements(student.id);
@@ -333,10 +340,11 @@ import { AttendanceService } from '../services/attendance.service';
 
 export const getMyDashboardOverview = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
-        const result = await StudentService.getDashboardOverview(req.user.school_id, student.id, req.user.branch_id);
+        const result = await StudentService.getDashboardOverview(req.user.school_id, student.id, branchId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -345,10 +353,11 @@ export const getMyDashboardOverview = async (req: AuthRequest, res: Response) =>
 
 export const getMyAttendance = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
-        const result = await AttendanceService.getAttendanceByStudent(req.user.school_id, req.user.branch_id, student.id);
+        const result = await AttendanceService.getAttendanceByStudent(req.user.school_id, branchId, student.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -357,7 +366,8 @@ export const getMyAttendance = async (req: AuthRequest, res: Response) => {
 
 export const getMySubjects = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
         const result = await StudentService.getMySubjects(req.user.school_id, student.id);
@@ -435,7 +445,8 @@ export const getStudentSubjects = async (req: AuthRequest, res: Response) => {
 
 export const getMyDocuments = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
         const result = await StudentService.getStudentDocuments(req.user.school_id, student.id);
@@ -447,11 +458,22 @@ export const getMyDocuments = async (req: AuthRequest, res: Response) => {
 
 export const addMyDocument = async (req: AuthRequest, res: Response) => {
     try {
-        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const student = await StudentService.getStudentProfileByUserId(req.user.school_id, branchId, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student not found' });
 
         const result = await StudentService.addStudentDocument(req.user.school_id, student.id, req.body);
         res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getStudentsBySubject = async (req: AuthRequest, res: Response) => {
+    try {
+        const { subjectId } = req.params;
+        const result = await StudentService.getStudentsBySubject(req.user.school_id, subjectId);
+        res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

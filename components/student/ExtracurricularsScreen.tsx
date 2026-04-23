@@ -176,7 +176,7 @@ const ExtracurricularsScreen: React.FC = () => {
                                 <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-100"><ChevronRightIcon /></button>
                             </div>
                             <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 mb-2">
-                                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => <div key={day}>{day}</div>)}
+                                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => <div key={`${day}-${i}`}>{day}</div>)}
                             </div>
                             <div className="grid grid-cols-7 gap-1">
                                 {Array.from({ length: startingDayIndex }).map((_, i) => <div key={`e-${i}`} />)}

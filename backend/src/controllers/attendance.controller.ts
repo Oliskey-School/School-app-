@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AttendanceService } from '../services/attendance.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getAttendance = async (req: AuthRequest, res: Response) => {
     try {
@@ -46,7 +47,7 @@ export const getAttendance = async (req: AuthRequest, res: Response) => {
                 if (!classes || classes.length === 0) return res.json([]);
 
                 const classIds = classes.map(c => c.class_id);
-                const branchId = (req.user.branch_id || req.query.branch_id) as string | undefined;
+                const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
                 
                 const attendance = await prisma.attendance.findMany({
                     where: {
@@ -68,7 +69,7 @@ export const getAttendance = async (req: AuthRequest, res: Response) => {
 
         // If classId is provided, fetch for class, otherwise fetch all for school on that date
         let result;
-        const branchId = (req.user.branch_id || req.query.branch_id) as string | undefined;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         if (targetClassId && targetClassId !== 'any' && targetClassId !== 'all') {
             result = await AttendanceService.getAttendance(req.user.school_id, branchId, targetClassId, date as string);
         } else {
@@ -98,7 +99,7 @@ export const saveAttendance = async (req: AuthRequest, res: Response) => {
         if (!records || !Array.isArray(records)) {
             return res.status(400).json({ message: 'records array is required' });
         }
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await AttendanceService.saveAttendance(req.user.school_id, branchId, records);
         res.json(result);
     } catch (error: any) {
@@ -109,7 +110,7 @@ export const saveAttendance = async (req: AuthRequest, res: Response) => {
 export const getAttendanceByStudent = async (req: AuthRequest, res: Response) => {
     try {
         const { studentId } = req.params;
-        const branchId = req.user.branch_id || req.query.branch_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await AttendanceService.getAttendanceByStudent(req.user.school_id, branchId, studentId as string);
         res.json(result);
     } catch (error: any) {
@@ -123,7 +124,7 @@ export const bulkFetchAttendance = async (req: AuthRequest, res: Response) => {
         if (!Array.isArray(studentIds)) {
             return res.status(400).json({ message: 'studentIds array is required' });
         }
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await AttendanceService.getAttendanceByStudentIds(req.user.school_id, branchId, studentIds, startDate, endDate);
         res.json(result);
     } catch (error: any) {

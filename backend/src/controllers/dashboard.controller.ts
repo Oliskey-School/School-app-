@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { DashboardService } from '../services/dashboard.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getStats = async (req: AuthRequest, res: Response) => {
     try {
@@ -23,7 +24,7 @@ export const getStats = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const branchId = (req.user.branch_id || req.query.branchId || req.query.branch_id) as string | undefined;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         console.log(`[DashboardController] Calling DashboardService.getStats with schoolId: ${schoolId}, teacherId: ${teacherId}, branchId: ${branchId}`);
         const stats = await DashboardService.getStats(schoolId, teacherId, branchId);
         res.json(stats);
@@ -37,7 +38,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.params.schoolId || req.user.school_id || (req.query.schoolId as string) || (req.query.school_id as string);
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-        const branchId = (req.params.branchId as string) || (req.query.branchId as string) || (req.query.branch_id as string);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const logs = await DashboardService.getAuditLogs(schoolId, limit, branchId);
         res.json(logs);
     } catch (error: any) {
@@ -56,13 +57,14 @@ export const getParentTodayUpdate = async (req: AuthRequest, res: Response) => {
 
 export const globalSearch = async (req: AuthRequest, res: Response) => {
     try {
-        const { term, branchId } = req.query;
+        const { term } = req.query;
         const schoolId = (req.query.schoolId as string) || req.user.school_id;
 
         if (!term) {
             return res.status(400).json({ message: 'Search term is required' });
         }
 
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const results = await DashboardService.globalSearch(
             schoolId,
             term as string,

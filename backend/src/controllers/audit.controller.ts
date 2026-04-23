@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { AuditService } from '../services/audit.service';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
         const { school_id } = req.user;
-        const branchId = req.headers['x-branch-id'] as string;
+        const branchId = getEffectiveBranchId(req.user, (req.headers['x-branch-id'] as string) || (req.query.branchId as string));
         
         const filters = {
             startDate: req.query.startDate as string,
@@ -46,7 +47,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
 export const createAuditLog = async (req: AuthRequest, res: Response) => {
     try {
         const { school_id, id: user_id } = req.user;
-        const branchId = req.headers['x-branch-id'] as string;
+        const branchId = getEffectiveBranchId(req.user, (req.headers['x-branch-id'] as string) || (req.body?.branch_id));
         
         const logData = {
             ...req.body,

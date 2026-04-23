@@ -58,7 +58,7 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
 
 export const createClass = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ClassService.createClass(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -68,7 +68,7 @@ export const createClass = async (req: AuthRequest, res: Response) => {
 
 export const updateClass = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ClassService.updateClass(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -78,7 +78,7 @@ export const updateClass = async (req: AuthRequest, res: Response) => {
 
 export const deleteClass = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id || (req.query.branchId as string));
         await ClassService.deleteClass(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {

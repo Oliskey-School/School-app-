@@ -36,29 +36,20 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
       setStudent(currentStudent);
 
       if (currentStudent && currentStudent.grade) {
-        // 2. Fetch Classmates in this grade (all taking this subject)
-        const peers = await api.getStudentsByClass(currentStudent.grade, currentStudent.section, currentStudent.schoolId);
-        setClassmates(peers.filter(p => p.id !== currentStudent.id));
-
-        // 3. Fetch Notices filtered by subject keywords
-        const allNotices = await api.getNotices(currentStudent.schoolId);
-        const subjectAnnouncements = allNotices.filter(
-          n => (n.audience.includes('all') || n.audience.includes('students')) &&
-            (n.title.toLowerCase().includes(subjectName.toLowerCase()) || 
-             n.content.toLowerCase().includes(subjectName.toLowerCase()) ||
-             (!n.className || n.className === `Grade ${currentStudent.grade}${currentStudent.section}`))
-        ).slice(0, 5);
-        setAnnouncements(subjectAnnouncements);
-        
-        // 4. Fetch Teachers to find the one for this subject
-        const allTeachers = await api.getTeachers(currentStudent.schoolId);
-        const subjectTeacher = allTeachers.find(t => t.subjects?.includes(subjectName));
-        setTeacher(subjectTeacher || null);
-
-        // 5. Fetch Subject Details to get Curriculum Type
+        // 5. Fetch Subject Details to get Curriculum Type and Subject ID
         const schoolSubjects = await api.getMySubjects();
         const info = schoolSubjects.find(s => s.name === subjectName);
         setSubjectInfo(info);
+
+        if (info && info.id) {
+          // 2. Fetch Classmates across ALL sections taking this specific subject
+          const peers = await api.getStudentsBySubject(info.id);
+          setClassmates(peers.filter(p => p.id !== currentStudent.id));
+        } else if (currentStudent.grade) {
+          // Fallback to class-based if subject ID not found
+          const peers = await api.getStudentsByClass(currentStudent.grade, currentStudent.section, currentStudent.schoolId);
+          setClassmates(peers.filter(p => p.id !== currentStudent.id));
+        }
       }
 
     } catch (err) {

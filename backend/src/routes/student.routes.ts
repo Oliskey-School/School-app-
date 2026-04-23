@@ -31,7 +31,8 @@ import {
     getPendingApprovals,
     getStudentSubjects,
     getMyDocuments,
-    addMyDocument
+    addMyDocument,
+    getStudentsBySubject
 } from '../controllers/student.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { enforceTenant } from '../middleware/tenant.middleware';
@@ -74,6 +75,7 @@ router.get('/by-class', authenticate, getStudentsByClass);
 router.get('/', authenticate, getAllStudents);
 router.put('/bulk-status', authenticate, bulkUpdateStatus);
 router.get('/id/:studentId', authenticate, getStudentByStudentId);
+router.get('/subject/:subjectId', authenticate, getStudentsBySubject);
 router.get('/:id', authenticate, getStudentById);
 router.put('/:id', authenticate, updateStudent);
 router.delete('/:id', authenticate, deleteStudent);

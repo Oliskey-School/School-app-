@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AssignmentService } from '../services/assignment.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getAssignments = async (req: AuthRequest, res: Response) => {
     try {
@@ -52,7 +53,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
         }
 
         const className = req.query.className as string || req.query.class_name as string;
-        const branchId = (req.user.branch_id || req.query?.branchId || req.query?.branch_id) as string | undefined;
+        const branchId = getEffectiveBranchId(req.user, (req.query?.branchId || req.query?.branch_id) as string);
 
         const result = await AssignmentService.getAssignments(
             req.user.school_id,
@@ -70,7 +71,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 
 export const createAssignment = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+        const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
         const result = await AssignmentService.createAssignment(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -80,7 +81,7 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
 
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+        const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
         const result = await AssignmentService.getSubmissions(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
@@ -113,7 +114,7 @@ export const getAssignmentSubmission = async (req: AuthRequest, res: Response) =
 
 export const gradeSubmission = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body?.branch_id || req.query?.branchId;
+        const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
         const result = await AssignmentService.gradeSubmission(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -123,7 +124,7 @@ export const gradeSubmission = async (req: AuthRequest, res: Response) => {
 
 export const submitAssignment = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = (req.user.branch_id || req.body?.branch_id || req.query?.branchId) as string | undefined;
+        const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
         
         // Resolve student ID from user ID
         const student = await prisma.student.findUnique({

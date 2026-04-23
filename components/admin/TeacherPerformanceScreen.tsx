@@ -4,6 +4,7 @@ import { Teacher } from '../../types';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 // Re-usable Line Chart component
 const SimpleLineChart = ({ data, color }: { data: number[], color: string }) => {
@@ -65,7 +66,8 @@ interface TeacherPerformanceScreenProps {
 const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ teacher }) => {
     const { currentSchool } = useAuth();
     const [rating, setRating] = useState(4);
-    const [feedback, setFeedback] = useState('Mrs. Akintola has shown great dedication this term. Her lesson plans are well-structured, though she could incorporate more interactive activities to boost student engagement.');
+    const [feedback, setFeedback] = useState('');
+    const [performanceData, setPerformanceData] = useState<number[]>([85, 92, 88]);
     const [loading, setLoading] = useState(false);
     
     useAutoSync(['teacher_evaluations'], () => {
@@ -74,13 +76,18 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
     });
 
     const fetchEvaluation = async () => {
-        if (!currentSchool || !teacher?.id) return;
+        if (!currentSchool?.id || !teacher?.id) return;
         try {
             setLoading(true);
             const data = await api.getTeacherEvaluation?.(currentSchool.id, teacher.id);
             if (data) {
                 setRating(data.rating || 4);
                 setFeedback(data.feedback || '');
+            }
+
+            const performance = await api.getTeacherPerformance?.(currentSchool.id, teacher.id);
+            if (performance && performance.data) {
+                setPerformanceData(performance.data);
             }
         } catch (error) {
             console.error('Error fetching teacher evaluation:', error);
@@ -91,10 +98,25 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
 
     useEffect(() => {
         fetchEvaluation();
-    }, [teacher?.id]);
+    }, [teacher?.id, currentSchool?.id]);
     
-    // Mock data for the chart
-    const performanceData = [85, 92, 88];
+    const handleSave = async () => {
+        if (!currentSchool?.id || !teacher?.id) return;
+        try {
+            setLoading(true);
+            await api.submitTeacherEvaluation?.(teacher.id, currentSchool.id, {
+                rating,
+                feedback,
+                performance_data: performanceData
+            });
+            toast.success('Evaluation submitted successfully!');
+        } catch (error) {
+            console.error('Error submitting evaluation:', error);
+            toast.error('Failed to submit evaluation.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     if (!teacher) {
         return (
@@ -111,10 +133,10 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
             <main className="flex-grow p-4 space-y-5 overflow-y-auto">
                 {/* Teacher Info */}
                 <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow-sm">
-                     <img src={teacher.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name || 'User')}`} alt={teacher.name} className="w-20 h-20 rounded-full object-cover" />
+                     <img src={teacher.avatarUrl || teacher.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.full_name || teacher.name || 'User')}`} alt={teacher.full_name || teacher.name} className="w-20 h-20 rounded-full object-cover" />
                      <div>
-                        <p className="font-bold text-xl text-gray-800">{teacher.name}</p>
-                        <p className="font-medium text-gray-500">{teacher.subjects?.[0] || 'No subject assigned'}</p>
+                        <p className="font-bold text-xl text-gray-800">{teacher.full_name || teacher.name}</p>
+                        <p className="font-medium text-gray-500">{teacher.subject_specialty?.[0] || teacher.subjects?.[0] || 'No subject assigned'}</p>
                      </div>
                 </div>
                 
@@ -149,10 +171,12 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
             {/* Action Button */}
             <div className="p-4 mt-auto bg-gray-50 border-t border-gray-200">
                 <button
-                    type="submit"
-                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                    type="button"
+                    onClick={handleSave}
+                    disabled={loading}
+                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm font-medium text-white bg-sky-500 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:opacity-50"
                 >
-                    Submit Evaluation
+                    {loading ? 'Submitting...' : 'Submit Evaluation'}
                 </button>
             </div>
         </div>

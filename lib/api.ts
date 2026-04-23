@@ -41,9 +41,9 @@ class ExpressApiClient {
             ...((options.headers as any) || {}),
         };
 
-        // Inject Branch ID if selected
+        // Inject Branch ID if selected (Admin/Proprietor context)
         const selectedBranchId = localStorage.getItem('selected_branch_id');
-        if (selectedBranchId && selectedBranchId !== 'all') {
+        if (selectedBranchId && selectedBranchId !== 'all' && selectedBranchId !== 'null' && selectedBranchId !== 'undefined') {
             headers['X-Branch-Id'] = selectedBranchId;
         }
 
@@ -851,6 +851,10 @@ class ExpressApiClient {
         return this.get(`/teachers/${teacherId}/evaluation?schoolId=${schoolId}`);
     }
 
+    async submitTeacherEvaluation(teacherId: string, schoolId: string, data: any): Promise<any> {
+        return this.post(`/teachers/${teacherId}/evaluation`, data);
+    }
+
     async getTeacherSalaryProfile(teacherId: string): Promise<any> {
         return this.get(`/teachers/${teacherId}/salary-profile`);
     }
@@ -1591,6 +1595,10 @@ class ExpressApiClient {
 
     async getCurriculum(id: string): Promise<any> {
         return this.get(`/academic/curricula/${id}`);
+    }
+
+    async getStudentsBySubject(subjectId: string): Promise<any[]> {
+        return this.get(`/students/subject/${subjectId}`);
     }
 
     async getStudentCurriculumTopics(subjectId: string, term?: string): Promise<any[]> {

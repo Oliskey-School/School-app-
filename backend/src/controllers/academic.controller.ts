@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AcademicService } from '../services/academic.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const saveGrade = async (req: AuthRequest, res: Response) => {
     try {
@@ -35,7 +36,7 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await AcademicService.saveGrade(req.user.school_id, branchId, studentId, subject, term, score, session);
         res.status(201).json(result);
     } catch (error: any) {
@@ -73,7 +74,7 @@ export const getGrades = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await AcademicService.getGrades(req.user.school_id, branchId, studentIds, subject, term);
         res.json(result);
     } catch (error: any) {
@@ -84,7 +85,7 @@ export const getGrades = async (req: AuthRequest, res: Response) => {
 export const getSubjects = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = (req.query.school_id as string) || req.user.school_id;
-        const branchId = (req.query.branch_id as string) || req.user.branch_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
 
         const result = await AcademicService.getSubjects(schoolId, branchId);
         res.json(result);
@@ -96,10 +97,10 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
 export const getAnalytics = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = (req.query.schoolId as string) || req.user.school_id;
-        const branchId = (req.query.branchId as string) || req.user.branch_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const term = req.query.term as string;
         const classId = req.query.classId ? req.query.classId as string : null;
-
+        
         const result = await AcademicService.getAnalytics(schoolId, branchId, term, classId ? parseInt(classId) : null);
         res.json(result);
     } catch (error: any) {
@@ -110,7 +111,7 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
 export const getPerformance = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = (req.query.schoolId as string) || req.user.school_id;
-        const branchId = (req.query.branchId as string) || req.user.branch_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const term = req.query.term as string;
         const session = req.query.session as string;
         const classId = req.query.classId as string;

@@ -113,6 +113,7 @@ model School {
   external_integrations      ExternalIntegration[]
   app_installations          AppInstallation[]
   complaints                 Complaint[]
+  evaluations                TeacherEvaluation[]
 }
 
 model Branch {
@@ -204,6 +205,7 @@ model Student {
   avatar_url              String?
   status                  String                    @default("Active")
   attendance_status       String                    @default("Present")
+  created_by              String?
   created_at              DateTime                  @default(now())
   updated_at              DateTime                  @updatedAt
   academic_performance    AcademicPerformance[]
@@ -285,6 +287,7 @@ model Teacher {
   availabilities           TeacherAvailability[]
   conferences              ParentTeacherConference[]
   counseling_sessions      CounselingAppointment[]   @relation("CounselorAppointments")
+  evaluations              TeacherEvaluation[]
 }
 
 model TeacherAttendance {
@@ -2283,4 +2286,18 @@ model Complaint {
   parent Parent @relation(fields: [parent_id], references: [id], onDelete: Cascade)
 
   @@index([school_id, parent_id])
+}
+
+model TeacherEvaluation {
+  id               String   @id @default(uuid())
+  teacher_id       String
+  school_id        String
+  branch_id        String?
+  rating           Int      @default(0)
+  feedback         String   @db.Text
+  performance_data Json? // To store term-wise scores or other metrics
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  teacher          Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 }

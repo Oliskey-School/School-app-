@@ -131,9 +131,9 @@ export interface Student {
   name: string; // TEXT NOT NULL
   full_name?: string; // Alias for name (from DB column)
   email: string; // TEXT
-  admission_number?: string; // TEXT (âš ï¸ orphaned - not in form)
-  current_class_id?: string; // UUID FK to classes(id) (âš ï¸ orphaned)
-  parent_id?: string; // UUID FK to parents(id) (âš ï¸ deprecated?)
+  admission_number?: string;
+  avatarUrl: string;
+  avatar_url?: string;
 
   // Academic Info (Database Fields)
   grade: number; // INTEGER (1-12)
@@ -145,9 +145,8 @@ export interface Student {
   dob?: string; // DATE (dob column in DB) - YYYY-MM-DD
   birthday?: string; // Alias for dob
   dateOfBirth?: string; // Alias for dob
-  address?: string; // TEXT (âš ï¸ orphaned - not in form)
-  avatarUrl: string; // avatar_url TEXT
-
+  address?: string; // TEXT
+  
   // Status (Database Fields)
   status?: 'Active' | 'Inactive' | 'Suspended' | 'Pending'; // TEXT DEFAULT 'Active'
   attendanceStatus: AttendanceStatus; // attendance_status TEXT DEFAULT 'Present'
@@ -195,14 +194,17 @@ export interface Teacher {
   schoolId?: string; // school_id UUID FK
   schoolGeneratedId?: string; // e.g. SCH_2024_TCH_001
   name: string; // TEXT NOT NULL
+  full_name?: string; // Alias for name (from DB column)
   email: string; // TEXT
   phone: string; // TEXT
   avatarUrl: string; // avatar_url TEXT
+  avatar_url?: string;
+  subject_specialty?: string[];
   status: 'Active' | 'Inactive' | 'On Leave'; // TEXT DEFAULT 'Active'
 
   // Professional Info (Database Fields)
-  curriculum_eligibility?: string[]; // TEXT[] (âš ï¸ newly added)
-  compliance_documents?: Record<string, any>; // JSONB (âš ï¸ newly added)
+  curriculum_eligibility?: string[]; // TEXT[] (⚠️ newly added)
+  compliance_documents?: Record<string, any>; // JSONB (⚠️ newly added)
 
   // Joined/Computed Fields (NOT in database directly)
   subjects: string[]; // From teacher_subjects junction table (NOT subject_specialization column)
@@ -235,8 +237,8 @@ export interface Parent {
   avatarUrl?: string; // avatar_url TEXT
 
   // Additional Info (Database Fields)
-  address?: string; // TEXT (âš ï¸ orphaned - not in form)
-  occupation?: string; // TEXT (âš ï¸ orphaned - not in form)
+  address?: string; // TEXT (⚠️ orphaned - not in form)
+  occupation?: string; // TEXT (⚠️ orphaned - not in form)
   relationship?: string; // TEXT ('Mother' | 'Father' | 'Guardian' | 'Other')
   emergency_contact?: string; // TEXT
 
@@ -513,19 +515,11 @@ export interface ChatRoom {
   unreadCount?: number; // Calculated
 }
 
-// Keeping the old interfaces for now to avoid breaking existing code, but aliasing or marking deprecated if needed.
-// However, the prompt implies "fixing" the app, so replacing is better if I update the usage.
-// I will keep Message and Conversation as aliases or legacy types if they are heavily used, but better to update them.
+export type Message = ChatMessage; 
 
-export type Message = ChatMessage; // Alias for backward compatibility if possible, though properties differ.
-// Actually, let's keep the old Message interface but mark deprecated, or try to map. 
-// The old Message used string ID, new uses number.
-// I'll leave the old ones for a moment but add the new ones above.
-
-export type Conversation = ChatRoom; // Backward compatibility alias
+export type Conversation = ChatRoom; 
 
 
-// FIX: Unify AnnouncementCategory with Notice category to support all required types.
 export type AnnouncementCategory = 'General' | 'Homework' | 'Test Reminder' | 'Event' | 'Urgent' | 'Holiday';
 
 export interface TimetableEntry {
@@ -537,6 +531,8 @@ export interface TimetableEntry {
   className: string; // e.g., "Grade 11C"
   teacherId?: string;
 }
+
+
 
 export interface StudentPerformanceData {
   id: number;

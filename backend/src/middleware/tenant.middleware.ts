@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import * as yup from 'yup';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 /**
  * TENANT ENFORCEMENT MIDDLEWARE
@@ -46,28 +47,32 @@ export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
             }
         }
 
-        // 4. Branch Isolation Enforcement
-        const branchId = req.headers['x-branch-id'] as string;
+        // 4. Branch Isolation & Resolve Effective Branch
+        const headerBranchId = req.headers['x-branch-id'] as string;
+        const queryBranchId = (req.query.branchId || req.query.branch_id || req.body?.branch_id) as string;
         
-        if (branchId && user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && user.role !== 'PROPRIETOR') {
+        // Resolve using centralized logic (Handles profile lock, headers vs query priority)
+        const effectiveBranchId = getEffectiveBranchId(user, queryBranchId, headerBranchId);
+        
+        // Final Security Check: Ensure the resolved branch is actually in their allowed list 
+        // (This only applies to roles that have allowed_branch_ids but no fixed branch_id, 
+        // role-scoped users with fixed branch_id are already locked by getEffectiveBranchId)
+        if (effectiveBranchId && user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && user.role !== 'PROPRIETOR') {
             const allowedBranches = user.allowed_branch_ids || [];
-            
-            // For Roles like Teacher - they must be in their allowed list
-            if (user.role === 'TEACHER' && !allowedBranches.includes(branchId)) {
-                console.warn(`🚨 [SecurityException] Branch Mismatch! Teacher ${user.email} attempted to access unauthorized Branch: ${branchId}`);
+            if (user.role === 'TEACHER' && !allowedBranches.includes(effectiveBranchId)) {
+                console.warn(`🚨 [SecurityException] Branch Mismatch! User ${user.email} attempted unauthorized Branch: ${effectiveBranchId}`);
                 return res.status(403).json({ error: 'SecurityException: You do not have permission to access this branch.' });
-            }
-
-            // For Roles like Student - they are strictly locked to their one branch
-            if (user.role === 'STUDENT' && user.branch_id && branchId !== user.branch_id) {
-                console.warn(`🚨 [SecurityException] Branch Mismatch! Student ${user.email} attempted to bypass Branch Lock: ${branchId}`);
-                return res.status(403).json({ error: 'SecurityException: You are locked to your assigned branch.' });
             }
         }
 
-        // 5. Data Injection: If branch_id is missing in body but present in header, inject it
-        if ((req.method === 'POST' || req.method === 'PUT') && branchId && !req.body.branch_id) {
-            req.body.branch_id = branchId;
+        // 5. Data Injection: Inject the CORRECT resolved branch ID
+        // This ensures all downstream controllers see the correct branch even if they only check req.query
+        if (effectiveBranchId && !req.query.branchId && !req.query.branch_id) {
+            req.query.branchId = effectiveBranchId;
+        }
+
+        if ((req.method === 'POST' || req.method === 'PUT') && !req.body.branch_id) {
+            req.body.branch_id = effectiveBranchId;
         }
 
         next();

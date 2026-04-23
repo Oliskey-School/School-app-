@@ -25,11 +25,17 @@ app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('vercel.app')) {
+        
+        const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
+        const isVercel = origin.includes('vercel.app');
+        const isRailway = origin.includes('railway.app');
+
+        if (isLocal || isVercel || isRailway || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            callback(null, true); // Fallback to true during migration but log it
+            // Fallback for debugging, but still allow in dev
             console.log(`📡 [CORS] Request from unknown origin: ${origin}`);
+            callback(null, true); 
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -72,7 +78,7 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "https://api.dicebear.com"],
-            connectSrc: ["'self'", "http://localhost:5000", "https://*.vercel.app", "https://*.railway.app"],
+            connectSrc: ["'self'", "http://localhost:5000", "http://127.0.0.1:5000", "https://*.vercel.app", "https://*.railway.app"],
         },
     },
     crossOriginEmbedderPolicy: false,

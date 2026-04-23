@@ -2,10 +2,11 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ParentService } from '../services/parent.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getParents = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || (req.query.branch_id as string) || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ParentService.getParents(req.user.school_id, branchId);
 
         res.json(result);
@@ -16,7 +17,7 @@ export const getParents = async (req: AuthRequest, res: Response) => {
 
 export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = (req.user.branch_id || req.query.branch_id || req.query.branchId || '') as any as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ParentService.getParentsByClassId((req.user.school_id as string), branchId, (req.params.classId as string));
 
         res.json(result);
@@ -27,7 +28,7 @@ export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
 
 export const createParent = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.createParent(req.user.school_id, branchId, req.body, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
@@ -37,7 +38,7 @@ export const createParent = async (req: AuthRequest, res: Response) => {
 
 export const getParentById = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await ParentService.getParentById(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
@@ -47,7 +48,7 @@ export const getParentById = async (req: AuthRequest, res: Response) => {
 
 export const updateParent = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.updateParent(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -57,7 +58,7 @@ export const updateParent = async (req: AuthRequest, res: Response) => {
 
 export const deleteParent = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id || (req.query.branchId as string));
         await ParentService.deleteParent(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
@@ -112,7 +113,7 @@ export const linkChild = async (req: AuthRequest, res: Response) => {
     try {
         const { parentId, studentId } = req.body;
         console.log('📡 [ParentController] linkChild called with:', { parentId, studentId });
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.linkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(201).json(result);
     } catch (error: any) {
@@ -124,7 +125,7 @@ export const linkChild = async (req: AuthRequest, res: Response) => {
 export const unlinkChild = async (req: AuthRequest, res: Response) => {
     try {
         const { parentId, studentId } = req.body;
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = req.user.branch_id || req.body?.branch_id;
         await ParentService.unlinkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(204).send();
     } catch (error: any) {
@@ -134,7 +135,7 @@ export const unlinkChild = async (req: AuthRequest, res: Response) => {
 
 export const createAppointment = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const schoolId = req.user.school_id;
         
         console.log('📅 [ParentController] createAppointment body:', JSON.stringify(req.body));
@@ -147,7 +148,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         } = req.body;
 
         // Extremely robust date parsing
-        const rawDate = starts_at || date || req.body.starts_at || req.body.date;
+        const rawDate = starts_at || date || req.body?.starts_at || req.body?.date;
         if (!rawDate) {
             return res.status(400).json({ message: 'Appointment date is required' });
         }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from 'formik';
@@ -166,7 +166,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
     const [loadingRefs, setLoadingRefs] = useState(true);
 
     // Dynamic subject filtering based on curriculum
-    const filteredSubjectOptions = useMemo(() => {
+    const filteredSubjectOptions = React.useMemo(() => {
         const dbNames = dbSubjects.map(s => s.name);
         let standardFiltered = SUBJECTS_LIST;
         

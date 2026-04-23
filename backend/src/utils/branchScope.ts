@@ -15,30 +15,27 @@
  *
  * @param user           - req.user populated by auth middleware
  * @param requestedId    - branch_id from query-string or request body (optional)
+ * @param headerId       - branch_id from X-Branch-Id header (optional)
  */
-export function getEffectiveBranchId(user: any, requestedId?: string | null): string | undefined {
-    // If explicitly requesting 'all', return undefined to search across all branches
-    // (This should only be honored if the user has permission, but for now we trust the controller logic)
-    if (requestedId === 'all') {
+export function getEffectiveBranchId(user: any, requestedId?: string | null, headerId?: string | null): string | undefined {
+    // 1. If the user is strictly scoped to a specific branch in their profile (Teacher, Student, Parent, Branch Admin)
+    // They ARE NOT allowed to escape this branch, even if they request 'all' or another ID.
+    // We prioritize the profile branch above ALL external inputs (query, body, or headers).
+    if (user.branch_id) {
+        return user.branch_id;
+    }
+
+    // 2. User is unrestricted (Super Admin, Main Admin, or Proprietor with no fixed branch)
+    // They can use the requestedId or the headerId.
+    const effectiveRequested = (requestedId && requestedId !== 'undefined') ? requestedId : headerId;
+    
+    // Honor 'all' only for unrestricted users
+    if (effectiveRequested === 'all') {
         return undefined;
     }
 
-    const isBranchAdmin = user.role === 'admin' && !!user.branch_id;
-
-    if (isBranchAdmin) {
-        // Branch admin is always locked to their own branch
-        return user.branch_id as string;
-    }
-
-    if (user.role === 'superadmin') {
-        // Super admin can target any branch (or none = see all)
-        return requestedId || undefined;
-    }
-
-    // For all other roles (teacher, parent, student, proprietor, …)
-    // and for the main admin (no branch_id on profile):
-    // use the user's own branch first, then fall back to requested branch.
-    return (user.branch_id as string | undefined) || requestedId || undefined;
+    // Return the effective request if provided, otherwise undefined (which defaults to 'all' or handled by service)
+    return effectiveRequested || undefined;
 }
 
 /** Returns true when the user is scoped to exactly one branch. */

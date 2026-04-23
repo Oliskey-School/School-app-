@@ -98,11 +98,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
             if (!success) throw new Error('Failed to delete teacher via API');
 
-            toast.success(`${teacher.name} has been successfully deleted from the database.`);
-            forceUpdate();
-            handleBack();
-
-            toast.success(`${teacher.name} has been successfully deleted from the database.`);
+            toast.success(`${teacher.full_name || teacher.name} has been successfully deleted from the database.`);
             forceUpdate();
             handleBack();
         } catch (error: any) {
@@ -117,10 +113,10 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Teacher Info */}
                     <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0 text-center sm:text-left">
-                        <img src={teacher.avatarUrl} alt={teacher.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100 flex-shrink-0" />
+                        <img src={teacher.avatarUrl || teacher.avatar_url} alt={teacher.full_name || teacher.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100 flex-shrink-0" />
                         <div className="flex-grow min-w-0 w-full">
                             <div className="flex flex-col sm:flex-row items-center sm:space-x-2 justify-center sm:justify-start">
-                                <h3 className="text-xl font-bold text-gray-800 truncate max-w-full">{teacher.name}</h3>
+                                <h3 className="text-xl font-bold text-gray-800 truncate max-w-full">{teacher.full_name || teacher.name}</h3>
                                 <div className="flex items-center mt-1 sm:mt-0 space-x-2">
                                     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${teacher.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                         {teacher.status}
@@ -199,7 +195,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                                 <ChartBarIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
                                 <span className="font-semibold text-gray-700 text-sm sm:text-base">Performance Evaluation</span>
                             </button>
-                            <button onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.name}'s Attendance`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+                            <button onClick={() => navigateTo('teacherAttendanceDetail', `${teacher.full_name || teacher.name}'s Attendance`, { teacher })} className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
                                 <CalendarIcon className="w-6 h-6 text-indigo-500 flex-shrink-0" />
                                 <span className="font-semibold text-gray-700 text-sm sm:text-base">Full Attendance Record</span>
                             </button>
@@ -210,7 +206,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
             <div className="p-4 mt-auto bg-white border-t space-y-2">
                 <h3 className="text-sm font-bold text-gray-500 text-center uppercase">Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => navigateTo('addTeacher', `Edit ${teacher.name}`, { teacherToEdit: teacher })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-200 transition-colors text-sm sm:text-base"><EditIcon className="w-4 h-4 sm:w-5 sm:h-5" /><span>Edit Profile</span></button>
+                    <button onClick={() => navigateTo('addTeacher', `Edit ${teacher.full_name || teacher.name}`, { teacherToEdit: teacher })} className="flex items-center justify-center space-x-2 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-semibold hover:bg-indigo-200 transition-colors text-sm sm:text-base"><EditIcon className="w-4 h-4 sm:w-5 sm:h-5" /><span>Edit Profile</span></button>
                     <button onClick={() => setShowDeleteModal(true)} className="flex items-center justify-center space-x-2 py-3 bg-red-100 text-red-700 rounded-xl font-semibold hover:bg-red-200 transition-colors text-sm sm:text-base"><TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" /><span>Delete Account</span></button>
                 </div>
             </div>
@@ -220,7 +216,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                 onClose={() => setShowDeleteModal(false)}
                 onConfirm={handleDelete}
                 title="Delete Teacher Account"
-                message={`Are you sure you want to delete ${teacher.name}? This action cannot be undone.`}
+                message={`Are you sure you want to delete ${teacher.full_name || teacher.name}? This action cannot be undone.`}
                 confirmText="Delete"
                 isDanger
             />

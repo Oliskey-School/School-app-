@@ -6,7 +6,7 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const createTeacher = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await TeacherService.createTeacher(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -54,7 +54,7 @@ export const getTeacherById = async (req: AuthRequest, res: Response) => {
 
 export const updateTeacher = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await TeacherService.updateTeacher(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -64,7 +64,7 @@ export const updateTeacher = async (req: AuthRequest, res: Response) => {
 
 export const deleteTeacher = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, (req.query.branchId as string) || req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId as string) || req.body?.branch_id);
         await TeacherService.deleteTeacher(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
@@ -74,7 +74,8 @@ export const deleteTeacher = async (req: AuthRequest, res: Response) => {
 
 export const submitMyAttendance = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.submitMyAttendance(req.user.school_id, req.user.branch_id, req.user.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const result = await TeacherService.submitMyAttendance(req.user.school_id, branchId, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -83,8 +84,9 @@ export const submitMyAttendance = async (req: AuthRequest, res: Response) => {
 
 export const getMyHistory = async (req: AuthRequest, res: Response) => {
     try {
+        const branchId = getEffectiveBranchId(req.user);
         const limit = parseInt(req.query.limit as string) || 30;
-        const result = await TeacherService.getMyAttendanceHistory(req.user.school_id, req.user.branch_id, req.user.id, limit);
+        const result = await TeacherService.getMyAttendanceHistory(req.user.school_id, branchId, req.user.id, limit);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -110,7 +112,7 @@ export const getTeacherAttendance = async (req: AuthRequest, res: Response) => {
 
 export const saveTeacherAttendance = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const { records } = req.body;
         const result = await TeacherService.saveTeacherAttendance(req.user.school_id, branchId, records);
         res.status(201).json(result);
@@ -158,7 +160,8 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
         const teacher = await TeacherService.getTeacherProfileByUserId(req.user.school_id, req.user.id);
         if (!teacher) return res.status(404).json({ message: 'Teacher profile not found' });
 
-        const result = await TeacherService.getTeacherAppointments(req.user.school_id, req.user.branch_id, teacher.id);
+        const branchId = getEffectiveBranchId(req.user);
+        const result = await TeacherService.getTeacherAppointments(req.user.school_id, branchId, teacher.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -213,7 +216,7 @@ export const createMyMentoring = async (req: AuthRequest, res: Response) => {
 
 export const getTeacherCertificates = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.getTeacherCertificates(req.params.id);
+        const result = await TeacherService.getTeacherCertificates(req.params.id as string);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -222,7 +225,8 @@ export const getTeacherCertificates = async (req: AuthRequest, res: Response) =>
 
 export const getSubstituteRequests = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.getSubstituteRequests(req.user.school_id, req.user.branch_id);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
+        const result = await TeacherService.getSubstituteRequests(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -233,6 +237,33 @@ export const createSubstituteRequest = async (req: AuthRequest, res: Response) =
     try {
         const result = await TeacherService.createSubstituteRequest(req.user.school_id, req.user.id, req.body);
         res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getTeacherEvaluation = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await TeacherService.getTeacherEvaluation(req.user.school_id, req.params.id as string);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const submitTeacherEvaluation = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await TeacherService.submitTeacherEvaluation(req.user.school_id, req.params.id as string, req.body);
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getTeacherPerformance = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await TeacherService.getTeacherPerformance(req.user.school_id, req.params.id as string);
+        res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

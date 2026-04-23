@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ExamService } from '../services/exam.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getExams = async (req: AuthRequest, res: Response) => {
     try {
@@ -15,7 +16,7 @@ export const getExams = async (req: AuthRequest, res: Response) => {
             else return res.json([]);
         }
 
-        const branchId = req.user.branch_id || req.query.branch_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ExamService.getExams(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
@@ -25,7 +26,7 @@ export const getExams = async (req: AuthRequest, res: Response) => {
 
 export const createExam = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await ExamService.createExam(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -35,7 +36,7 @@ export const createExam = async (req: AuthRequest, res: Response) => {
 
 export const updateExam = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await ExamService.updateExam(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -45,7 +46,7 @@ export const updateExam = async (req: AuthRequest, res: Response) => {
 
 export const deleteExam = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         await ExamService.deleteExam(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
@@ -55,7 +56,7 @@ export const deleteExam = async (req: AuthRequest, res: Response) => {
 
 export const getExamResults = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.query.branch_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ExamService.getExamResults(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {

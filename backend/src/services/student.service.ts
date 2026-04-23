@@ -1064,6 +1064,57 @@ export class StudentService {
         }));
     }
 
+    static async getStudentsBySubject(schoolId: string, subjectId: string) {
+        // 1. Find the subject and all classes linked to it
+        const subject = await (prisma.subject.findUnique as any)({
+            where: { id: subjectId },
+            include: {
+                classes: {
+                    select: { id: true }
+                }
+            }
+        });
+
+        if (!subject || !subject.classes?.length) return [];
+
+        const classIds = subject.classes.map((c: any) => c.id);
+
+        // 2. Find all active students in those classes
+        const enrollments = await prisma.studentEnrollment.findMany({
+            where: {
+                class_id: { in: classIds },
+                status: 'Active'
+            },
+            include: {
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                avatar_url: true,
+                                school_generated_id: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. De-duplicate students
+        const studentMap = new Map<string, any>();
+        enrollments.forEach(e => {
+            const s = e.student;
+            studentMap.set(s.id, {
+                id: s.id,
+                name: s.full_name,
+                avatarUrl: s.avatar_url || (s as any).user?.avatar_url,
+                schoolGeneratedId: s.school_generated_id || (s as any).user?.school_generated_id,
+                section: s.section
+            });
+        });
+
+        return Array.from(studentMap.values());
+    }
+
     static async getPendingStudentsForSchool(schoolId: string, branchId: string | undefined) {
         return await prisma.student.findMany({
             where: {
