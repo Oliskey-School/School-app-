@@ -24,7 +24,21 @@ export const lazyWithRetry = (componentImport: () => Promise<any>) =>
       if (isFetchError && !pageHasBeenForceRefreshed) {
         console.warn('🔄 Chunk load failed. Force refreshing app to get newest version...');
         window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
-        window.location.reload();
+        
+        // 🚨 CRITICAL: Wipe Service Worker caches before reloading, or PWA will serve the dead index.html again
+        if ('caches' in window) {
+            caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))));
+        }
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                Promise.all(registrations.map(r => r.unregister())).then(() => {
+                    window.location.reload();
+                });
+            });
+        } else {
+            window.location.reload();
+        }
+
         // Return a promise that never resolves to avoid rendering while reloading
         return new Promise(() => {});
       }

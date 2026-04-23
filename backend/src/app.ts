@@ -9,6 +9,9 @@ import routes from './routes';
 
 const app = express();
 
+// Trust reverse proxy (Railway/Vercel) for rate limiting & accurate IPs
+app.set('trust proxy', 1);
+
 // 1. CORS - MUST BE FIRST for proper preflight handling
 const allowedOrigins = [
     'http://localhost:3000',
