@@ -17,11 +17,22 @@ This document provides a clear separation between the **Local Development** and 
 - **Real-time**:
     - **Provider**: Local Socket.io server.
 - **Service Command**: `npm run start:all` (Starts both Frontend & Backend).
+.env
 
 ---
 
 ## 🌐 Production Stack
 *Optimized for scale, security, and high availability.*
+
+**Latest Stable Version:** `0.5.21`
+
+### Infrastructure Context
+- **Frontend:** Vercel (Production)
+- **Backend:** Railway (Production)
+- **Database Engine:** Supabase Managed PostgreSQL
+- **Connection:** Supabase Transaction Pooler (via `DATABASE_URL` in Railway).
+- **Migrations:** Uses `DIRECT_URL` (Port 5432) for deployment stability.
+- **Local DB:** Docker PostgreSQL (`localhost:5432`).
 
 - **Frontend**:
     - **Host**: **Vercel** (`school-app-oliskeylee.vercel.app`)
@@ -36,6 +47,7 @@ This document provides a clear separation between the **Local Development** and 
     - **Provider**: Socket.io (hosted on the Railway persistent instance).
 - **Authentication**:
     - **Provider**: Supabase Identity Services (Cloud-managed).
+    .env.production 
 
 ---
 

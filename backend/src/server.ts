@@ -75,11 +75,19 @@ const start = async () => {
                     try {
                         const { execSync } = require('child_process');
                         console.log('🔄 [Production] Verifying database migrations...');
-                        execSync('npx prisma migrate deploy --schema=backend/prisma/schema.prisma', { stdio: 'inherit' });
+                        
+                        // Use DIRECT_URL for migrations if available (session mode required)
+                        const migrationDbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+                        const envWithDirect = { ...process.env, DATABASE_URL: migrationDbUrl };
+                        
+                        execSync('npx prisma migrate deploy --schema=backend/prisma/schema.prisma', { 
+                            stdio: 'inherit',
+                            env: envWithDirect
+                        });
                         console.log('✅ [Production] Database migrations up to date.');
                     } catch (migrationErr: any) {
-                        console.error('⚠️ [Production] Migration failed:', migrationErr.message);
-                        // We continue even if migration fails to allow the app to be "up" (degraded)
+                        console.error('⚠️ [Production] Migration failed or skipped:', migrationErr.message);
+                        console.log('   💡 Advice: Check if DIRECT_URL is set in Railway. Continuing to seeder...');
                     }
                 }
 
@@ -120,5 +128,5 @@ process.on('uncaughtException', (err) => {
 });
 
 start();
-// force restart - Antigravity triggered cleanup at 2026-04-26T11:46:01
+// force restart - Antigravity triggered cleanup at 2026-04-26T12:08:45
 

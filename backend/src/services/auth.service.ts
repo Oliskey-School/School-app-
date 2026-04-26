@@ -613,7 +613,7 @@ export class AuthService {
             role: 'PARENT',
             full_name: 'Demo Parent',
             branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_PAR_0007',
+            school_generated_id: 'OLISKEY_MAIN_PAR_0001',
         },
         student: {
             id: 'd3300000-0000-0000-0000-000000000004',
@@ -680,11 +680,12 @@ export class AuthService {
             });
 
             if (!demoUser) {
-                console.warn(`[AUTH] ⚠️ Demo database user not found for ${fallbackUser.email}. Check seeding.`);
+                const allUsersCount = await prisma.user.count();
+                console.warn(`[AUTH] ⚠️ Demo database user not found for ${fallbackUser.email}. (Total users in DB: ${allUsersCount})`);
                 throw new Error('Demo accounts are currently spinning up... Please try again in a few seconds.');
             }
 
-            console.log(`[AUTH] ✅ Demo user found: ${demoUser.full_name} (${demoUser.role})`);
+            console.log(`[AUTH] ✅ Demo user found: ${demoUser.full_name} ID: ${demoUser.id} Role: ${demoUser.role}`);
 
             const { token, refreshToken } = await this.generateTokens(demoUser);
             return {

@@ -18,35 +18,42 @@ export class DemoSeederService {
             const demoBranchId = AuthService.DEMO_BRANCH_ID;
 
             // 1. Ensure Demo School Exists
-            let school = await prisma.school.findUnique({ where: { id: demoSchoolId } });
-            if (!school) {
-                school = await prisma.school.create({
-                    data: {
-                        id: demoSchoolId,
-                        name: 'Oliskey Demo Academy',
-                        code: 'ODA',
-                        slug: 'oliskey-demo-academy',
-                        is_active: true,
-                        subscription_status: 'active',
-                        plan_type: 'premium',
-                        is_onboarded: true,
-                    }
-                });
-            }
+            await prisma.school.upsert({
+                where: { id: demoSchoolId },
+                update: {
+                    name: 'Oliskey Demo Academy',
+                    is_active: true,
+                    subscription_status: 'active',
+                    plan_type: 'premium',
+                    is_onboarded: true,
+                },
+                create: {
+                    id: demoSchoolId,
+                    name: 'Oliskey Demo Academy',
+                    code: 'ODA',
+                    slug: 'oliskey-demo-academy',
+                    is_active: true,
+                    subscription_status: 'active',
+                    plan_type: 'premium',
+                    is_onboarded: true,
+                }
+            });
 
             // 2. Ensure Main Branch Exists
-            let branch = await prisma.branch.findMany({ where: { school_id: demoSchoolId, id: demoBranchId } });
-            if (branch.length === 0) {
-                await prisma.branch.create({
-                    data: {
-                        id: demoBranchId,
-                        school_id: demoSchoolId,
-                        name: 'Main Campus',
-                        code: 'ODA-MAIN',
-                        is_main: true,
-                    }
-                });
-            }
+            await prisma.branch.upsert({
+                where: { id: demoBranchId },
+                update: {
+                    name: 'Main Campus',
+                    is_main: true,
+                },
+                create: {
+                    id: demoBranchId,
+                    school_id: demoSchoolId,
+                    name: 'Main Campus',
+                    code: 'ODA-MAIN',
+                    is_main: true,
+                }
+            });
 
             // 3. Ensure Demo Users Exist
             const passwordHash = await bcrypt.hash('password123', 10);
@@ -58,7 +65,11 @@ export class DemoSeederService {
                 // create or update User
                 const user = await prisma.user.upsert({
                     where: { email: innerUser.email },
-                    update: {},
+                    update: {
+                        school_generated_id: innerUser.school_generated_id,
+                        full_name: innerUser.full_name,
+                        role: innerUser.role as any,
+                    },
                     create: {
                         id: innerUser.id,
                         email: innerUser.email,
@@ -99,19 +110,28 @@ export class DemoSeederService {
                     await prisma.teacher.upsert({
                         where: { user_id: user.id },
                         create: profileData,
-                        update: {}
+                        update: {
+                            full_name: innerUser.full_name,
+                            school_generated_id: innerUser.school_generated_id
+                        }
                     });
                 } else if (innerUser.role === 'STUDENT') {
                     await prisma.student.upsert({
                         where: { user_id: user.id },
                         create: profileData,
-                        update: {}
+                        update: {
+                            full_name: innerUser.full_name,
+                            school_generated_id: innerUser.school_generated_id
+                        }
                     });
                 } else if (innerUser.role === 'PARENT') {
                     await prisma.parent.upsert({
                         where: { user_id: user.id },
                         create: profileData,
-                        update: {}
+                        update: {
+                            full_name: innerUser.full_name,
+                            school_generated_id: innerUser.school_generated_id
+                        }
                     });
                 }
             }
