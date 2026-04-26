@@ -2,5 +2,6 @@
   "watch": ["backend/src", "shared"],
   "ext": "ts,json",
   "exec": "npx tsx backend/src/server.ts",
-  "legacyWatch": true
+  "legacyWatch": true,
+  "ignore": ["backend/*.log", "test_*.ts", "backend/src/tmp/*"]
 }

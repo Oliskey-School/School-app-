@@ -13,7 +13,7 @@ This document provides a clear separation between the **Local Development** and 
     - **Persistence**: Local Prisma Client
 - **Database**:
     - **Engine**: **Dockerized PostgreSQL**
-    - **Connection**: `postgresql://postgres:postgres@localhost:5432/school_db`
+    - **Connection**: `postgresql://postgres:password123@localhost:5432/school_app`
 - **Real-time**:
     - **Provider**: Local Socket.io server.
 - **Service Command**: `npm run start:all` (Starts both Frontend & Backend).
