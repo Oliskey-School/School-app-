@@ -53,6 +53,38 @@ export class ClassService {
                 ]
             });
 
+            // If no classes exist, return standard levels as 'Shell' classes to populate dropdowns
+            if (classes.length === 0) {
+                const standardLevels = [
+                    { name: 'Creche', grade: -3, section: 'A', level_category: 'Pre-Primary' },
+                    { name: 'Pre-Nursery', grade: -2, section: 'A', level_category: 'Pre-Primary' },
+                    { name: 'Nursery 1', grade: -1, section: 'A', level_category: 'Pre-Primary' },
+                    { name: 'Nursery 2', grade: 0, section: 'A', level_category: 'Pre-Primary' },
+                    { name: 'Primary 1', grade: 1, section: 'A', level_category: 'Primary' },
+                    { name: 'Primary 2', grade: 2, section: 'A', level_category: 'Primary' },
+                    { name: 'Primary 3', grade: 3, section: 'A', level_category: 'Primary' },
+                    { name: 'Primary 4', grade: 4, section: 'A', level_category: 'Primary' },
+                    { name: 'Primary 5', grade: 5, section: 'A', level_category: 'Primary' },
+                    { name: 'Primary 6', grade: 6, section: 'A', level_category: 'Primary' },
+                    { name: 'JSS 1', grade: 7, section: 'A', level_category: 'Secondary' },
+                    { name: 'JSS 2', grade: 8, section: 'A', level_category: 'Secondary' },
+                    { name: 'JSS 3', grade: 9, section: 'A', level_category: 'Secondary' },
+                    { name: 'SSS 1', grade: 10, section: 'A', level_category: 'Secondary' },
+                    { name: 'SSS 2', grade: 11, section: 'A', level_category: 'Secondary' },
+                    { name: 'SSS 3', grade: 12, section: 'A', level_category: 'Secondary' },
+                ];
+
+                return standardLevels.map(level => ({
+                    id: `std-${level.grade}-${level.section}`, // Virtual ID prefixed with std-
+                    ...level,
+                    school_id: schoolId,
+                    branch_id: branchId && branchId !== 'all' ? branchId : null,
+                    student_count: 0,
+                    studentCount: 0,
+                    is_shell: true
+                }));
+            }
+
             return classes.map((cls: any) => ({
                 ...cls,
                 student_count: cls._count.enrollments,

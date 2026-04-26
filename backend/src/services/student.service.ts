@@ -199,20 +199,67 @@ export class StudentService {
             // 5. Create Enrollments for Selected Classes
             let classIds = enrollmentData.selectedClassIds || (enrollmentData.class_id ? [enrollmentData.class_id] : []);
             
+            // Handle Virtual/Shell Class IDs (Implicit Creation)
+            if (classIds.length > 0) {
+                const resolvedClassIds = [];
+                for (const classId of classIds) {
+                    if (typeof classId === 'string' && classId.startsWith('std-')) {
+                        const parts = classId.split('-'); // std-grade-section
+                        const gradeNum = parseInt(parts[1]);
+                        const sectionStr = parts[2];
+
+                        let cls = await tx.class.findFirst({
+                            where: { school_id: schoolId, grade: gradeNum, section: sectionStr }
+                        });
+
+                        if (!cls) {
+                            cls = await tx.class.create({
+                                data: {
+                                    school_id: schoolId,
+                                    branch_id: branchId || null,
+                                    grade: gradeNum,
+                                    section: sectionStr,
+                                    name: parts[1],
+                                    level_category: gradeNum >= 7 ? 'Secondary' : (gradeNum >= 1 ? 'Primary' : 'Pre-Primary')
+                                }
+                            });
+                        }
+                        resolvedClassIds.push(cls.id);
+                    } else {
+                        resolvedClassIds.push(classId);
+                    }
+                }
+                classIds = resolvedClassIds;
+            }
+
             // Fallback: If no explicit class IDs, try to find a matching class by grade and section
             if (classIds.length === 0 && enrollmentData.grade !== undefined && enrollmentData.section) {
-                const matchedClass = await tx.class.findFirst({
+                const gradeNum = Number(enrollmentData.grade);
+                const sectionStr = enrollmentData.section;
+
+                let matchedClass = await tx.class.findFirst({
                     where: {
                         school_id: schoolId,
-                        grade: Number(enrollmentData.grade),
-                        section: enrollmentData.section,
+                        grade: gradeNum,
+                        section: sectionStr,
                         ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
-                    },
-                    select: { id: true }
+                    }
                 });
-                if (matchedClass) {
-                    classIds = [matchedClass.id];
+
+                // If not found, create it implicitly
+                if (!matchedClass) {
+                    matchedClass = await tx.class.create({
+                        data: {
+                            school_id: schoolId,
+                            branch_id: branchId || null,
+                            grade: gradeNum,
+                            section: sectionStr,
+                            name: String(gradeNum),
+                            level_category: gradeNum >= 7 ? 'Secondary' : (gradeNum >= 1 ? 'Primary' : 'Pre-Primary')
+                        }
+                    });
                 }
+                classIds = [matchedClass.id];
             }
 
             if (classIds.length > 0) {
@@ -735,23 +782,50 @@ export class StudentService {
 
     static async assignStudentToClass(schoolId: string, branchId: string | undefined, studentId: string, classId: string) {
         return await prisma.$transaction(async (tx) => {
+            let targetClassId = classId;
+
+            // Handle Virtual/Shell Class IDs
+            if (targetClassId.startsWith('std-')) {
+                const parts = targetClassId.split('-');
+                const grade = parseInt(parts[1]);
+                const section = parts[2];
+
+                let cls = await tx.class.findFirst({
+                    where: { school_id: schoolId, grade, section }
+                });
+
+                if (!cls) {
+                    cls = await tx.class.create({
+                        data: {
+                            school_id: schoolId,
+                            branch_id: branchId || null,
+                            grade,
+                            section,
+                            name: parts[1],
+                            level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary')
+                        }
+                    });
+                }
+                targetClassId = cls.id;
+            }
+
             const classData = await tx.class.findUnique({
-                where: { id: classId },
-                select: { name: true }
+                where: { id: targetClassId },
+                select: { id: true, name: true }
             });
 
             if (!classData) throw new Error('Class not found');
-
+            
             await tx.studentEnrollment.upsert({
                 where: {
                     student_id_class_id: {
                         student_id: studentId,
-                        class_id: classId
+                        class_id: classData.id
                     }
                 },
                 create: {
                     student_id: studentId,
-                    class_id: classId,
+                    class_id: classData.id,
                     school_id: schoolId,
                     branch_id: branchId || null,
                     is_primary: true,

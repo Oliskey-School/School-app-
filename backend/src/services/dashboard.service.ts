@@ -456,7 +456,7 @@ export class DashboardService {
                 totalTeachers,
                 totalParents,
                 totalClasses,
-                totalAcademicLevels: (academicLevelsData || []).length, // The unique grades count
+                totalAcademicLevels: (academicLevelsData || []).length || 16, // Fallback to 16 standard levels if none created
                 overdueFees: Math.max(0, overdueFees),
                 unpublishedReports,
                 attendanceRate,

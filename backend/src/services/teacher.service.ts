@@ -100,8 +100,33 @@ export class TeacherService {
             // 4. Link Subjects/Classes
             if (classes && Array.isArray(classes)) {
                 for (const item of classes) {
-                    const classId = typeof item === 'string' ? item : item.classId;
+                    let classId = typeof item === 'string' ? item : item.classId;
                     const subjectId = typeof item === 'string' ? undefined : item.subjectId;
+
+                    // Handle Virtual/Shell Class IDs (Implicit Creation)
+                    if (classId && classId.startsWith('std-')) {
+                        const parts = classId.split('-'); // std-grade-section
+                        const grade = parseInt(parts[1]);
+                        const section = parts[2];
+
+                        let cls = await tx.class.findFirst({
+                            where: { school_id: schoolId, grade, section }
+                        });
+
+                        if (!cls) {
+                            cls = await tx.class.create({
+                                data: {
+                                    school_id: schoolId,
+                                    branch_id: branchId || null,
+                                    grade,
+                                    section,
+                                    name: parts[1], // Temporarily using grade as name, will be formatted by UI
+                                    level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary')
+                                }
+                            });
+                        }
+                        classId = cls.id;
+                    }
 
                     const existingClass = await tx.class.findUnique({ where: { id: classId } });
                     if (existingClass) {
@@ -275,8 +300,33 @@ export class TeacherService {
                 });
 
                 for (const item of classes) {
-                    const classId = typeof item === 'string' ? item : item.classId;
+                    let classId = typeof item === 'string' ? item : item.classId;
                     const subjectId = typeof item === 'string' ? undefined : item.subjectId;
+
+                    // Handle Virtual/Shell Class IDs (Implicit Creation)
+                    if (classId && classId.startsWith('std-')) {
+                        const parts = classId.split('-');
+                        const grade = parseInt(parts[1]);
+                        const section = parts[2];
+
+                        let cls = await tx.class.findFirst({
+                            where: { school_id: schoolId, grade, section }
+                        });
+
+                        if (!cls) {
+                            cls = await tx.class.create({
+                                data: {
+                                    school_id: schoolId,
+                                    branch_id: branchId || null,
+                                    grade,
+                                    section,
+                                    name: parts[1],
+                                    level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary')
+                                }
+                            });
+                        }
+                        classId = cls.id;
+                    }
 
                     // Check if class exists to prevent foreign key errors
                     const existingClass = await tx.class.findUnique({ where: { id: classId } });
@@ -491,7 +541,13 @@ export class TeacherService {
                         user: true,
                         classes: {
                             include: {
-                                class: true,
+                                class: {
+                                    include: {
+                                        _count: {
+                                            select: { enrollments: true }
+                                        }
+                                    }
+                                },
                                 subject: true
                             }
                         }
