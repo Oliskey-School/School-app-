@@ -538,7 +538,12 @@ export class TeacherService {
                         school_generated_id: teacher.user.school_generated_id || teacher.school_generated_id
                     },
                     include: { 
-                        user: true,
+                        user: {
+                            include: {
+                                school: true,
+                                branch: true
+                            }
+                        },
                         classes: {
                             include: {
                                 class: {
