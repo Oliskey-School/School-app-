@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.5.22",
+  "version": "0.5.23",
   "scripts": {
     "dev": "vite",
     "predev": "npm run kill-ports && npm run clean",
@@ -87,7 +87,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-hot-toast": "2.6.0",
-    "react-is": "^19.2.4",
+    "react-is": "18.3.1",
     "react-markdown": "9",
     "react-native": "0.76.6",
     "react-native-reanimated": "4.2.0",

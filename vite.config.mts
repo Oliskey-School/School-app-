@@ -34,7 +34,6 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      // ... (existing compression/PWA plugins)
       viteCompression({
         algorithm: 'brotliCompress',
         ext: '.br',
@@ -50,8 +49,6 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          runtimeCaching: [
-          ]
         },
         manifest: {
           name: 'Smart School Management App',
@@ -70,40 +67,18 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
-    // Lead DevSecOps: Strict environment isolation
     envPrefix: 'VITE_', 
     define: {
-      // Only map specific keys that MUST be available globally, 
-      // ensuring they are sourced from VITE_ prefixed variables only.
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY)
     },
     build: {
       minify: 'esbuild',
       cssCodeSplit: true,
       reportCompressedSize: false,
-      chunkSizeWarningLimit: 2000,
+      chunkSizeWarningLimit: 3000,
       rollupOptions: {
         output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-                return 'vendor-core';
-              }
-              if (id.includes('framer-motion')) {
-                return 'vendor-animation';
-              }
-              if (id.includes('recharts')) {
-                return 'vendor-charts';
-              }
-              if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('html2pdf')) {
-                return 'vendor-pdf';
-              }
-              if (id.includes('lucide-react')) {
-                return 'vendor-icons';
-              }
-              return 'vendor-others';
-            }
-          },
+          // Simplified output for stability
         },
       },
     },
