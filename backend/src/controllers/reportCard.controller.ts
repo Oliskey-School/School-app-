@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ReportCardService } from '../services/reportCard.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getReportCards = async (req: AuthRequest, res: Response) => {
     try {
@@ -15,7 +16,7 @@ export const getReportCards = async (req: AuthRequest, res: Response) => {
             else return res.json([]);
         }
 
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await ReportCardService.getReportCards(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
@@ -26,7 +27,7 @@ export const getReportCards = async (req: AuthRequest, res: Response) => {
 export const getReportCard = async (req: AuthRequest, res: Response) => {
     try {
         const id = req.params.id;
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await ReportCardService.getReportCard(id, req.user.school_id, branchId);
         
         if (!result) {
@@ -41,7 +42,7 @@ export const getReportCard = async (req: AuthRequest, res: Response) => {
 
 export const updateStatus = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await ReportCardService.updateStatus(req.user.school_id, branchId, req.params.id as string, req.body.status);
         res.json(result);
     } catch (error: any) {

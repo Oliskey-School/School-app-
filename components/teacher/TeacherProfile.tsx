@@ -83,11 +83,14 @@ const TeacherProfile: React.FC<TeacherProfileProps> = ({ navigateTo }) => {
         {/* Profile Info */}
         <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center space-y-3">
           <img
-            src={teacher.avatar_url || 'https://i.pravatar.cc/150?u=teacher'}
+            src={teacher.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.full_name || teacher.name || 'T')}&background=random`}
             alt={teacher.name}
             className="w-28 h-28 rounded-full object-cover border-4 border-purple-200 shadow-md"
+            onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.full_name || teacher.name || 'T')}&background=random`;
+            }}
           />
-          <h3 className="text-2xl font-bold text-gray-800">{teacher.name}</h3>
+          <h3 className="text-2xl font-bold text-gray-800">{teacher.full_name || teacher.name || 'Teacher'}</h3>
           <span className={`text-sm font-semibold px-4 py-1 rounded-full ${subjectColor}`}>
             Teaches {primarySubject}
           </span>

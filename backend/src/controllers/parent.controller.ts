@@ -68,7 +68,8 @@ export const deleteParent = async (req: AuthRequest, res: Response) => {
 
 export const getMyProfile = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = (req.user.branch_id || req.query.branchId || req.query.branch_id) as string | undefined;
+        const schoolId = req.user.school_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await ParentService.getParentProfile(req.user.school_id, branchId, req.user.id);
         if (!result) return res.status(404).json({ message: 'Parent profile not found' });
         res.json(result);
@@ -90,7 +91,7 @@ export const getMyChildren = async (req: AuthRequest, res: Response) => {
 
 export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = (req.user.branch_id || req.query.branchId || req.query.branch_id || undefined) as string | undefined;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const parentId = req.params.id as string;
         
         const parent = await prisma.parent.findFirst({ 

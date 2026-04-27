@@ -22,3 +22,15 @@ export const getCurriculumTopics = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+export const createSubject = async (req: AuthRequest, res: Response) => {
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: 'Subject name is required' });
+        }
+        const result = await SubjectService.createSubject(req.user.school_id, name);
+        res.status(201).json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

@@ -176,8 +176,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                                         onClick={() => handleSwitchSchool(m.school_id)}
                                         disabled={isSwitching}
                                         className={`w-full flex items-center justify-between p-3 rounded-lg transition-all ${m.school_id === currentSchool?.id
-                                                ? 'bg-purple-50 border border-purple-100'
-                                                : 'hover:bg-gray-50 text-gray-600'
+                                            ? 'bg-purple-50 border border-purple-100'
+                                            : 'hover:bg-gray-50 text-gray-600'
                                             }`}
                                     >
                                         <div className="flex items-center space-x-3">

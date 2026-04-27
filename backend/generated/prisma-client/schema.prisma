@@ -184,6 +184,8 @@ model User {
   sent_chat_messages     ChatMessage[]
   sessions               UserSession[]
   notification_setting   NotificationSetting?
+  created_students       Student[]              @relation("StudentCreator")
+  created_parents        Parent[]               @relation("ParentCreator")
 }
 
 model Student {
@@ -213,6 +215,7 @@ model Student {
   behavior_notes          BehaviorNote[]
   parents                 ParentChild[]
   report_cards            ReportCard[]
+  creator                 User?                     @relation("StudentCreator", fields: [created_by], references: [id])
   branch                  Branch?                   @relation(fields: [branch_id], references: [id])
   school                  School                    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user                    User                      @relation("UserToStudent", fields: [user_id], references: [id], onDelete: Cascade)
@@ -249,6 +252,7 @@ model Teacher {
   phone                    String?
   avatar_url               String?
   status                   String                    @default("Active")
+  curriculum_type          String?                   @default("Nigerian")
   subject_specialty        String[]
   curriculum_eligibility   String[]
   compliance_documents     Json?
@@ -326,6 +330,8 @@ model Parent {
   branch              Branch?                   @relation(fields: [branch_id], references: [id])
   school              School                    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   user                User                      @relation("UserToParent", fields: [user_id], references: [id], onDelete: Cascade)
+  created_by          String?
+  creator             User?                     @relation("ParentCreator", fields: [created_by], references: [id])
   children            ParentChild[]
   savings_plans       SavingsPlan[]
   EventRSVP           EventRSVP[]

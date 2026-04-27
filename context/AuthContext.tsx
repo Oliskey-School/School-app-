@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeAuth = async () => {
         const token = localStorage.getItem('auth_token');
-        
+
         if (!token && !isDemo) {
             localStorage.removeItem('cached_user_profile');
             React.startTransition(() => {
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const userData = JSON.parse(cachedUser);
                 React.startTransition(() => {
                     setUser(userData);
-                    
+
                     // Priority: Session (tab-specific) > Default role
                     const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
                     if (savedRole) {
@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             // 2. Fetch current user from custom backend
             const userData = await api.getMe();
-            
+
             if (userData) {
                 // Normalize ID
                 if (!userData.id && userData.userId) {
@@ -118,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 React.startTransition(() => {
                     setUser(userData);
-                    
+
                     // Priority: Session (tab-specific) > Default role
                     const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
                     const dashboardRole = savedRole || getDashboardTypeFromUserType(userData.role);
@@ -126,15 +126,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (savedRole) {
                         sessionStorage.setItem('active_dashboard_role', savedRole);
                     }
-                    
+
                     if (userData.school) {
                         setCurrentSchool(userData.school);
                         setCurrentBranchId(userData.branch_id || userData.school.branch_id);
                     }
-                    
+
                     const isDemoAccount = !!(userData.is_demo || userData.isDemo || (userData.id && String(userData.id).startsWith('d3300')));
                     setIsDemo(isDemoAccount);
-                    
+
                     if (isDemoAccount) {
                         sessionStorage.setItem('is_demo_mode', 'true');
                     } else {
@@ -149,14 +149,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 signOut();
             }
         } catch (err: any) {
-            const isAuthError = err.message?.includes('401') || 
-                               err.message?.includes('No token provided') || 
-                               err.message?.includes('Invalid credentials');
-            
+            const isAuthError = err.message?.includes('401') ||
+                err.message?.includes('No token provided') ||
+                err.message?.includes('Invalid credentials');
+
             if (!isAuthError) {
                 console.error("Auth initialization failed:", err);
             }
-            
+
             signOut();
         } finally {
             React.startTransition(() => {
@@ -167,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchMemberships = async (userId: string | null | undefined) => {
         if (!userId) return;
-        
+
         const userIdStr = String(userId);
         // Skip for demo accounts to avoid 404s
         if (userIdStr.startsWith('d3300') || sessionStorage.getItem('is_demo_mode') === 'true') {
@@ -207,12 +207,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Resiliently extract user object and demo status
         let userObj = userData.user || { ...userData };
-        
+
         // Normalize ID (ensure .id exists if .userId was provided)
         if (!userObj.id && userObj.userId) {
             userObj.id = userObj.userId;
         }
-        
+
         const isDemoAccount = !!(userObj.is_demo || userData.isDemo || userObj.isDemo || (userObj.id && String(userObj.id).startsWith('d3300')));
 
         React.startTransition(() => {
@@ -220,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setRole(dashboard);
             sessionStorage.setItem('active_dashboard_role', dashboard);
             setIsDemo(isDemoAccount);
-            
+
             if (isDemoAccount) {
                 sessionStorage.setItem('is_demo_mode', 'true');
                 if (userData.school?.id) {
@@ -242,13 +242,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
 
             setSession({ access_token: userData.token, user: userObj });
-            
+
             // Use either id or userId
             const userId = userObj.id || userObj.userId;
             if (userId) {
                 fetchMemberships(userId);
             }
-            
+
             setLoading(false);
         });
     };
@@ -275,7 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Clear React Query cache to prevent data leakage between users
             queryClient.clear();
         });
-        
+
         // Clear everything - App.tsx will automatically show Login/Signup because user/role is null
         // No more window.location.href = '/login' to avoid full page reloads
     };
@@ -305,16 +305,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             // Instant Backend fetch - bypassing cached mock logic
             const { token, refreshToken, user: userData } = await api.demoLogin(roleKey);
-            
+
             if (token && userData) {
                 // Determine dashboard type based on true DB role
                 let dashType = DashboardType.Admin;
                 const userRole = (userData.role || '').toLowerCase();
-                
+
                 if (userRole === 'teacher') dashType = DashboardType.Teacher;
                 else if (userRole === 'student') dashType = DashboardType.Student;
                 else if (userRole === 'parent') dashType = DashboardType.Parent;
-                
+
                 api.clearCache();
                 localStorage.removeItem('cached_user_profile');
                 sessionStorage.removeItem('demo_role_token');
@@ -331,21 +331,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!email) {
             throw new Error('Email is required for Google Sign In');
         }
-        
+
         setLoading(true);
         try {
             const { api } = await import('../lib/api');
             const { token, refreshToken, user: userData } = await api.googleLogin(email, name || 'Google User');
-            
+
             if (token && userData) {
                 // Determine dashboard type based on role
                 let dashType = DashboardType.Admin;
                 const userRole = (userData.role || '').toLowerCase();
-                
+
                 if (userRole === 'teacher') dashType = DashboardType.Teacher;
                 else if (userRole === 'student') dashType = DashboardType.Student;
                 else if (userRole === 'parent') dashType = DashboardType.Parent;
-                
+
                 await signIn(dashType, { ...userData, token, refreshToken });
                 return { success: true };
             }

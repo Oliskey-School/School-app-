@@ -1,10 +1,14 @@
 
+import './config/env';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import { config } from './config/env';
+import { doubleSubmitCookieMiddleware, csrfErrorHandler } from './middleware/csrf.middleware';
 import routes from './routes';
 
 const app = express();
@@ -13,6 +17,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 // 1. CORS - MUST BE FIRST for proper preflight handling
+// ... existing origins ...
 const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -42,14 +47,19 @@ app.use(cors({
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id', 'X-CSRF-Token'],
     credentials: true,
     maxAge: 86400
 }));
 
 // 2. Core Middlewares
+app.use(cookieParser(config.jwtSecret));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Lead DevSecOps: Apply Anti-CSRF protection globally
+app.use(doubleSubmitCookieMiddleware);
+app.use(csrfErrorHandler);
 
 // 3. Standardize URL: Remove trailing slash
 app.use((req, res, next) => {
@@ -80,7 +90,7 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'", "'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https://api.dicebear.com"],
+            imgSrc: ["'self'", "data:", "https://api.dicebear.com", "http://localhost:5000", "https://*.railway.app"],
             connectSrc: ["'self'", "http://localhost:5000", "http://127.0.0.1:5000", "https://*.vercel.app", "https://*.railway.app"],
         },
     },

@@ -24,27 +24,31 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, naviga
             const effectiveSchoolId = classInfo.schoolId || (classInfo as any).school_id || profile?.schoolId;
             const effectiveBranchId = classInfo.branch_id || (classInfo as any).branch_id || profile?.branchId;
 
-            let data: any[] = [];
+            console.log('🔍 [ClassDetail] fetchStudents started:', { 
+                classId: classInfo.id, 
+                effectiveSchoolId, 
+                effectiveBranchId, 
+                profileBranchId: profile?.branchId 
+            });
 
-            // Only use ID if it looks like a UUID (36 chars)
-            if (classInfo.id && classInfo.id.length === 36) {
-                data = await api.getStudentsByClassId(classInfo.id);
-            } else {
-                data = await api.getStudentsByClass(
-                    classInfo.grade,
-                    classInfo.section || '',
-                    effectiveSchoolId,
-                    effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : undefined
-                );
-            }
+            // Use the more robust api.getStudents pattern (working in Attendance)
+            const studentData = await api.getStudents(
+                effectiveSchoolId,
+                effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : undefined,
+                {
+                    classId: classInfo.id,
+                    grade: classInfo.grade,
+                    section: classInfo.section
+                }
+            );
 
-            if (data) {
-                setStudents(data.map((s: any) => ({
+            if (studentData) {
+                setStudents(studentData.map((s: any) => ({
                     id: s.id,
                     schoolId: s.school_generated_id || s.schoolId || s.admission_number,
-                    name: s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
+                    name: s.full_name || s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
                     email: s.email || '',
-                    avatarUrl: s.avatar_url || s.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name || s.full_name || 'U')}&background=random`,
+                    avatarUrl: s.avatar_url || s.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.full_name || s.name || 'U')}&background=random`,
                     grade: s.grade,
                     section: s.section,
                     department: s.department,

@@ -25,5 +25,12 @@ services:
     depends_on:
       - db
 
+  redis:
+    image: redis:7-alpine
+    container_name: school-app-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
 volumes:
   db_data:

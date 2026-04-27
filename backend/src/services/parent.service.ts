@@ -143,7 +143,13 @@ export class ParentService {
             where: {
                 class_id: classId,
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                // Allow enrollments in the specific branch OR global enrollments (branch_id: null)
+                ...(branchId && branchId !== 'all' ? {
+                    OR: [
+                        { branch_id: branchId },
+                        { branch_id: null }
+                    ]
+                } : {})
             },
             include: {
                 student: {
@@ -355,7 +361,13 @@ export class ParentService {
             where: {
                 id: id,
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                // Allow parents in the specific branch OR global parents (branch_id: null)
+                ...(branchId && branchId !== 'all' ? {
+                    OR: [
+                        { branch_id: branchId },
+                        { branch_id: null }
+                    ]
+                } : {})
             },
             include: {
                 children: {

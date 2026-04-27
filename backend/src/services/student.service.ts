@@ -45,14 +45,18 @@ export class StudentService {
                     role: Role.STUDENT,
                     school_id: schoolId,
                     branch_id: branchId || null,
-                    email_verified: !isTeacherAdded,
+                    email_verified: true, // System created accounts should be pre-verified
                     initial_password: isTeacherAdded ? null : generatedPassword,
                     updated_at: new Date()
                 },
                 update: {
                     full_name: fullName,
+                    role: Role.STUDENT,
+                    password_hash: hashedPassword,
                     school_id: schoolId,
                     branch_id: branchId || null,
+                    email_verified: true, // Ensure even updated ones are verified if system enrolled
+                    initial_password: isTeacherAdded ? null : generatedPassword,
                     updated_at: new Date()
                 }
             });
@@ -436,16 +440,32 @@ export class StudentService {
         });
     }
 
-    static async getAllStudents(schoolId: string, branchId?: string, classId?: string, status: string = 'Active') {
-        const queryStatus = status === 'all' ? undefined : status;
+    static async getAllStudents(schoolId: string, branchId?: string, classId?: string, status: string = 'all') {
+        const queryStatus = (status === 'all' || !status) ? undefined : status;
+        
+        const where: any = {
+            school_id: schoolId,
+            status: queryStatus,
+        };
+
+        if (branchId && branchId !== 'all') {
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
+        }
+
+        if (classId) {
+            where.enrollments = { 
+                some: { 
+                    class_id: classId, 
+                    status: queryStatus 
+                } 
+            };
+        }
         
         return await prisma.student.findMany({
-            where: {
-                school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
-                status: queryStatus || undefined,
-                enrollments: classId ? { some: { class_id: classId, status: queryStatus || undefined } } : undefined
-            },
+            where,
             include: {
                 user: true
             },
@@ -1088,7 +1108,13 @@ export class StudentService {
         const classRecord = await prisma.class.findFirst({
             where: {
                 school_id: schoolId,
-                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}),
+                // Allow classes in the specific branch OR global classes (branch_id: null)
+                ...(branchId && branchId !== 'all' ? {
+                    OR: [
+                        { branch_id: branchId },
+                        { branch_id: null }
+                    ]
+                } : {}),
                 grade: grade,
                 section: section
             }
@@ -1193,7 +1219,13 @@ export class StudentService {
         return await prisma.student.findMany({
             where: {
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                // Allow students in the specific branch OR global students (branch_id: null)
+                ...(branchId && branchId !== 'all' ? {
+                    OR: [
+                        { branch_id: branchId },
+                        { branch_id: null }
+                    ]
+                } : {}),
                 status: 'Pending'
             },
             include: {

@@ -1,11 +1,28 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
+import { generateToken } from '../middleware/csrf.middleware';
+
+const COOKIE_OPTIONS: any = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    path: '/',
+};
 
 export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
         const result = await AuthService.login(email, password);
         
+        // Handle 2FA Requirement
+        if (result.requires2FA) {
+            return res.json({
+                requires2FA: true,
+                mfaToken: result.mfaToken,
+                userId: result.userId
+            });
+        }
+
         // Check if email verification is required
         if (result.requiresVerification) {
             return res.status(403).json({
@@ -16,18 +33,90 @@ export const login = async (req: Request, res: Response) => {
             });
         }
         
-        res.json({ token: result.token, refreshToken: result.refreshToken, user: result.user });
+        // Lead DevSecOps: Set secure cookies and omit tokens from response body
+        res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
+        res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+        res.json({ user: result.user });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }
 };
 
+/**
+ * Lead DevSecOps: Verify 2FA code during login
+ * POST /api/auth/verify-2fa-login
+ */
+export const verify2FALogin = async (req: Request, res: Response) => {
+    try {
+        const { mfaToken, code } = req.body;
+        if (!mfaToken || !code) throw new Error('MFA token and code are required');
+
+        const result = await AuthService.verify2FALogin(mfaToken, code);
+
+        res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
+        res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+        res.json({ user: result.user });
+    } catch (error: any) {
+        res.status(401).json({ message: error.message });
+    }
+};
+
+/**
+ * Generate 2FA Secret and QR Code for setup
+ * GET /api/auth/2fa/setup
+ */
+export const setup2FA = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const result = await AuthService.generate2FASecret(userId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+/**
+ * Verify and enable 2FA
+ * POST /api/auth/2fa/enable
+ */
+export const enable2FA = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { code } = req.body;
+        const result = await AuthService.verifyAndEnable2FA(userId, code);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+/**
+ * Disable 2FA
+ * POST /api/auth/2fa/disable
+ */
+export const disable2FA = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { code } = req.body;
+        const result = await AuthService.disable2FA(userId, code);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
 export const refresh = async (req: Request, res: Response) => {
     try {
-        const { refreshToken } = req.body;
+        const refreshToken = req.cookies.refresh_token;
         if (!refreshToken) throw new Error('Refresh token is required');
         const result = await AuthService.refreshAccessToken(refreshToken);
-        res.json(result);
+        
+        res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
+        res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+        res.json({ success: true });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }
@@ -38,7 +127,11 @@ export const googleLogin = async (req: Request, res: Response) => {
         const { email, name } = req.body;
         if (!email) throw new Error('Email is required for Google Login');
         const { user, token, refreshToken } = await AuthService.googleLogin(email, name);
-        res.json({ token, refreshToken, user });
+        
+        res.cookie('access_token', token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
+        res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+        res.json({ user });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }
@@ -256,6 +349,11 @@ export const demoLogin = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Role is required' });
         }
         const result = await AuthService.generateDemoToken(role);
+        
+        // Lead DevSecOps: Set secure cookies for demo login too
+        res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
+        res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
         res.json(result);
     } catch (error: any) {
         console.error('[AuthController] 💥 Demo Login Crash:', error);
@@ -328,4 +426,15 @@ export const revokeAllSessions = async (req: Request, res: Response) => {
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }
+};
+
+export const logout = async (req: Request, res: Response) => {
+    res.clearCookie('access_token', COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', COOKIE_OPTIONS);
+    res.json({ success: true, message: 'Logged out successfully' });
+};
+
+export const getCsrfToken = async (req: Request, res: Response) => {
+    const token = generateToken(req, res);
+    res.json({ csrfToken: token });
 };

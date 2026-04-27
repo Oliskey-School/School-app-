@@ -19,116 +19,159 @@ class ExpressApiClient {
     private baseUrl: string = API_BASE_URL;
     private cache = new Map<string, { data: any; timestamp: number }>();
     private CACHE_TTL = 30000; // 30 seconds
+    private csrfToken: string | null = null;
+    private inFlightRequests = new Map<string, Promise<any>>();
 
     private refreshPromise: Promise<any> | null = null;
 
     constructor() {}
 
+    async getCsrfToken(): Promise<string | null> {
+        if (this.csrfToken) return this.csrfToken;
+        try {
+            const response = await fetch(`${this.baseUrl}/auth/csrf-token`, { credentials: 'include' });
+            if (response.ok) {
+                const data = await response.json();
+                this.csrfToken = data.csrfToken;
+                return this.csrfToken;
+            }
+        } catch (e) {
+            console.error('Failed to fetch CSRF token', e);
+        }
+        return null;
+    }
+
+    clearCsrfToken(): void {
+        this.csrfToken = null;
+    }
+
     invalidateCache(): void {
         this.cache.clear();
+        this.inFlightRequests.clear();
+        this.clearCsrfToken();
     }
 
     /**
-     * Core Fetch Engine
+     * Core Fetch Engine with Request Deduplication
      */
     async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        const token = await getAuthToken();
+        const method = options.method?.toUpperCase() || 'GET';
         const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            ...((options.headers as any) || {}),
-        };
+        // Lead DevSecOps: Deduplicate concurrent identical GET requests
+        const isGet = method === 'GET';
+        const requestKey = `${method}:${url}`;
 
-        if (!token && !endpoint.includes('/auth/') && !endpoint.includes('/health')) {
-            console.warn(`🔒 [API-WARN] Missing token for protected endpoint: ${endpoint}`);
+        if (isGet && this.inFlightRequests.has(requestKey)) {
+            return this.inFlightRequests.get(requestKey);
         }
 
-        // Inject Branch ID if selected (Admin/Proprietor context)
-        const selectedBranchId = localStorage.getItem('selected_branch_id');
-        if (selectedBranchId && selectedBranchId !== 'all' && selectedBranchId !== 'null' && selectedBranchId !== 'undefined') {
-            headers['X-Branch-Id'] = selectedBranchId;
-        }
-
-        // Auto-remove Content-Type for FormData
-        if (options.body instanceof FormData) {
-            delete headers['Content-Type'];
-        }
-
-        // Diagnostic: Log full URL trying to be hit
-        if (process.env.NODE_ENV !== 'production') {
-            console.log(`🔌 [API-DEBUG] Fetching: ${url} | Method: ${options.method || 'GET'}`);
-        }
-
-        let response;
-        try {
-            response = await fetch(url, { ...options, headers });
-        } catch (fetchErr: any) {
-            console.error(`💥 [API-FATAL] Network error hitting ${url}:`, fetchErr.message);
-            console.error(`   Check if the backend is running at ${this.baseUrl} and reachable.`);
-            throw fetchErr;
-        }
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            
-            let error = { message: '' };
+        const fetchPromise = (async () => {
             try {
-                if (errorText) {
-                    const parsed = JSON.parse(errorText);
-                    error.message = parsed.message || parsed.error || '';
-                }
-            } catch (e) {
-                console.warn(`[API] Could not parse error response as JSON from ${endpoint}`);
-            }
+                const token = await getAuthToken();
 
-            // Handle JWT Expiration
-            if (response.status === 401 && (error.message === 'jwt expired' || error.message.includes('expired'))) {
-                console.log(`[API] Token expired for ${endpoint}, attempting refresh...`);
+                // Lead DevSecOps: Attach CSRF token for mutating requests
+                const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
+                
+                if (isMutation && !this.csrfToken) {
+                    await this.getCsrfToken();
+                }
+
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                    ...(this.csrfToken ? { 'X-CSRF-Token': this.csrfToken } : {}),
+                    ...((options.headers as any) || {}),
+                };
+
+                if (!token && !endpoint.includes('/auth/') && !endpoint.includes('/health')) {
+                    console.warn(`🔒 [API-WARN] Missing token for protected endpoint: ${endpoint}`);
+                }
+
+                // Inject Branch ID if selected (Admin/Proprietor context)
+                const selectedBranchId = localStorage.getItem('selected_branch_id');
+                if (!headers['X-Branch-Id'] && selectedBranchId && selectedBranchId !== 'all' && selectedBranchId !== 'null' && selectedBranchId !== 'undefined') {
+                    headers['X-Branch-Id'] = selectedBranchId;
+                }
+
+                // Auto-remove Content-Type for FormData
+                if (options.body instanceof FormData) {
+                    delete headers['Content-Type'];
+                }
+
+                // Diagnostic: Log full URL trying to be hit
+                if (process.env.NODE_ENV !== 'production' || endpoint.includes('/students')) {
+                    console.log(`🔌 [API-DEBUG] Fetching: ${url} | Method: ${method} | Headers:`, JSON.stringify(headers));
+                }
+
+                let response;
                 try {
-                    const refreshResult = await this.refreshToken();
-                    if (refreshResult && refreshResult.token) {
-                        console.log(`[API] Refresh successful, retrying ${endpoint}`);
-                        // Retry with new token
-                        const newHeaders = {
-                            ...headers,
-                            'Authorization': `Bearer ${refreshResult.token}`
-                        };
-                        return this.fetch<T>(endpoint, { ...options, headers: newHeaders });
-                    }
-                } catch (refreshErr) {
-                    console.error('[API] Secondary error during token refresh:', refreshErr);
-                    // If refresh fails, we might want to log out
-                    // But we'll let the original 401 error propagate or the refresh error
+                    response = await fetch(url, { ...options, headers, credentials: 'include' });
+                } catch (fetchErr: any) {
+                    console.error(`💥 [API-FATAL] Network error hitting ${url}:`, fetchErr.message);
+                    console.error(`   Check if the backend is running at ${this.baseUrl} and reachable.`);
+                    throw fetchErr;
                 }
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    
+                    let error = { message: '' };
+                    try {
+                        if (errorText) {
+                            const parsed = JSON.parse(errorText);
+                            error.message = parsed.message || parsed.error || '';
+                        }
+                    } catch (e) {
+                        console.warn(`[API] Could not parse error response as JSON from ${endpoint}`);
+                    }
+
+                    // Handle JWT Expiration
+                    if (response.status === 401 && (error.message === 'jwt expired' || error.message.includes('expired'))) {
+                        console.log(`[API] Token expired for ${endpoint}, attempting refresh...`);
+                        try {
+                            const refreshResult = await this.refreshToken();
+                            if (refreshResult && refreshResult.token) {
+                                console.log(`[API] Refresh successful, retrying ${endpoint}`);
+                                // Retry with new token
+                                const newHeaders = {
+                                    ...headers,
+                                    'Authorization': `Bearer ${refreshResult.token}`
+                                };
+                                return this.fetch<T>(endpoint, { ...options, headers: newHeaders });
+                            }
+                        } catch (refreshErr) {
+                            console.error('[API] Secondary error during token refresh:', refreshErr);
+                        }
+                    }
+
+                    console.error(`[API] Error Response from ${endpoint}:`, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        body: errorText
+                    });
+
+                    const errorMessage = error.message || `Error ${response.status}: ${response.statusText}`;
+                    throw new Error(errorMessage);
+                }
+
+                // Handle empty responses (204 No Content, etc)
+                const contentType = response.headers.get('content-type');
+                if (response.status === 204 || !contentType || !contentType.includes('application/json')) {
+                    return {} as T;
+                }
+
+                return await response.json();
+            } finally {
+                if (isGet) this.inFlightRequests.delete(requestKey);
             }
+        })();
 
-            console.error(`[API] Error Response from ${endpoint}:`, {
-                status: response.status,
-                statusText: response.statusText,
-                body: errorText
-            });
-
-            const errorMessage = error.message || `Error ${response.status}: ${response.statusText}`;
-            throw new Error(errorMessage);
+        if (isGet) {
+            this.inFlightRequests.set(requestKey, fetchPromise);
         }
 
-        // Handle empty responses (204 No Content, etc)
-        const contentType = response.headers.get('content-type');
-        if (response.status === 204 || !contentType || !contentType.includes('application/json')) {
-            return {} as T;
-        }
-
-        const text = await response.text();
-        try {
-            return text ? JSON.parse(text) : {} as T;
-        } catch (e) {
-            console.error(`[API] JSON Parse Error at ${endpoint}:`, e);
-            console.error(`[API] Raw response text:`, text);
-            // If it's not JSON, return the text as cast to T if T is string, else empty object
-            return text as unknown as T;
-        }
+        return fetchPromise;
     }
 
     async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -176,50 +219,14 @@ class ExpressApiClient {
 
 
     async login(credentials: any): Promise<any> {
+        this.clearCsrfToken(); // Clear before login
         const result = await this.post<any>('/auth/login', credentials);
-        if (result.token) localStorage.setItem('auth_token', result.token);
-        if (result.refreshToken) localStorage.setItem('auth_refresh_token', result.refreshToken);
+        // Note: tokens are now set as HttpOnly cookies by the backend
         return result;
     }
 
     async refreshToken(): Promise<any> {
-        // If a refresh is already in progress, return the existing promise
-        if (this.refreshPromise) return this.refreshPromise;
-
-        const currentRefreshToken = localStorage.getItem('auth_refresh_token');
-        if (!currentRefreshToken) {
-            throw new Error('No refresh token available');
-        }
-
-        this.refreshPromise = (async () => {
-            try {
-                const url = `${this.baseUrl}/auth/refresh`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refreshToken: currentRefreshToken })
-                });
-
-                if (!response.ok) {
-                    localStorage.removeItem('auth_token');
-                    localStorage.removeItem('auth_refresh_token');
-                    throw new Error('Refresh failed');
-                }
-
-                const data = await response.json();
-                if (data.token) {
-                    localStorage.setItem('auth_token', data.token);
-                    if (data.refreshToken) {
-                        localStorage.setItem('auth_refresh_token', data.refreshToken);
-                    }
-                }
-                return data;
-            } finally {
-                this.refreshPromise = null;
-            }
-        })();
-
-        return this.refreshPromise;
+        // ... (rest of refreshToken method)
     }
 
     async submitGameScore(data: any): Promise<any> {
@@ -231,23 +238,31 @@ class ExpressApiClient {
     }
 
     async demoLogin(role: string): Promise<any> {
+        this.clearCsrfToken(); // Clear before login
         const result = await this.post<any>('/auth/demo/login', { role });
+        // Demo tokens might still be in body for simple dev access, 
+        // but we'll prioritize cookies if backend sets them
         if (result.token) localStorage.setItem('auth_token', result.token);
-        if (result.refreshToken) localStorage.setItem('auth_refresh_token', result.refreshToken);
         return result;
     }
 
     async googleLogin(email: string, name: string): Promise<any> {
+        this.clearCsrfToken(); // Clear before login
         const result = await this.post<any>('/auth/google-login', { email, name });
-        if (result.token) localStorage.setItem('auth_token', result.token);
-        if (result.refreshToken) localStorage.setItem('auth_refresh_token', result.refreshToken);
         return result;
     }
 
     async logout(): Promise<void> {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_refresh_token');
-        sessionStorage.removeItem('is_demo_mode');
+        try {
+            await this.post('/auth/logout', {});
+        } catch (e) {
+            console.warn('Backend logout failed', e);
+        } finally {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_refresh_token');
+            sessionStorage.removeItem('is_demo_mode');
+            this.invalidateCache(); // This also clears CSRF token
+        }
     }
 
     async getMemberships(userId: string): Promise<any[]> {
@@ -847,12 +862,12 @@ class ExpressApiClient {
         return this.post(`/teachers/${teacherId}/mentoring/request`, data);
     }
 
-    async getTeacherPerformance(teacherId: string, schoolId: string): Promise<any> {
-        return this.get(`/teachers/${teacherId}/performance?schoolId=${schoolId}`);
+    async getTeacherPerformance(schoolId: string, teacherId: string): Promise<any> {
+        return this.get(`/teachers/${teacherId}/performance`);
     }
 
-    async getTeacherEvaluation(teacherId: string, schoolId: string): Promise<any> {
-        return this.get(`/teachers/${teacherId}/evaluation?schoolId=${schoolId}`);
+    async getTeacherEvaluation(schoolId: string, teacherId: string): Promise<any> {
+        return this.get(`/teachers/${teacherId}/evaluation`);
     }
 
     async submitTeacherEvaluation(teacherId: string, schoolId: string, data: any): Promise<any> {
@@ -861,6 +876,10 @@ class ExpressApiClient {
 
     async getTeacherSalaryProfile(teacherId: string): Promise<any> {
         return this.get(`/teachers/${teacherId}/salary-profile`);
+    }
+
+    async saveTeacherAttendance(schoolId: string, records: any[]) {
+        return this.post('/teachers/attendance', { schoolId, records });
     }
 
     async getTeacherWorkload(teacherId: string): Promise<any> {
@@ -1554,6 +1573,7 @@ class ExpressApiClient {
     async gradeSubmission(submissionId: string, data: any): Promise<any> {
         return this.put(`/assignments/submissions/${submissionId}/grade`, data);
     }
+
 
     // ============================================
     // EXAMS

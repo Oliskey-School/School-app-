@@ -70,7 +70,7 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
     const [performanceData, setPerformanceData] = useState<number[]>([85, 92, 88]);
     const [loading, setLoading] = useState(false);
     
-    useAutoSync(['teacher_evaluations'], () => {
+    useAutoSync(['teachers'], () => {
         console.log('🔄 [TeacherPerformance] Real-time auto-sync triggered');
         fetchEvaluation();
     });
@@ -162,9 +162,30 @@ const TeacherPerformanceScreen: React.FC<TeacherPerformanceScreenProps> = ({ tea
                 </div>
 
                 {/* Term-wise Performance */}
-                 <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
-                    <h3 className="font-bold text-gray-800">Term-wise Performance</h3>
-                    <SimpleLineChart data={performanceData} color="#0ea5e9" />
+                 <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+                    <h3 className="font-bold text-gray-800">Term-wise Performance Scores</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                        {['Term 1', 'Term 2', 'Term 3'].map((term, index) => (
+                            <div key={term} className="space-y-1">
+                                <label className="text-xs font-semibold text-gray-500 uppercase">{term}</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={performanceData[index] || 0}
+                                    onChange={(e) => {
+                                        const newData = [...performanceData];
+                                        newData[index] = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                        setPerformanceData(newData);
+                                    }}
+                                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded text-center font-bold text-sky-600 focus:ring-sky-500 focus:border-sky-500"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="pt-2">
+                        <SimpleLineChart data={performanceData} color="#0ea5e9" />
+                    </div>
                  </div>
             </main>
             

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { QuizService } from '../services/quiz.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getQuizzes = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -20,7 +21,7 @@ export const getQuizzes = async (req: AuthRequest, res: Response): Promise<void>
             }
         }
 
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await QuizService.getQuizzes(req.user.school_id, branchId, JSON.stringify(filters));
         res.status(200).json(result);
     } catch (error: any) {
@@ -36,7 +37,7 @@ export const createQuizWithQuestions = async (req: AuthRequest, res: Response): 
             return;
         }
 
-        const branchId = req.user.branch_id || payload.quiz.branch_id || payload.branch_id;
+        const branchId = getEffectiveBranchId(req.user, payload.quiz.branch_id || payload.branch_id || payload.quiz.branchId);
         const result = await QuizService.createQuizWithQuestions(req.user.school_id, branchId, payload);
         res.status(201).json(result);
     } catch (error: any) {
@@ -60,7 +61,7 @@ export const getQuiz = async (req: AuthRequest, res: Response): Promise<void> =>
 export const updateQuizStatus = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { branch_id, ...updateData } = req.body;
-        const branchId = req.user.branch_id || branch_id;
+        const branchId = getEffectiveBranchId(req.user, branch_id);
         const result = await QuizService.updateQuizStatus(req.user.school_id, branchId, req.params.id as string, updateData);
         res.status(200).json(result);
     } catch (error: any) {
@@ -70,7 +71,7 @@ export const updateQuizStatus = async (req: AuthRequest, res: Response): Promise
 
 export const submitQuizResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await QuizService.submitQuizResult(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -80,7 +81,7 @@ export const submitQuizResult = async (req: AuthRequest, res: Response): Promise
 
 export const deleteQuiz = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId || (req.query.branchId as string));
         await QuizService.deleteQuiz(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
@@ -90,7 +91,7 @@ export const deleteQuiz = async (req: AuthRequest, res: Response): Promise<void>
 
 export const getQuizSubmissions = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await QuizService.getQuizSubmissions(req.user.school_id, branchId, req.params.id as string);
         res.status(200).json(result);
     } catch (error: any) {

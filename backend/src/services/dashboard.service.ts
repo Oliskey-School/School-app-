@@ -71,10 +71,10 @@ export class DashboardService {
                         orderBy: { created_at: 'desc' },
                         include: { student: true }
                     }),
-                    // 4. Attendance Data for teacher's students today
+                    // 4. Attendance Data for teacher's students (Last 30 Days)
                     prisma.attendance.aggregate({
                         where: {
-                            date: today,
+                            date: { gte: last30Days },
                             student: {
                                 ...baseWhere,
                                 enrollments: {
@@ -187,10 +187,10 @@ export class DashboardService {
                     })
                 ]);
 
-                // Calculate present count for attendance rate
+                // Calculate present count for attendance rate (Last 30 Days)
                 const presentCount = await prisma.attendance.count({
                     where: {
-                        date: today,
+                        date: { gte: last30Days },
                         status: 'Present',
                         student: {
                             ...baseWhere,
@@ -221,7 +221,9 @@ export class DashboardService {
                     overdueFees: Math.max(0, overdueFees),
                     unpublishedReports,
                     attendanceRate,
-                    avgStudentScore: Math.round(avgScoreData._avg.score || 0),
+                    avgStudentScore: avgScoreData._avg.score !== null 
+                        ? Math.round(avgScoreData._avg.score) 
+                        : (totalStudents > 0 ? 0 : 0), // Use real value, fallback to 0 but maybe could be mocked for demo
                     studentTrend: 0, // Trends require more complex comparison logic across periods
                     teacherTrend: 0,
                     parentTrend: 0,
@@ -277,7 +279,15 @@ export class DashboardService {
                 workloadData
             ] = await Promise.all([
                 prisma.student.count({ where: { ...baseWhere, status: 'Active' } }),
-                prisma.teacher.count({ where: baseWhere }),
+                prisma.teacher.count({ 
+                    where: {
+                        school_id: schoolId,
+                        OR: effectiveBranchId ? [
+                            { branch_id: effectiveBranchId },
+                            { branch_id: null }
+                        ] : undefined
+                    }
+                }),
                 prisma.parent.count({ where: baseWhere }),
                 prisma.class.count({ where: baseWhere }),
                 prisma.student.count({ where: { ...baseWhere, status: 'Pending' } }),

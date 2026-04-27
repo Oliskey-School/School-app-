@@ -24,6 +24,15 @@ const start = async () => {
             console.log(`📍 API Base URL: http://localhost:${config.port}/api`);
             console.log(`🔌 Real-time sync (Socket.io) enabled.`);
 
+            // Lead DevSecOps: Start background task worker
+            try {
+                const { startWorker } = require('./services/queue.service');
+                startWorker();
+                console.log('👷 Background task worker initialized.');
+            } catch (err) {
+                console.warn('⚠️ [Worker] Could not initialize queue service:', err);
+            }
+
             // Initialize Demo Reset Service (will only run in production)
             try {
                 const { DemoResetService } = require('./services/demoReset.service');

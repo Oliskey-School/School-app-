@@ -34,9 +34,12 @@ const TeacherCard: React.FC<{ teacher: Teacher; onSelect: (teacher: Teacher) => 
             {/* Avatar */}
             <div className="relative flex-shrink-0">
                 <img
-                    src={teacher.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${teacher.name}`}
+                    src={teacher.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name)}&background=random`}
                     alt={teacher.name}
-                    className="w-16 h-16 rounded-full object-cover ring-2 ring-gray-50"
+                    className="w-16 h-16 rounded-full object-cover ring-2 ring-gray-50 bg-gray-100"
+                    onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name)}&background=random`;
+                    }}
                 />
             </div>
 

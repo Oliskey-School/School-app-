@@ -1,10 +1,11 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { NotificationService } from '../services/notification.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const createNotification = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await NotificationService.createNotification(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -14,9 +15,8 @@ export const createNotification = async (req: AuthRequest, res: Response) => {
 
 export const getMyNotifications = async (req: AuthRequest, res: Response) => {
     try {
-        // Assuming user roles are mapped to audience types
         const audience = [req.user.role];
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await NotificationService.getNotificationsForUser(req.user.school_id, branchId, req.user.id, audience);
         res.json(result);
     } catch (error: any) {
@@ -26,7 +26,7 @@ export const getMyNotifications = async (req: AuthRequest, res: Response) => {
 
 export const markAsRead = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await NotificationService.markAsRead(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {

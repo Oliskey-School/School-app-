@@ -18,6 +18,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
     const [curriculumEligibility, setCurriculumEligibility] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(Date.now());
     const { toast } = useToast();
 
     const fetchTeacher = useCallback(async () => {
@@ -25,6 +26,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
             const data = await api.getTeacherById(teacherId);
             setTeacher(data);
             setCurriculumEligibility(Array.isArray(data?.curriculum_eligibility) ? data.curriculum_eligibility : []);
+            setRefreshKey(Date.now());
         } catch (error) {
             console.error('Error fetching teacher:', error);
         } finally {
@@ -107,12 +109,35 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                 <CardHeader>
                     <div className="flex items-start justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="h-10 w-10 text-primary" />
+                        <div className="relative group">
+                            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-primary/20 shadow-inner">
+                                {teacher.avatar_url ? (
+                                    <img 
+                                        key={refreshKey}
+                                        src={`${teacher.avatar_url}${teacher.avatar_url.includes('uploads/') ? `?t=${refreshKey}` : ''}`} 
+                                        alt={teacher.full_name || teacher.name} 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(teacher.full_name || teacher.name || 'T') + '&background=random';
+                                        }}
+                                    />
+                                ) : (
+                                    <User className="h-12 w-12 text-primary/40" />
+                                )}
                             </div>
+                            <label className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full shadow-lg border border-gray-100 cursor-pointer hover:bg-gray-50 transition-all group-hover:scale-110">
+                                <Upload className="w-3.5 h-3.5 text-primary" />
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept="image/*"
+                                    onChange={(e) => e.target.files && handleDocumentUpload('avatar_url', e.target.files[0])}
+                                />
+                            </label>
+                        </div>
                             <div>
                                 <CardTitle className="text-2xl">
-                                    {teacher.first_name} {teacher.last_name}
+                                    {teacher.full_name || teacher.name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim() || 'Unknown Teacher'}
                                 </CardTitle>
                                 <p className="text-sm text-gray-600">
                                     Staff ID: {teacher.school_generated_id || 'Pending Generation'}
@@ -213,26 +238,29 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                             🇳🇬 Nigerian Qualifications
                         </h4>
                         <div className="space-y-3">
-                            <div>
-                                <Label htmlFor="trcn">TRCN Certificate</Label>
-                                {teacher.trcn_certificate ? (
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <CheckCircle className="h-4 w-4 text-green-600" />
-                                        <span className="text-sm text-green-600">Uploaded</span>
-                                        <Button size="sm" variant="link" onClick={() => window.open(teacher.trcn_certificate, '_blank')}>
-                                            View
-                                        </Button>
+                                    <div>
+                                        <Label htmlFor="trcn">TRCN Certificate</Label>
+                                        <div className="flex flex-col gap-2 mt-1">
+                                            {teacher.trcn_certificate ? (
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                                    <span className="text-sm text-green-600">Uploaded</span>
+                                                    <Button size="sm" variant="link" onClick={() => window.open(teacher.trcn_certificate, '_blank')}>
+                                                        View
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-amber-600">Missing TRCN</span>
+                                            )}
+                                            <Input
+                                                id="trcn"
+                                                type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                                onChange={(e) => e.target.files && handleDocumentUpload('trcn_certificate', e.target.files[0])}
+                                                disabled={uploading}
+                                            />
+                                        </div>
                                     </div>
-                                ) : (
-                                    <Input
-                                        id="trcn"
-                                        type="file"
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        onChange={(e) => e.target.files && handleDocumentUpload('trcn_certificate', e.target.files[0])}
-                                        disabled={uploading}
-                                    />
-                                )}
-                            </div>
 
                             <div>
                                 <Label htmlFor="degree">Degree Certificate</Label>
@@ -263,24 +291,29 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
                             🇬🇧 British Qualifications
                         </h4>
                         <div>
-                            <Label htmlFor="british">British Teaching Qualification (QTS/PGCE)</Label>
-                            {teacher.british_qualification ? (
-                                <div className="flex items-center gap-2 mt-1">
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                    <span className="text-sm text-green-600">Uploaded</span>
-                                    <Button size="sm" variant="link" onClick={() => window.open(teacher.british_qualification, '_blank')}>
-                                        View
-                                    </Button>
+                            <div>
+                                <Label htmlFor="british">British Teaching Qualification (QTS/PGCE)</Label>
+                                <div className="flex flex-col gap-2 mt-1">
+                                    {teacher.british_qualification ? (
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                            <span className="text-sm text-green-600">Uploaded</span>
+                                            <Button size="sm" variant="link" onClick={() => window.open(teacher.british_qualification, '_blank')}>
+                                                View
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <span className="text-sm text-amber-600">Missing British Qualification</span>
+                                    )}
+                                    <Input
+                                        id="british"
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        onChange={(e) => e.target.files && handleDocumentUpload('british_qualification', e.target.files[0])}
+                                        disabled={uploading}
+                                    />
                                 </div>
-                            ) : (
-                                <Input
-                                    id="british"
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => e.target.files && handleDocumentUpload('british_qualification', e.target.files[0])}
-                                    disabled={uploading}
-                                />
-                            )}
+                            </div>
                         </div>
                     </div>
                 </CardContent>

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { LessonPlanService } from '../services/lessonPlan.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getLessonPlans = async (req: AuthRequest, res: Response) => {
     try {
@@ -16,7 +17,7 @@ export const getLessonPlans = async (req: AuthRequest, res: Response) => {
             else return res.json([]);
         }
 
-        const branchId = req.user.branch_id || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await LessonPlanService.getLessonPlans(req.user.school_id, branchId, teacherId);
         res.json(result);
     } catch (error: any) {
@@ -26,7 +27,7 @@ export const getLessonPlans = async (req: AuthRequest, res: Response) => {
 
 export const createLessonPlan = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await LessonPlanService.createLessonPlan(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -36,7 +37,7 @@ export const createLessonPlan = async (req: AuthRequest, res: Response) => {
 
 export const updateLessonPlan = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await LessonPlanService.updateLessonPlan(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -46,7 +47,7 @@ export const updateLessonPlan = async (req: AuthRequest, res: Response) => {
 
 export const deleteLessonPlan = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId || (req.query.branchId as string));
         await LessonPlanService.deleteLessonPlan(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {

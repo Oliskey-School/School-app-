@@ -47,6 +47,8 @@ export const getAllStudents = async (req: AuthRequest, res: Response) => {
         const classId = (req.query.class_id as string) || (req.query.classId as string);
         const status = req.query.status as string;
         
+        console.log(`[DEBUG] getAllStudents (GET /): schoolId=${req.user.school_id}, branchId=${branchId}, classId=${classId}, status=${status}`);
+
         const result = await StudentService.getAllStudents(req.user.school_id, branchId, classId, status);
 
         res.json(result);
@@ -424,7 +426,9 @@ export const getStudentsByClassId = async (req: AuthRequest, res: Response) => {
         const schoolId = req.user.school_id;
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId as any) || (req.query.branch_id as any));
         const classId = req.params.classId;
-        const status = req.query.status as string;
+        const status = (req.query.status as string) || 'all';
+
+        console.log(`[DEBUG] getStudentsByClassId: schoolId=${schoolId}, branchId=${branchId}, classId=${classId}`);
 
         const students = await StudentService.getAllStudents(schoolId as any, branchId as any, classId as any, status as any);
         res.json(students);

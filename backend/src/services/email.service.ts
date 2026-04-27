@@ -6,7 +6,10 @@ let transporter: nodemailer.Transporter | null = null;
 
 async function initTransporter() {
     if (!transporter) {
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        const user = process.env.SMTP_USER?.trim();
+        const pass = process.env.SMTP_PASS?.trim();
+
+        if (!user || !pass) {
             console.warn("⚠️ SMTP_USER or SMTP_PASS not set in .env. Falling back to Ethereal for testing.");
             const testAccount = await nodemailer.createTestAccount();
             transporter = nodemailer.createTransport({
@@ -21,11 +24,11 @@ async function initTransporter() {
         transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
+                user: user,
+                pass: pass,
             },
         });
-        console.log(`📧 Gmail Mailer initialized for: ${process.env.SMTP_USER}`);
+        console.log(`📧 Gmail Mailer initialized for: ${user}`);
     }
     return transporter;
 }

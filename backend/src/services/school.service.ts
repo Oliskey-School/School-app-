@@ -151,9 +151,13 @@ export class SchoolService {
         return result;
     }
 
-    static async getBranches(schoolId: string) {
+    static async getBranches(schoolId: string, branchId?: string) {
+        const where: any = { school_id: schoolId };
+        if (branchId) {
+            where.id = branchId;
+        }
         return await prisma.branch.findMany({
-            where: { school_id: schoolId },
+            where,
             orderBy: { is_main: 'desc' }
         });
     }

@@ -176,6 +176,19 @@ const AuthenticatedApp: React.FC = () => {
       } else {
         setSubscriptionStatus('active');
       }
+
+      // 🚀 Instant Rendering Optimization: Prefetch dashboard chunks as soon as role is known
+      const prefetchDashboard = () => {
+        switch (role) {
+          case DashboardType.Admin: import('./components/admin/AdminDashboard'); break;
+          case DashboardType.SuperAdmin: import('./components/admin/SuperAdminDashboard'); break;
+          case DashboardType.Teacher: import('./components/teacher/TeacherDashboard'); break;
+          case DashboardType.Student: import('./components/student/StudentDashboard'); break;
+          case DashboardType.Parent: import('./components/parent/ParentDashboard'); break;
+          case DashboardType.Proprietor: import('./components/proprietor/ProprietorDashboard'); break;
+        }
+      };
+      prefetchDashboard();
     }
   }, [user, role]);
 

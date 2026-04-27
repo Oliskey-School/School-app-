@@ -6,7 +6,13 @@ import { SocketService } from './socket.service';
 
 export class TeacherService {
     static async createTeacher(schoolId: string, branchId: string | undefined, data: any) {
-        const { name, email, phone, subject_specialty, subjects, classes, avatar_url } = data;
+        const { 
+            name, full_name, email, phone, status, avatar_url,
+            curriculum_type, curriculum_eligibility, 
+            subject_specialty, subjects, classes,
+            trcn_certificate, degree_certificate, british_qualification
+        } = data;
+        const effectiveName = full_name || name;
         const effectiveSubjects = subject_specialty || subjects || [];
 
         // 1. Generate standard school ID
@@ -41,9 +47,10 @@ export class TeacherService {
                 await tx.user.update({
                     where: { id: user.id },
                     data: {
-                        full_name: name,
+                        full_name: effectiveName,
                         school_id: schoolId,
                         branch_id: branchId || user.branch_id,
+                        avatar_url: avatar_url || user.avatar_url,
                         school_generated_id: schoolGeneratedId || user.school_generated_id
                     }
                 });
@@ -53,7 +60,7 @@ export class TeacherService {
                     data: {
                         email: email?.toLowerCase() || `${schoolGeneratedId || 'temp_teacher'}@school.com`,
                         password_hash: hashedPassword,
-                        full_name: name,
+                        full_name: effectiveName,
                         role: Role.TEACHER,
                         school_id: schoolId,
                         branch_id: branchId || null,
@@ -70,7 +77,7 @@ export class TeacherService {
                 where: { user_id: user.id },
                 create: {
                     user_id: user.id,
-                    full_name: name,
+                    full_name: effectiveName,
                     email: email?.toLowerCase(),
                     phone,
                     avatar_url,
@@ -78,12 +85,16 @@ export class TeacherService {
                     branch_id: branchId || null,
                     allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
                     school_generated_id: schoolGeneratedId,
-                    status: 'Active',
-                    curriculum_eligibility: data.curriculum_eligibility || ['Nigerian'],
-                    subject_specialty: effectiveSubjects
+                    status: status || 'Active',
+                    curriculum_type: curriculum_type || 'Nigerian',
+                    curriculum_eligibility: curriculum_eligibility || (curriculum_type ? [curriculum_type] : ['Nigerian']),
+                    subject_specialty: effectiveSubjects,
+                    trcn_certificate,
+                    degree_certificate,
+                    british_qualification
                 },
                 update: {
-                    full_name: name,
+                    full_name: effectiveName,
                     email: email?.toLowerCase(),
                     phone,
                     avatar_url,
@@ -91,17 +102,26 @@ export class TeacherService {
                     branch_id: branchId || null,
                     allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
                     school_generated_id: schoolGeneratedId,
-                    status: 'Active',
-                    curriculum_eligibility: data.curriculum_eligibility,
-                    subject_specialty: effectiveSubjects
+                    status: status || 'Active',
+                    curriculum_type: curriculum_type,
+                    curriculum_eligibility: curriculum_eligibility,
+                    subject_specialty: effectiveSubjects,
+                    trcn_certificate,
+                    degree_certificate,
+                    british_qualification
                 }
             });
 
             // 4. Link Subjects/Classes
             if (classes && Array.isArray(classes)) {
+                const seenAssignments = new Set<string>();
                 for (const item of classes) {
                     let classId = typeof item === 'string' ? item : item.classId;
                     const subjectId = typeof item === 'string' ? undefined : item.subjectId;
+                    
+                    const assignmentKey = `${classId}:${subjectId || 'none'}`;
+                    if (seenAssignments.has(assignmentKey)) continue;
+                    seenAssignments.add(assignmentKey);
 
                     // Handle Virtual/Shell Class IDs (Implicit Creation)
                     if (classId && classId.startsWith('std-')) {
@@ -190,7 +210,13 @@ export class TeacherService {
             where: {
                 id: id,
                 school_id: schoolId,
-                branch_id: branchId && branchId !== 'all' ? branchId : undefined
+                // Allow teachers in the specific branch OR global teachers (branch_id: null)
+                ...(branchId && branchId !== 'all' ? {
+                    OR: [
+                        { branch_id: branchId },
+                        { branch_id: null }
+                    ]
+                } : {})
             },
             include: {
                 user: true,
@@ -225,11 +251,17 @@ export class TeacherService {
             phone,
             status,
             avatar_url,
+            curriculum_type,
             curriculum_eligibility,
             subject_specialty,
             classes,
             school_generated_id,
-            notification_preferences
+            notification_preferences,
+            allowed_branch_ids,
+            trcn_certificate,
+            degree_certificate,
+            british_qualification,
+            compliance_documents
         } = updates;
 
         const prismaData: any = {};
@@ -238,11 +270,19 @@ export class TeacherService {
         if (phone !== undefined) prismaData.phone = phone;
         if (status !== undefined) prismaData.status = status;
         if (avatar_url !== undefined) prismaData.avatar_url = avatar_url;
+        if (curriculum_type !== undefined) prismaData.curriculum_type = curriculum_type;
         if (curriculum_eligibility !== undefined) prismaData.curriculum_eligibility = curriculum_eligibility;
+        if (allowed_branch_ids !== undefined) prismaData.allowed_branch_ids = allowed_branch_ids;
+        if (trcn_certificate !== undefined) prismaData.trcn_certificate = trcn_certificate;
+        if (degree_certificate !== undefined) prismaData.degree_certificate = degree_certificate;
+        if (british_qualification !== undefined) prismaData.british_qualification = british_qualification;
+        if (compliance_documents !== undefined) prismaData.compliance_documents = compliance_documents;
         
         // Handle both subjects (frontend) and subject_specialty (backend/DB)
         const effectiveSubjects = subject_specialty || updates.subjects;
-        if (effectiveSubjects !== undefined) prismaData.subject_specialty = effectiveSubjects;
+        if (effectiveSubjects !== undefined) {
+            prismaData.subject_specialty = Array.from(new Set(Array.isArray(effectiveSubjects) ? effectiveSubjects : []));
+        }
         
         if (school_generated_id !== undefined) prismaData.school_generated_id = school_generated_id;
         if (notification_preferences !== undefined) prismaData.notification_preferences = notification_preferences;
@@ -299,9 +339,14 @@ export class TeacherService {
                     where: { teacher_id: teacher.id }
                 });
 
+                const seenAssignments = new Set<string>();
                 for (const item of classes) {
                     let classId = typeof item === 'string' ? item : item.classId;
                     const subjectId = typeof item === 'string' ? undefined : item.subjectId;
+                    
+                    const assignmentKey = `${classId}:${subjectId || 'none'}`;
+                    if (seenAssignments.has(assignmentKey)) continue;
+                    seenAssignments.add(assignmentKey);
 
                     // Handle Virtual/Shell Class IDs (Implicit Creation)
                     if (classId && classId.startsWith('std-')) {
@@ -535,6 +580,7 @@ export class TeacherService {
                     data: {
                         full_name: teacher.user.full_name,
                         email: teacher.user.email,
+                        avatar_url: teacher.user.avatar_url || teacher.avatar_url,
                         school_generated_id: teacher.user.school_generated_id || teacher.school_generated_id
                     },
                     include: { 

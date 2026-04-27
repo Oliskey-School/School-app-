@@ -10,16 +10,26 @@ export interface AuthRequest extends Request {
 export const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.split(' ')[1];
+    // Lead DevSecOps: Extract from secure HttpOnly cookies, fallback to Bearer for mobile/API clients
+    let token = req.cookies?.access_token;
+    
+    if (!token) {
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        }
+    }
 
     if (!token) {
-        console.warn('⚠️ [Auth] No authorization header provided');
-        return res.status(401).json({ message: 'No token provided' });
+        console.warn('⚠️ [Auth] No authorization token provided');
+        return res.status(401).json({ message: 'Authentication token missing' });
     }
 
     try {
-        const decoded: any = jwt.verify(token, config.jwtSecret);
+        // VULNERABILITY MITIGATION: Strictly enforce the signature algorithm
+        const decoded: any = jwt.verify(token, config.jwtSecret, {
+            algorithms: ['HS256'] // Rejects algorithm: "none" or asymmetric confusion
+        });
         
         if (!decoded || !decoded.id) {
             return res.status(401).json({ message: 'Invalid token payload' });
@@ -80,6 +90,20 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         // Extract phone from whichever profile is available
         const phone = user.teacher_profile?.phone || user.parent_profile?.phone || null;
 
+        // Return the role-specific school_generated_id so that the Admin dashboard
+        // does not accidentally display a teacher's ID stored in the User row.
+        const roleAwareGeneratedId = (() => {
+            const r = (user.role || '').toUpperCase();
+            if (r === 'TEACHER' && user.teacher_profile?.school_generated_id) {
+                return user.teacher_profile.school_generated_id;
+            }
+            if (r === 'PARENT' && user.parent_profile?.school_generated_id) {
+                return user.parent_profile.school_generated_id;
+            }
+            // For ADMIN, SUPER_ADMIN, PROPRIETOR etc. — use User.school_generated_id as-is
+            return user.school_generated_id;
+        })();
+
         req.user = {
             id: user.id,
             email: user.email,
@@ -87,17 +111,23 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             school_id: user.school_id,
             branch_id: user.branch_id,
             allowed_branch_ids: user.allowed_branch_ids || [],
-            school_generated_id: user.school_generated_id,
+            school_generated_id: roleAwareGeneratedId,
             full_name: user.full_name,
             phone: phone, 
+            avatar_url: user.avatar_url,
             email_verified: user.email_verified, // Added for frontend checks
             school: user.school,
-            branch: user.branch
+            branch: user.branch,
+            teacher_profile: user.teacher_profile,
+            parent_profile: user.parent_profile
         };
 
         next();
     } catch (error: any) {
-        console.error('Auth Exception:', error.message);
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ code: 'TOKEN_EXPIRED', message: 'Session expired' });
+        }
+        console.error('🚨 [Security] Auth Exception:', error.message);
         return res.status(401).json({ message: 'Authentication failed: ' + error.message });
     }
 };

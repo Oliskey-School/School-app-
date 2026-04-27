@@ -20,6 +20,7 @@ import { useTeacherStats } from '../../hooks/useTeacherStats';
 const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher: initialTeacher, navigateTo, forceUpdate, handleBack }) => {
     const [teacher, setTeacher] = useState<Teacher>(initialTeacher);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(Date.now());
 
     // Use the new hook for real-time analytics
     // Note: initialTeacher might not have school_id typed correctly if it's a partial type, 
@@ -31,6 +32,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
             const freshData = await api.getTeacherById(initialTeacher.id);
             if (freshData) {
                 setTeacher(freshData);
+                setRefreshKey(Date.now()); // Force refresh of dependent components and images
             }
         } catch (err) {
             console.error('Failed to reload teacher data:', err);
@@ -113,7 +115,16 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Teacher Info */}
                     <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0 text-center sm:text-left">
-                        <img src={teacher.avatarUrl || teacher.avatar_url} alt={teacher.full_name || teacher.name} className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100 flex-shrink-0" />
+                        <img 
+                            key={`${teacher.id}-${refreshKey}`}
+                            src={`${teacher.avatarUrl || teacher.avatar_url}${ (teacher.avatarUrl || teacher.avatar_url)?.includes('uploads/') ? `?t=${refreshKey}` : '' }`} 
+                            alt={teacher.full_name || teacher.name} 
+                            className="w-20 h-20 rounded-full object-cover border-4 border-indigo-100 flex-shrink-0" 
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.full_name || teacher.name)}&background=random`;
+                            }}
+                        />
                         <div className="flex-grow min-w-0 w-full">
                             <div className="flex flex-col sm:flex-row items-center sm:space-x-2 justify-center sm:justify-start">
                                 <h3 className="text-xl font-bold text-gray-800 truncate max-w-full">{teacher.full_name || teacher.name}</h3>

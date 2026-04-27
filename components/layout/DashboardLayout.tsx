@@ -60,15 +60,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
     const formatId = (id: string | null | undefined) => {
         if (!id) return '';
-        // If it's already a full standard ID with 3 underscores, return it
-        if (id.split('_').length >= 4) return id;
+
+        // Map dashboard roles to their ID segment (e.g. 'Admin' -> 'ADM', 'Teacher' -> 'TCH')
+        const ROLE_SEGMENT_MAP: Record<string, string> = {
+            admin: 'ADM', superadmin: 'ADM', proprietor: 'OWN',
+            teacher: 'TCH', student: 'STD', parent: 'PAR',
+            inspector: 'INS', examofficer: 'EXO', complianceofficer: 'COM',
+        };
+        const rawRole = (role || profile?.role || user?.role || '').toString().toLowerCase();
+        const expectedSegment = ROLE_SEGMENT_MAP[rawRole];
+
+        // If the ID already has a role segment, verify it matches the current role.
+        // If it doesn't match (e.g., TCH for an Admin), regenerate the ID.
+        if (id.split('_').length >= 4 && expectedSegment) {
+            const parts = id.split('_');
+            const idRoleSegment = parts[2]; // E.g. 'TCH' from 'OLISKEY_MAIN_TCH_0017'
+            if (idRoleSegment === expectedSegment) return id; // Correct ID — show as-is
+            // Wrong role segment — fall through to regenerate using just the numeric part
+            const numericPart = parts[3];
+            const schoolCode = user?.school_code || 'OLISKEY';
+            const branchCode = user?.branch_code || 'MAIN';
+            return formatSchoolId(numericPart || id, rawRole.charAt(0).toUpperCase() + rawRole.slice(1) as string, schoolCode, branchCode);
+        }
 
         // Force 'OLISKEY' for demo mode
         const schoolCode = user?.school_code || user?.user_metadata?.school_code || 'OLISKEY';
         const branchCode = user?.branch_code || user?.user_metadata?.branch_code || 'MAIN';
-        
-        // Priority for role detection: 1. Auth role enum, 2. Profile role, 3. Metadata role, 4. Fallback Admin
-        const rawRole = role || profile?.role || user?.role || user?.user_metadata?.role || 'Admin';
         const userRole = (typeof rawRole === 'string') ? (rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase()) : rawRole;
 
         return formatSchoolId(id, userRole as string, schoolCode, branchCode);
@@ -107,8 +124,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     };
 
     const getBottomNav = () => {
-        const props = { 
-            activeScreen, 
+        const props = {
+            activeScreen,
             setActiveScreen: (screen: string) => {
                 React.startTransition(() => {
                     setActiveScreen(screen);

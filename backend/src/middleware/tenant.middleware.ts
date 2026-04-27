@@ -2,47 +2,37 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import * as yup from 'yup';
 import { getEffectiveBranchId } from '../utils/branchScope';
+import { getTenantPrisma } from '../config/database';
 
 /**
- * TENANT ENFORCEMENT MIDDLEWARE
- * Ensures that all data submitted to the API belongs to the user's school context.
+ * Lead DevSecOps TENANT ENFORCEMENT MIDDLEWARE
+ * Strictly isolates all data by school_id using JWT claims and RLS binding.
  */
 export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
     return async (req: AuthRequest, res: Response, next: NextFunction) => {
         const user = req.user;
 
+        // AUTH CHECK: Ensure user is authenticated and has a school_id in their signed token
         if (!user || !user.school_id) {
-            // Default to demo school if no school context is present
-            const defaultSchoolId = process.env.DEFAULT_SCHOOL_ID || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-            if (user) user.school_id = defaultSchoolId;
-            console.warn('ℹ️ [Tenant] No authorized school context. Defaulting to Demo School.');
+            console.error('🚨 [SecurityException] Unauthenticated or missing tenant context in JWT');
+            return res.status(401).json({ error: 'SecurityException: Tenant context required.' });
         }
 
-        // 1. Data Injection: If school_id is missing, inject it from the JWT
+        // SPOOF PROTECTION: Attach the tenant-scoped Prisma client
+        // Downstream controllers MUST use req.db instead of global prisma
+        (req as any).db = getTenantPrisma(user.school_id);
+
+        // 1. Write Protection: Ensure school_id in body (if present) matches the authorized tenant
         if (req.method === 'POST' || req.method === 'PUT') {
-            if (!req.body.school_id) {
-                req.body.school_id = user.school_id;
-                console.log(`ℹ️ [Tenant] Injected authorized school_id: ${user.school_id}`);
-            }
+            // Auto-inject the authorized school_id to prevent tampering
+            req.body.school_id = user.school_id;
 
-            // 2. Cross-Tenant Check: If school_id is provided, it MUST match the JWT
-            if (req.body.school_id !== user.school_id && user.role !== 'super_admin') {
-                console.warn(`🚨 [SecurityException] Tenant Mismatch! User ${user.email} (School: ${user.school_id}) attempted to write to School: ${req.body.school_id}`);
-                return res.status(403).json({ 
-                    error: 'SecurityException: You do not have permission to modify data for this school.' 
-                });
-            }
-
-            // 3. Schema Validation (if provided)
+            // Schema Validation (if provided)
             if (schema) {
                 try {
                     await schema.validate(req.body, { abortEarly: false });
                 } catch (err: any) {
-                    console.warn('⚠️ [Validation Error] Body failed schema check:', err.errors);
-                    return res.status(400).json({ 
-                        error: 'Validation Error', 
-                        details: err.errors 
-                    });
+                    return res.status(400).json({ error: 'Validation Error', details: err.errors });
                 }
             }
         }
@@ -59,9 +49,16 @@ export const enforceTenant = (schema?: yup.AnyObjectSchema) => {
         // role-scoped users with fixed branch_id are already locked by getEffectiveBranchId)
         if (effectiveBranchId && user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && user.role !== 'PROPRIETOR') {
             const allowedBranches = user.allowed_branch_ids || [];
-            if (user.role === 'TEACHER' && !allowedBranches.includes(effectiveBranchId)) {
-                console.warn(`🚨 [SecurityException] Branch Mismatch! User ${user.email} attempted unauthorized Branch: ${effectiveBranchId}`);
-                return res.status(403).json({ error: 'SecurityException: You do not have permission to access this branch.' });
+            
+            // For teachers, allow access if it matches their primary branch OR is in their allowed list
+            if (user.role === 'TEACHER') {
+                const isPrimaryBranch = user.branch_id === effectiveBranchId;
+                const isAllowedBranch = allowedBranches.includes(effectiveBranchId);
+                
+                if (!isPrimaryBranch && !isAllowedBranch) {
+                    console.warn(`🚨 [SecurityException] Branch Mismatch! User ${user.email} attempted unauthorized Branch: ${effectiveBranchId}`);
+                    return res.status(403).json({ error: 'SecurityException: You do not have permission to access this branch.' });
+                }
             }
         }
 

@@ -1,11 +1,20 @@
 import { Router } from 'express';
 import * as AuthController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { loginLimiter, validateRequest } from '../middleware/security.middleware';
+import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
+// Lead DevSecOps: Strict Payload Validation Schema
+const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(6)
+});
+
 // Rate limiter for demo endpoints — stricter than global limit
+// ... (rest of the file) ...
 const demoLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 1000, // Increased from 30 to 1000 to prevent 429 during active testing
@@ -28,7 +37,14 @@ router.get('/demo/login', (req, res) => {
 router.get('/demo/roles', demoLimiter, AuthController.demoRoles);
 
 router.post('/signup', AuthController.signup);
-router.post('/login', AuthController.login);
+router.post('/login', loginLimiter, validateRequest(loginSchema), AuthController.login);
+router.post('/verify-2fa-login', AuthController.verify2FALogin);
+router.post('/logout', AuthController.logout);
+
+// 2FA Management
+router.get('/2fa/setup', authenticate, AuthController.setup2FA);
+router.post('/2fa/enable', authenticate, AuthController.enable2FA);
+router.post('/2fa/disable', authenticate, AuthController.disable2FA);
 router.post('/google-login', AuthController.googleLogin);
 router.post('/refresh', AuthController.refresh);
 router.post('/create-user', AuthController.createUser);
@@ -43,6 +59,7 @@ router.post('/admin/reset-password', authenticate, AuthController.resetUserPassw
 router.get('/memberships/:userId', authenticate, AuthController.getMemberships);
 router.post('/switch-school', authenticate, AuthController.switchSchool);
 
+router.get('/csrf-token', AuthController.getCsrfToken);
 router.get('/me', authenticate, AuthController.getMe);
 router.get('/check-email', AuthController.checkEmail);
 router.get('/check-username', AuthController.checkUsername);

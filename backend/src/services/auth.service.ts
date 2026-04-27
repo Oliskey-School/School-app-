@@ -6,6 +6,8 @@ import { IdGeneratorService } from './idGenerator.service';
 import { AuditService } from './audit.service';
 import { SocketService } from './socket.service';
 import { VerificationService } from './verification.service';
+import { authenticator } from 'otplib';
+import QRCode from 'qrcode';
 
 export enum Role {
     SUPER_ADMIN = 'SUPER_ADMIN',
@@ -21,6 +23,69 @@ export enum Role {
 }
 
 export class AuthService {
+    /**
+     * Lead DevSecOps: 2FA Enforcement for High-Privilege Roles
+     */
+    static async generate2FASecret(userId: string) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new Error('User not found');
+
+        const secret = authenticator.generateSecret();
+        const otpauth = authenticator.keyuri(user.email, 'SchoolSaaS', secret);
+        const qrCodeUrl = await QRCode.toDataURL(otpauth);
+
+        // Store secret temporarily (don't enable yet)
+        await prisma.user.update({
+            where: { id: userId },
+            data: { two_factor_secret: secret }
+        });
+
+        return { secret, qrCodeUrl };
+    }
+
+    static async verifyAndEnable2FA(userId: string, code: string) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || !user.two_factor_secret) throw new Error('2FA not initiated');
+
+        const isValid = authenticator.verify({
+            token: code,
+            secret: user.two_factor_secret
+        });
+
+        if (!isValid) throw new Error('Invalid 2FA code');
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { two_factor_enabled: true }
+        });
+
+        return { success: true };
+    }
+
+    static async disable2FA(userId: string, code: string) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || !user.two_factor_enabled || !user.two_factor_secret) {
+            throw new Error('2FA not enabled');
+        }
+
+        const isValid = authenticator.verify({
+            token: code,
+            secret: user.two_factor_secret
+        });
+
+        if (!isValid) throw new Error('Invalid 2FA code');
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { 
+                two_factor_enabled: false,
+                two_factor_secret: null 
+            }
+        });
+
+        return { success: true };
+    }
+
     /**
      * Helper to map string roles to Prisma Role enum
      */
@@ -118,11 +183,33 @@ export class AuthService {
             }
         });
 
-        if (!user) throw new Error('Invalid credentials');
+        if (!user) {
+            console.warn(`❌ [Auth] Login failed: User not found for identifier: ${identifier}`);
+            throw new Error('Invalid credentials');
+        }
 
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) throw new Error('Invalid credentials');
+        if (!isMatch) {
+            console.warn(`❌ [Auth] Login failed: Password mismatch for user: ${user.email} (ID: ${user.school_generated_id})`);
+            throw new Error('Invalid credentials');
+        }
+
+        // Lead DevSecOps: Step 1 of 2FA - Check if enabled for high-privilege roles
+        const isHighPrivilege = ['ADMIN', 'SUPER_ADMIN', 'PROPRIETOR', 'TEACHER'].includes(user.role);
+        if (user.two_factor_enabled && isHighPrivilege) {
+            // Return a temporary token or flag indicating 2FA is required
+            const mfaToken = jwt.sign(
+                { id: user.id, purpose: 'mfa_verification' },
+                config.jwtSecret,
+                { expiresIn: '5m' }
+            );
+            return {
+                requires2FA: true,
+                mfaToken,
+                userId: user.id
+            };
+        }
 
         // Check if email is verified (for parents and students, email verification is required)
         // Admins and Super Admins can bypass this for first-time login
@@ -138,6 +225,33 @@ export class AuthService {
 
         const { token, refreshToken } = await this.generateTokens(user);
         return { user, token, refreshToken };
+    }
+
+    static async verify2FALogin(mfaToken: string, code: string) {
+        try {
+            const decoded = jwt.verify(mfaToken, config.jwtSecret) as any;
+            if (decoded.purpose !== 'mfa_verification') throw new Error('Invalid MFA token');
+
+            const user = await prisma.user.findUnique({
+                where: { id: decoded.id },
+                include: { school: true, branch: true }
+            });
+
+            if (!user || !user.two_factor_secret) throw new Error('User or 2FA secret not found');
+
+            const isValid = authenticator.verify({
+                token: code,
+                secret: user.two_factor_secret
+            });
+
+            if (!isValid) throw new Error('Invalid 2FA code');
+
+            const { token, refreshToken } = await this.generateTokens(user);
+            return { user, token, refreshToken };
+        } catch (err: any) {
+            console.error('[AuthService] 2FA verification failed:', err.message);
+            throw new Error('2FA verification failed');
+        }
     }
 
     static async generateTokens(user: any) {
@@ -175,11 +289,19 @@ export class AuthService {
             allowed_branch_ids: allowedBranchIds
         };
 
-        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1h' });
+        // Lead DevSecOps: Use short-lived Access Tokens (15m) and strictly enforce HS256
+        const token = jwt.sign(payload, config.jwtSecret, { 
+            expiresIn: '15m',
+            algorithm: 'HS256'
+        });
+
         const refreshToken = jwt.sign(
             { ...payload, type: 'refresh' }, 
             config.refreshTokenSecret, 
-            { expiresIn: '7d' }
+            { 
+                expiresIn: '7d',
+                algorithm: 'HS256'
+            }
         );
 
         // Log successful login/token generation

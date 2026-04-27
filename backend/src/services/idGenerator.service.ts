@@ -84,31 +84,37 @@ export class IdGeneratorService {
         tx?: Prisma.TransactionClient
     ): Promise<number> {
         const db = tx || prisma;
-        let count = 0;
+        const roleKey = role.toLowerCase();
+        const roleCode = ROLE_CODES[roleKey] || role.substring(0, 3).toUpperCase();
 
-        switch (role) {
-            case 'student':
-                count = await db.student.count({
-                    where: { school_id: schoolId, branch_id: branchId }
-                });
-                break;
-            case 'teacher':
-                count = await db.teacher.count({
-                    where: { school_id: schoolId, branch_id: branchId }
-                });
-                break;
-            case 'parent':
-                count = await db.parent.count({
-                    where: { school_id: schoolId, branch_id: branchId }
-                });
-                break;
-            default:
-                count = await db.user.count({
-                    where: { school_id: schoolId, branch_id: branchId, role: role.toUpperCase() as any }
-                });
-        }
+        // Instead of count(), we search for the highest existing number in the IDs
+        // This avoids collisions when records are deleted.
+        const users = await db.user.findMany({
+            where: {
+                school_id: schoolId,
+                branch_id: branchId,
+                school_generated_id: {
+                    contains: `_${roleCode}_`
+                }
+            },
+            select: { school_generated_id: true }
+        });
 
-        return count + 1;
+        if (users.length === 0) return 1;
+
+        let maxNum = 0;
+        users.forEach(u => {
+            if (u.school_generated_id) {
+                const parts = u.school_generated_id.split('_');
+                const lastPart = parts[parts.length - 1];
+                const num = parseInt(lastPart);
+                if (!isNaN(num) && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        });
+
+        return maxNum + 1;
     }
 
     /**

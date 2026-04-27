@@ -11,8 +11,18 @@ if (!fs.existsSync(uploadDir)) {
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const bucket = req.body.bucket || 'general';
-        const bucketPath = path.join(uploadDir, bucket);
+        let bucketPath = path.join(uploadDir, bucket);
         
+        // Handle subdirectories if path is provided in body
+        // Note: Field order matters! bucket and path must come BEFORE file in FormData
+        if (req.body.path) {
+            const safePath = req.body.path.replace(/\.\./g, '');
+            const subDir = path.dirname(safePath);
+            if (subDir !== '.') {
+                bucketPath = path.join(bucketPath, subDir);
+            }
+        }
+
         if (!fs.existsSync(bucketPath)) {
             fs.mkdirSync(bucketPath, { recursive: true });
         }
@@ -25,13 +35,6 @@ const storage = multer.diskStorage({
         if (customPath) {
             // Ensure no directory traversal
             const safePath = customPath.replace(/\.\./g, '');
-            const subDir = path.dirname(safePath);
-            const destination = path.join(uploadDir, req.body.bucket || 'general', subDir);
-            
-            if (!fs.existsSync(destination)) {
-                fs.mkdirSync(destination, { recursive: true });
-            }
-            
             cb(null, path.basename(safePath));
         } else {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

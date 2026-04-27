@@ -56,6 +56,7 @@ import policyRoutes from './policy.routes';
 import infrastructureRoutes from './infrastructure.routes';
 import behaviorRoutes from './behavior.routes';
 import adminHubRoutes from './admin-hub.routes';
+import analyticsRoutes from './analytics.routes';
 import saasAnalyticsRoutes from './saas-analytics.routes';
 import conferenceRoutes from './conference.routes';
 import counselingRoutes from './counseling.routes';
@@ -137,6 +138,7 @@ router.use('/payment-plans', paymentPlanRoutes);
 router.get('/cbt/exams', authenticate, requireTenant, QuizController.getQuizzes);
 
 router.use('/saas-analytics', saasAnalyticsRoutes);
+router.use('/analytics', analyticsRoutes);
 
 // 🚨 DEBUG ROUTES: Only for testing
 if (process.env.NODE_ENV !== 'production') {

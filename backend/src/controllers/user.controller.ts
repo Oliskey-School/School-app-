@@ -1,12 +1,13 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { UserService } from '../services/user.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getUsers = async (req: AuthRequest, res: Response) => {
     try {
         // School ID comes from the authenticated token
         const schoolId = req.user.school_id;
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string || req.query.branch_id as string);
         const term = req.query.term as string;
         const users = await UserService.getUsers(schoolId, branchId, req.query.role as string, term);
         
@@ -27,7 +28,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
 export const createUser = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const user = await UserService.createUser(schoolId, branchId, req.body);
         res.status(201).json(user);
     } catch (error: any) {
@@ -37,7 +38,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
 
 export const getUserById = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || (req.query.branchId as string);
+        const branchId = getEffectiveBranchId(req.user, req.query.branchId as string || req.query.branch_id as string);
         const result = await UserService.getUserById(req.user.school_id, branchId, req.params.id as string);
         res.json(result);
     } catch (error: any) {
@@ -47,7 +48,7 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
 
 export const updateUser = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await UserService.updateUser(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {

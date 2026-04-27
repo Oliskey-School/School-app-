@@ -1,10 +1,12 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SchoolService } from '../services/school.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getBranches = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await SchoolService.getBranches(req.user.school_id);
+        const branchId = getEffectiveBranchId(req.user);
+        const result = await SchoolService.getBranches(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

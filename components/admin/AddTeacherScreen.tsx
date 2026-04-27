@@ -200,11 +200,18 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             // Fetch Classes - Always fetch all classes across all branches for Admin visibility
             const cData = await api.getClasses(schoolId, 'all', true);
             if (cData) {
-                // Ensure unique names for React keys
-                const uniqueNames = Array.from(new Set(cData.map((d: any) => d.name)));
+                // Better unique names: include branch info if name is duplicated
+                const processedClasses = cData.map((c: any) => ({
+                    id: c.id,
+                    displayName: cData.filter((d: any) => d.name === c.name).length > 1 && c.branch 
+                        ? `${c.name} (${c.branch.name})` 
+                        : c.name
+                }));
+
+                const uniqueNames = Array.from(new Set(processedClasses.map((d: any) => d.displayName)));
                 setValidClasses(uniqueNames);
                 const map: Record<string, string> = {};
-                cData.forEach((c: any) => { map[c.name] = c.id; });
+                processedClasses.forEach((c: any) => { map[c.displayName] = c.id; });
                 setClassIdMap(map);
             }
 
@@ -251,18 +258,20 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             setEmail(teacherToEdit.email || '');
             setPhone(teacherToEdit.phone || '');
             
-            // Handle subjects - try multiple fields and ensure strings
+            // Handle subjects - try multiple fields and ensure strings - deduplicate by name
             const rawSubjects = teacherToEdit.subjects || (teacherToEdit as any).subject_specialty || (teacherToEdit as any).teacher_subjects || [];
-            setSubjects(rawSubjects.map((s: any) => {
+            const mappedSubjects = rawSubjects.map((s: any) => {
                 if (typeof s === 'string') return s;
                 return s.subject || s.name || 'Unknown';
-            }));
+            });
+            setSubjects(Array.from(new Set(mappedSubjects)));
 
-            // Handle classes - normalize to names/strings
+            // Handle classes - normalize to names/strings - deduplicate by name
             const rawClasses = teacherToEdit.classes || (teacherToEdit as any).assigned_classes || [];
-            setClasses(rawClasses.map((c: any) => 
+            const mappedClasses = rawClasses.map((c: any) => 
                 typeof c === 'string' ? c : (c.class?.name || c.name || 'Unknown Class')
-            ));
+            );
+            setClasses(Array.from(new Set(mappedClasses)));
 
             setStatus(teacherToEdit.status || 'Active');
             setAvatar(teacherToEdit.avatarUrl || (teacherToEdit as any).avatar_url || null);
@@ -359,11 +368,13 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 }
             }
             
-            const subjectIds = subjects.map(s => updatedSubjectIdMap[s]).filter(Boolean);
+            // Deduplicate to avoid unique constraint errors in backend
+            const uniqueClassIds = Array.from(new Set(classIds));
+            const uniqueSubjectIds = Array.from(new Set(subjects.map(s => updatedSubjectIdMap[s]).filter(Boolean)));
 
-            classIds.forEach(classId => {
-                if (subjectIds.length > 0) {
-                    subjectIds.forEach(subjectId => {
+            uniqueClassIds.forEach(classId => {
+                if (uniqueSubjectIds.length > 0) {
+                    uniqueSubjectIds.forEach(subjectId => {
                         classSubjectLinks.push({ classId, subjectId });
                     });
                 } else {
@@ -425,10 +436,21 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 <main className="flex-grow p-4 space-y-6 overflow-y-auto">
                     <div className="flex justify-center">
                         <div className="relative">
-                            <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center">
-                                {avatar ? <img src={avatar} alt="Teacher" className="w-full h-full rounded-full object-cover" /> : <UserIcon className="w-12 h-12 text-gray-400" />}
+                            <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-gray-100 shadow-sm">
+                                {avatar ? (
+                                    <img 
+                                        src={avatar} 
+                                        alt="Teacher" 
+                                        className="w-full h-full object-cover" 
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'T')}&background=random`;
+                                        }}
+                                    />
+                                ) : (
+                                    <UserIcon className="w-12 h-12 text-gray-400" />
+                                )}
                             </div>
-                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
+                            <label htmlFor="photo-upload" className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700 shadow-lg transition-transform hover:scale-110">
                                 <CameraIcon className="text-white h-4 w-4" />
                                 <input id="photo-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
                             </label>
@@ -509,6 +531,34 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                             </div>
 
                             <label className="text-sm font-medium text-gray-700 mb-2 block">Compliance Documents</label>
+                            
+                            {/* Existing Documents Display */}
+                            {teacherToEdit && ((teacherToEdit as any).trcn_certificate || (teacherToEdit as any).degree_certificate || (teacherToEdit as any).british_qualification) && (
+                                <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-2">
+                                    <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-1">Previously Uploaded Documents</p>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {(teacherToEdit as any).trcn_certificate && (
+                                            <div className="flex items-center justify-between text-xs bg-white p-2 rounded border border-blue-200">
+                                                <span className="flex items-center gap-1"><CheckCircleIcon className="w-3 h-3 text-green-500" /> TRCN Certificate</span>
+                                                <button type="button" onClick={() => window.open((teacherToEdit as any).trcn_certificate, '_blank')} className="text-blue-600 hover:underline">View</button>
+                                            </div>
+                                        )}
+                                        {(teacherToEdit as any).degree_certificate && (
+                                            <div className="flex items-center justify-between text-xs bg-white p-2 rounded border border-blue-200">
+                                                <span className="flex items-center gap-1"><CheckCircleIcon className="w-3 h-3 text-green-500" /> Degree Certificate</span>
+                                                <button type="button" onClick={() => window.open((teacherToEdit as any).degree_certificate, '_blank')} className="text-blue-600 hover:underline">View</button>
+                                            </div>
+                                        )}
+                                        {(teacherToEdit as any).british_qualification && (
+                                            <div className="flex items-center justify-between text-xs bg-white p-2 rounded border border-blue-200">
+                                                <span className="flex items-center gap-1"><CheckCircleIcon className="w-3 h-3 text-green-500" /> British/QTS Cert</span>
+                                                <button type="button" onClick={() => window.open((teacherToEdit as any).british_qualification, '_blank')} className="text-blue-600 hover:underline">View</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => (document.getElementById('doc-upload') as HTMLInputElement)?.click()}>
                                 <UsersIcon className="mx-auto h-8 w-8 text-gray-400" />
                                 <p className="mt-1 text-sm text-gray-600">Click to upload TRCN / Certificates</p>
@@ -519,6 +569,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                                 }} />
                                 {uploadedDocs.length > 0 && (
                                     <div className="mt-2 text-left space-y-1">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">New Selection:</p>
                                         {uploadedDocs.map((file, i) => (
                                             <p key={i} className="text-xs text-green-600 flex items-center gap-1">
                                                 <CheckCircleIcon className="w-3 h-3" /> {file.name}
