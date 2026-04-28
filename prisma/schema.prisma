@@ -162,7 +162,7 @@ model User {
   allowed_branch_ids     String[]               @default([])
   email_verified         Boolean                @default(false)
   is_active              Boolean                @default(true)
-  school_generated_id    String?
+  school_generated_id    String?                @unique
   avatar_url             String?
   two_factor_enabled     Boolean                @default(false)
   two_factor_secret      String?

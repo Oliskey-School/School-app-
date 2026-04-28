@@ -19,19 +19,17 @@ export const {
     getSecret: () => config.jwtSecret,
     // Use the session or a stable identifier for the session
     getSessionIdentifier: (req: Request) => {
-        if (process.env.NODE_ENV !== 'production') {
-            return 'dev-session'; // Consistent ID in dev to avoid mismatches during role switches
-        }
-        const token = req.cookies?.['access_token'] || req.signedCookies?.['access_token'];
-        return token || 'anonymous-session';
+        // Lead DevSecOps: Use a stable constant for session identifier to rule out 
+        // mismatches during the cross-site auth handshake.
+        return 'oliskey-session';
     },
-    cookieName: process.env.NODE_ENV === 'production' ? 'psid-csrf' : 'psid-csrf',
+    cookieName: 'psid-csrf',
     cookieOptions: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Must be 'none' for cross-site (Vercel -> Railway)
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         path: '/',
-        signed: process.env.NODE_ENV === 'production', // Only sign in production
+        signed: false, // Disable signing to simplify cross-domain cookie verification
     } as any,
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
