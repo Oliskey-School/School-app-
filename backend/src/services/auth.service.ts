@@ -803,8 +803,9 @@ export class AuthService {
 
             if (!demoUser) {
                 const allUsersCount = await prisma.user.count();
+                const dbHost = (prisma as any)._activeDatasource?.url?.split('@')[1]?.split('/')[0] || 'unknown-host';
                 console.warn(`[AUTH] ⚠️ Demo database user not found for ${fallbackUser.email}. (Total users in DB: ${allUsersCount})`);
-                throw new Error('Demo accounts are currently spinning up... Please try again in a few seconds.');
+                throw new Error(`Demo accounts are currently spinning up... Please try again in a few seconds. (Diagnostic: DB=${dbHost}, Users=${allUsersCount})`);
             }
 
             console.log(`[AUTH] ✅ Demo user found: ${demoUser.full_name} ID: ${demoUser.id} Role: ${demoUser.role}`);
