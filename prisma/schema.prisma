@@ -251,6 +251,7 @@ model Teacher {
   phone                    String?
   avatar_url               String?
   status                   String                    @default("Active")
+  curriculum_type          String?                   @default("Nigerian")
   subject_specialty        String[]
   curriculum_eligibility   String[]
   compliance_documents     Json?

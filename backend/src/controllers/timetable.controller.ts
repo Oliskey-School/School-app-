@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { TimetableService } from '../services/timetable.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getTimetable = async (req: AuthRequest, res: Response) => {
     try {

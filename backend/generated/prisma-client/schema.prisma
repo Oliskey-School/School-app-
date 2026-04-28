@@ -165,6 +165,8 @@ model User {
   is_active              Boolean                @default(true)
   school_generated_id    String?
   avatar_url             String?
+  two_factor_enabled     Boolean                @default(false)
+  two_factor_secret      String?
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
   initial_password       String?

@@ -127,7 +127,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         if (error.name === 'TokenExpiredError') {
             return res.status(401).json({ code: 'TOKEN_EXPIRED', message: 'Session expired' });
         }
-        console.error('🚨 [Security] Auth Exception:', error.message);
+        console.error('🚨 [Security] Auth Exception [FULL]:', error);
         return res.status(401).json({ message: 'Authentication failed: ' + error.message });
     }
 };
