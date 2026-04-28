@@ -5,7 +5,7 @@ import { generateToken } from '../middleware/csrf.middleware';
 const COOKIE_OPTIONS: any = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
+    sameSite: 'Lax',
     path: '/',
 };
 

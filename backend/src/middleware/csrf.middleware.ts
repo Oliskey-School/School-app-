@@ -25,14 +25,14 @@ export const {
         const token = req.cookies?.['access_token'] || req.signedCookies?.['access_token'];
         return token || 'anonymous-session';
     },
-    cookieName: process.env.NODE_ENV === 'production' ? '__Host-psid-csrf' : 'psid-csrf',
+    cookieName: process.env.NODE_ENV === 'production' ? 'psid-csrf' : 'psid-csrf',
     cookieOptions: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
         path: '/',
         signed: process.env.NODE_ENV === 'production', // Only sign in production
-    },
+    } as any,
     size: 64,
     ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
     getCsrfTokenFromRequest: (req: Request) => req.headers['x-csrf-token'] as string,
