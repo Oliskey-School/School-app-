@@ -416,6 +416,7 @@ export interface Submission {
   feedback?: string;
   textSubmission?: string;
   files?: { name: string; size: number }[];
+  fileUrl?: string;
 }
 
 

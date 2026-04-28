@@ -29,7 +29,7 @@ export const {
     cookieOptions: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Must be 'none' for cross-site (Vercel -> Railway)
         path: '/',
         signed: process.env.NODE_ENV === 'production', // Only sign in production
     } as any,

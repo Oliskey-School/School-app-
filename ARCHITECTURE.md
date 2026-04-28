@@ -24,7 +24,7 @@ This document provides a clear separation between the **Local Development** and 
 ## 🌐 Production Stack
 *Optimized for scale, security, and high availability.*
 
-**Latest Stable Version:** `0.5.21`
+**Latest Stable Version:** `0.5.25`
 
 ### Infrastructure Context
 - **Frontend:** Vercel (Production)

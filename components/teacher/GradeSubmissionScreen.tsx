@@ -1,7 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { Submission, Assignment } from '../../types';
-import { SparklesIcon, AIIcon } from '../../constants';
+import { SparklesIcon, AIIcon, FileDocIcon, FilePdfIcon, FileImageIcon, DocumentTextIcon } from '../../constants';
+
+const getFileIcon = (fileName: string): React.ReactElement => {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  if (extension === 'pdf') return <FilePdfIcon className="text-red-500 w-8 h-8" />;
+  if (extension === 'doc' || extension === 'docx') return <FileDocIcon className="text-blue-500 w-8 h-8" />;
+  if (['jpg', 'jpeg', 'png', 'gif'].includes(extension || '')) return <FileImageIcon className="text-green-500 w-8 h-8" />;
+  return <DocumentTextIcon className="text-gray-500 w-8 h-8" />;
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 import { getAIClient, AI_MODEL_NAME, SchemaType as Type } from '../../lib/ai';
 
 // A custom microphone icon
@@ -151,6 +167,34 @@ const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submissio
                   <h3 className="font-bold text-gray-800 mb-2">Student's Submission</h3>
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{submission.textSubmission}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Attachments Section */}
+              {submission.fileUrl && (
+                <div className="bg-white p-4 rounded-xl shadow-sm">
+                  <h3 className="font-bold text-gray-800 mb-2">Attachments</h3>
+                  <div className="space-y-2">
+                    {submission.fileUrl.split(',').map((fileName, index) => (
+                      <div key={index} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        {getFileIcon(fileName.trim())}
+                        <div className="ml-3 flex-grow overflow-hidden">
+                          <p className="text-sm font-medium text-gray-800 truncate">{fileName.trim()}</p>
+                          <p className="text-xs text-gray-500">Resource File</p>
+                        </div>
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            toast.success(`Opening ${fileName.trim()}... (Download simulated)`);
+                          }}
+                          className="ml-2 px-3 py-1 bg-white border border-gray-300 rounded text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          View
+                        </a>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

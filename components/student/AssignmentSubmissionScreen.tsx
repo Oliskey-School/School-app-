@@ -151,6 +151,25 @@ const AssignmentSubmissionScreen: React.FC<AssignmentSubmissionScreenProps> = ({
             </div>
           </div>
 
+          {/* Grade & Feedback Section */}
+          {existingSubmission?.status === 'Graded' && (
+            <div className="bg-white p-5 rounded-xl shadow-sm border-2 border-green-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                  <span className="text-2xl font-bold">{existingSubmission.grade}</span>
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800">Assignment Graded</h4>
+                  <p className="text-sm text-gray-500">Score: {existingSubmission.grade}/100</p>
+                </div>
+              </div>
+              <div className="flex-1 max-w-xl bg-green-50 p-3 rounded-lg border border-green-100">
+                <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1">Teacher's Feedback</p>
+                <p className="text-sm text-gray-700 italic">"{existingSubmission.feedback || 'No feedback provided.'}"</p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Answer Textbox */}
             <div className="bg-white p-4 rounded-xl shadow-sm">
