@@ -57,7 +57,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     const initializeGoogle = () => {
       if ((window as any).google && !googleIdentityInitialized) {
         console.log('🛡️ [Google] Initializing Identity Services...');
-        const clientId = (import.meta.env as any).VITE_GOOGLE_CLIENT_ID || "721743639912-8ks885994n29is9595849494.apps.googleusercontent.com";
+        const clientId = (import.meta.env as any).VITE_GOOGLE_CLIENT_ID || "1036010453198-q6c7pjf53uqus1j3o85bfud2gebe4rcu.apps.googleusercontent.com";
         console.log(`🛡️ [Google] Using Client ID: ${clientId.substring(0, 10)}...`);
         (window as any).google.accounts.id.initialize({
           client_id: clientId,
