@@ -147,6 +147,11 @@ export const sendPaymentConfirmation = async (params: PaymentConfirmationParams)
         const feeData = fee as any;
 
         // Get student details
+        if (!txData.student_id) {
+            console.error('❌ [PaymentNotifications] student_id is missing in transaction data');
+            return { success: false, error: 'Student ID missing' };
+        }
+
         const { data: student, error: studentError } = await api
             .from('students')
             .select('id, name')
@@ -237,6 +242,11 @@ export const sendFeeAssignmentNotification = async (feeId: string): Promise<{ su
         }
 
         const feeData = fee as any;
+
+        if (!feeData.student_id) {
+            console.error('❌ [PaymentNotifications] student_id is missing in fee data');
+            return { success: false, error: 'Student ID missing' };
+        }
 
         // Get student
         const { data: student } = await api

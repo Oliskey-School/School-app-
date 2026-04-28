@@ -5,12 +5,12 @@ import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 const SecuritySettingsScreen: React.FC = () => {
-    const { currentSchool } = useAuth();
+    const { currentSchool, currentBranchId } = useAuth();
     const [passwordPolicy, setPasswordPolicy] = useState({
         minLength: 8,
-        requireUppercase: true, // Keep this as it's in the original JSX, even if not in the provided snippet's initial state
-        requireNumber: true, // Keep this as it's in the original JSX, even if not in the provided snippet's initial state
-        requireSpecial: false, // Initial state from original, will be updated by useEffect
+        requireUppercase: true, 
+        requireNumber: true, 
+        requireSpecial: false, 
     });
     const [loginHistory, setLoginHistory] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -31,9 +31,8 @@ const SecuritySettingsScreen: React.FC = () => {
                 .eq('school_id', currentSchool.id)
                 .eq('type', 'login');
 
-            const branchId = (useAuth() as any).currentBranchId;
-            if (branchId && branchId !== 'all') {
-                query = query.eq('branch_id', branchId);
+            if (currentBranchId && currentBranchId !== 'all') {
+                query = query.eq('branch_id', currentBranchId);
             }
 
             const { data, error } = await query

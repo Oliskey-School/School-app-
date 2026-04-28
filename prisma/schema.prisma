@@ -113,6 +113,8 @@ model School {
   app_installations          AppInstallation[]
   complaints                 Complaint[]
   evaluations              TeacherEvaluation[]
+  platform_version         String?                   @default("0.5.27")
+  student_documents        StudentDocument[]
 }
 
 model Branch {
@@ -239,6 +241,7 @@ model Student {
   counseling_appointments CounselingAppointment[]
   conferences           ParentTeacherConference[]
   exam_results          ExamResult[]
+  documents             StudentDocument[]
 }
 
 model Teacher {
@@ -2307,6 +2310,31 @@ model TeacherEvaluation {
   updated_at      DateTime @updatedAt
   teacher         Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
   school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+}
+
+model AppVersion {
+  id          String   @id @default(uuid())
+  version     String   @unique
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+}
+
+model StudentDocument {
+  id          String   @id @default(uuid())
+  student_id  String
+  school_id   String
+  name        String
+  url         String
+  type        String?
+  size        Int?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  student     Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+  @@index([school_id])
 }
 
 

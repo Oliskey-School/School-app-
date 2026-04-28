@@ -6,6 +6,7 @@
  */
 
 import { EventEmitter } from './EventEmitter';
+import { API_BASE_URL } from './config';
 
 // ============================================================================
 // Types & Interfaces
@@ -50,7 +51,7 @@ export interface NetworkEventMap {
 
 class NetworkManager extends EventEmitter {
     private state: NetworkState;
-    private pingUrl: string = '/favicon.ico'; // Small file to ping
+    private pingUrl: string = API_BASE_URL.replace(/\/api$/, '') + '/health'; // Hit the backend health endpoint
     private pingInterval: number = 30000; // 30 seconds
     private pingIntervalId: NodeJS.Timeout | null = null;
     private reconnectAttempts: number = 0;

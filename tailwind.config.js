@@ -9,6 +9,11 @@ export default {
     ],
     theme: {
         extend: {
+            colors: {
+                primary: '#1d4ed8', // blue-700
+                'primary-dark': '#1e40af', // blue-800
+                'primary-light': '#3b82f6', // blue-500
+            },
             screens: {
                 'xs': '480px',
             },

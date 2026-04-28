@@ -99,7 +99,7 @@ const StudyBuddy: React.FC = () => {
             ];
 
             const response = await ai.generateContent({
-                model: 'gemini-2.5-flash',
+                model: AI_MODEL_NAME,
                 contents: promptContents,
                 config: {
                     systemInstruction: {

@@ -22,6 +22,7 @@ export interface School {
   branch_id?: string | null;
   curriculum_type?: string;
   settings?: any;
+  platform_version?: string;
 }
 
 export interface Branch {

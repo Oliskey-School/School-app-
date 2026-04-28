@@ -123,24 +123,29 @@ export class TeacherService {
                     if (seenAssignments.has(assignmentKey)) continue;
                     seenAssignments.add(assignmentKey);
 
-                    // Handle Virtual/Shell Class IDs (Implicit Creation)
-                    if (classId && classId.startsWith('std-')) {
+                    if (classId && typeof classId === 'string' && classId.startsWith('std-')) {
                         const parts = classId.split('-'); // std-grade-section
                         const grade = parseInt(parts[1]);
                         const section = parts[2];
+
+                        if (isNaN(grade)) {
+                            console.error(`❌ [TeacherService] Invalid grade parsed from classId: ${classId}`);
+                            continue; // Skip this invalid class assignment
+                        }
 
                         let cls = await tx.class.findFirst({
                             where: { school_id: schoolId, grade, section }
                         });
 
                         if (!cls) {
+                            console.log(`📝 [TeacherService] Creating missing class: Grade ${grade}, Section ${section}`);
                             cls = await tx.class.create({
                                 data: {
                                     school_id: schoolId,
                                     branch_id: branchId || null,
                                     grade,
                                     section,
-                                    name: parts[1], // Temporarily using grade as name, will be formatted by UI
+                                    name: `Grade ${grade}`, // More readable default name
                                     level_category: grade >= 7 ? 'Secondary' : (grade >= 1 ? 'Primary' : 'Pre-Primary')
                                 }
                             });

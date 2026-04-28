@@ -79,7 +79,7 @@ const AdventureQuestHost: React.FC<{ handleBack: () => void }> = ({ handleBack }
             }
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: AI_MODEL_NAME,
                 contents: contents,
                 config: {
                     responseMimeType: "application/json",

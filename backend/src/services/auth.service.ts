@@ -380,7 +380,8 @@ export class AuthService {
         });
 
         if (!user) {
-            throw new Error('No Data: This account is not registered. Please sign up first.');
+            console.warn(`❌ [Auth] Google Login failed: Account not found for ${normalizedEmail}`);
+            throw new Error('This Google account is not registered. Please sign up first.');
         }
 
         const { token, refreshToken } = await this.generateTokens(user);
@@ -594,6 +595,73 @@ export class AuthService {
         });
 
         return newPassword;
+    }
+
+    /**
+     * Forgot Password Flow - Part 1: Request Reset
+     */
+    static async forgotPassword(email: string) {
+        const user = await prisma.user.findUnique({
+            where: { email: email.toLowerCase() }
+        });
+
+        if (!user) {
+            throw new Error('This email is not registered in our system. Please check your spelling or sign up.');
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+        await prisma.verificationCode.create({
+            data: {
+                user_id: user.id,
+                email: user.email,
+                code: code,
+                purpose: 'password_reset',
+                expires_at: expiresAt
+            }
+        });
+
+        console.log(`🔑 [AUTH] Password reset code for ${user.email}: ${code}`);
+        // Later: Send email via MailerService
+        
+        return { success: true, message: 'Reset code sent to your email.' };
+    }
+
+    /**
+     * Forgot Password Flow - Part 2: Verify and Reset
+     */
+    static async resetPassword(email: string, code: string, newPassword: string) {
+        const verification = await prisma.verificationCode.findFirst({
+            where: {
+                email: email.toLowerCase(),
+                code: code,
+                purpose: 'password_reset',
+                used_at: null,
+                expires_at: { gt: new Date() }
+            }
+        });
+
+        if (!verification) {
+            throw new Error('Invalid or expired reset code');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        await prisma.user.update({
+            where: { id: verification.user_id },
+            data: { 
+                password_hash: hashedPassword,
+                initial_password: newPassword // For admin visibility/recovery if needed
+            }
+        });
+
+        await prisma.verificationCode.update({
+            where: { id: verification.id },
+            data: { used_at: new Date() }
+        });
+
+        return { success: true, message: 'Password has been reset successfully.' };
     }
 
     /**

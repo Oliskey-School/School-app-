@@ -342,3 +342,46 @@ export const getTeacherAvailability = async (req: AuthRequest, res: Response) =>
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getParentChildren = async (req: AuthRequest, res: Response) => {
+    try {
+        const { student_id, parent_id } = req.query;
+        const where: any = {
+            school_id: req.user.school_id
+        };
+
+        // Handle both JS undefined/null and literal "undefined"/"null" strings from frontend
+        if (student_id && student_id !== 'undefined' && student_id !== 'null') {
+            where.student_id = student_id;
+        }
+        if (parent_id && parent_id !== 'undefined' && parent_id !== 'null') {
+            where.parent_id = parent_id;
+        }
+
+        console.log('🔍 [ParentController] getParentChildren query:', where);
+        const result = await prisma.parentChild.findMany({
+            where,
+            include: {
+                student: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        school_generated_id: true
+                    }
+                },
+                parent: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        school_generated_id: true
+                    }
+                }
+            }
+        });
+
+        res.json(result);
+    } catch (error: any) {
+        console.error('🔥 [ParentController] getParentChildren Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};

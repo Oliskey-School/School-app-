@@ -434,6 +434,33 @@ export const logout = async (req: Request, res: Response) => {
     res.json({ success: true, message: 'Logged out successfully' });
 };
 
+
+export const forgotPassword = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+        const result = await AuthService.forgotPassword(email);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+    try {
+        const { email, code, newPassword } = req.body;
+        if (!email || !code || !newPassword) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+        const result = await AuthService.resetPassword(email, code, newPassword);
+        res.json(result);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
 export const getCsrfToken = async (req: Request, res: Response) => {
     const token = generateToken(req, res);
     res.json({ csrfToken: token });

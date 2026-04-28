@@ -63,7 +63,9 @@ import counselingRoutes from './counseling.routes';
 import maintenanceRoutes from './maintenance.routes';
 import debugRoutes from './debug.routes';
 import paymentPlanRoutes from './paymentPlan.routes';
+import versionRoutes from './version.routes';
 import * as QuizController from '../controllers/quiz.controller';
+import * as ParentController from '../controllers/parent.controller';
 import { getStudentFeesLegacy } from '../controllers/fee.controller';
 
 const router = Router();
@@ -139,6 +141,8 @@ router.get('/cbt/exams', authenticate, requireTenant, QuizController.getQuizzes)
 
 router.use('/saas-analytics', saasAnalyticsRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/versions', versionRoutes);
+router.get('/parent-children', authenticate, ParentController.getParentChildren);
 
 // 🚨 DEBUG ROUTES: Only for testing
 if (process.env.NODE_ENV !== 'production') {

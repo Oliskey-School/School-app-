@@ -23,6 +23,8 @@ interface AuthContextType {
     refreshCurrentSchool: () => Promise<void>;
     isAuthenticated: boolean;
     switchDashboardRole: (role: DashboardType) => void;
+    forgotPassword: (email: string) => Promise<any>;
+    resetPassword: (data: any) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -395,6 +397,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setRole(newRole);
                 sessionStorage.setItem('active_dashboard_role', newRole);
             });
+        },
+        forgotPassword: async (email: string) => {
+            return api.forgotPassword(email);
+        },
+        resetPassword: async (data: any) => {
+            return api.resetPassword(data);
         }
     }), [session, user, role, currentSchool, currentBranchId, loading, isDemo, memberships, initializeAuth]);
 

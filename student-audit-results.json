@@ -432,5 +432,12 @@
     "api": true,
     "db": true,
     "note": ""
+  },
+  {
+    "key": "changePassword",
+    "frontend": true,
+    "api": true,
+    "db": true,
+    "note": ""
   }
 ]

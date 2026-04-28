@@ -168,6 +168,7 @@ const SuperAdminDashboard = lazyWithRetry(() => import('./SuperAdminDashboard'))
 const TimetableScreen = lazyWithRetry(() => import('./TimetableScreen'));
 const UserSeeder = lazyWithRetry(() => import('./UserSeeder'));
 const VisitorLog = lazyWithRetry(() => import('./VisitorLog'));
+const VersionSettings = lazyWithRetry(() => import('./VersionSettings'));
 
 type ViewStackItem = {
     view: string;
@@ -433,6 +434,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         timetableScreen: TimetableScreen,
         userSeeder: UserSeeder,
         visitorLog: VisitorLog,
+        versionSettings: VersionSettings,
     };
 
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);

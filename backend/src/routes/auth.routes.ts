@@ -56,6 +56,8 @@ router.post('/update-username', AuthController.updateUsername);
 router.post('/update-password', authenticate, AuthController.updatePassword);
 router.post('/admin/change-password', authenticate, AuthController.adminChangePassword);
 router.post('/admin/reset-password', authenticate, AuthController.resetUserPassword);
+router.post('/forgot-password', AuthController.forgotPassword);
+router.post('/reset-password', AuthController.resetPassword);
 router.get('/memberships/:userId', authenticate, AuthController.getMemberships);
 router.post('/switch-school', authenticate, AuthController.switchSchool);
 

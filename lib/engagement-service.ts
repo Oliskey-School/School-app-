@@ -5,6 +5,11 @@ import { sendSMS } from './notifications';
  * Automatically triggers an SMS to parents if a student is marked 'Absent'.
  */
 export async function triggerAbsenceAlert(studentId: string, schoolId: string) {
+    if (!studentId) {
+        console.warn('⚠️ [Engagement] triggerAbsenceAlert called with missing studentId');
+        return;
+    }
+
     try {
         // 1. Fetch parent phone number
         const { data: parent, error } = await api

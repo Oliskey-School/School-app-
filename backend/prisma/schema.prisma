@@ -114,6 +114,7 @@ model School {
   app_installations          AppInstallation[]
   complaints                 Complaint[]
   evaluations              TeacherEvaluation[]
+  platform_version         String?                   @default("0.5.27")
 }
 
 model Branch {
@@ -2308,6 +2309,14 @@ model TeacherEvaluation {
   updated_at      DateTime @updatedAt
   teacher         Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
   school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+}
+
+model AppVersion {
+  id          String   @id @default(uuid())
+  version     String   @unique
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
 }
 
 

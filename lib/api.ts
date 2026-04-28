@@ -219,14 +219,16 @@ class ExpressApiClient {
 
 
     async login(credentials: any): Promise<any> {
-        this.clearCsrfToken(); // Clear before login
+        this.clearCsrfToken();
         const result = await this.post<any>('/auth/login', credentials);
-        // Note: tokens are now set as HttpOnly cookies by the backend
+        if (result.token) localStorage.setItem('auth_token', result.token);
         return result;
     }
 
     async refreshToken(): Promise<any> {
-        // ... (rest of refreshToken method)
+        const result = await this.post<any>('/auth/refresh', {});
+        if (result.token) localStorage.setItem('auth_token', result.token);
+        return result;
     }
 
     async submitGameScore(data: any): Promise<any> {
@@ -238,18 +240,25 @@ class ExpressApiClient {
     }
 
     async demoLogin(role: string): Promise<any> {
-        this.clearCsrfToken(); // Clear before login
+        this.clearCsrfToken();
         const result = await this.post<any>('/auth/demo/login', { role });
-        // Demo tokens might still be in body for simple dev access, 
-        // but we'll prioritize cookies if backend sets them
         if (result.token) localStorage.setItem('auth_token', result.token);
         return result;
     }
 
     async googleLogin(email: string, name: string): Promise<any> {
-        this.clearCsrfToken(); // Clear before login
+        this.clearCsrfToken();
         const result = await this.post<any>('/auth/google-login', { email, name });
+        if (result.token) localStorage.setItem('auth_token', result.token);
         return result;
+    }
+
+    async forgotPassword(email: string): Promise<any> {
+        return this.post('/auth/forgot-password', { email });
+    }
+
+    async resetPassword(data: any): Promise<any> {
+        return this.post('/auth/reset-password', data);
     }
 
     async logout(): Promise<void> {
@@ -261,7 +270,7 @@ class ExpressApiClient {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('auth_refresh_token');
             sessionStorage.removeItem('is_demo_mode');
-            this.invalidateCache(); // This also clears CSRF token
+            this.invalidateCache();
         }
     }
 
@@ -296,6 +305,17 @@ class ExpressApiClient {
 
     async updatePassword(data: { userId: string; currentPassword?: string; newPassword: string }): Promise<any> {
         return this.post('/auth/update-password', data);
+    }
+
+    // ============================================
+    // VERSION MANAGEMENT
+    // ============================================
+    async getAppVersions(): Promise<any[]> {
+        return this.get('/versions');
+    }
+
+    async setSchoolVersion(schoolId: string, version: string): Promise<any> {
+        return this.post(`/versions/school/${schoolId}`, { version });
     }
 
     async getUsers(schoolId?: string, branchId?: string, role?: string, term?: string): Promise<any[]> {

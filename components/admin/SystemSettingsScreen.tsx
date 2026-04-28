@@ -23,6 +23,7 @@ const settingsCategories = [
   { view: 'brandingSettings', title: 'Branding & Customization', description: 'Customize the look and feel.', icon: <PaintBrushIcon />, color: 'text-violet-500 bg-violet-100' },
   { view: 'analyticsAdminTools', title: 'Analytics & Admin Tools', description: 'Advanced analytics, budgets, integrations.', icon: <BriefcaseIcon />, color: 'text-teal-500 bg-teal-100' },
   { view: 'selectUserTypeToAdd', title: 'Add New User', description: 'Quickly add a new student, teacher, or parent.', icon: <UserPlus className="h-6 w-6" />, color: 'text-blue-600 bg-blue-100' },
+  { view: 'versionSettings', title: 'Platform Version Management', description: 'Select and lock your preferred platform version.', icon: <ShieldCheckIcon />, color: 'text-indigo-500 bg-indigo-100' },
 ];
 
 const SystemSettingsScreen: React.FC<SystemSettingsScreenProps> = ({ navigateTo }) => {

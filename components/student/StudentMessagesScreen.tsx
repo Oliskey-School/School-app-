@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { lazyWithRetry } from '../../lib/lazyRetry';
 import { ChatRoom, ChatUser, Student } from '../../types';
@@ -5,6 +6,9 @@ import { api } from '../../lib/api';
 import { SearchIcon, PlusIcon, DotsVerticalIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+
+// Lazy load ChatScreen at the top to ensure it's defined before use
+const ChatScreen = lazyWithRetry(() => import('../shared/ChatScreen'));
 
 const formatTimestamp = (isoDate: string): string => {
     const date = new Date(isoDate);
@@ -234,30 +238,27 @@ const StudentMessagesScreen: React.FC<StudentMessagesScreenProps> = ({ navigateT
             {/* Desktop Only: Chat Area - Only show if standalone (no onSelectChat prop) */}
             {isDesktop && !onSelectChat && (
                 <div className="flex-grow h-full bg-gray-50 hidden md:block">
-                    {/* We import React.lazy component so we need Suspense or standard import.
-                         Since we are inside StudentMessagesScreen, let's use a standard lazy import or just require it.
-                         To avoid top-level cyclic issues if any, we can dynamic import.
-                         But simpler is to assume ChatScreen is imported at top.
-                         Warning: We didn't import ChatScreen at the top of this file in previous `read`.
-                         I need to add the import.
-                     */}
-                    {/* I will use a dynamic load here just to be safe if I didn't add import top */}
-                    <React.Suspense fallback={<div className="h-full flex items-center justify-center">Loading...</div>}>
-                        <ChatScreen
-                            conversationId={String(selectedRoomId!)}
-                            currentUserId={studentId!}
-                            roomDetails={selectedRoom}
-                        />
-                    </React.Suspense>
+                    {selectedRoomId ? (
+                        <Suspense fallback={<div className="h-full flex items-center justify-center">Loading...</div>}>
+                            <ChatScreen
+                                conversationId={String(selectedRoomId)}
+                                currentUserId={studentId!}
+                                roomDetails={selectedRoom}
+                            />
+                        </Suspense>
+                    ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center h-full p-8 bg-gray-50/50">
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm">
+                                <PlusIcon className="w-10 h-10 text-gray-200" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800 mb-2">No conversation selected</h2>
+                            <p className="text-gray-500 max-w-xs text-sm">Pick a chat from the list or start a new one to begin messaging.</p>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
 };
-
-// We need to import ChatScreen. 
-// Since I can't easily add import to top without reading again or guessing line numbers safely,
-// I'll assume I can add it by replacing the top block or using lazy.
-const ChatScreen = lazyWithRetry(() => import('../shared/ChatScreen'));
 
 export default StudentMessagesScreen;

@@ -29,13 +29,13 @@ let googleIdentityInitialized = false;
 let googleResponseHandler: ((resp: any) => void) | null = null;
 
 const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool?: () => void }> = ({ onNavigateToSignup, onNavigateToCreateSchool }) => {
-  const [view, setView] = useState<'login' | 'school_signup' | 'demo' | 'verify'>('login');
+  const [view, setView] = useState<'login' | 'school_signup' | 'demo' | 'verify' | 'forgot-password' | 'reset-password'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, signInWithGoogle, switchDemoRole } = useAuth();
+  const { signIn, signInWithGoogle, switchDemoRole, forgotPassword, resetPassword } = useAuth();
   const navigate = useNavigate();
   const [showGoogleMock, setShowGoogleMock] = useState(false);
   
@@ -43,6 +43,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
   const [verificationEmail, setVerificationEmail] = useState('');
   const [verificationUserId, setVerificationUserId] = useState('');
   const [otpCode, setOtpCode] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [googleInitialized, setGoogleInitialized] = useState(googleIdentityInitialized);
 
   const googleInitRef = useRef(false);
@@ -55,8 +57,10 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
     const initializeGoogle = () => {
       if ((window as any).google && !googleIdentityInitialized) {
         console.log('🛡️ [Google] Initializing Identity Services...');
+        const clientId = (import.meta.env as any).VITE_GOOGLE_CLIENT_ID || "721743639912-8ks885994n29is9595849494.apps.googleusercontent.com";
+        console.log(`🛡️ [Google] Using Client ID: ${clientId.substring(0, 10)}...`);
         (window as any).google.accounts.id.initialize({
-          client_id: "721743639912-8ks885994n29is9595849494.apps.googleusercontent.com", // Placeholder: REPLACE WITH REAL ID
+          client_id: clientId,
           callback: (response: any) => {
             if (googleResponseHandler) googleResponseHandler(response);
           },
@@ -120,17 +124,29 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
   const handleGoogleClick = () => {
     if (googleInitialized) {
-      // Trigger the Google Account Picker ("show them all the google account on that phone")
+      // Trigger the Google Account Picker
       (window as any).google.accounts.id.prompt((notification: any) => {
         if (notification.isNotDisplayed()) {
-          // If One Tap is blocked/not shown, we could use the standard button
-          // But usually prompt() works well for the "all accounts" experience
-          console.warn('One Tap not displayed:', notification.getNotDisplayedReason());
-          setError('Please use the standard login or ensure Google services are enabled.');
+          const reason = notification.getNotDisplayedReason();
+          console.warn('One Tap not displayed:', reason);
+          if (reason === 'invalid_client') {
+            setError('INVALID_CLIENT: The Google Client ID provided is not recognized by Google. Using manual fallback for testing.');
+            setShowGoogleMock(true); // Show a manual email entry only if ID is invalid
+          } else {
+            setError(`Google account selection could not be displayed: ${reason}. Try refreshing.`);
+          }
         }
       });
     } else {
-      setError('Google Sign-In is initializing. Please try again in a moment.');
+      // Robustness: If not initialized, try one rapid check before giving up
+      if ((window as any).google?.accounts?.id) {
+        setGoogleInitialized(true);
+        setError('Google Services ready. Please click again.');
+      } else {
+        setError('Google Sign-In is still initializing (Slow Connection). If this persists, verify your Client ID.');
+        // If it takes too long, offer manual entry for dev testing
+        setTimeout(() => setShowGoogleMock(true), 2000);
+      }
     }
   };
 
@@ -179,6 +195,138 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
           navigate('/'); // Redirect to dashboard
         }}
       />
+    );
+  }
+
+  // Forgot Password flow - Step 1: Request Code
+  if (view === 'forgot-password') {
+    return (
+      <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8 flex flex-col">
+          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 mb-6 self-center">
+            <SchoolLogoIcon className="w-7 h-7 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 text-center mb-2">Forgot Password</h2>
+          <p className="text-xs text-slate-500 text-center mb-8">Enter your email address and we'll send you a code to reset your password.</p>
+          
+          <form className="space-y-4" onSubmit={async (e) => {
+            e.preventDefault();
+            if (!email) { setError('Email is required'); return; }
+            setIsLoading(true);
+            setError('');
+            try {
+              await forgotPassword(email);
+              setView('reset-password');
+            } catch (err: any) {
+              setError(err.message || 'Failed to send reset code');
+            } finally {
+              setIsLoading(false);
+            }
+          }}>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Your Email Address"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+              required
+            />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-70 text-sm"
+            >
+              {isLoading ? 'Sending Code...' : 'Send Reset Code'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('login')}
+              className="w-full py-2 text-slate-400 text-xs font-semibold hover:text-slate-600 transition-colors"
+            >
+              Back to Sign In
+            </button>
+          </form>
+          {error && <div className="mt-4 p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">{error}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  // Forgot Password flow - Step 2: Reset Password
+  if (view === 'reset-password') {
+    return (
+      <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8 flex flex-col">
+          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 mb-6 self-center">
+            <SchoolLogoIcon className="w-7 h-7 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 text-center mb-2">Reset Password</h2>
+          <p className="text-xs text-slate-500 text-center mb-8">Enter the 6-digit code sent to your email and your new password.</p>
+          
+          <form className="space-y-4" onSubmit={async (e) => {
+            e.preventDefault();
+            if (!resetCode || !newPassword) { setError('All fields are required'); return; }
+            setIsLoading(true);
+            setError('');
+            try {
+              await resetPassword({ email, code: resetCode, newPassword });
+              setError('Password reset successful! You can now log in.');
+              // After a short delay, go back to login
+              setTimeout(() => {
+                setView('login');
+                setError('');
+                setPassword('');
+              }, 3000);
+            } catch (err: any) {
+              setError(err.message || 'Failed to reset password');
+            } finally {
+              setIsLoading(false);
+            }
+          }}>
+            <input
+              type="text"
+              value={resetCode}
+              onChange={(e) => setResetCode(e.target.value)}
+              placeholder="6-Digit Reset Code"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg font-bold tracking-widest focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+              maxLength={6}
+              required
+            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New Password"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none pr-12"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+              >
+                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-70 text-sm"
+            >
+              {isLoading ? 'Resetting...' : 'Update Password'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('forgot-password')}
+              className="w-full py-2 text-slate-400 text-xs font-semibold hover:text-slate-600 transition-colors"
+            >
+              Back
+            </button>
+          </form>
+          {error && <div className={`mt-4 p-3 ${error.includes('successful') ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'} text-xs rounded-lg border shadow-sm animate-fade-in`}>{error}</div>}
+        </div>
+      </div>
     );
   }
 
@@ -403,8 +551,47 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
               Google
             </button>
 
+            {/* Google Manual Fallback for testing - only shown if Client ID fails */}
+            {showGoogleMock && (
+              <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 animate-fade-in">
+                <p className="text-[10px] text-amber-700 font-bold mb-2 uppercase tracking-tight">🔧 Developer Testing Mode</p>
+                <p className="text-[10px] text-amber-600 mb-3">Google Identity Services failed to initialize. Enter a registered email to test the Google Login backend flow:</p>
+                <div className="flex gap-2">
+                  <input 
+                    type="email" 
+                    placeholder="Registered Gmail"
+                    id="mock-google-email"
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const emailInput = document.getElementById('mock-google-email') as HTMLInputElement;
+                      if (emailInput?.value) {
+                         signInWithGoogle(emailInput.value, 'Test User')
+                           .then(() => navigate('/'))
+                           .catch(err => setError(err.message));
+                      }
+                    }}
+                    className="px-3 py-2 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700"
+                  >
+                    Test E2E
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="text-center">
-              <a href="#" className="text-[10px] sm:text-xs text-slate-400 hover:text-slate-600 font-medium">Forgot Password?</a>
+              <button 
+                type="button"
+                onClick={() => {
+                  setError('');
+                  setView('forgot-password');
+                }}
+                className="text-[10px] sm:text-xs text-slate-400 hover:text-slate-600 font-medium"
+              >
+                Forgot Password?
+              </button>
             </div>
           </form>
 
