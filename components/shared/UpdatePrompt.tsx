@@ -89,7 +89,7 @@ export default function UpdatePrompt() {
                                     lineHeight: 1.5,
                                 }}
                             >
-                                A new production version (0.5.15) is ready. Update now to get the latest features and security fixes.
+                                A new production version (0.5.29) is ready. Update now to get the latest features and security fixes.
                             </p>
                         </div>
 

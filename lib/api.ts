@@ -226,7 +226,8 @@ class ExpressApiClient {
     }
 
     async refreshToken(): Promise<any> {
-        const result = await this.post<any>('/auth/refresh', {});
+        const refreshToken = localStorage.getItem('auth_refresh_token');
+        const result = await this.post<any>('/auth/refresh', { refreshToken });
         if (result.token) localStorage.setItem('auth_token', result.token);
         return result;
     }

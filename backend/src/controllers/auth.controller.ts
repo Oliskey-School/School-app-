@@ -109,8 +109,11 @@ export const disable2FA = async (req: Request, res: Response) => {
 
 export const refresh = async (req: Request, res: Response) => {
     try {
-        const refreshToken = req.cookies.refresh_token;
-        if (!refreshToken) throw new Error('Refresh token is required');
+        const refreshToken = req.cookies.refresh_token || req.body.refreshToken;
+        if (!refreshToken) {
+            console.warn('⚠️ [Auth] Refresh attempt without token (Cookie or Body)');
+            throw new Error('Refresh token is required');
+        }
         const result = await AuthService.refreshAccessToken(refreshToken);
         
         res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });

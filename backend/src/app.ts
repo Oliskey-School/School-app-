@@ -57,8 +57,14 @@ app.use(cookieParser(config.jwtSecret));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Lead DevSecOps: Apply Anti-CSRF protection globally
-app.use(doubleSubmitCookieMiddleware);
+// Lead DevSecOps: Apply Anti-CSRF protection globally, except for refresh endpoint
+// to handle cross-site cookie blocking on mobile browsers.
+app.use((req, res, next) => {
+    if (req.path === '/api/auth/refresh' || req.path === '/api/auth/logout') {
+        return next();
+    }
+    doubleSubmitCookieMiddleware(req, res, next);
+});
 app.use(csrfErrorHandler);
 
 // 3. Standardize URL: Remove trailing slash
