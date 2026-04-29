@@ -351,7 +351,7 @@ export const demoLogin = async (req: Request, res: Response) => {
         if (!role) {
             return res.status(400).json({ message: 'Role is required' });
         }
-        const result = await AuthService.generateDemoToken(role);
+        const result = await AuthService.generateDemoToken(role, req.ip);
         
         // Lead DevSecOps: Set secure cookies for demo login too
         res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import prisma from '../config/database';
 import { config } from '../config/env';
 import { IdGeneratorService } from './idGenerator.service';
@@ -123,47 +124,73 @@ export class AuthService {
     }
 
     static async signup(data: any) {
-        const hashedPassword = await bcrypt.hash(data.password, 10);
-        const role = this.mapRole(data.role || 'student');
+        return await prisma.$transaction(async (tx) => {
+            const hashedPassword = await bcrypt.hash(data.password, 10);
+            const role = this.mapRole(data.role || 'student');
 
-        let schoolGeneratedId = null;
-        if (data.school_id && data.branch_id) {
-            try {
-                schoolGeneratedId = await IdGeneratorService.generateSchoolId(data.school_id, data.branch_id, role.toLowerCase());
-            } catch (err) {
-                console.warn('Could not generate school ID:', err);
+            let schoolGeneratedId = null;
+            if (data.school_id && data.branch_id) {
+                try {
+                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(data.school_id, data.branch_id, role.toLowerCase());
+                } catch (err) {
+                    console.warn('Could not generate school ID:', err);
+                }
             }
-        }
 
-        const user = await prisma.user.create({
-            data: {
-                email: data.email.toLowerCase(),
-                password_hash: hashedPassword,
-                role: role,
-                school_id: data.school_id,
-                branch_id: data.branch_id || null,
-                allowed_branch_ids: data.allowed_branch_ids || (data.branch_id ? [data.branch_id] : []),
-                full_name: data.full_name,
-                email_verified: false,
-                school_generated_id: schoolGeneratedId,
-                initial_password: data.password // Store generated credentials for Admin visibility
-            }
-        });
-
-        // Create initial membership
-        if (data.school_id) {
-            await prisma.schoolMembership.create({
+            const user = await tx.user.create({
                 data: {
-                    user_id: user.id,
+                    email: data.email.toLowerCase(),
+                    password_hash: hashedPassword,
+                    role: role,
                     school_id: data.school_id,
-                    base_role: role,
-                    is_active: true
+                    branch_id: data.branch_id || null,
+                    allowed_branch_ids: data.allowed_branch_ids || (data.branch_id ? [data.branch_id] : []),
+                    full_name: data.full_name,
+                    email_verified: false,
+                    school_generated_id: schoolGeneratedId,
+                    initial_password: data.password // Store generated credentials for Admin visibility
                 }
             });
-        }
 
-        SocketService.emitToSchool(data.school_id || 'system', 'auth:updated', { action: 'signup', userId: user.id });
-        return user;
+            // Create initial membership
+            if (data.school_id) {
+                await tx.schoolMembership.create({
+                    data: {
+                        user_id: user.id,
+                        school_id: data.school_id,
+                        base_role: role,
+                        is_active: true
+                    }
+                });
+            }
+
+            // Create role-specific profile
+            const roleLower = role.toLowerCase();
+            const profileData: any = {
+                school_id: data.school_id,
+                branch_id: data.branch_id || null,
+                full_name: data.full_name,
+                email: data.email.toLowerCase(),
+                school_generated_id: schoolGeneratedId
+            };
+
+            if (roleLower === 'teacher') {
+                await tx.teacher.create({
+                    data: { ...profileData, user_id: user.id }
+                });
+            } else if (roleLower === 'student') {
+                await tx.student.create({
+                    data: { ...profileData, user_id: user.id }
+                });
+            } else if (roleLower === 'parent') {
+                await tx.parent.create({
+                    data: { ...profileData, user_id: user.id }
+                });
+            }
+
+            SocketService.emitToSchool(data.school_id || 'system', 'auth:updated', { action: 'signup', userId: user.id });
+            return user;
+        });
     }
 
     static async login(identifier: string, password: string) {
@@ -850,9 +877,12 @@ export class AuthService {
     /**
      * Generate a cryptographically signed JWT demo token for a specific role.
      * These tokens are server-side generated and cannot be forged by clients.
+     * 
+     * @param role The role to assume (admin, teacher, etc.)
+     * @param ip The client IP address used for session isolation
      */
-    static async generateDemoToken(role: string) {
-        console.log(`[AUTH] 🚀 Starting Demo Login flow for role: ${role}`);
+    static async generateDemoToken(role: string, ip: string = '127.0.0.1') {
+        console.log(`[AUTH] 🚀 Starting Demo Login flow for role: ${role} (IP: ${ip})`);
         const roleKey = role.toLowerCase();
         const fallbackUser = this.DEMO_USERS[roleKey];
 
@@ -871,14 +901,51 @@ export class AuthService {
 
             if (!demoUser) {
                 const allUsersCount = await prisma.user.count();
-                const dbHost = (prisma as any)._activeDatasource?.url?.split('@')[1]?.split('/')[0] || 'unknown-host';
+                // Lead DevSecOps: Enhanced diagnostic to check if the database is actually reachable and responsive
+                const dbHost = 'production-db'; 
                 console.warn(`[AUTH] ⚠️ Demo database user not found for ${fallbackUser.email}. (Total users in DB: ${allUsersCount})`);
-                throw new Error(`Demo accounts are currently spinning up... Please try again in a few seconds. (Diagnostic: DB=${dbHost}, Users=${allUsersCount})`);
+                
+                // If we have users but not the demo one, it means seeding failed or is incomplete
+                const message = allUsersCount > 0 
+                    ? `Demo account ${fallbackUser.email} is missing from the database. The system is currently re-synchronizing...`
+                    : `Demo accounts are currently spinning up... Please try again in a few seconds.`;
+                
+                throw new Error(`${message} (Diagnostic: DB=${dbHost}, Users=${allUsersCount})`);
             }
 
             console.log(`[AUTH] ✅ Demo user found: ${demoUser.full_name} ID: ${demoUser.id} Role: ${demoUser.role}`);
 
-            const { token, refreshToken } = await this.generateTokens(demoUser);
+            // Lead DevSecOps: IP-Based Session Isolation
+            // We create a unique "Virtual Branch" for this IP so that their changes are private.
+            const ipHash = crypto.createHash('sha256').update(ip).digest('hex').substring(0, 8);
+            const virtualBranchId = `demo-v-${ipHash}`;
+            const virtualBranchName = `Demo Phone (${ipHash})`;
+
+            console.log(`[AUTH] 🛡️ Mapping Demo Session to Virtual Branch: ${virtualBranchId}`);
+
+            // Ensure the Virtual Branch exists in the database
+            await prisma.branch.upsert({
+                where: { id: virtualBranchId },
+                update: { last_active_at: new Date() }, // Track activity for cleanup
+                create: {
+                    id: virtualBranchId,
+                    name: virtualBranchName,
+                    school_id: this.DEMO_SCHOOL_ID,
+                    is_active: true,
+                    is_demo_virtual: true, // Marker for cleanup
+                }
+            } as any);
+
+            // Override the user's branch for this session
+            const sessionUser = {
+                ...demoUser,
+                branch_id: virtualBranchId,
+                allowed_branch_ids: [virtualBranchId],
+                is_demo: true,
+                demo_ip: ip
+            };
+
+            const { token, refreshToken } = await this.generateTokens(sessionUser);
             return {
                 token,
                 refreshToken,

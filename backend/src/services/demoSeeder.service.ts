@@ -26,6 +26,7 @@ export class DemoSeederService {
                     subscription_status: 'active',
                     plan_type: 'premium',
                     is_onboarded: true,
+                    platform_version: '0.5.31'
                 },
                 create: {
                     id: demoSchoolId,
@@ -36,6 +37,7 @@ export class DemoSeederService {
                     subscription_status: 'active',
                     plan_type: 'premium',
                     is_onboarded: true,
+                    platform_version: '0.5.31'
                 }
             });
 
@@ -235,8 +237,31 @@ export class DemoSeederService {
             }
 
             console.log('✅ Demo DB Accounts and Assignments verified & synchronized.');
+
+            // 8. Ensure App Versions exist for Management Dashboard
+            try {
+                const versions = [
+                    { version: '0.5.27', description: 'Initial stable release with core dashboard features.' },
+                    { version: '0.5.28', description: 'Performance optimizations and mobile UI stabilization.' },
+                    { version: '0.5.29', description: 'Google Auth integration and CSRF hardening.' },
+                    { version: '0.5.30', description: 'E2E Version Management and Production Synchronization.' },
+                    { version: '0.5.31', description: 'IP-Based Demo Isolation and Session Stability.' }
+                ];
+
+                for (const v of versions) {
+                    await prisma.appVersion.upsert({
+                        where: { version: v.version },
+                        update: { description: v.description, is_active: true },
+                        create: { version: v.version, description: v.description, is_active: true }
+                    });
+                }
+                console.log('✅ App Versions seeded for Platform Management.');
+            } catch (vError: any) {
+                console.warn('⚠️ [Seeder] Could not seed AppVersions (Table might be missing):', vError.message);
+            }
+
         } catch (error) {
-            console.error('❌ Failed to verify Demo DB Accounts:', error);
+            console.error('❌ [Seeder] Fatal error during Demo Seeding:', error);
         }
     }
 }

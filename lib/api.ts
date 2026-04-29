@@ -247,6 +247,18 @@ class ExpressApiClient {
         return result;
     }
 
+    async getAppVersions(): Promise<any[]> {
+        return this.get('/versions');
+    }
+
+    async setSchoolVersion(schoolId: string, version: string): Promise<any> {
+        return this.post(`/versions/school/${schoolId}`, { version });
+    }
+
+    async registerAppVersion(version: string, description: string): Promise<any> {
+        return this.post('/versions/register', { version, description });
+    }
+
     async googleLogin(email: string, name: string): Promise<any> {
         this.clearCsrfToken();
         const result = await this.post<any>('/auth/google-login', { email, name });

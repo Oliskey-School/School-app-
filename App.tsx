@@ -15,6 +15,7 @@ import { useAuth } from './context/AuthContext';
 import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { syncEngine } from './lib/syncEngine';
 import { lazyWithRetry } from './lib/lazyRetry';
+import { APP_VERSION } from './lib/config';
 
 // Unified lazy load with shared retry logic
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
@@ -36,8 +37,6 @@ const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErro
 
 /**
  * GLOBAL FAILSFE: Unhandled Promise Rejections
- * Some chunk errors happen outside of the React lifecycle.
- * This listener catches them and triggers a recovery refresh.
  */
 window.addEventListener('unhandledrejection', (event) => {
   const error = event.reason;
@@ -56,7 +55,7 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Basic Error Boundary for catching dashboard crashes
+// Basic Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
   state = { hasError: false, error: null };
 
@@ -65,32 +64,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
   componentDidCatch(error: any, errorInfo: any) {
     console.error("Dashboard Crash Caught:", error, errorInfo);
-    
-    // Safety Fallback: If ErrorBoundary catches a module failure that lazyWithRetry missed
-    const isFetchError = error?.name === 'ChunkLoadError' || 
-                        error?.message?.includes('Failed to fetch') ||
-                        error?.message?.includes('dynamic import');
-
-    const pageHasBeenForceRefreshed = JSON.parse(
-      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
-    );
-
-    if (isFetchError && !pageHasBeenForceRefreshed) {
-      window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
-      this.handleReset();
-    }
   }
   handleReset = () => {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        for (let reg of regs) reg.unregister();
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        for (let name of names) caches.delete(name);
-      });
-    }
     window.location.reload();
   };
   render() {
@@ -98,7 +73,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
       return (
         <PremiumErrorPage 
           title="Dashboard Error"
-          message="We encountered a critical error while loading the dashboard. This usually happens due to a connection break or a missing module."
+          message="We encountered a critical error while loading the dashboard."
           error={this.state.error}
           resetErrorBoundary={this.handleReset}
         />
@@ -108,27 +83,24 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-// Simple Loading Component mapped to Premium Loader
 const LoadingScreen: React.FC = () => (
     <PremiumLoader message="Initializing School Workspace..." />
 );
 
 const AuthenticatedApp: React.FC = () => {
-  const { user, role, signOut, loading, isDemo } = useAuth();
+  const { user, role, signOut, loading, isDemo, currentSchool } = useAuth();
   const { currentBranch } = useBranch();
-  useRealtimeSync(); // Initialize Global Realtime Sync
+  useRealtimeSync(); 
+
+  // E2E Version Management Logic
+  const schoolVersion = currentSchool?.platform_version;
+  const isVersionMismatch = schoolVersion && schoolVersion !== APP_VERSION;
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHomePage, setIsHomePage] = useState(true);
   const [authView, setAuthView] = useState<'login' | 'signup' | 'create-school'>('login');
   const [showAuthConfirm, setShowAuthConfirm] = useState(false);
 
-  // State to simulate subscription for demo purposes
-  // In real app, this comes from 'schools' table via user's school_id
-  const [subscriptionStatus, setSubscriptionStatus] = useState<'active' | 'inactive' | 'trial'>('inactive');
-  const [showPayment, setShowPayment] = useState(false);
-
-  // Detect auth confirmation callback or invite acceptance
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes('access_token') || hash.includes('type=recovery') || hash.includes('type=signup') || hash.includes('/auth/callback')) {
@@ -136,112 +108,30 @@ const AuthenticatedApp: React.FC = () => {
     }
   }, []);
 
-  // Detect invite-accept path (must check before session guard)
   const isInviteAccept = window.location.hash.includes('/invite/accept');
 
   useEffect(() => {
     if (user && role) {
       console.log(`👤 User Authenticated: ${user.email} as ${role}`);
       requestNotificationPermission();
-
-      // Initialize Realtime Service
-      let schoolId = (user as any).school_id || user.user_metadata?.school_id || user.app_metadata?.school_id;
-
-      // Fix for demo users who might not have school_id in metadata
-      const isDemoAccount = user.email?.includes('demo') || user.user_metadata?.is_demo;
-      if (!schoolId && isDemoAccount) {
-        schoolId = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1'; // Oliskey Demo School ID
-      }
-
-      if (schoolId) {
-        console.log(`👤 Active School Context: ${schoolId}`);
-      }
-
-      // Show welcome toast after email verification
-      const showWelcome = localStorage.getItem('show_welcome_toast');
-      if (showWelcome === 'true') {
-        localStorage.removeItem('show_welcome_toast');
-        setTimeout(async () => {
-          const toast = (await import('react-hot-toast')).default;
-          toast.success('Email verified successfully. Welcome to your dashboard! 🎉', {
-            duration: 5000,
-            position: 'top-center'
-          });
-        }, 500);
-      }
-
-      // Check subscription status if Admin/Proprietor
-      if (role === DashboardType.Admin || role === DashboardType.Proprietor || role === DashboardType.SuperAdmin) {
-        setSubscriptionStatus('active');
-      } else {
-        setSubscriptionStatus('active');
-      }
-
-      // 🚀 Instant Rendering Optimization: Prefetch dashboard chunks as soon as role is known
-      const prefetchDashboard = () => {
-        switch (role) {
-          case DashboardType.Admin: import('./components/admin/AdminDashboard'); break;
-          case DashboardType.SuperAdmin: import('./components/admin/SuperAdminDashboard'); break;
-          case DashboardType.Teacher: import('./components/teacher/TeacherDashboard'); break;
-          case DashboardType.Student: import('./components/student/StudentDashboard'); break;
-          case DashboardType.Parent: import('./components/parent/ParentDashboard'); break;
-          case DashboardType.Proprietor: import('./components/proprietor/ProprietorDashboard'); break;
-        }
-      };
-      prefetchDashboard();
     }
   }, [user, role]);
 
   const handleLogout = async () => {
-    // isDemo is now available from useAuth scope
     await signOut();
     setIsHomePage(true);
     setIsChatOpen(false);
-
-    if (isDemo) {
-      localStorage.setItem('last_login_mode', 'demo');
-    } else {
-      localStorage.removeItem('last_login_mode');
-    }
   };
 
   const renderDashboard = useMemo(() => {
     if (!user || !role) return null;
     const props = { onLogout: handleLogout, setIsHomePage, currentUser: user };
-    console.log(`🚀 Routing to Dashboard for role: ${role}`);
     return <DashboardRouter {...props} />;
   }, [user?.id, role]);
 
   if (loading) return <LoadingScreen />;
-
-  // Invite accept link — takes priority over everything
-  if (isInviteAccept) {
-    return <InviteAcceptScreen />;
-  }
-
-  // isDemo is now destructured from useAuth above
-  
-  // Handle email verification routes (Muted as requested)
-  /*
-  const hash = window.location.hash;
-  const isVerifyEmail = hash.includes('/auth/verify');
-  const isVerifyEmailScreen = hash.includes('/auth/verify-email');
-  
-  if (isVerifyEmail && !isDemo) {
-    if (hash.includes('token=') || window.location.search.includes('token=')) {
-        return <VerifyEmail />;
-    }
-    return <VerifyEmailScreen />;
-  }
-
-  if (isVerifyEmailScreen && !isDemo) {
-    return <VerifyEmailScreen />;
-  }
-  */
-
-  if (showAuthConfirm) {
-    return <AuthCallback />;
-  }
+  if (isInviteAccept) return <InviteAcceptScreen />;
+  if (showAuthConfirm) return <AuthCallback />;
 
   if (!user || !role) {
     return (
@@ -270,6 +160,11 @@ const AuthenticatedApp: React.FC = () => {
         <MobileNavigationHandler />
         <ContextualMarquee />
         <VerificationGuard>
+          {/* Version Lock Overlay */}
+          {isVersionMismatch && (
+            <UpdatePrompt forced={true} targetVersion={schoolVersion} />
+          )}
+          
           {renderDashboard}
           {isHomePage && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}
         </VerificationGuard>
@@ -280,99 +175,29 @@ const AuthenticatedApp: React.FC = () => {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [initProgress, setInitProgress] = useState(0);
   const [initMessage, setInitMessage] = useState('Initializing...');
-
-  // Removed isSupabaseConfigured guard as we are now custom
 
   useEffect(() => {
     mobileSyncManager.initialize();
     PushNotificationManager.initialize();
 
     const initializeOfflineFirst = async () => {
-      // Add a global 10-second fail-safe to ensure the app ALWAYS loads
-      const failSafeTimeout = setTimeout(() => {
-        if (isInitializing) {
-          console.warn('⚠️ Initialization taking too long. Triggering fail-safe display...');
-          setIsInitializing(false);
-        }
-      }, 7000); // Reduced from 10s to 7s for a snappier feel
-
-      const isAuditMode = (window as any).__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true';
-      if (isAuditMode) {
-        window.__AUDIT_MODE__ = true; // Persist to window so components can check it
-        console.log('🛡️ Audit Mode Detected: Skipping initialization delays...');
-        clearTimeout(failSafeTimeout);
-        setIsInitializing(false);
-        return;
-      }
       try {
-        console.log('🚀 Initializing offline-first features...');
-        
-        // Parallelize non-dependent initialization with timeouts to prevent hanging
-        const withTimeout = (promise: Promise<any>, ms: number, label: string) => {
-          return Promise.race([
-            promise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms))
-          ]);
-        };
-
-        setInitMessage('Setting up environment...');
-        // Pre-warm the most critical task only
-        await withTimeout(runMigrations(), 5000, 'Migrations')
-          .then(() => setInitProgress(40))
-          .catch(err => console.warn(`⚠️ Offline migrations taking time. Continuing...`));
-        
-        // Defer background sync registration to after initial mount
-        requestBackgroundSync().catch(() => {});
-        
-        setInitMessage('Starting cache cleanup...');
-        setInitProgress(60);
+        await runMigrations();
         cacheCleanupScheduler.start();
-        
-        // Don't block the main UI for initial hydration if we already have a session
-        // or if it's the very first time. Let it run in background or after login.
-        if (!isInitialHydrationComplete()) {
-           console.log('🌊 Initial hydration will run in background');
-           initialDataHydration().catch(err => console.error('Background hydration failed:', err));
-        }
-
-        setInitMessage('Ready!');
-        setInitProgress(100);
-        
-        // Reduced timeout for snappier feel
-        setTimeout(() => {
-          clearTimeout(failSafeTimeout);
-          setIsInitializing(false);
-        }, 200);
+        setIsInitializing(false);
       } catch (error) {
         console.error('❌ Initialization failed:', error);
-        clearTimeout(failSafeTimeout);
         setIsInitializing(false);
       }
     };
 
     initializeOfflineFirst();
-
-    const handleBackgroundSync = () => {
-      console.log('🔄 Background sync triggered by Service Worker');
-      syncEngine.triggerSync();
-    };
-
-    window.addEventListener('sw-background-sync', handleBackgroundSync);
-    return () => {
-      window.removeEventListener('sw-background-sync', handleBackgroundSync);
-    };
   }, []);
 
   return (
     <>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 6000,
-        }}
-      />
+      <Toaster position="top-right" />
       <OfflineIndicator />
       {isInitializing ? (
         <PremiumLoader message={initMessage} fullScreen={true} />

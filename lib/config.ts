@@ -33,7 +33,10 @@ const getBaseUrl = (type: 'api' | 'socket') => {
 export const API_BASE_URL = getBaseUrl('api');
 export const SOCKET_URL = getBaseUrl('socket');
 
+export const APP_VERSION = '0.5.31';
+
 export default {
     API_BASE_URL,
-    SOCKET_URL
+    SOCKET_URL,
+    APP_VERSION
 };

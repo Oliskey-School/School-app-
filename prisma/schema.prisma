@@ -127,6 +127,8 @@ model Branch {
   location           String?
   address            String?
   phone              String?
+  is_demo_virtual    Boolean            @default(false)
+  last_active_at     DateTime?          @default(now())
   created_at         DateTime           @default(now())
   updated_at         DateTime           @updatedAt
   school             School             @relation(fields: [school_id], references: [id], onDelete: Cascade)
