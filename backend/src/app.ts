@@ -60,7 +60,14 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Lead DevSecOps: Apply Anti-CSRF protection globally, except for refresh endpoint
 // to handle cross-site cookie blocking on mobile browsers.
 app.use((req, res, next) => {
-    if (req.path === '/api/auth/refresh' || req.path === '/api/auth/logout') {
+    const path = req.originalUrl || req.path;
+    const isAuthAction = path.includes('/api/auth/refresh') || 
+                        path.includes('/api/auth/logout') || 
+                        path.includes('/api/auth/csrf-token') ||
+                        path.includes('/api/auth/login');
+
+    if (isAuthAction) {
+        console.log(`[CSRF] 🛡️ Skipping CSRF check for path: ${path} (Method: ${req.method})`);
         return next();
     }
     doubleSubmitCookieMiddleware(req, res, next);

@@ -312,8 +312,7 @@ export class StudentService {
                 const admins = await tx.user.findMany({
                     where: {
                         school_id: schoolId,
-                        role: 'ADMIN' as any,
-                        is_active: true
+                        role: 'ADMIN' as any
                     },
                     select: { id: true }
                 });
@@ -966,10 +965,7 @@ export class StudentService {
                     where: {
                         due_date: { gte: today },
                         is_published: true,
-                        OR: [
-                            { class_id: { in: classIds } },
-                            { class_name: { in: classNames } }
-                        ],
+                        class_id: { in: classIds },
                         submissions: {
                             none: { student_id: studentId }
                         }
@@ -981,10 +977,7 @@ export class StudentService {
                 prisma.quiz.findMany({
                     where: {
                         is_published: true,
-                        OR: [
-                            { class_id: { in: classIds } },
-                            { class_name: { in: classNames } }
-                        ],
+                        class_id: { in: classIds },
                         submissions: {
                             none: { student_id: studentId }
                         }

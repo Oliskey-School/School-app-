@@ -26,56 +26,61 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
     });
 
     const close = () => {
-        if (forced) return; // Cannot close if forced
         setNeedRefresh(false);
+        // If it was a forced update from parent, we need to notify parent or use local state
+        // For now, we'll use sessionStorage to hide it for this session if it's a version mismatch
+        if (forced && targetVersion) {
+            sessionStorage.setItem(`update_dismissed_${targetVersion}`, 'true');
+            // Force a re-render by reloading or using a state from parent if we had one
+            // But since this is a shared component, we'll just hide it locally
+        }
+        window.dispatchEvent(new CustomEvent('update_prompt_closed'));
     };
 
-    // Show if PWA needs refresh OR if forced from parent
-    const show = needRefresh || forced;
+    // Check if this specific version update was already dismissed in this session
+    const isDismissed = targetVersion && sessionStorage.getItem(`update_dismissed_${targetVersion}`) === 'true';
+
+    // Show if PWA needs refresh OR if forced from parent AND not dismissed
+    const show = (needRefresh || forced) && !isDismissed;
     if (!show) return null;
 
-    const displayVersion = targetVersion || APP_VERSION;
-    const isMismatch = targetVersion && targetVersion !== APP_VERSION;
+    const displayVersion = targetVersion || (needRefresh ? 'Update Found' : APP_VERSION);
 
     return (
         <div
-            className={`fixed z-[9999] ${forced ? 'inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm' : 'bottom-4 right-4 animate-slide-up'}`}
+            className="fixed z-[9999] bottom-4 right-4 animate-slide-up"
             style={{
-                left: forced ? '0' : 'auto',
-                maxWidth: forced ? '100%' : '360px',
-                width: forced ? '100%' : 'calc(100% - 2rem)',
+                maxWidth: '400px',
+                width: 'calc(100% - 2rem)',
             }}
         >
             <div
                 style={{
                     background: '#ffffff',
-                    borderRadius: forced ? '24px' : '14px',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+                    borderRadius: '16px',
+                    boxShadow: '0 20px 50px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)',
                     border: '1px solid #e5e7eb',
                     overflow: 'hidden',
                     fontFamily: 'Inter, system-ui, sans-serif',
-                    width: forced ? '90%' : '100%',
-                    maxWidth: forced ? '400px' : '360px',
                 }}
             >
                 {/* Header */}
-                <div style={{ padding: forced ? '32px 24px' : '16px 16px 12px 16px' }}>
-                    <div style={{ display: 'flex', flexDirection: forced ? 'column' : 'row', alignItems: forced ? 'center' : 'flex-start', gap: '16px', textAlign: forced ? 'center' : 'left' }}>
+                <div style={{ padding: '20px 20px 16px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
                         {/* Update Icon */}
                         <div
                             style={{
                                 flexShrink: 0,
-                                width: forced ? '64px' : '44px',
-                                height: forced ? '64px' : '44px',
+                                width: '40px',
+                                height: '40px',
                                 background: forced ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                borderRadius: forced ? '16px' : '10px',
+                                borderRadius: '10px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                marginBottom: forced ? '12px' : '0',
                             }}
                         >
-                            <svg width={forced ? "32" : "22"} height={forced ? "32" : "22"} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M21.5 2v6h-6M2.5 22v-6h6M2 12c0-4.4 3.6-8 8-8 1.4 0 2.8.4 4 1.1L21.5 8M22 12c0 4.4-3.6 8-8 8-1.4 0-2.8-.4-4-1.1L2.5 16" />
                             </svg>
                         </div>
@@ -85,51 +90,54 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                             <h3
                                 style={{
                                     margin: 0,
-                                    fontSize: forced ? '20px' : '15px',
-                                    fontWeight: 800,
+                                    fontSize: '15px',
+                                    fontWeight: 700,
                                     color: '#111827',
-                                    lineHeight: 1.3,
+                                    lineHeight: 1.2,
                                 }}
                             >
-                                {forced ? 'Mandatory Update' : 'Update Available'}
+                                {forced ? 'System Update Required' : 'New Update Available'}
                             </h3>
                             <p
                                 style={{
-                                    margin: '8px 0 0',
-                                    fontSize: forced ? '15px' : '13px',
+                                    margin: '6px 0 0',
+                                    fontSize: '13px',
                                     color: '#6b7280',
-                                    lineHeight: 1.6,
+                                    lineHeight: 1.5,
                                 }}
                             >
                                 {forced 
-                                    ? `Your school has moved to version ${displayVersion}. You must refresh to continue using the application.`
-                                    : `A new production version (${displayVersion}) is ready. Update now to get the latest features.`
+                                    ? `Version ${targetVersion} is now available. Please update to stay in sync.`
+                                    : "A new version with latest improvements is ready."
                                 }
                             </p>
                         </div>
 
-                        {/* Close button (only if not forced) */}
-                        {!forced && (
-                            <button
-                                onClick={close}
-                                style={{
-                                    flexShrink: 0,
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    padding: '2px',
-                                    color: '#9ca3af',
-                                }}
-                            >
-                                <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                            </button>
-                        )}
+                        {/* Close button */}
+                        <button
+                            onClick={close}
+                            style={{
+                                flexShrink: 0,
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                color: '#9ca3af',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                            className="hover:bg-gray-100 transition-colors"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                        </button>
                     </div>
 
                     {/* Action buttons */}
-                    <div style={{ display: 'flex', flexDirection: forced ? 'column' : 'row', alignItems: 'center', gap: '12px', marginTop: forced ? '24px' : '14px' }}>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
                         <button
                             onClick={() => {
                                 if (needRefresh) {
@@ -139,60 +147,55 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                                 }
                             }}
                             style={{
-                                width: '100%',
                                 flex: 1,
-                                background: forced ? '#ef4444' : 'linear-gradient(135deg, #10b981, #059669)',
+                                background: forced ? '#ef4444' : '#111827',
                                 color: '#fff',
                                 border: 'none',
-                                borderRadius: '12px',
-                                padding: forced ? '14px 24px' : '10px 16px',
-                                fontSize: forced ? '16px' : '14px',
-                                fontWeight: 700,
+                                borderRadius: '10px',
+                                padding: '10px 16px',
+                                fontSize: '13px',
+                                fontWeight: 600,
                                 cursor: 'pointer',
-                                transition: 'transform 0.1s',
                             }}
-                            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
-                            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                            className="hover:opacity-90 active:scale-[0.98] transition-all"
                         >
                             Update Now
                         </button>
                         
-                        {!forced && (
-                            <button
-                                onClick={close}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#6b7280',
-                                    fontSize: '14px',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    padding: '10px 8px',
-                                }}
-                            >
-                                Not Now
-                            </button>
-                        )}
+                        <button
+                            onClick={close}
+                            style={{
+                                flex: 1,
+                                background: '#f3f4f6',
+                                color: '#374151',
+                                border: 'none',
+                                borderRadius: '10px',
+                                padding: '10px 16px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                            }}
+                            className="hover:bg-gray-200 active:scale-[0.98] transition-all"
+                        >
+                            Not Now
+                        </button>
                     </div>
                 </div>
 
-                {/* Footer badge */}
+                {/* Footer status */}
                 <div
                     style={{
                         background: '#f9fafb',
                         borderTop: '1px solid #f3f4f6',
-                        padding: '10px 16px',
+                        padding: '8px 16px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: forced ? 'center' : 'flex-start',
                         gap: '6px',
                     }}
                 >
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="#6b7280">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: forced ? '#ef4444' : '#10b981' }}></div>
                     <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>
-                        {forced ? 'System wide security & feature synchronization' : 'Refreshing your app with new secure updates'}
+                        {forced ? `Mandatory platform sync (v${targetVersion})` : 'App cache ready for reload'}
                     </span>
                 </div>
             </div>

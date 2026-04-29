@@ -64,8 +64,30 @@ Requests flow from the user's browser through Vercel's edge, where the catch-all
 
 ## 🛠️ Deployment Workflow
 
-### 1. Schema Updates
-Always run `npx prisma db push` targeting the production database (Supabase) before pushing code changes that alter the data model.
+### 1. Database Synchronization (Schema & Client)
+Before pushing any code changes that involve database modifications, ensure the schema and clients are in sync:
+
+#### **A. Push Schema to Database**
+Sync your local or production database with the current Prisma schema:
+- **Local**: `npm run db:push`
+- **Production (Supabase)**: Ensure `DATABASE_URL` is set to Supabase, then run:
+  ```bash
+  npx prisma db push --schema=prisma/schema.prisma
+  npx prisma db push --schema=backend/prisma/schema.prisma
+  ```
+
+#### **B. Regenerate Prisma Clients**
+Always regenerate both the root and backend clients after a schema change to avoid type mismatches:
+```bash
+npx prisma generate
+npx prisma generate --schema=backend/prisma/schema.prisma
+```
+
+#### **C. Sync Platform Version**
+If updating the system version, run the synchronization script to update the demo school record:
+```bash
+npx tsx scripts/update_demo_version.ts
+```
 
 ### 2. Vercel Build
 The `vercel-build` script in `package.json` ensures the Prisma Client is generated synchronously during the Vercel deployment pipeline.

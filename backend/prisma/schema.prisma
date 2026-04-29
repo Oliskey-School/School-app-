@@ -127,6 +127,8 @@ model Branch {
   location           String?
   address            String?
   phone              String?
+  is_demo_virtual    Boolean            @default(false)
+  last_active_at     DateTime?          @default(now())
   created_at         DateTime           @default(now())
   updated_at         DateTime           @updatedAt
   school             School             @relation(fields: [school_id], references: [id], onDelete: Cascade)
@@ -164,7 +166,7 @@ model User {
   allowed_branch_ids     String[]               @default([])
   email_verified         Boolean                @default(false)
   is_active              Boolean                @default(true)
-  school_generated_id    String?
+  school_generated_id    String?                @unique
   avatar_url             String?
   two_factor_enabled     Boolean                @default(false)
   two_factor_secret      String?

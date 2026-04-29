@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.5.32",
+  "version": "0.5.33",
   "scripts": {
     "dev": "vite",
     "predev": "npm run kill-ports && npm run clean",

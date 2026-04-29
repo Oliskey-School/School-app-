@@ -31,6 +31,7 @@ import CBTManagementScreen from './CBTManagementScreen';
 import { api } from '../../lib/api';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { Copy } from 'lucide-react';
+import VersionStatusCard from '../shared/VersionStatusCard';
 
 interface TeacherSettingsScreenProps {
     onLogout: () => void;
@@ -187,6 +188,8 @@ const TeacherSettingsScreen: React.FC<TeacherSettingsScreenProps> = ({
                             </div>
                         </div>
                     </div>
+
+                    <VersionStatusCard />
 
                     <div className="bg-white rounded-xl shadow-sm p-2">
                         {settingsItems.map((item) => (

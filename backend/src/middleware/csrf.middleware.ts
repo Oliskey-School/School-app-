@@ -47,7 +47,12 @@ export const csrfErrorHandler = (err: any, req: Request, res: Response, next: Ne
     if (err === invalidCsrfTokenError) {
         console.warn(`🚨 [CSRF-ATTACK] Blocked unauthorized mutation attempt from IP: ${req.ip}`);
         console.warn(`   Path: ${req.path} | Method: ${req.method}`);
-        console.warn(`   Headers: X-CSRF-Token: ${req.headers['x-csrf-token'] ? 'Present' : 'Missing'}`);
+        console.warn(`   Headers: ${JSON.stringify({
+            'x-csrf-token': req.headers['x-csrf-token'] ? 'PRESENT' : 'MISSING',
+            'cookie': req.headers['cookie'] ? 'PRESENT' : 'MISSING',
+            'origin': req.headers['origin'],
+            'user-agent': req.headers['user-agent']?.substring(0, 50)
+        })}`);
         console.warn(`   Cookies: ${Object.keys(req.cookies || {}).join(', ') || 'None'}`);
         console.warn(`   Signed Cookies: ${Object.keys(req.signedCookies || {}).join(', ') || 'None'}`);
         

@@ -7,6 +7,7 @@ import { ExamIcon, LogoutIcon, SchoolIcon } from '../../constants'; // Keep cust
 import { RefreshCw as RefreshIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import VersionStatusCard from '../shared/VersionStatusCard';
 
 interface StudentProfileScreenProps {
     studentId: number;
@@ -157,6 +158,10 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-24 pb-12 relative z-10">
+                <div className="mb-8">
+                    <VersionStatusCard />
+                </div>
+
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <StatCard

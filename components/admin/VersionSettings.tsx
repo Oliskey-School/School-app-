@@ -10,6 +10,8 @@ interface AppVersion {
     created_at: string;
 }
 
+import VersionStatusCard from '../shared/VersionStatusCard';
+
 export default function VersionSettings() {
     const { currentSchool } = useAuth();
     const [versions, setVersions] = useState<AppVersion[]>([]);
@@ -63,10 +65,13 @@ export default function VersionSettings() {
     }
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                <div>
-                    <h2 className="text-lg font-bold text-gray-900">Platform Version Management</h2>
+        <div className="space-y-6">
+            <VersionStatusCard />
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-900">Platform Version Management</h2>
                     <p className="text-sm text-gray-500 mt-1">
                         Select a stable version for your school. You will receive updates only for the selected branch.
                     </p>
@@ -135,6 +140,7 @@ export default function VersionSettings() {
                     <p className="font-bold">Important Notice:</p>
                     Switching versions will reload the application for all users associated with this school. Only the features and configurations included in the selected version will remain functional.
                 </div>
+            </div>
             </div>
         </div>
     );

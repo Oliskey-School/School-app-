@@ -77,19 +77,13 @@ export class DemoResetService {
                 await tx.class.deleteMany({ where });
 
                 // Lead DevSecOps: Cleanup stale virtual branches (IP-based sessions)
-                // Any virtual branch not active in the last 24 hours is deleted.
-                // Cascade delete handles all data linked to these branches.
                 const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                await (tx.branch as any).deleteMany({
-                    where: {
-                        school_id: demoSchoolId,
-                        is_demo_virtual: true,
-                        OR: [
-                            { last_active_at: { lt: oneDayAgo } },
-                            { last_active_at: null }
-                        ]
-                    }
-                });
+                await tx.$executeRaw`
+                    DELETE FROM "Branch" 
+                    WHERE school_id = ${demoSchoolId} 
+                    AND is_demo_virtual = true 
+                    AND (last_active_at < ${oneDayAgo} OR last_active_at IS NULL)
+                `;
             });
 
             console.log('🧹 [DemoReset] Workspace wiped. Re-seeding demo state...');

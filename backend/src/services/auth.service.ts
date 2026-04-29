@@ -924,17 +924,12 @@ export class AuthService {
             console.log(`[AUTH] 🛡️ Mapping Demo Session to Virtual Branch: ${virtualBranchId}`);
 
             // Ensure the Virtual Branch exists in the database
-            await prisma.branch.upsert({
-                where: { id: virtualBranchId },
-                update: { last_active_at: new Date() }, // Track activity for cleanup
-                create: {
-                    id: virtualBranchId,
-                    name: virtualBranchName,
-                    code: ipHash.toUpperCase(),
-                    school_id: this.DEMO_SCHOOL_ID,
-                    is_demo_virtual: true, // Marker for cleanup
-                }
-            } as any);
+            // Use Raw SQL to bypass any stale Prisma client issues
+            await prisma.$executeRaw`
+                INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
+                VALUES (${virtualBranchId}, ${virtualBranchName}, ${ipHash.toUpperCase()}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
+                ON CONFLICT (id) DO UPDATE SET last_active_at = NOW(), updated_at = NOW()
+            `;
 
             // Override the user's branch for this session
             const sessionUser = {

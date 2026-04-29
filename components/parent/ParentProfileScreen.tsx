@@ -35,6 +35,7 @@ import { useProfile } from '../../context/ProfileContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { Copy, UserPlus } from 'lucide-react';
 import LinkChildScreen from './LinkChildScreen';
+import VersionStatusCard from '../shared/VersionStatusCard';
 
 interface ParentProfileScreenProps {
   onLogout: () => void;
@@ -156,6 +157,8 @@ const ParentProfileScreen: React.FC<ParentProfileScreenProps> = ({ onLogout, nav
               </div>
             </div>
           </div>
+
+          <VersionStatusCard />
 
           <div className="bg-white rounded-xl shadow-sm p-2">
             {menuItems.map((item, index) => (
