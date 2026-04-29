@@ -932,7 +932,6 @@ export class AuthService {
                     name: virtualBranchName,
                     code: ipHash.toUpperCase(),
                     school_id: this.DEMO_SCHOOL_ID,
-                    is_active: true,
                     is_demo_virtual: true, // Marker for cleanup
                 }
             } as any);
