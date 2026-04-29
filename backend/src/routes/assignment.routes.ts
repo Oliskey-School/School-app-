@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAssignments, createAssignment, getSubmissions, getAssignmentSubmission, gradeSubmission, submitAssignment, deleteAssignment } from '../controllers/assignment.controller';
+import { getAssignments, createAssignment, getSubmissions, getAssignmentSubmission, gradeSubmission, submitAssignment, deleteAssignment, getAssignment } from '../controllers/assignment.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 
@@ -10,6 +10,7 @@ router.use(requireTenant);
 
 router.get('/', getAssignments);
 router.post('/', createAssignment);
+router.get('/:id', getAssignment);
 router.post('/:id/submissions', submitAssignment);
 router.post('/:id/submit', submitAssignment);
 router.get('/:id/submissions', getSubmissions);

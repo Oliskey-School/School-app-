@@ -1,6 +1,8 @@
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
+import path from 'path';
+import fs from 'fs';
 
 /**
  * Service responsible for ensuring Demo Accounts exist in the PostgreSQL Database.
@@ -17,6 +19,19 @@ export class DemoSeederService {
             const demoSchoolId = AuthService.DEMO_SCHOOL_ID;
             const demoBranchId = AuthService.DEMO_BRANCH_ID;
 
+            // 0. Dynamic Versioning - Read from package.json
+            let currentVersion = '0.5.33'; // Fallback
+            try {
+                const pkgPath = path.join(process.cwd(), 'package.json');
+                if (fs.existsSync(pkgPath)) {
+                    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                    currentVersion = pkg.version;
+                    console.log(`📌 [Version] Detected Code Version: v${currentVersion}`);
+                }
+            } catch (err) {
+                console.warn('⚠️ [Version] Could not read package.json version, using fallback.');
+            }
+
             // 1. Ensure Demo School Exists
             await prisma.school.upsert({
                 where: { id: demoSchoolId },
@@ -26,7 +41,7 @@ export class DemoSeederService {
                     subscription_status: 'active',
                     plan_type: 'premium',
                     is_onboarded: true,
-                    platform_version: '0.5.31'
+                    platform_version: currentVersion
                 },
                 create: {
                     id: demoSchoolId,
@@ -37,7 +52,7 @@ export class DemoSeederService {
                     subscription_status: 'active',
                     plan_type: 'premium',
                     is_onboarded: true,
-                    platform_version: '0.5.31'
+                    platform_version: currentVersion
                 }
             });
 
@@ -349,7 +364,9 @@ export class DemoSeederService {
                     { version: '0.5.28', description: 'Performance optimizations and mobile UI stabilization.' },
                     { version: '0.5.29', description: 'Google Auth integration and CSRF hardening.' },
                     { version: '0.5.30', description: 'E2E Version Management and Production Synchronization.' },
-                    { version: '0.5.31', description: 'IP-Based Demo Isolation and Session Stability.' }
+                    { version: '0.5.31', description: 'IP-Based Demo Isolation and Session Stability.' },
+                    { version: '0.5.32', description: 'Timetable UI Unification and Role-Based Theming.' },
+                    { version: '0.5.33', description: 'Production Schema Synchronization and Stability Fix.' }
                 ];
 
                 for (const v of versions) {
@@ -359,7 +376,19 @@ export class DemoSeederService {
                         create: { version: v.version, description: v.description, is_active: true }
                     });
                 }
-                console.log('✅ App Versions seeded for Platform Management.');
+
+                // Ensure the CURRENT version record exists
+                await prisma.appVersion.upsert({
+                    where: { version: currentVersion },
+                    update: { is_active: true },
+                    create: { 
+                        version: currentVersion, 
+                        description: `Automatic sync for ${currentVersion}`,
+                        is_active: true 
+                    }
+                });
+
+                console.log(`✅ App Version v${currentVersion} synced for Platform Management.`);
             } catch (vError: any) {
                 console.warn('⚠️ [Seeder] Could not seed AppVersions (Table might be missing):', vError.message);
             }

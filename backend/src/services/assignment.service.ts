@@ -166,6 +166,31 @@ export class AssignmentService {
         });
     }
 
+    static async getAssignment(schoolId: string, id: string) {
+        const assignment = await prisma.assignment.findUnique({
+            where: { id },
+            include: {
+                class: true,
+                submissions: {
+                    include: {
+                        student: true
+                    }
+                }
+            }
+        });
+
+        if (!assignment || (assignment as any).class.school_id !== schoolId) {
+            throw new Error('Assignment not found');
+        }
+
+        return {
+            ...assignment,
+            classId: assignment.class_id,
+            class_name: assignment.class?.name,
+            className: assignment.class?.name
+        };
+    }
+
     static async deleteAssignment(schoolId: string, id: string) {
         return await prisma.assignment.delete({
             where: { id }

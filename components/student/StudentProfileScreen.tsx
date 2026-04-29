@@ -259,7 +259,7 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                                 <QuickLinkButton
                                     label="View Timetable"
                                     icon={<Calendar className="w-5 h-5 text-gray-600" />}
-                                    onClick={() => navigateTo('timetable', 'Timetable')}
+                                    onClick={() => navigateTo('timetable', 'Timetable Dashboard')}
                                 />
                                 <QuickLinkButton
                                     label="My Results"

@@ -295,7 +295,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                 ))}
                 {todaySchedule.length > 3 && (
                   <button 
-                    onClick={() => navigateTo('timetable', 'Timetable', {})} 
+                    onClick={() => navigateTo('timetable', 'Timetable Dashboard', {})} 
                     className="text-sm font-semibold text-purple-600 w-full text-center mt-2 flex items-center justify-center gap-1 group"
                   >
                     See {todaySchedule.length - 3} more classes

@@ -192,7 +192,7 @@ const TodayFocus: React.FC<{
                         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Today's Schedule</h4>
                         {schedule.length > 3 && (
                             <button 
-                                onClick={() => navigateTo('timetable', 'Timetable')}
+                                onClick={() => navigateTo('timetable', 'Timetable Dashboard')}
                                 className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800"
                             >
                                 See More
@@ -265,7 +265,7 @@ const Overview: React.FC<{
 
     const quickAccessItems = [
         { label: 'Subjects', icon: <BookOpenIcon />, action: () => navigateTo('subjects', 'My Subjects') },
-        { label: 'Timetable', icon: <CalendarIcon />, action: () => navigateTo('timetable', 'Timetable') },
+        { label: 'Timetable', icon: <CalendarIcon />, action: () => navigateTo('timetable', 'Timetable Dashboard') },
         { label: 'Results', icon: <ChartBarIcon />, action: () => navigateTo('results', 'Academic Performance', { studentId: student.id }) },
         { label: 'Games', icon: <GameControllerIcon />, action: () => navigateTo('gamesHub', 'Games Hub') },
     ];

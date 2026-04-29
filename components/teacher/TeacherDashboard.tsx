@@ -245,6 +245,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       setActiveBottomNav(screen);
       switch (screen) {
         case 'home': setViewStack([{ view: 'overview', title: 'Teacher Dashboard', props: {} }]); break;
+        case 'timetable': setViewStack([{ view: 'timetable', title: 'Timetable Dashboard', props: {} }]); break;
         case 'lessonNotes': setViewStack([{ view: 'lessonNotesUpload', title: 'Lesson Notes', props: {} }]); break;
         case 'reports': setViewStack([{ view: 'reports', title: 'Student Reports', props: {} }]); break;
         case 'forum': setViewStack([{ view: 'collaborationForum', title: 'Collaboration Forum', props: {} }]); break;

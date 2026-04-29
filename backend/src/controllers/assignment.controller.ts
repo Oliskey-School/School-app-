@@ -79,6 +79,15 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getAssignment = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await AssignmentService.getAssignment(req.user.school_id, req.params.id as string);
+        res.json(result);
+    } catch (error: any) {
+        res.status(error.message === 'Assignment not found' ? 404 : 500).json({ message: error.message });
+    }
+};
+
 export const getSubmissions = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));

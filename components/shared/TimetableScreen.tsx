@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
-import { SUBJECT_COLORS, CalendarIcon, ChevronLeftIcon, RefreshIcon } from '../../constants';
+import { SUBJECT_COLORS, CalendarIcon, ChevronLeftIcon, RefreshIcon, THEME_CONFIG } from '../../constants';
 import { getGradeDisplayName } from '../../lib/schoolSystem';
-import { TimetableEntry } from '../../types';
+import { TimetableEntry, DashboardType } from '../../types';
 import { offlineStorage } from '../../lib/offlineStorage';
 import { api } from '../../lib/api';
 
@@ -231,10 +231,20 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
         fetchData();
     }, [fetchData]);
 
+    const theme = useMemo(() => {
+        const roleMap: Record<string, DashboardType> = {
+            teacher: DashboardType.Teacher,
+            student: DashboardType.Student,
+            parent: DashboardType.Parent
+        };
+        const role = roleMap[context?.userType] || DashboardType.Student;
+        return THEME_CONFIG[role];
+    }, [context?.userType]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full bg-white/50">
-                <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-indigo-600"></div>
+                <div className={`animate-spin rounded-full h-10 w-10 border-4 border-gray-200 ${theme.accentColor.replace('text-', 'border-t-')}`}></div>
             </div>
         );
     }
@@ -263,8 +273,8 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             {/* Header */}
             <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-30 shadow-sm flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <div className="bg-indigo-100 p-2 rounded-lg">
-                        <CalendarIcon className="w-6 h-6 text-indigo-600" />
+                    <div className={`${theme.bgColor.replace('bg-', 'bg-').replace('600', '100')} p-2 rounded-lg`}>
+                        <CalendarIcon className={`w-6 h-6 ${theme.iconColor}`} />
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">{className || 'My Timetable'}</h2>
@@ -288,7 +298,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                             <button
                                 key={s.id}
                                 onClick={() => setSelectedStudent(s)}
-                                className={`flex items-center space-x-2 px-4 py-2 rounded-xl border-2 transition-all flex-shrink-0 ${selectedStudent?.id === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-gray-700 border-gray-100 hover:border-indigo-300'
+                                className={`flex items-center space-x-2 px-4 py-2 rounded-xl border-2 transition-all flex-shrink-0 ${selectedStudent?.id === s.id ? `${theme.mainBg} text-white border-transparent shadow-sm` : 'bg-white text-gray-700 border-gray-100 hover:border-indigo-300'
                                     }`}
                             >
                                 <img src={s.avatarUrl || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" alt={s.name} />
@@ -306,7 +316,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                                 <button
                                     key={day}
                                     onClick={() => setSelectedDay(day)}
-                                    className={`flex-shrink-0 snap-start px-5 py-2.5 rounded-full font-bold text-sm transition-all border ${selectedDay === day ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500'}`}
+                                    className={`flex-shrink-0 snap-start px-5 py-2.5 rounded-full font-bold text-sm transition-all border ${selectedDay === day ? `${theme.mainBg} border-transparent text-white shadow-md` : 'bg-white border-gray-200 text-gray-500'}`}
                                 >
                                     {day.slice(0, 3)}
                                 </button>
