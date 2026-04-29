@@ -9,6 +9,7 @@ import { SocketService } from './socket.service';
 import { VerificationService } from './verification.service';
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
+import { DemoSeederService } from './demoSeeder.service';
 
 export enum Role {
     SUPER_ADMIN = 'SUPER_ADMIN',
@@ -924,16 +925,30 @@ export class AuthService {
             console.log(`[AUTH] 🛡️ Mapping Demo Session to Virtual Branch: ${virtualBranchId}`);
 
             // Ensure the Virtual Branch exists in the database
-            // Use Raw SQL to bypass any stale Prisma client issues
             await prisma.$executeRaw`
                 INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
                 VALUES (${virtualBranchId}, ${virtualBranchName}, ${ipHash.toUpperCase()}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
                 ON CONFLICT (id) DO UPDATE SET last_active_at = NOW(), updated_at = NOW()
             `;
 
+            // SEED THE SANDBOX for this IP if it's a new or existing session
+            // This ensures the 4 users (Admin, Teacher, Student, Parent) are present and linked
+            await DemoSeederService.seedBranchData(this.DEMO_SCHOOL_ID, virtualBranchId, ipHash);
+
+            // Get the SCOPED user for this role within this sandbox
+            const scopedEmail = `${roleKey}-${ipHash}@demo.com`;
+            const scopedUser = await prisma.user.findUnique({
+                where: { email: scopedEmail },
+                include: { school: true, branch: true }
+            });
+
+            if (!scopedUser) {
+                throw new Error(`Failed to initialize scoped demo user for ${role} in sandbox ${virtualBranchId}`);
+            }
+
             // Override the user's branch for this session
             const sessionUser = {
-                ...demoUser,
+                ...scopedUser,
                 branch_id: virtualBranchId,
                 allowed_branch_ids: [virtualBranchId],
                 is_demo: true,
