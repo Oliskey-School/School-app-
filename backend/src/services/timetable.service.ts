@@ -60,12 +60,19 @@ export class TimetableService {
         return result;
     }
 
-    static async deleteTimetableByClass(schoolId: string, classId: string) {
-        const result = await (prisma as any).timetable.deleteMany({
-            where: { class_id: classId, school_id: schoolId }
+    static async deleteTimetableByClass(schoolId: string, identifier: string) {
+        // Try deleting by class_id first, then by class_name for shell classes
+        const result = await prisma.timetable.deleteMany({
+            where: { 
+                school_id: schoolId,
+                OR: [
+                    { class_id: identifier },
+                    { class_name: identifier }
+                ]
+            }
         });
 
-        SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'delete_by_class', classId });
+        SocketService.emitToSchool(schoolId, 'timetable:updated', { action: 'delete_by_class', identifier });
         return result;
     }
 

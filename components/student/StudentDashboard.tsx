@@ -161,10 +161,20 @@ const TodayFocus: React.FC<{
             {nextTask ? (
                 <div className="space-y-2">
                     <NextUpTask {...nextTask} />
-                    {nextTask.totalCount > 1 && (
-                        <p className="text-[10px] text-gray-500 text-center font-medium bg-gray-100/50 py-1 rounded-full">
+                    {(nextTask.totalCount > 1) ? (
+                        <button 
+                            onClick={() => navigateTo('assignments', 'My Assignments')}
+                            className="w-full text-[10px] text-gray-500 text-center font-medium bg-gray-100/50 py-2 rounded-full hover:bg-gray-200/50 transition-colors"
+                        >
                             + {nextTask.totalCount - 1} more assessment{(nextTask.totalCount - 1) > 1 ? 's' : ''} waiting for you
-                        </p>
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={() => navigateTo('assignments', 'My Assignments')}
+                            className="w-full text-[10px] text-gray-400 text-center font-medium hover:text-gray-600 transition-colors"
+                        >
+                            View All Tasks
+                        </button>
                     )}
                 </div>
             ) : (
@@ -178,18 +188,31 @@ const TodayFocus: React.FC<{
             {/* Compact Schedule Preview */}
             {schedule.length > 0 && (
                 <div className="bg-white p-4 rounded-2xl shadow-sm">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Today's Schedule</h4>
+                    <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Today's Schedule</h4>
+                        {schedule.length > 3 && (
+                            <button 
+                                onClick={() => navigateTo('timetable', 'Timetable')}
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800"
+                            >
+                                See More
+                            </button>
+                        )}
+                    </div>
                     <div className="space-y-3">
                         {schedule.slice(0, 3).map((entry, i) => (
                             <div key={i} className="flex items-center gap-3">
                                 <span className="text-xs font-bold text-gray-500 w-12">{entry.start_time || entry.startTime}</span>
                                 <div className={`w-1 h-8 rounded-full ${SUBJECT_COLORS[entry.subject] || 'bg-indigo-400'}`} />
-                                <div className="flex-1">
-                                    <p className="text-sm font-bold text-gray-800 leading-none">{entry.subject}</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">{entry.class_name}</p>
+                                <div className="flex-1 overflow-hidden">
+                                    <p className="text-sm font-bold text-gray-800 leading-none truncate">{entry.subject}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1 truncate">
+                                        {entry.class_name} • {entry.teacher_name || 'Assigned'}
+                                    </p>
                                 </div>
                             </div>
                         ))}
+                        {schedule.length === 0 && <p className="text-[10px] text-gray-400 text-center italic">No classes scheduled for today.</p>}
                     </div>
                 </div>
             )}

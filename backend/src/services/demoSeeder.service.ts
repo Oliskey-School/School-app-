@@ -235,8 +235,112 @@ export class DemoSeederService {
                     });
                 }
             }
+            // 8. Ensure Demo Timetable and Assignments exist for Student Dashboard
+            const studentUser = await prisma.user.findUnique({ where: { email: (AuthService as any).DEMO_USERS['student'].email } });
+            const teacherUser = await prisma.user.findUnique({ where: { email: 'john.smith@demo.com' } });
+            
+            if (teacherUser && studentUser) {
+                const teacherProfile = await prisma.teacher.findUnique({ where: { user_id: teacherUser.id } });
+                const studentProfile = await prisma.student.findUnique({ where: { user_id: studentUser.id } });
+
+                if (teacherProfile && studentProfile) {
+                    const todayDay = new Date().getDay() || 7; // 1-7
+                    
+                    // Link student to a class if not already
+                    await prisma.studentEnrollment.upsert({
+                        where: { student_id_class_id: { student_id: studentProfile.id, class_id: 'class-10-A' } },
+                        update: { status: 'Active' },
+                        create: {
+                            student_id: studentProfile.id,
+                            class_id: 'class-10-A',
+                            school_id: demoSchoolId,
+                            branch_id: demoBranchId,
+                            status: 'Active',
+                            is_primary: true
+                        }
+                    });
+
+                    // Seed Timetable entries (5 entries to test 3-item limit)
+                    const scheduleEntries = [
+                        { id: 'ts-demo-1', start: '08:00', end: '09:00', subject: 'Mathematics', class: 'Grade 10A', classId: 'class-10-A' },
+                        { id: 'ts-demo-2', start: '09:30', end: '10:30', subject: 'Science', class: 'Grade 10A', classId: 'class-10-A' },
+                        { id: 'ts-demo-3', start: '11:00', end: '12:00', subject: 'English', class: 'Grade 10A', classId: 'class-10-A' },
+                        { id: 'ts-demo-4', start: '13:00', end: '14:00', subject: 'Mathematics', class: 'Grade 11A', classId: 'class-11-A' },
+                        { id: 'ts-demo-5', start: '14:30', end: '15:30', subject: 'Science', class: 'Grade 12A', classId: 'class-12-A' },
+                    ];
+
+                    for (const entry of scheduleEntries) {
+                        await prisma.timetable.upsert({
+                            where: { id: entry.id },
+                            update: {
+                                day_of_week: todayDay,
+                                start_time: entry.start,
+                                end_time: entry.end,
+                                teacher_id: teacherProfile.id,
+                                class_id: entry.classId,
+                                class_name: entry.class,
+                                subject: entry.subject,
+                                branch_id: demoBranchId,
+                                school_id: demoSchoolId
+                            },
+                            create: {
+                                id: entry.id,
+                                school_id: demoSchoolId,
+                                branch_id: demoBranchId,
+                                class_id: entry.classId,
+                                class_name: entry.class,
+                                subject: entry.subject,
+                                teacher_id: teacherProfile.id,
+                                day_of_week: todayDay,
+                                start_time: entry.start,
+                                end_time: entry.end,
+                            }
+                        });
+                    }
+
+                    // Seed Assignments (6 entries to test "See More" count)
+                    const assignmentEntries = [
+                        { id: 'as-demo-1', title: 'Algebra Worksheet', subject: 'Mathematics' },
+                        { id: 'as-demo-2', title: 'Photosynthesis Essay', subject: 'Science' },
+                        { id: 'as-demo-3', title: 'Grammar Quiz Prep', subject: 'English' },
+                        { id: 'as-demo-4', title: 'History Project', subject: 'Social Studies' },
+                        { id: 'as-demo-5', title: 'Weekly Journal', subject: 'English' },
+                        { id: 'as-demo-6', title: 'World War II Research', subject: 'Social Studies' },
+                    ];
+
+                    const nextWeek = new Date();
+                    nextWeek.setDate(nextWeek.getDate() + 7);
+
+                    for (const entry of assignmentEntries) {
+                        await prisma.assignment.upsert({
+                            where: { id: entry.id },
+                            update: {
+                                title: entry.title,
+                                subject: entry.subject,
+                                due_date: nextWeek,
+                                class_id: 'class-10-A',
+                                teacher_id: teacherProfile.id,
+                                is_published: true
+                            },
+                            create: {
+                                id: entry.id,
+                                title: entry.title,
+                                subject: entry.subject,
+                                due_date: nextWeek,
+                                class_id: 'class-10-A',
+                                teacher_id: teacherProfile.id,
+                                is_published: true,
+                                description: 'Demo assignment description'
+                            }
+                        });
+                    }
+                    
+                    console.log(`✅ Demo Today's Schedule and Assignments seeded for ${studentUser.full_name}.`);
+                }
+            }
 
             console.log('✅ Demo DB Accounts and Assignments verified & synchronized.');
+
 
             // 8. Ensure App Versions exist for Management Dashboard
             try {

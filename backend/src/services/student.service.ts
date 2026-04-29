@@ -924,7 +924,9 @@ export class StudentService {
         console.log(`🔍 [StudentService] Fetching dashboard overview for student: ${studentId}, school: ${schoolId}`);
         try {
             const today = new Date();
-            const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
+            // Normalize dayOfWeek: 0 is Sunday, but our timetable uses 1-7 (Mon-Sun)
+            const rawDay = today.getDay();
+            const dayOfWeek = rawDay === 0 ? 7 : rawDay;
 
             // 1. Get ALL student's enrolled classes
             console.log('   [1/5] Querying active enrollments...');
@@ -939,37 +941,50 @@ export class StudentService {
             }
 
             const classIds = enrollments.map(e => e.class_id);
-            console.log(`   ✅ Found ${enrollments.length} active classes: ${classIds.join(', ')}`);
+            const classNames = enrollments.map(e => e.class.name);
+            console.log(`   ✅ Found ${enrollments.length} active classes: ${classNames.join(', ')}`);
 
             console.log('   [2/5] Running dashboard queries parallelly (timetable, assignments, quizzes, stats, notifications)...');
             const [timetable, assignments, quizzes, stats, notifications] = await Promise.all([
                 // Today's Timetable (from all sections student is in)
                 prisma.timetable.findMany({
                     where: { 
-                        class_id: { in: classIds },
+                        school_id: schoolId,
                         day_of_week: dayOfWeek,
-                        school_id: schoolId
+                        OR: [
+                            { class_id: { in: classIds } },
+                            { class_name: { in: classNames } }
+                        ]
+                    },
+                    include: { 
+                        teacher: { select: { full_name: true } }
                     },
                     orderBy: { start_time: 'asc' }
                 }),
                 // Pending Assignments
                 prisma.assignment.findMany({
                     where: {
-                        class_id: { in: classIds },
                         due_date: { gte: today },
                         is_published: true,
+                        OR: [
+                            { class_id: { in: classIds } },
+                            { class_name: { in: classNames } }
+                        ],
                         submissions: {
                             none: { student_id: studentId }
                         }
                     },
-                    take: 5,
+                    take: 20, // Increased to support "more assessment" count
                     orderBy: { due_date: 'asc' }
                 }),
                 // Upcoming Quizzes
                 prisma.quiz.findMany({
                     where: {
-                        class_id: { in: classIds },
                         is_published: true,
+                        OR: [
+                            { class_id: { in: classIds } },
+                            { class_name: { in: classNames } }
+                        ],
                         submissions: {
                             none: { student_id: studentId }
                         }

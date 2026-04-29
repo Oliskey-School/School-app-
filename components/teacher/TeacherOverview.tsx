@@ -281,7 +281,7 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
               </div>
             ) : todaySchedule.length > 0 ? (
               <div className="space-y-3">
-                {todaySchedule.map((entry, i) => (
+                {todaySchedule.slice(0, 3).map((entry, i) => (
                   <div key={i} className="flex items-center space-x-3 p-3 bg-white rounded-xl shadow-sm">
                     <div className="w-16 text-center">
                       <p className="font-bold text-sm text-gray-800">{formatTime12Hour(entry.start_time)}</p>
@@ -293,7 +293,18 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                     </div>
                   </div>
                 ))}
-                <button onClick={() => navigateTo('timetable', 'Timetable', {})} className="text-sm font-semibold text-purple-600 w-full text-center mt-2">View Full Timetable</button>
+                {todaySchedule.length > 3 && (
+                  <button 
+                    onClick={() => navigateTo('timetable', 'Timetable', {})} 
+                    className="text-sm font-semibold text-purple-600 w-full text-center mt-2 flex items-center justify-center gap-1 group"
+                  >
+                    See {todaySchedule.length - 3} more classes
+                    <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                )}
+                {todaySchedule.length <= 3 && (
+                   <button onClick={() => navigateTo('timetable', 'Timetable', {})} className="text-sm font-semibold text-purple-600 w-full text-center mt-2">View Full Timetable</button>
+                )}
               </div>
             ) : (
               <div className="bg-white p-4 rounded-xl shadow-sm text-center text-gray-500">

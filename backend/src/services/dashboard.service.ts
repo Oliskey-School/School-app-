@@ -175,8 +175,11 @@ export class DashboardService {
                             teacher_id: teacherId,
                             day_of_week: now.getDay() || 7 // 1-7 (Mon-Sun)
                         },
-                        include: { class: true },
-                        take: 3,
+                        include: { 
+                            class: true,
+                            teacher: { select: { full_name: true } }
+                        },
+                        take: 5, // Increased to support more visibility if needed
                         orderBy: { start_time: 'asc' }
                     }),
                     // 11. Recent activity (audit logs) for this teacher
@@ -237,7 +240,8 @@ export class DashboardService {
                     timetablePreview: timetablePreview.map((t: any) => ({
                         start_time: t.start_time,
                         subject: t.subject,
-                        class_name: (t as any).class?.name || (t as any).class_name || 'Unknown'
+                        class_name: (t as any).class?.name || (t as any).class_name || 'Unknown',
+                        teacher_name: (t as any).teacher?.full_name || 'You'
                     })),
                     recentActivity: recentActivity.map((log: any) => ({
                         id: log.id,
@@ -306,8 +310,11 @@ export class DashboardService {
                 }),
                 prisma.timetable.findMany({
                     where: { ...baseWhere, day_of_week: now.getDay() || 7 }, // 1-7 (Mon-Sun)
-                    include: { class: true },
-                    take: 3,
+                    include: { 
+                        class: true,
+                        teacher: { select: { full_name: true } }
+                    },
+                    take: 10, // Fetch more for overflow logic
                     orderBy: { start_time: 'asc' }
                 } as any),
                 prisma.auditLog.findMany({
@@ -484,7 +491,8 @@ export class DashboardService {
                 timetablePreview: timetablePreview.map((t: any) => ({
                     start_time: t.start_time,
                     subject: t.subject,
-                    class_name: t.class?.name || t.class_name || 'Unknown'
+                    class_name: t.class?.name || t.class_name || 'Unknown',
+                    teacher_name: (t as any).teacher?.full_name || 'Assigned'
                 })),
                 recentActivity: recentActivity.map((log: any) => {
                     // Normalize actions for frontend icon mapping
