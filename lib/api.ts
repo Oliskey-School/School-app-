@@ -105,11 +105,24 @@ class ExpressApiClient {
                 }
 
                 let response;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
                 try {
-                    response = await fetch(url, { ...options, headers, credentials: 'include' });
+                    response = await fetch(url, { 
+                        ...options, 
+                        headers, 
+                        credentials: 'include',
+                        signal: controller.signal 
+                    });
+                    clearTimeout(timeoutId);
                 } catch (fetchErr: any) {
+                    clearTimeout(timeoutId);
+                    if (fetchErr.name === 'AbortError') {
+                        console.error(`⏱️ [API-TIMEOUT] Request to ${url} timed out after 15s`);
+                        throw new Error('Connection timed out. Please check your internet or try again.');
+                    }
                     console.error(`💥 [API-FATAL] Network error hitting ${url}:`, fetchErr.message);
-                    console.error(`   Check if the backend is running at ${this.baseUrl} and reachable.`);
                     throw fetchErr;
                 }
 

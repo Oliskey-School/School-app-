@@ -45,16 +45,16 @@ export interface SchoolUser {
 }
 
 export enum DashboardType {
-  Admin = 'admin',
-  SuperAdmin = 'superadmin',
-  Teacher = 'teacher',
-  Parent = 'parent',
-  Student = 'student',
-  Proprietor = 'proprietor',
-  Inspector = 'inspector',
-  ExamOfficer = 'examofficer',
-  ComplianceOfficer = 'complianceofficer',
-  Counselor = 'counselor',
+  Admin = 'ADMIN',
+  SuperAdmin = 'SUPER_ADMIN',
+  Teacher = 'TEACHER',
+  Parent = 'PARENT',
+  Student = 'STUDENT',
+  Proprietor = 'PROPRIETOR',
+  Inspector = 'INSPECTOR',
+  ExamOfficer = 'EXAM_OFFICER',
+  ComplianceOfficer = 'COMPLIANCE_OFFICER',
+  Counselor = 'COUNSELOR',
 }
 
 export interface Exam {

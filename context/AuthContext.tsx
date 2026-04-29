@@ -40,17 +40,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isDemo, setIsDemo] = useState(() => sessionStorage.getItem('is_demo_mode') === 'true');
 
     const getDashboardTypeFromUserType = (userType: string): DashboardType => {
-        const lower = userType.toLowerCase();
-        if (lower === 'superadmin') return DashboardType.SuperAdmin;
-        if (lower === 'admin') return DashboardType.Admin;
-        if (lower === 'teacher') return DashboardType.Teacher;
-        if (lower === 'parent') return DashboardType.Parent;
-        if (lower === 'student') return DashboardType.Student;
-        if (lower === 'proprietor') return DashboardType.Proprietor;
-        if (lower === 'inspector') return DashboardType.Inspector;
-        if (lower === 'examofficer') return DashboardType.ExamOfficer;
-        if (lower === 'complianceofficer') return DashboardType.ComplianceOfficer;
-        if (lower === 'counselor') return DashboardType.Counselor;
+        const normalized = (userType || '').toUpperCase().replace(/_/g, '');
+        if (normalized === 'SUPERADMIN') return DashboardType.SuperAdmin;
+        if (normalized === 'ADMIN') return DashboardType.Admin;
+        if (normalized === 'TEACHER') return DashboardType.Teacher;
+        if (normalized === 'PARENT') return DashboardType.Parent;
+        if (normalized === 'STUDENT') return DashboardType.Student;
+        if (normalized === 'PROPRIETOR') return DashboardType.Proprietor;
+        if (normalized === 'INSPECTOR') return DashboardType.Inspector;
+        if (normalized === 'EXAMOFFICER') return DashboardType.ExamOfficer;
+        if (normalized === 'COMPLIANCEOFFICER') return DashboardType.ComplianceOfficer;
+        if (normalized === 'COUNSELOR') return DashboardType.Counselor;
         return DashboardType.Admin;
     };
 
@@ -320,6 +320,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 api.clearCache();
                 localStorage.removeItem('cached_user_profile');
                 sessionStorage.removeItem('demo_role_token');
+
+                // Explicitly set the token first to ensure any immediate API calls have it
+                localStorage.setItem('auth_token', token);
+                if (refreshToken) localStorage.setItem('auth_refresh_token', refreshToken);
 
                 await signIn(dashType, { ...userData, token, refreshToken });
             }

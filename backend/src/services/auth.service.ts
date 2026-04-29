@@ -959,7 +959,7 @@ export class AuthService {
             return {
                 token,
                 refreshToken,
-                user: demoUser,
+                user: sessionUser,
             };
         } catch (error: any) {
             console.error(`[AUTH] 💥 Error in generateDemoToken:`, error);

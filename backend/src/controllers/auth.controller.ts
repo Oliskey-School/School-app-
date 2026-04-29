@@ -134,7 +134,7 @@ export const googleLogin = async (req: Request, res: Response) => {
         res.cookie('access_token', token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
         res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-        res.json({ user });
+        res.json({ user, token, refreshToken });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }

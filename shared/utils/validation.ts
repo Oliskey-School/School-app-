@@ -11,7 +11,11 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 const tenantContext = {
     school_id: yup.string().matches(UUID_REGEX, 'Invalid School ID').required('School ID is mandatory'),
-    branch_id: yup.string().matches(UUID_REGEX, 'Invalid Branch ID').nullable(),
+    // Support both standard UUIDs and sandboxed demo-v- IDs
+    branch_id: yup.string().test('is-valid-id', 'Invalid Branch ID format', (value) => {
+        if (!value) return true;
+        return UUID_REGEX.test(value) || value.startsWith('demo-v-');
+    }).nullable(),
 };
 
 // 2. Student Schema

@@ -108,7 +108,11 @@ export class DemoSeederService {
 
                 // Create role-specific profiles
                 if (u.role === 'TEACHER') await prisma.teacher.upsert({ where: { user_id: user.id }, create: profileData, update: profileData });
-                if (u.role === 'STUDENT') await prisma.student.upsert({ where: { user_id: user.id }, create: profileData, update: profileData });
+                if (u.role === 'STUDENT') await prisma.student.upsert({ 
+                    where: { user_id: user.id }, 
+                    create: { ...profileData, status: 'Active' }, 
+                    update: { ...profileData, status: 'Active' } 
+                });
                 if (u.role === 'PARENT') await prisma.parent.upsert({ where: { user_id: user.id }, create: profileData, update: profileData });
             }
 
@@ -127,21 +131,40 @@ export class DemoSeederService {
                 }
             }
 
-            // 4. Create a Class and Subject
-            const classId = `class-${ipHash}-10A`;
+            // 4. Create 16 Academic Levels and Sections
+            const levels = [
+                { name: 'SSS 3', grade: 12 }, { name: 'SSS 2', grade: 11 }, { name: 'SSS 1', grade: 10 },
+                { name: 'JSS 3', grade: 9 }, { name: 'JSS 2', grade: 8 }, { name: 'JSS 1', grade: 7 },
+                { name: 'Primary 6', grade: 6 }, { name: 'Primary 5', grade: 5 }, { name: 'Primary 4', grade: 4 },
+                { name: 'Primary 3', grade: 3 }, { name: 'Primary 2', grade: 2 }, { name: 'Primary 1', grade: 1 },
+                { name: 'KG 3', grade: 0 }, { name: 'KG 2', grade: -1 }, { name: 'KG 1', grade: -2 }, { name: 'Nursery', grade: -3 }
+            ];
+
             const subjectId = `subj-${ipHash}-MATH`;
-            
             await prisma.subject.upsert({
                 where: { id: subjectId },
                 update: {},
                 create: { id: subjectId, name: 'Mathematics', code: 'MATH', school_id: schoolId }
             });
 
-            await prisma.class.upsert({
-                where: { id: classId },
-                update: {},
-                create: { id: classId, name: 'Grade 10A', grade: 10, section: 'A', school_id: schoolId, branch_id: branchId }
-            });
+            let primaryClassId = '';
+            for (const level of levels) {
+                const classId = `class-${ipHash}-${level.name.replace(/\s+/g, '')}`;
+                if (level.name === 'SSS 1') primaryClassId = classId;
+                
+                await prisma.class.upsert({
+                    where: { id: classId },
+                    update: { name: level.name },
+                    create: { 
+                        id: classId, 
+                        name: level.name, 
+                        grade: level.grade, 
+                        section: 'A', 
+                        school_id: schoolId, 
+                        branch_id: branchId 
+                    }
+                });
+            }
 
             // 5. Enroll Student and Assign Teacher
             const teacherUser = demoUsers.find(u => u.role === 'TEACHER');
@@ -150,18 +173,18 @@ export class DemoSeederService {
                 const studentProfile = await prisma.student.findUnique({ where: { user_id: studentUser.id } });
                 
                 if (teacherProfile && studentProfile) {
-                    // Enroll
+                    // Enroll in SSS 1 (A)
                     await prisma.studentEnrollment.upsert({
-                        where: { student_id_class_id: { student_id: studentProfile.id, class_id: classId } },
+                        where: { student_id_class_id: { student_id: studentProfile.id, class_id: primaryClassId } },
                         update: { status: 'Active' },
-                        create: { student_id: studentProfile.id, class_id: classId, school_id: schoolId, branch_id: branchId, status: 'Active', is_primary: true }
+                        create: { student_id: studentProfile.id, class_id: primaryClassId, school_id: schoolId, branch_id: branchId, status: 'Active', is_primary: true }
                     });
 
-                    // Assign Teacher
+                    // Assign Teacher to SSS 1 (A)
                     await prisma.classTeacher.upsert({
-                        where: { class_id_teacher_id_subject_id: { class_id: classId, teacher_id: teacherProfile.id, subject_id: subjectId } },
+                        where: { class_id_teacher_id_subject_id: { class_id: primaryClassId, teacher_id: teacherProfile.id, subject_id: subjectId } },
                         update: {},
-                        create: { id: `ct-${ipHash}`, school_id: schoolId, branch_id: branchId, teacher_id: teacherProfile.id, class_id: classId, subject_id: subjectId, is_primary: true }
+                        create: { id: `ct-${ipHash}`, school_id: schoolId, branch_id: branchId, teacher_id: teacherProfile.id, class_id: primaryClassId, subject_id: subjectId, is_primary: true }
                     });
                 }
             }

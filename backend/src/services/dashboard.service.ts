@@ -554,11 +554,15 @@ export class DashboardService {
         const todayStr = new Date().toISOString().split('T')[0];
         const today = new Date(todayStr);
 
-        // 1. Get children
+        // 1. Get children - Hardened to strictly isolate within the branch if needed
         const children = await prisma.student.findMany({
             where: {
                 school_id: schoolId,
-                parents: { some: { parent_id: parentId } }
+                parents: { some: { parent_id: parentId } },
+                // If the user is in a sandbox (demo), ensure we only see children in that sandbox
+                ...(parentId.startsWith('d33-') ? {
+                    user: { branch_id: { startsWith: 'demo-v-' } }
+                } : {})
             },
             include: {
                 attendance: { 
