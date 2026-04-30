@@ -4,9 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 import viteCompression from 'vite-plugin-compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version?: string };
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -70,7 +72,7 @@ export default defineConfig(({ mode }) => {
     envPrefix: 'VITE_', 
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
-      'process.env.APP_VERSION': JSON.stringify(process.env.npm_package_version || '0.5.33')
+      'process.env.APP_VERSION': JSON.stringify(env.VITE_APP_VERSION || process.env.npm_package_version || packageJson.version || '0.5.37')
     },
     build: {
       minify: 'esbuild',

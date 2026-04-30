@@ -250,7 +250,8 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto space-y-8">
+        <div className="fixed inset-0 z-[100] bg-white overflow-y-auto flex flex-col">
+            <div className="flex-1 w-full max-w-5xl mx-auto p-6 md:p-12 space-y-12">
             <div className="text-center space-y-2">
                 <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-full text-sm font-bold animate-pulse">
                     <Rocket className="w-4 h-4" />
@@ -293,6 +294,7 @@ const PilotOnboardingPage = ({ onComplete }: { onComplete: () => void }) => {
                         {!loading && <ChevronRight className="w-5 h-5" />}
                     </button>
                 </div>
+            </div>
             </div>
         </div>
     );

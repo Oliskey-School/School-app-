@@ -142,7 +142,10 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                     school_generated_id: dbStudent.schoolGeneratedId || dbStudent.school_generated_id,
                     admission_number: dbStudent.schoolGeneratedId || dbStudent.school_generated_id || dbStudent.admission_number || 'Pending',
                     grade: dbStudent.grade || dbStudent.class_name?.match(/\d+/)?.[0] || '10',
-                    section: dbStudent.section || dbStudent.class_name?.match(/[A-Z]$/)?.[0] || 'A'
+                    section: dbStudent.section || dbStudent.class_name?.match(/[A-Z]$/)?.[0] || 'A',
+                    gender: dbStudent.gender || dbStudent.Gender,
+                    dob: dbStudent.dob || dbStudent.birthday || dbStudent.date_of_birth || dbStudent.dateOfBirth,
+                    address: dbStudent.address || dbStudent.Address || dbStudent.studentAddress
                 };
                 setStudent(mappedStudent);
                 currentStudent = mappedStudent;

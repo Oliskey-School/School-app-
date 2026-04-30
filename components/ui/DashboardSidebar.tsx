@@ -86,7 +86,7 @@ export const AdminSidebar = ({ activeScreen, setActiveScreen, onLogout, schoolNa
                         <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'A'}</span>
                     </div>
                 )}
-                <span className="text-lg font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
+                <span className="text-lg font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey School'}</span>
             </div>
 
             <nav className="flex-1 py-6 overflow-y-auto">
@@ -137,7 +137,7 @@ export const TeacherSidebar = ({ activeScreen, setActiveScreen, onLogout, school
                         <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'T'}</span>
                     </div>
                 )}
-                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey Demo School'}</span>
+                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Oliskey School'}</span>
             </div>
 
             <nav className="flex-1 py-6 overflow-y-auto">
@@ -239,7 +239,7 @@ export const InspectorSidebar = ({ activeScreen, setActiveScreen, onLogout, scho
                         <span className="text-white font-bold text-lg">{schoolName ? schoolName.charAt(0) : 'I'}</span>
                     </div>
                 )}
-                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'Ministry of Education'}</span>
+                <span className="text-xl font-bold text-gray-800 truncate" title={schoolName}>{schoolName || 'School Administration'}</span>
             </div>
 
             <nav className="flex-1 py-6 overflow-y-auto">

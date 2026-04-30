@@ -66,6 +66,19 @@ export const updateSchool = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const updateMySchool = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        if (!schoolId) return res.status(400).json({ message: 'School context required' });
+        
+        // Use the school_id from token as both the actor context and the target ID
+        const result = await SchoolService.updateSchool(schoolId, schoolId, req.body);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const getSchoolById = async (req: AuthRequest, res: Response) => {
     try {
         const result = await SchoolService.getSchoolById(req.user.school_id, req.params.id as string);

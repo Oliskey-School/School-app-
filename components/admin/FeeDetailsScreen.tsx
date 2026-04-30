@@ -12,12 +12,9 @@ const formatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 
 const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student }) => {
   const balance = student.totalFee - student.paidAmount;
   
-  // Mock data for breakdown and history
+  // Simplified breakdown as detailed breakdown is not yet supported in the data model
   const feeBreakdown = [
-    { item: 'Tuition Fee', amount: student.totalFee * 0.7 },
-    { item: 'Bus Service', amount: student.totalFee * 0.1 },
-    { item: 'Lab Fee', amount: student.totalFee * 0.1 },
-    { item: 'Library Fee', amount: student.totalFee * 0.1 },
+    { item: 'Total Term Charges', amount: student.totalFee },
   ];
   
   const paymentHistory = student.paidAmount > 0 ? [

@@ -207,11 +207,11 @@ export default function StudentProfileScreen({ studentId, student: initialStuden
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <InfoField icon={<Mail />} label="Email" value={student.email} />
-                                <InfoField icon={<Phone />} label="Phone" value={student.phone || 'N/A'} />
-                                <InfoField icon={<Calendar />} label="Date of Birth" value={student.dob ? new Date(student.dob).toLocaleDateString() : 'N/A'} />
-                                <InfoField icon={<User />} label="Gender" value={student.gender || 'N/A'} />
-                                <InfoField icon={<MapPin />} label="Address" value={student.address || 'N/A'} />
-                                <InfoField icon={<Award />} label="Admission No" value={student.admission_number || student.school_generated_id || 'N/A'} />
+                                <InfoField icon={<Phone />} label="Phone" value={student.phone || student.contact_phone || 'N/A'} />
+                                <InfoField icon={<Calendar />} label="Date of Birth" value={student.dob || student.birthday || student.date_of_birth ? new Date(student.dob || student.birthday || student.date_of_birth).toLocaleDateString() : 'Not Specified'} />
+                                <InfoField icon={<User />} label="Gender" value={student.gender || student.Gender || 'Not Specified'} />
+                                <InfoField icon={<MapPin />} label="Address" value={student.address || student.Address || student.studentAddress || 'Not Specified'} />
+                                <InfoField icon={<Award />} label="Admission No" value={student.admission_number || student.admissionNumber || student.school_generated_id || 'Not Specified'} />
                             </div>
                         </div>
 

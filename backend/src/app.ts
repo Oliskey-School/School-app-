@@ -64,7 +64,8 @@ app.use((req, res, next) => {
     const isAuthAction = path.includes('/api/auth/refresh') || 
                         path.includes('/api/auth/logout') || 
                         path.includes('/api/auth/csrf-token') ||
-                        path.includes('/api/auth/login');
+                        path.includes('/api/auth/login') ||
+                        path.includes('/api/auth/demo/login');
 
     if (isAuthAction) {
         console.log(`[CSRF] 🛡️ Skipping CSRF check for path: ${path} (Method: ${req.method})`);

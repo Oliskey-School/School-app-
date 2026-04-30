@@ -25,22 +25,31 @@ export const EmergencyBroadcastModal: React.FC<EmergencyBroadcastModalProps> = (
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-red-100 overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-[100] flex flex-col bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto overflow-y-auto">
 
                 {/* Header */}
-                <div className="bg-red-50 p-6 border-b border-red-100 flex justify-between items-start">
-                    <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-red-100 rounded-lg text-red-600">
-                            <AlertTriangle className="w-6 h-6" />
+                <div className="bg-red-50 p-8 border-b border-red-100 flex justify-between items-center sticky top-0 z-10">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-red-100 rounded-2xl text-red-600 shadow-inner">
+                            <AlertTriangle className="w-8 h-8" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-gray-900">Emergency Broadcast</h2>
-                            <p className="text-sm text-red-600 font-medium">This will alert all selected users immediately.</p>
+                            <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Emergency Broadcast Hub</h2>
+                            <p className="text-sm text-red-600 font-bold flex items-center gap-1.5">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                </span>
+                                System-Wide Critical Alert
+                            </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <X className="w-5 h-5" />
+                    <button 
+                        onClick={onClose} 
+                        className="p-2 hover:bg-red-100 rounded-full transition-colors group"
+                    >
+                        <X className="w-8 h-8 text-gray-400 group-hover:text-red-600" />
                     </button>
                 </div>
 

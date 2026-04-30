@@ -73,7 +73,7 @@ export default function ComplianceOnboardingPage({
 
         try {
             if (field === 'curriculumType') {
-                await api.put(`/schools/${schoolId}`, { curriculum_type: value });
+                await api.updateSchoolInfo(schoolId, { curriculum_type: value });
                 console.log('✅ Curriculum auto-saved');
             } else if (DOC_TYPE_MAP[field]) {
                 const docType = DOC_TYPE_MAP[field];
@@ -302,7 +302,8 @@ export default function ComplianceOnboardingPage({
     };
 
     return (
-        <div className="max-w-3xl mx-auto p-6">
+        <div className="fixed inset-0 z-[100] bg-gray-50 overflow-y-auto flex flex-col p-6">
+            <div className="flex-1 w-full max-w-4xl mx-auto space-y-8">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -597,6 +598,7 @@ export default function ComplianceOnboardingPage({
                     </div>
                 </CardContent>
             </Card>
+            </div>
         </div>
     );
 }

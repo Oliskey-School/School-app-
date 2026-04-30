@@ -348,8 +348,8 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
         id: log.id,
         user: {
             name: log.profiles?.name || log.user_name || 'System',
-            avatarUrl: log.profiles?.avatar_url || 'https://i.pravatar.cc/150',
-            role: 'Admin' as RoleName
+            avatarUrl: log.profiles?.avatar_url || log.avatar_url || `https://ui-avatars.com/api/?name=${log.user_name || 'System'}&background=random`,
+            role: (log.user_role || log.user?.role || 'Admin') as RoleName
         },
         action: log.action,
         timestamp: log.created_at,
@@ -367,6 +367,11 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
 
     if (isLoadingStats && !stats) return <PremiumLoader message="Loading dashboard statistics..." />;
 
+    const formatTrend = (val: number) => {
+        if (val === 0) return 'Stable';
+        return val > 0 ? `+${val}` : `${val}`;
+    };
+
     return (
         <div className="p-4 lg:p-6 bg-gray-50 min-h-full">
             {isError && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-xl shadow-sm text-sm font-semibold">{(error as any)?.message || 'Failed to load dashboard data.'}</div>}
@@ -374,13 +379,15 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
-                        <h2 className="text-2xl font-bold text-white mb-1">Welcome, Admin!</h2>
+                        <h2 className="text-2xl font-bold text-white mb-1">
+                            Welcome, {user?.full_name?.split(' ')[0] || profile?.full_name?.split(' ')[0] || 'Admin'}!
+                        </h2>
                         <p className="text-white/80">Here's your school's command center.</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                            <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={`+${studentTrend}`} trendColor="text-blue-200" />
-                            <StatCard label="Total Teachers" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={`+${teacherTrend}`} trendColor="text-purple-200" />
-                            <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={`+${parentTrend}`} trendColor="text-orange-200" />
-                            <StatCard label="Academic Levels" value={stats.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={`+${stats.classTrend}`} trendColor="text-indigo-200" />
+                            <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={formatTrend(studentTrend)} trendColor="text-blue-200" />
+                            <StatCard label="Total Staff" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={formatTrend(teacherTrend)} trendColor="text-purple-200" />
+                            <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={formatTrend(parentTrend)} trendColor="text-orange-200" />
+                            <StatCard label="Academic Levels" value={stats.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={formatTrend(stats.classTrend)} trendColor="text-indigo-200" />
                         </div>
                     </div>
 

@@ -20,6 +20,7 @@ router.get('/:id', authenticate, SchoolController.getSchoolById);
 router.put('/bulk/status', authenticate, requireRole(['SuperAdmin']), SchoolController.updateSchoolStatusBulk);
 router.delete('/bulk', authenticate, requireRole(['SuperAdmin']), SchoolController.deleteSchoolsBulk);
 
+router.put('/', authenticate, SchoolController.updateMySchool);
 router.put('/:id', authenticate, SchoolController.updateSchool);
 
 router.get('/:id/policies', authenticate, SchoolController.getSchoolPolicies);

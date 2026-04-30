@@ -1,12 +1,12 @@
 # 🏛️ Oliskey School App: Architecture & Infrastructure
 
-This document provides a clear separation between the **Local Development** and **Production** environments to ensure consistency across the team.
+This document provides a clear separation between the **Local Development** and **Production** environments to ensure consistency across the AI agent.
 
 ## 💻 Local Development Stack
 *Optimized for speed, debugging, and isolation.*
 
 - **Frontend**: 
-    - **Host**: `localhost:5173` (Vite)
+    - **Host**: `localhost:3000` (Vite)
     - **API Endpoint**: `http://localhost:5000/api`
 - **Backend**:
     - **Host**: `localhost:5000` (Node.js/Express)
@@ -24,7 +24,7 @@ This document provides a clear separation between the **Local Development** and 
 ## 🌐 Production Stack
 *Optimized for scale, security, and high availability.*
 
-**Latest Stable Version:** `0.5.32`
+**Latest Stable Version:** `0.5.37`
 
 ### Infrastructure Context
 - **Frontend:** Vercel (Production)

@@ -119,7 +119,7 @@ export const refresh = async (req: Request, res: Response) => {
         res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
         res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-        res.json({ success: true });
+        res.json({ success: true, token: result.token, refreshToken: result.refreshToken });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }

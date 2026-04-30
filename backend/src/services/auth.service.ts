@@ -441,7 +441,7 @@ export class AuthService {
                         full_name: data.full_name,
                         avatar_url: data.avatar_url || null,
                         initial_password: data.password || null,
-                        email_verified: false
+                        email_verified: true
                     }
                 });
 
@@ -801,78 +801,19 @@ export class AuthService {
     static DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
     static DEMO_BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
 
-    private static DEMO_USERS: Record<string, {
-        id: string;
-        email: string;
-        role: string;
-        full_name: string;
-        branch_id: string;
-        school_generated_id: string;
-    }> = {
-        admin: {
-            id: 'd3300000-0000-0000-0000-000000000001',
-            email: 'admin@demo.com',
-            role: 'ADMIN',
-            full_name: 'School Admin',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_ADM_0001',
-        },
-        teacher: {
-            id: 'd3300000-0000-0000-0000-000000000002',
-            email: 'john.smith@demo.com',
-            role: 'TEACHER',
-            full_name: 'John Smith',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_TCH_0017',
-        },
-        parent: {
-            id: 'd3300000-0000-0000-0000-000000000003',
-            email: 'parent1@demo.com',
-            role: 'PARENT',
-            full_name: 'Demo Parent',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_PAR_0001',
-        },
-        student: {
-            id: 'd3300000-0000-0000-0000-000000000004',
-            email: 'student1@demo.com',
-            role: 'STUDENT',
-            full_name: 'Demo Student',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_STU_0135',
-        },
-        proprietor: {
-            id: 'd3300000-0000-0000-0000-000000000005',
-            email: 'proprietor@demo.com',
-            role: 'PROPRIETOR',
-            full_name: 'Proprietor',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_PRO_0001',
-        },
-        inspector: {
-            id: 'd3300000-0000-0000-0000-000000000006',
-            email: 'inspector@demo.com',
-            role: 'INSPECTOR',
-            full_name: 'Inspector',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_INS_0001',
-        },
-        examofficer: {
-            id: 'd3300000-0000-0000-0000-000000000007',
-            email: 'examofficer@demo.com',
-            role: 'EXAM_OFFICER',
-            full_name: 'Exam Officer',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_EXM_0001',
-        },
-        complianceofficer: {
-            id: 'd3300000-0000-0000-0000-000000000008',
-            email: 'compliance@demo.com',
-            role: 'COMPLIANCE_OFFICER',
-            full_name: 'Compliance Officer',
-            branch_id: AuthService.DEMO_BRANCH_ID,
-            school_generated_id: 'OLISKEY_MAIN_CMP_0001',
-        },
+    /**
+     * Role-to-email mapping for demo users.
+     * IDs are now dynamically generated using the SCHOOL_BRANCH_ROLE_NUMBER pattern.
+     */
+    private static DEMO_USER_EMAILS: Record<string, { email: string; role: string; name: string }> = {
+        admin: { email: 'admin@demo.com', role: 'ADMIN', name: 'School Admin' },
+        teacher: { email: 'john.smith@demo.com', role: 'TEACHER', name: 'John Smith' },
+        parent: { email: 'parent1@demo.com', role: 'PARENT', name: 'Demo Parent' },
+        student: { email: 'student1@demo.com', role: 'STUDENT', name: 'Demo Student' },
+        proprietor: { email: 'proprietor@demo.com', role: 'PROPRIETOR', name: 'Proprietor' },
+        inspector: { email: 'inspector@demo.com', role: 'INSPECTOR', name: 'Inspector' },
+        examofficer: { email: 'examofficer@demo.com', role: 'EXAM_OFFICER', name: 'Exam Officer' },
+        complianceofficer: { email: 'compliance@demo.com', role: 'COMPLIANCE_OFFICER', name: 'Compliance Officer' },
     };
 
     /**
@@ -885,70 +826,64 @@ export class AuthService {
     static async generateDemoToken(role: string, ip: string = '127.0.0.1') {
         console.log(`[AUTH] 🚀 Starting Demo Login flow for role: ${role} (IP: ${ip})`);
         const roleKey = role.toLowerCase();
-        const fallbackUser = this.DEMO_USERS[roleKey];
+        const fallbackUser = this.DEMO_USER_EMAILS[roleKey];
 
         if (!fallbackUser) {
             console.error(`[AUTH] ❌ Invalid demo role requested: ${role}`);
-            throw new Error(`Invalid demo role: ${role}. Valid roles: ${Object.keys(this.DEMO_USERS).join(', ')}`);
+            throw new Error(`Invalid demo role: ${role}. Valid roles: ${Object.keys(this.DEMO_USER_EMAILS).join(', ')}`);
         }
 
         try {
-            console.log(`[AUTH] 🔍 Fetching demo user from database for email: ${fallbackUser.email}`);
-            // Validate pulling DB user instantly (fast access to Prisma user)
-            const demoUser = await (prisma.user.findUnique as any)({ 
-                where: { email: fallbackUser.email },
-                include: { school: true, branch: true }
-            });
-
-            if (!demoUser) {
-                const allUsersCount = await prisma.user.count();
-                // Lead DevSecOps: Enhanced diagnostic to check if the database is actually reachable and responsive
-                const dbHost = 'production-db'; 
-                console.warn(`[AUTH] ⚠️ Demo database user not found for ${fallbackUser.email}. (Total users in DB: ${allUsersCount})`);
-                
-                // If we have users but not the demo one, it means seeding failed or is incomplete
-                const message = allUsersCount > 0 
-                    ? `Demo account ${fallbackUser.email} is missing from the database. The system is currently re-synchronizing...`
-                    : `Demo accounts are currently spinning up... Please try again in a few seconds.`;
-                
-                throw new Error(`${message} (Diagnostic: DB=${dbHost}, Users=${allUsersCount})`);
-            }
-
-            console.log(`[AUTH] ✅ Demo user found: ${demoUser.full_name} ID: ${demoUser.id} Role: ${demoUser.role}`);
-
-            // Lead DevSecOps: IP-Based Session Isolation
-            // We create a unique "Virtual Branch" for this IP so that their changes are private.
+            // Lead DevSecOps: Dynamic Persistence ID Calculation
+            const school = await prisma.school.findUnique({ where: { id: this.DEMO_SCHOOL_ID }, select: { code: true } });
+            const schoolCode = school?.code?.toUpperCase() || 'OLISKEY';
+            
+            // IP-Based Session Isolation
             const ipHash = crypto.createHash('sha256').update(ip).digest('hex').substring(0, 8);
             const virtualBranchId = `demo-v-${ipHash}`;
             const virtualBranchName = `Demo Phone (${ipHash})`;
+            const branchCode = ipHash.toUpperCase();
 
-            console.log(`[AUTH] 🛡️ Mapping Demo Session to Virtual Branch: ${virtualBranchId}`);
+            // Persistence ID pattern: SCHOOL_BRANCH_ROLE_NUMBER
+            const roleCodes: Record<string, string> = { ADMIN: 'ADM', TEACHER: 'TCH', STUDENT: 'STU', PARENT: 'PAR' };
+            const rCode = roleCodes[fallbackUser.role.toUpperCase()] || fallbackUser.role.toUpperCase().substring(0, 3);
+            const persistenceId = `${schoolCode}_${branchCode}_${rCode}_0001`;
 
-            // Ensure the Virtual Branch exists in the database
-            await prisma.$executeRaw`
-                INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
-                VALUES (${virtualBranchId}, ${virtualBranchName}, ${ipHash.toUpperCase()}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
-                ON CONFLICT (id) DO UPDATE SET last_active_at = NOW(), updated_at = NOW()
-            `;
-
-            // SEED THE SANDBOX for this IP if it's a new or existing session
-            // This ensures the 4 users (Admin, Teacher, Student, Parent) are present and linked
-            await DemoSeederService.seedBranchData(this.DEMO_SCHOOL_ID, virtualBranchId, ipHash);
-
-            // Get the SCOPED user for this role within this sandbox
-            const scopedEmail = `${roleKey}-${ipHash}@demo.com`;
-            const scopedUser = await prisma.user.findUnique({
-                where: { email: scopedEmail },
+            console.log(`[AUTH] 🔍 Checking demo user in sandbox: ${persistenceId}`);
+            
+            // Try to find the user in the sandbox first
+            let demoUser = await (prisma.user.findUnique as any)({ 
+                where: { id: persistenceId },
                 include: { school: true, branch: true }
             });
 
-            if (!scopedUser) {
-                throw new Error(`Failed to initialize scoped demo user for ${role} in sandbox ${virtualBranchId}`);
+            // If not found, it might be the global one or we need to seed
+            if (!demoUser) {
+                console.log(`[AUTH] 🏗️ Sandbox user not found, initializing virtual branch and seeding...`);
+                
+                await prisma.$executeRaw`
+                    INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
+                    VALUES (${virtualBranchId}, ${virtualBranchName}, ${branchCode}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
+                    ON CONFLICT (id) DO UPDATE SET last_active_at = NOW(), updated_at = NOW()
+                `;
+
+                await DemoSeederService.seedBranchData(this.DEMO_SCHOOL_ID, virtualBranchId, ipHash);
+                
+                demoUser = await (prisma.user.findUnique as any)({ 
+                    where: { id: persistenceId },
+                    include: { school: true, branch: true }
+                });
             }
+
+            if (!demoUser) {
+                throw new Error(`Failed to initialize or find scoped demo user for ${role} in sandbox ${virtualBranchId}`);
+            }
+
+            console.log(`[AUTH] ✅ Demo user verified: ${demoUser.full_name} (${demoUser.id})`);
 
             // Override the user's branch for this session
             const sessionUser = {
-                ...scopedUser,
+                ...demoUser,
                 branch_id: virtualBranchId,
                 allowed_branch_ids: [virtualBranchId],
                 is_demo: true,

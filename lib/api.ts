@@ -106,7 +106,7 @@ class ExpressApiClient {
 
                 let response;
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
                 try {
                     response = await fetch(url, { 
@@ -119,7 +119,7 @@ class ExpressApiClient {
                 } catch (fetchErr: any) {
                     clearTimeout(timeoutId);
                     if (fetchErr.name === 'AbortError') {
-                        console.error(`⏱️ [API-TIMEOUT] Request to ${url} timed out after 15s`);
+                        console.error(`⏱️ [API-TIMEOUT] Request to ${url} timed out after 30s`);
                         throw new Error('Connection timed out. Please check your internet or try again.');
                     }
                     console.error(`💥 [API-FATAL] Network error hitting ${url}:`, fetchErr.message);
@@ -140,7 +140,7 @@ class ExpressApiClient {
                     }
 
                     // Handle JWT Expiration
-                    if (response.status === 401 && (error.message === 'jwt expired' || error.message.includes('expired'))) {
+                    if (response.status === 401 && (error.message === 'jwt expired' || error.message.includes('expired')) && !endpoint.includes('/auth/refresh')) {
                         console.log(`[API] Token expired for ${endpoint}, attempting refresh...`);
                         try {
                             const refreshResult = await this.refreshToken();
@@ -241,7 +241,13 @@ class ExpressApiClient {
     async refreshToken(): Promise<any> {
         const refreshToken = localStorage.getItem('auth_refresh_token');
         const result = await this.post<any>('/auth/refresh', { refreshToken });
-        if (result.token) localStorage.setItem('auth_token', result.token);
+        if (!result || !result.token) {
+            throw new Error('Failed to refresh session');
+        }
+        localStorage.setItem('auth_token', result.token);
+        if (result.refreshToken) {
+            localStorage.setItem('auth_refresh_token', result.refreshToken);
+        }
         return result;
     }
 
@@ -476,7 +482,8 @@ class ExpressApiClient {
     }
 
     async updateSchoolInfo(schoolId: string, data: any): Promise<any> {
-        return this.put(`/schools/${schoolId}`, data);
+        const endpoint = schoolId ? `/schools/${schoolId}` : '/schools';
+        return this.put(endpoint, data);
     }
 
     async updateSchoolSubscription(schoolId: string, data: any): Promise<any> {
@@ -2444,7 +2451,8 @@ class ExpressApiClient {
     }
 
     async updateSchool(schoolId: string, data: any): Promise<any> {
-        return this.put(`/schools/${schoolId}`, data);
+        const endpoint = schoolId ? `/schools/${schoolId}` : '/schools';
+        return this.put(endpoint, data);
     }
 
     async getSchoolById(schoolId: string): Promise<any> {

@@ -185,9 +185,11 @@ export default function StudentProfileStandard({ studentId, student: initialStud
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <InfoField icon={<Mail />} label="Email" value={student.email} />
-                                <InfoField icon={<Phone />} label="Phone" value={student.phone || student.contact_phone || 'N/A'} />
-                                <InfoField icon={<Calendar />} label="Date of Birth" value={student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString() : 'N/A'} />
-                                <InfoField icon={<MapPin />} label="Address" value={student.address || 'N/A'} />
+                                <InfoField icon={<Phone />} label="Phone" value={student.phone || student.contact_phone || 'Not Specified'} />
+                                <InfoField icon={<Calendar />} label="Date of Birth" value={student.dob || student.birthday || student.date_of_birth ? new Date(student.dob || student.birthday || student.date_of_birth).toLocaleDateString() : 'Not Specified'} />
+                                <InfoField icon={<User />} label="Gender" value={student.gender || student.Gender || 'Not Specified'} />
+                                <InfoField icon={<MapPin />} label="Address" value={student.address || student.Address || student.studentAddress || 'Not Specified'} />
+                                <InfoField icon={<Award />} label="Admission No" value={student.admission_number || student.admissionNumber || student.school_generated_id || 'Not Specified'} />
                             </div>
                         </div>
 

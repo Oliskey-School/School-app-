@@ -40,18 +40,24 @@ export class ClassService {
                 ];
             }
 
-            const classes = await prisma.class.findMany({
-                where: whereClause,
-                include: {
-                    _count: {
-                        select: { enrollments: true }
-                    }
-                },
-                orderBy: [
-                    { grade: 'desc' },
-                    { section: 'asc' }
-                ]
-            });
+            let classes;
+            try {
+                classes = await prisma.class.findMany({
+                    where: whereClause,
+                    include: {
+                        _count: {
+                            select: { enrollments: true }
+                        }
+                    },
+                    orderBy: [
+                        { grade: 'desc' },
+                        { section: 'asc' }
+                    ]
+                });
+            } catch (queryError: any) {
+                console.error('🔴 [ClassService] Prisma Query Error:', queryError.message);
+                throw queryError;
+            }
 
             // If no classes exist, return standard levels as 'Shell' classes to populate dropdowns
             if (classes.length === 0) {

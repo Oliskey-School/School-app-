@@ -183,8 +183,13 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
-    const [activeBottomNav, setActiveBottomNav] = useState('home');
-    const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
+    const [activeBottomNav, setActiveBottomNav] = useState(() => {
+        return sessionStorage.getItem('admin_activeBottomNav') || 'home';
+    });
+    const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
+        const saved = sessionStorage.getItem('admin_viewStack');
+        return saved ? JSON.parse(saved) : [{ view: 'overview', props: {}, title: 'Admin Dashboard' }];
+    });
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
@@ -217,7 +222,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
     useEffect(() => {
         setIsHomePage(viewStack.length === 1 && !isSearchOpen);
-    }, [viewStack, isSearchOpen, setIsHomePage]);
+        // Persist view stack and active nav
+        sessionStorage.setItem('admin_viewStack', JSON.stringify(viewStack));
+        sessionStorage.setItem('admin_activeBottomNav', activeBottomNav);
+    }, [viewStack, isSearchOpen, setIsHomePage, activeBottomNav]);
 
     useEffect(() => {
         const checkDb = async () => {

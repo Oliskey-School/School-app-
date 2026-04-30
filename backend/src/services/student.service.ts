@@ -458,7 +458,7 @@ export class StudentService {
             where.enrollments = { 
                 some: { 
                     class_id: classId, 
-                    status: queryStatus 
+                    ...(queryStatus ? { status: queryStatus } : {})
                 } 
             };
         }

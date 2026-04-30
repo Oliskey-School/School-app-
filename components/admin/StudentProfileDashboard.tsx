@@ -241,24 +241,24 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                     <span className="text-xs font-semibold text-gray-500 uppercase">Gender</span>
-                                    <span className="text-sm font-bold text-gray-800">{student.gender || 'Not Specified'}</span>
+                                    <span className="text-sm font-bold text-gray-800">{student?.gender || student?.Gender || 'Not Specified'}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                     <span className="text-xs font-semibold text-gray-500 uppercase">Date of Birth</span>
                                     <span className="text-sm font-bold text-gray-800">
-                                        {student.dob || student.birthday || student.dateOfBirth 
-                                            ? new Date(student.dob || student.birthday || student.dateOfBirth || '').toLocaleDateString()
+                                        {student?.dob || student?.birthday || student?.date_of_birth || student?.dateOfBirth
+                                            ? new Date(student?.dob || student?.birthday || student?.date_of_birth || student?.dateOfBirth || '').toLocaleDateString()
                                             : 'Not Specified'}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                     <span className="text-xs font-semibold text-gray-500 uppercase">Admission #</span>
-                                    <span className="text-sm font-bold text-gray-800">{student.admission_number || 'N/A'}</span>
+                                    <span className="text-sm font-bold text-gray-800">{student?.admission_number || student?.admissionNumber || student?.school_generated_id || 'N/A'}</span>
                                 </div>
                                 <div className="py-2">
                                     <span className="text-xs font-semibold text-gray-500 uppercase block mb-1">Address</span>
                                     <p className="text-sm text-gray-700 leading-relaxed italic">
-                                        {student.address || 'No address provided'}
+                                        {student?.address || student?.Address || student?.studentAddress || 'No address provided'}
                                     </p>
                                 </div>
                                 {student.parentName && (

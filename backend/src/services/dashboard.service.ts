@@ -184,8 +184,9 @@ export class DashboardService {
                     }),
                     // 11. Recent activity (audit logs) for this teacher
                     prisma.auditLog.findMany({
-                        where: { ...baseWhere, user_id: teacherId }, // Assuming user_id is the same as teacherId for audit logs
+                        where: { ...baseWhere, user_id: teacherId }, 
                         orderBy: { created_at: 'desc' },
+                        include: { user: true },
                         take: 5
                     })
                 ]);
@@ -246,7 +247,7 @@ export class DashboardService {
                     recentActivity: recentActivity.map((log: any) => ({
                         id: log.id,
                         action: log.action,
-                        user_name: 'You',
+                        user_name: log.user?.full_name || 'System',
                         created_at: log.created_at.toISOString()
                     }))
                 };
@@ -616,9 +617,9 @@ export class DashboardService {
                 attendance_status: (attendance?.status?.toLowerCase() || 'not_marked') as any,
                 homework_pending,
                 fee_due: feesDue,
-                bus_status: 'On Route', // Mock for now until Bus feature is fully implemented
+                bus_status: 'Scheduled', 
                 behavior_points: behaviorNotes._sum.points || 0,
-                upcoming_events: 3 // Kept as mock for simplicity
+                upcoming_events: 0 
             };
         }));
 
