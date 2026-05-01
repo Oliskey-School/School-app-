@@ -189,6 +189,8 @@ export default function StudentProfileStandard({ studentId, student: initialStud
                                 <InfoField icon={<Calendar />} label="Date of Birth" value={student.dob || student.birthday || student.date_of_birth ? new Date(student.dob || student.birthday || student.date_of_birth).toLocaleDateString() : 'Not Specified'} />
                                 <InfoField icon={<User />} label="Gender" value={student.gender || student.Gender || 'Not Specified'} />
                                 <InfoField icon={<MapPin />} label="Address" value={student.address || student.Address || student.studentAddress || 'Not Specified'} />
+                                <InfoField icon={<User />} label="Guardian" value={student.guardian_name || 'Not Specified'} />
+                                <InfoField icon={<Phone />} label="Guardian Contact" value={student.guardian_phone || 'Not Specified'} />
                                 <InfoField icon={<Award />} label="Admission No" value={student.admission_number || student.admissionNumber || student.school_generated_id || 'Not Specified'} />
                             </div>
                         </div>

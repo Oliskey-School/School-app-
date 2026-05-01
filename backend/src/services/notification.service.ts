@@ -13,6 +13,7 @@ export class NotificationService {
             audience,
             title,
             message,
+            summary, // Added fallback
             category,
             is_read,
             metadata // Extract to avoid passing to Prisma if not in schema
@@ -29,7 +30,7 @@ export class NotificationService {
 
         const dataToCreate = {
             title,
-            message,
+            message: message || summary || 'No details provided.', // Fallback logic
             category: category || 'System',
             user_id: targetUserId,
             audience: targetAudience,

@@ -461,6 +461,7 @@ const ClassGradebookScreen: React.FC<{
                                                     onChange={e => handleScoreChange(idx, 'test1', e.target.value)}
                                                     className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
                                                     placeholder="0"
+                                                    aria-label={`Test 1 score for ${student.studentName}`}
                                                 />
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -470,6 +471,7 @@ const ClassGradebookScreen: React.FC<{
                                                     onChange={e => handleScoreChange(idx, 'test2', e.target.value)}
                                                     className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
                                                     placeholder="0"
+                                                    aria-label={`Test 2 score for ${student.studentName}`}
                                                 />
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -479,6 +481,7 @@ const ClassGradebookScreen: React.FC<{
                                                     onChange={e => handleScoreChange(idx, 'exam', e.target.value)}
                                                     className="w-16 text-center border border-gray-300 rounded-md py-1 focus:ring-purple-500 focus:border-purple-500"
                                                     placeholder="0"
+                                                    aria-label={`Exam score for ${student.studentName}`}
                                                 />
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">

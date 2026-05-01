@@ -160,7 +160,7 @@ const CreateAssignmentScreen: React.FC<CreateAssignmentScreenProps> = ({ classIn
               user_id: parent.user_id, 
               category: 'Homework',
               title: 'New Assignment: ' + title,
-              summary: `A new assignment has been posted for ${dbPayload.class_name} in ${dbPayload.subject}. Due: ${new Date(dueDate).toLocaleDateString()}`,
+              message: `A new assignment has been posted for ${dbPayload.class_name} in ${dbPayload.subject}. Due: ${new Date(dueDate).toLocaleDateString()}`,
               timestamp: new Date().toISOString(),
               is_read: false,
               audience: ['parent'],

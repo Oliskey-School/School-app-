@@ -15,8 +15,10 @@ export class StudentService {
             parentName,
             parentEmail,
             parentPhone,
+            parentAddress,
             parentId: existingParentId,
-            curriculumType
+            curriculumType,
+            documentUrls
         } = enrollmentData;
 
         if (!firstName || !lastName) {
@@ -87,7 +89,7 @@ export class StudentService {
                     email: studentEmail,
                     dob: dateOfBirth ? new Date(dateOfBirth) : null,
                     gender: gender,
-                    address: enrollmentData.address || null,
+                    address: enrollmentData.address || enrollmentData.studentAddress || null,
                     admission_number: enrollmentData.admission_number || enrollmentData.admissionNumber || null,
                     grade: enrollmentData.grade ?? 1,
                     section: enrollmentData.section ?? 'A',
@@ -101,7 +103,7 @@ export class StudentService {
                     email: studentEmail,
                     dob: dateOfBirth ? new Date(dateOfBirth) : null,
                     gender: gender,
-                    address: enrollmentData.address || null,
+                    address: enrollmentData.address || enrollmentData.studentAddress || null,
                     admission_number: enrollmentData.admission_number || enrollmentData.admissionNumber || null,
                     grade: enrollmentData.grade ?? 1,
                     section: enrollmentData.section ?? 'A',
@@ -145,6 +147,7 @@ export class StudentService {
                             full_name: parentName || 'Parent',
                             email: parentEmail.toLowerCase(),
                             phone: parentPhone,
+                            address: parentAddress,
                             school_id: schoolId,
                             branch_id: branchId || null,
                             updated_at: new Date()
@@ -169,6 +172,8 @@ export class StudentService {
                                 user_id: parentUser.id,
                                 full_name: parentUser.full_name,
                                 email: parentUser.email,
+                                phone: parentPhone,
+                                address: parentAddress,
                                 school_id: schoolId,
                                 branch_id: branchId || null,
                                 updated_at: new Date()
@@ -176,6 +181,15 @@ export class StudentService {
                         });
                         parentIdToLink = newParent.id;
                     } else {
+                        // Update existing parent info if provided
+                        await tx.parent.update({
+                            where: { id: parentProfile.id },
+                            data: {
+                                phone: parentPhone || parentProfile.phone,
+                                address: parentAddress || parentProfile.address,
+                                updated_at: new Date()
+                            }
+                        });
                         parentIdToLink = parentProfile.id;
                     }
                 }
@@ -289,6 +303,24 @@ export class StudentService {
                             branch_id: branchId || null
                         }
                     });
+                }
+            }
+
+            // 6. Save Documents (if any)
+            if (documentUrls && typeof documentUrls === 'object') {
+                for (const [type, url] of Object.entries(documentUrls)) {
+                    if (url) {
+                        await tx.studentDocument.create({
+                            data: {
+                                student_id: student.id,
+                                school_id: schoolId,
+                                name: `${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()}`,
+                                url: String(url),
+                                type: type,
+                                updated_at: new Date()
+                            }
+                        });
+                    }
                 }
             }
 
@@ -495,8 +527,13 @@ export class StudentService {
         });
 
         if (student) {
+            const primaryParent = student.parents?.[0]?.parent;
             return {
                 ...student,
+                parentName: primaryParent?.full_name,
+                parentEmail: primaryParent?.email,
+                parentPhone: primaryParent?.phone,
+                parentAddress: primaryParent?.address,
                 birthday: student.dob, // Defensive mapping for frontend
                 dateOfBirth: student.dob
             };
@@ -568,7 +605,10 @@ export class StudentService {
     static async getStudentProfileByUserId(schoolId: string, branchId: string | undefined, userId: string) {
         let student = await prisma.student.findFirst({
             where: { user_id: userId, school_id: schoolId },
-            include: { user: true }
+            include: { 
+                user: true,
+                parents: { include: { parent: true } }
+            }
         });
 
         // Identity Auto-Sync: Reconcile Student profile with primary User record
@@ -587,7 +627,10 @@ export class StudentService {
                         email: student.user.email,
                         school_generated_id: student.user.school_generated_id || student.school_generated_id
                     },
-                    include: { user: true }
+                    include: { 
+                        user: true,
+                        parents: { include: { parent: true } }
+                    }
                 });
 
                 // Sync back to User if missing ID but Student table has it
@@ -621,7 +664,8 @@ export class StudentService {
                         updated_at: new Date()
                     },
                     include: {
-                        user: true
+                        user: true,
+                        parents: { include: { parent: true } }
                     }
                 });
 
@@ -646,6 +690,19 @@ export class StudentService {
                     }
                 }
             }
+        }
+
+        if (student) {
+            const primaryParent = student.parents?.[0]?.parent;
+            return {
+                ...student,
+                parentName: primaryParent?.full_name,
+                parentEmail: primaryParent?.email,
+                parentPhone: primaryParent?.phone,
+                parentAddress: primaryParent?.address,
+                birthday: student.dob,
+                dateOfBirth: student.dob
+            };
         }
 
         return student;

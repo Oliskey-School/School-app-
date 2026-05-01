@@ -1,0 +1,131 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - complementary [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e11]: O
+          - generic "Oliskey School" [ref=e12]
+        - navigation [ref=e13]:
+          - generic [ref=e14]:
+            - button "Home" [ref=e15] [cursor=pointer]:
+              - img [ref=e16]
+              - generic [ref=e21]: Home
+            - button "Branches" [ref=e22] [cursor=pointer]:
+              - img [ref=e23]
+              - generic [ref=e26]: Branches
+            - button "Approvals" [ref=e27] [cursor=pointer]:
+              - img [ref=e28]
+              - generic [ref=e32]: Approvals
+            - button "Fee Management" [ref=e33] [cursor=pointer]:
+              - img [ref=e34]
+              - generic [ref=e38]: Fee Management
+            - button "Messages" [ref=e39] [cursor=pointer]:
+              - img [ref=e40]
+              - generic [ref=e43]: Messages
+            - button "Analytics" [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+              - generic [ref=e49]: Analytics
+            - button "Settings" [ref=e50] [cursor=pointer]:
+              - img [ref=e51]
+              - generic [ref=e55]: Settings
+        - button "Logout" [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+          - generic [ref=e62]: Logout
+    - generic [ref=e63]:
+      - banner [ref=e64]:
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - button "Go back" [ref=e67] [cursor=pointer]:
+              - img [ref=e68]
+            - heading "Publish Reports Dashboard" [level=1] [ref=e72]
+          - generic [ref=e73]:
+            - button "All Branches" [ref=e76] [cursor=pointer]:
+              - generic [ref=e77]:
+                - img [ref=e79]
+                - generic [ref=e83]: All Branches
+                - img [ref=e84]
+            - button "Open user menu" [ref=e86] [cursor=pointer]:
+              - img [ref=e88]
+      - main [ref=e93]:
+        - generic [ref=e94]:
+          - generic [ref=e95]:
+            - img [ref=e96]
+            - generic [ref=e98]: You have used 0 of 10 teachers on your current plan. Upgrade to add more.
+            - button "Upgrade Plan" [ref=e99] [cursor=pointer]
+          - generic [ref=e100]:
+            - generic [ref=e102]:
+              - button "Dismiss for 3 days" [ref=e104] [cursor=pointer]:
+                - img [ref=e105]
+              - generic [ref=e108]:
+                - img [ref=e110]
+                - generic [ref=e112]:
+                  - heading "Email Confirmation Required" [level=3] [ref=e114]
+                  - paragraph [ref=e115]:
+                    - text: Your email admin-global@demo.com is not yet confirmed.
+                    - button "Edit Email" [ref=e116] [cursor=pointer]
+                    - text: Please confirm your email to prevent data loss and ensure full account security.
+                - button "Resend Verification" [ref=e118] [cursor=pointer]:
+                  - img [ref=e119]
+                  - generic [ref=e122]: Resend Verification
+            - generic [ref=e123]:
+              - generic [ref=e125]:
+                - generic [ref=e127]:
+                  - generic [ref=e128]:
+                    - img [ref=e130]
+                    - generic [ref=e133]:
+                      - paragraph [ref=e134]: Active Registry Context
+                      - heading "Global Academic Registry Universal Access" [level=2] [ref=e135]:
+                        - text: Global Academic Registry
+                        - generic [ref=e136]: Universal Access
+                  - generic [ref=e137]:
+                    - button "Refresh" [ref=e138] [cursor=pointer]:
+                      - img [ref=e139]
+                      - generic [ref=e143]: Refresh
+                    - button "Publish All" [disabled] [ref=e144]:
+                      - img [ref=e145]
+                      - generic [ref=e148]: Publish All
+                - generic [ref=e150]:
+                  - generic [ref=e151]:
+                    - button "SUBMITTED 0" [active] [ref=e152] [cursor=pointer]:
+                      - generic [ref=e153]: SUBMITTED
+                      - generic [ref=e154]: "0"
+                    - button "PUBLISHED 0" [ref=e155] [cursor=pointer]:
+                      - generic [ref=e156]: PUBLISHED
+                      - generic [ref=e157]: "0"
+                    - button "DRAFTS 35" [ref=e158] [cursor=pointer]:
+                      - generic [ref=e159]: DRAFTS
+                      - generic [ref=e160]: "35"
+                    - button "ALL 35" [ref=e161] [cursor=pointer]:
+                      - generic [ref=e162]: ALL
+                      - generic [ref=e163]: "35"
+                  - generic [ref=e165]:
+                    - generic:
+                      - img
+                    - textbox "Filter by name..." [ref=e166]
+              - main [ref=e167]:
+                - generic [ref=e168]:
+                  - heading "No Submitted Reports" [level=3] [ref=e169]
+                  - paragraph [ref=e170]: No reports are currently awaiting your verification in this branch. Once teachers submit them, they will appear here.
+                  - button "Global Registry" [ref=e172] [cursor=pointer]:
+                    - generic [ref=e173]: Global Registry
+                    - img [ref=e174]
+          - button "Audit" [ref=e177] [cursor=pointer]
+  - generic [ref=e179]:
+    - generic [ref=e180]:
+      - button "Close install prompt" [ref=e181] [cursor=pointer]:
+        - img [ref=e182]
+      - generic [ref=e184]:
+        - img [ref=e186]
+        - generic [ref=e188]:
+          - heading "Install School App" [level=3] [ref=e189]
+          - paragraph [ref=e190]: Install for quick access and offline use. Works even without internet!
+      - generic [ref=e191]:
+        - button "Install Now" [ref=e192] [cursor=pointer]
+        - button "Not Now" [ref=e193] [cursor=pointer]
+    - generic [ref=e194]:
+      - img [ref=e196]
+      - generic [ref=e198]: Fast, reliable, and works offline
+```

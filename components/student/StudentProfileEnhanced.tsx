@@ -145,7 +145,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                     section: dbStudent.section || dbStudent.class_name?.match(/[A-Z]$/)?.[0] || 'A',
                     gender: dbStudent.gender || dbStudent.Gender,
                     dob: dbStudent.dob || dbStudent.birthday || dbStudent.date_of_birth || dbStudent.dateOfBirth,
-                    address: dbStudent.address || dbStudent.Address || dbStudent.studentAddress
+                    address: dbStudent.address || dbStudent.Address || dbStudent.studentAddress,
+                    parentName: dbStudent.parentName || dbStudent.parent_name || 'N/A',
+                    parentPhone: dbStudent.parentPhone || dbStudent.parent_phone || 'N/A',
+                    parentEmail: dbStudent.parentEmail || dbStudent.parent_email || 'N/A',
+                    parentAddress: dbStudent.parentAddress || dbStudent.parent_address || 'N/A'
                 };
                 setStudent(mappedStudent);
                 currentStudent = mappedStudent;
@@ -442,11 +446,11 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                         <CardContent className="p-6">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <InfoField icon={<Mail />} label="Email Address" value={student.email || 'N/A'} />
-                                                <InfoField icon={<Phone />} label="Phone Number" value={student.phone} />
-                                                <InfoField icon={<Calendar />} label="Date of Birth" value={new Date(student.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} />
-                                                <InfoField icon={<MapPin />} label="Address" value={student.address} />
-                                                <InfoField icon={<User />} label="Guardian" value={student.guardian_name} />
-                                                <InfoField icon={<Phone />} label="Guardian Contact" value={student.guardian_phone} />
+                                                <InfoField icon={<Phone />} label="Phone Number" value={student.phone || student.parentPhone || 'N/A'} />
+                                                <InfoField icon={<Calendar />} label="Date of Birth" value={student.dob ? new Date(student.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'} />
+                                                <InfoField icon={<MapPin />} label="Address" value={student.address || 'N/A'} />
+                                                <InfoField icon={<User />} label="Guardian" value={student.parentName || student.guardian_name || 'N/A'} />
+                                                <InfoField icon={<Phone />} label="Guardian Contact" value={student.parentPhone || student.guardian_phone || 'N/A'} />
                                             </div>
                                         </CardContent>
                                     </Card>

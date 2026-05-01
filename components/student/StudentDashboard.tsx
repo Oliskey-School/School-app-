@@ -335,8 +335,13 @@ interface StudentDashboardProps {
 
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const [scrolled, setScrolled] = useState(false);
-    const [viewStack, setViewStack] = useState<ViewStackItem[]>([{ view: 'overview', title: 'Student Dashboard', props: {} }]);
-    const [activeBottomNav, setActiveBottomNav] = useState('home');
+    const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
+        const saved = sessionStorage.getItem('student_viewStack');
+        return saved ? JSON.parse(saved) : [{ view: 'overview', title: 'Student Dashboard', props: {} }];
+    });
+    const [activeBottomNav, setActiveBottomNav] = useState(() => {
+        return sessionStorage.getItem('student_activeBottomNav') || 'home';
+    });
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const { currentSchool, currentBranchId, user } = useAuth();
     const schoolId = currentSchool?.id;
@@ -426,6 +431,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         const currentView = viewStack[viewStack.length - 1];
         setIsHomePage(currentView?.view === 'overview' && !isSearchOpen);
 
+        // Persist view stack and active nav
+        sessionStorage.setItem('student_viewStack', JSON.stringify(viewStack));
+        sessionStorage.setItem('student_activeBottomNav', activeBottomNav);
+
         // Sync bottom nav state
         const viewToNavMap: Record<string, string> = {
             overview: 'home',
@@ -451,7 +460,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ onLogout, setIsHome
         if (targetNav) {
             setActiveBottomNav(targetNav);
         }
-    }, [viewStack, isSearchOpen, setIsHomePage]);
+    }, [viewStack, isSearchOpen, setIsHomePage, activeBottomNav]);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 

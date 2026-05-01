@@ -67,8 +67,16 @@ app.use((req, res, next) => {
                         path.includes('/api/auth/login') ||
                         path.includes('/api/auth/demo/login');
 
-    if (isAuthAction) {
-        console.log(`[CSRF] 🛡️ Skipping CSRF check for path: ${path} (Method: ${req.method})`);
+    // Lead DevSecOps: If the request has a valid Authorization header, skip CSRF.
+    // Bearer tokens are added manually via JS and are not automatically sent by browsers
+    // during cross-origin form submissions, making them inherently resistant to CSRF.
+    // This fix is crucial for mobile users where third-party cookies (psid-csrf) are often blocked.
+    if (isAuthAction || req.headers.authorization) {
+        if (!isAuthAction) {
+            console.log(`[CSRF] 🛡️ Skipping CSRF check for authenticated request: ${path}`);
+        } else {
+            console.log(`[CSRF] 🛡️ Skipping CSRF check for path: ${path} (Method: ${req.method})`);
+        }
         return next();
     }
     doubleSubmitCookieMiddleware(req, res, next);

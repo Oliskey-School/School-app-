@@ -177,7 +177,7 @@ const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = 
                         user_id: studentUserId,
                         category: 'Homework',
                         title: 'Assignment Graded',
-                        summary: `Your assignment for ${assignment.title} has been graded. Score: ${grade}/100`,
+                        message: `Your assignment for ${assignment.title} has been graded. Score: ${grade}/100`,
                         timestamp: new Date().toISOString(),
                         is_read: false,
                         audience: ['student'],

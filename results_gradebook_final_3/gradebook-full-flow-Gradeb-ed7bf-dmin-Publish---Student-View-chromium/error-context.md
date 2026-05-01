@@ -1,0 +1,353 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - status [ref=e8]: Successfully submitted grades for 11 students!
+  - generic [ref=e10]:
+    - generic [ref=e12]:
+      - complementary [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - generic [ref=e17]: O
+            - generic "Oliskey School" [ref=e18]
+          - navigation [ref=e19]:
+            - generic [ref=e20]:
+              - button "Home" [ref=e21] [cursor=pointer]:
+                - img [ref=e22]
+                - generic [ref=e27]: Home
+              - button "Lesson Notes" [ref=e28] [cursor=pointer]:
+                - img [ref=e29]
+                - generic [ref=e33]: Lesson Notes
+              - button "Reports" [ref=e34] [cursor=pointer]:
+                - img [ref=e35]
+                - generic [ref=e40]: Reports
+              - button "Forum" [ref=e41] [cursor=pointer]:
+                - img [ref=e42]
+                - generic [ref=e50]: Forum
+              - button "Messages" [ref=e51] [cursor=pointer]:
+                - img [ref=e52]
+                - generic [ref=e55]: Messages
+              - button "Settings" [ref=e56] [cursor=pointer]:
+                - img [ref=e57]
+                - generic [ref=e61]: Settings
+          - button "Logout" [ref=e63] [cursor=pointer]:
+            - img [ref=e64]
+            - generic [ref=e68]: Logout
+      - generic [ref=e69]:
+        - banner [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - button "Go back" [ref=e73] [cursor=pointer]:
+                - img [ref=e74]
+              - heading "Class Gradebook Dashboard" [level=1] [ref=e78]
+            - generic [ref=e79]:
+              - generic [ref=e81]:
+                - img [ref=e83]
+                - generic [ref=e87]: Main Campus
+              - button "Open user menu" [ref=e88] [cursor=pointer]:
+                - img [ref=e90]
+        - main [ref=e95]:
+          - generic [ref=e98]:
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - heading "Class Gradebook" [level=2] [ref=e102]
+                - generic [ref=e103]:
+                  - combobox [ref=e104]:
+                    - option "2024/2025" [selected]
+                  - combobox [ref=e105]:
+                    - option "First Term" [selected]
+                    - option "Second Term"
+                - paragraph [ref=e106]: Manage CA and Exam scores efficiently
+              - generic [ref=e107]:
+                - combobox [ref=e108]:
+                  - option "SSS 1 - Mathematics" [selected]
+                  - option "JSS 3 - Mathematics"
+                - generic [ref=e109]:
+                  - button "Save Draft" [ref=e110] [cursor=pointer]:
+                    - img [ref=e111]
+                    - generic [ref=e116]: Save Draft
+                  - button "Submit" [ref=e117] [cursor=pointer]:
+                    - img [ref=e118]
+                    - generic [ref=e122]: Submit
+                  - button "Close" [ref=e123] [cursor=pointer]
+            - generic [ref=e124]:
+              - table [ref=e126]:
+                - rowgroup [ref=e127]:
+                  - row "Student Test 1 (20) Test 2 (20) Exam (60) Total Grade Status Remark" [ref=e128]:
+                    - columnheader "Student" [ref=e129]
+                    - columnheader "Test 1 (20)" [ref=e130]
+                    - columnheader "Test 2 (20)" [ref=e131]
+                    - columnheader "Exam (60)" [ref=e132]
+                    - columnheader "Total" [ref=e133]
+                    - columnheader "Grade" [ref=e134]
+                    - columnheader "Status" [ref=e135]
+                    - columnheader "Remark" [ref=e136]
+                - rowgroup [ref=e137]:
+                  - 'row "M Mr. pls work ID: DEMO-_MAIN-CMP_STU_0093 0 F Draft Needs Improvement" [ref=e138]':
+                    - 'cell "M Mr. pls work ID: DEMO-_MAIN-CMP_STU_0093" [ref=e139]':
+                      - generic [ref=e140]:
+                        - generic [ref=e142]: M
+                        - generic [ref=e143]:
+                          - generic [ref=e144]: Mr. pls work
+                          - generic [ref=e145]: "ID: DEMO-_MAIN-CMP_STU_0093"
+                    - cell [ref=e146]:
+                      - textbox "Test 1 score for Mr. pls work" [ref=e147]:
+                        - /placeholder: "0"
+                    - cell [ref=e148]:
+                      - textbox "Test 2 score for Mr. pls work" [ref=e149]:
+                        - /placeholder: "0"
+                    - cell [ref=e150]:
+                      - textbox "Exam score for Mr. pls work" [ref=e151]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e152]:
+                      - generic [ref=e153]: "0"
+                    - cell "F" [ref=e154]
+                    - cell "Draft" [ref=e155]
+                    - cell "Needs Improvement" [ref=e156]
+                  - 'row "B Bisola Odupitan ID: DEMO-_MAIN-CMP_STU_0029 0 F Draft Needs Improvement" [ref=e157]':
+                    - 'cell "B Bisola Odupitan ID: DEMO-_MAIN-CMP_STU_0029" [ref=e158]':
+                      - generic [ref=e159]:
+                        - generic [ref=e161]: B
+                        - generic [ref=e162]:
+                          - generic [ref=e163]: Bisola Odupitan
+                          - generic [ref=e164]: "ID: DEMO-_MAIN-CMP_STU_0029"
+                    - cell [ref=e165]:
+                      - textbox "Test 1 score for Bisola Odupitan" [ref=e166]:
+                        - /placeholder: "0"
+                    - cell [ref=e167]:
+                      - textbox "Test 2 score for Bisola Odupitan" [ref=e168]:
+                        - /placeholder: "0"
+                    - cell [ref=e169]:
+                      - textbox "Exam score for Bisola Odupitan" [ref=e170]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e171]:
+                      - generic [ref=e172]: "0"
+                    - cell "F" [ref=e173]
+                    - cell "Draft" [ref=e174]
+                    - cell "Needs Improvement" [ref=e175]
+                  - 'row "D Demo Student ID: OLISKEY_MAIN_STU_0135 18 17 55 90 A Draft Needs Improvement" [ref=e176]':
+                    - 'cell "D Demo Student ID: OLISKEY_MAIN_STU_0135" [ref=e177]':
+                      - generic [ref=e178]:
+                        - generic [ref=e180]: D
+                        - generic [ref=e181]:
+                          - generic [ref=e182]: Demo Student
+                          - generic [ref=e183]: "ID: OLISKEY_MAIN_STU_0135"
+                    - cell "18" [ref=e184]:
+                      - textbox "Test 1 score for Demo Student" [ref=e185]:
+                        - /placeholder: "0"
+                        - text: "18"
+                    - cell "17" [ref=e186]:
+                      - textbox "Test 2 score for Demo Student" [ref=e187]:
+                        - /placeholder: "0"
+                        - text: "17"
+                    - cell "55" [ref=e188]:
+                      - textbox "Exam score for Demo Student" [ref=e189]:
+                        - /placeholder: "0"
+                        - text: "55"
+                    - cell "90" [ref=e190]:
+                      - generic [ref=e191]: "90"
+                    - cell "A" [ref=e192]
+                    - cell "Draft" [ref=e193]
+                    - cell "Needs Improvement" [ref=e194]
+                  - 'row "Ademide . ID: DEMO-_MAIN-CMP_STU_0028 0 F Draft Needs Improvement" [ref=e195]':
+                    - 'cell "Ademide . ID: DEMO-_MAIN-CMP_STU_0028" [ref=e196]':
+                      - generic [ref=e199]:
+                        - generic [ref=e200]: Ademide .
+                        - generic [ref=e201]: "ID: DEMO-_MAIN-CMP_STU_0028"
+                    - cell [ref=e202]:
+                      - textbox "Test 1 score for Ademide ." [ref=e203]:
+                        - /placeholder: "0"
+                    - cell [ref=e204]:
+                      - textbox "Test 2 score for Ademide ." [ref=e205]:
+                        - /placeholder: "0"
+                    - cell [ref=e206]:
+                      - textbox "Exam score for Ademide ." [ref=e207]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e208]:
+                      - generic [ref=e209]: "0"
+                    - cell "F" [ref=e210]
+                    - cell "Draft" [ref=e211]
+                    - cell "Needs Improvement" [ref=e212]
+                  - 'row "S Student First Last 17 ID: STU-2026-017 0 F Draft Needs Improvement" [ref=e213]':
+                    - 'cell "S Student First Last 17 ID: STU-2026-017" [ref=e214]':
+                      - generic [ref=e215]:
+                        - generic [ref=e217]: S
+                        - generic [ref=e218]:
+                          - generic [ref=e219]: Student First Last 17
+                          - generic [ref=e220]: "ID: STU-2026-017"
+                    - cell [ref=e221]:
+                      - textbox "Test 1 score for Student First Last 17" [ref=e222]:
+                        - /placeholder: "0"
+                    - cell [ref=e223]:
+                      - textbox "Test 2 score for Student First Last 17" [ref=e224]:
+                        - /placeholder: "0"
+                    - cell [ref=e225]:
+                      - textbox "Exam score for Student First Last 17" [ref=e226]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e227]:
+                      - generic [ref=e228]: "0"
+                    - cell "F" [ref=e229]
+                    - cell "Draft" [ref=e230]
+                    - cell "Needs Improvement" [ref=e231]
+                  - 'row "S Student First Last 21 ID: STU-2026-021 0 F Draft Needs Improvement" [ref=e232]':
+                    - 'cell "S Student First Last 21 ID: STU-2026-021" [ref=e233]':
+                      - generic [ref=e234]:
+                        - generic [ref=e236]: S
+                        - generic [ref=e237]:
+                          - generic [ref=e238]: Student First Last 21
+                          - generic [ref=e239]: "ID: STU-2026-021"
+                    - cell [ref=e240]:
+                      - textbox "Test 1 score for Student First Last 21" [ref=e241]:
+                        - /placeholder: "0"
+                    - cell [ref=e242]:
+                      - textbox "Test 2 score for Student First Last 21" [ref=e243]:
+                        - /placeholder: "0"
+                    - cell [ref=e244]:
+                      - textbox "Exam score for Student First Last 21" [ref=e245]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e246]:
+                      - generic [ref=e247]: "0"
+                    - cell "F" [ref=e248]
+                    - cell "Draft" [ref=e249]
+                    - cell "Needs Improvement" [ref=e250]
+                  - 'row "S Student First Last 25 ID: STU-2026-025 0 F Draft Needs Improvement" [ref=e251]':
+                    - 'cell "S Student First Last 25 ID: STU-2026-025" [ref=e252]':
+                      - generic [ref=e253]:
+                        - generic [ref=e255]: S
+                        - generic [ref=e256]:
+                          - generic [ref=e257]: Student First Last 25
+                          - generic [ref=e258]: "ID: STU-2026-025"
+                    - cell [ref=e259]:
+                      - textbox "Test 1 score for Student First Last 25" [ref=e260]:
+                        - /placeholder: "0"
+                    - cell [ref=e261]:
+                      - textbox "Test 2 score for Student First Last 25" [ref=e262]:
+                        - /placeholder: "0"
+                    - cell [ref=e263]:
+                      - textbox "Exam score for Student First Last 25" [ref=e264]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e265]:
+                      - generic [ref=e266]: "0"
+                    - cell "F" [ref=e267]
+                    - cell "Draft" [ref=e268]
+                    - cell "Needs Improvement" [ref=e269]
+                  - 'row "S School Admin ID: OLISKEY_MAIN_ADM_0001 0 F Draft Needs Improvement" [ref=e270]':
+                    - 'cell "S School Admin ID: OLISKEY_MAIN_ADM_0001" [ref=e271]':
+                      - generic [ref=e272]:
+                        - generic [ref=e274]: S
+                        - generic [ref=e275]:
+                          - generic [ref=e276]: School Admin
+                          - generic [ref=e277]: "ID: OLISKEY_MAIN_ADM_0001"
+                    - cell [ref=e278]:
+                      - textbox "Test 1 score for School Admin" [ref=e279]:
+                        - /placeholder: "0"
+                    - cell [ref=e280]:
+                      - textbox "Test 2 score for School Admin" [ref=e281]:
+                        - /placeholder: "0"
+                    - cell [ref=e282]:
+                      - textbox "Exam score for School Admin" [ref=e283]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e284]:
+                      - generic [ref=e285]: "0"
+                    - cell "F" [ref=e286]
+                    - cell "Draft" [ref=e287]
+                    - cell "Needs Improvement" [ref=e288]
+                  - 'row "S Student First Last 5 ID: STU-2026-005 0 F Draft Needs Improvement" [ref=e289]':
+                    - 'cell "S Student First Last 5 ID: STU-2026-005" [ref=e290]':
+                      - generic [ref=e291]:
+                        - generic [ref=e293]: S
+                        - generic [ref=e294]:
+                          - generic [ref=e295]: Student First Last 5
+                          - generic [ref=e296]: "ID: STU-2026-005"
+                    - cell [ref=e297]:
+                      - textbox "Test 1 score for Student First Last 5" [ref=e298]:
+                        - /placeholder: "0"
+                    - cell [ref=e299]:
+                      - textbox "Test 2 score for Student First Last 5" [ref=e300]:
+                        - /placeholder: "0"
+                    - cell [ref=e301]:
+                      - textbox "Exam score for Student First Last 5" [ref=e302]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e303]:
+                      - generic [ref=e304]: "0"
+                    - cell "F" [ref=e305]
+                    - cell "Draft" [ref=e306]
+                    - cell "Needs Improvement" [ref=e307]
+                  - 'row "S Student First Last 9 ID: STU-2026-009 0 F Draft Needs Improvement" [ref=e308]':
+                    - 'cell "S Student First Last 9 ID: STU-2026-009" [ref=e309]':
+                      - generic [ref=e310]:
+                        - generic [ref=e312]: S
+                        - generic [ref=e313]:
+                          - generic [ref=e314]: Student First Last 9
+                          - generic [ref=e315]: "ID: STU-2026-009"
+                    - cell [ref=e316]:
+                      - textbox "Test 1 score for Student First Last 9" [ref=e317]:
+                        - /placeholder: "0"
+                    - cell [ref=e318]:
+                      - textbox "Test 2 score for Student First Last 9" [ref=e319]:
+                        - /placeholder: "0"
+                    - cell [ref=e320]:
+                      - textbox "Exam score for Student First Last 9" [ref=e321]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e322]:
+                      - generic [ref=e323]: "0"
+                    - cell "F" [ref=e324]
+                    - cell "Draft" [ref=e325]
+                    - cell "Needs Improvement" [ref=e326]
+                  - 'row "S Student First Last 13 ID: STU-2026-013 0 F Draft Needs Improvement" [ref=e327]':
+                    - 'cell "S Student First Last 13 ID: STU-2026-013" [ref=e328]':
+                      - generic [ref=e329]:
+                        - generic [ref=e331]: S
+                        - generic [ref=e332]:
+                          - generic [ref=e333]: Student First Last 13
+                          - generic [ref=e334]: "ID: STU-2026-013"
+                    - cell [ref=e335]:
+                      - textbox "Test 1 score for Student First Last 13" [ref=e336]:
+                        - /placeholder: "0"
+                    - cell [ref=e337]:
+                      - textbox "Test 2 score for Student First Last 13" [ref=e338]:
+                        - /placeholder: "0"
+                    - cell [ref=e339]:
+                      - textbox "Exam score for Student First Last 13" [ref=e340]:
+                        - /placeholder: "0"
+                    - cell "0" [ref=e341]:
+                      - generic [ref=e342]: "0"
+                    - cell "F" [ref=e343]
+                    - cell "Draft" [ref=e344]
+                    - cell "Needs Improvement" [ref=e345]
+              - generic [ref=e347]:
+                - heading "Grading Scale" [level=4] [ref=e348]:
+                  - img [ref=e349]
+                  - text: Grading Scale
+                - generic [ref=e352]:
+                  - generic [ref=e353]:
+                    - generic [ref=e354]: A (Excellent)
+                    - generic [ref=e355]: 75 - 100
+                  - generic [ref=e356]:
+                    - generic [ref=e357]: B (Very Good)
+                    - generic [ref=e358]: 65 - 74
+                  - generic [ref=e359]:
+                    - generic [ref=e360]: C (Good)
+                    - generic [ref=e361]: 50 - 64
+                  - generic [ref=e362]:
+                    - generic [ref=e363]: D (Fair)
+                    - generic [ref=e364]: 45 - 49
+                  - generic [ref=e365]:
+                    - generic [ref=e366]: F (Fail)
+                    - generic [ref=e367]: 0 - 44
+    - generic [ref=e369]:
+      - generic [ref=e370]:
+        - button "Close install prompt" [ref=e371] [cursor=pointer]:
+          - img [ref=e372]
+        - generic [ref=e374]:
+          - img [ref=e376]
+          - generic [ref=e378]:
+            - heading "Install School App" [level=3] [ref=e379]
+            - paragraph [ref=e380]: Install for quick access and offline use. Works even without internet!
+        - generic [ref=e381]:
+          - button "Install Now" [ref=e382] [cursor=pointer]
+          - button "Not Now" [ref=e383] [cursor=pointer]
+      - generic [ref=e384]:
+        - img [ref=e386]
+        - generic [ref=e388]: Fast, reliable, and works offline
+```

@@ -293,7 +293,11 @@ export class AcademicService {
             }
         });
 
-        // 2. Get Academic Performance (Grades)
+        // 2. Get detailed records from the JSON blob first
+        const academicData = reportBase?.academic_records as any || {};
+        const storedGrades = academicData.grades || [];
+
+        // 3. Get Academic Performance (Grades) from table as fallback
         const grades = await prisma.academicPerformance.findMany({
             where: {
                 school_id: schoolId,
@@ -303,8 +307,16 @@ export class AcademicService {
             }
         });
 
-        // 3. Format academic records (using the same logic as getPerformance)
-        const academicRecords = grades.map(g => {
+        // 4. Format academic records
+        // If we have detailed stored grades, use them and ensure they have 'ca' field
+        const academicRecords = storedGrades.length > 0 ? storedGrades.map((g: any) => ({
+            ...g,
+            ca: g.ca || (Number(g.test1 || 0) + Number(g.test2 || 0)),
+            exam: g.exam || 0,
+            total: g.total || (Number(g.ca || 0) + Number(g.exam || 0)),
+            grade: g.grade || '—',
+            remark: g.remark || '—'
+        })) : grades.map(g => {
             const score = g.score || 0;
             const ca = Math.round(score * 0.4);
             const exam = Math.round(score * 0.6);
@@ -329,9 +341,6 @@ export class AcademicService {
             };
         });
 
-        // 4. Return aggregated report
-        const academicData = reportBase?.academic_records as any || {};
-        
         return {
             id: reportBase?.id || 'temp-id',
             student_id: studentId,
@@ -340,7 +349,7 @@ export class AcademicService {
             status: reportBase?.status || (reportBase?.is_published ? 'Published' : 'Draft'),
             position: reportBase?.position_in_class,
             total_students: reportBase?.total_students_in_class,
-            academic_records: academicRecords.length > 0 ? academicRecords : (academicData.grades || academicData),
+            academic_records: academicRecords,
             attendance: {
                 total: reportBase?.attendance_count || 0,
                 present: reportBase?.attendance_count || 0,

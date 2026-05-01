@@ -20,7 +20,7 @@ export class DemoSeederService {
             const demoBranchId = AuthService.DEMO_BRANCH_ID;
             
             // 0. Dynamic Versioning - Read from package.json
-            let currentVersion = '0.5.37'; // Fallback
+            let currentVersion = '0.5.38'; // Fallback
             try {
                 const pkgPath = path.join(process.cwd(), 'package.json');
                 if (fs.existsSync(pkgPath)) {

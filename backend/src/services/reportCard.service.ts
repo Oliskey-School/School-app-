@@ -38,10 +38,39 @@ export class ReportCardService {
             ]
         });
 
-        return reports.map(r => ({
-            ...r,
-            status: r.status || (r.is_published ? 'Published' : 'Submitted')
-        }));
+        return reports.map(r => {
+            const academicData = r.academic_records as any || {};
+            const grades = academicData.grades || (Array.isArray(academicData) ? academicData : []);
+            
+            return {
+                ...r,
+                status: r.status || (r.is_published ? 'Published' : 'Submitted'),
+                academic_records: grades // Flatten for easy frontend consumption
+            };
+        });
+    }
+
+    static async getReportCard(id: string, schoolId: string, branchId: string | undefined) {
+        const report = await prisma.reportCard.findUnique({
+            where: { id },
+            include: {
+                student: true
+            }
+        });
+
+        if (!report || report.school_id !== schoolId) {
+            return null;
+        }
+
+        // Branch check
+        if (branchId && branchId !== 'all' && report.branch_id && report.branch_id !== branchId) {
+            return null;
+        }
+
+        return {
+            ...report,
+            status: report.status || (report.is_published ? 'Published' : 'Submitted')
+        };
     }
 
     static async updateStatus(schoolId: string, branchId: string | undefined, id: string, status: string) {

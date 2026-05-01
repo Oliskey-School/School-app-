@@ -1,0 +1,84 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - status [ref=e8]: Successfully submitted grades for 11 students!
+  - generic [ref=e10]:
+    - generic [ref=e12]:
+      - complementary [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - generic [ref=e17]: O
+            - generic "Oliskey School" [ref=e18]
+          - navigation [ref=e19]:
+            - generic [ref=e20]:
+              - button "Home" [ref=e21] [cursor=pointer]:
+                - img [ref=e22]
+                - generic [ref=e27]: Home
+              - button "Branches" [ref=e28] [cursor=pointer]:
+                - img [ref=e29]
+                - generic [ref=e32]: Branches
+              - button "Approvals" [ref=e33] [cursor=pointer]:
+                - img [ref=e34]
+                - generic [ref=e38]: Approvals
+              - button "Fee Management" [ref=e39] [cursor=pointer]:
+                - img [ref=e40]
+                - generic [ref=e44]: Fee Management
+              - button "Messages" [ref=e45] [cursor=pointer]:
+                - img [ref=e46]
+                - generic [ref=e49]: Messages
+              - button "Analytics" [ref=e50] [cursor=pointer]:
+                - img [ref=e51]
+                - generic [ref=e55]: Analytics
+              - button "Settings" [ref=e56] [cursor=pointer]:
+                - img [ref=e57]
+                - generic [ref=e61]: Settings
+          - button "Logout" [ref=e63] [cursor=pointer]:
+            - img [ref=e64]
+            - generic [ref=e68]: Logout
+      - generic [ref=e69]:
+        - banner [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - button "Go back" [ref=e73] [cursor=pointer]:
+                - img [ref=e74]
+              - heading "Publish Reports Dashboard" [level=1] [ref=e78]
+            - generic [ref=e79]:
+              - button "All Branches" [ref=e82] [cursor=pointer]:
+                - generic [ref=e83]:
+                  - img [ref=e85]
+                  - generic [ref=e89]: All Branches
+                  - img [ref=e90]
+              - button "Open user menu" [ref=e92] [cursor=pointer]:
+                - img [ref=e94]
+        - main [ref=e99]:
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - img [ref=e102]
+              - generic [ref=e104]: You have used 0 of 10 teachers on your current plan. Upgrade to add more.
+              - button "Upgrade Plan" [ref=e105] [cursor=pointer]
+            - generic [ref=e107]:
+              - img [ref=e109]
+              - heading "Publish Reports Error" [level=2] [ref=e112]
+              - paragraph [ref=e113]: We encountered an issue while rendering this screen. This could be due to a data mismatch or a temporary connection issue.
+              - button "Try Again" [ref=e114] [cursor=pointer]:
+                - img [ref=e115]
+                - generic [ref=e118]: Try Again
+              - paragraph [ref=e120]: Cannot read properties of undefined (reading 'toLowerCase')
+            - button "Audit" [ref=e121] [cursor=pointer]
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - button "Close install prompt" [ref=e125] [cursor=pointer]:
+          - img [ref=e126]
+        - generic [ref=e128]:
+          - img [ref=e130]
+          - generic [ref=e132]:
+            - heading "Install School App" [level=3] [ref=e133]
+            - paragraph [ref=e134]: Install for quick access and offline use. Works even without internet!
+        - generic [ref=e135]:
+          - button "Install Now" [ref=e136] [cursor=pointer]
+          - button "Not Now" [ref=e137] [cursor=pointer]
+      - generic [ref=e138]:
+        - img [ref=e140]
+        - generic [ref=e142]: Fast, reliable, and works offline
+```
