@@ -1,0 +1,112 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img [ref=e10]
+        - generic [ref=e12]:
+          - heading "System Update Required" [level=3] [ref=e13]
+          - paragraph [ref=e14]: Version 0.5.31 is now available. Please update to stay in sync.
+        - button [ref=e15] [cursor=pointer]:
+          - img [ref=e16]
+      - generic [ref=e18]:
+        - button "Update Now" [ref=e19] [cursor=pointer]
+        - button "Not Now" [ref=e20] [cursor=pointer]
+    - generic [ref=e23]: Mandatory platform sync (v0.5.31)
+  - generic [ref=e25]:
+    - complementary [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - generic [ref=e30]: O
+          - generic "Oliskey Demo Academy" [ref=e31]
+        - navigation [ref=e32]:
+          - generic [ref=e33]:
+            - button "Home" [ref=e34] [cursor=pointer]:
+              - img [ref=e35]
+              - generic [ref=e40]: Home
+            - button "Branches" [ref=e41] [cursor=pointer]:
+              - img [ref=e42]
+              - generic [ref=e45]: Branches
+            - button "Approvals" [ref=e46] [cursor=pointer]:
+              - img [ref=e47]
+              - generic [ref=e51]: Approvals
+            - button "Fee Management" [ref=e52] [cursor=pointer]:
+              - img [ref=e53]
+              - generic [ref=e57]: Fee Management
+            - button "Messages" [ref=e58] [cursor=pointer]:
+              - img [ref=e59]
+              - generic [ref=e62]: Messages
+            - button "Analytics" [ref=e63] [cursor=pointer]:
+              - img [ref=e64]
+              - generic [ref=e68]: Analytics
+            - button "Settings" [ref=e69] [cursor=pointer]:
+              - img [ref=e70]
+              - generic [ref=e74]: Settings
+        - button "Logout" [ref=e76] [cursor=pointer]:
+          - img [ref=e77]
+          - generic [ref=e81]: Logout
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - generic [ref=e84]: Demo Mode — changes reset daily
+        - button "Create Your School" [ref=e86] [cursor=pointer]
+      - banner [ref=e87]:
+        - generic [ref=e88]:
+          - generic [ref=e89]:
+            - button "Go back" [ref=e90] [cursor=pointer]:
+              - img [ref=e91]
+            - generic [ref=e94]:
+              - heading "Add New User Dashboard" [level=1] [ref=e95]
+              - generic [ref=e97]:
+                - generic [ref=e98]: ID
+                - generic [ref=e99]: DEMO-SCH_EFF8E7CA_ADM_0001
+          - generic [ref=e100]:
+            - button "Demo Phone (eff8e7ca)" [ref=e103] [cursor=pointer]:
+              - generic [ref=e104]:
+                - img [ref=e106]
+                - generic [ref=e110]: Demo Phone (eff8e7ca)
+                - img [ref=e111]
+            - button "Open user menu" [ref=e113] [cursor=pointer]:
+              - img [ref=e115]
+      - main [ref=e120]:
+        - generic [ref=e121]:
+          - generic [ref=e123]:
+            - heading "What type of user do you want to add?" [level=3] [ref=e125]
+            - button "Add New Student" [ref=e126] [cursor=pointer]:
+              - generic [ref=e127]:
+                - img [ref=e129]
+                - paragraph [ref=e133]: Add New Student
+              - img [ref=e134]
+            - button "Add New Teacher" [ref=e137] [cursor=pointer]:
+              - generic [ref=e138]:
+                - img [ref=e140]
+                - paragraph [ref=e145]: Add New Teacher
+              - img [ref=e146]
+            - button "Add New Parent" [ref=e149] [cursor=pointer]:
+              - generic [ref=e150]:
+                - img [ref=e152]
+                - paragraph [ref=e158]: Add New Parent
+              - img [ref=e159]
+            - button "Add New Branch Admin" [ref=e162] [cursor=pointer]:
+              - generic [ref=e163]:
+                - img [ref=e165]
+                - paragraph [ref=e171]: Add New Branch Admin
+              - img [ref=e172]
+          - button "Audit" [ref=e175] [cursor=pointer]
+  - generic [ref=e177]:
+    - generic [ref=e178]:
+      - button "Close install prompt" [ref=e179] [cursor=pointer]:
+        - img [ref=e180]
+      - generic [ref=e182]:
+        - img [ref=e184]
+        - generic [ref=e186]:
+          - heading "Install School App" [level=3] [ref=e187]
+          - paragraph [ref=e188]: Install for quick access and offline use. Works even without internet!
+      - generic [ref=e189]:
+        - button "Install Now" [ref=e190] [cursor=pointer]
+        - button "Not Now" [ref=e191] [cursor=pointer]
+    - generic [ref=e192]:
+      - img [ref=e194]
+      - generic [ref=e196]: Fast, reliable, and works offline
+```

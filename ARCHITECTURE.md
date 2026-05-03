@@ -21,6 +21,9 @@ This document provides a clear separation between the **Local Development** and 
 
 ---
 
+
+
+
 ## 🌐 Production Stack
 *Optimized for scale, security, and high availability.*
 
@@ -50,6 +53,12 @@ This document provides a clear separation between the **Local Development** and 
     .env.production 
 
 ---
+
+
+
+
+
+
 
 ## 🔄 Data Architecture & Flow
 
@@ -88,6 +97,10 @@ If updating the system version, run the synchronization script to update the dem
 ```bash
 npx tsx scripts/update_demo_version.ts
 ```
+
+
+
+
 
 ### 2. Vercel Build
 The `vercel-build` script in `package.json` ensures the Prisma Client is generated synchronously during the Vercel deployment pipeline.

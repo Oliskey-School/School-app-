@@ -5,7 +5,9 @@
 
 const getBaseUrl = (type: 'api' | 'socket') => {
     const isLocal = typeof window !== 'undefined' && 
-                    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                    (window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1' || 
+                     window.location.hostname === 'host.docker.internal');
 
     const envUrl = type === 'api' ? (import.meta.env as any).VITE_API_URL : (import.meta.env as any).VITE_SOCKET_URL;
 
@@ -16,7 +18,8 @@ const getBaseUrl = (type: 'api' | 'socket') => {
 
     if (!url) {
         if (isLocal) {
-            url = type === 'api' ? 'http://localhost:5000/api' : 'http://localhost:5000';
+            const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+            url = type === 'api' ? `http://${hostname}:5000/api` : `http://${hostname}:5000`;
         } else {
             url = type === 'api' ? RAILWAY_API : RAILWAY_SOCKET;
         }

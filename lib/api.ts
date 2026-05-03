@@ -444,8 +444,9 @@ class ExpressApiClient {
     // SCHOOLS & BRANCHES
     // ============================================
     async getBranches(schoolId: string): Promise<any[]> {
+        const cleanSchoolId = (schoolId || '').replace(/^=+/, '');
         try {
-            return await this.get(`/branches?schoolId=${schoolId}`);
+            return await this.get(`/branches?schoolId=${cleanSchoolId}`);
         } catch (err) {
             console.warn('[API] getBranches failed:', err);
             return [];
@@ -498,12 +499,18 @@ class ExpressApiClient {
         let filters: any = {};
 
         if (typeof schoolIdOrFilters === 'string') {
-            if (schoolIdOrFilters) queryParams.append('schoolId', schoolIdOrFilters);
+            if (schoolIdOrFilters) {
+                const cleanSid = schoolIdOrFilters.replace(/^=+/, '');
+                queryParams.append('schoolId', cleanSid);
+            }
             if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
             filters = args[0] || {};
         } else {
             filters = schoolIdOrFilters || {};
-            if (filters.schoolId) queryParams.append('schoolId', filters.schoolId);
+            if (filters.schoolId) {
+                const cleanSid = filters.schoolId.replace(/^=+/, '');
+                queryParams.append('schoolId', cleanSid);
+            }
             if (filters.branchId && filters.branchId !== 'all') queryParams.append('branchId', filters.branchId);
         }
         

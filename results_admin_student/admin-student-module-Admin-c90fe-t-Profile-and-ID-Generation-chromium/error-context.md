@@ -1,0 +1,94 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - img [ref=e10]
+          - generic [ref=e12]:
+            - heading "System Update Required" [level=3] [ref=e13]
+            - paragraph [ref=e14]: Version 0.5.31 is now available. Please update to stay in sync.
+          - button [ref=e15] [cursor=pointer]:
+            - img [ref=e16]
+        - generic [ref=e18]:
+          - button "Update Now" [ref=e19] [cursor=pointer]
+          - button "Not Now" [ref=e20] [cursor=pointer]
+      - generic [ref=e23]: Mandatory platform sync (v0.5.31)
+    - generic [ref=e25]:
+      - complementary [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - generic [ref=e30]: O
+            - generic "Oliskey Demo Academy" [ref=e31]
+          - navigation [ref=e32]:
+            - generic [ref=e33]:
+              - button "Home" [ref=e34] [cursor=pointer]:
+                - img [ref=e35]
+                - generic [ref=e40]: Home
+              - button "Branches" [ref=e41] [cursor=pointer]:
+                - img [ref=e42]
+                - generic [ref=e45]: Branches
+              - button "Approvals" [ref=e46] [cursor=pointer]:
+                - img [ref=e47]
+                - generic [ref=e51]: Approvals
+              - button "Fee Management" [ref=e52] [cursor=pointer]:
+                - img [ref=e53]
+                - generic [ref=e57]: Fee Management
+              - button "Messages" [ref=e58] [cursor=pointer]:
+                - img [ref=e59]
+                - generic [ref=e62]: Messages
+              - button "Analytics" [ref=e63] [cursor=pointer]:
+                - img [ref=e64]
+                - generic [ref=e68]: Analytics
+              - button "Settings" [ref=e69] [cursor=pointer]:
+                - img [ref=e70]
+                - generic [ref=e74]: Settings
+          - button "Logout" [ref=e76] [cursor=pointer]:
+            - img [ref=e77]
+            - generic [ref=e81]: Logout
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - generic [ref=e84]: Demo Mode — changes reset daily
+          - button "Create Your School" [ref=e86] [cursor=pointer]
+        - banner [ref=e87]:
+          - generic [ref=e88]:
+            - generic [ref=e90]:
+              - heading "Admin Dashboard" [level=1] [ref=e91]
+              - generic [ref=e93]:
+                - generic [ref=e94]: ID
+                - generic [ref=e95]: DEMO-SCH_EFF8E7CA_ADM_0001
+            - generic [ref=e96]:
+              - button "Demo Phone (eff8e7ca)" [ref=e99] [cursor=pointer]:
+                - generic [ref=e100]:
+                  - img [ref=e102]
+                  - generic [ref=e106]: Demo Phone (eff8e7ca)
+                  - img [ref=e107]
+              - button "Open user menu" [ref=e109] [cursor=pointer]:
+                - img [ref=e111]
+        - main [ref=e116]:
+          - button "Audit" [ref=e117] [cursor=pointer]
+    - button "Open AI Assistant" [ref=e118] [cursor=pointer]:
+      - img [ref=e119]
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - button "Close install prompt" [ref=e125] [cursor=pointer]:
+          - img [ref=e126]
+        - generic [ref=e128]:
+          - img [ref=e130]
+          - generic [ref=e132]:
+            - heading "Install School App" [level=3] [ref=e133]
+            - paragraph [ref=e134]: Install for quick access and offline use. Works even without internet!
+        - generic [ref=e135]:
+          - button "Install Now" [ref=e136] [cursor=pointer]
+          - button "Not Now" [ref=e137] [cursor=pointer]
+      - generic [ref=e138]:
+        - img [ref=e140]
+        - generic [ref=e142]: Fast, reliable, and works offline
+  - generic [ref=e143]:
+    - generic [ref=e147]: 🎓
+    - generic [ref=e149]:
+      - heading "Oliskey School App" [level=3] [ref=e150]
+      - paragraph [ref=e151]: Loading dashboard statistics...
+```

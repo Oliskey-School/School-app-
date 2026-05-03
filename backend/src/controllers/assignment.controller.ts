@@ -72,6 +72,18 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 export const createAssignment = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId));
+        
+        // For teachers, automatically set the teacher_id
+        if (req.user.role === 'TEACHER' && !req.body.teacher_id) {
+            const teacher = await prisma.teacher.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true }
+            });
+            if (teacher) {
+                req.body.teacher_id = teacher.id;
+            }
+        }
+        
         const result = await AssignmentService.createAssignment(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {

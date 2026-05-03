@@ -357,13 +357,18 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         e.preventDefault();
         setIsLoading(true);
 
+        console.log('🚀 [AddStudentScreen] Form Submitted. schoolId:', schoolId);
+        console.log('🚀 [AddStudentScreen] isLimitReached:', isLimitReached, 'currentCount:', currentCount, 'maxLimit:', maxLimit);
+
         if (!studentToEdit && isLimitReached) {
+            console.warn('🚨 [AddStudentScreen] Limit reached. Showing upgrade modal.');
             setShowUpgradeModal(true);
             setIsLoading(false);
             return;
         }
 
         if (selectedClassIds.length === 0) {
+            console.warn('🚨 [AddStudentScreen] No classes selected.');
             toast.error('Please select at least one class for enrollment.');
             setIsLoading(false);
             return;
@@ -397,6 +402,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 parentPhone: showNewParentForm ? guardianPhone : undefined,
                 documentUrls: { passportPhoto: avatarUrl }
             };
+
+            console.log('🚀 [AddStudentScreen] studentData:', JSON.stringify(studentData, null, 2));
 
             if (studentToEdit) {
                 // UPDATE
@@ -438,13 +445,17 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     : 'Student enrolled successfully.');
             } else {
                 // CREATE via Backend
+                console.log('🚀 [AddStudentScreen] Calling api.enrollStudent with data:', JSON.stringify(studentData));
                 const result = await api.enrollStudent(studentData);
+                console.log('🚀 [AddStudentScreen] Enrollment result received:', JSON.stringify(result));
 
                 if (result.status === 'Pending') {
+                    console.log('🚀 [AddStudentScreen] Status is Pending. Showing toast.');
                     toast.success('Student added successfully. Awaiting Admin approval.');
                 } else {
+                    console.log('🚀 [AddStudentScreen] Status is Active. Showing CredentialsModal.');
                     setCredentials({
-                        username: result.username || result.email, // backend returns email usually
+                        username: result.username || result.email, 
                         password: result.password,
                         email: result.email,
                         secondary: result.parentCredentials ? {
@@ -461,6 +472,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 }
             }
 
+            console.log('🚀 [AddStudentScreen] Completing submission, calling handleBack.');
             forceUpdate();
             handleBack();
         } catch (error: any) {

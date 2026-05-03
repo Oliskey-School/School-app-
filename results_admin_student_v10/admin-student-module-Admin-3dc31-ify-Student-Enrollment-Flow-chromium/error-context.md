@@ -1,0 +1,219 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e6]:
+  - complementary [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e11]: O
+        - generic "Oliskey Demo Academy" [ref=e12]
+      - navigation [ref=e13]:
+        - generic [ref=e14]:
+          - button "Home" [ref=e15] [cursor=pointer]:
+            - img [ref=e16]
+            - generic [ref=e21]: Home
+          - button "Branches" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - generic [ref=e26]: Branches
+          - button "Approvals" [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+            - generic [ref=e32]: Approvals
+          - button "Fee Management" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+            - generic [ref=e38]: Fee Management
+          - button "Messages" [ref=e39] [cursor=pointer]:
+            - img [ref=e40]
+            - generic [ref=e43]: Messages
+          - button "Analytics" [ref=e44] [cursor=pointer]:
+            - img [ref=e45]
+            - generic [ref=e49]: Analytics
+          - button "Settings" [ref=e50] [cursor=pointer]:
+            - img [ref=e51]
+            - generic [ref=e55]: Settings
+      - button "Logout" [ref=e57] [cursor=pointer]:
+        - img [ref=e58]
+        - generic [ref=e62]: Logout
+  - generic [ref=e63]:
+    - generic [ref=e64]:
+      - generic [ref=e65]: Demo Mode — changes reset daily
+      - button "Create Your School" [ref=e67] [cursor=pointer]
+    - banner [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - button "Go back" [ref=e71] [cursor=pointer]:
+            - img [ref=e72]
+          - generic [ref=e75]:
+            - heading "Add New Student Dashboard" [level=1] [ref=e76]
+            - generic [ref=e78]:
+              - generic [ref=e79]: ID
+              - generic [ref=e80]: DEMO-SCH_EFF8E7CA_ADM_0001
+        - generic [ref=e81]:
+          - button "Demo Phone (eff8e7ca)" [ref=e84] [cursor=pointer]:
+            - generic [ref=e85]:
+              - img [ref=e87]
+              - generic [ref=e91]: Demo Phone (eff8e7ca)
+              - img [ref=e92]
+          - button "Open user menu" [ref=e94] [cursor=pointer]:
+            - img [ref=e96]
+    - main [ref=e101]:
+      - generic [ref=e102]:
+        - generic [ref=e105]:
+          - main [ref=e106]:
+            - generic [ref=e108]:
+              - img [ref=e110]
+              - generic [ref=e113] [cursor=pointer]:
+                - img [ref=e114]
+                - button [ref=e117]
+            - generic [ref=e118]:
+              - generic [ref=e119]:
+                - heading "Student Information" [level=3] [ref=e121]
+                - generic [ref=e122]:
+                  - generic [ref=e123]:
+                    - generic [ref=e124]: Full Name
+                    - generic [ref=e125]:
+                      - img [ref=e127]
+                      - textbox "Full Name" [ref=e130]:
+                        - /placeholder: Adebayo Adewale
+                        - text: QA_Test_Student_1777612699007
+                  - generic [ref=e131]:
+                    - generic [ref=e132]:
+                      - generic [ref=e133]: Gender
+                      - combobox "Gender" [ref=e134]:
+                        - option "Select Gender..."
+                        - option "Male" [selected]
+                        - option "Female"
+                    - generic [ref=e135]:
+                      - generic [ref=e136]: Date of Birth
+                      - textbox "Date of Birth" [ref=e137]: 2015-05-15
+                  - generic [ref=e138]:
+                    - generic [ref=e139]: Assigned Branch
+                    - combobox "Assigned Branch" [ref=e140]:
+                      - option "Select Branch..."
+                      - option "Demo Phone (eff8e7ca)" [selected]
+                    - paragraph [ref=e141]: Students are permanently locked to their assigned branch.
+                  - generic [ref=e142]:
+                    - generic [ref=e143]: Primary Curriculum
+                    - combobox "Primary Curriculum" [ref=e144]:
+                      - option "Nigerian" [selected]
+                      - option "British"
+                      - option "Both"
+                  - generic [ref=e145]:
+                    - generic [ref=e146]: Class Enrollments
+                    - generic [ref=e147]:
+                      - generic [ref=e148] [cursor=pointer]:
+                        - checkbox "Grade 12A (A)" [checked] [ref=e149]
+                        - generic [ref=e150]: Grade 12A (A)
+                      - generic [ref=e151] [cursor=pointer]:
+                        - checkbox "Grade 11A (A)" [ref=e152]
+                        - generic [ref=e153]: Grade 11A (A)
+                      - generic [ref=e154] [cursor=pointer]:
+                        - checkbox "SSS 1 (A)" [ref=e155]
+                        - generic [ref=e156]: SSS 1 (A)
+                      - generic [ref=e157] [cursor=pointer]:
+                        - checkbox "SSS 1 (A)" [ref=e158]
+                        - generic [ref=e159]: SSS 1 (A)
+                      - generic [ref=e160] [cursor=pointer]:
+                        - checkbox "Grade 10A (A)" [ref=e161]
+                        - generic [ref=e162]: Grade 10A (A)
+                      - generic [ref=e163] [cursor=pointer]:
+                        - checkbox "JSS 3 (A)" [ref=e164]
+                        - generic [ref=e165]: JSS 3 (A)
+                      - generic [ref=e166] [cursor=pointer]:
+                        - checkbox "JSS 3 A (A)" [ref=e167]
+                        - generic [ref=e168]: JSS 3 A (A)
+                      - generic [ref=e169] [cursor=pointer]:
+                        - checkbox "JSS 3 (A)" [ref=e170]
+                        - generic [ref=e171]: JSS 3 (A)
+                      - generic [ref=e172] [cursor=pointer]:
+                        - checkbox "JSS 2 A (A)" [ref=e173]
+                        - generic [ref=e174]: JSS 2 A (A)
+                      - generic [ref=e175] [cursor=pointer]:
+                        - checkbox "JSS 1 A (A)" [ref=e176]
+                        - generic [ref=e177]: JSS 1 A (A)
+                      - generic [ref=e178] [cursor=pointer]:
+                        - checkbox "Primary 6 A (A)" [ref=e179]
+                        - generic [ref=e180]: Primary 6 A (A)
+                      - generic [ref=e181] [cursor=pointer]:
+                        - checkbox "Primary 5 A (A)" [ref=e182]
+                        - generic [ref=e183]: Primary 5 A (A)
+                      - generic [ref=e184] [cursor=pointer]:
+                        - checkbox "Primary 4 A (A)" [ref=e185]
+                        - generic [ref=e186]: Primary 4 A (A)
+                      - generic [ref=e187] [cursor=pointer]:
+                        - checkbox "Primary 3 A (A)" [ref=e188]
+                        - generic [ref=e189]: Primary 3 A (A)
+                      - generic [ref=e190] [cursor=pointer]:
+                        - checkbox "Primary 2 A (A)" [ref=e191]
+                        - generic [ref=e192]: Primary 2 A (A)
+                      - generic [ref=e193] [cursor=pointer]:
+                        - checkbox "1 (A)" [ref=e194]
+                        - generic [ref=e195]: 1 (A)
+                      - generic [ref=e196] [cursor=pointer]:
+                        - checkbox "Primary 1 A (A)" [ref=e197]
+                        - generic [ref=e198]: Primary 1 A (A)
+                      - generic [ref=e199] [cursor=pointer]:
+                        - checkbox "Nursery 2 A (A)" [ref=e200]
+                        - generic [ref=e201]: Nursery 2 A (A)
+                      - generic [ref=e202] [cursor=pointer]:
+                        - checkbox "Nursery 1 A (A)" [ref=e203]
+                        - generic [ref=e204]: Nursery 1 A (A)
+                      - generic [ref=e205] [cursor=pointer]:
+                        - checkbox "Pre-Nursery A (A)" [ref=e206]
+                        - generic [ref=e207]: Pre-Nursery A (A)
+                      - generic [ref=e208] [cursor=pointer]:
+                        - checkbox "Creche A (A)" [ref=e209]
+                        - generic [ref=e210]: Creche A (A)
+                    - paragraph [ref=e211]: The first selected class will be treated as the Primary Class.
+                  - generic [ref=e212]:
+                    - generic [ref=e213]: Subjects (Optional Selection)
+                    - generic [ref=e214]:
+                      - textbox "Select subjects for student..." [ref=e216]
+                      - img [ref=e217]
+                  - generic [ref=e219]:
+                    - generic [ref=e220]: Department
+                    - combobox "Department" [ref=e221]:
+                      - option "Select Department..." [selected]
+                      - option "Science"
+                      - option "Commercial"
+                      - option "Arts"
+                  - generic [ref=e222]:
+                    - generic [ref=e223]: Admission Number (Optional)
+                    - textbox "Admission Number (Optional)" [ref=e224]:
+                      - /placeholder: ADM-2024-001
+                  - generic [ref=e225]:
+                    - generic [ref=e226]: Address (Optional)
+                    - textbox "Address (Optional)" [ref=e227]:
+                      - /placeholder: 24 Ademola Street, Ikeja, Lagos
+              - generic [ref=e228]:
+                - generic [ref=e229]:
+                  - heading "Guardian Information" [level=3] [ref=e230]
+                  - generic [ref=e231]:
+                    - button "New" [ref=e232] [cursor=pointer]
+                    - button "Existing" [ref=e233] [cursor=pointer]
+                - generic [ref=e235]:
+                  - generic [ref=e236]:
+                    - generic [ref=e237]: Guardian's Name
+                    - generic [ref=e238]:
+                      - img [ref=e240]
+                      - textbox "Guardian's Name" [ref=e243]:
+                        - /placeholder: Mr. Adewale
+                        - text: QA Guardian
+                  - generic [ref=e244]:
+                    - generic [ref=e245]: Guardian's Phone
+                    - generic [ref=e246]:
+                      - img [ref=e248]
+                      - textbox "Guardian's Phone" [ref=e250]:
+                        - /placeholder: +234 801 234 5678
+                        - text: "+2348000000001"
+                  - generic [ref=e251]:
+                    - generic [ref=e252]: Guardian's Email
+                    - generic [ref=e253]:
+                      - img [ref=e255]
+                      - textbox "Guardian's Email" [ref=e258]:
+                        - /placeholder: guardian@example.com
+                        - text: qa_parent_1777612701350@example.com
+          - generic [ref=e259]:
+            - button "Cancel" [ref=e260] [cursor=pointer]
+            - button "Save Student" [ref=e261] [cursor=pointer]
+        - button "Audit" [ref=e262] [cursor=pointer]
+```
