@@ -16,6 +16,7 @@ declare global {
         TEACHER_COMPONENTS: string[];
         ADMIN_NAVIGATE: (view: string, title: string, props: any) => void;
         ADMIN_COMPONENTS: string[];
+        ADMIN_AUDIT_ENABLED?: boolean;
         PARENT_NAVIGATE: (view: string, title: string, props: any) => void;
         PARENT_COMPONENTS: string[];
     }

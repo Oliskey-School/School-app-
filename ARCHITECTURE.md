@@ -95,7 +95,7 @@ npx prisma generate --schema=backend/prisma/schema.prisma
 #### **C. Sync Platform Version**
 If updating the system version, run the synchronization script to update the demo school record:
 ```bash
-npx tsx scripts/update_demo_version.ts
+    npx tsx scripts/update_demo_version.ts
 ```
 
 

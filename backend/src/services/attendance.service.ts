@@ -1,4 +1,4 @@
-import prisma from '../config/database';
+﻿import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class AttendanceService {
@@ -78,32 +78,30 @@ export class AttendanceService {
 
     static async getAttendanceByStudentIds(schoolId: string, branchId: string | undefined, studentIds: string[], startDate?: string, endDate?: string) {
         return await prisma.attendance.findMany({
-            where: {
-                student_id: { in: studentIds },
-                date: {
-                    gte: startDate ? new Date(startDate) : undefined,
-                    lte: endDate ? new Date(endDate) : undefined
-                },
-                student: {
-                    school_id: schoolId,
-                    branch_id: branchId && branchId !== 'all' ? branchId : undefined
-                }
+          where: {
+            student_id: { in: studentIds },
+            date: {
+              gte: startDate ? new Date(startDate) : undefined,
+              lte: endDate ? new Date(endDate) : undefined
             },
-            select: {
-                student_id: true,
-                status: true,
-                date: true,
-                student: {
-                    select: {
-                        class_id: true,
-                        class: {
-                            select: {
-                                name: true
-                            }
-                        }
-                    }
-                }
+            student: {
+              school_id: schoolId,
+              branch_id: branchId && branchId !== 'all' ? branchId : undefined
             }
+          },
+          select: {
+            student_id: true,
+            status: true,
+            date: true,
+            class_id: true,
+            student: {
+              select: {
+                id: true,
+                full_name: true,
+                avatar_url: true
+              }
+            }
+          }
         });
     }
 }

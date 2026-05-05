@@ -1,5 +1,8 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { test, expect } from '@playwright/test';
 
+const progressPath = path.join(process.cwd(), 'tests', 'e2e', 'admin-audit-progress.json');
 const adminPages = [
     'overview', 'analytics', 'reports', 'classList', 'studentList', 'addStudent',
     'teacherList', 'teacherPerformance', 'timetable', 'timetableGenerator',
@@ -39,10 +42,32 @@ const adminPages = [
     'superAdmin', 'timetableScreen', 'userSeeder', 'visitorLog'
 ];
 
-test.describe('Admin Dashboard Full Audit', () => {
+const auditResults: Array<any> = [];
+
+async function writeAuditProgress() {
+    const passing = auditResults.filter(r => r.status === 'Operational').length;
+    const failing = auditResults.filter(r => r.status === 'Failing').length;
+    const payload = {
+        timestamp: new Date().toISOString(),
+        totalFeatures: auditResults.length,
+        passing,
+        failing,
+        operationalPercent: passing ? Number(((passing / auditResults.length) * 100).toFixed(2)) : 0,
+        failingPercent: failing ? Number(((failing / auditResults.length) * 100).toFixed(2)) : 0,
+        results: auditResults,
+    };
+    await fs.writeFile(progressPath, JSON.stringify(payload, null, 2));
+}
+
+test.describe.serial('Admin Dashboard Full Audit', () => {
     test.setTimeout(600000); // 10 minutes
 
     test.beforeEach(async ({ page }) => {
+        await page.addInitScript(() => {
+            window.__AUDIT_MODE__ = true;
+            window.localStorage.setItem('audit_mode', 'true');
+        });
+
         await page.goto('/');
         await page.waitForLoadState('networkidle');
         
@@ -91,8 +116,25 @@ test.describe('Admin Dashboard Full Audit', () => {
             }
 
             // Check if component rendered something other than "View Not Found"
-            await expect(page.getByText(`View Not Found: ${pageName}`)).not.toBeVisible();
-            
+            const viewNotFoundVisible = await page.getByText(`View Not Found: ${pageName}`).isVisible();
+            await expect(viewNotFoundVisible).toBeFalsy();
+
+            const auditStatus = viewNotFoundVisible || visibleError ? 'Failing' : 'Operational';
+            const auditMessage = viewNotFoundVisible
+                ? `View not found: ${pageName}`
+                : visibleError
+                    ? `Runtime error detected on ${pageName}`
+                    : 'Rendered successfully';
+
+            auditResults.push({
+                feature: pageName,
+                status: auditStatus,
+                message: auditMessage,
+                timestamp: new Date().toISOString(),
+            });
+
+            await writeAuditProgress();
+
             // Basic screenshot for visual verification
             // await page.screenshot({ path: `audit-results/admin-${pageName}.png` });
         });

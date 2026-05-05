@@ -464,9 +464,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         getUser();
 
         // Expose navigation for automated audits
-        if (window.__AUDIT_MODE__) {
+        const auditModeEnabled = window.__AUDIT_MODE__ || window.localStorage.getItem('audit_mode') === 'true';
+        if (auditModeEnabled) {
+            window.__AUDIT_MODE__ = true;
             window.ADMIN_NAVIGATE = navigateTo;
             window.ADMIN_COMPONENTS = Object.keys(viewComponents);
+            window.ADMIN_AUDIT_ENABLED = true;
         }
     }, [user]);
 
