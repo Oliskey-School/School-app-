@@ -10,12 +10,19 @@ class RealtimeService {
     private userId: string | null = null;
     private schoolId: string | null = null;
     private lastNotificationId: string | number | null = null;
+    private isInitialized = false;
 
     initialize(userId: string, schoolId: string) {
+        // Skip re-initialization if already initialized with same schoolId
+        if (this.isInitialized && this.schoolId === schoolId) {
+            return;
+        }
+
         if (this.interval) this.destroy();
 
         this.userId = userId;
         this.schoolId = schoolId;
+        this.isInitialized = true;
 
         console.log(`🔌 Initializing Global Background Polling for School: ${schoolId}`);
 
@@ -26,7 +33,8 @@ class RealtimeService {
 
         // Start polling for notifications every 30 seconds as fallback/extra
         this.interval = setInterval(() => this.pollUpdates(), 30000);
-        this.pollUpdates(); // Initial poll
+        // Non-blocking initial poll: fire and forget after a small delay
+        setTimeout(() => this.pollUpdates(), 500);
     }
 
     private async pollUpdates() {
@@ -39,7 +47,15 @@ class RealtimeService {
             }
 
             // Check for new notifications via centralized API with school context
-            const notifications = await api.getMyNotifications(this.schoolId);
+            // Use Promise.race with timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Notification fetch timeout')), 5000)
+            );
+            
+            const notifications = await Promise.race([
+                api.getMyNotifications(this.schoolId),
+                timeoutPromise
+            ]) as any[];
             
             if (notifications && notifications.length > 0) {
                 const latest = notifications[0];
@@ -51,7 +67,12 @@ class RealtimeService {
                 }
             }
         } catch (err) {
-            // Silent failure for background polling
+            // Silent failure for background polling - don't log timeouts
+            if ((err as Error)?.message?.includes('timeout')) {
+                // Silently ignore timeout
+            } else {
+                // Log other errors for debugging
+            }
         }
     }
 
@@ -62,6 +83,7 @@ class RealtimeService {
         }
         this.userId = null;
         this.schoolId = null;
+        this.isInitialized = false;
     }
 }
 

@@ -32,6 +32,44 @@ export class DemoSeederService {
                 console.warn('⚠️ [Version] Could not read package.json version, using fallback.');
             }
 
+            // 0a. Ensure Global Demo School exists
+            await prisma.school.upsert({
+                where: { id: demoSchoolId },
+                update: {
+                    name: 'Global Demo School',
+                    code: 'OLISKEY',
+                    slug: 'global-demo-school',
+                    is_active: true,
+                    is_onboarded: true,
+                },
+                create: {
+                    id: demoSchoolId,
+                    name: 'Global Demo School',
+                    code: 'OLISKEY',
+                    slug: 'global-demo-school',
+                    subscription_status: 'active',
+                    is_active: true,
+                    is_onboarded: true,
+                }
+            });
+
+            // 0b. Ensure Global Demo Branch exists
+            await prisma.branch.upsert({
+                where: { id: demoBranchId },
+                update: {
+                    name: 'Global Branch',
+                    code: 'GLOBAL',
+                    is_main: true,
+                },
+                create: {
+                    id: demoBranchId,
+                    school_id: demoSchoolId,
+                    name: 'Global Branch',
+                    code: 'GLOBAL',
+                    is_main: true,
+                }
+            });
+
             // 1. Seed the main global branch (shared fallback)
             await this.seedBranchData(demoSchoolId, demoBranchId, 'global');
             
@@ -54,6 +92,7 @@ export class DemoSeederService {
             console.log('✅ Global Demo Baseline verified.');
         } catch (error) {
             console.error('❌ [Seeder] Fatal error during Global Demo Seeding:', error);
+            throw error;
         }
     }
 
@@ -209,8 +248,15 @@ export class DemoSeederService {
                 // 4. Create Subjects
                 const subjects = [
                     { id: `subj-${ipHash}-MATH`, name: 'Mathematics', code: 'MATH' },
-                    { id: `subj-${ipHash}-PHYS`, name: 'Physics', code: 'PHYS' },
-                    { id: `subj-${ipHash}-ENG`, name: 'English Language', code: 'ENG' }
+                    { id: `subj-${ipHash}-ENG`, name: 'English Language', code: 'ENG' },
+                    { id: `subj-${ipHash}-SCI`, name: 'Basic Science', code: 'SCI' },
+                    { id: `subj-${ipHash}-SOC`, name: 'Social Studies', code: 'SOC' },
+                    { id: `subj-${ipHash}-AGR`, name: 'Agricultural Science', code: 'AGRI' },
+                    { id: `subj-${ipHash}-ICT`, name: 'ICT', code: 'ICT' },
+                    { id: `subj-${ipHash}-CRS`, name: 'CRS/IRS', code: 'CRS' },
+                    { id: `subj-${ipHash}-CCA`, name: 'CCA', code: 'CCA' },
+                    { id: `subj-${ipHash}-PHE`, name: 'PHE', code: 'PHE' },
+                    { id: `subj-${ipHash}-FRE`, name: 'French', code: 'FRE' }
                 ];
                 for (const s of subjects) {
                     await tx.subject.upsert({
@@ -220,7 +266,7 @@ export class DemoSeederService {
                     });
                 }
 
-                // 5. Create Classes
+                // 5. Create Classes and link Subjects
                 const levels = [
                     { name: 'SSS 1', grade: 10 },
                     { name: 'JSS 3', grade: 9 }
@@ -233,9 +279,64 @@ export class DemoSeederService {
                     const classId = `class-${ipHash}-${level.name.replace(/\s+/g, '')}`;
                     await tx.class.upsert({
                         where: { id: classId },
-                        update: { name: level.name },
-                        create: { id: classId, name: level.name, grade: level.grade, section: 'A', school_id: schoolId, branch_id: branchId }
+                        update: { 
+                            name: level.name,
+                            subjects: {
+                                connect: subjects.map(s => ({ id: s.id }))
+                            }
+                        },
+                        create: { 
+                            id: classId, 
+                            name: level.name, 
+                            grade: level.grade, 
+                            section: 'A', 
+                            school_id: schoolId, 
+                            branch_id: branchId,
+                            subjects: {
+                                connect: subjects.map(s => ({ id: s.id }))
+                            }
+                        }
                     });
+                }
+
+                // 5b. Seed Curriculum Topics for subjects
+                for (const sub of subjects) {
+                    const topics = [
+                        { week: 1, title: `Introduction to ${sub.name}`, content: `Basics and overview of ${sub.name} curriculum for this term.` },
+                        { week: 2, title: `${sub.name} Fundamentals`, content: `Deep dive into the core principles of ${sub.name}.` },
+                        { week: 3, title: 'Applied Concepts', content: 'Practical applications and real-world examples.' },
+                        { week: 4, title: 'Monthly Assessment', content: 'Review and testing of concepts covered in weeks 1-3.' }
+                    ];
+
+                    for (const t of topics) {
+                        const topicId = `topic-${sub.id}-T1-W${t.week}`;
+                        await tx.curriculumTopic.upsert({
+                            where: { id: topicId },
+                            update: { title: t.title, content: t.content },
+                            create: {
+                                id: topicId,
+                                subject_id: sub.id,
+                                term: '1', // Matches SubjectsScreen.tsx Term 1
+                                week_number: t.week,
+                                title: t.title,
+                                content: t.content
+                            }
+                        });
+                        
+                        // Also seed for Term 2 and 3 for variety
+                        await tx.curriculumTopic.upsert({
+                            where: { id: `topic-${sub.id}-T2-W${t.week}` },
+                            update: {},
+                            create: {
+                                id: `topic-${sub.id}-T2-W${t.week}`,
+                                subject_id: sub.id,
+                                term: '2',
+                                week_number: t.week,
+                                title: `${t.title} (Advanced)`,
+                                content: `Term 2 progression of ${sub.name}.`
+                            }
+                        });
+                    }
                 }
 
                 // 6. Enroll ALL students (primary + extra) into SSS 1
@@ -250,6 +351,74 @@ export class DemoSeederService {
                             where: { student_id_class_id: { student_id: sp.id, class_id: sss1ClassId } },
                             update: { status: 'Active' },
                             create: { student_id: sp.id, class_id: sss1ClassId, school_id: schoolId, branch_id: branchId, status: 'Active', is_primary: true }
+                        });
+
+                        // 6b. Seed Academic Performance and Report Card for each student
+                        const academicRecords = [];
+                        for (const sub of subjects) {
+                            const score = 65 + Math.floor(Math.random() * 30); // Random score between 65 and 95
+                            const test1 = 15 + Math.floor(Math.random() * 5);
+                            const test2 = 15 + Math.floor(Math.random() * 5);
+                            const exam = score - test1 - test2;
+                            const grade = score >= 80 ? 'A' : score >= 70 ? 'B' : 'C';
+                            const remark = score >= 80 ? 'Excellent' : score >= 70 ? 'Very Good' : 'Good';
+
+                            await tx.academicPerformance.upsert({
+                                where: { 
+                                    school_id_student_id_subject_term_session: {
+                                        school_id: schoolId,
+                                        student_id: sp.id,
+                                        subject: sub.name,
+                                        term: 'First Term',
+                                        session: '2025/2026'
+                                    }
+                                },
+                                update: { score },
+                                create: {
+                                    school_id: schoolId,
+                                    branch_id: branchId,
+                                    student_id: sp.id,
+                                    subject: sub.name,
+                                    score,
+                                    term: 'First Term',
+                                    session: '2025/2026'
+                                }
+                            });
+
+                            academicRecords.push({
+                                subject: sub.name,
+                                test1,
+                                test2,
+                                exam,
+                                total: score,
+                                grade,
+                                remark
+                            });
+                        }
+
+                        // Create Report Card
+                        const reportId = `report-${sp.id}-2025-T1`;
+                        await tx.reportCard.upsert({
+                            where: { id: reportId },
+                            update: { 
+                                academic_records: { grades: academicRecords } as any,
+                                is_published: true,
+                                status: 'Published'
+                            },
+                            create: {
+                                id: reportId,
+                                school_id: schoolId,
+                                branch_id: branchId,
+                                student_id: sp.id,
+                                class_id: sss1ClassId,
+                                session: '2025/2026',
+                                term: 'First Term',
+                                academic_records: { grades: academicRecords } as any,
+                                is_published: true,
+                                status: 'Published',
+                                principal_remark: 'Outstanding performance, keep it up!',
+                                teacher_remark: 'A very dedicated and hardworking student.'
+                            }
                         });
                     }
 
@@ -301,6 +470,39 @@ export class DemoSeederService {
                                 class_id: sss1ClassId,
                                 teacher_id: teacherProfile.id,
                                 is_published: true
+                            }
+                        });
+                    }
+
+                    // 7b. Seed Timetable for SSS 1 (Full week)
+                    const timetableEntries = [
+                        { day: 1, start: '08:00', end: '09:00', subject: 'Mathematics', room: 'Room 101' },
+                        { day: 1, start: '09:00', end: '10:00', subject: 'English Language', room: 'Room 101' },
+                        { day: 1, start: '10:30', end: '11:30', subject: 'Basic Science', room: 'Lab A' },
+                        { day: 2, start: '08:00', end: '09:00', subject: 'English Language', room: 'Room 101' },
+                        { day: 2, start: '09:00', end: '10:00', subject: 'Mathematics', room: 'Room 101' },
+                        { day: 2, start: '11:00', end: '12:00', subject: 'ICT', room: 'Computer Lab' },
+                        { day: 3, start: '08:00', end: '09:00', subject: 'Mathematics', room: 'Room 101' },
+                        { day: 3, start: '09:00', end: '10:00', subject: 'Agricultural Science', room: 'Farm' },
+                        { day: 3, start: '11:00', end: '12:00', subject: 'Social Studies', room: 'Room 101' },
+                        { day: 4, start: '08:00', end: '09:00', subject: 'Basic Science', room: 'Lab A' },
+                        { day: 4, start: '09:00', end: '10:00', subject: 'French', room: 'Language Room' },
+                        { day: 5, start: '08:00', end: '09:00', subject: 'Mathematics', room: 'Room 101' },
+                        { day: 5, start: '09:00', end: '10:00', subject: 'PHE', room: 'Sports Field' }
+                    ];
+
+                    for (const entry of timetableEntries) {
+                        await tx.timetable.create({
+                            data: {
+                                school_id: schoolId,
+                                branch_id: branchId,
+                                class_id: sss1ClassId,
+                                subject: entry.subject,
+                                day_of_week: entry.day,
+                                start_time: entry.start,
+                                end_time: entry.end,
+                                room: entry.room,
+                                teacher_id: teacherProfile.id // Simplifying by using the same teacher for all for demo
                             }
                         });
                     }
@@ -362,6 +564,7 @@ export class DemoSeederService {
             console.log(`✅ [Seeder] Sandbox for ${branchId} is populated with real-world data.`);
         } catch (err) {
             console.error(`❌ [Seeder] Failed to seed sandbox for branch ${branchId}:`, err);
+            throw err;
         }
     }
 }

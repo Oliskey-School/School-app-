@@ -5,41 +5,59 @@ import UserRolesScreen from '../UserRolesScreen';
 import AddStudentScreen from '../AddStudentScreen';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
+import { toast } from 'react-hot-toast';
+import { api } from '../../../lib/api';
+
 // --- Mocks ---
 
-// Mock API and Supabase - consolidated to lib/api
-vi.mock('../../../lib/api', () => ({
-  api: {
+// Mock API
+vi.mock('../../../lib/api', () => {
+  const mockApi = {
+    getClasses: vi.fn().mockResolvedValue([]),
+    getBuses: vi.fn().mockResolvedValue([]),
+    getBranches: vi.fn().mockResolvedValue([]),
+    getSchools: vi.fn().mockResolvedValue([]),
+    getDepartments: vi.fn().mockResolvedValue([]),
     getRolePermissions: vi.fn(() => Promise.resolve({ data: [], error: null })),
     updateRolePermissions: vi.fn(() => Promise.resolve({ error: null })),
     fetchClasses: vi.fn(() => Promise.resolve([])),
     getParents: vi.fn(() => Promise.resolve([])),
-  },
-  supabase: {
-    from: vi.fn(function() { return this; }),
-    // @ts-ignore - Mocking fluent interface
-    select: vi.fn(function() { return this; }),
-    // @ts-ignore
-    eq: vi.fn(function() { return this; }),
-    // @ts-ignore
-    order: vi.fn(function() { return this; }),
-    single: vi.fn(() => ({ data: {}, error: null })),
-    maybeSingle: vi.fn(() => ({ data: {}, error: null })),
-    insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => ({ data: { id: '123' }, error: null })) })) })),
-    update: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
-    upsert: vi.fn(() => ({ error: null })),
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+    }),
+    get: vi.fn().mockResolvedValue({}),
+    post: vi.fn().mockResolvedValue({}),
+  };
+
+  const mockSupabase = {
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      single: vi.fn(() => ({ data: {}, error: null })),
+      maybeSingle: vi.fn(() => ({ data: {}, error: null })),
+      insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => ({ data: { id: '123' }, error: null })) })) })),
+      update: vi.fn(() => ({ eq: vi.fn(() => ({ error: null })) })),
+      upsert: vi.fn(() => ({ error: null })),
+    }),
     auth: {
       getUser: vi.fn(() => ({ data: { user: { id: '123' } } })),
     },
-  },
-  isSupabaseConfigured: true,
-  default: {
-    getRolePermissions: vi.fn(() => Promise.resolve({ data: [], error: null })),
-    updateRolePermissions: vi.fn(() => Promise.resolve({ error: null })),
-    fetchClasses: vi.fn(() => Promise.resolve([])),
-    getParents: vi.fn(() => Promise.resolve([])),
-  },
-}));
+  };
+
+  return {
+    api: mockApi,
+    supabase: mockSupabase,
+    isSupabaseConfigured: true,
+    default: mockApi,
+  };
+});
 
 // Mock Contexts
 const mockUseAuth = vi.fn(() => ({
@@ -91,6 +109,11 @@ vi.mock('../../../constants', () => ({
   UsersIcon: () => <div />,
   AnalyticsIcon: () => <div />,
   AIIcon: () => <div />,
+  CameraIcon: () => <div />,
+  UserIcon: () => <div />,
+  MailIcon: () => <div />,
+  PhoneIcon: () => <div />,
+  SUBJECTS_LIST: [],
 }));
 
 describe('Admin Security Audit', () => {

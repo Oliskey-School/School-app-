@@ -92,9 +92,8 @@ export const requireTenant = async (req: AuthRequest, res: Response, next: NextF
     }
 
     if (!user.school_id) {
-        const defaultSchoolId = process.env.DEFAULT_SCHOOL_ID || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-        user.school_id = defaultSchoolId;
-        console.warn('ℹ️ [Tenant] No authorized school context for user. Defaulting to Demo School.');
+        console.error(`🚨 [Tenant] Authenticated user ${user.email || user.id} has no school_id. Refusing request.`);
+        return res.status(401).json({ error: 'SecurityException: No tenant context for authenticated user.' });
     }
 
     next();

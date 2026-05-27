@@ -9,7 +9,7 @@ interface AwardPointsProps {
     students: Student[];
 }
 
-const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
+const AwardPoints: React.FC<AwardPointsProps> = ({ students = [] }) => {
     const { currentSchool } = useAuth();
     const schoolId = currentSchool?.id;
     const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -213,7 +213,7 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
                     </h3>
 
                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {students.map((student) => (
+                        {(Array.isArray(students) ? students : []).map((student) => (
                             <button
                                 key={student.id}
                                 onClick={() => toggleStudent(student.id)}
@@ -225,11 +225,11 @@ const AwardPoints: React.FC<AwardPointsProps> = ({ students }) => {
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-3">
                                         <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                                            {student.name.charAt(0)}
+                                            {student?.name?.charAt(0) || '?'}
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-gray-800">{student.name}</p>
-                                            <p className="text-xs text-gray-500">Grade {student.grade}{student.section}</p>
+                                            <p className="font-semibold text-gray-800">{student?.name || 'Unknown'}</p>
+                                            <p className="text-xs text-gray-500">Grade {student?.grade || 'N/A'}{student?.section || ''}</p>
                                         </div>
                                     </div>
                                     {selectedStudents.includes(student.id) && (

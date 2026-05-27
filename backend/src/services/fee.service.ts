@@ -93,6 +93,7 @@ export class FeeService {
     }
 
     static async recordPayment(schoolId: string, branchId: string | undefined, data: any) {
+        console.log('DEBUG: recordPayment data:', JSON.stringify(data, null, 2));
         const { feeId, studentId, amount, reference, method } = data;
 
         return await prisma.$transaction(async (tx) => {
@@ -124,11 +125,10 @@ export class FeeService {
             });
 
             // 3. Update Fee
+            console.log('DEBUG: Fee ID type:', typeof feeId, 'Value:', feeId);
+            if (!feeId) throw new Error('Fee ID is undefined');
             await tx.studentFee.update({
-                where: { 
-                    id: feeId,
-                    school_id: schoolId
-                },
+                where: { id: String(feeId) },
                 data: {
                     paid_amount: newPaidAmount,
                     status: newStatus

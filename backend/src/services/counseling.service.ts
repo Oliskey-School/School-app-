@@ -41,10 +41,19 @@ export class CounselingService {
     return appointment;
   }
 
-  async updateAppointmentStatus(id: string, status: string, confirmed_date?: Date) {
+  async updateAppointmentStatus(school_id: string, id: string, status: string, confirmed_date?: Date) {
+    // Tenant-scoped lookup prevents cross-school mutation via known appointment id.
+    const existing = await prisma.counselingAppointment.findFirst({
+      where: { id, school_id }
+    });
+    if (!existing) {
+      const err: any = new Error('Appointment not found');
+      err.statusCode = 404;
+      throw err;
+    }
     const appointment = await prisma.counselingAppointment.update({
-      where: { id },
-      data: { 
+      where: { id: existing.id },
+      data: {
         status,
         ...(confirmed_date && { confirmed_date }),
       },

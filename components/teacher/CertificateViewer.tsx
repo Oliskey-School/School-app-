@@ -28,14 +28,13 @@ const CertificateViewer: React.FC = () => {
     const fetchCertificates = async () => {
         try {
             setLoading(true);
-            // Fetch via backend API using teacher profile ID
-            const myProfile = await api.getMe();
-            if (!myProfile?.teacher_id && !myProfile?.id) {
+            // Fetch via backend API using the Teacher profile ID, not the User ID.
+            const myProfile = await api.getMyTeacherProfile();
+            if (!myProfile?.id) {
                 setLoading(false);
                 return;
             }
-            const teacherId = myProfile?.teacher_id || myProfile?.id;
-            const data = await api.getTeacherCertificates(teacherId);
+            const data = await api.getTeacherCertificates(myProfile.id);
             setCertificates(data || []);
         } catch (error: any) {
             console.error('Error fetching certificates:', error);

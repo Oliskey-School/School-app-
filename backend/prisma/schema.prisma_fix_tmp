@@ -1,0 +1,21 @@
+// ... existing code ...
+model AppVersion {
+  id          String   @id @default(uuid())
+  version     String   @unique
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+}
+
+model RolePermission {
+  id            String   @id @default(uuid())
+  school_id     String
+  role          String
+  permission_id String
+  enabled       Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@unique([school_id, role, permission_id])
+}
+// ... rest of file ...

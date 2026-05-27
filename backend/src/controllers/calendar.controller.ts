@@ -16,11 +16,11 @@ export const rsvpToEvent = async (req: AuthRequest, res: Response) => {
     try {
         const { eventId, status } = req.body;
         if (!eventId || !status) throw new Error('Missing required fields');
-        
-        const result = await CalendarService.rsvpToEvent(eventId, req.user.id, status);
+
+        const result = await CalendarService.rsvpToEvent(req.user.school_id, eventId, req.user.id, status);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 

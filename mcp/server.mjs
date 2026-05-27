@@ -5,7 +5,7 @@ import { Pool } from "pg";
 
 // Database connection configuration
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://postgres:password123@localhost:5432/school_app"
+  connectionString: process.env.DATABASE_URL || "postgresql://postgres:password123@127.0.0.1:5432/school_app"
 });
 
 // MCP Server instance

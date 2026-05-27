@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { DashboardType } from '../../types';
-// Note: DashboardSidebar doesn't have a default export, using separate sidebars directly
 import {
     UsersIcon,
     CalendarIcon,
@@ -17,21 +18,77 @@ interface CounselorDashboardProps {
     currentUser?: any;
 }
 
+interface Appointment {
+    id: string;
+    student?: { id: string; name: string; full_name?: string } | null;
+    counselor?: { id: string; name: string; full_name?: string } | null;
+    requested_date?: string;
+    confirmed_date?: string | null;
+    reason?: string | null;
+    status?: string;
+}
+
 const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
+    const { user, currentSchool } = useAuth();
     const [activeTab, setActiveTab] = useState('overview');
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [studentCount, setStudentCount] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const [aptResp, studentResp] = await Promise.all([
+                    api.get('/counseling').catch(() => []),
+                    api.getStudents().catch(() => []),
+                ]);
+                if (cancelled) return;
+                const aptList: Appointment[] = Array.isArray(aptResp) ? aptResp : (aptResp?.data || []);
+                setAppointments(aptList);
+                const students = Array.isArray(studentResp) ? studentResp : (studentResp?.data || []);
+                setStudentCount(students.length || 0);
+            } catch (e: any) {
+                if (!cancelled) setError(e?.message || 'Failed to load counselor data');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [currentSchool?.id]);
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const isToday = (iso?: string | null) => !!iso && iso.slice(0, 10) === todayKey;
+
+    const appointmentsToday = appointments.filter(a => isToday(a.confirmed_date) || isToday(a.requested_date));
+    const pendingReferrals = appointments.filter(a => (a.status || '').toLowerCase() === 'pending').length;
+    const wellnessChecks = appointments.filter(a => /wellness/i.test(a.reason || '')).length;
 
     const stats = [
-        { title: 'Total Students', value: '1,240', color: 'bg-blue-500', icon: UsersIcon },
-        { title: 'Appointments Today', value: '8', color: 'bg-purple-500', icon: CalendarIcon },
-        { title: 'Pending Referrals', value: '3', color: 'bg-orange-500', icon: BellIcon },
-        { title: 'Wellness Checks', value: '12', color: 'bg-green-500', icon: HeartIcon },
+        { title: 'Total Students', value: studentCount.toLocaleString(), color: 'bg-blue-500', icon: UsersIcon },
+        { title: 'Appointments Today', value: appointmentsToday.length.toString(), color: 'bg-purple-500', icon: CalendarIcon },
+        { title: 'Pending Referrals', value: pendingReferrals.toString(), color: 'bg-orange-500', icon: BellIcon },
+        { title: 'Wellness Checks', value: wellnessChecks.toString(), color: 'bg-green-500', icon: HeartIcon },
     ];
 
-    const upcomingAppointments = [
-        { id: 1, student: 'Alice Johnson', time: '09:00 AM', reason: 'Career Guidance', status: 'Confirmed' },
-        { id: 2, student: 'Michael Brown', time: '10:30 AM', reason: 'Academic Stress', status: 'Pending' },
-        { id: 3, student: 'Sarah Davis', time: '02:00 PM', reason: 'Personal Issue', status: 'Confirmed' },
-    ];
+    const upcomingAppointments = appointmentsToday.map(a => {
+        const dateStr = a.confirmed_date || a.requested_date || '';
+        let time = '';
+        try {
+            time = dateStr ? new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        } catch { time = ''; }
+        return {
+            id: a.id,
+            student: a.student?.name || a.student?.full_name || 'Unknown Student',
+            time,
+            reason: a.reason || 'Counseling',
+            status: (a.status || 'Pending'),
+        };
+    });
 
     return (
         <div className="flex h-screen bg-gray-50">
@@ -77,6 +134,11 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
 
                 {/* Main Content */}
                 <main className="flex-1 overflow-y-auto p-6">
+                    {error && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                            {error}
+                        </div>
+                    )}
                     <div className="mb-8">
                         <h2 className="text-xl font-semibold text-gray-800 mb-4">Overview</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -85,7 +147,7 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                                            <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                                            <p className="text-2xl font-bold text-gray-900 mt-1">{loading ? '…' : stat.value}</p>
                                         </div>
                                         <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10`}>
                                             <stat.icon className={`h-6 w-6 ${stat.color.replace('bg-', 'text-')}`} />
@@ -104,7 +166,11 @@ const CounselorDashboard: React.FC<CounselorDashboardProps> = ({ onLogout, setIs
                                 <button className="text-sm text-indigo-600 font-medium hover:text-indigo-700">View Calendar</button>
                             </div>
                             <div className="space-y-4">
-                                {upcomingAppointments.map((apt) => (
+                                {loading ? (
+                                    <p className="text-sm text-gray-500">Loading appointments…</p>
+                                ) : upcomingAppointments.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No appointments scheduled for today.</p>
+                                ) : upcomingAppointments.map((apt) => (
                                     <div key={apt.id} className="flex items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
                                         <div className="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold">
                                             {apt.student[0]}

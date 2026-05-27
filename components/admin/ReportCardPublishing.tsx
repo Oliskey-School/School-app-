@@ -154,7 +154,7 @@ const ReportCardPublishing: React.FC<ReportCardPublishingProps> = ({ schoolId: p
   const filteredStudents = useMemo(() =>
     studentsWithReports
       .filter(student => activeTab === 'All' || student.status === activeTab)
-      .filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase())),
+      .filter(student => (student.name || "").toLowerCase().includes(searchTerm.toLowerCase())),
     [studentsWithReports, activeTab, searchTerm]
   );
 

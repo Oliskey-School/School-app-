@@ -72,6 +72,44 @@ export class AssignmentService {
             insertData.subject = mainData.subject_id;
         }
 
+        if (!insertData.class_id) {
+            throw new Error('Class is required');
+        }
+
+        const classWhere: any = {
+            id: insertData.class_id,
+            school_id: schoolId
+        };
+
+        if (branchId && branchId !== 'all') {
+            classWhere.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
+        }
+
+        const targetClass = await prisma.class.findFirst({ where: classWhere });
+        if (!targetClass) {
+            throw new Error('Class not found or outside your branch');
+        }
+
+        if (insertData.teacher_id) {
+            const assignedTeacher = await prisma.classTeacher.findFirst({
+                where: {
+                    school_id: schoolId,
+                    teacher_id: insertData.teacher_id,
+                    class_id: insertData.class_id,
+                    ...(branchId && branchId !== 'all'
+                        ? { OR: [{ branch_id: branchId }, { branch_id: null }] }
+                        : {})
+                }
+            });
+
+            if (!assignedTeacher) {
+                throw new Error('Teacher is not assigned to this class');
+            }
+        }
+
         const assignment = await prisma.assignment.create({
             data: insertData
         });
@@ -116,7 +154,10 @@ export class AssignmentService {
             }
         });
 
-        if (!submission || (submission as any).assignment.class.school_id !== schoolId) {
+        const classRecord = (submission as any)?.assignment?.class;
+        const branchMismatch = branchId && branchId !== 'all' && classRecord?.branch_id && classRecord.branch_id !== branchId;
+
+        if (!submission || classRecord?.school_id !== schoolId || branchMismatch) {
             throw new Error('Submission not found or access denied');
         }
 
@@ -166,7 +207,7 @@ export class AssignmentService {
         });
     }
 
-    static async getAssignment(schoolId: string, id: string) {
+    static async getAssignment(schoolId: string, id: string, branchId?: string) {
         const assignment = await prisma.assignment.findUnique({
             where: { id },
             include: {
@@ -179,7 +220,10 @@ export class AssignmentService {
             }
         });
 
-        if (!assignment || (assignment as any).class.school_id !== schoolId) {
+        const classRecord = (assignment as any)?.class;
+        const branchMismatch = branchId && branchId !== 'all' && classRecord?.branch_id && classRecord.branch_id !== branchId;
+
+        if (!assignment || classRecord.school_id !== schoolId || branchMismatch) {
             throw new Error('Assignment not found');
         }
 
@@ -191,7 +235,8 @@ export class AssignmentService {
         };
     }
 
-    static async deleteAssignment(schoolId: string, id: string) {
+    static async deleteAssignment(schoolId: string, id: string, branchId?: string) {
+        await this.getAssignment(schoolId, id, branchId);
         return await prisma.assignment.delete({
             where: { id }
         });

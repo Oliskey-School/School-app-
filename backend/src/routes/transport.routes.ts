@@ -27,10 +27,10 @@ router.post('/routes', async (req: any, res) => {
 
 router.delete('/routes/:id', async (req: any, res) => {
     try {
-        await TransportService.deleteRoute(req.params.id);
+        await TransportService.deleteRoute(req.user.school_id, req.params.id);
         res.json({ message: 'Route deleted successfully' });
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        res.status(error.statusCode || 400).json({ message: error.message });
     }
 });
 

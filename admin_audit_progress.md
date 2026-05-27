@@ -2,30 +2,30 @@
 
 | # | Page Name | Frontend | Backend API | Database (E2E) | Status |
 |---|-----------|:---:|:---:|:---:|---|
-| 1 | overview | [ ] | [ ] | [ ] | Pending |
-| 2 | analytics | [ ] | [ ] | [ ] | Pending |
-| 3 | reports | [ ] | [ ] | [ ] | Pending |
-| 4 | classList | [ ] | [ ] | [ ] | Pending |
-| 5 | studentList | [ ] | [ ] | [ ] | Pending |
-| 6 | addStudent | [ ] | [ ] | [ ] | Pending |
-| 7 | teacherList | [ ] | [ ] | [ ] | Pending |
-| 8 | teacherPerformance | [ ] | [ ] | [ ] | Pending |
-| 9 | timetable | [ ] | [ ] | [ ] | Pending |
-| 10 | timetableGenerator | [ ] | [ ] | [ ] | Pending |
-| 11 | timetableEditor | [ ] | [ ] | [ ] | Pending |
-| 12 | timetableCreator | [ ] | [ ] | [ ] | Pending |
-| 13 | aiTimetableCreator | [ ] | [ ] | [ ] | Pending |
+| 1 | overview | [x] | [x] | [x] | Operational |
+| 2 | analytics | [x] | [x] | [x] | Operational |
+| 3 | reports | [x] | [x] | [x] | Operational |
+| 4 | classList | [x] | [x] | [x] | Operational |
+| 5 | studentList | [x] | [x] | [x] | Operational |
+| 6 | addStudent | [x] | [x] | [x] | Operational |
+| 7 | teacherList | [x] | [x] | [x] | Operational |
+| 8 | teacherPerformance | [x] | [x] | [x] | Operational |
+| 9 | timetable | [x] | [x] | [x] | Operational |
+| 10 | timetableGenerator | [x] | [x] | [x] | Operational |
+| 11 | timetableEditor | [x] | [x] | [x] | Operational |
+| 12 | timetableCreator | [x] | [x] | [x] | Operational |
+| 13 | aiTimetableCreator | [x] | [x] | [x] | Operational |
 | 14 | teacherAttendance | [ ] | [ ] | [ ] | Pending |
 | 15 | teacherAttendanceApproval | [ ] | [ ] | [ ] | Pending |
-| 16 | feeManagement | [ ] | [ ] | [ ] | Pending |
-| 17 | feeDetails | [ ] | [ ] | [ ] | Pending |
-| 18 | examManagement | [ ] | [ ] | [ ] | Pending |
-| 19 | addExam | [ ] | [ ] | [ ] | Pending |
-| 20 | reportCardPublishing | [ ] | [ ] | [ ] | Pending |
-| 21 | userRoles | [ ] | [ ] | [ ] | Pending |
-| 22 | auditLog | [ ] | [ ] | [ ] | Pending |
-| 23 | profileSettings | [ ] | [ ] | [ ] | Pending |
-| 24 | communicationHub | [ ] | [ ] | [ ] | Pending |
+| 16 | feeManagement | [x] | [x] | [x] | Operational |
+| 17 | teacherAttendance | [x] | [x] | [x] | Operational |
+| 18 | feeDetails | [ ] | [ ] | [ ] | Paused |
+| 19 | examManagement | [x] | [x] | [x] | Operational |
+| 20 | reportCardPublishing | [x] | [x] | [x] | Operational |
+| 21 | userRoles | [x] | [x] | [x] | Operational |
+| 22 | auditLog | [x] | [x] | [x] | Operational |
+| 23 | profileSettings | [x] | [x] | [x] | Operational |
+| 24 | communicationHub | [x] | [x] | [x] | Operational |
 | 25 | studentProfileAdminView | [ ] | [ ] | [ ] | Pending |
 | 26 | editProfile | [ ] | [ ] | [ ] | Pending |
 | 27 | notificationsSettings | [ ] | [ ] | [ ] | Pending |
@@ -35,9 +35,9 @@
 | 31 | schoolReports | [ ] | [ ] | [ ] | Pending |
 | 32 | studentListForReport | [ ] | [ ] | [ ] | Pending |
 | 33 | viewStudentReport | [ ] | [ ] | [ ] | Pending |
-| 34 | systemSettings | [ ] | [ ] | [ ] | Pending |
-| 35 | academicSettings | [ ] | [ ] | [ ] | Pending |
-| 36 | financialSettings | [ ] | [ ] | [ ] | Pending |
+| 34 | systemSettings | [x] | [x] | [x] | Operational |
+| 35 | academicSettings | [x] | [x] | [x] | Operational |
+| 36 | financialSettings | [x] | [x] | [x] | Operational |
 | 37 | communicationSettings | [ ] | [ ] | [ ] | Pending |
 | 38 | brandingSettings | [ ] | [ ] | [ ] | Pending |
 | 39 | personalSecuritySettings | [ ] | [ ] | [ ] | Pending |
@@ -73,7 +73,7 @@
 | 69 | ivrLessonRecorder | [ ] | [ ] | [ ] | Pending |
 | 70 | scholarshipManagement | [ ] | [ ] | [ ] | Pending |
 | 71 | sponsorshipMatching | [ ] | [ ] | [ ] | Pending |
-| 72 | conferenceScheduling | [ ] | [ ] | [ ] | Pending |
+| 72 | conferenceScheduling | [x] | [x] | [x] | Operational |
 | 73 | attendanceHeatmap | [ ] | [ ] | [ ] | Pending |
 | 74 | financeDashboard | [ ] | [ ] | [ ] | Pending |
 | 75 | academicAnalytics | [ ] | [ ] | [ ] | Pending |
@@ -143,7 +143,7 @@
 | 139 | paymentHistory | [ ] | [ ] | [ ] | Pending |
 | 140 | paymentPlanModal | [ ] | [ ] | [ ] | Pending |
 | 141 | paymentRecording | [ ] | [ ] | [ ] | Pending |
-| 142 | payrollDashboard | [ ] | [ ] | [ ] | Pending |
+| 142 | payrollDashboard | [x] | [x] | [x] | Operational |
 | 143 | payslipGenerator | [ ] | [ ] | [ ] | Pending |
 | 144 | reportCardPreview | [ ] | [ ] | [ ] | Pending |
 | 145 | resourceUpload | [ ] | [ ] | [ ] | Pending |

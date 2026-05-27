@@ -21,7 +21,9 @@ router.put('/bulk/status', authenticate, requireRole(['SuperAdmin']), SchoolCont
 router.delete('/bulk', authenticate, requireRole(['SuperAdmin']), SchoolController.deleteSchoolsBulk);
 
 router.put('/', authenticate, SchoolController.updateMySchool);
+router.delete('/:id', authenticate, SchoolController.deleteSchool);
 router.put('/:id', authenticate, SchoolController.updateSchool);
+router.post('/:id/subscription', authenticate, SchoolController.updateSchoolSubscription);
 
 router.get('/:id/policies', authenticate, SchoolController.getSchoolPolicies);
 router.get('/:id/photos', authenticate, SchoolController.getSchoolPhotos);

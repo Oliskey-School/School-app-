@@ -65,7 +65,7 @@ const USSDWorkflow: React.FC = () => {
                 .order('menu_option', { ascending: true });
 
             if (error) throw error;
-            setMenus(data || []);
+            setMenus(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching menus:', error);
         } finally {
@@ -85,7 +85,7 @@ const USSDWorkflow: React.FC = () => {
                 .limit(50);
 
             if (error) throw error;
-            setSessions(data || []);
+            setSessions(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching sessions:', error);
         }
@@ -100,7 +100,7 @@ const USSDWorkflow: React.FC = () => {
                 .limit(50);
 
             if (error) throw error;
-            setTransactions(data || []);
+            setTransactions(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching transactions:', error);
         }
@@ -276,16 +276,16 @@ const USSDWorkflow: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
-                        {menus.filter(m => m.menu_level === 0).map(mainMenu => (
-                            <div key={mainMenu.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        {menus?.filter(m => m?.menu_level === 0).map(mainMenu => (
+                            <div key={mainMenu?.id} className="border border-gray-200 rounded-lg overflow-hidden">
                                 <div className="bg-gray-50 p-4">
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <h3 className="font-bold text-gray-900">Level 0: Main Menu</h3>
-                                            <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{mainMenu.menu_text}</p>
+                                            <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{mainMenu?.menu_text}</p>
                                         </div>
-                                        <span className={`px-3 py-1 ${mainMenu.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'} rounded-full text-xs font-semibold`}>
-                                            {mainMenu.is_active ? 'Active' : 'Inactive'}
+                                        <span className={`px-3 py-1 ${mainMenu?.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'} rounded-full text-xs font-semibold`}>
+                                            {mainMenu?.is_active ? 'Active' : 'Inactive'}
                                         </span>
                                     </div>
                                 </div>
@@ -293,18 +293,18 @@ const USSDWorkflow: React.FC = () => {
                                 {/* Sub-menus */}
                                 <div className="p-4 space-y-2">
                                     {menus
-                                        .filter(m => m.menu_level === 1 && m.parent_menu_id === mainMenu.id)
-                                        .map(subMenu => (
-                                            <div key={subMenu.id} className="pl-6 py-3 border-l-4 border-blue-400 bg-blue-50 rounded">
+                                        ?.filter(m => m?.menu_level === 1 && m?.parent_menu_id === mainMenu?.id)
+                                        ?.map(subMenu => (
+                                            <div key={subMenu?.id} className="pl-6 py-3 border-l-4 border-blue-400 bg-blue-50 rounded">
                                                 <div className="flex items-start justify-between">
                                                     <div>
                                                         <p className="font-semibold text-gray-900">
-                                                            Option {subMenu.menu_option}: {subMenu.action_type}
+                                                            Option {subMenu?.menu_option}: {subMenu?.action_type}
                                                         </p>
-                                                        <p className="text-sm text-gray-600 mt-1">{subMenu.menu_text}</p>
+                                                        <p className="text-sm text-gray-600 mt-1">{subMenu?.menu_text}</p>
                                                     </div>
                                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold ml-4 whitespace-nowrap">
-                                                        {subMenu.action_type}
+                                                        {subMenu?.action_type}
                                                     </span>
                                                 </div>
                                             </div>

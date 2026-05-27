@@ -88,6 +88,32 @@ export class BusService {
     }
 
     static async getStudentBus(schoolId: string, studentId: string) {
+        // First, try to find a direct schoolBusId on the student record
+        const student = await prisma.student.findUnique({
+            where: { id: studentId, school_id: schoolId },
+            select: { schoolBusId: true } // Only select schoolBusId
+        });
+
+        if (student && student.schoolBusId) {
+            // If direct assignment exists, fetch bus details
+            const bus = await prisma.transportBus.findUnique({
+                where: { id: student.schoolBusId }
+            });
+            if (bus) {
+                return {
+                    id: bus.id,
+                    name: bus.name,
+                    driverName: bus.driver_name || 'N/A',
+                    plateNumber: bus.plate_number || 'N/A',
+                    capacity: bus.capacity,
+                    status: bus.status,
+                    route: null // No route info for direct assignment in this format
+                };
+            }
+            // If bus ID is invalid, proceed to check assignments (fall-through)
+        }
+
+        // Fallback to route-based assignment if no direct bus assignment or if bus details are missing
         const assignment = await prisma.transportAssignment.findFirst({
             where: { student_id: studentId, status: 'active' },
             include: {
@@ -99,7 +125,7 @@ export class BusService {
             }
         });
 
-        if (!assignment) return null;
+        if (!assignment || !assignment.route) return null;
 
         const bus = await prisma.transportBus.findFirst({
             where: {

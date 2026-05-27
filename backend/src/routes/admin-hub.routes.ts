@@ -1,69 +1,82 @@
 import { Router } from 'express';
 import { AdminHubController } from '../controllers/admin-hub.controller';
+import { RoleController } from '../controllers/role.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/tenant.middleware';
 
 const router = Router();
 
+// All admin-hub routes require authentication AND an admin-tier role.
+// Apply guards at the router level so every endpoint is covered, including any future ones.
+const ADMIN_ROLES = ['admin', 'super_admin', 'proprietor', 'compliance_officer'];
+router.use(authenticate, requireRole(ADMIN_ROLES));
+
 // Saved Reports
-router.get('/reports/saved', authenticate, AdminHubController.getSavedReports);
-router.post('/reports/saved', authenticate, AdminHubController.createSavedReport);
-router.delete('/reports/saved/:id', authenticate, AdminHubController.deleteSavedReport);
+router.get('/reports/saved', AdminHubController.getSavedReports);
+router.post('/reports/saved', AdminHubController.createSavedReport);
+router.delete('/reports/saved/:id', AdminHubController.deleteSavedReport);
 
 // Data Requests
-router.get('/data-requests', authenticate, AdminHubController.getDataRequests);
-router.post('/data-requests', authenticate, AdminHubController.createDataRequest);
-router.patch('/data-requests/:id', authenticate, AdminHubController.updateDataRequestStatus);
+router.get('/data-requests', AdminHubController.getDataRequests);
+router.post('/data-requests', AdminHubController.createDataRequest);
+router.patch('/data-requests/:id', AdminHubController.updateDataRequestStatus);
+
+// Roles & Permissions
+router.get('/roles/permissions', RoleController.getRolePermissions);
+router.post('/roles/permissions', RoleController.updateRolePermission);
 
 // Invoices
-router.get('/invoices', authenticate, AdminHubController.getInvoices);
-router.post('/invoices', authenticate, AdminHubController.createInvoice);
-router.patch('/invoices/:id', authenticate, AdminHubController.updateInvoiceStatus);
+router.get('/invoices', AdminHubController.getInvoices);
+router.post('/invoices', AdminHubController.createInvoice);
+router.patch('/invoices/:id', AdminHubController.updateInvoiceStatus);
 
 // Sessions
-router.get('/sessions', authenticate, AdminHubController.getSessions);
-router.delete('/sessions/:id', authenticate, AdminHubController.revokeSession);
-router.delete('/sessions/revoke/all', authenticate, AdminHubController.revokeAllOtherSessions);
+router.get('/sessions', AdminHubController.getSessions);
+router.delete('/sessions/:id', AdminHubController.revokeSession);
+router.delete('/sessions/revoke/all', AdminHubController.revokeAllOtherSessions);
 
 // School Config & Analytics
-router.get('/config', authenticate, AdminHubController.getSchoolConfig);
-router.patch('/config', authenticate, AdminHubController.updateSchoolConfig);
+router.get('/config', AdminHubController.getSchoolConfig);
+router.patch('/config', AdminHubController.updateSchoolConfig);
+router.get('/analytics/enrollment-trends', AdminHubController.getEnrollmentTrends);
 // Parental Consent
-router.get('/consents', authenticate, AdminHubController.getConsents);
-router.patch('/consents/:id', authenticate, AdminHubController.updateConsentStatus);
+router.get('/consents', AdminHubController.getConsents);
+router.patch('/consents/:id', AdminHubController.updateConsentStatus);
 
 // Notification Settings
-router.get('/notifications/settings', authenticate, AdminHubController.getNotificationSettings);
-router.patch('/notifications/settings', authenticate, AdminHubController.updateNotificationSettings);
+router.get('/notifications/settings', AdminHubController.getNotificationSettings);
+router.patch('/notifications/settings', AdminHubController.updateNotificationSettings);
 
 // Kanban Board
-router.get('/kanban', authenticate, AdminHubController.getKanbanBoard);
-router.post('/kanban/tasks', authenticate, AdminHubController.createKanbanTask);
-router.patch('/kanban/tasks/:taskId', authenticate, AdminHubController.moveKanbanTask);
-router.delete('/kanban/tasks/:taskId', authenticate, AdminHubController.deleteKanbanTask);
+router.get('/kanban', AdminHubController.getKanbanBoard);
+router.post('/kanban/tasks', AdminHubController.createKanbanTask);
+router.patch('/kanban/tasks/:taskId', AdminHubController.moveKanbanTask);
+router.delete('/kanban/tasks/:taskId', AdminHubController.deleteKanbanTask);
 
 // Health & Safety
-router.get('/health-logs', authenticate, AdminHubController.getHealthLogs);
-router.post('/health-logs', authenticate, AdminHubController.createHealthLog);
-router.patch('/health-logs/:id', authenticate, AdminHubController.updateHealthLog);
+router.get('/health-logs', AdminHubController.getHealthLogs);
+router.post('/health-logs', AdminHubController.createHealthLog);
+router.patch('/health-logs/:id', AdminHubController.updateHealthLog);
+router.delete('/health-logs/:id', AdminHubController.deleteHealthLog);
 
-router.get('/safety/alerts', authenticate, AdminHubController.getEmergencyAlerts);
-router.post('/safety/alerts', authenticate, AdminHubController.createEmergencyAlert);
-router.patch('/safety/alerts/:id', authenticate, AdminHubController.updateEmergencyAlert);
+router.get('/safety/alerts', AdminHubController.getEmergencyAlerts);
+router.post('/safety/alerts', AdminHubController.createEmergencyAlert);
+router.patch('/safety/alerts/:id', AdminHubController.updateEmergencyAlert);
 
-router.get('/safety/incidents', authenticate, AdminHubController.getHealthIncidents);
-router.post('/safety/incidents', authenticate, AdminHubController.createHealthIncident);
-router.patch('/safety/incidents/:id', authenticate, AdminHubController.updateHealthIncident);
+router.get('/safety/incidents', AdminHubController.getHealthIncidents);
+router.post('/safety/incidents', AdminHubController.createHealthIncident);
+router.patch('/safety/incidents/:id', AdminHubController.updateHealthIncident);
 
-router.get('/safety/drills', authenticate, AdminHubController.getEmergencyDrills);
-router.post('/safety/drills', authenticate, AdminHubController.createEmergencyDrill);
+router.get('/safety/drills', AdminHubController.getEmergencyDrills);
+router.post('/safety/drills', AdminHubController.createEmergencyDrill);
 
-router.get('/safety/policies', authenticate, AdminHubController.getSafeguardingPolicies);
-router.post('/safety/policies', authenticate, AdminHubController.createSafeguardingPolicy);
-router.patch('/safety/policies/:id', authenticate, AdminHubController.updateSafeguardingPolicy);
+router.get('/safety/policies', AdminHubController.getSafeguardingPolicies);
+router.post('/safety/policies', AdminHubController.createSafeguardingPolicy);
+router.patch('/safety/policies/:id', AdminHubController.updateSafeguardingPolicy);
 
 // Governance & Compliance
-router.get('/governance/stats', authenticate, AdminHubController.getGovernanceStats);
-router.get('/governance/compliance-metrics', authenticate, AdminHubController.getComplianceMetrics);
-router.get('/governance/audit-count', authenticate, AdminHubController.getValidationAuditCount);
+router.get('/governance/stats', AdminHubController.getGovernanceStats);
+router.get('/governance/compliance-metrics', AdminHubController.getComplianceMetrics);
+router.get('/governance/audit-count', AdminHubController.getValidationAuditCount);
 
 export default router;

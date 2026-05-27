@@ -18,17 +18,16 @@ interface TeacherDetailAdminViewProps {
 import { useTeacherStats } from '../../hooks/useTeacherStats';
 
 const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher: initialTeacher, navigateTo, forceUpdate, handleBack }) => {
-    const [teacher, setTeacher] = useState<Teacher>(initialTeacher);
+    const [teacher, setTeacher] = useState<Teacher | undefined>(initialTeacher);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(Date.now());
 
     // Use the new hook for real-time analytics
-    // Note: initialTeacher might not have school_id typed correctly if it's a partial type, 
-    // but usually it should. If missing, we might need to fetch it or fallback.
-    const { stats, loading: statsLoading } = useTeacherStats(teacher.id, teacher.schoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1', null);
+    const { stats, loading: statsLoading } = useTeacherStats(teacher?.id || '', teacher?.schoolId || '', null);
 
     const loadTeacher = async () => {
         try {
+            if (!initialTeacher?.id) return;
             const freshData = await api.getTeacherById(initialTeacher.id);
             if (freshData) {
                 setTeacher(freshData);
@@ -41,8 +40,9 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
     // Fetch latest data on mount
     React.useEffect(() => {
+        if (!initialTeacher?.id) return;
         loadTeacher();
-    }, [initialTeacher.id]);
+    }, [initialTeacher?.id]);
 
     useAutoSync(['teachers', 'attendance', 'academic'], () => {
         console.log('🔄 [TeacherDetail] Real-time auto-sync triggered');
@@ -51,7 +51,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
     // Computed classes visualization
     // If we have detailed class info in mockClasses, use it. Otherwise, create a placeholder.
-    const displayClasses = (teacher.classes || []).map(classItem => {
+    const displayClasses = (teacher?.classes || []).map(classItem => {
         // Normalize to string - can be string[] or [{class: {name: '...'}}] or [{name: '...'}]
         const classNameStr = (typeof classItem === 'string' 
             ? classItem 
@@ -59,7 +59,7 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
 
         // Parse "Grade 7 - Math" or "10A - Physics" or "SSS 1 - Math"
         let displayName = classNameStr;
-        let subject = (teacher.subjects && teacher.subjects[0]) || 'General';
+        let subject = (teacher?.subjects && teacher?.subjects[0]) || 'General';
 
         // Check if subject is already in the string
         if (typeof classNameStr === 'string' && classNameStr.includes('-')) {
@@ -109,13 +109,17 @@ const TeacherDetailAdminView: React.FC<TeacherDetailAdminViewProps> = ({ teacher
         }
     };
 
+    if (!teacher) {
+        return <div className="p-6 text-center text-sm text-gray-500">No teacher selected. Open this view from a teacher row in the Teacher List.</div>;
+    }
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
             <main className="flex-grow p-4 overflow-y-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Teacher Info */}
                     <div className="lg:col-span-3 bg-white p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0 text-center sm:text-left">
-                        <img 
+                        <img
                             key={`${teacher.id}-${refreshKey}`}
                             src={`${teacher.avatarUrl || teacher.avatar_url}${ (teacher.avatarUrl || teacher.avatar_url)?.includes('uploads/') ? `?t=${refreshKey}` : '' }`} 
                             alt={teacher.full_name || teacher.name} 

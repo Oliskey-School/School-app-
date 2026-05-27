@@ -87,7 +87,7 @@ const RadioContentScheduler: React.FC = () => {
                 setLoading(false);
                 return;
             }
-            setContent(data || []);
+            setContent(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching content:', error);
             setContent([]);
@@ -113,7 +113,7 @@ const RadioContentScheduler: React.FC = () => {
                 setBroadcasts([]);
                 return;
             }
-            setBroadcasts(data || []);
+            setBroadcasts(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching broadcasts:', error);
             setBroadcasts([]);
@@ -133,7 +133,7 @@ const RadioContentScheduler: React.FC = () => {
                 setPartners([]);
                 return;
             }
-            setPartners(data || []);
+            setPartners(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching partners:', error);
             setPartners([]);
@@ -395,17 +395,17 @@ const RadioContentScheduler: React.FC = () => {
 
                     {/* Content List */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {content.map(item => (
-                            <div key={item.id} className="bg-white rounded-xl shadow-sm p-6">
+                        {content?.map(item => (
+                            <div key={item?.id} className="bg-white rounded-xl shadow-sm p-6">
                                 <div className="flex items-start justify-between mb-3">
-                                    <h3 className="text-lg font-bold text-gray-900">{item.content_title}</h3>
+                                    <h3 className="text-lg font-bold text-gray-900">{item?.content_title || 'Untitled'}</h3>
                                     <Volume2 className="h-5 w-5 text-purple-600" />
                                 </div>
-                                <p className="text-sm text-gray-600 mb-3">{item.description}</p>
+                                <p className="text-sm text-gray-600 mb-3">{item?.description || ''}</p>
                                 <div className="flex items-center space-x-4 text-xs text-gray-500">
-                                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded font-semibold">{item.content_type}</span>
-                                    <span>{item.duration_minutes} min</span>
-                                    <span>{item.language}</span>
+                                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded font-semibold">{item?.content_type || 'N/A'}</span>
+                                    <span>{item?.duration_minutes || 0} min</span>
+                                    <span>{item?.language || 'English'}</span>
                                 </div>
                             </div>
                         ))}
@@ -428,9 +428,9 @@ const RadioContentScheduler: React.FC = () => {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                                 >
                                     <option value="">-- Select content --</option>
-                                    {content.map(item => (
-                                        <option key={item.id} value={item.id}>
-                                            {item.content_title} ({item.duration_minutes} min)
+                                    {content?.map(item => (
+                                        <option key={item?.id} value={item?.id}>
+                                            {item?.content_title || 'Untitled'} ({item?.duration_minutes || 0} min)
                                         </option>
                                     ))}
                                 </select>
@@ -444,9 +444,9 @@ const RadioContentScheduler: React.FC = () => {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                                 >
                                     <option value="">-- Select radio station --</option>
-                                    {partners.map(partner => (
-                                        <option key={partner.id} value={partner.id}>
-                                            {partner.station_name} - {partner.frequency} ({partner.location})
+                                    {partners?.map(partner => (
+                                        <option key={partner?.id} value={partner?.id}>
+                                            {partner?.station_name || 'Station'} - {partner?.frequency || 'N/A'} ({partner?.location || 'Unknown'})
                                         </option>
                                     ))}
                                 </select>

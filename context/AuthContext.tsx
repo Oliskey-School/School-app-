@@ -54,10 +54,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return DashboardType.Admin;
     };
 
+    const signOut = async () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_refresh_token');
+        localStorage.removeItem('last_school_id');
+        localStorage.removeItem('cached_user_profile');
+        localStorage.removeItem('selected_branch_id');
+        sessionStorage.removeItem('is_demo_mode');
+        sessionStorage.removeItem('school');
+        sessionStorage.removeItem('demo_school_id');
+        sessionStorage.removeItem('active_dashboard_role');
+
+        React.startTransition(() => {
+            setUser(null);
+            setRole(null);
+            setSession(null);
+            setCurrentSchool(null);
+            setCurrentBranchId(null);
+            setIsDemo(false);
+            setMemberships([]);
+            setLoading(false);
+            // Clear React Query cache to prevent data leakage between users
+            queryClient.clear();
+        });
+
+        // Clear everything - App.tsx will automatically show Login/Signup because user/role is null
+        // No more window.location.href = '/login' to avoid full page reloads
+    };
+
     const initializeAuth = async () => {
         const token = localStorage.getItem('auth_token');
 
-        if (!token && !isDemo) {
+        if (!token) {
             localStorage.removeItem('cached_user_profile');
             React.startTransition(() => {
                 setUser(null);
@@ -86,10 +114,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (userData.school) {
                         setCurrentSchool(userData.school);
                         setCurrentBranchId(userData.branch_id || userData.school.branch_id);
-                    }
-                    // Only set loading(false) early for demo accounts
-                    if (isDemo || String(userData.id).startsWith('d3300')) {
-                        setLoading(false);
                     }
                 });
                 console.log("⚡ [Auth] Optimistic load from cache...");
@@ -195,6 +219,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         initializeAuth();
     }, []);
 
+    useEffect(() => {
+        const handleForceLogout = () => {
+            signOut();
+        };
+
+        window.addEventListener('force-logout', handleForceLogout);
+        return () => window.removeEventListener('force-logout', handleForceLogout);
+    }, [signOut]);
+
     const signIn = async (dashboard: DashboardType, userData: any) => {
         // Clear any old state or demo remnants first
         localStorage.removeItem('cached_user_profile');
@@ -244,42 +277,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('cached_user_profile', JSON.stringify(userObj));
 
             setSession({ access_token: userData.token, user: userObj });
+            setLoading(false);
+        });
 
-            // Use either id or userId
-            const userId = userObj.id || userObj.userId;
-            if (userId) {
+        // Defer memberships fetching to background - don't block UI
+        const userId = userObj.id || userObj.userId;
+        if (userId) {
+            // Use setTimeout to defer this to next tick
+            setTimeout(() => {
                 fetchMemberships(userId);
-            }
-
-            setLoading(false);
-        });
-    };
-
-    const signOut = async () => {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_refresh_token');
-        localStorage.removeItem('last_school_id');
-        localStorage.removeItem('cached_user_profile');
-        sessionStorage.removeItem('is_demo_mode');
-        sessionStorage.removeItem('school');
-        sessionStorage.removeItem('demo_school_id');
-        sessionStorage.removeItem('active_dashboard_role');
-
-        React.startTransition(() => {
-            setUser(null);
-            setRole(null);
-            setSession(null);
-            setCurrentSchool(null);
-            setCurrentBranchId(null);
-            setIsDemo(false);
-            setMemberships([]);
-            setLoading(false);
-            // Clear React Query cache to prevent data leakage between users
-            queryClient.clear();
-        });
-
-        // Clear everything - App.tsx will automatically show Login/Signup because user/role is null
-        // No more window.location.href = '/login' to avoid full page reloads
+            }, 100);
+        }
     };
 
     const switchSchool = async (schoolId: string) => {

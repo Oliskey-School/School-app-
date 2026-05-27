@@ -64,6 +64,10 @@ import maintenanceRoutes from './maintenance.routes';
 import debugRoutes from './debug.routes';
 import paymentPlanRoutes from './paymentPlan.routes';
 import versionRoutes from './version.routes';
+import idCardRoutes from './idCard.routes';
+import storeRoutes from './store.routes';
+import vendorRoutes from './vendor.routes';
+import offlineChannelRoutes from './offline-channel.routes';
 import * as QuizController from '../controllers/quiz.controller';
 import * as ParentController from '../controllers/parent.controller';
 import { getStudentFeesLegacy } from '../controllers/fee.controller';
@@ -136,12 +140,19 @@ router.use('/academic-policies', policyRoutes);
 router.use('/infrastructure', infrastructureRoutes);
 router.use('/behavior', behaviorRoutes);
 router.use('/admin-hub', adminHubRoutes);
+router.use('/counseling', counselingRoutes);
+console.log('Mounting conferenceRoutes at /api/conferences');
+router.use('/conferences', conferenceRoutes);
 router.use('/payment-plans', paymentPlanRoutes);
 router.get('/cbt/exams', authenticate, requireTenant, QuizController.getQuizzes);
 
 router.use('/saas-analytics', saasAnalyticsRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/versions', versionRoutes);
+router.use('/id-cards', idCardRoutes);
+router.use('/store', storeRoutes);
+router.use('/vendors', vendorRoutes);
+router.use('/', offlineChannelRoutes);
 router.get('/parent-children', authenticate, ParentController.getParentChildren);
 
 // 🚨 DEBUG ROUTES: Only for testing

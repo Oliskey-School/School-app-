@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { isDemoMode, backendFetch } from '../lib/database';
@@ -10,6 +10,7 @@ interface BranchContextType {
     currentBranch: Branch | null;
     branches: Branch[];
     switchBranch: (branchId: string | null) => void;
+    refreshBranches: () => Promise<void>;
     isLoading: boolean;
     canSwitchBranches: boolean;
 }
@@ -17,7 +18,7 @@ interface BranchContextType {
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
 
 export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user, role, currentSchool, currentBranchId } = useAuth();
+    const { user, role, currentSchool, currentBranchId, loading: authLoading } = useAuth();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -29,50 +30,55 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         (role === DashboardType.Parent) || // Parents need to switch when switching children
         (role === DashboardType.Admin && !currentBranchId);
 
+    const refreshBranches = useCallback(async () => {
+        if (!currentSchool) return;
+
+        try {
+            setIsLoading(true);
+            const data = await api.getBranches(currentSchool.id, 'all');
+
+            if (data && data.length > 0) {
+                setBranches(data);
+
+                const savedBranchId = localStorage.getItem('selected_branch_id');
+                const assignedBranchId = currentBranchId;
+
+                if (canSwitchBranches && (savedBranchId === 'all' || (!savedBranchId && !assignedBranchId))) {
+                    setCurrentBranch(null);
+                } else {
+                    const branchToSelect =
+                        data.find((b: Branch) => b.id === savedBranchId) ||
+                        data.find((b: Branch) => b.id === assignedBranchId) ||
+                        data[0];
+
+                    setCurrentBranch(branchToSelect);
+                }
+            } else {
+                setBranches([]);
+                setCurrentBranch(null);
+            }
+        } catch (err) {
+            console.error('Error fetching branches:', err);
+            setBranches([]);
+            setCurrentBranch(null);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentSchool, currentBranchId, canSwitchBranches]);
+
     useEffect(() => {
+        if (authLoading) {
+            setIsLoading(true);
+            return;
+        }
+
         if (!user || !currentSchool) {
             setIsLoading(false);
             return;
         }
 
-        const fetchBranches = async () => {
-            try {
-                setIsLoading(true);
-
-                // Fetch all branches for this school using our custom API
-                const data = await api.getBranches(currentSchool.id);
-
-                if (data && data.length > 0) {
-                    setBranches(data);
-
-                    const savedBranchId = localStorage.getItem('selected_branch_id');
-                    const assignedBranchId = currentBranchId;
-
-                    if (canSwitchBranches && (savedBranchId === 'all' || (!savedBranchId && !assignedBranchId))) {
-                        setCurrentBranch(null);
-                    } else if (data.length > 0) {
-                        const branchToSelect =
-                            data.find((b: Branch) => b.id === savedBranchId) ||
-                            data.find((b: Branch) => b.id === assignedBranchId) ||
-                            data[0];
-
-                        setCurrentBranch(branchToSelect);
-                    }
-                } else {
-                    setBranches([]);
-                    setCurrentBranch(null);
-                }
-            } catch (err) {
-                console.error('Error fetching branches:', err);
-                setBranches([]);
-                setCurrentBranch(null);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchBranches();
-    }, [user, currentSchool, currentBranchId, canSwitchBranches]);
+        refreshBranches();
+    }, [authLoading, user, currentSchool, currentBranchId, canSwitchBranches, refreshBranches]);
 
     const switchBranch = async (branchId: string | null) => {
         try {
@@ -98,7 +104,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     return (
-        <BranchContext.Provider value={{ currentBranch, branches, switchBranch, isLoading, canSwitchBranches }}>
+        <BranchContext.Provider value={{ currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches }}>
             {children}
         </BranchContext.Provider>
     );

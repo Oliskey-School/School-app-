@@ -7,7 +7,12 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 export const getClass = async (req: AuthRequest, res: Response) => {
     try {
         const classId = req.params.id as string;
-        const result = await ClassService.getClass(req.user.school_id, classId);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
+        const role = String(req.user.role || '').toUpperCase();
+        const teacher = role === 'TEACHER'
+            ? await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } })
+            : null;
+        const result = await ClassService.getClass(req.user.school_id, classId, branchId, teacher?.id);
         
         if (!result) {
             return res.status(404).json({ message: 'Class not found' });
@@ -22,7 +27,12 @@ export const getClass = async (req: AuthRequest, res: Response) => {
 export const getClassStudents = async (req: AuthRequest, res: Response) => {
     try {
         const classId = req.params.id as string;
-        const result = await ClassService.getClassStudents(req.user.school_id, classId);
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
+        const role = String(req.user.role || '').toUpperCase();
+        const teacher = role === 'TEACHER'
+            ? await prisma.teacher.findUnique({ where: { user_id: req.user.id }, select: { id: true } })
+            : null;
+        const result = await ClassService.getClassStudents(req.user.school_id, classId, branchId, teacher?.id);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -32,8 +42,9 @@ export const getClassStudents = async (req: AuthRequest, res: Response) => {
 export const getClasses = async (req: AuthRequest, res: Response) => {
     try {
         let teacherId = undefined;
+        const role = String(req.user.role || '').toUpperCase();
 
-        if (req.user.role === 'teacher') {
+        if (role === 'TEACHER') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }
@@ -47,9 +58,10 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const includeAll = req.query.includeAll === 'true' || req.query.include_all === 'true';
+        const canIncludeAll = ['ADMIN', 'SUPER_ADMIN', 'PROPRIETOR'].includes(role) && !req.user.branch_id;
+        const includeAll = canIncludeAll && (req.query.includeAll === 'true' || req.query.include_all === 'true');
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
-        const result = await ClassService.getClasses(req.user.school_id, includeAll ? undefined : branchId, includeAll ? undefined : teacherId);
+        const result = await ClassService.getClasses(req.user.school_id, includeAll ? undefined : branchId, teacherId);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

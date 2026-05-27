@@ -6,7 +6,10 @@ const conferenceService = new ConferenceService();
 
 export const getConferences = async (req: AuthRequest, res: Response) => {
   try {
-    const school_id = req.user?.schoolId || req.body.school_id;
+    const school_id = req.user?.school_id;
+    if (!school_id) {
+      return res.status(401).json({ message: 'Tenant context missing' });
+    }
     const filters = req.query;
     const conferences = await conferenceService.getConferences(school_id, filters);
     res.json(conferences);
@@ -17,7 +20,10 @@ export const getConferences = async (req: AuthRequest, res: Response) => {
 
 export const scheduleConference = async (req: AuthRequest, res: Response) => {
   try {
-    const school_id = req.user?.schoolId || req.body.school_id;
+    const school_id = req.user?.school_id;
+    if (!school_id) {
+      return res.status(401).json({ message: 'Tenant context missing' });
+    }
     const conference = await conferenceService.scheduleConference(school_id, req.body);
     res.status(201).json(conference);
   } catch (error: any) {

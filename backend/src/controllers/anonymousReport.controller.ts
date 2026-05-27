@@ -40,13 +40,17 @@ export const getReportByTrackCode = async (req: Request, res: Response) => {
     }
 };
 
-export const updateReportStatus = async (req: Request, res: Response) => {
+export const updateReportStatus = async (req: any, res: Response) => {
     try {
+        const schoolId = req.user?.school_id;
+        if (!schoolId) {
+            return res.status(401).json({ error: 'Tenant context missing' });
+        }
         const { status, admin_notes } = req.body;
-        const report = await AnonymousReportService.updateStatus(req.params.id, status, admin_notes);
+        const report = await AnonymousReportService.updateStatus(schoolId, req.params.id, status, admin_notes);
         res.json(report);
     } catch (error: any) {
         console.error('Error updating report:', error);
-        res.status(500).json({ error: 'Failed to update report' });
+        res.status(error.statusCode || 500).json({ error: error.message || 'Failed to update report' });
     }
 };

@@ -141,6 +141,8 @@ const DashboardRouter: React.FC<DashboardRouterProps> = (props) => {
                 <Routes>
                     {/* The root dashboard based on role */}
                     <Route path="/" element={renderDashboard()} />
+                    <Route path="/subscription" element={<SubscriptionPage {...(props as any)} />} />
+                    <Route path="/upgrade" element={<SubscriptionPage {...(props as any)} />} />
 
                     {/* The specific External Exams page requested by the user */}
                     <Route path="/external-exams" element={<ExternalExamsPage {...(props as any)} />} />

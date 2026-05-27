@@ -350,7 +350,7 @@ export class AcademicService {
             position: reportBase?.position_in_class,
             total_students: reportBase?.total_students_in_class,
             academic_records: academicRecords,
-            attendance: {
+            attendance: academicData.attendance || {
                 total: reportBase?.attendance_count || 0,
                 present: reportBase?.attendance_count || 0,
                 absent: 0,
@@ -388,14 +388,8 @@ export class AcademicService {
     }
 
     static async getReportByCriteria(schoolId: string, studentId: string, term: string, session: string) {
-        return await prisma.reportCard.findFirst({
-            where: {
-                school_id: schoolId,
-                student_id: studentId,
-                term: term,
-                session: session
-            }
-        });
+        // Use the existing logic from getReportCardDetails to ensure consistency
+        return await this.getReportCardDetails(schoolId, studentId, term, session);
     }
 
     static async getAcademicTerms(schoolId: string) {
@@ -428,6 +422,19 @@ export class AcademicService {
         const { term, session, academicRecords, status, attendance, skills, psychomotor, teacherComment, principalComment } = data;
 
         return await prisma.$transaction(async (tx) => {
+            // 0. Clean up existing AcademicPerformance records for this term/session that are NOT in the new list
+            // This ensures consistency if subjects are removed from a student's curriculum
+            const newSubjects = academicRecords.map((r: any) => r.subject);
+            await tx.academicPerformance.deleteMany({
+                where: {
+                    school_id: schoolId,
+                    student_id: studentId,
+                    term,
+                    session,
+                    subject: { notIn: newSubjects }
+                }
+            });
+
             // 1. Upsert individual grades into AcademicPerformance
             for (const record of academicRecords) {
                 const existing = await tx.academicPerformance.findFirst({
@@ -476,7 +483,8 @@ export class AcademicService {
             const academicRecordsJson = {
                 grades: academicRecords,
                 skills: skills || {},
-                psychomotor: psychomotor || {}
+                psychomotor: psychomotor || {},
+                attendance: attendance || {} // Ensure attendance is included
             };
 
             const result = existingRC 
@@ -491,6 +499,8 @@ export class AcademicService {
                         attendance_count: attendance?.present || 0,
                         principal_remark: principalComment || data.principal_remark,
                         teacher_remark: teacherComment || data.teacher_remark,
+                        position_in_class: data.position ?? existingRC.position_in_class,
+                        total_students_in_class: data.total_students ?? existingRC.total_students_in_class
                     }
                 })
                 : await tx.reportCard.create({
@@ -507,6 +517,8 @@ export class AcademicService {
                         attendance_count: attendance?.present || 0,
                         principal_remark: principalComment || data.principal_remark,
                         teacher_remark: teacherComment || data.teacher_remark,
+                        position_in_class: data.position,
+                        total_students_in_class: data.total_students
                     }
                 });
 
@@ -520,14 +532,18 @@ export class AcademicService {
         });
     }
 
-    static async getCurriculumTopics(subjectId: string, term: string) {
+    static async getCurriculumTopics(schoolId: string, subjectId: string, term: string) {
         return await (prisma as any).curriculumTopic.findMany({
-            where: { subject_id: subjectId, term },
+            where: { 
+                subject_id: subjectId, 
+                term,
+                school_id: schoolId // Assuming CurriculumTopic has school_id
+            },
             orderBy: { week_number: 'asc' }
         });
     }
 
-    static async syncCurriculumData(subjectId: string, source: string) {
+    static async syncCurriculumData(schoolId: string, subjectId: string, source: string) {
         // Mock sync logic: Generate standard topics for the subject
         const mockTopics = [
             { week_number: 1, title: 'Introduction to Course', content: 'Overview of the term syllabus and objectives.' },
@@ -542,6 +558,7 @@ export class AcademicService {
                 data: {
                     subject_id: subjectId,
                     term: 'Term 1', // Defaulting for simple mock
+                    school_id: schoolId, // Added missing school_id
                     ...topic
                 }
             });

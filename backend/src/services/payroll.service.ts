@@ -123,16 +123,19 @@ export class PayrollService {
         });
     }
 
-    static async updateSalaryArrearStatus(id: string, status: string) {
-        const arrear = await prisma.salaryArrear.findUnique({ where: { id } });
+    static async updateSalaryArrearStatus(schoolId: string, id: string, status: string) {
+        // Tenant-scoped lookup prevents cross-school mutation via known arrear id.
+        const arrear = await prisma.salaryArrear.findFirst({ where: { id, school_id: schoolId } });
+        if (!arrear) {
+            const err: any = new Error('Salary arrear not found');
+            err.statusCode = 404;
+            throw err;
+        }
         const result = await prisma.salaryArrear.update({
-            where: { id },
+            where: { id: arrear.id },
             data: { status }
         });
-
-        if (arrear) {
-            SocketService.emitToSchool(arrear.school_id, 'payroll:updated', { action: 'arrear_status', arrearId: id });
-        }
+        SocketService.emitToSchool(arrear.school_id, 'payroll:updated', { action: 'arrear_status', arrearId: id });
         return result;
     }
 

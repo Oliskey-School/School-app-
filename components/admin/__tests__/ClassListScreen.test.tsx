@@ -34,10 +34,10 @@ describe('ClassListScreen Component', () => {
     );
 
     await waitFor(() => {
-      // getFormattedClassName(10, 'A') -> "SSS 1 A"
-      expect(screen.getByText(/SSS 1 A/i)).toBeInTheDocument();
-      // getFormattedClassName(11, 'B') -> "SSS 2 B"
-      expect(screen.getByText(/SSS 2 B/i)).toBeInTheDocument();
+      // getFormattedClassName(10, '', true) -> "SSS 1"
+      expect(screen.getByText(/SSS 1/i)).toBeInTheDocument();
+      // Section A is rendered as "Section A"
+      expect(screen.getByText(/Section A/i)).toBeInTheDocument();
     });
   });
 
@@ -50,7 +50,7 @@ describe('ClassListScreen Component', () => {
       />
     );
 
-    const classElement = await screen.findByText(/SSS 1 A/i);
+    const classElement = await screen.findByText(/Section A/i);
     fireEvent.click(classElement);
 
     await waitFor(() => {

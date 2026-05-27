@@ -116,6 +116,7 @@ model School {
   evaluations              TeacherEvaluation[]
   platform_version         String?                   @default("0.5.27")
   student_documents        StudentDocument[]
+  id_cards                 StudentIDCard[]
 }
 
 model Branch {
@@ -245,6 +246,7 @@ model Student {
   conferences           ParentTeacherConference[]
   exam_results          ExamResult[]
   documents             StudentDocument[]
+  id_cards              StudentIDCard[]
 }
 
 model Teacher {
@@ -2338,6 +2340,189 @@ model StudentDocument {
 
   @@index([student_id])
   @@index([school_id])
+}
+
+model StudentIDCard {
+  id                  String   @id @default(uuid())
+  school_id           String
+  student_id          String
+  card_number         String   @unique
+  issue_date          DateTime @default(now())
+  expiry_date         DateTime
+  status              String   @default("Active") // Active, Expired, Lost, Revoked
+  is_printed          Boolean  @default(false)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  school              School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student             Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id])
+  @@index([student_id])
+}
+
+// ============================================
+// OFFLINE CHANNEL MODELS
+// ============================================
+
+model RadioContent {
+  id               String           @id @default(uuid())
+  school_id        String
+  content_title    String
+  description      String?
+  subject          String?
+  grade            String?
+  audio_file_url   String?
+  duration_minutes Int?
+  language         String           @default("English")
+  content_type     String           @default("Educational")
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  broadcasts       RadioBroadcast[]
+}
+
+model RadioPartner {
+  id                 String           @id @default(uuid())
+  school_id          String
+  station_name       String
+  location           String?
+  frequency          String?
+  coverage_area      String?
+  contact_person     String?
+  contact_phone      String?
+  partnership_status String           @default("Active")
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
+  broadcasts         RadioBroadcast[]
+}
+
+model RadioBroadcast {
+  id                  String       @id @default(uuid())
+  school_id           String
+  content_id          String
+  partner_id          String
+  broadcast_date      DateTime
+  broadcast_time      String
+  frequency           String?
+  estimated_listeners Int          @default(0)
+  status              String       @default("Scheduled")
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+  radio_content       RadioContent @relation(fields: [content_id], references: [id], onDelete: Cascade)
+  radio_partner       RadioPartner @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+}
+
+model IVRLesson {
+  id               String    @id @default(uuid())
+  school_id        String
+  lesson_title     String
+  subject          String?
+  grade            String?
+  audio_file_url   String?
+  script           String?
+  duration_seconds Int?
+  language         String    @default("English")
+  lesson_type      String    @default("Educational")
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  calls            IVRCall[]
+}
+
+model IVRCall {
+  id                    String    @id @default(uuid())
+  school_id             String
+  lesson_id             String
+  phone_number          String
+  call_status           String    @default("Initiated")
+  call_duration_seconds Int       @default(0)
+  initiated_at          DateTime  @default(now())
+  completed_at          DateTime?
+  ivr_lesson            IVRLesson @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+}
+
+model SMSLesson {
+  id           String        @id @default(uuid())
+  school_id    String
+  lesson_title String
+  subject      String?
+  grade        String?
+  content      String
+  lesson_type  String        @default("Educational")
+  language     String        @default("English")
+  is_active    Boolean       @default(true)
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+  schedules    SMSSchedule[]
+}
+
+model SMSSchedule {
+  id               String    @id @default(uuid())
+  school_id        String
+  lesson_id        String
+  scheduled_date   DateTime
+  scheduled_time   String
+  target_audience  String
+  status           String    @default("Scheduled")
+  recipients_count Int       @default(0)
+  delivered_count  Int       @default(0)
+  failed_count     Int       @default(0)
+  cost_naira       Float     @default(0)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  sms_lesson       SMSLesson @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+}
+
+model USSDMenuStructure {
+  id                String              @id @default(uuid())
+  school_id         String
+  menu_code         String
+  menu_level        Int                 @default(0)
+  parent_menu_id    String?
+  menu_text         String
+  menu_option       String
+  action_type       String?
+  response_template String?
+  is_active         Boolean             @default(true)
+  created_at        DateTime            @default(now())
+  updated_at        DateTime            @updatedAt
+  sessions          USSDSession[]
+  parent_menu       USSDMenuStructure?  @relation("MenuHierarchy", fields: [parent_menu_id], references: [id])
+  child_menus       USSDMenuStructure[] @relation("MenuHierarchy")
+}
+
+model USSDSession {
+  id               String            @id @default(uuid())
+  school_id        String
+  session_id       String            @unique
+  phone_number     String
+  current_menu_id  String?
+  status           String            @default("Active")
+  started_at       DateTime          @default(now())
+  last_interaction DateTime          @default(now())
+  ussd_menu        USSDMenuStructure? @relation(fields: [current_menu_id], references: [id])
+}
+
+model USSDTransaction {
+  id               String   @id @default(uuid())
+  school_id        String
+  phone_number     String
+  transaction_type String
+  amount           Float    @default(0)
+  status           String   @default("Pending")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+}
+
+model RolePermission {
+  id            String   @id @default(uuid())
+  school_id     String
+  role          String
+  permission_id String
+  enabled       Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@unique([school_id, role, permission_id])
 }
 
 

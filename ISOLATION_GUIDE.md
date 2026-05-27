@@ -1,68 +1,18 @@
-# Project Isolation Guide
+# Project Engineering Standards: Data Isolation
 
-This guide contains the steps to completely isolate your project dependencies and environment. I have already **pinned all your dependencies** in `package.json` to exact versions to prevent unexpected updates.
+To ensure data integrity and isolation in this multi-tenant, multi-branch system, all code must adhere to the **Scoped Service Pattern**.
 
-## 🛑 Critical First Step
-**Stop all running local servers.**
-If you have `npm run dev`, `npm run server`, or `npm run start:all` running in any terminal, **CTRL+C** to stop them. The cleanup commands below will fail if files are locked by running processes.
+## Mandatory Isolation Audit Checklist
 
-## 🧹 Clean & Reinstall Commands
-Run these commands in your project root (`c:\Users\USER\OneDrive\Desktop\Project\school-app-`) to clear all caches and reinstall fresh dependencies:
+Before any code modification is committed or considered complete, the following checklist **must** be validated:
 
-### PowerShell
-```powershell
-# 1. Clear NPM Cache (removes shared global cache interference)
-npm cache clean --force
+1.  [ ] **Service-Based Access:** Database access is NOT performed directly in controllers/routes. All operations are mediated through service methods.
+2.  [ ] **Mandatory Scoping:** Every Prisma `findMany`, `findFirst`, `findUnique`, `updateMany`, `deleteMany`, etc., query includes `school_id` and `branch_id` in the `where` clause.
+3.  [ ] **Context Usage:** Services resolve the `branch_id` using `getEffectiveBranchId` (from `backend/src/utils/branchScope.ts`) when user context is provided, or require it as a mandatory argument.
+4.  [ ] **No Global Queries:** Queries without `school_id` or `branch_id` filters are strictly forbidden unless explicitly authorized by a `SUPER_ADMIN` context (and clearly commented as a global platform action).
 
-# 2. Delete existing artifacts (forcefully)
-Remove-Item -Recurse -Force node_modules
-Remove-Item -Force package-lock.json
+### Isolation Verification
+If you modify or create code, run this check:
+"Does this query include the tenant `school_id` and branch `branch_id` filters?"
 
-# 3. Reinstall strict dependencies
-npm install
-```
-
-### Command Prompt (cmd)
-```cmd
-npm cache clean --force
-rmdir /s /q node_modules
-del package-lock.json
-npm install
-```
-
-## 🛡️ Verifying Isolation
-
-1.  **Check `package.json`**: Ensure no version numbers run with `^` or `~`. (I have already done this for you).
-2.  **Environment Variables**:
-    *   Ensure you have a `.env` file in the project root.
-    *   Compare it with `.env.example` to ensure all required keys are present.
-    *   **Tip**: Never rely on global environment variables. Always define them in your `.env` file for this specific project.
-
-## 🚀 Restart
-After running the commands above:
-```bash
-npm run start:all
-```
-Your project is now running in a strictly isolated environment with exact dependency versions.
-
-## 🆘 Troubleshooting
-
-### Network Errors (ECONNRESET, ETIMEDOUT)
-If you see `npm error code ECONNRESET` or similar network issues:
-
-1.  **Disable Proxy**:
-    ```powershell
-    npm config delete proxy
-    npm config delete https-proxy
-    ```
-2.  **Use Standard Registry**:
-    ```powershell
-    npm config set registry https://registry.npmjs.org/
-    ```
-3.  **Clear Cache & Retry**:
-    ```powershell
-    npm cache clean --force
-    Remove-Item -Recurse -Force node_modules
-    npm install
-    ```
-
+If the answer is no, the code is structurally insecure and must be rejected.

@@ -68,7 +68,7 @@ export const deleteTeacher = async (req: AuthRequest, res: Response) => {
         await TeacherService.deleteTeacher(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 

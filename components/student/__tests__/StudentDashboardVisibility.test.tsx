@@ -22,21 +22,39 @@ vi.mock('../../../context/BranchContext', () => ({
 }));
 
 // Mock API and Storage to bypass loaders
+const mockApi = {
+    getMyStudentProfile: vi.fn().mockResolvedValue({
+        id: 'student-123',
+        name: 'Test Student',
+        grade: 10,
+        section: 'A',
+        school_generated_id: 'STU001'
+    }),
+    getMyTeacherProfile: vi.fn().mockResolvedValue(null),
+    getMyChildren: vi.fn().mockResolvedValue([]),
+    getTimetable: vi.fn().mockResolvedValue([]),
+    getAssignments: vi.fn().mockResolvedValue([]),
+    getQuizzesByClass: vi.fn().mockResolvedValue([]),
+    getMyDashboardOverview: vi.fn().mockResolvedValue({
+        summary: {
+            attendance: 95,
+            averageGrade: 'A',
+            completedAssignments: 10,
+            pendingAssignments: 2
+        },
+        upcomingClasses: [],
+        recentGrades: []
+    }),
+    getGamificationData: vi.fn().mockResolvedValue({
+        points: 100,
+        level: 5,
+        badges: []
+    })
+};
+
 vi.mock('../../../lib/api', () => ({
-    api: {
-        getMyStudentProfile: vi.fn().mockResolvedValue({
-            id: 'student-123',
-            name: 'Test Student',
-            grade: 10,
-            section: 'A',
-            school_generated_id: 'STU001'
-        }),
-        getMyTeacherProfile: vi.fn().mockResolvedValue(null),
-        getMyChildren: vi.fn().mockResolvedValue([]),
-        getTimetable: vi.fn().mockResolvedValue([]),
-        getAssignments: vi.fn().mockResolvedValue([]),
-        getQuizzesByClass: vi.fn().mockResolvedValue([])
-    }
+    api: mockApi,
+    default: mockApi
 }));
 
 vi.mock('../../../lib/offlineStorage', () => ({

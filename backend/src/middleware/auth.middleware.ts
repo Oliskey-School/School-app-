@@ -1,14 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
-import { config } from '../config/env';
+import { config, DEMO_SCHOOL_ID } from '../config/env';
 
 export interface AuthRequest extends Request {
     user?: any;
+    school_id?: string;
+    branch_id?: string;
 }
 
-export const DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-
+/**
+ * Enhanced authentication middleware with:
+ * - X-School-Id & X-Branch-Id header validation
+ * - Postgres context setting for RLS policies
+ * - Strict header-JWT consistency checks
+ */
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
     // Lead DevSecOps: Extract from secure HttpOnly cookies, fallback to Bearer for mobile/API clients
     let token = req.cookies?.access_token;
@@ -64,6 +70,11 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 is_demo: true,
                 school: demoSchool // Add school object
             };
+            
+            // Set Postgres context for RLS policies (demo mode)
+            req.school_id = DEMO_SCHOOL_ID;
+            req.branch_id = decoded.branch_id || null;
+            
             console.log(`🛡️ [Auth] Demo token validated — identity: ${req.user.role} (${req.user.email})`);
             return next();
         }
@@ -85,6 +96,27 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return res.status(401).json({ message: 'User no longer exists' });
         }
 
+        // ========================================================================
+        // HEADER VALIDATION: Strict consistency check between headers and JWT
+        // ========================================================================
+        const headerSchoolId = req.headers['x-school-id'] as string | undefined;
+        const headerBranchId = req.headers['x-branch-id'] as string | undefined;
+
+        // If X-School-Id header is provided, it MUST match user's school_id
+        if (headerSchoolId && headerSchoolId !== user.school_id) {
+            console.error(`🚨 [Security] Header-JWT mismatch: X-School-Id (${headerSchoolId}) != user.school_id (${user.school_id})`);
+            return res.status(403).json({ message: 'School header does not match authenticated school' });
+        }
+
+        // If X-Branch-Id header is provided, user must be allowed to access that branch
+        if (headerBranchId) {
+            const allowedBranches = [user.branch_id, ...(user.allowed_branch_ids || [])];
+            if (!allowedBranches.includes(headerBranchId)) {
+                console.error(`🚨 [Security] Unauthorized branch access attempt: ${user.id} tried branch ${headerBranchId}`);
+                return res.status(403).json({ message: 'User not authorized to access this branch' });
+            }
+        }
+
         console.log(`✅ [Auth Success] User: ${user.email}`);
 
         // Extract phone from whichever profile is available
@@ -104,6 +136,10 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return user.school_generated_id;
         })();
 
+        // Determine the effective branch_id for this request
+        // If X-Branch-Id header is provided, use it; otherwise use user's default branch
+        const effectiveBranchId = headerBranchId || user.branch_id;
+
         req.user = {
             id: user.id,
             email: user.email,
@@ -121,6 +157,10 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             teacher_profile: user.teacher_profile,
             parent_profile: user.parent_profile
         };
+
+        // Set Postgres context for RLS policies
+        req.school_id = user.school_id;
+        req.branch_id = effectiveBranchId;
 
         next();
     } catch (error: any) {

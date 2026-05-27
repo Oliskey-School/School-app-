@@ -62,7 +62,7 @@ export const deleteParent = async (req: AuthRequest, res: Response) => {
         await ParentService.deleteParent(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        res.status(error.statusCode || 400).json({ message: error.message });
     }
 };
 

@@ -47,18 +47,28 @@ export class AnonymousReportService {
         });
     }
 
-    static async updateStatus(id: string, status: string, adminNotes?: string) {
+    static async updateStatus(schoolId: string, id: string, status: string, adminNotes?: string) {
         const data: any = { status };
         if (adminNotes) data.admin_notes = adminNotes;
         if (status === 'Resolved') data.resolved_at = new Date();
 
-        const report = await (prisma as any).secureAnonymousReport.findUnique({ where: { id } });
+        // Tenant-scoped lookup prevents cross-school mutation via known report id.
+        // NOTE: reports with school_id = null are platform-level and only mutable by SuperAdmin
+        // (route should enforce role). We require an exact match here to fail closed.
+        const report = await (prisma as any).secureAnonymousReport.findFirst({
+            where: { id, school_id: schoolId }
+        });
+        if (!report) {
+            const err: any = new Error('Anonymous report not found');
+            err.statusCode = 404;
+            throw err;
+        }
         const result = await (prisma as any).secureAnonymousReport.update({
-            where: { id },
+            where: { id: report.id },
             data,
         });
 
-        if (report?.school_id) {
+        if (report.school_id) {
             SocketService.emitToSchool(report.school_id, 'notice:updated', { action: 'secure_report_status', reportId: id });
         }
         return result;

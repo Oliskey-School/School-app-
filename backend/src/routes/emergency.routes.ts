@@ -8,6 +8,8 @@ const router = Router();
 router.use(authenticate);
 router.use(requireTenant);
 
+// Default root: emergency broadcast history for the caller's school.
+router.get('/', getEmergencyHistory);
 router.post('/broadcast', triggerEmergencyBroadcast);
 router.get('/history', getEmergencyHistory);
 

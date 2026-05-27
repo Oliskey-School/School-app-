@@ -540,10 +540,15 @@ export class ParentService {
     }
 
     static async deleteParent(schoolId: string, branchId: string | undefined, id: string) {
-        await (prisma.parent.delete as any)({
-            where: { id: id }
-        });
-        
+        // Tenant-scoped lookup prevents cross-school deletion via known parent id.
+        const parent = await prisma.parent.findFirst({ where: { id, school_id: schoolId } });
+        if (!parent) {
+            const err: any = new Error('Parent not found');
+            err.statusCode = 404;
+            throw err;
+        }
+        await (prisma.parent.delete as any)({ where: { id: parent.id } });
+
         SocketService.emitToSchool(schoolId, 'parent:updated', { action: 'delete', parentId: id });
         return true;
     }

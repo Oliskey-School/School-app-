@@ -100,16 +100,29 @@ const start = async () => {
                     }
                 }
 
-                const { DemoSeederService } = require('./services/demoSeeder.service');
-                await DemoSeederService.ensureDemoData();
+                const shouldSeedDemo = process.env.NODE_ENV !== 'production'
+                    || process.env.RUN_DEMO_SEEDER === 'true';
+                if (shouldSeedDemo) {
+                    const { DemoSeederService } = require('./services/demoSeeder.service');
+                    await DemoSeederService.ensureDemoData();
+                    console.log('✅ [Database] Connected and demo data verified.');
+                } else {
+                    console.log('🚫 [Database] Connected. Demo seeder skipped (production mode). Set RUN_DEMO_SEEDER=true to override.');
+                }
                 dbConnected = true;
-                console.log('✅ [Database] Connected and demo data verified.');
             } catch (error: any) {
                 retries--;
                 console.error('❌ [Database] Connection error:', error.message);
                 
-                if (error.message?.includes('P1001')) {
-                    console.error('   💡 Diagnostic: Database host is unreachable. Check if Supabase is paused or if firewall blocks port 6543/5432.');
+                if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('relation')) {
+                    console.error('========================================================================');
+                    console.error('   💡 DIAGNOSTIC: Database connection succeeded, but tables are missing!');
+                    console.error('   👉 ACTION REQUIRED: Initialize your local database schema by running:');
+                    console.error('      npm run db:push');
+                    console.error('      (or: npx prisma db push --schema=backend/prisma/schema.prisma)');
+                    console.error('========================================================================');
+                } else if (error.message?.includes('P1001')) {
+                    console.error('   💡 Diagnostic: Database host is unreachable. Check if local database is running or if firewall blocks port 5432.');
                 }
 
                 if (retries === 0) {

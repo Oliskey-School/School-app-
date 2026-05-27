@@ -19,7 +19,15 @@ export class CalendarService {
         }));
     }
 
-    static async rsvpToEvent(eventId: string, parentId: string, status: string) {
+    static async rsvpToEvent(schoolId: string, eventId: string, parentId: string, status: string) {
+        // Verify the event is in the caller's school before allowing RSVP write.
+        const event = await prisma.event.findFirst({ where: { id: eventId, school_id: schoolId } });
+        if (!event) {
+            const err: any = new Error('Event not found');
+            err.statusCode = 404;
+            throw err;
+        }
+
         const result = await prisma.eventRSVP.upsert({
             where: {
                 event_id_parent_id: {
@@ -35,10 +43,7 @@ export class CalendarService {
             }
         });
 
-        const event = await prisma.event.findUnique({ where: { id: eventId } });
-        if (event) {
-            SocketService.emitToSchool(event.school_id, 'academic:updated', { action: 'rsvp', eventId, parentId });
-        }
+        SocketService.emitToSchool(event.school_id, 'academic:updated', { action: 'rsvp', eventId, parentId });
         return result;
     }
 

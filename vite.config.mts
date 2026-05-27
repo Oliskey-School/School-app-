@@ -19,6 +19,14 @@ export default defineConfig(({ mode }) => {
       setupFiles: './setupTests.ts',
       testTimeout: 30000,
       hookTimeout: 20000,
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/tests/e2e/**',
+        '**/*.spec.ts',
+        '**/.kilo/**',
+        '**/.{idea,git,cache,output,temp}/**',
+      ],
     },
     cacheDir: '.vite',
     server: {

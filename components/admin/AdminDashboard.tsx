@@ -41,7 +41,7 @@ const AuditLogScreen = lazyWithRetry(() => import('./AuditLogScreen'));
 const ProfileSettings = lazyWithRetry(() => import('./ProfileSettings'));
 const CommunicationHub = lazyWithRetry(() => import('./CommunicationHub'));
 const StudentProfileAdminView = lazyWithRetry(() => import('./StudentProfileDashboard'));
-const IDCardManagement = lazyWithRetry(() => import('./IDCardManagement'));
+const StudentIDCardDashboard = lazyWithRetry(() => import('./StudentIDCardDashboard'));
 const EditProfileScreen = lazyWithRetry(() => import('./EditProfileScreen'));
 const NotificationsSettingsScreen = lazyWithRetry(() => import('./NotificationsSettingsScreen'));
 const SecuritySettingsScreen = lazyWithRetry(() => import('./SecuritySettingsScreen'));
@@ -169,6 +169,7 @@ const TimetableScreen = lazyWithRetry(() => import('./TimetableScreen'));
 const UserSeeder = lazyWithRetry(() => import('./UserSeeder'));
 const VisitorLog = lazyWithRetry(() => import('./VisitorLog'));
 const VersionSettings = lazyWithRetry(() => import('./VersionSettings'));
+const SubscriptionPage = lazyWithRetry(() => import('../subscription/SubscriptionPage'));
 
 type ViewStackItem = {
     view: string;
@@ -397,7 +398,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         inspectionHub: UnifiedGovernanceHub,
         staffManagement: TeacherListScreen,
         inviteStaff: InviteStaffScreen,
-        idCardManagement: IDCardManagement,
+        idCardManagement: StudentIDCardDashboard,
         studentApprovals: StudentApprovalsScreen,
         addBranchAdmin: AddBranchAdminScreen,
         assignFee: AssignFeePage,
@@ -438,6 +439,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         studentApproval: StudentApprovalScreen,
         studentDetailReport: StudentDetailReport,
         studentProfileDashboard: StudentProfileDashboard,
+        subscription: SubscriptionPage,
+        upgrade: SubscriptionPage,
         superAdmin: SuperAdminDashboard,
         timetableScreen: TimetableScreen,
         userSeeder: UserSeeder,
@@ -464,12 +467,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         getUser();
 
         // Expose navigation for automated audits
+        window.ADMIN_NAVIGATE = navigateTo;
+        window.ADMIN_COMPONENTS = Object.keys(viewComponents);
+        window.ADMIN_AUDIT_ENABLED = true;
+        
         const auditModeEnabled = window.__AUDIT_MODE__ || window.localStorage.getItem('audit_mode') === 'true';
         if (auditModeEnabled) {
             window.__AUDIT_MODE__ = true;
-            window.ADMIN_NAVIGATE = navigateTo;
-            window.ADMIN_COMPONENTS = Object.keys(viewComponents);
-            window.ADMIN_AUDIT_ENABLED = true;
         }
     }, [user]);
 

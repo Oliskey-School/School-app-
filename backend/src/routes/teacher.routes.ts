@@ -9,6 +9,7 @@ router.get('/me', authenticate, getMyProfile);
 router.get('/me/appointments', authenticate, getMyAppointments);
 router.put('/appointments/:id/status', authenticate, updateMyAppointmentStatus);
 router.get('/attendance', authenticate, getTeacherAttendance);
+router.get('/attendance-approvals', authenticate, getTeacherAttendance);
 router.post('/attendance', authenticate, saveTeacherAttendance);
 router.put('/attendance/:id/approve', authenticate, approveTeacherAttendance);
 router.post('/me/attendance', authenticate, submitMyAttendance);
@@ -97,13 +98,33 @@ router.post('/', authenticate, requirePlanCapacity('teacher'), createTeacher);
 router.get('/', authenticate, getAllTeachers);
 router.get('/:id/salary-profile', authenticate, async (req: any, res) => {
     const { PayrollService } = await import('../services/payroll.service');
-    const profile = await PayrollService.getSalaryProfile(req.user.school_id, req.params.id);
+    const profile = await PayrollService.getTeacherSalary(req.user.school_id, req.params.id);
     res.json(profile);
 });
 router.get('/:id/payslips', authenticate, async (req: any, res) => {
     const { PayrollService } = await import('../services/payroll.service');
     const payslips = await PayrollService.getPayslips(req.user.school_id, req.params.id);
     res.json(payslips);
+});
+router.get('/:id/payments', authenticate, async (req: any, res) => {
+    const { PayrollService } = await import('../services/payroll.service');
+    const payments = await PayrollService.getTransactions(req.user.school_id, req.params.id);
+    res.json(payments);
+});
+router.get('/:id/badges', authenticate, async (req: any, res) => {
+    const { default: prisma } = await import('../config/database');
+    const { TeacherService } = await import('../services/teacher.service');
+    const teacher = await (prisma as any).teacher.findFirst({
+        where: { id: req.params.id, school_id: req.user.school_id },
+        select: { user_id: true }
+    });
+
+    if (!teacher) {
+        return res.status(404).json({ message: 'Teacher not found' });
+    }
+
+    const badges = await TeacherService.getTeacherBadges(teacher.user_id);
+    res.json(badges);
 });
 router.get('/:id/workload', authenticate, async (req: any, res) => {
     try {

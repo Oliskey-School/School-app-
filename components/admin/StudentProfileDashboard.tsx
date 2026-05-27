@@ -33,6 +33,10 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
     forceUpdate,
     handleBack
 }) => {
+    if (!student) {
+        return <div className="p-6 text-center text-sm text-gray-500">No student selected.</div>;
+    }
+    
     const [summary, setSummary] = useState('');
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -48,10 +52,11 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
     const [behaviorNotes, setBehaviorNotes] = useState<any[]>([]);
 
     const averageScore = performance && performance.length > 0
-        ? Math.round(performance.reduce((sum, record) => sum + record.score, 0) / performance.length)
+        ? Math.round(performance.reduce((sum, record) => sum + (record?.score || 0), 0) / performance.length)
         : 0;
 
     const loadFullData = async () => {
+        if (!student?.id) return;
         setLoading(true);
         try {
             // Fetch attendance via backend API
@@ -59,7 +64,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
             if (attendanceRecords && attendanceRecords.length > 0) {
                 const counts = { present: 0, absent: 0, late: 0, leave: 0 };
                 attendanceRecords.forEach((record: any) => {
-                    const status = (record.status || '').toLowerCase();
+                    const status = (record?.status || '').toLowerCase();
                     if (status === 'present') counts.present++;
                     else if (status === 'absent') counts.absent++;
                     else if (status === 'late') counts.late++;
@@ -74,8 +79,8 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                 fetchAcademicPerformance(student.id),
                 (fetchBehaviorNotes as any)(student.id)
             ]);
-            setPerformance(perf);
-            setBehaviorNotes(notes);
+            setPerformance(perf || []);
+            setBehaviorNotes(notes || []);
 
         } catch (err) {
             console.error('Error fetching student details:', err);
@@ -85,8 +90,9 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
     };
 
     useEffect(() => {
+        if (!student?.id) return;
         loadFullData();
-    }, [student.id]);
+    }, [student?.id]);
 
     useAutoSync(['students', 'attendance', 'report_cards', 'behavior_notes'], () => {
         console.log('🔄 [StudentProfileDashboard] Real-time auto-sync triggered');
@@ -135,6 +141,10 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
     const attendancePercentage = totalAttendance > 0
         ? Math.round(((attendanceData.present + attendanceData.late) / totalAttendance) * 100)
         : 0;
+
+    if (!student) {
+        return <div className="p-6 text-center text-sm text-gray-500">No student selected. Open this view from a student row in the Student List.</div>;
+    }
 
     return (
         <div className="flex flex-col h-full bg-[#FAFAFE]">

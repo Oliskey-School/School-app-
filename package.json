@@ -3,7 +3,7 @@
   "version": "0.5.38",
   "scripts": {
     "dev": "vite",
-    "predev": "npm run kill-ports && npm run clean",
+    "predev": "npm run clean",
     "build": "vite build",
     "postinstall": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma",
     "vercel-build": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma && vite build",

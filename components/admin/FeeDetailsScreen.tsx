@@ -10,32 +10,37 @@ interface FeeDetailsScreenProps {
 const formatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2 });
 
 const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student }) => {
-  const balance = student.totalFee - student.paidAmount;
+  if (!student) {
+    return <div className="p-6 text-center text-sm text-gray-500">No student selected. Open this view from a student row.</div>;
+  }
+
+  const { totalFee = 0, paidAmount = 0, name = 'Unknown', grade = 0, section = '', avatarUrl = '' } = student;
+  const balance = totalFee - paidAmount;
   
   // Simplified breakdown as detailed breakdown is not yet supported in the data model
   const feeBreakdown = [
-    { item: 'Total Term Charges', amount: student.totalFee },
+    { item: 'Total Term Charges', amount: totalFee },
   ];
   
-  const paymentHistory = student.paidAmount > 0 ? [
-    { id: 'TXN12345', date: '2024-07-01', amount: student.paidAmount, method: 'Bank Transfer' },
+  const paymentHistory = paidAmount > 0 ? [
+    { id: 'TXN12345', date: '2024-07-01', amount: paidAmount, method: 'Bank Transfer' },
   ] : [];
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <main className="flex-grow p-4 space-y-4 overflow-y-auto">
         <div className="bg-white p-4 rounded-xl shadow-sm flex items-center space-x-4">
-          <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full object-cover" />
+          <img src={avatarUrl} alt={name} className="w-16 h-16 rounded-full object-cover" />
           <div>
-            <p className="font-bold text-xl text-gray-800">{student.name}</p>
-            <p className="font-medium text-gray-500">Grade {student.grade}{student.section}</p>
+            <p className="font-bold text-xl text-gray-800">{name}</p>
+            <p className="font-medium text-gray-500">Grade {grade}{section}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 text-center">
             <div className="bg-white p-3 rounded-xl shadow-sm">
                 <p className="text-sm text-gray-500">Amount Paid</p>
-                <p className="font-bold text-lg text-green-600">{formatter.format(student.paidAmount)}</p>
+                <p className="font-bold text-lg text-green-600">{formatter.format(paidAmount)}</p>
             </div>
             <div className="bg-white p-3 rounded-xl shadow-sm">
                 <p className="text-sm text-gray-500">Balance</p>
@@ -54,7 +59,7 @@ const FeeDetailsScreen: React.FC<FeeDetailsScreenProps> = ({ student }) => {
                 ))}
                  <li className="flex justify-between items-center text-sm font-bold border-t pt-2 mt-2">
                     <span className="text-gray-800">Total</span>
-                    <span className="text-gray-800">{formatter.format(student.totalFee)}</span>
+                    <span className="text-gray-800">{formatter.format(totalFee)}</span>
                 </li>
             </ul>
         </div>

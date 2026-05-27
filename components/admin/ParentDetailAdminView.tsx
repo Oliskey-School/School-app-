@@ -137,16 +137,16 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
                     <img src={parent.avatarUrl || 'https://i.pravatar.cc/150'} alt={parent.name} className="w-24 h-24 rounded-full object-cover border-4 border-blue-50 shadow-md" />
                     <div className="flex-grow text-center md:text-left">
-                        <h3 className="text-2xl font-bold text-gray-800">{parent.name}</h3>
+                        <h3 className="text-2xl font-bold text-gray-800">{parent?.name || 'Parent'}</h3>
                         <p className="text-blue-600 font-medium text-sm">Parent / Guardian</p>
                         <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-4">
-                            <a href={`mailto:${parent.email}`} className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-xl text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-gray-100">
+                            <a href={`mailto:${parent?.email || ''}`} className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-xl text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-gray-100">
                                 <MailIcon className="w-4 h-4" />
-                                <span>{parent.email}</span>
+                                <span>{parent?.email || 'N/A'}</span>
                             </a>
-                            <a href={`tel:${parent.phone}`} className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-xl text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 transition-colors border border-gray-100">
+                            <a href={`tel:${parent?.phone || ''}`} className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-xl text-sm text-gray-600 hover:bg-green-50 hover:text-green-600 transition-colors border border-gray-100">
                                 <PhoneIcon className="w-4 h-4" />
-                                <span>{parent.phone || 'No phone'}</span>
+                                <span>{parent?.phone || 'No phone'}</span>
                             </a>
                         </div>
                     </div>

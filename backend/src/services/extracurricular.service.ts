@@ -25,7 +25,17 @@ export class ExtracurricularService {
         return signups.map(s => s.activity);
     }
 
-    static async joinActivity(studentId: string, activityId: string) {
+    static async joinActivity(schoolId: string, studentId: string, activityId: string) {
+        // Verify the activity is in the caller's school before allowing join.
+        const activity = await prisma.extracurricularActivity.findFirst({
+            where: { id: activityId, school_id: schoolId }
+        });
+        if (!activity) {
+            const err: any = new Error('Activity not found');
+            err.statusCode = 404;
+            throw err;
+        }
+
         const result = await prisma.studentActivity.upsert({
             where: {
                 student_id_activity_id: {
@@ -40,14 +50,21 @@ export class ExtracurricularService {
             update: {}
         });
 
-        const activity = await prisma.extracurricularActivity.findUnique({ where: { id: activityId } });
-        if (activity) {
-            SocketService.emitToSchool(activity.school_id, 'academic:updated', { action: 'join_activity', activityId, studentId });
-        }
+        SocketService.emitToSchool(activity.school_id, 'academic:updated', { action: 'join_activity', activityId, studentId });
         return result;
     }
 
-    static async leaveActivity(studentId: string, activityId: string) {
+    static async leaveActivity(schoolId: string, studentId: string, activityId: string) {
+        // Verify the activity is in the caller's school before allowing leave.
+        const activity = await prisma.extracurricularActivity.findFirst({
+            where: { id: activityId, school_id: schoolId }
+        });
+        if (!activity) {
+            const err: any = new Error('Activity not found');
+            err.statusCode = 404;
+            throw err;
+        }
+
         const result = await prisma.studentActivity.delete({
             where: {
                 student_id_activity_id: {
@@ -57,10 +74,7 @@ export class ExtracurricularService {
             }
         });
 
-        const activity = await prisma.extracurricularActivity.findUnique({ where: { id: activityId } });
-        if (activity) {
-            SocketService.emitToSchool(activity.school_id, 'academic:updated', { action: 'leave_activity', activityId, studentId });
-        }
+        SocketService.emitToSchool(activity.school_id, 'academic:updated', { action: 'leave_activity', activityId, studentId });
         return result;
     }
 

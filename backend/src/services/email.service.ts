@@ -72,6 +72,46 @@ export class EmailService {
     }
 
     /**
+     * Sends an email listing all accounts linked to this email address.
+     */
+    static async sendAccountLookupEmail(email: string): Promise<void> {
+        try {
+            const transport = await initTransporter();
+            const { default: prisma } = await import('../config/database');
+            
+            // Find all users with this email
+            const accounts = await (prisma as any).user.findMany({
+                where: { email: email },
+                select: { id: true, role: true, full_name: true, school: { select: { name: true } } }
+            });
+            
+            const accountListHtml = accounts.map((acc: any) => 
+                `<li><strong>${acc.full_name}</strong> - Role: ${acc.role} - School: ${acc.school?.name || 'Unknown'}</li>`
+            ).join('');
+
+            await transport.sendMail({
+                from: '"Oliskey School Management" <no-reply@oliskey.com>',
+                to: email,
+                subject: 'Account Lookup: Accounts linked to your email',
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+                        <h2>Accounts linked to ${email}</h2>
+                        <p>We received a request regarding account creation for this email address. Here are the existing accounts linked to it:</p>
+                        <ul>
+                            ${accountListHtml}
+                        </ul>
+                        <p>If you were trying to create a new school account, please ensure you are using a new email address or contact your administrator if you believe this is an error.</p>
+                    </div>
+                `
+            });
+            console.log(`✅ Account lookup email sent to: ${email}`);
+        } catch (error) {
+            console.error('Account lookup email sending failed:', error);
+            // Don't throw error to allow registration flow to continue or fail gracefully
+        }
+    }
+
+    /**
      * Sends a 6-digit OTP code via email
      */
     static async sendOTPEmail(email: string, fullName: string, code: string): Promise<void> {

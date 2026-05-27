@@ -26,7 +26,7 @@ export class HealthService {
 
     static async createHealthLog(schoolId: string, branchId: string | undefined, data: any) {
         // Destructure to sanitize incoming data
-        const { school_id, branch_id, description, ...logData } = data;
+        const { school_id, branch_id, description, student_id, ...logData } = data;
 
         const log = await prisma.healthLog.create({
             data: {
@@ -35,7 +35,8 @@ export class HealthService {
                 school_id: schoolId,
                 branch_id: branchId || null,
                 logged_date: logData.logged_date ? new Date(logData.logged_date) : new Date(),
-                parent_notified: logData.parent_notified === true
+                parent_notified: logData.parent_notified === true,
+                ...(student_id ? { student: { connect: { id: student_id } } } : {})
             }
         });
 

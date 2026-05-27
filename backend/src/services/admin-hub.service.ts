@@ -311,12 +311,14 @@ export class HealthService {
     }
 
     static async createHealthLog(schoolId: string, data: any) {
-        // @ts-ignore
+        const { student_id, description, ...rest } = data;
         return prisma.healthLog.create({
             data: {
-                ...data,
+                ...rest,
                 school_id: schoolId,
-                logged_date: data.logged_date ? new Date(data.logged_date) : new Date()
+                logged_date: data.logged_date ? new Date(data.logged_date) : new Date(),
+                notes: description,
+                ...(student_id ? { student: { connect: { id: student_id } } } : {})
             }
         });
     }
@@ -329,6 +331,12 @@ export class HealthService {
                 ...data,
                 updated_at: new Date()
             }
+        });
+    }
+    static async deleteHealthLog(id: string, schoolId: string) {
+        // @ts-ignore
+        return prisma.healthLog.delete({
+            where: { id, school_id: schoolId }
         });
     }
 }

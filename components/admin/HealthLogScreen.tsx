@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { HealthLogEntry, Student } from '../../types';
-import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon } from '../../constants';
+import { SearchIcon, PlusIcon, XCircleIcon, HeartIcon, ClockIcon, CalendarIcon, FilterIcon, RefreshIcon, CheckCircleIcon, ExclamationCircleIcon, TrendingUpIcon, TrashIcon } from '../../constants';
 // import { getFormattedClassName } from '../../constants'; // unused or keep if needed
 import { api } from '../../lib/api';
 
@@ -77,7 +77,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
     const fetchLogs = async () => {
         if (!schoolId) return;
         try {
-            const data = await api.getHealthLogs(schoolId, currentBranchId || undefined);
+            const data = await api.getHealthLogs(schoolId);
             if (data) {
                 const formattedLogs: HealthLogEntry[] = data.map((log: any) => ({
                     id: log.id,
@@ -171,12 +171,12 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                 parent_notified: parentNotified,
                 logged_by: currentUserId || user?.id || null,
                 logged_date: new Date().toISOString()
-            });
+            }, schoolId);
 
             toast.success("Health log recorded successfully.");
             
             // Re-fetch logs to show the new entry
-            const data = await api.getHealthLogs(schoolId!, currentBranchId || undefined);
+            const data = await api.getHealthLogs(schoolId!);
             if (data) {
                 const formattedLogs: HealthLogEntry[] = data.map((log: any) => ({
                     id: log.id,
@@ -207,7 +207,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
 
             // Re-fetch logs
             if (schoolId) {
-                const data = await api.getHealthLogs(schoolId, currentBranchId || undefined);
+                const data = await api.getHealthLogs(schoolId);
                 if (data) {
                     const formattedLogs: HealthLogEntry[] = data.map((log: any) => ({
                         id: log.id,
@@ -217,7 +217,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                         date: log.logged_date,
                         time: '',
                         reason: log.log_type,
-                        notes: log.description,
+                        notes: log.notes || '',
                         medicationAdministered: log.medication_administered,
                         parentNotified: log.parent_notified,
                         recordedBy: log.logged_by
@@ -232,6 +232,19 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
         }
     };
 
+
+    const handleDelete = async (logId: string) => {
+        if (!schoolId) { toast.error("School ID missing"); return; }
+        if (!window.confirm("Are you sure you want to delete this health log?")) return;
+        try {
+            await api.deleteHealthLog(logId, schoolId);
+            toast.success("Health log deleted.");
+            setLogs(prev => prev.filter(l => l.id !== logId));
+        } catch (error) {
+            console.error("Error deleting health log:", error);
+            toast.error("Failed to delete health log.");
+        }
+    }
     // --- RENDER FORM VIEW ---
     if (view === 'add') {
         return (
@@ -517,6 +530,7 @@ const HealthLogScreen: React.FC<HealthLogProps> = ({ schoolId, currentUserId }) 
                                                 </div>
                                             </div>
                                         </div>
+                                        <button onClick={() => handleDelete(log.id)} className="p-1.5 hover:bg-rose-50 rounded-full text-gray-400 hover:text-rose-600 transition-colors" title="Delete health log"><TrashIcon className="w-4 h-4" /></button>
                                     </div>
 
                                     {/* Reason Badge */}

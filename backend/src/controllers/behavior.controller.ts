@@ -46,12 +46,12 @@ export const createBehaviorNote = async (req: any, res: Response) => {
     }
 };
 
-export const deleteBehaviorNote = async (req: Request, res: Response) => {
+export const deleteBehaviorNote = async (req: any, res: Response) => {
     try {
         const { id } = req.params;
-        await BehaviorService.deleteNote(id as string);
+        await BehaviorService.deleteNote(req.user.school_id, id as string);
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };

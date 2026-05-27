@@ -6,7 +6,12 @@
       "mcp__supabase__get_project_url",
       "mcp__postgresql__query",
       "mcp__postgresql__execute",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\OneDrive\\\\Desktop\\\\Project\\\\school-app-\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\OneDrive\\\\Desktop\\\\Project\\\\school-app-\" -Directory)",
+      "Bash(Select-Object Name)"
     ]
   },
   "enableAllProjectMcpServers": true,

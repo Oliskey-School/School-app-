@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { IdGeneratorService } from './idGenerator.service';
 import { PrismaClient, Role } from '../../generated/prisma-client';
 import { SocketService } from './socket.service';
+import { config } from '../config/env';
 
 export class TeacherService {
     static async createTeacher(schoolId: string, branchId: string | undefined, data: any) {
@@ -406,10 +407,16 @@ export class TeacherService {
     }
 
     static async deleteTeacher(schoolId: string, branchId: string | undefined, id: string) {
-        const teacher = await prisma.teacher.findUnique({ where: { id } });
-        if (teacher && teacher.user_id) {
+        // Tenant-scoped lookup prevents cross-school deletion via known teacher id.
+        const teacher = await prisma.teacher.findFirst({ where: { id, school_id: schoolId } });
+        if (!teacher) {
+            const err: any = new Error('Teacher not found');
+            err.statusCode = 404;
+            throw err;
+        }
+        if (teacher.user_id) {
             await prisma.user.delete({ where: { id: teacher.user_id } });
-        } else if (teacher) {
+        } else {
             await prisma.teacher.delete({ where: { id: teacher.id } });
         }
 
@@ -641,7 +648,8 @@ export class TeacherService {
                 
                 // Fallback to arguments if user record is missing IDs (common in some migration states)
                 const effectiveSchoolId = user.school_id || schoolId;
-                const effectiveBranchId = user.branch_id || (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1' ? '7601cbea-e1ba-49d6-b59b-412a584cb94f' : undefined);
+                const effectiveBranchId = user.branch_id
+                    || (config.demoSchoolId && effectiveSchoolId === config.demoSchoolId ? config.demoBranchId : undefined);
 
                 // Try to generate a standard school ID if missing
                 let schoolGeneratedId = user.school_generated_id;

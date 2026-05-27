@@ -43,11 +43,8 @@ export const SafeHTML: React.FC<SafeHTMLProps> = ({
   as: Component = 'div' 
 }) => {
   const sanitized = React.useMemo(() => sanitizeHTML(content), [content]);
-
-  return (
-    <Component
-      className={`safe-html-boundary ${className}`}
-      dangerouslySetInnerHTML={{ __html: sanitized }}
-    />
+  return React.createElement(
+    Component,
+    { className: `safe-html-boundary ${className}`, dangerouslySetInnerHTML: { __html: sanitized } }
   );
 };

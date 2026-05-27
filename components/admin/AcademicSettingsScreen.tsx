@@ -19,8 +19,10 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpe
 };
 
 const AcademicSettingsScreen: React.FC = () => {
-  const { currentSchool, user } = useAuth();
+  const auth = useAuth() as any;
+  const { currentSchool, user } = auth;
   const schoolId = currentSchool?.id || user?.user_metadata?.school_id;
+  const branchId = auth.currentBranchId;
 
   const [calendar, setCalendar] = useState({ start: '2024-09-05', end: '2025-06-20' });
   const [grading, setGrading] = useState({ scale: 'percentage', weighted: true });
@@ -37,17 +39,16 @@ const AcademicSettingsScreen: React.FC = () => {
   const fetchSettings = async () => {
     if (!schoolId) return;
     setLoading(true);
-    const branchId = (useAuth() as any).currentBranchId;
     try {
       const data = await api.getSystemSettings(schoolId, ['academic_calendar', 'grading_config', 'curriculum_type'], branchId);
       
-      const calendarData = data.find(s => s.key === 'academic_calendar');
-      const gradingData = data.find(s => s.key === 'grading_config');
-      const curriculumData = data.find(s => s.key === 'curriculum_type');
+      const calendarData = data?.find(s => s?.key === 'academic_calendar');
+      const gradingData = data?.find(s => s?.key === 'grading_config');
+      const curriculumData = data?.find(s => s?.key === 'curriculum_type');
 
-      if (calendarData) setCalendar(calendarData.value);
-      if (gradingData) setGrading(gradingData.value);
-      if (curriculumData) setCurriculumType(curriculumData.value);
+      if (calendarData?.value) setCalendar(calendarData.value);
+      if (gradingData?.value) setGrading(gradingData.value);
+      if (curriculumData?.value) setCurriculumType(curriculumData.value);
     } catch (err) {
       console.error('Failed to load settings:', err);
       toast.error('Error loading academic settings.');
@@ -66,7 +67,6 @@ const AcademicSettingsScreen: React.FC = () => {
       return;
     }
     setSaving(true);
-    const branchId = (useAuth() as any).currentBranchId;
     try {
       const payload = {
         school_id: schoolId,

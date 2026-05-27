@@ -1,9 +1,22 @@
 import { Router } from 'express';
 import * as AuthController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/tenant.middleware';
 import { loginLimiter, validateRequest } from '../middleware/security.middleware';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
+
+// Roles allowed to manage other users (create, reset password, force change)
+const ADMIN_ROLES = ['admin', 'super_admin', 'proprietor'];
+
+// Stricter limiter for password-reset endpoints to slow account enumeration / brute force
+const passwordResetLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Too many password reset attempts, please try again later.' },
+});
 
 const router = Router();
 
@@ -47,17 +60,17 @@ router.post('/2fa/enable', authenticate, AuthController.enable2FA);
 router.post('/2fa/disable', authenticate, AuthController.disable2FA);
 router.post('/google-login', AuthController.googleLogin);
 router.post('/refresh', AuthController.refresh);
-router.post('/create-user', AuthController.createUser);
+router.post('/create-user', authenticate, requireRole(ADMIN_ROLES), AuthController.createUser);
 router.post('/resend-verification', AuthController.resendVerification);
 router.post('/confirm-email', AuthController.confirmEmail);
 router.post('/verify-email', AuthController.verifyEmail);
 router.post('/update-email', AuthController.updateEmail);
 router.post('/update-username', AuthController.updateUsername);
 router.post('/update-password', authenticate, AuthController.updatePassword);
-router.post('/admin/change-password', authenticate, AuthController.adminChangePassword);
-router.post('/admin/reset-password', authenticate, AuthController.resetUserPassword);
-router.post('/forgot-password', AuthController.forgotPassword);
-router.post('/reset-password', AuthController.resetPassword);
+router.post('/admin/change-password', authenticate, requireRole(ADMIN_ROLES), AuthController.adminChangePassword);
+router.post('/admin/reset-password', authenticate, requireRole(ADMIN_ROLES), AuthController.resetUserPassword);
+router.post('/forgot-password', passwordResetLimiter, AuthController.forgotPassword);
+router.post('/reset-password', passwordResetLimiter, AuthController.resetPassword);
 router.get('/memberships/:userId', authenticate, AuthController.getMemberships);
 router.post('/switch-school', authenticate, AuthController.switchSchool);
 

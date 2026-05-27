@@ -87,13 +87,15 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         const result = await AssignmentService.createAssignment(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        const status = error.message?.includes('outside your branch') || error.message?.includes('not assigned') ? 403 : 500;
+        res.status(status).json({ message: error.message });
     }
 };
 
 export const getAssignment = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await AssignmentService.getAssignment(req.user.school_id, req.params.id as string);
+        const branchId = getEffectiveBranchId(req.user, (req.query?.branchId || req.query?.branch_id) as string);
+        const result = await AssignmentService.getAssignment(req.user.school_id, req.params.id as string, branchId);
         res.json(result);
     } catch (error: any) {
         res.status(error.message === 'Assignment not found' ? 404 : 500).json({ message: error.message });
@@ -173,7 +175,8 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
 
 export const deleteAssignment = async (req: AuthRequest, res: Response) => {
     try {
-        await AssignmentService.deleteAssignment(req.user.school_id, req.params.id as string);
+        const branchId = getEffectiveBranchId(req.user, (req.body?.branch_id || req.query?.branchId) as string);
+        await AssignmentService.deleteAssignment(req.user.school_id, req.params.id as string, branchId);
         res.status(204).send();
     } catch (error: any) {
         res.status(500).json({ message: error.message });

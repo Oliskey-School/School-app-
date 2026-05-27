@@ -49,3 +49,17 @@ export const updateStatus = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const publishReportCards = async (req: AuthRequest, res: Response) => {
+    try {
+        const { term, session } = req.body;
+        if (!term || !session) {
+            return res.status(400).json({ message: 'Term and session are required' });
+        }
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
+        const result = await ReportCardService.publishReportCards(req.user.school_id, branchId, term, session);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};

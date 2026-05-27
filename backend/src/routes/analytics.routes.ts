@@ -1,8 +1,30 @@
 import { Router } from 'express';
 import { heavyTaskQueue } from '../services/queue.service';
 import { authenticate } from '../middleware/auth.middleware';
+import prisma from '../config/database';
 
 const router = Router();
+
+// Analytics summary for the caller's school.
+router.get('/', authenticate, async (req: any, res) => {
+    try {
+        const school_id = req.user?.school_id;
+        if (!school_id) return res.status(401).json({ message: 'Tenant context missing' });
+        const [students, teachers, parents, classes] = await Promise.all([
+            prisma.student.count({ where: { school_id } }),
+            prisma.teacher.count({ where: { school_id } }),
+            prisma.parent.count({ where: { school_id } }),
+            prisma.class.count({ where: { school_id } }),
+        ]);
+        res.json({
+            school_id,
+            counts: { students, teachers, parents, classes },
+            available_endpoints: ['/api/analytics/trigger-audit']
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 /**
  * Lead DevSecOps: Offloading Example

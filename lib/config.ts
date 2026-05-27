@@ -14,7 +14,10 @@ const getBaseUrl = (type: 'api' | 'socket') => {
     const RAILWAY_API = 'https://school-app-production-a59a.up.railway.app/api';
     const RAILWAY_SOCKET = 'https://school-app-production-a59a.up.railway.app';
 
-    let url = envUrl;
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    const defaultSameOrigin = currentOrigin ? (type === 'api' ? `${currentOrigin}/api` : currentOrigin) : '';
+
+    let url = envUrl || (isLocal ? '' : defaultSameOrigin);
 
     if (!url) {
         if (isLocal) {

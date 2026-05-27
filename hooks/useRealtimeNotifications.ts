@@ -17,7 +17,15 @@ export function useRealtimeNotifications(userRole?: string) {
             const schoolId = currentSchool.id;
             // console.log(`🔔 [Notifications] Fetching for School: ${schoolId}`);
             
-            const notifications = await api.getMyNotifications(schoolId);
+            // Use Promise.race with timeout to prevent hanging
+            const timeoutPromise = new Promise<any[]>((resolve) => 
+                setTimeout(() => resolve([]), 3000)
+            );
+            
+            const notifications = await Promise.race([
+                api.getMyNotifications(schoolId),
+                timeoutPromise
+            ]);
             
             if (!notifications) return;
 
@@ -50,7 +58,7 @@ export function useRealtimeNotifications(userRole?: string) {
             
             setLastFetchTime(Date.now());
         } catch (err) {
-            console.error('Notification count exception:', err);
+            // Silently fail - don't block UI or cause errors
         }
     }, [isAuthenticated, currentSchool?.id, user?.id, user?.role, profile?.role, profile?.user_id, userRole]);
 

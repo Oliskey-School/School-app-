@@ -14,15 +14,20 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!classInfo) return;
     const loadStudents = async () => {
       setLoading(true);
       const data = await fetchStudentsByClass(classInfo.grade, classInfo.section);
-      setStudents(data);
+      setStudents(Array.isArray(data) ? data : []);
       setLoading(false);
     };
 
     loadStudents();
-  }, [classInfo.grade, classInfo.section]);
+  }, [classInfo?.grade, classInfo?.section]);
+
+  if (!classInfo) {
+    return <div className="p-6 text-center text-sm text-gray-500">No class selected. Open this view by picking a class from Reports.</div>;
+  }
 
   if (loading) {
     return (
@@ -46,19 +51,19 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
       </div>
 
       <main className="flex-grow p-4 space-y-3 overflow-y-auto">
-        {students.map((student, index) => (
+        {students?.map((student, index) => (
           <button
-            key={student.id}
-            onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student.name}`, { student })}
+            key={student?.id || index}
+            onClick={() => navigateTo('adminSelectTermForReport', `Select Term for ${student?.name || 'Student'}`, { student })}
             className="w-full bg-white rounded-2xl p-4 flex items-center space-x-4 transition-all duration-200 hover:shadow-lg hover:translate-x-1 hover:bg-indigo-50/30 border border-transparent hover:border-indigo-100 group animate-slide-in-up"
             style={{ animationDelay: `${index * 50}ms` }}
-            aria-label={`View report for ${student.name}`}
+            aria-label={`View report for ${student?.name || 'Student'}`}
           >
             <div className="relative">
-              {student.avatarUrl ? (
+              {student?.avatarUrl ? (
                 <img
                   src={student.avatarUrl}
-                  alt={student.name}
+                  alt={student?.name || 'Student'}
                   className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm group-hover:border-indigo-200 transition-colors"
                 />
               ) : (
@@ -66,12 +71,12 @@ const AdminStudentListForReport: React.FC<AdminStudentListForReportProps> = ({ c
                   <UserIcon className="w-6 h-6" />
                 </div>
               )}
-              <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${student.attendanceStatus === 'Present' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${student?.attendanceStatus === 'Present' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
             </div>
 
             <div className="flex-grow text-left">
-              <p className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{student.name}</p>
-              <p className="text-xs text-gray-500 font-medium tracking-wide">ID: <span className="font-mono text-gray-400">{student.schoolGeneratedId || 'Pending'}</span></p>
+              <p className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{student?.name || 'N/A'}</p>
+              <p className="text-xs text-gray-500 font-medium tracking-wide">ID: <span className="font-mono text-gray-400">{student?.schoolGeneratedId || 'Pending'}</span></p>
             </div>
 
             <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">

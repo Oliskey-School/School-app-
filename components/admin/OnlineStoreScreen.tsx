@@ -1,25 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StoreProduct, StoreOrder } from '../../types';
-
 import { ShoppingCartIcon, ReceiptIcon } from '../../constants';
+import { api } from '../../lib/api';
 
-// Placeholder data until backend is ready
-const MOCK_PRODUCTS: StoreProduct[] = [
-    { id: 1, name: 'School Uniform Set', price: 15000, category: 'Uniform', stock: 50, imageUrl: 'https://images.unsplash.com/photo-1599026315539-722146cb677e?w=500&auto=format&fit=crop&q=60' },
-    { id: 2, name: 'Mathematics Textbook', price: 4500, category: 'Book', stock: 120, imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500&auto=format&fit=crop&q=60' },
-    { id: 3, name: 'School Bag', price: 8000, category: 'Stationery', stock: 35, imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&auto=format&fit=crop&q=60' },
-];
-
-const MOCK_ORDERS: StoreOrder[] = [
-    { id: 'ORD-001', customerName: 'Parent of John Doe', totalAmount: 19500, status: 'Delivered', orderDate: '2023-10-15', items: [{ productName: 'School Uniform Set', quantity: 1 }, { productName: 'Mathematics Textbook', quantity: 1 }] },
-    { id: 'ORD-002', customerName: 'Parent of Jane Smith', totalAmount: 8000, status: 'Pending', orderDate: '2023-10-16', items: [{ productName: 'School Bag', quantity: 1 }] },
-];
+// Backend endpoints for /api/store are not yet implemented. This screen attempts
+// to fetch them so the moment they exist, real data flows through. Until then we
+// show an explicit empty state instead of mock products.
 
 const formatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 });
 
 const ProductCard: React.FC<{ product: StoreProduct }> = ({ product }) => (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-        <img src={product.imageUrl} alt={product.name} className="w-full h-32 object-cover" />
+        {product.imageUrl && <img src={product.imageUrl} alt={product.name} className="w-full h-32 object-cover" />}
         <div className="p-4">
             <h4 className="font-bold text-gray-800 truncate">{product.name}</h4>
             <p className="text-sm text-gray-500">{product.category}</p>
@@ -34,7 +26,7 @@ const ProductCard: React.FC<{ product: StoreProduct }> = ({ product }) => (
 );
 
 const OrderRow: React.FC<{ order: StoreOrder }> = ({ order }) => {
-    const statusStyles = {
+    const statusStyles: Record<string, string> = {
         Pending: 'bg-amber-100 text-amber-800',
         Shipped: 'bg-sky-100 text-sky-800',
         Delivered: 'bg-green-100 text-green-800',
@@ -47,7 +39,7 @@ const OrderRow: React.FC<{ order: StoreOrder }> = ({ order }) => {
                     <p className="font-bold text-gray-800">{order.customerName}</p>
                     <p className="text-sm text-gray-500">ID: {order.id}</p>
                 </div>
-                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusStyles[order.status]}`}>
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusStyles[order.status] || 'bg-gray-100 text-gray-700'}`}>
                     {order.status}
                 </span>
             </div>
@@ -65,6 +57,36 @@ const OrderRow: React.FC<{ order: StoreOrder }> = ({ order }) => {
 
 const OnlineStoreScreen: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
+    const [products, setProducts] = useState<StoreProduct[]>([]);
+    const [orders, setOrders] = useState<StoreOrder[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [unavailable, setUnavailable] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setLoading(true);
+            try {
+                const [productsResp, ordersResp] = await Promise.all([
+                    api.get<any>('/store/products').catch(() => null),
+                    api.get<any>('/store/orders').catch(() => null),
+                ]);
+                if (cancelled) return;
+                if (productsResp === null && ordersResp === null) {
+                    setUnavailable(true);
+                    setProducts([]);
+                    setOrders([]);
+                } else {
+                    setProducts(Array.isArray(productsResp) ? productsResp : (productsResp?.data || []));
+                    setOrders(Array.isArray(ordersResp) ? ordersResp : (ordersResp?.data || []));
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="flex flex-col h-full bg-gray-100">
@@ -88,15 +110,29 @@ const OnlineStoreScreen: React.FC = () => {
             </div>
 
             <main className="flex-grow p-4 overflow-y-auto">
-                {activeTab === 'products' && (
-                    <div className="grid grid-cols-2 gap-4">
-                        {MOCK_PRODUCTS.map(product => <ProductCard key={product.id} product={product} />)}
+                {unavailable && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm text-amber-800">
+                        Online Store backend is not yet available. Products and orders will appear here once the server-side endpoints (<code>/api/store/products</code>, <code>/api/store/orders</code>) are implemented.
                     </div>
                 )}
-                {activeTab === 'orders' && (
-                    <div className="space-y-3">
-                        {MOCK_ORDERS.map(order => <OrderRow key={order.id} order={order} />)}
-                    </div>
+                {loading && !unavailable && <p className="text-sm text-gray-500">Loading…</p>}
+                {!loading && activeTab === 'products' && (
+                    products.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-8">No products listed.</p>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            {products.map(product => <ProductCard key={product.id} product={product} />)}
+                        </div>
+                    )
+                )}
+                {!loading && activeTab === 'orders' && (
+                    orders.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-8">No orders yet.</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {orders.map(order => <OrderRow key={order.id} order={order} />)}
+                        </div>
+                    )
                 )}
             </main>
         </div>

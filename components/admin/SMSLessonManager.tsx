@@ -67,7 +67,7 @@ const SMSLessonManager: React.FC = () => {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setLessons(data || []);
+            setLessons(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching lessons:', error);
         } finally {
@@ -89,7 +89,7 @@ const SMSLessonManager: React.FC = () => {
                 .order('scheduled_time', { ascending: false });
 
             if (error) throw error;
-            setSchedules(data || []);
+            setSchedules(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching schedules:', error);
         }
@@ -348,9 +348,9 @@ const SMSLessonManager: React.FC = () => {
 
                     {/* Recent Lessons */}
                     <div className="mt-8">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Lessons ({lessons.length})</h3>
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Lessons ({lessons ? lessons.length : 0})</h3>
                         <div className="space-y-2">
-                            {lessons.slice(0, 5).map(lesson => (
+                            {(Array.isArray(lessons) ? lessons.slice(0, 5) : []).map(lesson => (
                                 <div key={lesson.id} className="p-4 bg-gray-50 rounded-lg">
                                     <div className="flex justify-between items-start mb-2">
                                         <h4 className="font-semibold text-gray-900">{lesson.lesson_title}</h4>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useBranch } from '../../context/BranchContext';
 import { Building2, Plus, MapPin, Phone, Trash2, Edit2, CheckCircle2, Building, Globe, UserPlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import PremiumLoader from '../ui/PremiumLoader';
@@ -22,6 +23,7 @@ interface SchoolManagementScreenProps {
 
 const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigateTo }) => {
     const { currentSchool } = useAuth();
+    const { refreshBranches } = useBranch();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddingBranch, setIsAddingBranch] = useState(false);
@@ -48,7 +50,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
         try {
             if (!currentSchool?.id) return;
             setLoading(true);
-            const data = await api.getBranches(currentSchool.id);
+            const data = await api.getBranches(currentSchool.id, 'all');
             setBranches(data || []);
         } catch (error: any) {
             toast.error('Failed to load branches: ' + error.message);
@@ -96,8 +98,9 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
             }
 
             resetForm();
-            // Re-fetch to show latest state
-            fetchBranches();
+            // Re-fetch both local and global branch state to keep UI in sync.
+            await fetchBranches();
+            await refreshBranches();
         } catch (error: any) {
             toast.error('Operation failed: ' + error.message);
         }
@@ -121,7 +124,8 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
         try {
             await api.deleteBranch(id);
             toast.success('Branch deleted');
-            fetchBranches();
+            await fetchBranches();
+            await refreshBranches();
         } catch (error: any) {
             toast.error('Delete failed: ' + error.message);
         }

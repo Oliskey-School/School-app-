@@ -1,6 +1,12 @@
 import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
+function notFound(entity: string) {
+    const err: any = new Error(`${entity} not found`);
+    err.statusCode = 404;
+    return err;
+}
+
 export class HostelService {
     static async getHostels(schoolId: string, branchId?: string) {
         return prisma.hostel.findMany({
@@ -28,15 +34,13 @@ export class HostelService {
         return hostel;
     }
 
-    static async deleteHostel(id: string) {
-        const hostel = await prisma.hostel.findUnique({ where: { id } });
-        const result = await prisma.hostel.delete({
-            where: { id }
-        });
+    static async deleteHostel(schoolId: string, id: string) {
+        // Tenant-scoped lookup prevents cross-school deletion via known hostel id.
+        const hostel = await prisma.hostel.findFirst({ where: { id, school_id: schoolId } });
+        if (!hostel) throw notFound('Hostel');
 
-        if (hostel) {
-            SocketService.emitToSchool(hostel.school_id, 'hostel:updated', { action: 'delete', hostelId: id });
-        }
+        const result = await prisma.hostel.delete({ where: { id: hostel.id } });
+        SocketService.emitToSchool(hostel.school_id, 'hostel:updated', { action: 'delete', hostelId: id });
         return result;
     }
 
@@ -52,25 +56,32 @@ export class HostelService {
         });
     }
 
-    static async createRoom(data: any) {
-        const room = await prisma.hostelRoom.create({
-            data
-        });
-
-        const hostel = await prisma.hostel.findUnique({ where: { id: data.hostel_id } });
-        if (hostel) {
-            SocketService.emitToSchool(hostel.school_id, 'hostel:updated', { action: 'room_create', roomId: room.id });
+    static async createRoom(schoolId: string, data: any) {
+        // Verify parent hostel belongs to the caller's school before creating a room in it.
+        const hostelId = data?.hostel_id;
+        if (!hostelId) {
+            const err: any = new Error('hostel_id is required');
+            err.statusCode = 400;
+            throw err;
         }
+        const hostel = await prisma.hostel.findFirst({ where: { id: hostelId, school_id: schoolId } });
+        if (!hostel) throw notFound('Hostel');
+
+        const room = await prisma.hostelRoom.create({ data });
+        SocketService.emitToSchool(hostel.school_id, 'hostel:updated', { action: 'room_create', roomId: room.id });
         return room;
     }
 
-    static async deleteRoom(id: string) {
-        const room = await prisma.hostelRoom.findUnique({ where: { id }, include: { hostel: true } });
-        const result = await prisma.hostelRoom.delete({
-            where: { id }
+    static async deleteRoom(schoolId: string, id: string) {
+        // Tenant-scoped lookup via parent hostel.
+        const room = await prisma.hostelRoom.findFirst({
+            where: { id, hostel: { school_id: schoolId } },
+            include: { hostel: true }
         });
+        if (!room) throw notFound('Room');
 
-        if (room?.hostel) {
+        const result = await prisma.hostelRoom.delete({ where: { id: room.id } });
+        if (room.hostel) {
             SocketService.emitToSchool(room.hostel.school_id, 'hostel:updated', { action: 'room_delete', roomId: id });
         }
         return result;
@@ -118,15 +129,19 @@ export class HostelService {
         });
     }
 
-    static async createVisitorLog(data: any) {
-        const log = await prisma.hostelVisitorLog.create({
-            data
-        });
-
-        const hostel = await prisma.hostel.findUnique({ where: { id: data.hostel_id } });
-        if (hostel) {
-            SocketService.emitToSchool(hostel.school_id, 'hostel:updated', { action: 'visitor_log', logId: log.id });
+    static async createVisitorLog(schoolId: string, data: any) {
+        // Verify the hostel the visitor is being logged against is in the caller's school.
+        const hostelId = data?.hostel_id;
+        if (!hostelId) {
+            const err: any = new Error('hostel_id is required');
+            err.statusCode = 400;
+            throw err;
         }
+        const hostel = await prisma.hostel.findFirst({ where: { id: hostelId, school_id: schoolId } });
+        if (!hostel) throw notFound('Hostel');
+
+        const log = await prisma.hostelVisitorLog.create({ data });
+        SocketService.emitToSchool(hostel.school_id, 'hostel:updated', { action: 'visitor_log', logId: log.id });
         return log;
     }
 }

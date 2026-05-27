@@ -197,9 +197,8 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
         setLoading(true);
         try {
             // 1. Fetch Existing Report
-            // Use the session passed in props instead of hardcoded 2023/2024
-            const currentSession = session || "2024/2025";
-            const report = await api.getReportCard(student.id, term, currentSession);
+            // Use the session prop passed to the component
+            const report = await api.getReportCard(student.id, term, session);
 
             setExistingReport(report);
 
@@ -263,8 +262,8 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
                     absent: (report.attendance?.absent ?? '').toString(),
                     late: (report.attendance?.late ?? '').toString(),
                 });
-                setTeacherComment(report.teacherComment || '');
-                setPrincipalComment(report.principalComment || '');
+                setTeacherComment(report.teacher_comment || report.teacherComment || '');
+                setPrincipalComment(report.principal_comment || report.principalComment || '');
             }
 
             // After loading from API, check if there's a newer local draft

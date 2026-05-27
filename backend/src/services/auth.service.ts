@@ -343,15 +343,18 @@ export class AuthService {
 
             // Create persistent session
             try {
-                await (prisma as any).userSession.create({
-                    data: {
+                const tokenId = refreshToken.split('.')[2];
+                await (prisma as any).userSession.upsert({
+                    where: { token_id: tokenId },
+                    update: { last_active: new Date(), is_active: true },
+                    create: {
                         user_id: user.id,
-                        token_id: refreshToken.split('.')[2], // Store refresh token signature
+                        token_id: tokenId,
                         is_active: true
                     }
                 });
             } catch (err) {
-                console.warn('Could not create session record:', err);
+                console.warn('Could not upsert session record:', err);
             }
         }
 
@@ -798,8 +801,8 @@ export class AuthService {
         return { success: true, message: 'Email updated and verification code sent' };
     }
 
-    static DEMO_SCHOOL_ID = 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-    static DEMO_BRANCH_ID = '7601cbea-e1ba-49d6-b59b-412a584cb94f';
+    static get DEMO_SCHOOL_ID() { return config.demoSchoolId; }
+    static get DEMO_BRANCH_ID() { return config.demoBranchId; }
 
     /**
      * Role-to-email mapping for demo users.

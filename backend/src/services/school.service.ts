@@ -116,6 +116,23 @@ export class SchoolService {
         return result;
     }
 
+    static async updateSchoolSubscription(schoolId: string, id: string, updates: any) {
+        const result = await prisma.school.updateMany({
+            where: {
+                id: id,
+                school_id: schoolId
+            },
+            data: updates
+        });
+
+        if (result.count > 0) {
+            SocketService.emitToSchool(id, 'school:updated', { action: 'subscription_update', updates });
+            return await prisma.school.findUnique({ where: { id: id } });
+        }
+
+        throw new Error('School not found or permission denied');
+    }
+
     static async updateSchoolStatusBulk(schoolId: string, ids: string[], status: string) {
         const data: any = {};
         if (status === 'active') data.is_active = true;
@@ -137,9 +154,9 @@ export class SchoolService {
     }
 
     static async deleteSchoolsBulk(schoolId: string, ids: string[]) {
-        const demoSchoolId = config.defaultSchoolId || 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1';
-        
-        if (ids.includes(demoSchoolId)) {
+        const demoSchoolId = config.demoSchoolId;
+
+        if (demoSchoolId && ids.includes(demoSchoolId)) {
             throw new Error('Deletion protection: Oliskey Demo Academy (ODA) cannot be deleted as it is the default school.');
         }
 
@@ -149,6 +166,33 @@ export class SchoolService {
 
         ids.forEach(id => SocketService.emitToSchool(id, 'school:deleted', { action: 'delete' }));
         return result;
+    }
+
+    static async deleteSchool(schoolId: string) {
+        // Perform deletion in a transaction to ensure integrity
+        return await prisma.$transaction(async (tx) => {
+            // Delete related records in reverse dependency order
+            // Note: This assumes standard relational structure. 
+            // If prisma schema has `onDelete: Cascade` defined, many of these 
+            // might be handled automatically, but explicit deletion is safer.
+            
+            await tx.auditLog.deleteMany({ where: { school_id: schoolId } });
+            await tx.schoolMembership.deleteMany({ where: { school_id: schoolId } });
+            await tx.branch.deleteMany({ where: { school_id: schoolId } });
+            await tx.user.deleteMany({ where: { school_id: schoolId } });
+            await tx.student.deleteMany({ where: { school_id: schoolId } });
+            await tx.teacher.deleteMany({ where: { school_id: schoolId } });
+            await tx.parent.deleteMany({ where: { school_id: schoolId } });
+            await tx.class.deleteMany({ where: { school_id: schoolId } });
+            
+            // Finally delete the school
+            const result = await tx.school.delete({
+                where: { id: schoolId }
+            });
+
+            SocketService.emitToSchool(schoolId, 'school:deleted', { action: 'delete' });
+            return result;
+        });
     }
 
     static async getBranches(schoolId: string, branchId?: string) {
@@ -163,6 +207,7 @@ export class SchoolService {
     }
 
     static async createBranch(schoolId: string, data: any) {
+        console.log('[SchoolService] Creating branch. Input data:', JSON.stringify(data, null, 2));
         return await prisma.$transaction(async (tx) => {
             if (data.is_main) {
                 await tx.branch.updateMany({
@@ -170,8 +215,23 @@ export class SchoolService {
                     data: { is_main: false }
                 });
             }
+            
+            // Robust code generation
+            const generatedCode = data.code && typeof data.code === 'string' && data.code.trim() !== ''
+                ? data.code.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                : (data.name ? data.name.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') : 'BRCH') + Math.floor(Math.random() * 1000);
+
+            const { code, ...rest } = data;
+            const branchData = {
+                ...rest,
+                school_id: schoolId,
+                code: generatedCode
+            };
+
+            console.log('[SchoolService] Creating branch with data:', JSON.stringify(branchData, null, 2));
+
             const branch = await tx.branch.create({
-                data: { ...data, school_id: schoolId }
+                data: branchData
             });
             SocketService.emitToSchool(schoolId, 'school:updated', { action: 'create_branch', branchId: branch.id });
             return branch;

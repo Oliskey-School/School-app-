@@ -1,14 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, ShieldAlert, FileText, Trash2, Download, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { api } from '../../lib/api';
+
+interface DataRequest {
+    id: string;
+    requester_name?: string | null;
+    requester_email?: string | null;
+    request_type?: string | null;
+    status?: string | null;
+    created_at?: string | null;
+    student?: { full_name?: string } | null;
+}
+
+interface Policy {
+    id: string;
+    title: string;
+    category?: string | null;
+    version?: string | null;
+    updated_at?: string | null;
+}
 
 const PrivacyDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'overview' | 'dsar' | 'retention'>('overview');
+    const [dsarRequests, setDsarRequests] = useState<DataRequest[]>([]);
+    const [policies, setPolicies] = useState<Policy[]>([]);
+    const [loadingDsar, setLoadingDsar] = useState(false);
+    const [loadingPolicies, setLoadingPolicies] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const mockDSARs = [
-        { id: 'DSAR-001', student: 'John Doe', type: 'Access', status: 'Pending', date: '2026-03-10' },
-        { id: 'DSAR-002', student: 'Jane Smith', type: 'Erasure', status: 'Completed', date: '2026-02-15' },
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setLoadingDsar(true); setLoadingPolicies(true); setError(null);
+            try {
+                const [drResp, polResp] = await Promise.all([
+                    api.get<any>('/admin-hub/data-requests').catch(() => []),
+                    api.get<any>('/admin-hub/safety/policies').catch(() => []),
+                ]);
+                if (cancelled) return;
+                const dr = Array.isArray(drResp) ? drResp : (drResp?.data || []);
+                const pol = Array.isArray(polResp) ? polResp : (polResp?.data || []);
+                setDsarRequests(dr);
+                setPolicies(pol);
+            } catch (e: any) {
+                if (!cancelled) setError(e?.message || 'Failed to load privacy data');
+            } finally {
+                if (!cancelled) { setLoadingDsar(false); setLoadingPolicies(false); }
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
+
+    const formatDate = (iso?: string | null) => {
+        if (!iso) return '—';
+        try {
+            return new Date(iso).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: '2-digit' });
+        } catch { return '—'; }
+    };
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -22,6 +72,10 @@ const PrivacyDashboard: React.FC = () => {
                     <span className="font-bold">NDPR Compliant</span>
                 </div>
             </div>
+
+            {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+            )}
 
             {/* Tabs */}
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
@@ -53,26 +107,22 @@ const PrivacyDashboard: React.FC = () => {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                             <h3 className="text-lg font-bold mb-4">Privacy Policies</h3>
                             <div className="space-y-3">
-                                <div className="flex justify-between items-center p-3 border rounded-xl hover:bg-gray-50 transition">
-                                    <div className="flex items-center gap-3">
-                                        <FileText className="w-5 h-5 text-blue-500" />
-                                        <div>
-                                            <p className="font-medium">Student Privacy Notice</p>
-                                            <p className="text-xs text-gray-500">Last updated: Jan 2026</p>
+                                {loadingPolicies ? (
+                                    <p className="text-sm text-gray-500">Loading policies…</p>
+                                ) : policies.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No safeguarding policies recorded yet. Create one from the Safety & Health menu.</p>
+                                ) : policies.map(p => (
+                                    <div key={p.id} className="flex justify-between items-center p-3 border rounded-xl hover:bg-gray-50 transition">
+                                        <div className="flex items-center gap-3">
+                                            <FileText className="w-5 h-5 text-blue-500" />
+                                            <div>
+                                                <p className="font-medium">{p.title}</p>
+                                                <p className="text-xs text-gray-500">Last updated: {formatDate(p.updated_at)}</p>
+                                            </div>
                                         </div>
+                                        <button className="text-indigo-600 font-bold text-sm">Update</button>
                                     </div>
-                                    <button className="text-indigo-600 font-bold text-sm">Update</button>
-                                </div>
-                                <div className="flex justify-between items-center p-3 border rounded-xl hover:bg-gray-50 transition">
-                                    <div className="flex items-center gap-3">
-                                        <FileText className="w-5 h-5 text-blue-500" />
-                                        <div>
-                                            <p className="font-medium">Staff Confidentiality Agreement</p>
-                                            <p className="text-xs text-gray-500">Last updated: Dec 2025</p>
-                                        </div>
-                                    </div>
-                                    <button className="text-indigo-600 font-bold text-sm">Update</button>
-                                </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -112,21 +162,30 @@ const PrivacyDashboard: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {mockDSARs.map(dsar => (
-                                <tr key={dsar.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-mono text-xs">{dsar.id}</td>
-                                    <td className="px-6 py-4 text-sm font-medium">{dsar.student}</td>
-                                    <td className="px-6 py-4 text-sm">{dsar.type}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${dsar.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {dsar.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button className="text-indigo-600 text-sm font-bold hover:underline">Manage</button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {loadingDsar ? (
+                                <tr><td colSpan={5} className="px-6 py-4 text-sm text-gray-500">Loading…</td></tr>
+                            ) : dsarRequests.length === 0 ? (
+                                <tr><td colSpan={5} className="px-6 py-4 text-sm text-gray-500">No data subject requests yet.</td></tr>
+                            ) : dsarRequests.map(dsar => {
+                                const subject = dsar.requester_name || dsar.student?.full_name || dsar.requester_email || 'Unknown';
+                                const type = dsar.request_type || '—';
+                                const status = dsar.status || 'Pending';
+                                return (
+                                    <tr key={dsar.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 font-mono text-xs">{dsar.id.slice(0, 8)}</td>
+                                        <td className="px-6 py-4 text-sm font-medium">{subject}</td>
+                                        <td className="px-6 py-4 text-sm">{type}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                {status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button className="text-indigo-600 text-sm font-bold hover:underline">Manage</button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

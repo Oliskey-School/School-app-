@@ -301,6 +301,14 @@ export class AdminHubController {
         }
     }
 
+    static async deleteHealthLog(req: Request, res: Response) {
+        try {
+            await HealthService.deleteHealthLog(req.params.id as string, req.query.schoolId as string);
+            res.json({ success: true });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    }
     // Emergency Alerts
     static async getEmergencyAlerts(req: Request, res: Response) {
         try {

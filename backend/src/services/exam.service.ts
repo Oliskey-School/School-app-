@@ -23,12 +23,12 @@ export class ExamService {
     }
 
     static async createExam(schoolId: string, branchId: string | undefined, examData: any) {
-        const { type, date, time, className, schoolId: _sid, branchId: _bid, ...rest } = examData;
+        const { type, date, time, className, term, schoolId: _sid, branchId: _bid, ...rest } = examData;
         
         const payload: any = {
             ...rest,
-            title: type || 'Exam',
-            exam_type: type,
+            title: type || examData.title || 'Exam',
+            exam_type: type || examData.exam_type || 'Final',
             school_id: schoolId,
         };
 

@@ -45,15 +45,16 @@ export class BehaviorService {
         return note;
     }
 
-    static async deleteNote(id: string) {
-        const note = await prisma.behaviorNote.findUnique({ where: { id } });
-        const result = await prisma.behaviorNote.delete({
-            where: { id }
-        });
-
-        if (note) {
-            SocketService.emitToSchool(note.school_id, 'behavior:updated', { action: 'delete', noteId: id });
+    static async deleteNote(schoolId: string, id: string) {
+        // Tenant-scoped lookup prevents cross-school deletion via known note id.
+        const note = await prisma.behaviorNote.findFirst({ where: { id, school_id: schoolId } });
+        if (!note) {
+            const err: any = new Error('Behavior note not found');
+            err.statusCode = 404;
+            throw err;
         }
+        const result = await prisma.behaviorNote.delete({ where: { id: note.id } });
+        SocketService.emitToSchool(note.school_id, 'behavior:updated', { action: 'delete', noteId: id });
         return result;
     }
 }

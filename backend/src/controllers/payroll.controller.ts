@@ -33,10 +33,10 @@ export const updateSalaryArrearStatus = async (req: AuthRequest, res: Response) 
     try {
         const { id } = req.params;
         const { status } = req.body;
-        const updated = await PayrollService.updateSalaryArrearStatus(id, status);
+        const updated = await PayrollService.updateSalaryArrearStatus(req.user.school_id, id, status);
         res.json(updated);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 

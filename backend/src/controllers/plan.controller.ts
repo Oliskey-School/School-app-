@@ -44,6 +44,19 @@ export const updatePlan = async (req: Request, res: Response) => {
     }
 };
 
+export const recordSubscriptionPayment = async (req: Request, res: Response) => {
+    try {
+        const { schoolId, amount, reference, planType } = req.body;
+        if (!schoolId || !amount || !reference || !planType) {
+            return res.status(400).json({ message: 'Missing required subscription details' });
+        }
+        const result = await PlanService.recordSubscriptionPayment(schoolId, amount, reference, planType);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const deletePlan = async (req: Request, res: Response) => {
     try {
         await PlanService.deletePlan(parseInt(req.params.id as string));

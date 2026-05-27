@@ -152,12 +152,25 @@ export class ClassService {
         return targetClass?.subjects || [];
     }
 
-    static async getClass(schoolId: string, classId: string) {
+    static async getClass(schoolId: string, classId: string, branchId?: string, teacherId?: string) {
+        const where: any = {
+            id: classId,
+            school_id: schoolId
+        };
+
+        if (branchId && branchId !== 'all') {
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
+        }
+
+        if (teacherId) {
+            where.teachers = { some: { teacher_id: teacherId } };
+        }
+
         const cls = await prisma.class.findFirst({
-            where: {
-                id: classId,
-                school_id: schoolId
-            },
+            where,
             include: {
                 _count: {
                     select: { enrollments: true }
@@ -174,13 +187,28 @@ export class ClassService {
         };
     }
 
-    static async getClassStudents(schoolId: string, classId: string) {
+    static async getClassStudents(schoolId: string, classId: string, branchId?: string, teacherId?: string) {
+        const classWhere: any = {
+            school_id: schoolId
+        };
+
+        if (branchId && branchId !== 'all') {
+            classWhere.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
+        }
+
+        if (teacherId) {
+            classWhere.teachers = { some: { teacher_id: teacherId } };
+        }
+
         const enrollments = await prisma.studentEnrollment.findMany({
             where: {
                 class_id: classId,
-                class: {
-                    school_id: schoolId
-                }
+                school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+                class: classWhere
             },
             include: {
                 student: true

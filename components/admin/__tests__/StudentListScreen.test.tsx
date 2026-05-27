@@ -5,6 +5,14 @@ import StudentListScreen from '../StudentListScreen';
 import { renderWithProviders } from '../../../test-utils';
 import { api } from '../../../lib/api';
 
+// Mock API
+vi.mock('../../../lib/api', () => ({
+  api: {
+    getStudents: vi.fn(),
+    getClasses: vi.fn().mockResolvedValue([]),
+  }
+}));
+
 // Mock students data specifically for this test
 const mockStudents = [
   {
@@ -20,7 +28,7 @@ const mockStudents = [
 
 describe('StudentListScreen Component', () => {
   it('renders student list correctly', async () => {
-    vi.mocked(api.getStudents).mockResolvedValue(mockStudents);
+    (api.getStudents as any).mockResolvedValue(mockStudents);
     
     renderWithProviders(<StudentListScreen navigateTo={vi.fn()} schoolId="school-123" />);
 

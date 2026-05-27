@@ -183,8 +183,15 @@ const App: React.FC = () => {
 
     const initializeOfflineFirst = async () => {
       try {
+        // Set timeout to prevent infinite loading - show UI after 3 seconds even if not ready
+        const timeout = setTimeout(() => {
+          console.warn('⚠️ Initialization timeout - showing UI anyway');
+          setIsInitializing(false);
+        }, 3000);
+
         await runMigrations();
         cacheCleanupScheduler.start();
+        clearTimeout(timeout);
         setIsInitializing(false);
       } catch (error) {
         console.error('❌ Initialization failed:', error);

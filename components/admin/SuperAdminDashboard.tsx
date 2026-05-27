@@ -37,7 +37,9 @@ const SuperAdminDashboardContent: React.FC<SuperAdminDashboardProps> = ({ onLogo
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        setIsHomePage(activeScreen === 'overview');
+        if (typeof setIsHomePage === 'function') {
+            setIsHomePage(activeScreen === 'overview');
+        }
     }, [activeScreen, setIsHomePage]);
 
     useEffect(() => {

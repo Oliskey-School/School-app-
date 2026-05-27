@@ -49,6 +49,22 @@ export const createSchool = async (req: Request, res: Response) => {
     }
 };
 
+export const deleteSchool = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.params.id as string;
+        
+        // Authorization: Only SuperAdmin or Admin of the school can delete it
+        if (req.user.role !== 'SUPER_ADMIN' && req.user.school_id !== schoolId) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        const result = await SchoolService.deleteSchool(schoolId);
+        res.json({ success: true, school: result });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const listSchools = async (req: Request, res: Response) => {
     try {
         const schools = await SchoolService.getAllSchools();
@@ -73,6 +89,26 @@ export const updateMySchool = async (req: AuthRequest, res: Response) => {
         
         // Use the school_id from token as both the actor context and the target ID
         const result = await SchoolService.updateSchool(schoolId, schoolId, req.body);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateSchoolSubscription = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        if (!schoolId) return res.status(400).json({ message: 'School context required' });
+
+        const updates: any = {};
+        const { planType, subscriptionStatus, trialEndsAt, isPremium } = req.body;
+
+        if (planType) updates.plan_type = planType;
+        if (subscriptionStatus) updates.subscription_status = subscriptionStatus;
+        if (typeof isPremium !== 'undefined') updates.is_premium = isPremium;
+        if (trialEndsAt) updates.trial_ends_at = new Date(trialEndsAt);
+
+        const result = await SchoolService.updateSchoolSubscription(schoolId, req.params.id as string, updates);
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

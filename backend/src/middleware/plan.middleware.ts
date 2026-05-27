@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import prisma from '../config/database';
+import { config } from '../config/env';
 
 type ResourceType = 'student' | 'teacher';
 
@@ -22,7 +23,7 @@ export const requirePlanCapacity =
         }
 
         // Demo school is always unrestricted
-        if (schoolId === 'd0ff3e95-9b4c-4c12-989c-e5640d3cacd1') {
+        if (config.demoSchoolId && schoolId === config.demoSchoolId) {
             return next();
         }
 

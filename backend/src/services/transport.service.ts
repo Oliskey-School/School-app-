@@ -30,15 +30,16 @@ export class TransportService {
         return route;
     }
 
-    static async deleteRoute(id: string) {
-        const route = await prisma.transportRoute.findUnique({ where: { id } });
-        const result = await prisma.transportRoute.delete({
-            where: { id }
-        });
-
-        if (route) {
-            SocketService.emitToSchool(route.school_id, 'transport:updated', { action: 'delete_route', routeId: id });
+    static async deleteRoute(schoolId: string, id: string) {
+        // Tenant-scoped lookup prevents cross-school deletion via known route id.
+        const route = await prisma.transportRoute.findFirst({ where: { id, school_id: schoolId } });
+        if (!route) {
+            const err: any = new Error('Route not found');
+            err.statusCode = 404;
+            throw err;
         }
+        const result = await prisma.transportRoute.delete({ where: { id: route.id } });
+        SocketService.emitToSchool(route.school_id, 'transport:updated', { action: 'delete_route', routeId: id });
         return result;
     }
 

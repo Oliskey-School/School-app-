@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { VendorService } from '../services/vendor.service';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest } from '../middleware/auth.middleware';
 
 export const getVendors = async (req: AuthRequest, res: Response) => {
     try {

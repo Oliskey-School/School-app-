@@ -27,6 +27,35 @@ export class PlanService {
         });
     }
 
+    static async recordSubscriptionPayment(schoolId: string, amount: number, reference: string, planType: string) {
+        return await prisma.$transaction(async (tx) => {
+            // 1. Create payment transaction record
+            const payment = await tx.payment.create({
+                data: {
+                    school_id: schoolId,
+                    amount: parseFloat(amount as any),
+                    reference: reference,
+                    payment_method: 'paystack',
+                    purpose: 'subscription_upgrade',
+                    status: 'Completed',
+                    metadata: { plan_type: planType }
+                }
+            });
+
+            // 2. Update School subscription status
+            await tx.school.update({
+                where: { id: schoolId },
+                data: {
+                    is_premium: planType !== 'free',
+                    plan_type: planType,
+                    subscription_status: 'active'
+                }
+            });
+
+            return { success: true, paymentId: payment.id };
+        });
+    }
+
     static async createPlan(data: any) {
         return await prisma.plan.create({
             data: {

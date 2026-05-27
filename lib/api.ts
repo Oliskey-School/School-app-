@@ -15,6 +15,8 @@ const getAuthToken = async (): Promise<string | null> => {
  * Express API Client
  * Pure Express/Prisma backend client.
  */
+type ApiRequestInit = RequestInit & { _retryWithoutBranch?: boolean };
+
 class ExpressApiClient {
     private baseUrl: string = API_BASE_URL;
     private cache = new Map<string, { data: any; timestamp: number }>();
@@ -23,8 +25,30 @@ class ExpressApiClient {
     private inFlightRequests = new Map<string, Promise<any>>();
 
     private refreshPromise: Promise<any> | null = null;
+    private logoutHandler: (() => void) | null = null;
 
     constructor() {}
+
+    setLogoutHandler(handler: () => void): void {
+        this.logoutHandler = handler;
+    }
+
+    private triggerLogout(reason: string, endpoint?: string): void {
+        console.warn(`[API] Forcing logout due to ${reason}${endpoint ? ` on ${endpoint}` : ''}`);
+        if (this.logoutHandler) {
+            try {
+                this.logoutHandler();
+            } catch (err) {
+                console.error('[API] Logout handler failed:', err);
+            }
+        }
+
+        try {
+            window.dispatchEvent(new CustomEvent('force-logout', { detail: { reason, endpoint } }));
+        } catch (err) {
+            console.warn('[API] Failed to dispatch force-logout event:', err);
+        }
+    }
 
     async getCsrfToken(): Promise<string | null> {
         if (this.csrfToken) return this.csrfToken;
@@ -54,21 +78,31 @@ class ExpressApiClient {
     /**
      * Core Fetch Engine with Request Deduplication
      */
-    async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+
+    async fetch<T>(endpoint: string, options: ApiRequestInit = {}): Promise<T> {
         const method = options.method?.toUpperCase() || 'GET';
         const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
         // Lead DevSecOps: Deduplicate concurrent identical GET requests
         const isGet = method === 'GET';
-        const requestKey = `${method}:${url}`;
+        const requestKey = `${method}:${url}${options._retryWithoutBranch ? ':retry' : ''}`;
 
         if (isGet && this.inFlightRequests.has(requestKey)) {
-            return this.inFlightRequests.get(requestKey);
+            return this.inFlightRequests.get(requestKey) as Promise<T>;
         }
 
         const fetchPromise = (async () => {
             try {
                 const token = await getAuthToken();
+                const selectedBranchId = localStorage.getItem('selected_branch_id');
+                const shouldAttachBranchHeader = !!selectedBranchId &&
+                    selectedBranchId !== 'all' &&
+                    selectedBranchId !== 'null' &&
+                    selectedBranchId !== 'undefined' &&
+                    !endpoint.startsWith('/auth') &&
+                    !endpoint.startsWith('/branches') &&
+                    !endpoint.startsWith('/schools') &&
+                    !endpoint.startsWith('/health');
 
                 // Lead DevSecOps: Attach CSRF token for mutating requests
                 const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
@@ -84,14 +118,29 @@ class ExpressApiClient {
                     ...((options.headers as any) || {}),
                 };
 
-                if (!token && !endpoint.includes('/auth/') && !endpoint.includes('/health')) {
-                    console.warn(`🔒 [API-WARN] Missing token for protected endpoint: ${endpoint}`);
+                if (shouldAttachBranchHeader && !headers['X-Branch-Id']) {
+                    headers['X-Branch-Id'] = selectedBranchId as string;
                 }
 
-                // Inject Branch ID if selected (Admin/Proprietor context)
-                const selectedBranchId = localStorage.getItem('selected_branch_id');
-                if (!headers['X-Branch-Id'] && selectedBranchId && selectedBranchId !== 'all' && selectedBranchId !== 'null' && selectedBranchId !== 'undefined') {
-                    headers['X-Branch-Id'] = selectedBranchId;
+                const unauthenticatedAuthEndpoints = [
+                    '/auth/login',
+                    '/auth/signup',
+                    '/auth/forgot-password',
+                    '/auth/reset-password',
+                    '/auth/google-login',
+                    '/auth/demo/login',
+                    '/auth/verify-email',
+                    '/auth/resend-verification',
+                    '/auth/update-email',
+                    '/auth/update-username',
+                    '/auth/update-password'
+                ];
+                const isPublicAuthEndpoint = unauthenticatedAuthEndpoints.some((path) => endpoint.startsWith(path));
+
+                if (!token && !endpoint.includes('/health') && !isPublicAuthEndpoint) {
+                    console.warn(`🔒 [API-WARN] Missing token for protected endpoint: ${endpoint}`);
+                    this.triggerLogout('missing_token', endpoint);
+                    throw new Error(`Missing token for protected endpoint: ${endpoint}`);
                 }
 
                 // Auto-remove Content-Type for FormData
@@ -158,17 +207,32 @@ class ExpressApiClient {
                         }
                     }
 
+                    const errorMessage = error.message || `Error ${response.status}: ${response.statusText}`;
+                    if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
+                        this.triggerLogout('unauthorized', endpoint);
+                    }
                     console.error(`[API] Error Response from ${endpoint}:`, {
                         status: response.status,
                         statusText: response.statusText,
                         body: errorText
                     });
 
-                    const errorMessage = error.message || `Error ${response.status}: ${response.statusText}`;
+                    // Stale branch selection may cause auth failures for user-specific branch scope.
+                    if (response.status === 403 && errorMessage.toLowerCase().includes('branch') && selectedBranchId && !options._retryWithoutBranch) {
+                        console.warn('[API] Clearing stale selected_branch_id due to branch authorization failure and retrying without branch scope.');
+                        localStorage.removeItem('selected_branch_id');
+                        const retryHeaders = { ...((options.headers as any) || {}) } as Record<string, string>;
+                        delete retryHeaders['X-Branch-Id'];
+                        return this.fetch<T>(endpoint, {
+                            ...options,
+                            headers: retryHeaders,
+                            _retryWithoutBranch: true
+                        });
+                    }
+
                     throw new Error(errorMessage);
                 }
 
-                // Handle empty responses (204 No Content, etc)
                 const contentType = response.headers.get('content-type');
                 if (response.status === 204 || !contentType || !contentType.includes('application/json')) {
                     return {} as T;
@@ -443,10 +507,11 @@ class ExpressApiClient {
     // ============================================
     // SCHOOLS & BRANCHES
     // ============================================
-    async getBranches(schoolId: string): Promise<any[]> {
+    async getBranches(schoolId: string, branchId: string = 'all'): Promise<any[]> {
         const cleanSchoolId = (schoolId || '').replace(/^=+/, '');
+        const branchParam = branchId ? `&branchId=${encodeURIComponent(branchId)}` : '';
         try {
-            return await this.get(`/branches?schoolId=${cleanSchoolId}`);
+            return await this.get(`/branches?schoolId=${cleanSchoolId}${branchParam}`);
         } catch (err) {
             console.warn('[API] getBranches failed:', err);
             return [];
@@ -865,6 +930,7 @@ class ExpressApiClient {
     async getTeacherAttendanceApprovals(schoolId: string, branchId?: string): Promise<any[]> {
         const queryParams = new URLSearchParams({ schoolId });
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        queryParams.append('status', 'pending');
         return this.get(`/teachers/attendance-approvals?${queryParams.toString()}`);
     }
 
@@ -894,8 +960,8 @@ class ExpressApiClient {
         return this.get(`/teachers/${teacherId}/report-cards?schoolId=${schoolId}`);
     }
 
-    async getTeacherBadges(teacherId: string): Promise<any[]> {
-        return this.get(`/teachers/${teacherId}/badges`);
+    async getTeacherBadges(teacherId?: string): Promise<any[]> {
+        return this.get(teacherId ? `/teachers/${teacherId}/badges` : '/teachers/me/badges');
     }
 
     async getTeacherCertificates(teacherId: string): Promise<any[]> {
@@ -903,7 +969,8 @@ class ExpressApiClient {
     }
 
     async getTeacherPaymentTransactions(teacherId: string): Promise<any[]> {
-        return this.get(`/teachers/${teacherId}/payments`);
+        const queryParams = new URLSearchParams({ teacherId });
+        return this.get(`/payroll/payment-history?${queryParams.toString()}`);
     }
 
     async getMentoringData(teacherId: string): Promise<any> {
@@ -928,6 +995,25 @@ class ExpressApiClient {
 
     async getTeacherSalaryProfile(teacherId: string): Promise<any> {
         return this.get(`/teachers/${teacherId}/salary-profile`);
+    }
+
+    async getSalaryArrears(schoolId: string, branchId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (schoolId) queryParams.append('schoolId', schoolId);
+        if (branchId) queryParams.append('branchId', branchId);
+        return this.get(`/payroll/arrears?${queryParams.toString()}`);
+    }
+
+    async updateSalaryArrearStatus(id: string, status: string): Promise<any> {
+        return this.put(`/payroll/arrears/${id}`, { status });
+    }
+
+    async getRolePermissions(schoolId: string): Promise<any[]> {
+        return this.get(`/admin-hub/roles/permissions?schoolId=${schoolId}`);
+    }
+
+    async updateRolePermission(role: string, permissionId: string, enabled: boolean): Promise<any> {
+        return this.post('/admin-hub/roles/permissions', { role, permission_id: permissionId, enabled });
     }
 
     async saveTeacherAttendance(schoolId: string, records: any[]) {
@@ -1368,7 +1454,8 @@ class ExpressApiClient {
     }
 
     async getPayslips(teacherId: string): Promise<any[]> {
-        return this.get(`/payroll/payslips/${teacherId}`);
+        const queryParams = new URLSearchParams({ teacherId });
+        return this.get(`/payroll/payslips?${queryParams.toString()}`);
     }
 
     async getTeacherPayslips(teacherId: string): Promise<any[]> {
@@ -1501,8 +1588,23 @@ class ExpressApiClient {
         return this.put(`/report-cards/${reportCardId}/status`, { status });
     }
 
-    async getStudentAcademicRecords(studentId: string): Promise<any[]> {
-        return this.get(`/students/${studentId}/academic-records`);
+    // ============================================
+    // ID CARDS
+    // ============================================
+    async getIDCardStats(): Promise<any> {
+        return this.get('/id-cards/stats');
+    }
+
+    async getIDCards(branchId?: string): Promise<any[]> {
+        return this.get(`/id-cards${branchId ? `?branchId=${branchId}` : ''}`);
+    }
+
+    async getIDCardByStudent(studentId: string): Promise<any> {
+        return this.get(`/id-cards/student/${studentId}`);
+    }
+
+    async issueIDCard(studentId: string, data: any): Promise<any> {
+        return this.post(`/id-cards/issue/${studentId}`, data);
     }
 
 
@@ -2401,22 +2503,27 @@ class ExpressApiClient {
     // ============================================
     // LEAVE MANAGEMENT
     // ============================================
-    async getLeaveRequests(schoolId: string, branchId?: string): Promise<any[]> {
-        const queryParams = new URLSearchParams({ schoolId });
-        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+    async getLeaveRequests(teacherId?: string, _schoolId?: string): Promise<any[]> {
+        const queryParams = new URLSearchParams();
+        if (teacherId) queryParams.append('teacherId', teacherId);
         try {
-            return await this.get(`/teachers/leave-requests?${queryParams.toString()}`);
+            return await this.get(`/payroll/leave-requests?${queryParams.toString()}`);
         } catch (err) {
             return [];
         }
     }
 
     async getLeaveTypes(schoolId: string): Promise<any[]> {
-        return this.get(`/teachers/leave-types?schoolId=${schoolId}`);
+        const queryParams = new URLSearchParams({ schoolId });
+        return this.get(`/payroll/leave-types?${queryParams.toString()}`);
     }
 
     async createLeaveRequest(data: any): Promise<any> {
-        return this.post('/teachers/leave-requests', data);
+        return this.post('/payroll/leave-requests', data);
+    }
+
+    async submitLeaveRequest(data: any): Promise<any> {
+        return this.createLeaveRequest(data);
     }
 
     async approveLeaveRequest(id: string, status: string): Promise<any> {
@@ -2955,6 +3062,11 @@ class ExpressApiClient {
         return this.post(`/admin-hub/health-logs${query}`, data);
     }
 
+
+    async deleteHealthLog(id: string, schoolId?: string): Promise<any> {
+        const query = schoolId ? `?schoolId=${schoolId}` : '';
+        return this.delete(`/admin-hub/health-logs/${id}${query}`);
+    }
     async getEmergencyAlerts(schoolId?: string): Promise<any[]> {
         const query = schoolId ? `?schoolId=${schoolId}` : '';
         return this.get(`/admin-hub/safety/alerts${query}`);

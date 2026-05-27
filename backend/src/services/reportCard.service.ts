@@ -101,4 +101,26 @@ export class ReportCardService {
             status: updated?.status || (updated?.is_published ? 'Published' : 'Submitted')
         };
     }
+
+    static async publishReportCards(schoolId: string, branchId: string | undefined, term: string, session: string) {
+        const where: any = {
+            school_id: schoolId,
+            term,
+            session
+        };
+
+        if (branchId && branchId !== 'all') {
+            where.branch_id = branchId;
+        }
+
+        const result = await prisma.reportCard.updateMany({
+            where,
+            data: {
+                is_published: true,
+                status: 'Published'
+            }
+        });
+
+        return { count: result.count };
+    }
 }

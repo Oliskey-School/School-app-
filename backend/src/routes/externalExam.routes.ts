@@ -6,6 +6,8 @@ const router = Router();
 
 router.use(authenticate);
 
+// Default root: list configured external exam bodies for the caller's school.
+router.get('/', getExamBodies);
 router.get('/bodies', getExamBodies);
 router.post('/bodies', createExamBody);
 router.get('/registrations/:bodyId', getExamRegistrations);

@@ -41,25 +41,13 @@ export const PaymentService = {
      */
     recordSubscriptionPayment: async (schoolId: string, amount: number, reference: string, planType: string) => {
         try {
-            // 1. Record the payment via backend
-            await api.recordPayment({
-                school_id: schoolId,
+            // Call the new subscription payment endpoint
+            return await (api as any).post('/plans/subscribe', {
+                schoolId,
                 amount,
                 reference,
-                status: 'success',
-                provider: 'paystack',
-                purpose: 'subscription_upgrade',
-                metadata: { plan: planType }
+                planType
             });
-
-            // 2. Update School Subscription Status via backend
-            await api.updateSchoolSubscription(schoolId, {
-                is_premium: true,
-                plan_type: planType,
-                subscription_status: 'active'
-            });
-
-            return { success: true };
         } catch (error: any) {
             console.error('Error recording subscription:', error);
             throw error;

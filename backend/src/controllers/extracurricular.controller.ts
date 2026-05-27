@@ -34,10 +34,10 @@ export const joinActivity = async (req: AuthRequest, res: Response) => {
         const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student profile not found' });
 
-        const result = await ExtracurricularService.joinActivity(student.id, activityId);
+        const result = await ExtracurricularService.joinActivity(req.user.school_id, student.id, activityId);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 
@@ -47,10 +47,10 @@ export const leaveActivity = async (req: AuthRequest, res: Response) => {
         const student = await StudentService.getStudentProfileByUserId(req.user.school_id, req.user.branch_id, req.user.id);
         if (!student) return res.status(404).json({ message: 'Student profile not found' });
 
-        await ExtracurricularService.leaveActivity(student.id, activityId);
+        await ExtracurricularService.leaveActivity(req.user.school_id, student.id, activityId);
         res.status(204).send();
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 };
 

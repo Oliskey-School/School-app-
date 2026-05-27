@@ -20,6 +20,7 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
     const startingDayIndex = firstDayOfMonth.getDay();
 
     const fetchAttendance = async () => {
+        if (!teacher?.id) return;
         setLoading(true);
         try {
             const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0];
@@ -27,7 +28,7 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
             const schoolId = sessionStorage.getItem('school_id') || '';
 
             const data = await api.getTeacherAttendance(schoolId, {
-                teacher_id: teacher.id,
+                teacher_id: teacher?.id,
                 startDate,
                 endDate
             });
@@ -35,11 +36,11 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
             const map = new Map<string, AttendanceStatus>();
             data?.forEach((record: any) => {
                 let status: AttendanceStatus = 'Absent';
-                if (record.approval_status === 'approved') status = 'Present';
-                else if (record.approval_status === 'pending') status = 'Pending';
-                else if (record.status === 'Leave' || record.status === 'excused') status = 'Leave';
+                if (record?.approval_status === 'approved') status = 'Present';
+                else if (record?.approval_status === 'pending') status = 'Pending';
+                else if (record?.status === 'Leave' || record?.status === 'excused') status = 'Leave';
 
-                map.set(record.date, status);
+                if (record?.date) map.set(record.date, status);
             });
             setAttendanceMap(map);
         } catch (err) {
@@ -50,8 +51,9 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
     };
 
     useEffect(() => {
+        if (!teacher?.id) return;
         fetchAttendance();
-    }, [currentDate, teacher.id]);
+    }, [currentDate, teacher?.id]);
 
     useAutoSync(['staff_attendance'], () => {
         console.log('🔄 [TeacherAttendanceDetail] Real-time auto-sync triggered');
@@ -129,6 +131,10 @@ const TeacherAttendanceDetail: React.FC<{ teacher: Teacher }> = ({ teacher }) =>
         });
         return { present, absent, leave };
     }, [attendanceMap, pendingChanges]);
+
+    if (!teacher) {
+        return <div className="p-6 text-center text-sm text-gray-500">No teacher selected. Open this view from a teacher row.</div>;
+    }
 
     return (
         <div className="p-4 bg-gray-50 space-y-4">

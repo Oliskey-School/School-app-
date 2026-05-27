@@ -129,8 +129,9 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [fullName, setFullName] = useState('');
     const [gender, setGender] = useState('');
     const [birthday, setBirthday] = useState('');
-    const [availableClasses, setAvailableClasses] = useState<any[]>([]);
-    const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+    const [selectedBusId, setSelectedBusId] = useState<string | null>(studentToEdit?.schoolBusId || null);
+    const [buses, setBuses] = useState<any[]>([]); // State to store fetched buses
+    const [loadingBuses, setLoadingBuses] = useState(true);
     const [department, setDepartment] = useState<Department | ''>('');
     const [curriculumType, setCurriculumType] = useState<'Nigerian' | 'British' | 'Both'>('Nigerian');
     const [isLoading, setIsLoading] = useState(false);
@@ -159,7 +160,10 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [studentAddress, setStudentAddress] = useState(''); // ⚠️ Added orphaned field
     const [subjects, setSubjects] = useState<string[]>([]);
     const [branches, setBranches] = useState<any[]>([]);
+    const [branchNameMap, setBranchNameMap] = useState<Record<string, string>>({});
+    const [allClasses, setAllClasses] = useState<any[]>([]);
     const [selectedBranchId, setSelectedBranchId] = useState<string>(currentBranchId || '');
+    const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
 
     // Dynamic subject filtering based on curriculum
     const filteredSubjectOptions = useMemo(() => {
@@ -173,6 +177,11 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         
         return standardFiltered.map(s => s.name).sort();
     }, [curriculumType]);
+
+    const availableClasses = useMemo(() => {
+        if (!selectedBranchId) return allClasses;
+        return allClasses.filter(cls => cls.branch_id === selectedBranchId || cls.branch_id === null);
+    }, [allClasses, selectedBranchId]);
 
     const grade = useMemo(() => {
         if (selectedClassIds.length === 0) return 0;
@@ -210,9 +219,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     useEffect(() => {
         const loadClasses = async () => {
             try {
-                // Fetch ALL classes for the school so students can be enrolled in any class across branches
                 const classes = await api.getClasses(schoolId, 'all', true);
-                setAvailableClasses(classes || []);
+                setAllClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);
             }
@@ -224,12 +232,43 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         const loadClasses = async () => {
             try {
                 const classes = await api.getClasses(schoolId, 'all', true);
-                setAvailableClasses(classes || []);
+                setAllClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);
             }
         };
         if (schoolId) loadClasses();
+    });
+
+    // Load buses for the school
+    useEffect(() => {
+        const loadBuses = async () => {
+            if (!schoolId) return;
+            setLoadingBuses(true);
+            try {
+                const busesData = await api.getBuses(schoolId, currentBranchId || undefined);
+                setBuses(busesData || []);
+            } catch (err) {
+                console.error("Error loading buses:", err);
+            } finally {
+                setLoadingBuses(false);
+            }
+        };
+        loadBuses();
+    }, [schoolId, currentBranchId]);
+
+    // Auto-sync buses
+    useAutoSync(['transport_buses'], () => {
+        const loadBuses = async () => {
+            if (!schoolId) return;
+            try {
+                const busesData = await api.getBuses(schoolId, currentBranchId || undefined);
+                setBuses(busesData || []);
+            } catch (err) {
+                console.error("Error loading buses:", err);
+            }
+        };
+        loadBuses();
     });
 
     useAutoSync(['parents'], () => {
@@ -252,6 +291,10 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 try {
                     const data = await api.getBranches(schoolId);
                     setBranches(data || []);
+                    setBranchNameMap((data || []).reduce((acc: Record<string, string>, branch: any) => {
+                        if (branch?.id && branch?.name) acc[branch.id] = branch.name;
+                        return acc;
+                    }, {}));
                     if (!selectedBranchId && data.length > 0) {
                         setSelectedBranchId(data[0].id);
                     }
@@ -262,6 +305,11 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         };
         loadBranches();
     }, [schoolId]);
+
+    useEffect(() => {
+        if (allClasses.length === 0) return;
+        setSelectedClassIds(prevSelected => prevSelected.filter(id => availableClasses.some(cls => cls.id === id)));
+    }, [selectedBranchId, availableClasses, allClasses.length]);
 
     useEffect(() => {
         if (studentToEdit) {
@@ -396,6 +444,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 curriculum_type: curriculumType,
                 school_id: schoolId,
                 address: studentAddress,
+                schoolBusId: selectedBusId || undefined,
                 parentId: !showNewParentForm ? selectedParentId : undefined,
                 parentName: showNewParentForm ? guardianName : undefined,
                 parentEmail: showNewParentForm ? guardianEmail : undefined,
@@ -412,7 +461,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     dob: birthday,
                     school_id: schoolId,
                     address: studentAddress,
-                    admission_number: admissionNumber
+                    admission_number: admissionNumber,
+                    schoolBusId: selectedBusId
                 });
                 await api.updateStudent(studentToEdit.id, {
                     full_name: fullName,
@@ -423,7 +473,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     branch_id: currentBranchId || profile?.branchId || null,
                     school_id: schoolId,
                     address: studentAddress || null,
-                    admission_number: admissionNumber || null
+                    admission_number: admissionNumber || null,
+                    school_bus_id: selectedBusId || null
                 } as any);
 
                 // Sync Enrollments
@@ -625,6 +676,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                                     />
                                                     <span className="text-sm font-medium text-gray-700">
                                                         {cls.name} {cls.section ? `(${cls.section})` : ''}
+                                                        {(!selectedBranchId || cls.branch_id !== selectedBranchId) && cls.branch_id ? ` — ${branchNameMap[cls.branch_id] || 'Other branch'}` : ''}
                                                     </span>
                                                 </label>
                                             ))
@@ -633,6 +685,27 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                         )}
                                     </div>
                                     <p className="mt-1 text-xs text-gray-400">The first selected class will be treated as the Primary Class.</p>
+                                </div>
+
+                                <div>
+                                    <label htmlFor="schoolBus" className="block text-sm font-medium text-gray-700 mb-2">School Bus Assignment <span className="text-gray-400 text-xs">(Optional)</span></label>
+                                    <select
+                                        id="schoolBus"
+                                        value={selectedBusId || ''}
+                                        onChange={(e) => setSelectedBusId(e.target.value || null)}
+                                        className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                        disabled={loadingBuses}
+                                    >
+                                        <option value="">
+                                            {loadingBuses ? 'Loading buses...' : 'Select a bus (optional)'}
+                                        </option>
+                                        {buses.map((bus: any) => (
+                                            <option key={bus.id} value={bus.id}>
+                                                {bus.name} {bus.route_name ? `- ${bus.route_name}` : ''} {bus.plate_number ? `(${bus.plate_number})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-400 italic">Parents will see this bus assignment on their dashboard.</p>
                                 </div>
 
                                 <MultiSelect
@@ -811,3 +884,5 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 };
 
 export default AddStudentScreen;
+
+

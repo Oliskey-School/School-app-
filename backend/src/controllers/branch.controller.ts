@@ -5,7 +5,9 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getBranches = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user);
+        const requestedBranchId = (req.query.branchId as string) || (req.query.branch_id as string);
+        const headerBranchId = req.headers['x-branch-id'] as string | undefined;
+        const branchId = getEffectiveBranchId(req.user, requestedBranchId, headerBranchId);
         const result = await SchoolService.getBranches(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
