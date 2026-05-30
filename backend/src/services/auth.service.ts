@@ -7,6 +7,7 @@ import { IdGeneratorService } from './idGenerator.service';
 import { AuditService } from './audit.service';
 import { SocketService } from './socket.service';
 import { VerificationService } from './verification.service';
+import { EmailService } from './email.service';
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
 import { DemoSeederService } from './demoSeeder.service';
@@ -785,9 +786,28 @@ export class AuthService {
     }
 
     static async updateEmail(userId: string, newEmail: string) {
+        const normalized = newEmail.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+            throw new Error('Please enter a valid email address.');
+        }
+
+        const existing = await prisma.user.findUnique({ where: { id: userId } });
+        if (!existing) throw new Error('User not found');
+
+        const oldEmail = existing.email;
+
+        if (normalized === oldEmail.toLowerCase()) {
+            throw new Error('The new email is the same as your current email.');
+        }
+
+        const taken = await prisma.user.findUnique({ where: { email: normalized } });
+        if (taken && taken.id !== userId) {
+            throw new Error('That email is already in use by another account.');
+        }
+
         const user = await prisma.user.update({
             where: { id: userId },
-            data: { email: newEmail.toLowerCase(), email_verified: false }
+            data: { email: normalized, email_verified: false }
         });
 
         // Trigger new verification code for the new email
@@ -798,7 +818,46 @@ export class AuthService {
             'email_verification'
         );
 
-        return { success: true, message: 'Email updated and verification code sent' };
+        // Send security notification to the OLD email (non-blocking)
+        EmailService.sendEmailChangeSecurityAlert(oldEmail, normalized, user.full_name)
+            .catch(err => console.error('[updateEmail] Security alert failed:', err));
+
+        return {
+            success: true,
+            message: `A 6-digit code has been sent to ${normalized}. Enter it below to activate the new email.`,
+            email: normalized
+        };
+    }
+
+    /**
+     * Verify the OTP a user typed after changing their email.
+     * Marks email_verified=true and returns fresh auth tokens so the session
+     * continues seamlessly under the new email.
+     */
+    static async verifyEmailChange(userId: string, code: string) {
+        if (!userId || !code) throw new Error('userId and code are required');
+
+        const result = await VerificationService.verifyCode(userId, code.trim(), 'email_verification');
+        if (!result.success) {
+            throw new Error(result.message);
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { email_verified: true }
+        });
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new Error('User not found');
+
+        const { token, refreshToken } = await this.generateTokens(user);
+        return {
+            success: true,
+            message: 'Email verified successfully.',
+            token,
+            refreshToken,
+            user
+        };
     }
 
     static get DEMO_SCHOOL_ID() { return config.demoSchoolId; }

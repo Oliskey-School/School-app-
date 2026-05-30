@@ -28,7 +28,7 @@ export class InfrastructureService {
     }
 
     static async deleteFacility(schoolId: string, id: string) {
-        const result = await (prisma as any).facility.delete({
+        const result = await (prisma as any).facility.deleteMany({
             where: { id, school_id: schoolId }
         });
         
@@ -77,7 +77,7 @@ export class InfrastructureService {
     }
 
     static async deleteAsset(schoolId: string, id: string) {
-        const result = await (prisma as any).asset.delete({
+        const result = await (prisma as any).asset.deleteMany({
             where: { id, school_id: schoolId }
         });
 
@@ -160,13 +160,13 @@ export class InfrastructureService {
     }
 
     static async deleteDocument(schoolId: string, id: string) {
-        return (prisma as any).schoolDocument.delete({
+        return (prisma as any).schoolDocument.deleteMany({
             where: { id, school_id: schoolId }
         });
     }
 
     static async deleteVisitorLog(schoolId: string, id: string) {
-        const result = await (prisma as any).visitorLog.delete({
+        const result = await (prisma as any).visitorLog.deleteMany({
             where: { id, school_id: schoolId }
         });
 
@@ -262,7 +262,7 @@ export class InfrastructureService {
             fs.unlinkSync(backup.file_path);
         }
 
-        return (prisma as any).backup.delete({
+        return (prisma as any).backup.deleteMany({
             where: { id, school_id: schoolId }
         });
     }
@@ -291,7 +291,7 @@ export class InfrastructureService {
     }
 
     static async deleteSavedReport(schoolId: string, id: string) {
-        return (prisma as any).savedReport.delete({
+        return (prisma as any).savedReport.deleteMany({
             where: { id, school_id: schoolId }
         });
     }

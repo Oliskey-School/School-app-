@@ -53,17 +53,11 @@ const AuditTrailViewer: React.FC = () => {
         if (!currentSchool) return;
         try {
             setLoading(true);
-            const { data, error } = await api
-                .from('audit_trails')
-                .select('*')
-                .eq('school_id', currentSchool.id)
-                .gte('performed_at', dateRange.start)
-                .lte('performed_at', dateRange.end)
-                .order('performed_at', { ascending: false })
-                .limit(500);
-
-            if (error) throw error;
-            setAuditLogs(data || []);
+            const data = await api.getAuditLogs(currentSchool.id, 500, undefined, {
+                startDate: dateRange.start,
+                endDate: dateRange.end,
+            });
+            setAuditLogs(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching audit logs:', error);
             toast.error('Failed to load audit logs');

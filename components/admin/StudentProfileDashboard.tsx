@@ -50,6 +50,8 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
 
     const [performance, setPerformance] = useState<any[]>([]);
     const [behaviorNotes, setBehaviorNotes] = useState<any[]>([]);
+    const [freshStudent, setFreshStudent] = useState<any>(null);
+    const s: any = { ...(student || {}), ...(freshStudent || {}) };
 
     const averageScore = performance && performance.length > 0
         ? Math.round(performance.reduce((sum, record) => sum + (record?.score || 0), 0) / performance.length)
@@ -59,6 +61,14 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
         if (!student?.id) return;
         setLoading(true);
         try {
+            // Fetch latest student record from DB so edits are reflected immediately
+            try {
+                const fresh = await api.getStudentById(student.id);
+                if (fresh) setFreshStudent(fresh);
+            } catch (e) {
+                console.warn('Could not refresh student record', e);
+            }
+
             // Fetch attendance via backend API
             const attendanceRecords: any[] = await api.getStudentAttendance(student.id).catch(() => []);
             if (attendanceRecords && attendanceRecords.length > 0) {
@@ -160,7 +170,7 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                 {/* Profile Card Overlay */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-6 -mt-12 mx-2">
                     <img
-                        src={student.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`}
+                        src={s.avatarUrl || s.avatar_url || student.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`}
                         alt={student.name}
                         className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md"
                     />
@@ -251,24 +261,24 @@ const StudentProfileDashboard: React.FC<StudentProfileDashboardProps> = ({
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                     <span className="text-xs font-semibold text-gray-500 uppercase">Gender</span>
-                                    <span className="text-sm font-bold text-gray-800">{student?.gender || student?.Gender || 'Not Specified'}</span>
+                                    <span className="text-sm font-bold text-gray-800">{s?.gender || s?.Gender || 'Not Specified'}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                     <span className="text-xs font-semibold text-gray-500 uppercase">Date of Birth</span>
                                     <span className="text-sm font-bold text-gray-800">
-                                        {student?.dob || student?.birthday || student?.date_of_birth || student?.dateOfBirth
-                                            ? new Date(student?.dob || student?.birthday || student?.date_of_birth || student?.dateOfBirth || '').toLocaleDateString()
+                                        {s?.dob || s?.birthday || s?.date_of_birth || s?.dateOfBirth
+                                            ? new Date(s?.dob || s?.birthday || s?.date_of_birth || s?.dateOfBirth || '').toLocaleDateString()
                                             : 'Not Specified'}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                     <span className="text-xs font-semibold text-gray-500 uppercase">Admission #</span>
-                                    <span className="text-sm font-bold text-gray-800">{student?.admission_number || student?.admissionNumber || student?.school_generated_id || 'N/A'}</span>
+                                    <span className="text-sm font-bold text-gray-800">{s?.admission_number || s?.admissionNumber || s?.school_generated_id || 'N/A'}</span>
                                 </div>
                                 <div className="py-2">
                                     <span className="text-xs font-semibold text-gray-500 uppercase block mb-1">Address</span>
                                     <p className="text-sm text-gray-700 leading-relaxed italic">
-                                        {student?.address || student?.Address || student?.studentAddress || 'No address provided'}
+                                        {s?.address || s?.Address || s?.studentAddress || 'No address provided'}
                                     </p>
                                 </div>
                                 {student.parentName && (

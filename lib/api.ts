@@ -5,10 +5,20 @@ import { API_BASE_URL } from './config';
 console.log(`📡 [API-TEST] Base URL: ${API_BASE_URL}`);
 
 const getAuthToken = async (): Promise<string | null> => {
-    // Priority 1: Check localStorage for our custom backend JWT
-    const localToken = localStorage.getItem('auth_token');
-    if (localToken) return localToken;
-    return null;
+    // Tab-scoped session token. One-time migration from legacy localStorage.
+    let token = sessionStorage.getItem('auth_token');
+    if (!token) {
+        const legacy = localStorage.getItem('auth_token');
+        if (legacy) {
+            sessionStorage.setItem('auth_token', legacy);
+            const legacyRefresh = localStorage.getItem('auth_refresh_token');
+            if (legacyRefresh) sessionStorage.setItem('auth_refresh_token', legacyRefresh);
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_refresh_token');
+            token = legacy;
+        }
+    }
+    return token;
 };
 
 /**
@@ -133,7 +143,13 @@ class ExpressApiClient {
                     '/auth/resend-verification',
                     '/auth/update-email',
                     '/auth/update-username',
-                    '/auth/update-password'
+                    '/auth/update-password',
+                    // Public onboarding + verification — anyone signing up a new school
+                    // reaches these endpoints before they have a session token.
+                    '/schools/onboard',
+                    '/onboard',
+                    '/verification/verify',
+                    '/verification/resend'
                 ];
                 const isPublicAuthEndpoint = unauthenticatedAuthEndpoints.some((path) => endpoint.startsWith(path));
 
@@ -298,19 +314,20 @@ class ExpressApiClient {
     async login(credentials: any): Promise<any> {
         this.clearCsrfToken();
         const result = await this.post<any>('/auth/login', credentials);
-        if (result.token) localStorage.setItem('auth_token', result.token);
+        if (result.token) sessionStorage.setItem('auth_token', result.token);
+        if (result.refreshToken) sessionStorage.setItem('auth_refresh_token', result.refreshToken);
         return result;
     }
 
     async refreshToken(): Promise<any> {
-        const refreshToken = localStorage.getItem('auth_refresh_token');
+        const refreshToken = sessionStorage.getItem('auth_refresh_token') || localStorage.getItem('auth_refresh_token');
         const result = await this.post<any>('/auth/refresh', { refreshToken });
         if (!result || !result.token) {
             throw new Error('Failed to refresh session');
         }
-        localStorage.setItem('auth_token', result.token);
+        sessionStorage.setItem('auth_token', result.token);
         if (result.refreshToken) {
-            localStorage.setItem('auth_refresh_token', result.refreshToken);
+            sessionStorage.setItem('auth_refresh_token', result.refreshToken);
         }
         return result;
     }
@@ -326,14 +343,16 @@ class ExpressApiClient {
     async demoLogin(role: string): Promise<any> {
         this.clearCsrfToken();
         const result = await this.post<any>('/auth/demo/login', { role });
-        if (result.token) localStorage.setItem('auth_token', result.token);
+        if (result.token) sessionStorage.setItem('auth_token', result.token);
+        if (result.refreshToken) sessionStorage.setItem('auth_refresh_token', result.refreshToken);
         return result;
     }
 
     async googleLogin(email: string, name: string): Promise<any> {
         this.clearCsrfToken();
         const result = await this.post<any>('/auth/google-login', { email, name });
-        if (result.token) localStorage.setItem('auth_token', result.token);
+        if (result.token) sessionStorage.setItem('auth_token', result.token);
+        if (result.refreshToken) sessionStorage.setItem('auth_refresh_token', result.refreshToken);
         return result;
     }
 
@@ -351,9 +370,12 @@ class ExpressApiClient {
         } catch (e) {
             console.warn('Backend logout failed', e);
         } finally {
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('auth_refresh_token');
+            sessionStorage.removeItem('is_demo_mode');
+            // Defensive clear of any legacy localStorage tokens
             localStorage.removeItem('auth_token');
             localStorage.removeItem('auth_refresh_token');
-            sessionStorage.removeItem('is_demo_mode');
             this.invalidateCache();
         }
     }
@@ -381,6 +403,10 @@ class ExpressApiClient {
     async updateEmail(data: { userId: string; newEmail: string }): Promise<any> {
         console.log('🚀 [API] Calling updateEmail (POST) with data:', data);
         return this.post('/auth/update-email', data);
+    }
+
+    async verifyEmailChange(data: { userId: string; code: string }): Promise<any> {
+        return this.post('/auth/verify-email-change', data);
     }
 
     async updateUsername(data: { userId: string; newUsername: string }): Promise<any> {
@@ -960,7 +986,7 @@ class ExpressApiClient {
         return this.get(`/teachers/${teacherId}/report-cards?schoolId=${schoolId}`);
     }
 
-    async getTeacherBadges(teacherId?: string): Promise<any[]> {
+    async getTeacherBadges(teacherId?: string): Promise<any> {
         return this.get(teacherId ? `/teachers/${teacherId}/badges` : '/teachers/me/badges');
     }
 
@@ -1242,6 +1268,14 @@ class ExpressApiClient {
 
     async volunteerSignup(opportunityId: string, data?: any): Promise<any> {
         return this.post(`/volunteering/${opportunityId}/signup`, data || {});
+    }
+
+    async getStudentAcademicRecords(studentId: string): Promise<any[]> {
+        try {
+            return await this.get(`/students/${studentId}/academic-records`);
+        } catch (err) {
+            return [];
+        }
     }
 
     // ============================================
@@ -1914,7 +1948,7 @@ class ExpressApiClient {
         return this.get(`/lesson-plans?${queryParams.toString()}`);
     }
 
-    async createLessonPlan(data: any): Promise<any> {
+    async createLessonPlan(data: any, _options?: { useBackend?: boolean }): Promise<any> {
         return this.post('/lesson-plans', data);
     }
 
@@ -2194,11 +2228,20 @@ class ExpressApiClient {
         return this.get(`/resources/${id}`);
     }
 
-    async getRelatedResources(id: string): Promise<any[]> {
-        return this.get(`/resources/${id}/related`);
+    async getRelatedResources(idOrSubject: string, excludeId?: string | number): Promise<any[]> {
+        const qs = excludeId ? `?exclude=${excludeId}` : '';
+        return this.get(`/resources/${idOrSubject}/related${qs}`);
     }
 
-    async createResource(data: any): Promise<any> {
+    async createAnonymousReport(data: any): Promise<any> {
+        return this.post('/anonymous-reports', data);
+    }
+
+    async createDiscreetRequest(data: any, _options?: { useBackend?: boolean }): Promise<any> {
+        return this.post('/discreet-requests', data);
+    }
+
+    async createResource(data: any, _options?: { useBackend?: boolean }): Promise<any> {
         return this.post('/resources', data);
     }
 
@@ -2363,7 +2406,7 @@ class ExpressApiClient {
         return this.get('/calendar?category=ProfessionalDevelopment');
     }
 
-    async getTeacherRecognitions(): Promise<any[]> {
+    async getTeacherRecognitions(): Promise<any> {
         return this.get('/teachers/me/recognitions');
     }
 
@@ -2428,7 +2471,7 @@ class ExpressApiClient {
         return this.post('/gallery', data);
     }
 
-    async uploadFile(fileOrBucket: File | string, pathOrFile?: string | File, file?: File): Promise<{ publicUrl: string } | { url: string }> {
+    async uploadFile(fileOrBucket: File | string, pathOrFile?: string | File, file?: File): Promise<{ publicUrl: string; url?: string }> {
         const formData = new FormData();
         if (fileOrBucket instanceof File) {
             formData.append('file', fileOrBucket);
@@ -2489,12 +2532,14 @@ class ExpressApiClient {
     // ============================================
     // AUDIT LOGS
     // ============================================
-    async getAuditLogs(schoolId?: string, limit: number = 50, branchId?: string): Promise<any[]> {
+    async getAuditLogs(schoolId?: string, limit: number = 50, branchId?: string, opts?: { startDate?: string; endDate?: string }): Promise<any[]> {
         const queryParams = new URLSearchParams({ limit: limit.toString() });
-        if (schoolId) queryParams.append('schoolId', schoolId);
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        if (opts?.startDate) queryParams.append('startDate', opts.startDate);
+        if (opts?.endDate) queryParams.append('endDate', opts.endDate);
         try {
-            return await this.get(`/audit/logs?${queryParams.toString()}`);
+            const res = await this.get(`/audit-logs?${queryParams.toString()}`);
+            return Array.isArray(res) ? res : [];
         } catch (err) {
             return [];
         }
@@ -2608,6 +2653,14 @@ class ExpressApiClient {
     // ============================================
     async createSupportTicket(ticketData: any): Promise<any> {
         return this.post('/support/tickets', ticketData);
+    }
+
+    async getSupportTickets(): Promise<any[]> {
+        try {
+            return await this.get('/support/tickets');
+        } catch (err) {
+            return [];
+        }
     }
 
     // ============================================
@@ -3235,6 +3288,26 @@ class ExpressApiClient {
             },
             not: (column: string, op: string, value: any) => {
                 queryParams.append(column, `not:${op}:${value}`);
+                return builder;
+            },
+            gte: (column: string, value: any) => {
+                queryParams.append(column, `gte:${value}`);
+                return builder;
+            },
+            lte: (column: string, value: any) => {
+                queryParams.append(column, `lte:${value}`);
+                return builder;
+            },
+            gt: (column: string, value: any) => {
+                queryParams.append(column, `gt:${value}`);
+                return builder;
+            },
+            lt: (column: string, value: any) => {
+                queryParams.append(column, `lt:${value}`);
+                return builder;
+            },
+            in: (column: string, values: any[]) => {
+                queryParams.append(column, `in:${(values || []).join(',')}`);
                 return builder;
             },
             or: (pattern: string) => {

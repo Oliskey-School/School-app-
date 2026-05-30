@@ -65,6 +65,7 @@ router.post('/resend-verification', AuthController.resendVerification);
 router.post('/confirm-email', AuthController.confirmEmail);
 router.post('/verify-email', AuthController.verifyEmail);
 router.post('/update-email', AuthController.updateEmail);
+router.post('/verify-email-change', AuthController.verifyEmailChange);
 router.post('/update-username', AuthController.updateUsername);
 router.post('/update-password', authenticate, AuthController.updatePassword);
 router.post('/admin/change-password', authenticate, requireRole(ADMIN_ROLES), AuthController.adminChangePassword);

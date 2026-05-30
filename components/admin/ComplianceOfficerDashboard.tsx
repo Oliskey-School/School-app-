@@ -13,7 +13,6 @@ import {
     DocumentTextIcon,
     ClockIcon
 } from '../../constants';
-import { api } from '../../lib/api';
 
 interface ComplianceOfficerDashboardProps {
     onLogout?: () => void;
@@ -23,9 +22,9 @@ interface ComplianceOfficerDashboardProps {
 
 const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({ onLogout, setIsHomePage, currentUser }) => {
     const { profile } = useProfile();
-    const { currentSchool } = useAuth();
-
-    if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading compliance profile...</div>;
+    const auth = useAuth() as any;
+    const { currentSchool } = auth;
+    const branchId = auth.currentBranchId;
 
     const [complianceStats, setComplianceStats] = useState({
         activeAudits: 0,
@@ -36,7 +35,7 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setIsHomePage(true);
+        if (typeof setIsHomePage === 'function') setIsHomePage(true);
         if (currentSchool?.id) {
             fetchStats();
         }
@@ -70,7 +69,6 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
                 .select('verification_status')
                 .eq('school_id', schoolId);
 
-            const branchId = (useAuth() as any).currentBranchId;
             if (branchId && branchId !== 'all') {
                 docsQuery = docsQuery.eq('branch_id', branchId);
             }
@@ -118,6 +116,8 @@ const ComplianceOfficerDashboard: React.FC<ComplianceOfficerDashboardProps> = ({
             </div>
         </div>
     );
+
+    if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading compliance profile...</div>;
 
     return (
         <div className="flex flex-col h-full bg-gray-50">

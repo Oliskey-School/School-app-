@@ -53,10 +53,10 @@ export const AuthConfirm: React.FC = () => {
                 if (response.user) {
                     // Success - backend should return user and token
                     if (response.token) {
-                        localStorage.setItem('auth_token', response.token);
+                        sessionStorage.setItem('auth_token', response.token);
                     }
                     if (response.refreshToken) {
-                        localStorage.setItem('auth_refresh_token', response.refreshToken);
+                        sessionStorage.setItem('auth_refresh_token', response.refreshToken);
                     }
                     
                     setStatus('success');

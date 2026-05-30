@@ -11,7 +11,9 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(Format-Table -AutoSize)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\OneDrive\\\\Desktop\\\\Project\\\\school-app-\" -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)"
     ]
   },
   "enableAllProjectMcpServers": true,

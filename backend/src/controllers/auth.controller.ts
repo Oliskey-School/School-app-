@@ -33,11 +33,13 @@ export const login = async (req: Request, res: Response) => {
             });
         }
         
-        // Lead DevSecOps: Set secure cookies and omit tokens from response body
+        // Set secure httpOnly cookies AND return tokens in the body. The frontend
+        // stores tokens in sessionStorage (tab-scoped) and uses them as a Bearer
+        // header. The cookies are kept as a fallback for cookie-based requests.
         res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
         res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-        res.json({ user: result.user });
+        res.json({ user: result.user, token: result.token, refreshToken: result.refreshToken });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }
@@ -57,7 +59,7 @@ export const verify2FALogin = async (req: Request, res: Response) => {
         res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
         res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-        res.json({ user: result.user });
+        res.json({ user: result.user, token: result.token, refreshToken: result.refreshToken });
     } catch (error: any) {
         res.status(401).json({ message: error.message });
     }
@@ -199,6 +201,24 @@ export const updateEmail = async (req: Request, res: Response) => {
         res.json(result);
     } catch (error: any) {
         console.error('[AuthController] Update Email Error:', error);
+        res.status(400).json({ message: error.message });
+    }
+};
+
+export const verifyEmailChange = async (req: Request, res: Response) => {
+    try {
+        const { userId, code } = req.body;
+        if (!userId || !code) {
+            return res.status(400).json({ message: 'userId and code are required' });
+        }
+        const result = await AuthService.verifyEmailChange(userId, code);
+
+        res.cookie('access_token', result.token, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 });
+        res.cookie('refresh_token', result.refreshToken, { ...COOKIE_OPTIONS, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+        res.json(result);
+    } catch (error: any) {
+        console.error('[AuthController] Verify Email Change Error:', error);
         res.status(400).json({ message: error.message });
     }
 };

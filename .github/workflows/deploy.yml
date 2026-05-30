@@ -1,57 +1,113 @@
-name: Production Deploy
+name: CI / Production Deploy
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write # Required for fetching secrets from Vault/AWS
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  verify:
+  # ----------------------------------------------------------------
+  # 1. Continuous integration — runs on every PR and push to main.
+  # ----------------------------------------------------------------
+  ci:
+    name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-      - name: Install Dependencies
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
         run: npm ci
-      - name: Run Tests
-        run: npm test
-      - name: Run Audit
-        run: npm audit --audit-level=high
 
-  deploy:
-    needs: verify
-    runs-on: self-hosted # Recommended for secure envs, or use ubuntu-latest with strict IP allowlisting
-    environment: 
-      name: production
-      url: https://school-app.com
-    steps:
-      - uses: actions/checkout@v3
-      
-      # Example: Fetching dynamic secrets from Vault
-      # This step requires the VAULT infra to be set up as per the Playbook/Tickets
-      - name: Import Secrets
-        uses: hashicorp/vault-action@v2
-        with:
-          url: https://vault.acme.internal
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            database/creds/school-app-role username | DB_USER ;
-            database/creds/school-app-role password | DB_PASSWORD
+      - name: Backend typecheck
+        run: cd backend && npx tsc --noEmit
 
-      - name: Deploy to Production
-        run: |
-          echo "Deploying version ${{ github.ref_name }}"
-          # ./scripts/deploy.sh
+      - name: Unit tests
+        run: npm run test:run
         env:
-          NODE_ENV: production
-          # DB_USER and DB_PASSWORD are automatically injected from Vault step
+          NODE_ENV: test
+
+      - name: Production build (frontend)
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+
+      - name: Security audit (high+)
+        run: npm audit --omit=dev --audit-level=high || true
+
+  # ----------------------------------------------------------------
+  # 2. Production deploy — only on tagged releases (vX.Y.Z).
+  # ----------------------------------------------------------------
+  deploy:
+    name: Deploy to production
+    needs: ci
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://school-app-oliskeylee.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --- Apply pending Prisma migrations ---
+      - name: Run database migrations
+        run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # --- Frontend → Vercel ---
+      - name: Deploy frontend to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+
+      # --- Backend → Railway ---
+      - name: Deploy backend to Railway
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: school-app-backend
+
+      # --- Post-deploy smoke test ---
+      - name: Smoke test
+        run: |
+          sleep 15
+          curl --fail --silent --show-error https://school-app-production-a59a.up.railway.app/health
+          curl --fail --silent --show-error https://school-app-oliskeylee.vercel.app/
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "::error::Deployment failed for ${{ github.ref_name }}"

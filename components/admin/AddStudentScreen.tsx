@@ -5,7 +5,7 @@ import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as Camer
 import { Student, Department } from '../../types';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
-import { SUBJECTS_LIST } from '../../constants';
+import { SUBJECTS_LIST, DEFAULT_STANDARD_CLASSES, getFormattedClassName } from '../../constants';
 
 import { createUserAccount, generateUsername, generatePassword, sendVerificationEmail, checkEmailExists } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
@@ -129,7 +129,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [fullName, setFullName] = useState('');
     const [gender, setGender] = useState('');
     const [birthday, setBirthday] = useState('');
-    const [selectedBusId, setSelectedBusId] = useState<string | null>(studentToEdit?.schoolBusId || null);
+    const [selectedBusId, setSelectedBusId] = useState<string | null>((studentToEdit as any)?.schoolBusId || null);
     const [buses, setBuses] = useState<any[]>([]); // State to store fetched buses
     const [loadingBuses, setLoadingBuses] = useState(true);
     const [department, setDepartment] = useState<Department | ''>('');
@@ -178,10 +178,58 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         return standardFiltered.map(s => s.name).sort();
     }, [curriculumType]);
 
-    const availableClasses = useMemo(() => {
+    const isTeacherRole = useMemo(() => {
+        const r = String(profile?.role || '').toUpperCase();
+        return r === 'TEACHER';
+    }, [profile?.role]);
+
+    const branchScopedClasses = useMemo(() => {
         if (!selectedBranchId) return allClasses;
         return allClasses.filter(cls => cls.branch_id === selectedBranchId || cls.branch_id === null);
     }, [allClasses, selectedBranchId]);
+
+    // Admins see ALL 16 standard academic levels in the dropdown — even ones with no class
+    // record yet. For those, we emit a placeholder id (`__create__:grade:section:branch`)
+    // and materialize a real class record on submit. Teachers keep the assigned-only view.
+    const availableClasses = useMemo(() => {
+        if (isTeacherRole) return branchScopedClasses;
+
+        const branchId = selectedBranchId || null;
+        const existingByKey = new Map<string, any>();
+        branchScopedClasses.forEach(cls => {
+            const key = `${cls.grade}:${cls.section || 'A'}`;
+            existingByKey.set(key, cls);
+        });
+
+        const merged: any[] = [];
+        DEFAULT_STANDARD_CLASSES.forEach(level => {
+            const key = `${level.grade}:${level.section}`;
+            const existing = existingByKey.get(key);
+            if (existing) {
+                merged.push(existing);
+            } else {
+                merged.push({
+                    id: `__create__:${level.grade}:${level.section}:${branchId || ''}`,
+                    name: level.name,
+                    grade: level.grade,
+                    section: level.section,
+                    branch_id: branchId,
+                    studentCount: 0,
+                    _pendingCreate: true,
+                });
+            }
+        });
+
+        // Append extra sections (e.g. SSS 1-B) that exist but aren't in the standard list.
+        branchScopedClasses.forEach(cls => {
+            const key = `${cls.grade}:${cls.section || 'A'}`;
+            if (!DEFAULT_STANDARD_CLASSES.some(l => `${l.grade}:${l.section}` === key)) {
+                merged.push(cls);
+            }
+        });
+
+        return merged;
+    }, [branchScopedClasses, selectedBranchId, isTeacherRole]);
 
     const grade = useMemo(() => {
         if (selectedClassIds.length === 0) return 0;
@@ -313,7 +361,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
     useEffect(() => {
         if (studentToEdit) {
-            setSelectedImage(studentToEdit.avatarUrl);
+            setSelectedImage(studentToEdit.avatarUrl || (studentToEdit as any).avatar_url || null);
             setFullName(studentToEdit.name || studentToEdit.full_name || '');
             
             // Format DOB for HTML date input (YYYY-MM-DD)
@@ -423,6 +471,37 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         }
 
         try {
+            // Materialize any "__create__" placeholder class ids into real Class records
+            // so the admin can enroll into a standard academic level that didn't exist yet.
+            const resolvedClassIds: string[] = [];
+            for (const cid of selectedClassIds) {
+                if (typeof cid === 'string' && cid.startsWith('__create__:')) {
+                    const [, gradeStr, sectionStr, branchStr] = cid.split(':');
+                    const gradeNum = Number(gradeStr);
+                    const sectionVal = sectionStr || 'A';
+                    const levelDef = DEFAULT_STANDARD_CLASSES.find(l => l.grade === gradeNum && l.section === sectionVal);
+                    try {
+                        const created = await api.createClass({
+                            name: levelDef?.name || getFormattedClassName(gradeNum, sectionVal, true),
+                            grade: gradeNum,
+                            section: sectionVal,
+                            school_id: schoolId,
+                            branch_id: branchStr || selectedBranchId || null,
+                        });
+                        if (created?.id) resolvedClassIds.push(created.id);
+                    } catch (createErr: any) {
+                        console.error('Failed to auto-create class', cid, createErr);
+                        toast.error(`Could not create ${levelDef?.name || 'class'}: ${createErr.message || 'unknown error'}`);
+                        setIsLoading(false);
+                        return;
+                    }
+                } else {
+                    resolvedClassIds.push(cid);
+                }
+            }
+            // Use resolved ids from this point on
+            const selectedClassIdsForSubmit = resolvedClassIds;
+
             const avatarUrl = selectedImage || `https://i.pravatar.cc/150?u=${fullName.replace(' ', '')}`;
             const [firstName, ...lastNameParts] = fullName.split(' ');
             const lastName = lastNameParts.join(' ') || '.';
@@ -438,8 +517,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 branch_id: selectedBranchId,
                 admission_number: admissionNumber,
                 section,
-                class_id: selectedClassIds[0],
-                selectedClassIds,
+                class_id: selectedClassIdsForSubmit[0],
+                selectedClassIds: selectedClassIdsForSubmit,
                 department,
                 curriculum_type: curriculumType,
                 school_id: schoolId,
@@ -478,7 +557,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 } as any);
 
                 // Sync Enrollments
-                await api.syncStudentClasses(studentToEdit.id, selectedClassIds);
+                await api.syncStudentClasses(studentToEdit.id, selectedClassIdsForSubmit);
 
                 // Guardian Update
                 if (!showNewParentForm && selectedParentId) {

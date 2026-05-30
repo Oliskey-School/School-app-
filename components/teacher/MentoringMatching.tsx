@@ -40,7 +40,7 @@ const MentoringMatching: React.FC = () => {
         try {
             setLoading(true);
             // Fetch all teachers and my mentoring matches from backend
-            const result = await api.getMentoringData();
+            const result = await api.getMentoringData(profile?.id || '');
             if (result) {
                 setTeachers(result.teachers || []);
                 setMyMatches(result.myMatches || []);
@@ -59,7 +59,7 @@ const MentoringMatching: React.FC = () => {
         }
 
         try {
-            await api.requestMentor(selectedTeacher, subjectArea);
+            await api.requestMentor(String(selectedTeacher), { subject_area: subjectArea });
             toast.success('Mentoring request sent successfully!');
             setSelectedTeacher(0);
             setSubjectArea('');

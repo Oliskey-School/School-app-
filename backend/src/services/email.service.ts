@@ -205,6 +205,61 @@ export class EmailService {
     }
 
     /**
+     * Notifies the user's CURRENT email that an email-change has been requested.
+     * Sent before the change is finalized so the account owner can react if it wasn't them.
+     */
+    static async sendEmailChangeSecurityAlert(
+        oldEmail: string,
+        newEmail: string,
+        fullName: string
+    ): Promise<void> {
+        try {
+            const transport = await initTransporter();
+
+            const info = await transport.sendMail({
+                from: '"Oliskey School Management" <no-reply@oliskey.com>',
+                to: oldEmail,
+                subject: 'Security Alert: Email change requested on your account',
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px;">
+                        <div style="text-align: center; margin-bottom: 24px;">
+                            <h1 style="color: #4f46e5; font-size: 24px; margin: 0;">Oliskey</h1>
+                        </div>
+                        <h2 style="color: #1f2937; margin-bottom: 16px;">Hello ${fullName},</h2>
+                        <p style="color: #4b5563; line-height: 1.6;">
+                            We received a request to change the email on your Oliskey account from
+                            <strong>${oldEmail}</strong> to <strong>${newEmail}</strong>.
+                        </p>
+                        <p style="color: #4b5563; line-height: 1.6;">
+                            A 6-digit confirmation code has been sent to the new address. The change will only
+                            take effect once that code is entered and verified.
+                        </p>
+                        <div style="margin: 24px 0; padding: 16px; background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 6px;">
+                            <p style="color: #991b1b; font-size: 14px; margin: 0;">
+                                <strong>Didn't request this?</strong> Someone may be trying to take over your account.
+                                Please change your password immediately and contact your school administrator.
+                            </p>
+                        </div>
+                        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                        <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+                            This is an automated security notification from Oliskey.
+                        </p>
+                    </div>
+                `
+            });
+
+            if (!process.env.SMTP_USER) {
+                console.log(`✅ Security alert email sent to ${oldEmail}! Preview: ${nodemailer.getTestMessageUrl(info)}`);
+            } else {
+                console.log(`✅ Security alert email sent to: ${oldEmail}`);
+            }
+        } catch (error) {
+            // Do not throw — security alert failure must not block the email-change flow
+            console.error('Security alert email sending failed:', error);
+        }
+    }
+
+    /**
      * Sends login credentials to a new user (parent, teacher, etc.)
      */
     static async sendCredentialsEmail(

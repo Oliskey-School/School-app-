@@ -12,7 +12,9 @@ import {
     XCircleIcon, 
     CheckCircleIcon, 
     ChevronDownIcon,
-    SUBJECTS_LIST
+    SUBJECTS_LIST,
+    DEFAULT_STANDARD_CLASSES,
+    getFormattedClassName
 } from '../../constants';
 import { Teacher } from '../../types';
 import { api } from '../../lib/api';
@@ -199,19 +201,36 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
             // Fetch Classes - Always fetch all classes across all branches for Admin visibility
             const cData = await api.getClasses(schoolId, 'all', true);
-            if (cData) {
-                // Better unique names: include branch info if name is duplicated
-                const processedClasses = cData.map((c: any) => ({
+            {
+                const processedClasses = (cData || []).map((c: any) => ({
                     id: c.id,
-                    displayName: cData.filter((d: any) => d.name === c.name).length > 1 && c.branch 
-                        ? `${c.name} (${c.branch.name})` 
+                    grade: c.grade,
+                    section: c.section || 'A',
+                    displayName: (cData || []).filter((d: any) => d.name === c.name).length > 1 && c.branch
+                        ? `${c.name} (${c.branch.name})`
                         : c.name
                 }));
 
-                const uniqueNames = Array.from(new Set(processedClasses.map((d: any) => d.displayName)));
-                setValidClasses(uniqueNames);
                 const map: Record<string, string> = {};
                 processedClasses.forEach((c: any) => { map[c.displayName] = c.id; });
+
+                // Admin: also expose all 16 standard academic levels even when no class
+                // record exists for them yet. Use a `__create__:grade:section` placeholder id;
+                // it will be materialized on submit.
+                const realKeys = new Set(processedClasses.map((p: any) => `${p.grade}:${p.section}`));
+                DEFAULT_STANDARD_CLASSES.forEach(level => {
+                    const key = `${level.grade}:${level.section}`;
+                    if (!realKeys.has(key) && !map[level.name]) {
+                        map[level.name] = `__create__:${level.grade}:${level.section}:`;
+                    }
+                });
+
+                const allNames = [
+                    ...DEFAULT_STANDARD_CLASSES.map(l => l.name),
+                    ...processedClasses.map((p: any) => p.displayName).filter((n: string) => !DEFAULT_STANDARD_CLASSES.some(l => l.name === n))
+                ];
+                const uniqueNames = Array.from(new Set(allNames));
+                setValidClasses(uniqueNames);
                 setClassIdMap(map);
             }
 
@@ -325,7 +344,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
                 try {
                     const uploadResult = await api.uploadFile('teacher-documents', filePath, avatarFile);
-                    avatarUrl = 'publicUrl' in uploadResult ? uploadResult.publicUrl : uploadResult.url;
+                    avatarUrl = (uploadResult.publicUrl || (uploadResult as any).url);
                 } catch (uploadError) {
                     console.error("Failed to upload avatar:", uploadError);
                 }
@@ -346,14 +365,38 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                         else { folder = 'degree'; dbField = 'degree_certificate'; }
 
                         const uploadResult = await api.uploadFile('teacher-documents', `temp/${folder}/${fileName}`, file);
-                        if (dbField) complianceDocs[dbField] = 'publicUrl' in uploadResult ? uploadResult.publicUrl : uploadResult.url;
+                        if (dbField) complianceDocs[dbField] = (uploadResult.publicUrl || (uploadResult as any).url);
                     } catch (err) { console.error("Doc upload failed:", err); }
                 }
             }
 
             // Link each class to each subject for now to ensure availability
             const classSubjectLinks: any[] = [];
-            const classIds = classes.map(c => classIdMap[c]).filter(Boolean);
+            // Resolve any "__create__" placeholder ids by materializing the missing Class records
+            const updatedClassIdMap: Record<string, string> = { ...classIdMap };
+            for (const className of classes) {
+                const cid = updatedClassIdMap[className];
+                if (typeof cid === 'string' && cid.startsWith('__create__:')) {
+                    const [, gradeStr, sectionStr] = cid.split(':');
+                    const gradeNum = Number(gradeStr);
+                    const sectionVal = sectionStr || 'A';
+                    const levelDef = DEFAULT_STANDARD_CLASSES.find(l => l.grade === gradeNum && l.section === sectionVal);
+                    try {
+                        const created = await api.createClass({
+                            name: levelDef?.name || getFormattedClassName(gradeNum, sectionVal, true),
+                            grade: gradeNum,
+                            section: sectionVal,
+                            school_id: schoolId,
+                            branch_id: branchId || null,
+                        });
+                        if (created?.id) updatedClassIdMap[className] = created.id;
+                    } catch (createErr: any) {
+                        console.error('Failed to auto-create class', className, createErr);
+                        toast.error(`Could not create ${className}: ${createErr.message || 'unknown error'}`);
+                    }
+                }
+            }
+            const classIds = classes.map(c => updatedClassIdMap[c]).filter(id => id && !id.startsWith('__create__'));
             
             // Create missing subjects if any
             const updatedSubjectIdMap = { ...subjectIdMap };

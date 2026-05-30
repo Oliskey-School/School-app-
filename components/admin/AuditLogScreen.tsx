@@ -70,7 +70,7 @@ const AuditLogScreen: React.FC = () => {
   };
 
   const mapActionToType = (action: string): AuditLogActionType => {
-    const a = action.toLowerCase();
+    const a = (action || '').toLowerCase();
     if (a.includes('login')) return 'login';
     if (a.includes('logout')) return 'logout';
     if (a.includes('insert')) return 'create';
@@ -96,19 +96,19 @@ const AuditLogScreen: React.FC = () => {
               <li key={log.id} className="relative flex items-start space-x-4">
                 {/* Icon Circle */}
                 <div className="z-10 flex-shrink-0 w-14 h-14 bg-white rounded-full flex items-center justify-center border-4 border-gray-100 shadow-sm">
-                  {actionIcons[mapActionToType(log.action)]}
+                  {actionIcons[mapActionToType(log.action || log.action_type)]}
                 </div>
 
                 {/* Log Details */}
                 <div className="flex-grow pt-1">
                   <div className="flex items-center space-x-2">
-                    <img src={log.profiles?.avatar_url || 'https://via.placeholder.com/32'} alt={log.profiles?.name} className="w-6 h-6 rounded-full border border-gray-200" />
-                    <p className="font-semibold text-gray-800">{log.profiles?.name || 'System User'}</p>
+                    <img src={log.profiles?.avatar_url || 'https://via.placeholder.com/32'} alt={log.profiles?.name || log.user_email} className="w-6 h-6 rounded-full border border-gray-200" />
+                    <p className="font-semibold text-gray-800">{log.profiles?.name || log.user_email || 'System User'}</p>
                   </div>
                   <p className="text-sm text-gray-600 mt-1">
-                    <span className="font-bold text-gray-700">{log.action}:</span> {log.table_name} record {log.record_id}
+                    <span className="font-bold text-gray-700">{log.action || log.action_type}:</span> {log.table_name || log.resource_type} record {log.record_id || log.resource_id}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">{formatDistanceToNow(log.created_at)}</p>
+                  <p className="text-xs text-gray-400 mt-1">{formatDistanceToNow(new Date(log.created_at || log.performed_at || Date.now()))}</p>
                 </div>
               </li>
             ))}

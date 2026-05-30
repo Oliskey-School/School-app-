@@ -18,7 +18,7 @@ export class CustomReportService {
     }
 
     static async deleteSavedReport(schoolId: string, id: string) {
-        return prisma.savedReport.delete({
+        return prisma.savedReport.deleteMany({
             where: { id, school_id: schoolId }
         });
     }
@@ -335,7 +335,7 @@ export class HealthService {
     }
     static async deleteHealthLog(id: string, schoolId: string) {
         // @ts-ignore
-        return prisma.healthLog.delete({
+        return prisma.healthLog.deleteMany({
             where: { id, school_id: schoolId }
         });
     }

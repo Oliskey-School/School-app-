@@ -109,7 +109,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                 {subjectInfo?.curriculum_type || 'Nigerian'} Curriculum
               </span>
               <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                {student?.class_name || 'Classroom'}
+                {(student as any)?.class_name || 'Classroom'}
               </span>
             </div>
             <h3 className="text-3xl font-black">{subjectName}</h3>
@@ -177,7 +177,7 @@ const ClassroomScreen: React.FC<ClassroomScreenProps> = ({ subjectName, navigate
                         <p className="text-sm text-gray-600 mt-2 line-clamp-2">{notice.content}</p>
                         <div className="mt-3 flex items-center text-[10px] font-black text-gray-400 uppercase tracking-widest gap-2">
                           <ClockIcon className="w-3 h-3" />
-                          {new Date(notice.timestamp || notice.created_at || '').toLocaleDateString()}
+                          {new Date(notice.timestamp || (notice as any).created_at || '').toLocaleDateString()}
                         </div>
                       </div>
                     ))}

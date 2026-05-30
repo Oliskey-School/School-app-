@@ -5,7 +5,23 @@ import prisma from '../config/database';
 export const createPaymentPlan = async (req: AuthRequest, res: Response) => {
     try {
         const { fee_id, student_id, total_amount, installment_count, frequency, status } = req.body;
-        
+
+        if (!fee_id || typeof fee_id !== 'string') {
+            return res.status(400).json({ message: 'fee_id is required' });
+        }
+        if (!student_id || typeof student_id !== 'string') {
+            return res.status(400).json({ message: 'student_id is required' });
+        }
+        if (typeof total_amount !== 'number' || total_amount <= 0) {
+            return res.status(400).json({ message: 'total_amount must be a positive number' });
+        }
+        if (!Number.isInteger(installment_count) || installment_count < 1) {
+            return res.status(400).json({ message: 'installment_count must be a positive integer' });
+        }
+        if (!frequency || !['weekly', 'monthly', 'termly'].includes(frequency)) {
+            return res.status(400).json({ message: 'frequency must be one of: weekly, monthly, termly' });
+        }
+
         const plan = await prisma.paymentPlan.create({
             data: {
                 fee_id,
@@ -16,7 +32,7 @@ export const createPaymentPlan = async (req: AuthRequest, res: Response) => {
                 status: status || 'active'
             }
         });
-        
+
         res.status(201).json(plan);
     } catch (error: any) {
         console.error('Error creating payment plan:', error);

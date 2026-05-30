@@ -158,7 +158,7 @@ const AcademicsTab = ({ student, navigateTo, schoolId, currentBranchId }: { stud
             setLoading(true);
             // 1. Fetch Assignments
             const assignmentsData = await api.getAssignments(schoolId || '', {
-                classId: student.current_class_id || undefined
+                classId: (student as any).current_class_id || undefined
             });
 
             if (assignmentsData) {

@@ -3,6 +3,11 @@ import authRoutes from './auth.routes';
 import onboardingRoutes from './onboarding.routes';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
+import {
+    getSchoolDocuments, getExternalIntegrations, getThirdPartyApps, getAppInstallations,
+    getTeacherSalaries, getBudgets, getPtaMeetings, getAccessibilitySettings,
+    getPayslips, getPaymentTransactions, getLeaveRequestsTop, getEmptyList, getArrears
+} from '../controllers/misc.controller';
 import userRoutes from './user.routes';
 import schoolRoutes from './school.routes';
 import inviteRoutes from './invite.routes';
@@ -152,13 +157,36 @@ router.use('/versions', versionRoutes);
 router.use('/id-cards', idCardRoutes);
 router.use('/store', storeRoutes);
 router.use('/vendors', vendorRoutes);
-router.use('/', offlineChannelRoutes);
-router.get('/parent-children', authenticate, ParentController.getParentChildren);
+router.use('/maintenance', maintenanceRoutes);
 
-// 🚨 DEBUG ROUTES: Only for testing
+// Tenant-scoped read endpoints consumed by the admin UI via api.from(...)
+router.get('/school-documents', authenticate, requireTenant, getSchoolDocuments);
+router.get('/external-integrations', authenticate, requireTenant, getExternalIntegrations);
+router.get('/third-party-apps', authenticate, getThirdPartyApps);
+router.get('/app-installations', authenticate, requireTenant, getAppInstallations);
+router.get('/teacher-salaries', authenticate, requireTenant, getTeacherSalaries);
+router.get('/payroll/budgets', authenticate, requireTenant, getBudgets);
+router.get('/community/pta-meetings', authenticate, requireTenant, getPtaMeetings);
+router.get('/accessibility-settings', authenticate, getAccessibilitySettings);
+router.get('/payslips', authenticate, requireTenant, getPayslips);
+router.get('/payment-transactions', authenticate, requireTenant, getPaymentTransactions);
+router.get('/leave-requests', authenticate, requireTenant, getLeaveRequestsTop);
+router.get('/leave-balances', authenticate, requireTenant, getEmptyList);
+router.get('/scholarships', authenticate, requireTenant, getEmptyList);
+router.get('/scholarship-applications', authenticate, requireTenant, getEmptyList);
+router.get('/scholarship-recipients', authenticate, requireTenant, getEmptyList);
+router.get('/id-verification-requests', authenticate, requireTenant, getEmptyList);
+router.get('/arrears', authenticate, requireTenant, getArrears);
+router.get('/sponsorships', authenticate, requireTenant, getEmptyList);
+router.get('/sponsorship-requests', authenticate, requireTenant, getEmptyList);
+// 🚨 DEBUG ROUTES: Only for testing — must be mounted BEFORE the offline-channel
+// catch-all at '/', otherwise its authenticate middleware blocks /debug requests.
 if (process.env.NODE_ENV !== 'production') {
     router.use('/debug', debugRoutes);
 }
+
+router.use('/', offlineChannelRoutes);
+router.get('/parent-children', authenticate, ParentController.getParentChildren);
 
 router.use('/', inviteRoutes);
 

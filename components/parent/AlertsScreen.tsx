@@ -67,7 +67,7 @@ const AlertsScreen: React.FC<AlertsScreenProps> = ({ navigateTo }) => {
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read
     if (!notification.isRead) {
-      await api.markNotificationRead(notification.id);
+      await api.markNotificationsRead([notification.id]);
       setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
     }
 

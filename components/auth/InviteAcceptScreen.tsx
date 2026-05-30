@@ -70,26 +70,26 @@ const InviteAcceptScreen: React.FC = () => {
                     throw new Error(tokenParams.get('error_description')?.replace(/\+/g, ' ') || 'Invite link error');
                 }
 
-                // If no token in URL, check localStorage
-                const localToken = localStorage.getItem('auth_token');
+                // If no token in URL, check sessionStorage (tab-scoped)
+                const localToken = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
                 const tokenToUse = accessToken || localToken;
 
                 if (!tokenToUse) {
                     throw new Error('No valid tokens found. The invite link may have expired.');
                 }
 
-                // 2. Set the session (local token storage)
+                // 2. Set the session (tab-scoped token storage)
                 setMessage('Verifying your invitation...');
                 if (accessToken) {
-                    localStorage.setItem('auth_token', accessToken);
+                    sessionStorage.setItem('auth_token', accessToken);
                 }
                 if (refreshToken) {
-                    localStorage.setItem('auth_refresh_token', refreshToken);
+                    sessionStorage.setItem('auth_refresh_token', refreshToken);
                 }
 
                 // 3. Call the backend to generate school_generated_id
                 setMessage('Generating your school ID...');
-                const currentToken = localStorage.getItem('auth_token');
+                const currentToken = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
                 if (!currentToken) throw new Error('Session could not be established.');
 
                 const data: any = await api.post('/invite/complete', {}, {

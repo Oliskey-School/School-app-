@@ -41,7 +41,7 @@ const VideoLessonScreen: React.FC<VideoLessonScreenProps> = ({ lessonId, navigat
         const fetchLesson = async () => {
             try {
                 setLoading(true);
-                const data = await api.getResourceById(lessonId);
+                const data = await api.getResourceById(String(lessonId));
 
                 if (data) {
                     const mappedLesson: VideoLesson = {
@@ -60,7 +60,7 @@ const VideoLessonScreen: React.FC<VideoLessonScreenProps> = ({ lessonId, navigat
 
                     // Fetch related resources (Same subject)
                     if (data.subject) {
-                        const related = await api.getRelatedResources(data.subject, lessonId);
+                        const related = await api.getRelatedResources(data.subject, String(lessonId));
                         if (related) {
                             setRelatedResources(related.map((r: any) => ({
                                 id: r.id,

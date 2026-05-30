@@ -86,10 +86,28 @@ export default defineConfig(({ mode }) => {
       minify: 'esbuild',
       cssCodeSplit: true,
       reportCompressedSize: false,
-      chunkSizeWarningLimit: 3000,
+      chunkSizeWarningLimit: 1000,
+      sourcemap: false,
       rollupOptions: {
         output: {
-          // Simplified output for stability
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            // Heavy PDF / canvas libs — isolate so they only load on report-card screens
+            if (id.includes('jspdf') || id.includes('html2pdf') || id.includes('html2canvas')) return 'pdf';
+            // Charting
+            if (id.includes('recharts') || id.includes('d3-')) return 'charts';
+            // Date / forms / animation utilities
+            if (id.includes('framer-motion')) return 'motion';
+            if (id.includes('date-fns')) return 'date-utils';
+            // React core stays in its own chunk to maximize cache hits
+            if (id.includes('react-dom') || id.includes('react/') || id.includes('scheduler')) return 'react-vendor';
+            // Supabase + auth
+            if (id.includes('@supabase')) return 'supabase';
+            // QR + crypto
+            if (id.includes('qrcode') || id.includes('html5-qrcode')) return 'qr';
+            // Default: all other node_modules into a single 'vendor' chunk
+            return 'vendor';
+          },
         },
       },
     },

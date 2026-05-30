@@ -27,18 +27,19 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
     const [isLinking, setIsLinking] = useState(false);
 
     const loadChildren = async () => {
-        if (!parent.id) return;
+        if (!parent?.id) return;
         try {
             const data = await fetchChildrenForParent(parent.id);
-            setChildren(data);
+            setChildren(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Error fetching children:', err);
         }
     };
 
     React.useEffect(() => {
+        if (!parent?.id) return;
         loadChildren();
-    }, [parent.id]);
+    }, [parent?.id]);
 
     useAutoSync(['students', 'parents'], () => {
         console.log('🔄 [ParentDetail] Real-time auto-sync triggered');
@@ -121,6 +122,10 @@ const ParentDetailAdminView: React.FC<ParentDetailAdminViewProps> = ({ parent, n
             setShowDeleteModal(false);
         }
     };
+
+    if (!parent) {
+        return <div className="p-6 text-center text-sm text-gray-500">No parent selected. Open this view from a parent row in the Parent List.</div>;
+    }
 
     return (
         <div className="flex flex-col h-full bg-gray-50">

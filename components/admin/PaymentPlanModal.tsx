@@ -31,6 +31,10 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     const installmentAmount = Math.round((totalAmount / installmentCount) * 100) / 100;
 
     const handleCreate = async () => {
+        if (!feeId || !studentId || !totalAmount || totalAmount <= 0) {
+            toast.error('Missing fee or student context for this plan.');
+            return;
+        }
         setCreating(true);
         try {
             const plan = await createPaymentPlan({

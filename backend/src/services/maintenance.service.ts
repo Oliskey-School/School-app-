@@ -53,7 +53,7 @@ export class MaintenanceService {
     }
 
     static async deleteTicket(schoolId: string, id: string) {
-        const result = await (prisma as any).maintenanceTicket.delete({
+        const result = await (prisma as any).maintenanceTicket.deleteMany({
             where: { id, school_id: schoolId }
         });
 

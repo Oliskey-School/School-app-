@@ -17,8 +17,8 @@ const app = express();
 app.set('trust proxy', 1);
 
 // 1. CORS - MUST BE FIRST for proper preflight handling
-// ... existing origins ...
-const allowedOrigins = [
+// Strict allowlist. Extra origins can be supplied via CORS_ALLOWED_ORIGINS (comma-separated).
+const STATIC_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:5173',
@@ -29,22 +29,30 @@ const allowedOrigins = [
     'https://school-app-production-a59a.up.railway.app'
 ];
 
+const ENV_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+const allowedOrigins = new Set([...STATIC_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS]);
+const IS_PROD = process.env.NODE_ENV === 'production';
+
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl)
+        // Same-origin / curl / native mobile: no Origin header
         if (!origin) return callback(null, true);
-        
-        const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-        const isVercel = origin.includes('vercel.app');
-        const isRailway = origin.includes('railway.app');
 
-        if (isLocal || isVercel || isRailway || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            // Fallback for debugging, but still allow in dev
-            console.log(`📡 [CORS] Request from unknown origin: ${origin}`);
-            callback(null, true); 
+        if (allowedOrigins.has(origin)) {
+            return callback(null, true);
         }
+
+        // In non-prod, allow localhost variants for developer flexibility
+        if (!IS_PROD && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+            return callback(null, true);
+        }
+
+        console.warn(`📡 [CORS] Blocked origin: ${origin}`);
+        return callback(new Error(`Origin ${origin} is not allowed by CORS policy`));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-school-id', 'X-Branch-Id', 'x-branch-id', 'Accept', 'X-Requested-With', 'application-id', 'X-CSRF-Token'],
@@ -54,8 +62,17 @@ app.use(cors({
 
 // 2. Core Middlewares
 app.use(cookieParser(config.jwtSecret));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Default body limit: 2 MB. Upload routes that need more should mount their own multer/raw parser.
+const BODY_LIMIT = process.env.BODY_LIMIT || '2mb';
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ limit: BODY_LIMIT, extended: true }));
+
+// Guarantee req.body is always an object so handlers that read req.body.x
+// (e.g. branch scoping on DELETE/GET requests with no body) never crash.
+app.use((req, _res, next) => {
+    if (req.body == null) req.body = {};
+    next();
+});
 
 // Lead DevSecOps: Apply Anti-CSRF protection globally, except for refresh endpoint
 // to handle cross-site cookie blocking on mobile browsers.
@@ -84,59 +101,55 @@ app.use((req, res, next) => {
 app.use(csrfErrorHandler);
 
 // 3. Standardize URL: Remove trailing slash
-app.use((req, res, next) => {
-    // Early diagnostic for the problematic endpoint
-    if (req.url.includes('/api/auth/demo/login')) {
-        console.log(`🔌 [DIAGNOSTIC] Request to ${req.url} | Method: ${req.method} | IP: ${req.ip} | Origin: ${req.headers.origin}`);
-    }
-
+app.use((req, _res, next) => {
     if (req.url.length > 1 && req.url.endsWith('/')) {
         req.url = req.url.slice(0, -1);
     }
-
-    // Diagnostic for notifications
-    if (req.url.includes('/notifications')) {
-        console.log(`🔔 [DIAGNOSTIC-GLOBAL] ${req.method} ${req.url} from ${req.headers.origin || 'unknown'}`);
-    }
-    
     next();
 });
 
-// 4. Logging
-app.use(morgan('dev'));
+// 4. Logging — combined (Apache-style) in prod, dev format locally
+app.use(morgan(IS_PROD ? 'combined' : 'dev'));
 
 // 4. Security Headers
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
+            // scriptSrc intentionally strict: no 'unsafe-inline'. The SPA is served by Vercel,
+            // not this Express server, so CSP here protects API error pages / dev surfaces only.
+            scriptSrc: ["'self'"],
+            // styleSrc keeps 'unsafe-inline' for Tailwind's inline runtime styles and dynamicallySetInnerHTML <style> blocks.
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https://api.dicebear.com", "http://localhost:5000", "https://*.railway.app"],
-            connectSrc: ["'self'", "http://localhost:5000", "http://127.0.0.1:5000", "https://*.vercel.app", "https://*.railway.app"],
+            imgSrc: ["'self'", "data:", "https://api.dicebear.com", "https://*.railway.app", "https://*.supabase.co"],
+            connectSrc: ["'self'", "https://*.vercel.app", "https://*.railway.app", "https://*.supabase.co"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            upgradeInsecureRequests: IS_PROD ? [] : null,
         },
     },
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: IS_PROD ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+app.disable('x-powered-by');
 
-// 5. Global Rate Limiting
-const isProduction = process.env.NODE_ENV === 'production';
+// 5. Global Rate Limiting — tunable via env (defaults: 600 req / 15 min / IP)
+const GLOBAL_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_MAX || '600', 10);
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 5000, // Increased from 200 to 5000 to handle background polling and dashboard load
+    limit: GLOBAL_RATE_LIMIT,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
     skip: (req) => {
-        // Skip rate limiting in development, for preflight OPTIONS requests, and for localhost
-        if (process.env.NODE_ENV !== 'production') return true;
+        if (!IS_PROD) return true;
         if (req.method === 'OPTIONS') return true;
-        
-        // Robust localhost check
         const ip = req.ip || req.connection.remoteAddress;
         if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') return true;
-        
         return false;
     },
 });
@@ -158,23 +171,6 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // 7. API Routes - Standardized Mount
 app.use('/api', routes);
 
-// [DEBUG] Catch-all for POST to see if it reaches here
-app.post('*path', (req, res, next) => {
-    console.log(`📡 [DEBUG-POST] Unmatched POST to ${req.url}`);
-    next();
-});
-
-// Fallback for non-prefixed calls (legacy or proxy compatibility)
-app.use((req, res, next) => {
-    // If it's not an API call and not already handled, it's a 404
-    if (!req.url.startsWith('/api')) {
-        // But we allow health checks without prefix
-        if (req.url === '/' || req.url === '/health') return next();
-    }
-    // Otherwise, we don't allow non-prefixed API calls anymore for clarity
-    next();
-});
-
 // 8. 404 Handler
 app.use((req, res) => {
     res.status(404).json({ 
@@ -184,16 +180,19 @@ app.use((req, res) => {
 });
 
 // 9. Global Error Handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('🔥 [Global Error]');
-    console.error('   Path:', req.path);
-    console.error('   Method:', req.method);
-    console.error('   Error Name:', err.name);
-    console.error('   Error Message:', err.message);
-    
-    res.status(err.status || 500).json({
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const status = err.status || 500;
+    console.error(`[Global Error] ${req.method} ${req.path} → ${status}: ${err.name}: ${err.message}`);
+    if (!IS_PROD && err.stack) console.error(err.stack);
+
+    // Don't leak internal error messages in production
+    const message = IS_PROD && status >= 500
+        ? 'An unexpected error occurred.'
+        : (err.message || 'An unexpected error occurred.');
+
+    res.status(status).json({
         error: err.name || 'Internal Server Error',
-        message: err.message || 'An unexpected error occurred.',
+        message,
         path: req.path
     });
 });

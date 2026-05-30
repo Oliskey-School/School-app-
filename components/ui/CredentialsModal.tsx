@@ -262,10 +262,10 @@ Visit: https://your-school-app.com/login
           <div className="bg-yellow-50 rounded-lg p-3 sm:p-4 border-l-4 border-yellow-400">
             <p className="text-sm text-yellow-800 font-semibold">⏰ Important:</p>
             <p className="text-xs text-yellow-700 mt-1">
-              A confirmation email has been sent. The user must confirm their email within <strong>7 days</strong> to activate the account.
+              These credentials are <strong>active immediately</strong> — the user can log in right now using the username or email above with the password shown.
             </p>
             <p className="text-xs text-yellow-700 mt-1">
-              If emails are not received, please use the generated credentials after admin verification.
+              Ask the user to change their password after first login.
             </p>
           </div>
 

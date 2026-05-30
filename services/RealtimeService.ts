@@ -42,7 +42,7 @@ class RealtimeService {
 
         try {
             // Guard: Check if we have an auth token before polling
-            if (typeof window !== 'undefined' && !localStorage.getItem('auth_token')) {
+            if (typeof window !== 'undefined' && !sessionStorage.getItem('auth_token') && !localStorage.getItem('auth_token')) {
                 return;
             }
 

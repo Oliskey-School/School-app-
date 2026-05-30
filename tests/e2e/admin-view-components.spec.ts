@@ -78,6 +78,18 @@ test('every admin viewComponent renders and its API responds without 5xx', async
         const apiBefore = allApiHits.length;
         const errBefore = pageErrors.length;
 
+        // Some views (counselorDashboard, superAdmin) render their own full-screen
+        // dashboard and unmount AdminDashboard, removing window.ADMIN_NAVIGATE.
+        // Re-bootstrap the admin session if the helper is gone.
+        const helperPresent = await page.evaluate(() => typeof (window as any).ADMIN_NAVIGATE === 'function').catch(() => false);
+        if (!helperPresent) {
+            try {
+                await loginAsDemoAdmin(page, baseURL!);
+            } catch (e) {
+                // If re-login fails, record and continue
+            }
+        }
+
         const navResult = await page.evaluate(async (v) => {
             try {
                 (window as any).ADMIN_NAVIGATE(v, v, {});

@@ -63,9 +63,9 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
     const [academicPerformance, setAcademicPerformance] = useState<any[]>([]);
     const printRef = useRef<HTMLDivElement>(null);
 
-    const term = student.reportCards?.[0]?.term || "First Term";
-    const session = student.reportCards?.[0]?.session || "2025/2026";
-    const branchInfo = branches?.find(b => b.id === student.branchId);
+    const term = student?.reportCards?.[0]?.term || "First Term";
+    const session = student?.reportCards?.[0]?.session || "2025/2026";
+    const branchInfo = branches?.find(b => b.id === student?.branchId);
 
     // Resolution order: Props -> Auth State -> User Metadata -> Student object
     const schoolId = propSchoolId ||
@@ -81,6 +81,7 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
     });
 
     const fetchMergedData = async () => {
+        if (!student?.id) return;
         const targetId = schoolId || currentSchool?.id || user?.user_metadata?.school_id || (student as any).school_id;
         if (!targetId) return;
 
@@ -148,8 +149,9 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
     };
 
     useEffect(() => {
+        if (!student?.id) return;
         fetchMergedData();
-    }, [student.id, term, session, schoolId]);
+    }, [student?.id, term, session, schoolId]);
 
     const handlePrint = () => {
         window.print();

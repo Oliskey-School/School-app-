@@ -63,7 +63,7 @@ export default function TeacherProfileEnhanced({ teacherId }: TeacherProfileProp
         setUploading(true);
         try {
             const res = await api.uploadFile('teacher-documents', `${teacherId}/${field}`, file);
-            const publicUrl = ('publicUrl' in res) ? res.publicUrl : res.url;
+            const publicUrl = res.publicUrl || (res as any).url;
 
             await api.updateTeacher(teacherId, { [field]: publicUrl });
 

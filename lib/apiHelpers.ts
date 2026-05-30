@@ -7,10 +7,41 @@ export function isDemoMode(): boolean {
 }
 
 /**
- * Get the auth token for backend API calls
+ * Get the auth token for backend API calls.
+ * Tokens are stored in sessionStorage so each browser tab has an independent
+ * session — logging out of one tab does not log out the others.
+ * One-time migration: if a token exists in localStorage from a prior version,
+ * move it into this tab's sessionStorage.
  */
 export function getAuthToken(): string | null {
-    return localStorage.getItem('auth_token');
+    let token = sessionStorage.getItem('auth_token');
+    if (!token) {
+        const legacy = localStorage.getItem('auth_token');
+        if (legacy) {
+            sessionStorage.setItem('auth_token', legacy);
+            const legacyRefresh = localStorage.getItem('auth_refresh_token');
+            if (legacyRefresh) sessionStorage.setItem('auth_refresh_token', legacyRefresh);
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_refresh_token');
+            token = legacy;
+        }
+    }
+    return token;
+}
+
+/** Persist the auth token (and optional refresh token) for this tab only. */
+export function setAuthTokens(token: string, refreshToken?: string) {
+    sessionStorage.setItem('auth_token', token);
+    if (refreshToken) sessionStorage.setItem('auth_refresh_token', refreshToken);
+}
+
+/** Clear auth tokens for THIS TAB only. Other tabs retain their sessions. */
+export function clearAuthTokens() {
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_refresh_token');
+    // Also clear any legacy localStorage tokens defensively.
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_refresh_token');
 }
 
 /**

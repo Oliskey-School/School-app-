@@ -118,7 +118,7 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
                 avatar_url: avatar,
                 phone,
                 subjects // Passed to api.updateTeacher via ProfileContext
-            });
+            } as any);
 
             toast.success('Profile updated successfully!');
 

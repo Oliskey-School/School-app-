@@ -7,9 +7,9 @@ export const getTickets = async (req: AuthRequest, res: Response) => {
         const schoolId = req.user.school_id;
         const { branchId } = req.query;
         const result = await MaintenanceService.getTickets(schoolId, branchId as string);
-        res.json({ data: result, error: null });
+        res.json(Array.isArray(result) ? result : []);
     } catch (error: any) {
-        res.status(500).json({ data: null, error: error.message });
+        res.status(500).json({ message: error.message });
     }
 };
 

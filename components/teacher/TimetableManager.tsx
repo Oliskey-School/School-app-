@@ -31,11 +31,11 @@ const TimetableManager: React.FC = () => {
         if (!profile?.school_id) return;
         try {
             setLoading(true);
-            const data = await api.getTimetable({
-                teacherId: profile.id,
-                schoolId: profile.school_id,
-                branchId: profile.branch_id && profile.branch_id !== 'all' ? profile.branch_id : undefined
-            });
+            const data = await api.getTimetable(
+                profile.branch_id && profile.branch_id !== 'all' ? profile.branch_id : undefined,
+                undefined,
+                profile.id
+            );
 
             setTimetable(data || []);
         } catch (error: any) {

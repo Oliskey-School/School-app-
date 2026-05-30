@@ -42,6 +42,7 @@ export default function ResultsEntryEnhanced({
     const [exam, setExam] = useState<any>(null);
     const { toast } = useToast();
     const fetchExamDetails = useCallback(async () => {
+        if (!examId) return;
         try {
             const data = await api.getExam(examId);
             setExam(data);
@@ -61,6 +62,7 @@ export default function ResultsEntryEnhanced({
     }, [examId]);
 
     const fetchStudents = useCallback(async () => {
+        if (!examId || !classId) return;
         setLoading(true);
         try {
             // Get curricula to find the one matching selectedCurriculum

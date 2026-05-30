@@ -5,7 +5,7 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const createFee = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await FeeService.createFee(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -35,7 +35,7 @@ export const getFeeById = async (req: AuthRequest, res: Response) => {
 
 export const updateFee = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await FeeService.updateFee(req.user.school_id, branchId, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -49,7 +49,7 @@ export const updateFeeStatus = async (req: AuthRequest, res: Response) => {
         if (!status) {
             return res.status(400).json({ message: 'Status is required' });
         }
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await FeeService.updateFeeStatus(req.user.school_id, branchId, req.params.id as string, status);
         res.json(result);
     } catch (error: any) {
@@ -60,7 +60,7 @@ export const updateFeeStatus = async (req: AuthRequest, res: Response) => {
 
 export const deleteFee = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         await FeeService.deleteFee(req.user.school_id, branchId, req.params.id as string);
         res.status(204).send();
     } catch (error: any) {
@@ -74,7 +74,7 @@ export const bulkFetchFees = async (req: AuthRequest, res: Response) => {
         if (!Array.isArray(studentIds)) {
             return res.status(400).json({ message: 'studentIds array is required' });
         }
-        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await FeeService.getFeesByStudentIds(req.user.school_id, branchId, studentIds as string[], statusList as string[]);
         res.json(result);
     } catch (error: any) {
@@ -103,7 +103,7 @@ export const getFinancialAnalytics = async (req: AuthRequest, res: Response) => 
 
 export const recordPayment = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, (req.body.branchId || req.body.branch_id));
+        const branchId = getEffectiveBranchId(req.user, (req.body?.branchId || req.body?.branch_id));
         const result = await FeeService.recordPayment(req.user.school_id, branchId, req.body);
         res.status(200).json(result);
     } catch (error: any) {
@@ -144,7 +144,7 @@ export const getBudgets = async (req: AuthRequest, res: Response) => {
 
 export const createBudget = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, (req.body.branchId || req.body.branch_id));
+        const branchId = getEffectiveBranchId(req.user, (req.body?.branchId || req.body?.branch_id));
         const result = await FeeService.createBudget(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {

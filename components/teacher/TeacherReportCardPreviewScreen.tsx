@@ -72,7 +72,7 @@ const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenPro
         const studentClass = getFormattedClassName(student.grade, student.section);
         const hasAssignment = teacherClasses?.some(c => 
             getFormattedClassName(c.grade, c.section) === studentClass && 
-            (c.subject === subjectName || c.subject?.name === subjectName)
+            (c.subject === subjectName || (c.subject as any)?.name === subjectName)
         );
 
         return isAssigned || hasAssignment;

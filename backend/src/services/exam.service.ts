@@ -113,7 +113,7 @@ export class ExamService {
             whereClause.branch_id = branchId;
         }
 
-        await prisma.exam.delete({
+        await prisma.exam.deleteMany({
             where: whereClause
         });
 

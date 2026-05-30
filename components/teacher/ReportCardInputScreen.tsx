@@ -69,7 +69,7 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     const [existingReport, setExistingReport] = useState<ReportCard | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    const storageKey = `report_card_draft_${student.id}_${term}_${session}`;
+    const storageKey = `report_card_draft_${student?.id}_${term}_${session}`;
 
     // Load draft from localStorage on mount (after initial data load)
     const loadDraft = useCallback(() => {
@@ -186,14 +186,16 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
     }, []);
 
     useEffect(() => {
+        if (!student?.id) return;
         loadData();
-    }, [student.id, term, refreshTrigger]);
+    }, [student?.id, term, refreshTrigger]);
 
     // Auto-sync
     useAutoSync(['report_card_records', 'report_cards'], () => setRefreshTrigger(prev => prev + 1));
 
 
     const loadData = async () => {
+        if (!student?.id) { setLoading(false); return; }
         setLoading(true);
         try {
             // 1. Fetch Existing Report
@@ -403,6 +405,10 @@ const ReportCardInputScreen: React.FC<ReportCardInputScreenProps> = ({ student, 
             processSave('Draft');
         }
     };
+
+    if (!student) {
+        return <div className="p-6 text-center text-sm text-gray-500">No student selected. Open this view from a student's report flow.</div>;
+    }
 
     return (
         <div className="p-4 bg-gray-100 font-serif min-h-screen">

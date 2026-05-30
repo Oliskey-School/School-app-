@@ -306,20 +306,38 @@ export class StudentService {
                 }
             }
 
-            // 6. Save Documents (if any)
-            if (documentUrls && typeof documentUrls === 'object') {
+            // 6. Save Documents (if any) — guarded: StudentDocument model may not exist in current Prisma client
+            const txAny = tx as any;
+            if (documentUrls && typeof documentUrls === 'object' && txAny.studentDocument?.create) {
                 for (const [type, url] of Object.entries(documentUrls)) {
                     if (url) {
-                        await tx.studentDocument.create({
-                            data: {
-                                student_id: student.id,
-                                school_id: schoolId,
-                                name: `${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()}`,
-                                url: String(url),
-                                type: type,
-                                updated_at: new Date()
-                            }
+                        try {
+                            await txAny.studentDocument.create({
+                                data: {
+                                    student_id: student.id,
+                                    school_id: schoolId,
+                                    name: `${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()}`,
+                                    url: String(url),
+                                    type: type,
+                                    updated_at: new Date()
+                                }
+                            });
+                        } catch (docErr: any) {
+                            console.warn('[StudentService] Non-critical: could not save student document:', docErr.message);
+                        }
+                    }
+                }
+            } else if (documentUrls && typeof documentUrls === 'object' && Object.values(documentUrls).some(Boolean)) {
+                // Fallback: persist passport photo to student.avatar_url so the upload is not lost
+                const passport = (documentUrls as any).passportPhoto;
+                if (passport) {
+                    try {
+                        await tx.student.update({
+                            where: { id: student.id },
+                            data: { avatar_url: String(passport) }
                         });
+                    } catch (avErr: any) {
+                        console.warn('[StudentService] Non-critical: could not persist passport photo:', avErr.message);
                     }
                 }
             }
@@ -558,12 +576,23 @@ export class StudentService {
                 throw new Error('Student record to update not found.');
             }
 
+            const studentUpdates: any = {};
+            const allowedFields = [
+                'full_name', 'email', 'grade', 'section', 'department', 'gender',
+                'dob', 'address', 'admission_number', 'curriculum_type', 'avatar_url',
+                'status', 'attendance_status', 'branch_id', 'school_generated_id'
+            ];
+            for (const field of allowedFields) {
+                if (updates[field] !== undefined) {
+                    studentUpdates[field] = field === 'dob' && updates.dob
+                        ? new Date(updates.dob)
+                        : updates[field];
+                }
+            }
+
             const updatedStudent = await tx.student.update({
                 where: { id: student.id },
-                data: {
-                    ...studentUpdates, // Keep existing student updates
-                    ...(updates.schoolBusId !== undefined && { schoolBusId: updates.schoolBusId }) // Add schoolBusId if provided
-                }
+                data: studentUpdates
             });
 
             // Sync back to User record for universal persistence

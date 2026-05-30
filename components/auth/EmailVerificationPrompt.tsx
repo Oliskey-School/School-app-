@@ -1,17 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Mail, AlertTriangle, Send, CheckCircle, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mail, AlertTriangle, Send, CheckCircle, X, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 
+type Step = 'idle' | 'editing' | 'awaiting_code';
+
 const EmailVerificationPrompt: React.FC = () => {
-    const { user, signIn } = useAuth();
+    const { user, signIn, refreshUser } = useAuth();
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
+    const [step, setStep] = useState<Step>('idle');
     const [newEmail, setNewEmail] = useState(user?.email || '');
+    const [pendingEmail, setPendingEmail] = useState<string>('');
+    const [code, setCode] = useState('');
     const [updating, setUpdating] = useState(false);
+    const [verifying, setVerifying] = useState(false);
     const [isDismissed, setIsDismissed] = useState(false);
+    const codeInputRef = useRef<HTMLInputElement | null>(null);
 
     // Initial check for dismissal state from localStorage
     useEffect(() => {
@@ -28,6 +34,12 @@ const EmailVerificationPrompt: React.FC = () => {
         }
     }, []);
 
+    useEffect(() => {
+        if (step === 'awaiting_code') {
+            setTimeout(() => codeInputRef.current?.focus(), 50);
+        }
+    }, [step]);
+
     const handleDismiss = () => {
         localStorage.setItem('email_verification_prompt_dismissed_at', Date.now().toString());
         setIsDismissed(true);
@@ -42,28 +54,29 @@ const EmailVerificationPrompt: React.FC = () => {
 
     if (isVerified || !user || isDismissed) return null;
 
+    const isFakeDemo = (user?.id?.startsWith('d3300') || user?.user_metadata?.is_demo) &&
+        (user?.email?.endsWith('@demo.com') || user?.email?.endsWith('@school.com'));
+
     const handleResend = async () => {
         setSending(true);
         try {
-            // Check if it's a mock demo user or a real user
-            // We only bypass if the email is a FAKE demo email
-            const isFakeDemo = (user?.id?.startsWith('d3300') || user?.user_metadata?.is_demo) &&
-                (user?.email?.endsWith('@demo.com') || user?.email?.endsWith('@school.com'));
-
             if (isFakeDemo) {
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise(r => setTimeout(r, 600));
                 setSent(true);
-                toast.success('Verification email sent! (Demo Mode)');
+                setPendingEmail(user.email!);
+                setStep('awaiting_code');
+                toast.success('Verification code sent! (Demo Mode — use any 6 digits)');
                 setSending(false);
                 return;
             }
 
-            // Call Backend API instead of local supabase client for better reliability (uses service role)
             const result = await api.resendVerification(user.email!);
 
             if (result.success) {
                 setSent(true);
-                toast.success('Verification email sent! Please check your inbox.');
+                setPendingEmail(user.email!);
+                setStep('awaiting_code');
+                toast.success(`Verification code sent to ${user.email}. Enter it below.`);
             } else {
                 toast.error(result.message || 'Failed to send verification email');
             }
@@ -76,40 +89,37 @@ const EmailVerificationPrompt: React.FC = () => {
     };
 
     const handleUpdateEmail = async () => {
-        if (!newEmail || newEmail === user.email) {
-            setIsEditing(false);
+        const trimmed = newEmail.trim().toLowerCase();
+        if (!trimmed) {
+            toast.error('Please enter an email address.');
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+            toast.error('Please enter a valid email address.');
+            return;
+        }
+        if (trimmed === user.email?.toLowerCase()) {
+            setStep('idle');
             return;
         }
 
         setUpdating(true);
         try {
-            const isFakeDemo = (user?.id?.startsWith('d3300') || user?.user_metadata?.is_demo) &&
-                (user?.email?.endsWith('@demo.com') || user?.email?.endsWith('@school.com'));
-
             if (isFakeDemo) {
-                await new Promise(r => setTimeout(r, 1000));
-                toast.success('Email updated successfully! (Demo Mode)');
-                setIsEditing(false);
-                if (signIn) {
-                    await signIn(user.user_metadata?.role?.toLowerCase(), {
-                        ...user.user_metadata,
-                        email: newEmail,
-                        userId: user.id
-                    });
-                }
+                await new Promise(r => setTimeout(r, 800));
+                setPendingEmail(trimmed);
+                setStep('awaiting_code');
+                toast.success(`Code sent to ${trimmed}! (Demo Mode — use any 6 digits)`);
                 setUpdating(false);
                 return;
             }
 
-            // Real email update via Backend API (uses service role)
-            const result = await api.updateEmail({ userId: user.id, newEmail });
+            const result = await api.updateEmail({ userId: user.id, newEmail: trimmed });
 
             if (result.success) {
-                toast.success(`Verification email sent to ${newEmail}! Please check your inbox.`);
-                setIsEditing(false);
-                // Refresh user profile after update to see latest email_verified status
-                const { refreshUser } = useAuth();
-                if (refreshUser) refreshUser();
+                setPendingEmail(result.email || trimmed);
+                setStep('awaiting_code');
+                toast.success(`A 6-digit code was sent to ${trimmed}. Enter it below.`);
             } else {
                 toast.error(result.message || 'Failed to update email');
             }
@@ -120,6 +130,50 @@ const EmailVerificationPrompt: React.FC = () => {
             setUpdating(false);
         }
     };
+
+    const handleVerifyCode = async () => {
+        const cleaned = code.replace(/\D/g, '');
+        if (cleaned.length !== 6) {
+            toast.error('Please enter the 6-digit code.');
+            return;
+        }
+
+        setVerifying(true);
+        try {
+            if (isFakeDemo) {
+                await new Promise(r => setTimeout(r, 600));
+                toast.success('Email verified! (Demo Mode)');
+                if (signIn && user.user_metadata?.role) {
+                    await signIn(user.user_metadata.role.toLowerCase(), {
+                        ...user.user_metadata,
+                        email: pendingEmail || user.email,
+                        email_verified: true,
+                        userId: user.id
+                    });
+                }
+                setVerifying(false);
+                return;
+            }
+
+            const result = await api.verifyEmailChange({ userId: user.id, code: cleaned });
+
+            if (result.success) {
+                toast.success('Email verified successfully!');
+                setStep('idle');
+                setCode('');
+                if (refreshUser) await refreshUser();
+            } else {
+                toast.error(result.message || 'Invalid code. Please try again.');
+            }
+        } catch (error: any) {
+            console.error('Error verifying code:', error);
+            toast.error(error.message || 'Invalid or expired code.');
+        } finally {
+            setVerifying(false);
+        }
+    };
+
+    const displayEmail = pendingEmail || user.email;
 
     return (
         <div className="w-full mb-6 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 backdrop-blur-md p-4 sm:p-6 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/5 group/banner">
@@ -147,7 +201,7 @@ const EmailVerificationPrompt: React.FC = () => {
                         </h3>
                     </div>
 
-                    {isEditing ? (
+                    {step === 'editing' ? (
                         <div className="flex flex-col sm:flex-row items-center gap-2 mt-2">
                             <input
                                 type="email"
@@ -162,12 +216,12 @@ const EmailVerificationPrompt: React.FC = () => {
                                     disabled={updating}
                                     className="flex-1 sm:flex-none px-4 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors disabled:opacity-50"
                                 >
-                                    {updating ? 'Saving...' : 'Save'}
+                                    {updating ? 'Sending...' : 'Send Code'}
                                 </button>
                                 <button
                                     onClick={() => {
-                                        setIsEditing(false);
-                                        setNewEmail(user.email);
+                                        setStep('idle');
+                                        setNewEmail(user.email || '');
                                     }}
                                     className="flex-1 sm:flex-none px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                                 >
@@ -177,9 +231,9 @@ const EmailVerificationPrompt: React.FC = () => {
                         </div>
                     ) : (
                         <p className="text-sm text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed">
-                            Your email <span className="font-semibold text-amber-600 dark:text-amber-400">{user.email}</span> is not yet confirmed.
+                            Your email <span className="font-semibold text-amber-600 dark:text-amber-400">{displayEmail}</span> is not yet confirmed.
                             <button
-                                onClick={() => setIsEditing(true)}
+                                onClick={() => { setStep('editing'); setNewEmail(user.email || ''); }}
                                 className="ml-2 text-xs font-bold text-amber-600 hover:text-amber-700 underline underline-offset-2"
                             >
                                 Edit Email
@@ -193,21 +247,21 @@ const EmailVerificationPrompt: React.FC = () => {
                 <div className="flex-shrink-0 flex flex-col items-center gap-2">
                     <button
                         onClick={handleResend}
-                        disabled={sending || sent || isEditing}
+                        disabled={sending || step === 'editing'}
                         className={`group relative flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 shadow-md transform hover:-translate-y-0.5 active:translate-y-0 active:scale-95 ${sent
-                            ? 'bg-green-500 text-white cursor-default'
+                            ? 'bg-green-500 text-white'
                             : 'bg-amber-500 hover:bg-amber-600 text-white'
                             } disabled:opacity-70`}
                     >
-                        {sent ? (
-                            <>
-                                <CheckCircle className="w-4 h-4 transition-transform group-hover:scale-110" />
-                                <span>Sent</span>
-                            </>
-                        ) : sending ? (
+                        {sending ? (
                             <>
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                 <span>Sending...</span>
+                            </>
+                        ) : sent ? (
+                            <>
+                                <CheckCircle className="w-4 h-4 transition-transform group-hover:scale-110" />
+                                <span>Resend Code</span>
                             </>
                         ) : (
                             <>
@@ -217,13 +271,69 @@ const EmailVerificationPrompt: React.FC = () => {
                         )}
                     </button>
 
-                    {sent && (
+                    {sent && step !== 'awaiting_code' && (
                         <p className="mt-2 text-[10px] text-center text-green-600 font-medium animate-fade-in">
                             Check spam if not found
                         </p>
                     )}
                 </div>
             </div>
+
+            {step === 'awaiting_code' && (
+                <div className="relative mt-5 pt-5 border-t border-amber-500/20 animate-fade-in">
+                    <div className="flex items-start gap-3 mb-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                            <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div className="flex-grow">
+                            <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                                Enter the 6-digit code we sent to{' '}
+                                <span className="text-emerald-600 dark:text-emerald-400">{displayEmail}</span>
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                The code expires in 10 minutes. Check your spam folder if you don't see it.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center gap-2">
+                        <input
+                            ref={codeInputRef}
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            value={code}
+                            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleVerifyCode(); }}
+                            placeholder="••••••"
+                            className="w-full sm:w-48 px-4 py-2 rounded-lg border border-emerald-500/30 bg-white/70 dark:bg-gray-800/70 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center text-lg font-mono tracking-[0.5em] font-bold text-gray-800 dark:text-white"
+                        />
+                        <button
+                            onClick={handleVerifyCode}
+                            disabled={verifying || code.length !== 6}
+                            className="w-full sm:w-auto px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {verifying ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    <span>Verifying...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span>Verify & Activate</span>
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => { setStep('idle'); setCode(''); }}
+                            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <style dangerouslySetInnerHTML={{
                 __html: `

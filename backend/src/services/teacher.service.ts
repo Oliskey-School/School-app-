@@ -44,7 +44,9 @@ export class TeacherService {
                         data: { role: Role.TEACHER }
                     });
                 }
-                // Update existing user details if needed
+                // Update existing user details if needed.
+                // Admin-created teachers are activated immediately so they can sign in
+                // with the generated credentials — no email confirmation gate.
                 await tx.user.update({
                     where: { id: user.id },
                     data: {
@@ -52,7 +54,10 @@ export class TeacherService {
                         school_id: schoolId,
                         branch_id: branchId || user.branch_id,
                         avatar_url: avatar_url || user.avatar_url,
-                        school_generated_id: schoolGeneratedId || user.school_generated_id
+                        school_generated_id: schoolGeneratedId || user.school_generated_id,
+                        email_verified: true,
+                        password_hash: hashedPassword,
+                        initial_password: generatedPassword
                     }
                 });
             } else {

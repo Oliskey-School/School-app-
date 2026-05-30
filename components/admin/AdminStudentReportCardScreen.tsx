@@ -182,12 +182,16 @@ interface AdminStudentReportCardScreenProps {
 
 const AdminStudentReportCardScreen: React.FC<AdminStudentReportCardScreenProps> = ({ student }) => {
     const { currentSchool } = useAuth();
-    const availableReports = useMemo(() => student.reportCards || [], [student]);
+    const availableReports = useMemo(() => student?.reportCards || [], [student]);
     const [activeTerm, setActiveTerm] = useState(availableReports[0]?.term || null);
 
     const handlePrint = () => {
         window.print();
     };
+
+    if (!student) {
+      return <div className="p-6 text-center text-sm text-gray-500">No student selected. Open this view from a student row.</div>;
+    }
 
     if (availableReports.length === 0) {
       return (

@@ -55,15 +55,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
+        // Tab-scoped tokens — only this tab's session is cleared.
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_refresh_token');
+        sessionStorage.removeItem('is_demo_mode');
+        sessionStorage.removeItem('school');
+        sessionStorage.removeItem('demo_school_id');
+        sessionStorage.removeItem('active_dashboard_role');
+        // Defensive: clear any legacy localStorage tokens left behind.
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_refresh_token');
         localStorage.removeItem('last_school_id');
         localStorage.removeItem('cached_user_profile');
         localStorage.removeItem('selected_branch_id');
-        sessionStorage.removeItem('is_demo_mode');
-        sessionStorage.removeItem('school');
-        sessionStorage.removeItem('demo_school_id');
-        sessionStorage.removeItem('active_dashboard_role');
 
         React.startTransition(() => {
             setUser(null);
@@ -83,7 +87,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const initializeAuth = async () => {
-        const token = localStorage.getItem('auth_token');
+        // Read tab-scoped token; one-time migration from any legacy localStorage token.
+        let token = sessionStorage.getItem('auth_token');
+        if (!token) {
+            const legacy = localStorage.getItem('auth_token');
+            if (legacy) {
+                sessionStorage.setItem('auth_token', legacy);
+                const legacyRefresh = localStorage.getItem('auth_refresh_token');
+                if (legacyRefresh) sessionStorage.setItem('auth_refresh_token', legacyRefresh);
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('auth_refresh_token');
+                token = legacy;
+            }
+        }
 
         if (!token) {
             localStorage.removeItem('cached_user_profile');
@@ -234,10 +250,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('is_demo_mode');
 
         if (userData.token) {
-            localStorage.setItem('auth_token', userData.token);
+            sessionStorage.setItem('auth_token', userData.token);
         }
         if (userData.refreshToken) {
-            localStorage.setItem('auth_refresh_token', userData.refreshToken);
+            sessionStorage.setItem('auth_refresh_token', userData.refreshToken);
         }
 
         // Resiliently extract user object and demo status
@@ -297,7 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const result = await api.switchSchool(user.id, schoolId);
 
             if (result.token) {
-                localStorage.setItem('auth_token', result.token);
+                sessionStorage.setItem('auth_token', result.token);
                 // No more window.location.reload(); to avoid full page reloads
                 // Instead, we'll refresh the user profile to get the new school context
                 await initializeAuth();
@@ -330,8 +346,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 sessionStorage.removeItem('demo_role_token');
 
                 // Explicitly set the token first to ensure any immediate API calls have it
-                localStorage.setItem('auth_token', token);
-                if (refreshToken) localStorage.setItem('auth_refresh_token', refreshToken);
+                sessionStorage.setItem('auth_token', token);
+                if (refreshToken) sessionStorage.setItem('auth_refresh_token', refreshToken);
 
                 await signIn(dashType, { ...userData, token, refreshToken });
             }

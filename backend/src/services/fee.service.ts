@@ -293,7 +293,7 @@ export class FeeService {
     }
 
     static async deleteFee(schoolId: string, branchId: string | undefined, id: string) {
-        return await prisma.studentFee.delete({
+        return await prisma.studentFee.deleteMany({
             where: { id, school_id: schoolId }
         });
     }
@@ -310,7 +310,7 @@ export class FeeService {
     }
 
     static async deletePayment(schoolId: string, branchId: string | undefined, id: string) {
-        return await prisma.payment.delete({
+        return await prisma.payment.deleteMany({
             where: { id, school_id: schoolId }
         });
     }

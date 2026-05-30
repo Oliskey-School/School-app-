@@ -80,8 +80,7 @@ const VolunteerSignup: React.FC = () => {
 
     const handleSignup = async (opportunityId: number) => {
         try {
-            await api.volunteerSignup({
-                opportunity_id: opportunityId,
+            await api.volunteerSignup(String(opportunityId), {
                 parent_id: profile.id,
                 status: 'Pending'
             });
