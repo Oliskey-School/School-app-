@@ -185,6 +185,7 @@ model User {
   is_active              Boolean                @default(true)
   school_generated_id    String?                @unique
   avatar_url             String?
+  phone                  String?
   two_factor_enabled     Boolean                @default(false)
   two_factor_secret      String?
   created_at             DateTime               @default(now())
