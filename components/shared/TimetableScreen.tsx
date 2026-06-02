@@ -244,7 +244,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full bg-white/50">
-                <div className={`animate-spin rounded-full h-10 w-10 border-4 border-gray-200 ${theme.accentColor.replace('text-', 'border-t-')}`}></div>
+                <div className={`animate-spin rounded-full h-10 w-10 border-4 border-gray-200 ${(theme.accentColor || theme.iconColor || 'text-gray-400').replace('text-', 'border-t-')}`}></div>
             </div>
         );
     }
@@ -273,7 +273,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             {/* Header */}
             <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-30 shadow-sm flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <div className={`${theme.bgColor.replace('bg-', 'bg-').replace('600', '100')} p-2 rounded-lg`}>
+                    <div className={`${(theme.bgColor ? theme.bgColor.replace('bg-', 'bg-').replace('600', '100') : (theme.activeNav?.split(' ')[0] || 'bg-gray-100'))} p-2 rounded-lg`}>
                         <CalendarIcon className={`w-6 h-6 ${theme.iconColor}`} />
                     </div>
                     <div>

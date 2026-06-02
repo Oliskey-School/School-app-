@@ -111,7 +111,10 @@ export class DemoSeederService {
             const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { code: true } });
             
             const schoolCode = school?.code?.toUpperCase() || 'OLISKEY';
-            const branchCode = branch?.code?.toUpperCase() || ipHash.substring(0, 8).toUpperCase();
+            // Use the branch's real code; the demo "virtual" branch has none, so fall
+            // back to a clean MAIN code rather than an opaque IP hash. This keeps the
+            // global ID readable: e.g. OLISKEY_MAIN_ADM_0001 (not OLISKEY_EFF8E7CA_...).
+            const branchCode = branch?.code?.toUpperCase() || 'MAIN';
 
             if (!this.cachedPasswordHash) {
                 this.cachedPasswordHash = await bcrypt.hash('password123', 10);
@@ -143,8 +146,14 @@ export class DemoSeederService {
             ];
 
             await prisma.$transaction(async (tx) => {
-                // 2a. Clean up old demo users with mismatched IDs (migration)
-                for (const u of demoUsers) {
+                // 2a. Clean up old demo users with mismatched IDs (migration).
+                // Covers primary roles AND the extra students, so a branch-code change
+                // (e.g. hash → MAIN) doesn't collide on the unique email.
+                const seedIdentities = [
+                    ...demoUsers.map(u => ({ email: u.email, id: u.id })),
+                    ...extraStudents.map(s => ({ email: s.email, id: getPersistenceId('STUDENT', s.index) })),
+                ];
+                for (const u of seedIdentities) {
                     const existing = await tx.user.findUnique({ where: { email: u.email } });
                     if (existing && existing.id !== u.id) {
                         await tx.user.delete({ where: { id: existing.id } });
@@ -559,7 +568,7 @@ export class DemoSeederService {
                         });
                     }
                 }
-            }, { timeout: 30000 });
+            }, { timeout: 120000, maxWait: 30000 });
 
             console.log(`✅ [Seeder] Sandbox for ${branchId} is populated with real-world data.`);
         } catch (err) {

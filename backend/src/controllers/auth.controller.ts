@@ -173,7 +173,9 @@ export const resendVerification = async (req: Request, res: Response) => {
 
 export const confirmEmail = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.body;
+        // Identity comes from the authenticated token, never the request body.
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
         const result = await AuthService.confirmEmail(userId);
         res.json(result);
     } catch (error: any) {
@@ -196,7 +198,10 @@ export const verifyEmail = async (req: Request, res: Response) => {
 
 export const updateEmail = async (req: Request, res: Response) => {
     try {
-        const { userId, newEmail } = req.body;
+        // Identity comes from the authenticated token, never the request body.
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        const { newEmail } = req.body;
         const result = await AuthService.updateEmail(userId, newEmail);
         res.json(result);
     } catch (error: any) {
@@ -207,9 +212,12 @@ export const updateEmail = async (req: Request, res: Response) => {
 
 export const verifyEmailChange = async (req: Request, res: Response) => {
     try {
-        const { userId, code } = req.body;
-        if (!userId || !code) {
-            return res.status(400).json({ message: 'userId and code are required' });
+        // Identity comes from the authenticated token, never the request body.
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        const { code } = req.body;
+        if (!code) {
+            return res.status(400).json({ message: 'code is required' });
         }
         const result = await AuthService.verifyEmailChange(userId, code);
 
@@ -225,7 +233,10 @@ export const verifyEmailChange = async (req: Request, res: Response) => {
 
 export const updateUsername = async (req: Request, res: Response) => {
     try {
-        const { userId, newUsername } = req.body;
+        // Identity comes from the authenticated token, never the request body.
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        const { newUsername } = req.body;
         const result = await AuthService.updateUsername(userId, newUsername);
         res.json(result);
     } catch (error: any) {
@@ -256,17 +267,18 @@ export const updatePassword = async (req: Request, res: Response) => {
 export const adminChangePassword = async (req: Request, res: Response) => {
     try {
         const { userId, newPassword } = req.body;
-        const adminId = (req as any).user?.id;
-        
+        const admin = (req as any).user;
+        const adminId = admin?.id;
+
         if (!userId || !newPassword) {
             return res.status(400).json({ message: 'userId and newPassword are required' });
         }
-        
+
         if (!adminId) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        const result = await AuthService.adminChangePassword(userId, newPassword, adminId);
+        const result = await AuthService.adminChangePassword(userId, newPassword, adminId, admin.school_id, admin.role);
         res.json(result);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
@@ -280,17 +292,18 @@ export const adminChangePassword = async (req: Request, res: Response) => {
 export const resetUserPassword = async (req: Request, res: Response) => {
     try {
         const { userId } = req.body;
-        const adminId = (req as any).user?.id;
-        
+        const admin = (req as any).user;
+        const adminId = admin?.id;
+
         if (!userId) {
             return res.status(400).json({ message: 'userId is required' });
         }
-        
+
         if (!adminId) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        const newPassword = await AuthService.resetUserPassword(userId);
+        const newPassword = await AuthService.resetUserPassword(userId, admin.school_id, admin.role);
         console.log(`[AUTH] Admin ${adminId} reset password for user ${userId}`);
         
         res.json({ 
@@ -305,8 +318,9 @@ export const resetUserPassword = async (req: Request, res: Response) => {
 
 export const getMemberships = async (req: Request, res: Response) => {
     try {
-        const userId = (req.params.userId || req.query.userId) as string;
-        if (!userId) throw new Error('userId is required');
+        // Only the authenticated user may list their own memberships (no cross-user IDOR).
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
         const memberships = await AuthService.getMemberships(userId);
         res.json(memberships);
     } catch (error: any) {
@@ -316,8 +330,12 @@ export const getMemberships = async (req: Request, res: Response) => {
 
 export const switchSchool = async (req: Request, res: Response) => {
     try {
-        const { userId, schoolId } = req.body;
-        if (!userId || !schoolId) throw new Error('userId and schoolId are required');
+        // Identity comes from the authenticated token, never the request body —
+        // otherwise any user could mint a session for another user's account.
+        const userId = (req as any).user?.id;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        const { schoolId } = req.body;
+        if (!schoolId) throw new Error('schoolId is required');
         const result = await AuthService.switchSchool(userId, schoolId);
         res.json({ 
             token: result.token, 

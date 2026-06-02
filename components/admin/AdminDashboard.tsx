@@ -77,6 +77,7 @@ const SchoolOnboardingScreen = lazyWithRetry(() => import('./SchoolOnboardingScr
 const CurriculumSettingsScreen = lazyWithRetry(() => import('./CurriculumSettingsScreen'));
 const StudentEnrollmentPage = lazyWithRetry(() => import('./StudentEnrollmentPage'));
 const ExamCandidateRegistration = lazyWithRetry(() => import('./ExamCandidateRegistration'));
+const BranchTransferScreen = lazyWithRetry(() => import('./BranchTransferScreen'));
 const UserAccountsScreen = lazyWithRetry(() => import('./UserAccountsScreen'));
 const PermissionSlips = lazyWithRetry(() => import('../shared/PermissionSlips'));
 const MentalHealthResources = lazyWithRetry(() => import('../shared/MentalHealthResources'));
@@ -350,6 +351,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         manageCurriculum: CurriculumSettingsScreen,
         enrollmentPage: StudentEnrollmentPage,
         exams: ExamCandidateRegistration,
+        branchTransfer: BranchTransferScreen,
         userAccounts: UserAccountsScreen,
         permissionSlips: PermissionSlips,
         mentalHealthResources: MentalHealthResources,

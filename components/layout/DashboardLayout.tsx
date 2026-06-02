@@ -10,6 +10,7 @@ import { X } from 'lucide-react';
 import { BranchSwitcher } from '../shared/BranchSwitcher';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { DEMO_ROLES_ORDER, DEMO_ACCOUNTS } from '../../lib/mockAuth';
+import RenewalBanner from '../shared/RenewalBanner';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -220,6 +221,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
                 <div className={`flex-1 overflow-y-auto overflow-x-hidden relative ${!hideHeader ? '-mt-8 sm:-mt-10 md:-mt-12 lg:-mt-16' : ''} ${!hidePadding ? 'pb-24 lg:pb-12' : 'pb-0'}`}>
                     <main className={`min-h-full ${!hideHeader ? 'pt-8 sm:pt-10 md:pt-12 lg:pt-16' : ''} ${!hidePadding ? 'px-4 sm:px-6 lg:px-8 max-w-7xl' : 'px-0 max-w-none'} mx-auto w-full`}>
+                        <RenewalBanner />
                         <div className="animate-slide-in-up w-full h-full">
                             {children}
                         </div>

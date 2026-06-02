@@ -594,12 +594,22 @@ export class AuthService {
     /**
      * Admin changes a user's password directly
      */
-    static async adminChangePassword(userId: string, newPassword: string, adminId: string) {
+    static async adminChangePassword(
+        userId: string,
+        newPassword: string,
+        adminId: string,
+        adminSchoolId?: string,
+        adminRole?: string
+    ) {
+        // Cross-tenant protection: a school admin may only act on users in their own
+        // school. SUPER_ADMIN (platform operator) is exempt.
+        await this.assertSameTenant(userId, adminSchoolId, adminRole);
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        
+
         await prisma.user.update({
             where: { id: userId },
-            data: { 
+            data: {
                 password_hash: hashedPassword,
                 initial_password: newPassword // Store for admin visibility
             }
@@ -614,19 +624,43 @@ export class AuthService {
     /**
      * Generate a new password for a user
      */
-    static async resetUserPassword(userId: string): Promise<string> {
+    static async resetUserPassword(userId: string, adminSchoolId?: string, adminRole?: string): Promise<string> {
+        // Cross-tenant protection (see adminChangePassword).
+        await this.assertSameTenant(userId, adminSchoolId, adminRole);
+
         const newPassword = this.generateRandomPassword();
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        
+
         await prisma.user.update({
             where: { id: userId },
-            data: { 
+            data: {
                 password_hash: hashedPassword,
                 initial_password: newPassword
             }
         });
 
         return newPassword;
+    }
+
+    /**
+     * Ensures the target user belongs to the acting admin's school.
+     * SUPER_ADMIN bypasses (platform-wide operator). Throws on violation.
+     */
+    private static async assertSameTenant(targetUserId: string, adminSchoolId?: string, adminRole?: string) {
+        if ((adminRole || '').toUpperCase() === 'SUPER_ADMIN') return;
+
+        if (!adminSchoolId) {
+            throw new Error('Access denied: missing tenant context');
+        }
+
+        const target = await prisma.user.findUnique({
+            where: { id: targetUserId },
+            select: { school_id: true }
+        });
+
+        if (!target || target.school_id !== adminSchoolId) {
+            throw new Error('Access denied: user belongs to a different school');
+        }
     }
 
     /**
@@ -900,11 +934,14 @@ export class AuthService {
             const school = await prisma.school.findUnique({ where: { id: this.DEMO_SCHOOL_ID }, select: { code: true } });
             const schoolCode = school?.code?.toUpperCase() || 'OLISKEY';
             
-            // IP-Based Session Isolation
+            // IP-Based Session Isolation (the branch id stays per-session for sandboxing,
+            // but the branch CODE shown in the global ID must be a clean, readable code —
+            // not an opaque IP hash. So all demo IDs read e.g. OLISKEY_MAIN_ADM_0001.
             const ipHash = crypto.createHash('sha256').update(ip).digest('hex').substring(0, 8);
             const virtualBranchId = `demo-v-${ipHash}`;
-            const virtualBranchName = `Demo Phone (${ipHash})`;
-            const branchCode = ipHash.toUpperCase();
+            // Name matches the branch code shown in IDs (OLISKEY_MAIN_...).
+            const virtualBranchName = 'MAIN';
+            const branchCode = 'MAIN';
 
             // Persistence ID pattern: SCHOOL_BRANCH_ROLE_NUMBER
             const roleCodes: Record<string, string> = { ADMIN: 'ADM', TEACHER: 'TCH', STUDENT: 'STU', PARENT: 'PAR' };
@@ -926,7 +963,7 @@ export class AuthService {
                 await prisma.$executeRaw`
                     INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
                     VALUES (${virtualBranchId}, ${virtualBranchName}, ${branchCode}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
-                    ON CONFLICT (id) DO UPDATE SET last_active_at = NOW(), updated_at = NOW()
+                    ON CONFLICT (id) DO UPDATE SET name = ${virtualBranchName}, code = ${branchCode}, last_active_at = NOW(), updated_at = NOW()
                 `;
 
                 await DemoSeederService.seedBranchData(this.DEMO_SCHOOL_ID, virtualBranchId, ipHash);

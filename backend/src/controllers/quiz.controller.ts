@@ -71,11 +71,26 @@ export const updateQuizStatus = async (req: AuthRequest, res: Response): Promise
 
 export const submitQuizResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        const { quiz_id, student_id } = req.body || {};
+        if (!quiz_id) {
+            res.status(400).json({ success: false, message: 'quiz_id is required' });
+            return;
+        }
+        if (!student_id) {
+            res.status(400).json({ success: false, message: 'student_id is required' });
+            return;
+        }
         const branchId = getEffectiveBranchId(req.user, req.body.branch_id || req.body.branchId);
         const result = await QuizService.submitQuizResult(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ success: false, message: error.message });
+        // Unknown quiz/student (e.g. a demo quiz that is not a persisted row) is a
+        // not-found condition, not a server error.
+        if (error?.code === 'P2003' || error?.code === 'P2025') {
+            res.status(404).json({ success: false, message: 'Quiz or student not found.' });
+            return;
+        }
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 

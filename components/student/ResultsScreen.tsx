@@ -254,7 +254,7 @@ const ResultsScreen: React.FC<ResultsScreenProps> = ({ studentId, student, schoo
             term: activeReportCard.term,
             session: activeReportCard.session || '2023/2024',
             status: 'Published',
-            academicRecords: (activeReportCard.academic_records || []).map((r: any) => ({
+            academicRecords: (Array.isArray(activeReportCard.academic_records) ? activeReportCard.academic_records : []).map((r: any) => ({
                 subject: r.subject,
                 test1: r.test1 || 0,
                 test2: r.test2 || 0,

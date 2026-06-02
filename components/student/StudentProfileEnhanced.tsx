@@ -368,9 +368,13 @@ export default function StudentProfileEnhanced({ studentId, student: initialStud
                                         <Download className="w-4 h-4 mr-2" />
                                         Download Transcript
                                     </Button>
-                                    <Button onClick={() => {
-                                        navigator.clipboard.writeText(window.location.href);
-                                        toast.success('Profile link copied to clipboard!');
+                                    <Button onClick={async () => {
+                                        try {
+                                            await navigator.clipboard.writeText(window.location.href);
+                                            toast.success('Profile link copied to clipboard!');
+                                        } catch {
+                                            toast.error('Could not copy link. Please copy it from the address bar.');
+                                        }
                                     }} className="w-full sm:w-auto bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm order-1 sm:order-2">
                                         <Share2 className="w-4 h-4 mr-2" />
                                         Share Profile

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { isDemoMode, backendFetch } from '../lib/database';
 import { ChevronDown, Building } from 'lucide-react';
@@ -13,43 +14,82 @@ interface BranchContextType {
     refreshBranches: () => Promise<void>;
     isLoading: boolean;
     canSwitchBranches: boolean;
+    /** Whether the "All Branches" option is allowed. False for multi-branch teachers
+     *  (session isolation — they operate in exactly one active branch at a time). */
+    allowAllOption: boolean;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
 
 export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, role, currentSchool, currentBranchId, loading: authLoading } = useAuth();
+    const queryClient = useQueryClient();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Derived state: Only Proprietors, SuperAdmins, and Main Admins can switch
+    // A teacher's authorized branches = their primary branch plus any extra
+    // branches the main admin explicitly assigned (allowed_branch_ids).
+    const teacherAuthorizedIds = React.useMemo(() => {
+        const extra = ((user as any)?.allowed_branch_ids as string[] | undefined) || [];
+        return [currentBranchId, ...extra].filter(Boolean) as string[];
+    }, [currentBranchId, user]);
+
+    const isMultiBranchTeacher =
+        role === DashboardType.Teacher && teacherAuthorizedIds.length >= 2;
+
+    // Derived state: Only Proprietors, SuperAdmins, Main Admins, Parents, and
+    // teachers explicitly assigned to multiple branches can switch.
     const canSwitchBranches =
         (role === DashboardType.Proprietor) ||
         (role === DashboardType.SuperAdmin) ||
         (role === DashboardType.Parent) || // Parents need to switch when switching children
-        (role === DashboardType.Admin && !currentBranchId);
+        (role === DashboardType.Admin && !currentBranchId) ||
+        isMultiBranchTeacher;
+
+    // Teachers are isolated to a single active branch at a time — no "All" view.
+    const allowAllOption = role !== DashboardType.Teacher;
 
     const refreshBranches = useCallback(async () => {
         if (!currentSchool) return;
 
         try {
             setIsLoading(true);
-            const data = await api.getBranches(currentSchool.id, 'all');
+            // Authorized branches for this user: all school branches for admins,
+            // primary + assigned branches for a multi-branch teacher / branch admin.
+            const data = await api.getAuthorizedBranches();
 
             if (data && data.length > 0) {
-                setBranches(data);
+                // Teachers only ever see/operate within their authorized branches.
+                const visible: Branch[] = role === DashboardType.Teacher
+                    ? data.filter((b: Branch) => teacherAuthorizedIds.includes(b.id))
+                    : data;
+
+                setBranches(visible);
 
                 const savedBranchId = localStorage.getItem('selected_branch_id');
                 const assignedBranchId = currentBranchId;
 
-                if (canSwitchBranches && (savedBranchId === 'all' || (!savedBranchId && !assignedBranchId))) {
+                if (role === DashboardType.Teacher) {
+                    // Never "All" for teachers — pick the saved branch if it is still
+                    // authorized, otherwise fall back to their primary branch.
+                    const desired = (savedBranchId && savedBranchId !== 'all' && teacherAuthorizedIds.includes(savedBranchId))
+                        ? savedBranchId
+                        : (assignedBranchId || '');
+                    const branchToSelect =
+                        visible.find((b: Branch) => b.id === desired) ||
+                        visible[0] ||
+                        null;
+                    setCurrentBranch(branchToSelect);
+                    // Persist a concrete branch so the X-Branch-Id header is always sent.
+                    if (branchToSelect) localStorage.setItem('selected_branch_id', branchToSelect.id);
+                } else if (canSwitchBranches && (savedBranchId === 'all' || (!savedBranchId && !assignedBranchId))) {
                     setCurrentBranch(null);
                 } else {
                     const branchToSelect =
-                        data.find((b: Branch) => b.id === savedBranchId) ||
-                        data.find((b: Branch) => b.id === assignedBranchId) ||
-                        data[0];
+                        visible.find((b: Branch) => b.id === savedBranchId) ||
+                        visible.find((b: Branch) => b.id === assignedBranchId) ||
+                        visible[0];
 
                     setCurrentBranch(branchToSelect);
                 }
@@ -64,7 +104,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } finally {
             setIsLoading(false);
         }
-    }, [currentSchool, currentBranchId, canSwitchBranches]);
+    }, [currentSchool, currentBranchId, canSwitchBranches, role, teacherAuthorizedIds]);
 
     useEffect(() => {
         if (authLoading) {
@@ -83,7 +123,8 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const switchBranch = async (branchId: string | null) => {
         try {
             if (branchId === null) {
-                if (!canSwitchBranches) {
+                // "All Branches" — not permitted for teachers (single active branch).
+                if (!canSwitchBranches || !allowAllOption) {
                     throw new Error("Unauthorized attempt to clear branch context.");
                 }
 
@@ -98,13 +139,16 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 setCurrentBranch(branch);
                 localStorage.setItem('selected_branch_id', branchId);
             }
+            // End-to-end: every screen's data must reflect the newly active branch.
+            // Invalidate all cached queries so they refetch with the new X-Branch-Id.
+            await queryClient.invalidateQueries();
         } catch (err: any) {
             toast.error(err.message);
         }
     };
 
     return (
-        <BranchContext.Provider value={{ currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches }}>
+        <BranchContext.Provider value={{ currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches, allowAllOption }}>
             {children}
         </BranchContext.Provider>
     );
@@ -123,7 +167,7 @@ export const useBranch = () => {
 // ==========================================
 
 export const BranchSwitcher: React.FC<{ align?: 'left' | 'right' }> = ({ align = 'left' }) => {
-    const { currentBranch, branches, switchBranch, canSwitchBranches, isLoading } = useBranch();
+    const { currentBranch, branches, switchBranch, canSwitchBranches, isLoading, allowAllOption } = useBranch();
     const [isOpen, setIsOpen] = useState(false);
 
     if (isLoading) return null;
@@ -152,20 +196,24 @@ export const BranchSwitcher: React.FC<{ align?: 'left' | 'right' }> = ({ align =
 
             {isOpen && (
                 <div className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2`}>
-                    <button
-                        onClick={() => {
-                            switchBranch(null);
-                            setIsOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${!currentBranch ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700'
-                            }`}
-                    >
-                        <span>All Branches</span>
-                        {!currentBranch && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
-                        )}
-                    </button>
-                    <div className="border-t my-1"></div>
+                    {allowAllOption && (
+                        <>
+                            <button
+                                onClick={() => {
+                                    switchBranch(null);
+                                    setIsOpen(false);
+                                }}
+                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between ${!currentBranch ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700'
+                                    }`}
+                            >
+                                <span>All Branches</span>
+                                {!currentBranch && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                                )}
+                            </button>
+                            <div className="border-t my-1"></div>
+                        </>
+                    )}
                     {branches.map((branch) => (
                         <button
                             key={branch.id}

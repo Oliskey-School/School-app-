@@ -40,7 +40,9 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 
 export const getChatContacts = async (req: AuthRequest, res: Response) => {
     try {
-        const { schoolId, studentId } = req.query;
+        // Fall back to the authenticated user's context when query params are absent.
+        const schoolId = (req.query.schoolId as string) || req.user?.school_id;
+        const studentId = (req.query.studentId as string) || req.user?.id;
         const contacts = await chatService.getChatContacts(schoolId as string, studentId as string);
         res.json(contacts);
     } catch (error: any) {
@@ -53,9 +55,15 @@ export const getOrCreateDirectChat = async (req: AuthRequest, res: Response) => 
         const { targetUserId, schoolId } = req.body;
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-        const room = await chatService.getOrCreateDirectChat(userId, targetUserId, schoolId);
+        if (!targetUserId) return res.status(400).json({ message: 'targetUserId is required' });
+        const room = await chatService.getOrCreateDirectChat(userId, targetUserId, schoolId || req.user?.school_id);
         res.json(room);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        // A non-existent participant (e.g. a demo contact that is not a real user)
+        // is a bad-request / not-found condition, not a server error.
+        if (error?.code === 'P2003' || error?.code === 'P2025') {
+            return res.status(404).json({ message: 'This contact is not available for chat yet.' });
+        }
+        res.status(400).json({ message: error.message || 'Could not start chat' });
     }
 };

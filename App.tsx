@@ -12,6 +12,7 @@ import { PushNotificationManager } from './lib/mobile/PushConfig';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
 import { useBranch } from './context/BranchContext';
 import { useAuth } from './context/AuthContext';
+import { useSubscriptionGate } from './hooks/useSubscriptionGate';
 import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { syncEngine } from './lib/syncEngine';
 import { lazyWithRetry } from './lib/lazyRetry';
@@ -34,6 +35,7 @@ const ContextualMarquee = lazyWithRetry(() => import('./components/shared/Contex
 const PWAInstallPrompt = lazyWithRetry(() => import('./components/shared/PWAInstallPrompt'));
 const UpdatePrompt = lazyWithRetry(() => import('./components/shared/UpdatePrompt'));
 const PremiumErrorPage = lazyWithRetry(() => import('./components/ui/PremiumErrorPage'));
+const SubscriptionLockScreen = lazyWithRetry(() => import('./components/shared/SubscriptionLockScreen'));
 
 /**
  * GLOBAL FAILSFE: Unhandled Promise Rejections
@@ -90,7 +92,8 @@ const LoadingScreen: React.FC = () => (
 const AuthenticatedApp: React.FC = () => {
   const { user, role, signOut, loading, isDemo, currentSchool } = useAuth();
   const { currentBranch } = useBranch();
-  useRealtimeSync(); 
+  useRealtimeSync();
+  const subscriptionGate = useSubscriptionGate();
 
   // E2E Version Management Logic
   const schoolVersion = currentSchool?.platform_version;
@@ -164,9 +167,17 @@ const AuthenticatedApp: React.FC = () => {
           {isVersionMismatch && (
             <UpdatePrompt forced={true} targetVersion={schoolVersion} />
           )}
-          
-          {renderDashboard}
-          {isHomePage && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}
+
+          {/* Subscription Lock — replaces dashboard entirely when expired/suspended.
+              Exception: keep the /subscription route reachable so admins can renew. */}
+          {subscriptionGate.isLocked && !window.location.pathname.startsWith('/subscription') ? (
+            <SubscriptionLockScreen />
+          ) : (
+            <>
+              {renderDashboard}
+              {isHomePage && <AIChatWidget dashboardType={role} onClick={() => setIsChatOpen(true)} />}
+            </>
+          )}
         </VerificationGuard>
       </Suspense>
     </ErrorBoundary>

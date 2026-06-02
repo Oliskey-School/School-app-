@@ -109,6 +109,22 @@ const start = async () => {
                 } else {
                     console.log('🚫 [Database] Connected. Demo seeder skipped (production mode). Set RUN_DEMO_SEEDER=true to override.');
                 }
+
+                // Always seed the academic calendar — tiny table, runs once.
+                try {
+                    const { seedAcademicCalendarIfEmpty } = require('./services/term.service');
+                    await seedAcademicCalendarIfEmpty();
+                } catch (calErr: any) {
+                    console.warn('⚠️ [TermService] Calendar seed skipped:', calErr.message);
+                }
+
+                // Subscription cron — production-only by default.
+                try {
+                    const { startSubscriptionCron } = require('./services/subscriptionCron.service');
+                    startSubscriptionCron();
+                } catch (cronErr: any) {
+                    console.warn('⚠️ [SubscriptionCron] start skipped:', cronErr.message);
+                }
                 dbConnected = true;
             } catch (error: any) {
                 retries--;

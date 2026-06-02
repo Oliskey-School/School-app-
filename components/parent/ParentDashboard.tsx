@@ -666,13 +666,20 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         linkChild: (props: any) => <LinkChildScreen {...props} />,
     };
 
-    // Expose navigation for automated E2E audits (runs every render so keys are always fresh)
+    // Expose navigation for automated E2E audits. Clean up on unmount so the
+    // global reference never goes stale (consistent with the teacher/student
+    // dashboards) — a full-screen child view that unmounts this dashboard then
+    // correctly removes the hook instead of leaving a no-op behind.
     useEffect(() => {
         if (window.__AUDIT_MODE__ || localStorage.getItem('audit_mode') === 'true') {
             window.PARENT_NAVIGATE = navigateTo;
             window.PARENT_COMPONENTS = Object.keys(viewComponents);
         }
-    });
+        return () => {
+            delete window.PARENT_NAVIGATE;
+            delete window.PARENT_COMPONENTS;
+        };
+    }, [navigateTo, viewComponents]);
 
     const currentNavigation = viewStack[viewStack.length - 1];
     

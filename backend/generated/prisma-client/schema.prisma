@@ -22,13 +22,26 @@ model School {
   email                      String?
   phone                      String?
   contact_email              String?
-  subscription_status        String                    @default("trial")
+  // Per-child per-term billing model:
+  //   plan_type: 'free' | 'basic' | 'advanced'
+  //   subscription_status: 'free' | 'active' | 'expired' | 'suspended'
+  subscription_status        String                    @default("free")
   is_premium                 Boolean                   @default(false)
   is_active                  Boolean                   @default(true)
   is_onboarded               Boolean                   @default(false)
   onboarding_step            Int                       @default(1)
   plan_type                  String                    @default("free")
   trial_ends_at              DateTime?
+  // Billing snapshot for the currently-paid term
+  student_count              Int                       @default(0)
+  term_amount                Int                       @default(0) // Naira
+  current_term               Int? // 1 | 2 | 3
+  academic_session           String? // e.g. '2025/2026'
+  term_resumption_date       DateTime?
+  term_closing_date          DateTime?
+  paystack_auth_code         String?
+  paystack_customer_code     String?
+  trial_used                 Boolean                   @default(false)
   user_count                 Int                       @default(0)
   primary_color              String?
   secondary_color            String?
@@ -2585,4 +2598,42 @@ enum Role {
   INSPECTOR
   EXAM_OFFICER
   COMPLIANCE_OFFICER
+}
+
+// Academic calendar — Lagos State / Nigerian term dates.
+// Edited by SuperAdmin each July when Lagos releases the new session calendar.
+model AcademicCalendar {
+  id              Int      @id @default(autoincrement())
+  session         String // e.g. '2025/2026'
+  term            Int // 1 | 2 | 3
+  resumption_date DateTime
+  closing_date    DateTime
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@unique([session, term])
+  @@index([resumption_date])
+  @@index([closing_date])
+}
+
+// PWA install prompt analytics — one row per user interaction with the
+// "Install School App" prompt. user_id is a plain (non-FK) column so demo
+// users, who are not real `users` rows, can still be recorded. Used to
+// know which users installed the app and to sync the "Not Now" dismissal
+// across a user's devices.
+model PwaInstallEvent {
+  id         String   @id @default(uuid())
+  user_id    String
+  school_id  String?
+  branch_id  String?
+  action     String // shown | install_clicked | installed | dismissed | instructions_shown | prompt_declined
+  platform   String? // ios | android | desktop | other
+  user_agent String?
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+  @@index([school_id])
+  @@index([action])
+  @@index([created_at])
 }

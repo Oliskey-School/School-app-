@@ -1,5 +1,12 @@
 import React from 'react';
-import { usePWAInstall, isStandalone } from '../../lib/pwa';
+import {
+    usePWAInstall,
+    isStandalone,
+    getPlatform,
+    isIOSSafari,
+    recordPwaEvent,
+    getPwaInstallStatus,
+} from '../../lib/pwa';
 import { useAuth } from '../../context/AuthContext';
 
 const DISMISS_KEY = 'pwa-install-dismissed';
@@ -15,39 +22,107 @@ export default function PWAInstallPrompt() {
     const { user } = useAuth();
     const { canInstall, isInstalled, promptInstall } = usePWAInstall();
     const [showPrompt, setShowPrompt] = React.useState(false);
+    const [showInstructions, setShowInstructions] = React.useState(false);
+    const shownRecorded = React.useRef(false);
 
-    // Show the prompt immediately when the user logs in on the web (not the installed app)
+    // Show the prompt when the user logs in on the web (not the installed app).
+    // Also respects a server-side install/dismissal so it stays hidden across
+    // the user's other devices.
     React.useEffect(() => {
+        let cancelled = false;
         if (!user) return;                // Not logged in yet
         if (isStandalone()) return;       // Already running as installed app
-        if (isInstalled) return;           // Just got installed
-        if (isDismissed()) return;         // User dismissed recently
+        if (isInstalled) return;          // Just got installed
+        if (isDismissed()) return;        // Dismissed recently on this device
 
-        // Show right away on login
-        setShowPrompt(true);
+        (async () => {
+            const status = await getPwaInstallStatus();
+            if (cancelled) return;
+            if (status?.installed) return;          // Installed on another device
+            if (status?.dismissed) {                // Dismissed on another device
+                localStorage.setItem(DISMISS_KEY, Date.now().toString());
+                return;
+            }
+            setShowPrompt(true);
+            if (!shownRecorded.current) {
+                shownRecorded.current = true;
+                recordPwaEvent('shown');
+            }
+        })();
+
+        return () => { cancelled = true; };
     }, [user, isInstalled]);
 
     // Also hide if they install the app mid-session
     React.useEffect(() => {
-        if (isInstalled) setShowPrompt(false);
+        if (isInstalled) {
+            setShowPrompt(false);
+            recordPwaEvent('installed');
+        }
     }, [isInstalled]);
 
     const handleInstall = async () => {
+        recordPwaEvent('install_clicked');
         if (canInstall) {
             // Native browser install prompt available — use it
             const accepted = await promptInstall();
             if (accepted) {
+                recordPwaEvent('installed');
                 setShowPrompt(false);
                 return;
             }
+            // User saw the native prompt but declined
+            recordPwaEvent('prompt_declined');
+            setShowPrompt(false);
+            return;
         }
-        // If native prompt fails or user cancels, don't necessarily dismiss forever
-        setShowPrompt(false);
+        // No native prompt (iOS Safari / unsupported browser): show manual steps
+        recordPwaEvent('instructions_shown');
+        setShowInstructions(true);
     };
 
     const handleDismiss = () => {
+        recordPwaEvent('dismissed');
         setShowPrompt(false);
+        setShowInstructions(false);
         localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    };
+
+    // Platform-specific manual install steps (shown when one-tap isn't available)
+    const getInstallSteps = (): { title: string; steps: string[] } => {
+        const platform = getPlatform();
+        if (platform === 'ios') {
+            return {
+                title: isIOSSafari() ? 'Add to Home Screen' : 'Open in Safari to install',
+                steps: isIOSSafari()
+                    ? [
+                        'Tap the Share button at the bottom of Safari.',
+                        "Scroll down and tap 'Add to Home Screen'.",
+                        "Tap 'Add' in the top-right corner.",
+                    ]
+                    : [
+                        'Open this page in the Safari browser.',
+                        "Tap the Share button, then 'Add to Home Screen'.",
+                    ],
+            };
+        }
+        if (platform === 'android') {
+            return {
+                title: 'Add to Home screen',
+                steps: [
+                    'Tap the menu (⋮) in the top-right of your browser.',
+                    "Tap 'Install app' or 'Add to Home screen'.",
+                    "Tap 'Install' to confirm.",
+                ],
+            };
+        }
+        return {
+            title: 'Install this app',
+            steps: [
+                "Click the install icon in your browser's address bar,",
+                "or open the browser menu and choose 'Install School App'.",
+            ],
+        };
     };
 
     if (!showPrompt || !user) return null;
@@ -147,49 +222,86 @@ export default function PWAInstallPrompt() {
                         </div>
                     </div>
 
-                    {/* Action buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '18px' }}>
-                        <button
-                            id="pwa-install-now-btn"
-                            onClick={handleInstall}
-                            style={{
-                                flex: 1,
-                                background: '#5452F6',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '12px 16px',
-                                fontSize: '14px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                transition: 'background-color 0.15s, opacity 0.15s',
-                                boxShadow: '0 2px 4px rgba(84, 82, 246, 0.2)',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-                            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                        >
-                            Install Now
-                        </button>
-                        <button
-                            id="pwa-install-later-btn"
-                            onClick={handleDismiss}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#6b7280',
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                padding: '12px 8px',
-                                whiteSpace: 'nowrap',
-                                transition: 'color 0.15s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.color = '#374151')}
-                            onMouseLeave={e => (e.currentTarget.style.color = '#6b7280')}
-                        >
-                            Not Now
-                        </button>
-                    </div>
+                    {!showInstructions ? (
+                        /* Action buttons */
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '18px' }}>
+                            <button
+                                id="pwa-install-now-btn"
+                                onClick={handleInstall}
+                                style={{
+                                    flex: 1,
+                                    background: '#5452F6',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '12px 16px',
+                                    fontSize: '14px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.15s, opacity 0.15s',
+                                    boxShadow: '0 2px 4px rgba(84, 82, 246, 0.2)',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+                                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                            >
+                                Install Now
+                            </button>
+                            <button
+                                id="pwa-install-later-btn"
+                                onClick={handleDismiss}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#6b7280',
+                                    fontSize: '14px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    padding: '12px 8px',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'color 0.15s',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.color = '#374151')}
+                                onMouseLeave={e => (e.currentTarget.style.color = '#6b7280')}
+                            >
+                                Not Now
+                            </button>
+                        </div>
+                    ) : (
+                        /* Manual install instructions (one-tap not available on this browser) */
+                        <div id="pwa-install-instructions" style={{ marginTop: '16px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>
+                                {getInstallSteps().title}
+                            </p>
+                            <ol style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {getInstallSteps().steps.map((step, i) => (
+                                    <li key={i} style={{ fontSize: '13px', color: '#4b5563', lineHeight: 1.5 }}>
+                                        {step}
+                                    </li>
+                                ))}
+                            </ol>
+                            <button
+                                id="pwa-install-gotit-btn"
+                                onClick={handleDismiss}
+                                style={{
+                                    marginTop: '14px',
+                                    width: '100%',
+                                    background: '#5452F6',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '10px 16px',
+                                    fontSize: '14px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    transition: 'opacity 0.15s',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+                                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                            >
+                                Got it
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer badge */}

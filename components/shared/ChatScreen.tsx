@@ -255,8 +255,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ conversationId, conversation, r
     };
 
     const filteredConversations = conversations.filter(c =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+        (c.name || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+        (c.lastMessage || '').toLowerCase().includes((searchQuery || '').toLowerCase())
     );
 
     const showSidebar = !isMobileView || (isMobileView && !activeConversationId);

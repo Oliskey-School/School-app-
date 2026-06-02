@@ -115,7 +115,7 @@ const ParentMessagesScreen: React.FC<ParentMessagesScreenProps> = ({ navigateTo,
     const filteredConversations = useMemo(() => {
         return rooms
             .filter(room => {
-                const nameMatch = room.displayName?.toLowerCase().includes(searchTerm.toLowerCase());
+                const nameMatch = (room.displayName || '').toLowerCase().includes((searchTerm || '').toLowerCase());
                 if (!nameMatch) return false;
                 if (activeFilter === 'Unread') {
                     // Simplified unread check since we don't have full message count

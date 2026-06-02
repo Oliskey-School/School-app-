@@ -93,6 +93,9 @@ export class ChatService {
     }
 
     async getChatContacts(schoolId: string, studentId: string) {
+        // Without a school we cannot scope contacts — return empty rather than crash.
+        if (!schoolId) return { teachers: [], classmates: [] };
+
         // Get teachers in the school
         const teachers = await prisma.teacher.findMany({
             where: { school_id: schoolId },
@@ -103,11 +106,15 @@ export class ChatService {
             }
         });
 
-        // Get student's grade and section
-        const student = await prisma.student.findUnique({
-            where: { id: studentId },
-            select: { grade: true, section: true }
-        });
+        // Get student's grade and section. studentId may be absent (or be a
+        // generated id that doesn't match a Student PK) — guard against calling
+        // findUnique with an undefined id, which throws.
+        const student = studentId
+            ? await prisma.student.findFirst({
+                where: { school_id: schoolId, id: studentId },
+                select: { grade: true, section: true }
+            })
+            : null;
 
         let classmates: any[] = [];
         if (student) {

@@ -65,6 +65,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 school_id: DEMO_SCHOOL_ID,
                 branch_id: decoded.branch_id,
                 allowed_branch_ids: decoded.allowed_branch_ids || [],
+                active_branch_id: decoded.branch_id,
                 school_generated_id: decoded.school_generated_id,
                 full_name: decoded.full_name,
                 is_demo: true,
@@ -108,8 +109,11 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return res.status(403).json({ message: 'School header does not match authenticated school' });
         }
 
-        // If X-Branch-Id header is provided, user must be allowed to access that branch
-        if (headerBranchId) {
+        // If X-Branch-Id header is provided, a BRANCH-SCOPED user must be authorized
+        // for that exact branch. Unrestricted users (main admin / super admin /
+        // proprietor — no fixed branch_id) may filter to any branch; their queries
+        // remain scoped by school_id, so this cannot cross tenants.
+        if (headerBranchId && user.branch_id) {
             const allowedBranches = [user.branch_id, ...(user.allowed_branch_ids || [])];
             if (!allowedBranches.includes(headerBranchId)) {
                 console.error(`🚨 [Security] Unauthorized branch access attempt: ${user.id} tried branch ${headerBranchId}`);
@@ -147,9 +151,13 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             school_id: user.school_id,
             branch_id: user.branch_id,
             allowed_branch_ids: user.allowed_branch_ids || [],
+            // The validated active branch for THIS request (from X-Branch-Id when the
+            // user is authorized for it, else their primary branch). Used to enforce
+            // session-based isolation for multi-branch teachers.
+            active_branch_id: effectiveBranchId,
             school_generated_id: roleAwareGeneratedId,
             full_name: user.full_name,
-            phone: phone, 
+            phone: phone,
             avatar_url: user.avatar_url,
             email_verified: user.email_verified, // Added for frontend checks
             school: user.school,

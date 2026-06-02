@@ -77,7 +77,7 @@ const ParentNewChatScreen: React.FC<ParentNewChatScreenProps> = ({ navigateTo, c
 
     const filteredUsers = useMemo(() => {
         return teachers.filter(user =>
-            user.name.toLowerCase().includes(searchTerm.toLowerCase())
+            (user.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
         );
     }, [searchTerm, teachers]);
 

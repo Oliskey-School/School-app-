@@ -29,6 +29,10 @@ router.put('/notifications/:id/read', markNotificationRead);
 // Phase 2 Supplementary Routes
 router.get('/pta-meetings', getPTAMeetings);
 router.get('/pta/meetings', getPTAMeetings); // Frontend compatibility
+// When parentRoutes is mounted at '/pta', the frontend's GET /api/pta/meetings
+// arrives here as '/meetings'. Without this it falls through to '/:id' and is
+// mis-read as a parent lookup ("Parent not found" → 500).
+router.get('/meetings', getPTAMeetings);
 router.get('/learning-resources', getLearningResources);
 router.get('/messages', getParentMessages);
 router.post('/messages', sendMessage);

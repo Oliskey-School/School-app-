@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { APP_VERSION } from '../../lib/config';
 
@@ -25,23 +25,24 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
         },
     });
 
+    // Local dismissed flag — needed for the forced variant where setNeedRefresh(false)
+    // is a no-op (needRefresh was already false). Without this useState the sessionStorage
+    // write below would not trigger a re-render and the prompt would stay visible.
+    const [locallyDismissed, setLocallyDismissed] = useState<boolean>(() =>
+        !!(targetVersion && sessionStorage.getItem(`update_dismissed_${targetVersion}`) === 'true')
+    );
+
     const close = () => {
         setNeedRefresh(false);
-        // If it was a forced update from parent, we need to notify parent or use local state
-        // For now, we'll use sessionStorage to hide it for this session if it's a version mismatch
         if (forced && targetVersion) {
             sessionStorage.setItem(`update_dismissed_${targetVersion}`, 'true');
-            // Force a re-render by reloading or using a state from parent if we had one
-            // But since this is a shared component, we'll just hide it locally
         }
+        setLocallyDismissed(true);
         window.dispatchEvent(new CustomEvent('update_prompt_closed'));
     };
 
-    // Check if this specific version update was already dismissed in this session
-    const isDismissed = targetVersion && sessionStorage.getItem(`update_dismissed_${targetVersion}`) === 'true';
-
     // Show if PWA needs refresh OR if forced from parent AND not dismissed
-    const show = (needRefresh || forced) && !isDismissed;
+    const show = (needRefresh || forced) && !locallyDismissed;
     if (!show) return null;
 
     const displayVersion = targetVersion || (needRefresh ? 'Update Found' : APP_VERSION);

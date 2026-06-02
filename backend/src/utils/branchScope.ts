@@ -18,24 +18,38 @@
  * @param headerId       - branch_id from X-Branch-Id header (optional)
  */
 export function getEffectiveBranchId(user: any, requestedId?: string | null, headerId?: string | null): string | undefined {
-    // 1. If the user is strictly scoped to a specific branch in their profile (Teacher, Student, Parent, Branch Admin)
-    // They ARE NOT allowed to escape this branch, even if they request 'all' or another ID.
-    // We prioritize the profile branch above ALL external inputs (query, body, or headers).
+    const allowed: string[] = Array.isArray(user.allowed_branch_ids) ? user.allowed_branch_ids : [];
+    const authorized = [user.branch_id, ...allowed].filter(Boolean);
+
+    // The active branch already validated by the auth middleware (from X-Branch-Id),
+    // then any explicit query/body branch, then the header param.
+    const selected = (requestedId && requestedId !== 'undefined' && requestedId !== 'null')
+        ? requestedId
+        : (headerId || user.active_branch_id);
+
+    // 1. MULTI-BRANCH users (e.g. a teacher assigned to two branches by the main admin).
+    //    They operate in exactly ONE active branch at a time and are isolated to it.
+    //    Honor the selected branch ONLY if it is one of their authorized branches;
+    //    never grant them an 'all-branches' view.
+    if (allowed.length > 0) {
+        if (selected && selected !== 'all' && authorized.includes(selected)) {
+            return selected;
+        }
+        // No valid selection → default to their primary branch (still a single branch).
+        return user.branch_id || authorized[0] || undefined;
+    }
+
+    // 2. SINGLE-BRANCH scoped users (branch admin, single-branch teacher/student/parent):
+    //    hard-locked to their profile branch. Query/header overrides are ignored.
     if (user.branch_id) {
         return user.branch_id;
     }
 
-    // 2. User is unrestricted (Super Admin, Main Admin, or Proprietor with no fixed branch)
-    // They can use the requestedId or the headerId.
-    const effectiveRequested = (requestedId && requestedId !== 'undefined') ? requestedId : headerId;
-    
-    // Honor 'all' only for unrestricted users
-    if (effectiveRequested === 'all') {
+    // 3. UNRESTRICTED users (Super Admin, Main Admin, Proprietor with no fixed branch).
+    if (selected === 'all') {
         return undefined;
     }
-
-    // Return the effective request if provided, otherwise undefined (which defaults to 'all' or handled by service)
-    return effectiveRequested || undefined;
+    return selected || undefined;
 }
 
 /** Returns true when the user is scoped to exactly one branch. */

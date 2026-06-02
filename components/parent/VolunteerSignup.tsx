@@ -35,7 +35,7 @@ const VolunteerSignup: React.FC = () => {
             const data = await api.getVolunteeringOpportunities();
             // Filter for open and upcoming only
             const today = new Date().toISOString().split('T')[0];
-            const filtered = (data || []).filter((o: any) => 
+            const filtered = (Array.isArray(data) ? data : []).filter((o: any) =>
                 o.status === 'Open' && o.date >= today
             );
             setOpportunities(filtered);
@@ -49,7 +49,7 @@ const VolunteerSignup: React.FC = () => {
     const fetchMySignups = useCallback(async () => {
         try {
             const data = await api.getMyVolunteerSignups();
-            setMySignups(data || []);
+            setMySignups(Array.isArray(data) ? data : []);
         } catch (error: any) {
             console.error('Error fetching signups:', error);
         }

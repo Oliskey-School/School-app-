@@ -13,6 +13,7 @@ import schoolRoutes from './school.routes';
 import inviteRoutes from './invite.routes';
 import studentRoutes from './student.routes';
 import teacherRoutes from './teacher.routes';
+import subscriptionRoutes from './subscription.routes';
 import feeRoutes from './fee.routes';
 import busRoutes from './bus.routes';
 import dashboardRoutes from './dashboard.routes';
@@ -73,6 +74,7 @@ import idCardRoutes from './idCard.routes';
 import storeRoutes from './store.routes';
 import vendorRoutes from './vendor.routes';
 import offlineChannelRoutes from './offline-channel.routes';
+import pwaRoutes from './pwa.routes';
 import * as QuizController from '../controllers/quiz.controller';
 import * as ParentController from '../controllers/parent.controller';
 import { getStudentFeesLegacy } from '../controllers/fee.controller';
@@ -158,6 +160,8 @@ router.use('/id-cards', idCardRoutes);
 router.use('/store', storeRoutes);
 router.use('/vendors', vendorRoutes);
 router.use('/maintenance', maintenanceRoutes);
+router.use('/subscription', authenticate, requireTenant, subscriptionRoutes);
+router.use('/pwa', authenticate, pwaRoutes);
 
 // Tenant-scoped read endpoints consumed by the admin UI via api.from(...)
 router.get('/school-documents', authenticate, requireTenant, getSchoolDocuments);

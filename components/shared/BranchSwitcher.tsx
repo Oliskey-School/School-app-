@@ -22,7 +22,7 @@ interface BranchSwitcherProps {
 }
 
 export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' }) => {
-    const { currentBranch, branches, switchBranch, isLoading } = useBranch();
+    const { currentBranch, branches, switchBranch, isLoading, canSwitchBranches } = useBranch();
     const { role } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
 
@@ -48,8 +48,16 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({ align = 'right' 
         return null; // Don't show if no branches found
     }
 
-    // For non-admin roles, show a simplified, read-only branch display
-    if (role !== DashboardType.Admin && role !== DashboardType.SuperAdmin && role !== DashboardType.Proprietor) {
+    // Who gets the interactive switcher: school-level admins/proprietors/super
+    // admins, plus teachers explicitly assigned to multiple branches (canSwitchBranches).
+    const showSwitcher =
+        role === DashboardType.Admin ||
+        role === DashboardType.SuperAdmin ||
+        role === DashboardType.Proprietor ||
+        (role === DashboardType.Teacher && canSwitchBranches);
+
+    // For everyone else, show a simplified, read-only branch display
+    if (!showSwitcher) {
         const branchName = currentBranch?.name || 'Main Campus';
         const curriculumType = currentBranch?.curriculum_type || 'nigerian';
         

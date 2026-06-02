@@ -544,6 +544,21 @@ class ExpressApiClient {
         }
     }
 
+    /** Branches the current user is authorized to see/operate in (handles branch-scoped users). */
+    async getAuthorizedBranches(): Promise<any[]> {
+        try {
+            return await this.get('/branches/authorized');
+        } catch (err) {
+            console.warn('[API] getAuthorizedBranches failed:', err);
+            return [];
+        }
+    }
+
+    /** Main-admin-only: transfer a user's primary branch and/or set additional authorized branches. */
+    async transferUser(payload: { userId: string; newBranchId?: string; allowedBranchIds?: string[] }): Promise<any> {
+        return this.post('/branches/transfer-user', payload);
+    }
+
     async createBranch(schoolId: string, data: any): Promise<any> {
         return this.post('/branches', { ...data, school_id: schoolId });
     }
@@ -1612,6 +1627,27 @@ class ExpressApiClient {
 
     async submitQuizResult(data: any): Promise<any> {
         return this.post('/quizzes/submit', data);
+    }
+
+    // ============================================
+    // EXTERNAL EXAMS (WAEC / NECO / JAMB etc.)
+    // ============================================
+    async getExamBodies(schoolId?: string): Promise<any[]> {
+        const qs = schoolId ? `?schoolId=${encodeURIComponent(schoolId)}` : '';
+        return this.get(`/external-exams/bodies${qs}`);
+    }
+
+    async createExamBody(schoolId: string, payload: any): Promise<any> {
+        return this.post('/external-exams/bodies', { ...payload, school_id: payload?.school_id || schoolId });
+    }
+
+    async getExamRegistrations(bodyId: string, schoolId?: string): Promise<any[]> {
+        const qs = schoolId ? `?schoolId=${encodeURIComponent(schoolId)}` : '';
+        return this.get(`/external-exams/registrations/${bodyId}${qs}`);
+    }
+
+    async createExamRegistrations(_schoolId: string, _branchId: string | undefined, registrations: any[]): Promise<any> {
+        return this.post('/external-exams/registrations', registrations);
     }
 
     async publishReportCards(schoolId: string, term: string, session: string): Promise<any> {

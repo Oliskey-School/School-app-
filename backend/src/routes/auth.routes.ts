@@ -62,11 +62,14 @@ router.post('/google-login', AuthController.googleLogin);
 router.post('/refresh', AuthController.refresh);
 router.post('/create-user', authenticate, requireRole(ADMIN_ROLES), AuthController.createUser);
 router.post('/resend-verification', AuthController.resendVerification);
-router.post('/confirm-email', AuthController.confirmEmail);
+// Identity-mutating endpoints: must be authenticated and act on the caller's own
+// account only (userId is derived from the verified JWT, never the request body).
+router.post('/confirm-email', authenticate, AuthController.confirmEmail);
+// verify-email stays public: it is bound to a signed, single-use token+code (pre-login flow).
 router.post('/verify-email', AuthController.verifyEmail);
-router.post('/update-email', AuthController.updateEmail);
-router.post('/verify-email-change', AuthController.verifyEmailChange);
-router.post('/update-username', AuthController.updateUsername);
+router.post('/update-email', authenticate, AuthController.updateEmail);
+router.post('/verify-email-change', authenticate, AuthController.verifyEmailChange);
+router.post('/update-username', authenticate, AuthController.updateUsername);
 router.post('/update-password', authenticate, AuthController.updatePassword);
 router.post('/admin/change-password', authenticate, requireRole(ADMIN_ROLES), AuthController.adminChangePassword);
 router.post('/admin/reset-password', authenticate, requireRole(ADMIN_ROLES), AuthController.resetUserPassword);

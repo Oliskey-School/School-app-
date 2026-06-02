@@ -176,8 +176,8 @@ export const ExamCandidateRegistration = React.forwardRef<ExamCandidateRegistrat
     };
 
     const filteredStudents = students.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        (selectedGrade === '' || s.grade.toString() === selectedGrade)
+        ((s.name || (s as any).full_name || '') as string).toLowerCase().includes((searchQuery || '').toLowerCase()) &&
+        (selectedGrade === '' || String(s.grade ?? '') === selectedGrade)
     );
 
     const toggleSelection = (id: string) => {

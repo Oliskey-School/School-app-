@@ -47,11 +47,32 @@ export class UserService {
         });
     }
 
+    // Fields that must never be set through the generic update endpoint.
+    // Role/tenant/credential changes require dedicated, audited admin flows.
+    private static readonly FORBIDDEN_UPDATE_FIELDS = [
+        'id', 'role', 'school_id', 'password_hash', 'password',
+        'email_verified', 'initial_password', 'two_factor_secret',
+        'two_factor_enabled', 'created_at', 'updated_at'
+    ];
+
     static async updateUser(school_id: string, branch_id: string | undefined, userId: string, updates: any) {
-        return await prisma.user.update({
-            where: { id: userId },
-            data: updates
+        // Strip dangerous fields (mass-assignment / privilege-escalation protection)
+        const data: any = { ...updates };
+        for (const field of UserService.FORBIDDEN_UPDATE_FIELDS) {
+            delete data[field];
+        }
+
+        // STRICT tenant scoping: only update if the target user belongs to the caller's school.
+        const result = await prisma.user.updateMany({
+            where: { id: userId, school_id },
+            data
         });
+
+        if (result.count === 0) {
+            throw new Error('User not found or access denied');
+        }
+
+        return await prisma.user.findUnique({ where: { id: userId } });
     }
 
     static async getUserByEmail(schoolId: string, email: string) {

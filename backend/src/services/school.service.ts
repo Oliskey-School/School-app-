@@ -200,10 +200,20 @@ export class SchoolService {
         if (branchId) {
             where.id = branchId;
         }
-        return await prisma.branch.findMany({
+        const branches = await prisma.branch.findMany({
             where,
             orderBy: { is_main: 'desc' }
         });
+
+        // Attach how many members already hold an ID based on each branch, so the
+        // UI can lock the branch name once IDs exist.
+        const counts = await prisma.user.groupBy({
+            by: ['branch_id'],
+            where: { school_id: schoolId, NOT: { school_generated_id: null } },
+            _count: { _all: true },
+        });
+        const countMap = new Map<string | null, number>(counts.map((c: any) => [c.branch_id, c._count._all]));
+        return branches.map((b) => ({ ...b, user_count: countMap.get(b.id) || 0 }));
     }
 
     static async createBranch(schoolId: string, data: any) {
@@ -241,8 +251,27 @@ export class SchoolService {
     static async updateBranch(schoolId: string, id: string, updates: any) {
         const sanitizedUpdates = { ...updates };
         delete sanitizedUpdates.school_id;
+        // The branch code is baked into every member's global ID — never editable.
+        delete sanitizedUpdates.code;
 
         return await prisma.$transaction(async (tx) => {
+            // Once members have IDs based on this branch, the NAME is frozen (the ID's
+            // branch identity must stay consistent). Everything else stays editable.
+            if (typeof sanitizedUpdates.name === 'string') {
+                const existing = await tx.branch.findUnique({ where: { id }, select: { name: true } });
+                if (existing && sanitizedUpdates.name !== existing.name) {
+                    const idHolders = await tx.user.count({
+                        where: { school_id: schoolId, branch_id: id, NOT: { school_generated_id: null } },
+                    });
+                    if (idHolders > 0) {
+                        throw Object.assign(
+                            new Error('Branch name is locked because members already have IDs based on this branch. You can still edit address, phone, location and curriculum.'),
+                            { status: 409 }
+                        );
+                    }
+                }
+            }
+
             if (sanitizedUpdates.is_main) {
                 await tx.branch.updateMany({
                     where: { school_id: schoolId, id: { not: id } },

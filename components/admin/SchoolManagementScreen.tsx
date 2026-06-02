@@ -15,6 +15,7 @@ interface Branch {
     curriculum_type: string;
     location: string;
     code: string;
+    user_count?: number;
 }
 
 interface SchoolManagementScreenProps {
@@ -167,10 +168,16 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                                     required
                                     value={formData.name}
                                     onChange={handleInputChange}
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:border-indigo-600 focus:bg-white outline-none transition-all"
+                                    disabled={!!editingBranch && (editingBranch.user_count || 0) > 0}
+                                    className={`w-full pl-12 pr-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:border-indigo-600 focus:bg-white outline-none transition-all ${!!editingBranch && (editingBranch.user_count || 0) > 0 ? 'opacity-60 cursor-not-allowed' : ''}`}
                                     placeholder="e.g. Lagos Mainland Campus"
                                 />
                             </div>
+                            {!!editingBranch && (editingBranch.user_count || 0) > 0 && (
+                                <p className="text-[11px] text-amber-600 font-semibold mt-1.5 px-1">
+                                    Name locked — {editingBranch.user_count} member(s) already have IDs based on this branch.
+                                </p>
+                            )}
                         </div>
 
                         <div>
