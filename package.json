@@ -1,6 +1,6 @@
 {
   "name": "school-app-oliskey",
-  "version": "0.5.43",
+  "version": "0.5.44",
   "scripts": {
     "dev": "vite",
     "predev": "npm run clean",
@@ -9,6 +9,7 @@
     "vercel-build": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:clean": "npx rimraf .playwright-results .playwright-report && npx playwright test",
     "kill-ports": "node scripts/kill-ports.js",

@@ -28,6 +28,9 @@ export default defineConfig(({ mode }) => {
         '**/node_modules/**',
         '**/dist/**',
         '**/tests/e2e/**',
+        // Backend integration tests require a live database + the backend tsconfig;
+        // they run via their own tsx command, NOT the frontend (happy-dom) runner / CI.
+        '**/backend/**',
         '**/*.spec.ts',
         '**/.kilo/**',
         '**/.{idea,git,cache,output,temp}/**',
