@@ -76,6 +76,17 @@ const mockUseTenantLimit = vi.fn(() => ({
   isPremium: false
 }));
 
+const mockUseBranch = vi.fn(() => ({
+  currentBranch: { id: 'branch-123', name: 'Test Branch' },
+  branches: [],
+  switchBranch: vi.fn(),
+  refreshBranches: vi.fn(),
+  isLoading: false,
+  canSwitchBranches: false,
+  allowAllOption: true,
+  activeBranchGeneratedId: 'GEN-123'
+}));
+
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
@@ -86,6 +97,10 @@ vi.mock('../../../context/ProfileContext', () => ({
 
 vi.mock('../../../hooks/useTenantLimit', () => ({
   useTenantLimit: () => mockUseTenantLimit(),
+}));
+
+vi.mock('../../../context/BranchContext', () => ({
+  useBranch: () => mockUseBranch(),
 }));
 
 // Mock Toasts
@@ -114,6 +129,7 @@ vi.mock('../../../constants', () => ({
   MailIcon: () => <div />,
   PhoneIcon: () => <div />,
   SUBJECTS_LIST: [],
+  DEFAULT_STANDARD_CLASSES: [],
 }));
 
 describe('Admin Security Audit', () => {
