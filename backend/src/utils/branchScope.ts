@@ -1,3 +1,5 @@
+import { DEMO_SCHOOL_ID } from '../config/env';
+
 /**
  * Branch Isolation Helpers
  *
@@ -21,11 +23,32 @@ export function getEffectiveBranchId(user: any, requestedId?: string | null, hea
     const allowed: string[] = Array.isArray(user.allowed_branch_ids) ? user.allowed_branch_ids : [];
     const authorized = [user.branch_id, ...allowed].filter(Boolean);
 
-    // The active branch already validated by the auth middleware (from X-Branch-Id),
-    // then any explicit query/body branch, then the header param.
-    const selected = (requestedId && requestedId !== 'undefined' && requestedId !== 'null')
+    // The branch the user is ACTIVELY focused on — validated by the auth middleware
+    // from the X-Branch-Id header and surfaced as `active_branch_id` — is the
+    // authoritative selection. It must win over any explicit branch a screen passes,
+    // because screens frequently pass a stale "home branch" value that would otherwise
+    // override the user's live selection (this is exactly why switching to a sub-branch
+    // still leaked main-branch data on some screens). The explicit requested branch is
+    // used only as a FALLBACK when there is no active selection (e.g. a main admin
+    // viewing "All Branches", whose active_branch_id resolves to null).
+    const requested = (requestedId && requestedId !== 'undefined' && requestedId !== 'null')
         ? requestedId
-        : (headerId || user.active_branch_id);
+        : undefined;
+    const headerActive = (headerId && headerId !== 'undefined' && headerId !== 'null')
+        ? headerId
+        : undefined;
+    const selected = headerActive || user.active_branch_id || requested;
+
+    // 0. DEMO sessions: the visitor is the main admin of their private sandbox and may
+    //    operate in the root branch OR any branch they created within it ("<root>__<rand>"),
+    //    but never outside their sandbox.
+    const demoRoot = getDemoSessionRoot(user);
+    if (demoRoot) {
+        if (selected && selected !== 'all' && (selected === demoRoot || selected.startsWith(demoRoot + '__'))) {
+            return selected;
+        }
+        return user.active_branch_id || user.branch_id || demoRoot;
+    }
 
     // 1. MULTI-BRANCH users (e.g. a teacher assigned to two branches by the main admin).
     //    They operate in exactly ONE active branch at a time and are isolated to it.
@@ -55,4 +78,22 @@ export function getEffectiveBranchId(user: any, requestedId?: string | null, hea
 /** Returns true when the user is scoped to exactly one branch. */
 export function isBranchScoped(user: any): boolean {
     return !!user.branch_id;
+}
+
+/**
+ * For demo sessions, returns the root virtual branch that identifies this
+ * visitor's private sandbox (e.g. "demo-v-ab12cd34"). Branches the visitor
+ * creates are stored as children ("<root>__<rand>") so they stay isolated to
+ * the session and never leak into another visitor's demo.
+ *
+ * Returns undefined for live (non-demo) schools, leaving their behaviour
+ * (main admin sees all branches, branch admin locked to one) untouched.
+ */
+export function getDemoSessionRoot(user: any): string | undefined {
+    if (!user || user.school_id !== DEMO_SCHOOL_ID) return undefined;
+    const active = user.active_branch_id || user.branch_id;
+    if (!active || typeof active !== 'string') return undefined;
+    // The active branch is either the sandbox root itself or one of its
+    // children ("<root>__<rand>"); normalise back to the root.
+    return active.split('__')[0];
 }

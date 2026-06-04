@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { PayrollService } from '../services/payroll.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getPayslips = async (req: AuthRequest, res: Response) => {
     try {
@@ -58,7 +59,7 @@ export const getTransactions = async (req: AuthRequest, res: Response) => {
 
 export const generatePayslip = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const result = await PayrollService.savePayslip(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
@@ -122,7 +123,7 @@ export const getLeaveRequests = async (req: AuthRequest, res: Response) => {
 export const submitLeaveRequest = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const branchId = req.user.branch_id || req.body.branch_id || undefined;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const teacherId = req.body.teacher_id || req.user.id;
         const result = await PayrollService.submitLeaveRequest(schoolId, branchId, teacherId, req.body);
         res.status(201).json(result);

@@ -37,27 +37,20 @@ export default function IDVerificationPanel() {
         if (!currentSchool) return;
         setLoading(true);
         try {
-            let query = api
-                .from('id_verification_requests')
-                .select(`
-          *,
-          profiles!inner (
-            full_name,
-            email,
-            role
-          )
-        `)
-                .eq('profiles.school_id', currentSchool.id)
-                .order('created_at', { ascending: false });
-
-            if (filter !== 'all') {
-                query = query.eq('status', filter);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-            setRequests(data || []);
+            const data = await api.getVerificationRequests();
+            // Adapt the flat API rows to the shape the existing UI expects
+            // (it reads request.profiles.full_name / email / role).
+            const list = (Array.isArray(data) ? data : []).map((r: any) => ({
+                ...r,
+                document_type: r.document_type || 'Student ID',
+                document_url: r.document_url || '',
+                profiles: {
+                    full_name: r.full_name || 'Unknown',
+                    email: r.school_generated_id || '',
+                    role: 'student',
+                },
+            }));
+            setRequests(filter !== 'all' ? list.filter((r: any) => r.status === filter) : list);
         } catch (error) {
             console.error('Load requests error:', error);
         } finally {
@@ -68,42 +61,9 @@ export default function IDVerificationPanel() {
     const handleApprove = async (requestId: string) => {
         setProcessing(true);
         try {
-            const { data: { user } } = await api.auth.getUser();
-
-            // Update verification request
-            const { error: updateError } = await api
-                .from('id_verification_requests')
-                .update({
-                    status: 'approved',
-                    notes: reviewNotes,
-                    reviewed_by: user?.id,
-                    reviewed_at: new Date().toISOString()
-                })
-                .eq('id', requestId);
-
-            if (updateError) throw updateError;
-
-            // Update profile verification status
-            const request = requests.find(r => r.id === requestId);
-            if (request) {
-                await api
-                    .from('profiles')
-                    .update({
-                        verification_status: 'verified',
-                        verified_by: user?.id,
-                        verified_at: new Date().toISOString(),
-                        verification_notes: reviewNotes
-                    })
-                    .eq('id', request.user_id);
-
-                // Log audit trail
-                await api.from('verification_audit_log').insert({
-                    user_id: request.user_id,
-                    action: 'id_approved',
-                    details: { request_id: requestId, notes: reviewNotes }
-                });
-            }
-
+            // The server updates the request status AND mirrors it onto the student.
+            await api.reviewVerificationRequest(requestId, 'approved', reviewNotes);
+            toast.success('Verification approved');
             setSelectedRequest(null);
             setReviewNotes('');
             loadRequests();
@@ -123,40 +83,8 @@ export default function IDVerificationPanel() {
 
         setProcessing(true);
         try {
-            const { data: { user } } = await api.auth.getUser();
-
-            // Update verification request
-            const { error: updateError } = await api
-                .from('id_verification_requests')
-                .update({
-                    status: 'rejected',
-                    notes: reviewNotes,
-                    reviewed_by: user?.id,
-                    reviewed_at: new Date().toISOString()
-                })
-                .eq('id', requestId);
-
-            if (updateError) throw updateError;
-
-            // Update profile verification status
-            const request = requests.find(r => r.id === requestId);
-            if (request) {
-                await api
-                    .from('profiles')
-                    .update({
-                        verification_status: 'rejected',
-                        verification_notes: reviewNotes
-                    })
-                    .eq('id', request.user_id);
-
-                // Log audit trail
-                await api.from('verification_audit_log').insert({
-                    user_id: request.user_id,
-                    action: 'id_rejected',
-                    details: { request_id: requestId, notes: reviewNotes }
-                });
-            }
-
+            await api.reviewVerificationRequest(requestId, 'rejected', reviewNotes);
+            toast.success('Verification rejected');
             setSelectedRequest(null);
             setReviewNotes('');
             loadRequests();

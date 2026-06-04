@@ -37,6 +37,18 @@ export class StudentService {
         const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         return await prisma.$transaction(async (tx) => {
+            // If the admin explicitly typed an email, make sure it isn't already taken by
+            // another account — never reuse/convert an existing user into a student.
+            if (enrollmentData.email) {
+                const existing = await tx.user.findUnique({ where: { email: studentEmail } });
+                if (existing) {
+                    throw Object.assign(
+                        new Error(`This email is already registered to ${existing.full_name || 'another account'}. Please use a different email.`),
+                        { status: 409 }
+                    );
+                }
+            }
+
             // 1. Create or Find User
             const user = await (tx.user.upsert as any)({
                 where: { email: studentEmail },
@@ -749,6 +761,10 @@ export class StudentService {
     }
 
     static async getStudentDocuments(schoolId: string, studentId: string) {
+        // The student_documents table is provisioned by a migration. If it has not
+        // been applied yet, degrade gracefully (empty list) so the student profile
+        // page still loads instead of crashing with a 500.
+        if (!(prisma as any).studentDocument) return [];
         return await (prisma as any).studentDocument.findMany({
             where: { student_id: studentId, school_id: schoolId },
             orderBy: { created_at: 'desc' }
@@ -756,6 +772,9 @@ export class StudentService {
     }
 
     static async addStudentDocument(schoolId: string, studentId: string, data: any) {
+        if (!(prisma as any).studentDocument) {
+            throw Object.assign(new Error('Document storage is not enabled yet. Please run the pending database update.'), { status: 503 });
+        }
         return await (prisma as any).studentDocument.create({
             data: {
                 student_id: studentId,
@@ -763,7 +782,7 @@ export class StudentService {
                 name: data.name,
                 url: data.url,
                 type: data.type,
-                size: data.size
+                size: data.size != null ? String(data.size) : null
             }
         });
     }

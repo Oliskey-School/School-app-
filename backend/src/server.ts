@@ -1,3 +1,4 @@
+import './config/instrument'; // MUST be first — sets up Sentry before app/express load
 import { app } from './app';
 import http from 'http';
 import { config } from './config/env';

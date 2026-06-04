@@ -55,6 +55,16 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+/** Self-service profile edit for the authenticated user (name / phone / avatar). */
+export const updateMyProfile = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await UserService.updateMyProfile(req.user.id, req.user.school_id, req.body || {});
+        res.json(result);
+    } catch (error: any) {
+        res.status(error?.status || 400).json({ message: error.message });
+    }
+};
+
 export const getUserByEmail = async (req: AuthRequest, res: Response) => {
     try {
         const result = await UserService.getUserByEmail(req.user.school_id, req.params.email as string);

@@ -174,9 +174,11 @@ const AIGameCreatorScreen: React.FC<AIGameCreatorScreenProps> = ({ navigateTo, h
                             <div>
                                 <label className="font-semibold text-gray-700">Class Level</label>
                                 <select value={level} onChange={e => setLevel(e.target.value as GameLevel)} className="w-full mt-1 p-2 border rounded-md bg-white">
+                                    <option>Pre-Primary (3-5 years)</option>
+                                    <option>Lower Primary (6-8 years)</option>
+                                    <option>Upper Primary (9-11 years)</option>
                                     <option>Junior Secondary (12-14 years)</option>
                                     <option>Senior Secondary (15-18 years)</option>
-                                    <option>Upper Primary (9-11 years)</option>
                                 </select>
                             </div>
                         </div>

@@ -25,6 +25,23 @@ export default function PWAInstallPrompt() {
     const [showInstructions, setShowInstructions] = React.useState(false);
     const shownRecorded = React.useRef(false);
 
+    // Sequencing: an update prompt always takes priority. While one is on screen we
+    // hold the install prompt back so the two cards never overlap — they appear one
+    // after the other. The update prompt maintains window.__updatePromptCount.
+    const [updateActive, setUpdateActive] = React.useState<boolean>(
+        () => ((window as any).__updatePromptCount || 0) > 0
+    );
+    React.useEffect(() => {
+        const sync = () => setUpdateActive(((window as any).__updatePromptCount || 0) > 0);
+        window.addEventListener('update_prompt_changed', sync);
+        window.addEventListener('update_prompt_closed', sync);
+        sync();
+        return () => {
+            window.removeEventListener('update_prompt_changed', sync);
+            window.removeEventListener('update_prompt_closed', sync);
+        };
+    }, []);
+
     // Show the prompt when the user logs in on the web (not the installed app).
     // Also respects a server-side install/dismissal so it stays hidden across
     // the user's other devices.
@@ -125,7 +142,8 @@ export default function PWAInstallPrompt() {
         };
     };
 
-    if (!showPrompt || !user) return null;
+    // Hold back while an update prompt is showing — they appear one after the other.
+    if (!showPrompt || !user || updateActive) return null;
 
     return (
         <div

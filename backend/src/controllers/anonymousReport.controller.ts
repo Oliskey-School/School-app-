@@ -13,7 +13,8 @@ export const createAnonymousReport = async (req: Request, res: Response) => {
 
 export const getAnonymousReports = async (req: Request, res: Response) => {
     try {
-        const schoolId = (req as any).schoolId || req.query.schoolId as string;
+        // Admin read — scope to the authenticated tenant, never a client-supplied id.
+        const schoolId = (req as any).user?.school_id || (req as any).schoolId;
         const reports = await AnonymousReportService.getAll(schoolId);
         res.json(reports);
     } catch (error: any) {

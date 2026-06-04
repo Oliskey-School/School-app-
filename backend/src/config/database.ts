@@ -59,9 +59,12 @@ export const getTenantPrisma = (schoolId: string) => {
               setTimeout(() => reject(new Error('PrismaQueryTimeout: Tenant operation exceeded 30s limit.')), TIMEOUT_MS)
           );
 
-          // Bind to a transaction to ensure 'SET LOCAL' stays within the same connection/session
+          // Bind to a transaction to ensure the GUC stays within the same session.
+          // Use the parameterized set_config(...) (is_local = true == SET LOCAL) so
+          // schoolId is bound as a query parameter and can never break out of the
+          // string to inject SQL — unlike the previous interpolated SET LOCAL.
           const operationPromise = prisma.$transaction(async (tx) => {
-            await tx.$executeRawUnsafe(`SET LOCAL app.current_school_id = '${schoolId}';`);
+            await tx.$executeRaw`SELECT set_config('app.current_school_id', ${schoolId}, true)`;
             return query(args);
           });
 

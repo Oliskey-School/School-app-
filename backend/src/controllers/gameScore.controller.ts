@@ -3,9 +3,10 @@ import { GameScoreService } from '../services/gameScore.service';
 
 export const submitScore = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).userId;
+        const userId = (req as any).userId || (req as any).user?.id;
         const { game_id, game_name, score, metadata } = req.body;
-        const schoolId = (req as any).schoolId || req.body.school_id;
+        // Trust the authenticated tenant, never a client-supplied school id.
+        const schoolId = (req as any).user?.school_id || (req as any).school_id;
 
         const result = await GameScoreService.submitScore({
             game_id,
@@ -24,8 +25,8 @@ export const submitScore = async (req: Request, res: Response) => {
 
 export const getLeaderboard = async (req: Request, res: Response) => {
     try {
-        const gameId = req.params.gameId;
-        const schoolId = req.query.schoolId as string | undefined;
+        const gameId = String(req.params.gameId);
+        const schoolId: string | undefined = (req as any).user?.school_id || (req.query.schoolId as string | undefined);
         const limit = parseInt(req.query.limit as string) || 20;
 
         const scores = await GameScoreService.getLeaderboard(gameId, schoolId, limit);

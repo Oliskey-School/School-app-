@@ -1,11 +1,12 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { BusService } from '../services/bus.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getBuses = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const branchId = req.user.branch_id || req.query.branch_id;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const buses = await BusService.getBuses(schoolId, branchId);
         res.json(buses);
     } catch (error: any) {
@@ -16,7 +17,7 @@ export const getBuses = async (req: AuthRequest, res: Response) => {
 export const createBus = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const branchId = req.user.branch_id || req.body.branch_id;
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
         const bus = await BusService.createBus(schoolId, branchId, req.body);
         res.status(201).json(bus);
     } catch (error: any) {

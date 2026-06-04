@@ -3,11 +3,13 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const ComplianceChecklist = () => {
     const { currentSchool } = useAuth();
     const [checks, setChecks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [running, setRunning] = useState(false);
 
     useEffect(() => {
         if (currentSchool) {
@@ -23,24 +25,26 @@ const ComplianceChecklist = () => {
     const fetchChecks = async () => {
         if (!currentSchool) return;
         try {
-            let query = api
-                .from('compliance_checklists')
-                .select('*')
-                .eq('school_id', currentSchool.id);
-
-            const branchId = (useAuth() as any).currentBranchId;
-            if (branchId && branchId !== 'all') {
-                query = query.eq('branch_id', branchId);
-            }
-
-            const { data, error } = await query.order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setChecks(data || []);
+            const data = await api.getComplianceChecks();
+            setChecks(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error fetching checks:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const runAllChecks = async () => {
+        setRunning(true);
+        try {
+            const data = await api.runComplianceChecks();
+            setChecks(Array.isArray(data) ? data : []);
+            toast.success('Compliance checks completed');
+        } catch (error: any) {
+            console.error('Error running checks:', error);
+            toast.error('Failed to run checks');
+        } finally {
+            setRunning(false);
         }
     };
 
@@ -52,8 +56,12 @@ const ComplianceChecklist = () => {
                         <h2 className="text-xl font-bold text-gray-800">Compliance Checklist</h2>
                         <p className="text-sm text-gray-500">Automated regulatory system health checks</p>
                     </div>
-                    <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
-                        Run All Checks
+                    <button
+                        onClick={runAllChecks}
+                        disabled={running}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm disabled:opacity-50"
+                    >
+                        {running ? 'Running...' : 'Run All Checks'}
                     </button>
                 </div>
 

@@ -17,6 +17,8 @@ import { requestBackgroundSync } from './lib/serviceWorkerRegistration';
 import { syncEngine } from './lib/syncEngine';
 import { lazyWithRetry } from './lib/lazyRetry';
 import { APP_VERSION } from './lib/config';
+import { api } from './lib/api';
+import { maxVersion, isOutdated } from './lib/version';
 
 // Unified lazy load with shared retry logic
 const DashboardRouter = lazyWithRetry(() => import('./components/DashboardRouter'));
@@ -95,9 +97,24 @@ const AuthenticatedApp: React.FC = () => {
   useRealtimeSync();
   const subscriptionGate = useSubscriptionGate();
 
-  // E2E Version Management Logic
-  const schoolVersion = currentSchool?.platform_version;
-  const isVersionMismatch = schoolVersion && schoolVersion !== APP_VERSION;
+  // Version check: only ask the user to update when their running build is
+  // genuinely OLDER than the latest known version — and always show the REAL
+  // latest version number. We take the highest of the published registry version,
+  // the school's platform_version and the running build, so we never tell anyone
+  // to "update" to a version older than what they already have.
+  const [latestRegistryVersion, setLatestRegistryVersion] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    api.getAppVersions()
+      .then((list: any[]) => {
+        if (active && Array.isArray(list) && list[0]?.version) setLatestRegistryVersion(list[0].version);
+      })
+      .catch(() => { /* non-blocking — fall back to platform_version / APP_VERSION */ });
+    return () => { active = false; };
+  }, []);
+
+  const latestVersion = maxVersion(latestRegistryVersion, currentSchool?.platform_version, APP_VERSION);
+  const isVersionMismatch = isOutdated(APP_VERSION, latestVersion);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isHomePage, setIsHomePage] = useState(true);
@@ -165,7 +182,7 @@ const AuthenticatedApp: React.FC = () => {
         <VerificationGuard>
           {/* Version Lock Overlay */}
           {isVersionMismatch && (
-            <UpdatePrompt forced={true} targetVersion={schoolVersion} />
+            <UpdatePrompt forced={true} targetVersion={latestVersion} />
           )}
 
           {/* Subscription Lock — replaces dashboard entirely when expired/suspended.

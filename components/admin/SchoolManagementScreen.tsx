@@ -32,6 +32,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
 
     const [formData, setFormData] = useState({
         name: '',
+        code: '',
         address: '',
         phone: '',
         location: '',
@@ -71,6 +72,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
     const resetForm = () => {
         setFormData({
             name: '',
+            code: '',
             address: '',
             phone: '',
             location: '',
@@ -111,6 +113,7 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
         setEditingBranch(branch);
         setFormData({
             name: branch.name,
+            code: branch.code || '',
             address: branch.address || '',
             phone: branch.phone || '',
             location: branch.location || '',
@@ -178,6 +181,27 @@ const SchoolManagementScreen: React.FC<SchoolManagementScreenProps> = ({ navigat
                                     Name locked — {editingBranch.user_count} member(s) already have IDs based on this branch.
                                 </p>
                             )}
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Branch Code</label>
+                            <div className="relative group">
+                                <Building className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                                <input
+                                    name="code"
+                                    value={(formData as any).code || ''}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') } as any))}
+                                    disabled={!!editingBranch}
+                                    maxLength={10}
+                                    placeholder="e.g. LEKKI"
+                                    className={`w-full pl-12 pr-4 py-4 bg-slate-50/50 border-2 border-slate-100 rounded-2xl focus:border-indigo-600 focus:bg-white outline-none transition-all uppercase tracking-wide ${editingBranch ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                />
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1.5 px-1">
+                                {editingBranch
+                                    ? 'Fixed once the branch exists — it is part of every member ID.'
+                                    : 'Used in member IDs, e.g. OLISKEY_LEKKI_STU_0001. Leave blank to auto-generate.'}
+                            </p>
                         </div>
 
                         <div>

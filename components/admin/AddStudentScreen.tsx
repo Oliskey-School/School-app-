@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Phone as PhoneIcon, Mail as MailIcon, Camera as CameraIcon, X as XMarkIcon, AlertTriangle as ExclamationTriangleIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, ChevronDown as ChevronDownIcon } from 'lucide-react';
 import { Student, Department } from '../../types';
 import { api } from '../../lib/api';
+import { compressImage } from '../../lib/imageCompression';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { SUBJECTS_LIST, DEFAULT_STANDARD_CLASSES, getFormattedClassName } from '../../constants';
 
@@ -11,8 +12,21 @@ import { createUserAccount, generateUsername, generatePassword, sendVerification
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { useBranch } from '../../context/BranchContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
 import UpgradeModal from '../shared/UpgradeModal';
+
+// Standard Nigerian curriculum used as a fallback when a class has no subjects
+// configured yet (names match SUBJECTS_LIST). The class's own configured subjects
+// take precedence when present.
+const AUTO_SUBJECTS = {
+    primary: ['Mathematics', 'English Studies', 'Basic Science and Technology (BST)', 'Social Studies', 'Civic Education', 'Cultural and Creative Arts (CCA)', 'Physical and Health Education (PHE)', 'Computer Studies/ICT'],
+    junior: ['Mathematics', 'English Studies', 'Basic Science and Technology (BST)', 'Social Studies', 'Civic Education', 'Cultural and Creative Arts (CCA)', 'Physical and Health Education (PHE)', 'Computer Studies/ICT', 'Business Studies', 'Agricultural Science', 'Christian Religious Studies (CRS)'],
+    seniorCore: ['English Language', 'General Mathematics', 'Civic Education', 'Computer Studies/ICT'],
+    science: ['Physics', 'Chemistry', 'Biology', 'Further Mathematics', 'Agricultural Science'],
+    commercial: ['Financial Accounting', 'Commerce', 'Economics', 'Business Studies', 'Office Practice'],
+    arts: ['Literature-in-English', 'Government', 'History', 'Christian Religious Studies (CRS)', 'Geography'],
+};
 
 interface AddStudentScreenProps {
     studentToEdit?: Student;
@@ -121,6 +135,10 @@ const MultiSelect: React.FC<{
 const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forceUpdate, handleBack }) => {
     const { profile, refreshProfile } = useProfile();
     const { currentSchool, currentBranchId, user } = useAuth(); // Added user and currentBranchId
+    const { currentBranch } = useBranch();
+    // The branch the admin is ACTIVELY viewing — new students are created here, not
+    // in the admin's home branch. (Falls back to home branch if none is active.)
+    const activeBranchId = currentBranch?.id || currentBranchId;
 
     // Triple-layer schoolId detection
     const schoolId = profile?.schoolId || currentSchool?.id;
@@ -162,8 +180,18 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [branches, setBranches] = useState<any[]>([]);
     const [branchNameMap, setBranchNameMap] = useState<Record<string, string>>({});
     const [allClasses, setAllClasses] = useState<any[]>([]);
-    const [selectedBranchId, setSelectedBranchId] = useState<string>(currentBranchId || '');
+    const [selectedBranchId, setSelectedBranchId] = useState<string>(activeBranchId || '');
     const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+    // For a NEW student, lock onto the admin's active branch once it resolves (the
+    // branch context can load a beat after the form mounts). Won't override edits.
+    const branchAutoSetRef = React.useRef(false);
+    useEffect(() => {
+        if (studentToEdit) return;
+        if (currentBranch?.id && !branchAutoSetRef.current) {
+            setSelectedBranchId(currentBranch.id);
+            branchAutoSetRef.current = true;
+        }
+    }, [currentBranch?.id, studentToEdit]);
 
     // Dynamic subject filtering based on curriculum
     const filteredSubjectOptions = useMemo(() => {
@@ -242,6 +270,50 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         const primaryClass = availableClasses.find(c => c.id === selectedClassIds[0]);
         return primaryClass?.section || 'A';
     }, [selectedClassIds, availableClasses]);
+
+    // Auto-select the subjects a student will offer based on the chosen (primary) class
+    // and department. Uses the class's CONFIGURED subjects when present; otherwise falls
+    // back to the standard curriculum for that level. The admin/teacher can add/remove after.
+    const autoFillKey = `${selectedClassIds[0] || ''}|${department || ''}|${curriculumType || ''}`;
+    useEffect(() => {
+        const primaryClass = availableClasses.find(c => c.id === selectedClassIds[0]);
+        if (!primaryClass) return;
+
+        const gradeNum = Number(primaryClass.grade) || 0;
+        const level: 'senior' | 'junior' | 'primary' = gradeNum >= 10 ? 'senior' : gradeNum >= 7 ? 'junior' : 'primary';
+        const valid = new Set(filteredSubjectOptions);
+        const keep = (names: string[]) => Array.from(new Set(names.filter(n => valid.has(n))));
+
+        const applyFallback = () => {
+            let names: string[];
+            if (level === 'senior') {
+                names = [...AUTO_SUBJECTS.seniorCore];
+                const dep = String(department || '').toLowerCase();
+                if (dep.includes('science')) names = names.concat(AUTO_SUBJECTS.science);
+                else if (dep.includes('commerc') || dep.includes('business')) names = names.concat(AUTO_SUBJECTS.commercial);
+                else if (dep.includes('art') || dep.includes('human')) names = names.concat(AUTO_SUBJECTS.arts);
+            } else if (level === 'junior') {
+                names = [...AUTO_SUBJECTS.junior];
+            } else {
+                names = [...AUTO_SUBJECTS.primary];
+            }
+            setSubjects(keep(names));
+        };
+
+        const isRealClass = primaryClass.id && !String(primaryClass.id).startsWith('__create__');
+        if (isRealClass) {
+            api.getClassSubjects(primaryClass.id)
+                .then((rows: any[]) => {
+                    const names = Array.isArray(rows) ? rows.map((s: any) => s?.name).filter(Boolean) : [];
+                    if (names.length) setSubjects(keep(names));
+                    else applyFallback();
+                })
+                .catch(() => applyFallback());
+        } else {
+            applyFallback();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoFillKey]);
 
     useEffect(() => {
         const loadParents = async () => {
@@ -418,14 +490,17 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         }
     }, [studentToEdit]);
 
-    const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             const file = event.target.files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setSelectedImage(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            try {
+                // Shrink the photo before embedding so it always fits the upload limit.
+                setSelectedImage(await compressImage(file));
+            } catch {
+                const reader = new FileReader();
+                reader.onloadend = () => setSelectedImage(reader.result as string);
+                reader.readAsDataURL(file);
+            }
         }
     };
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);

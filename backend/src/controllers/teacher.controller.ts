@@ -6,19 +6,39 @@ import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const createTeacher = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
+        // Pass the RAW X-Branch-Id header explicitly (top priority) so a new teacher
+        // is ALWAYS created in the branch the admin is actively viewing — never the
+        // home/Main branch — regardless of any branch value the form posts.
+        const headerBranch = (req.headers['x-branch-id'] as string) || undefined;
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id, headerBranch);
+        console.log(`[createTeacher] header=${headerBranch} body.branch_id=${req.body?.branch_id} active=${req.user?.active_branch_id} -> resolved=${branchId}`);
         const result = await TeacherService.createTeacher(req.user.school_id, branchId, req.body);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
     }
 };
 
 export const getMyProfile = async (req: AuthRequest, res: Response) => {
     try {
-        const result = await TeacherService.getTeacherProfileByUserId(req.user.school_id, req.user.id);
+        const result: any = await TeacherService.getTeacherProfileByUserId(req.user.school_id, req.user.id);
         if (!result) {
             return res.status(404).json({ message: 'Teacher profile not found' });
+        }
+        // Scope the teacher's classes to their ACTIVE branch so switching branches
+        // shows that branch's environment (and is empty if they teach none there).
+        // School-wide classes (branch_id null) remain visible in every branch.
+        const branchId = getEffectiveBranchId(req.user, undefined);
+        if (branchId && branchId !== 'all' && Array.isArray(result.classes)) {
+            const homeBranch = req.user.branch_id;
+            result.classes = result.classes.filter((ct: any) => {
+                const cb = ct?.class?.branch_id;
+                if (cb === branchId) return true;
+                // A class with no branch belongs to the teacher's HOME branch only —
+                // it must NOT leak into other branches when they switch.
+                if (cb == null && branchId === homeBranch) return true;
+                return false;
+            });
         }
         res.json(result);
     } catch (error: any) {

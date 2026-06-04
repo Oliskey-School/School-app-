@@ -25,8 +25,9 @@ export function useRealtimeRefresh(
             const detail = (event as CustomEvent).detail;
             const changedTable = detail?.table;
 
-            // If no table specified, or it matches one we care about, refetch
-            if (!changedTable || tables.includes(changedTable)) {
+            // If no table specified, a global '__all__' signal (e.g. branch switch),
+            // or it matches one we care about, refetch.
+            if (!changedTable || changedTable === '__all__' || tables.includes(changedTable)) {
                 refetchRef.current();
             }
         };

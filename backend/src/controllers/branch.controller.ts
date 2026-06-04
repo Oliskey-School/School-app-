@@ -1,11 +1,17 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SchoolService } from '../services/school.service';
-import { getEffectiveBranchId } from '../utils/branchScope';
+import { getEffectiveBranchId, getDemoSessionRoot } from '../utils/branchScope';
 import * as BranchTransfer from '../services/branchTransfer.service';
 
 export const getBranches = async (req: AuthRequest, res: Response) => {
     try {
+        // Demo session: return this visitor's sandbox (root + the branches they created).
+        const demoRoot = getDemoSessionRoot(req.user);
+        if (demoRoot) {
+            const result = await SchoolService.getBranches(req.user.school_id, undefined, demoRoot);
+            return res.json(result);
+        }
         const requestedBranchId = (req.query.branchId as string) || (req.query.branch_id as string);
         const headerBranchId = req.headers['x-branch-id'] as string | undefined;
         const branchId = getEffectiveBranchId(req.user, requestedBranchId, headerBranchId);
@@ -19,7 +25,9 @@ export const getBranches = async (req: AuthRequest, res: Response) => {
 export const createBranch = async (req: AuthRequest, res: Response) => {
     try {
         const branchData = req.body;
-        const result = await SchoolService.createBranch(req.user.school_id, branchData);
+        // In a demo session, new branches are scoped to the visitor's sandbox.
+        const demoRoot = getDemoSessionRoot(req.user);
+        const result = await SchoolService.createBranch(req.user.school_id, branchData, demoRoot);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(400).json({ message: error.message });

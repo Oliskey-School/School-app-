@@ -8,6 +8,7 @@ import { AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar, InspectorS
 import { AdminBottomNav, TeacherBottomNav, ParentBottomNav, StudentBottomNav, InspectorBottomNav } from '../ui/DashboardBottomNav';
 import { X } from 'lucide-react';
 import { BranchSwitcher } from '../shared/BranchSwitcher';
+import { useBranch } from '../../context/BranchContext';
 import { formatSchoolId } from '../../utils/idFormatter';
 import { DEMO_ROLES_ORDER, DEMO_ACCOUNTS } from '../../lib/mockAuth';
 import RenewalBanner from '../shared/RenewalBanner';
@@ -19,6 +20,7 @@ interface DashboardLayoutProps {
     activeScreen?: string;
     setActiveScreen?: (screen: string) => void;
     hideHeader?: boolean;
+    hideSidebar?: boolean;
     hidePadding?: boolean;
     onLogout?: () => void;
 }
@@ -26,9 +28,10 @@ interface DashboardLayoutProps {
 import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hidePadding = false, onLogout }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, onLogout }) => {
     const { user, role, signOut, currentSchool, isDemo, switchDemoRole } = useAuth();
     const { profile, refreshProfile } = useProfile(); // Use Profile Context
+    const { activeBranchGeneratedId } = useBranch(); // Branch-aware Global ID for the header
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [switchingRole, setSwitchingRole] = useState<string | null>(null);
     const notificationCount = useRealtimeNotifications(role?.toLowerCase() as any || 'admin');
@@ -62,34 +65,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     const formatId = (id: string | null | undefined) => {
         if (!id) return '';
 
-        // Map dashboard roles to their ID segment (e.g. 'Admin' -> 'ADM', 'Teacher' -> 'TCH')
-        const ROLE_SEGMENT_MAP: Record<string, string> = {
-            admin: 'ADM', superadmin: 'ADM', proprietor: 'OWN',
-            teacher: 'TCH', student: 'STD', parent: 'PAR',
-            inspector: 'INS', examofficer: 'EXO', complianceofficer: 'COM',
-        };
-        const rawRole = (role || profile?.role || user?.role || '').toString().toLowerCase();
-        const expectedSegment = ROLE_SEGMENT_MAP[rawRole];
+        // A fully-formed global ID (SCHOOL_BRANCH_ROLE_NNNN) is the source of truth —
+        // show it EXACTLY as stored, for every branch. We must NOT re-fabricate it:
+        // regenerating with hardcoded OLISKEY/MAIN produced wrong IDs (e.g.
+        // oliskey_main_STU_0001) for members who actually belong to another branch.
+        if (id.split('_').length >= 4) return id;
 
-        // If the ID already has a role segment, verify it matches the current role.
-        // If it doesn't match (e.g., TCH for an Admin), regenerate the ID.
-        if (id.split('_').length >= 4 && expectedSegment) {
-            const parts = id.split('_');
-            const idRoleSegment = parts[2]; // E.g. 'TCH' from 'OLISKEY_MAIN_TCH_0017'
-            if (idRoleSegment === expectedSegment) return id; // Correct ID — show as-is
-            // Wrong role segment — fall through to regenerate using just the numeric part
-            const numericPart = parts[3];
-            const schoolCode = user?.school_code || 'OLISKEY';
-            const branchCode = user?.branch_code || 'MAIN';
-            return formatSchoolId(numericPart || id, rawRole.charAt(0).toUpperCase() + rawRole.slice(1) as string, schoolCode, branchCode);
-        }
-
-        // Force 'OLISKEY' for demo mode
-        const schoolCode = user?.school_code || user?.user_metadata?.school_code || 'OLISKEY';
-        const branchCode = user?.branch_code || user?.user_metadata?.branch_code || 'MAIN';
-        const userRole = (typeof rawRole === 'string') ? (rawRole.charAt(0).toUpperCase() + rawRole.slice(1).toLowerCase()) : rawRole;
-
-        return formatSchoolId(id, userRole as string, schoolCode, branchCode);
+        // No properly-formed ID available — show what we have rather than inventing one.
+        return id;
     };
 
     const getSidebar = (isMobile = false) => {
@@ -156,12 +139,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
     return (
         <div className="flex h-screen w-full overflow-hidden bg-gray-50">
             {/* Desktop Sidebar */}
-            <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200">
-                {getSidebar()}
-            </aside>
+            {!hideSidebar && (
+                <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-40 bg-white border-r border-gray-200">
+                    {getSidebar()}
+                </aside>
+            )}
 
             {/* Mobile Sidebar Overlay */}
-            {isMobileMenuOpen && (
+            {!hideSidebar && isMobileMenuOpen && (
                 <div
                     className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-300"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -169,20 +154,22 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
             )}
 
             {/* Mobile Sidebar Drawer */}
-            <aside className={`fixed inset-y-0 left-0 z-[60] w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                <div className="absolute top-4 right-4">
-                    <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-                <div className="p-4 border-b border-gray-50 bg-gray-50/30">
-                    <BranchSwitcher align="left" />
-                </div>
-                {getSidebar(true)}
-            </aside>
+            {!hideSidebar && (
+                <aside className={`fixed inset-y-0 left-0 z-[60] w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                    <div className="absolute top-4 right-4">
+                        <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                    <div className="p-4 border-b border-gray-50 bg-gray-50/30">
+                        <BranchSwitcher align="left" />
+                    </div>
+                    {getSidebar(true)}
+                </aside>
+            )}
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col h-screen w-full lg:ml-64 overflow-hidden min-w-0 relative">
+            <div className={`flex-1 flex flex-col h-screen w-full ${!hideSidebar ? 'lg:ml-64' : ''} overflow-hidden min-w-0 relative`}>
 
                 {/* Demo Banner — visible in demo mode */}
                 {isDemo && (
@@ -215,7 +202,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                         notificationCount={notificationCount}
                         className="w-full flex-shrink-0"
                         userName={user?.full_name || profile?.full_name || user?.user_metadata?.full_name || 'User'}
-                        customId={formatId(user?.school_generated_id || profile?.school_generated_id || user?.user_metadata?.school_generated_id)}
+                        customId={formatId(activeBranchGeneratedId || user?.school_generated_id || profile?.school_generated_id || user?.user_metadata?.school_generated_id)}
                     />
                 )}
 

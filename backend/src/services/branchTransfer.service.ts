@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { IdGeneratorService } from './idGenerator.service';
+import { getDemoSessionRoot } from '../utils/branchScope';
 
 /**
  * Branch transfer / assignment + authorized-branch resolution.
@@ -28,6 +29,15 @@ export function isMainAdmin(user: any): boolean {
 export async function getAuthorizedBranches(user: any) {
     const schoolId = user.school_id;
     if (!schoolId) return [];
+
+    // Demo session: the visitor's sandbox (root + the branches they created).
+    const demoRoot = getDemoSessionRoot(user);
+    if (demoRoot) {
+        return prisma.branch.findMany({
+            where: { school_id: schoolId, OR: [{ id: demoRoot }, { id: { startsWith: demoRoot + '__' } }] },
+            orderBy: { is_main: 'desc' },
+        });
+    }
 
     if (!user.branch_id) {
         return prisma.branch.findMany({

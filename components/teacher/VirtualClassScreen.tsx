@@ -14,6 +14,7 @@ import api from '../../lib/api';
 import { useTeacherClasses } from '../../hooks/useTeacherClasses';
 import { getFormattedClassName } from '../../constants';
 import { parseClassName } from '../../utils/classUtils';
+import LiveClassRoom from '../video/LiveClassRoom';
 
 // --- Customized Icons for Premium Feel ---
 const XIcon = (props: React.SVGProps<SVGSVGElement>) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
@@ -278,6 +279,9 @@ const ClassSelectionScreen: React.FC<{
 const VirtualClassScreen: React.FC = () => {
     const { user, currentSchool } = useAuth();
     const [activeSession, setActiveSession] = useState<{ classDetails: ClassSession, subject: string, topic: string, duration: string } | null>(null);
+    // Backend session id for the live class — needed to mark it ended on the server
+    // so students' "Join Live Class" button disappears when the teacher ends it.
+    const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     const [participants, setParticipants] = useState<any[]>([]);
     const [isMuted, setIsMuted] = useState(false);
     const [isCameraOff, setIsCameraOff] = useState(false);
@@ -331,66 +335,79 @@ const VirtualClassScreen: React.FC = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    useEffect(() => {
-        if (!activeSession) return;
-        const startCamera = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                streamRef.current = stream;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    stream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-                    stream.getVideoTracks().forEach(t => t.enabled = !isCameraOff);
-                }
-            } catch (error) {
-                console.error("Camera access:", error);
-                setIsCameraOff(true);
-            }
-        };
-        startCamera();
-        return () => { streamRef.current?.getTracks().forEach(track => track.stop()); };
-    }, [activeSession]);
-
-    useEffect(() => {
-        if (streamRef.current) {
-            streamRef.current.getAudioTracks().forEach(t => t.enabled = !isMuted);
-            streamRef.current.getVideoTracks().forEach(t => t.enabled = !isCameraOff);
-        }
-    }, [isMuted, isCameraOff]);
+    // Camera/microphone are now handled inside the shared live room (Jitsi), so we
+    // no longer grab a separate local stream here — doing so would lock the camera
+    // and stop the real room from using it.
 
     const handleStartClass = async (cls: ClassSession, subject: string, topic: string, duration: string, initialMuted: boolean, initialCameraOff: boolean) => {
+        if (!user) return;
         setIsMuted(initialMuted);
         setIsCameraOff(initialCameraOff);
-        setActiveSession({ classDetails: cls, subject, topic, duration });
-        if (user) {
-            try {
-                const session = await api.createVirtualClassSession({
-                    teacher_id: user.id,
-                    class_id: cls.id,
-                    title: `Live Session: ${subject} for ${cls.grade}`,
-                    subject: subject,
-                    topic: topic,
-                    status: 'active',
-                    start_time: new Date().toISOString(),
-                    meeting_url: 'internal_jitsi'
-                });
+        try {
+            const session = await api.createVirtualClassSession({
+                teacher_id: user.id,
+                class_id: cls.id,
+                title: `Live Session: ${subject} for ${cls.grade}`,
+                subject: subject,
+                topic: topic,
+                status: 'active',
+                start_time: new Date().toISOString(),
+                meeting_url: 'internal_jitsi'
+            });
 
-                await api.createNotification({
-                    title: `🎬 Live Class: ${subject}`,
-                    message: `Your ${subject} class is starting now. Click to join!`,
-                    category: 'System',
-                    audience: [`Grade ${cls.rawGrade}`],
-                    related_id: session.id,
-                    is_read: false
-                });
-                toast.success('Class session started live!');
-            } catch (e: any) { toast.error('Failed to start session: ' + e.message); }
+            // Set the room id FIRST, then open the room, so the teacher and the
+            // students all share the exact same live room (keyed by session id).
+            setActiveSessionId(session?.id || null);
+            setActiveSession({ classDetails: cls, subject, topic, duration });
+
+            api.createNotification({
+                title: `🎬 Live Class: ${subject}`,
+                message: `Your ${subject} class is starting now. Click to join!`,
+                category: 'System',
+                audience: [`Grade ${cls.rawGrade}`],
+                related_id: session.id,
+                is_read: false
+            }).catch(() => { /* notification is best-effort */ });
+            toast.success('Class session started live!');
+        } catch (e: any) {
+            toast.error('Failed to start session: ' + e.message);
         }
     };
 
-    if (!activeSession) {
+    const handleEndClass = async () => {
+        if (!window.confirm('End class for everyone?')) return;
+        if (activeSessionId) {
+            try { await api.endVirtualClassSession(activeSessionId); } catch (e) { console.error('Failed to end session', e); }
+        }
+        setActiveSession(null);
+        setActiveSessionId(null);
+    };
+
+    // Until the session is created we don't have the room id, so keep showing the
+    // class picker. Once it's live, drop the teacher into the shared room.
+    if (!activeSession || !activeSessionId) {
         return <ClassSelectionScreen onStartClass={handleStartClass} schoolId={currentSchool?.id} />;
     }
+
+    return (
+        <LiveClassRoom
+            sessionId={activeSessionId}
+            displayName={user?.full_name || user?.name || 'Teacher'}
+            subject={activeSession.subject}
+            topic={activeSession.topic}
+            actionLabel="End Class"
+            onExit={handleEndClass}
+        />
+    );
+};
+
+// --- Legacy mock live UI (no longer rendered; kept for reference only) ---
+const _UnusedLegacyLiveUI: React.FC<any> = ({
+    activeSession, activeSessionId, formatTime, elapsedTime, viewMode, setViewMode,
+    videoRef, isCameraOff, isMuted, setIsMuted, setIsCameraOff, participants,
+    isHandRaised, setIsHandRaised, showReactions, setShowReactions, isSidebarOpen,
+    setIsSidebarOpen, activeSidebarTab, setActiveSidebarTab, setActiveSession, setActiveSessionId,
+}) => {
 
     return (
         <div className="flex bg-slate-50 h-[calc(100vh-64px)] w-full overflow-hidden font-sans text-slate-900">
@@ -461,7 +478,7 @@ const VirtualClassScreen: React.FC = () => {
                         <ControlBtn icon={<UsersIcon />} label="People" active={isSidebarOpen && activeSidebarTab === 'participants'} onClick={() => { setIsSidebarOpen(true); setActiveSidebarTab('participants'); }} activeColor="bg-indigo-50 text-indigo-600 border border-indigo-100" inactiveColor="hover:bg-slate-50 text-slate-600" />
                         <ControlBtn icon={<MessagesIcon />} label="Chat" active={isSidebarOpen && activeSidebarTab === 'chat'} onClick={() => { setIsSidebarOpen(true); setActiveSidebarTab('chat'); }} activeColor="bg-indigo-50 text-indigo-600 border border-indigo-100" inactiveColor="hover:bg-slate-50 text-slate-600" />
                         <div className="pl-1 md:pl-4 md:border-l md:border-slate-200 ml-1 md:ml-4">
-                            <button onClick={() => { if (window.confirm('End class?')) setActiveSession(null); }} className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-bold text-sm shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap">End Class</button>
+                            <button onClick={async () => { if (window.confirm('End class?')) { if (activeSessionId) { try { await api.endVirtualClassSession(activeSessionId); } catch (e) { console.error('Failed to end session', e); } } setActiveSession(null); setActiveSessionId(null); } }} className="px-6 py-2.5 rounded-xl bg-red-600 text-white font-bold text-sm shadow-lg transition-transform hover:scale-105 active:scale-95 whitespace-nowrap">End Class</button>
                         </div>
                     </div>
                 </div>

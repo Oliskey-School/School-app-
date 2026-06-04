@@ -96,19 +96,19 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         try {
             const { api } = await import('../lib/api');
-            const role = profile.role?.toLowerCase();
-            
-            if (role === 'teacher' || role === 'admin') {
-                await api.updateTeacher(profile.id, updates);
-            } else if (role === 'parent') {
-                await api.updateParent(profile.id, updates);
-            } else {
-                await api.updateStudent(profile.id, updates);
-            }
-            
-            // CRITICAL: Trigger global auth refresh to sync Header icon
+
+            // Single self-scoped endpoint for ALL roles. It persists name/phone/avatar
+            // to the core user AND the role profile, normalising field aliases.
+            await api.updateMyProfile({
+                full_name: (updates as any).full_name ?? (updates as any).name,
+                phone: (updates as any).phone,
+                avatar_url: (updates as any).avatar_url ?? (updates as any).avatarUrl,
+            });
+
+            // CRITICAL: Trigger global auth refresh so the header avatar / name / phone
+            // update everywhere immediately.
             await refreshUser();
-            
+
             return { error: null };
         } catch (error) {
             return { error };

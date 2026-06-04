@@ -393,29 +393,48 @@ export class AcademicService {
     }
 
     static async getAcademicTerms(schoolId: string) {
-        // In a real app, this would query an 'AcademicTerm' model.
-        // For now, we return standard terms or deduce from AcademicPerformance.
-        const existingData = await prisma.academicPerformance.findMany({
+        // The Nigerian academic session is ALWAYS three terms. We return all three
+        // for the current session plus any session that already has data, so the
+        // gradebook/report card can pick any term. The `id` is a stable, name-based
+        // key (`"<session>|<term>"`) — report cards are keyed by term NAME, so the
+        // id and name resolve to the SAME thing and drafts reload correctly.
+        const existing = await prisma.academicPerformance.findMany({
             where: { school_id: schoolId },
-            select: { term: true, session: true },
-            distinct: ['term', 'session']
+            select: { session: true },
+            distinct: ['session'],
         });
 
-        if (existingData.length === 0) {
-            return [
-                { id: '1st-term-24-25', name: 'First Term', academic_year: '2024/2025', is_current: true, start_date: '2024-09-01', end_date: '2024-12-20' },
-                { id: '2nd-term-24-25', name: 'Second Term', academic_year: '2024/2025', is_current: false, start_date: '2025-01-10', end_date: '2025-04-10' }
-            ];
-        }
+        const now = new Date();
+        // Nigerian sessions start in September.
+        const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        const currentSession = `${startYear}/${startYear + 1}`;
 
-        return existingData.map((d, i) => ({
-            id: `term-${i}`,
-            name: d.term,
-            academic_year: d.session,
-            is_current: i === 0,
-            start_date: '2024-09-01',
-            end_date: '2025-07-30'
-        }));
+        const sessions = Array.from(new Set([
+            currentSession,
+            ...existing.map(e => e.session).filter(Boolean) as string[],
+        ]));
+
+        const TERM_NAMES = ['First Term', 'Second Term', 'Third Term'];
+        const result: any[] = [];
+        for (const session of sessions) {
+            const sy = parseInt(String(session).split('/')[0], 10) || startYear;
+            const windows = [
+                { start: `${sy}-09-01`, end: `${sy}-12-20` },
+                { start: `${sy + 1}-01-10`, end: `${sy + 1}-04-10` },
+                { start: `${sy + 1}-04-25`, end: `${sy + 1}-07-30` },
+            ];
+            TERM_NAMES.forEach((name, i) => {
+                result.push({
+                    id: `${session}|${name}`,
+                    name,
+                    academic_year: session,
+                    is_current: session === currentSession && i === 0,
+                    start_date: windows[i].start,
+                    end_date: windows[i].end,
+                });
+            });
+        }
+        return result;
     }
 
     static async upsertReportCard(studentId: string, schoolId: string, data: any) {

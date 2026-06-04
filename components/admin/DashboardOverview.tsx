@@ -407,6 +407,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                             <QuickActionCard label="Health Log" icon={<HeartIcon />} onClick={() => navigateTo('healthLog', 'Health Log')} color="bg-red-500" />
                             <QuickActionCard label="Attendance" icon={<ClockIcon />} onClick={() => navigateTo('teacherAttendance', 'Teacher Attendance')} color="bg-amber-500" />
                             <QuickActionCard label="User Accounts" icon={<UsersIcon />} onClick={() => navigateTo('userAccounts', 'User Accounts')} color="bg-indigo-600" />
+                            <QuickActionCard label="Manage Branches" icon={<Building2 className="w-6 h-6" />} onClick={() => navigateTo('schoolManagement', 'Manage Branches')} color="bg-blue-600" />
                             {!currentBranchId && (
                                 <QuickActionCard label="Branch Transfers" icon={<UsersIcon />} onClick={() => navigateTo('branchTransfer', 'Branch Transfers')} color="bg-fuchsia-600" />
                             )}

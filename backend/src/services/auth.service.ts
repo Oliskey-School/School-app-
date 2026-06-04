@@ -125,10 +125,27 @@ export class AuthService {
         return { success: true, message: 'Username updated successfully' };
     }
 
+    // Roles a visitor may assign themselves via the PUBLIC /auth/signup endpoint.
+    // Privileged roles (admin, proprietor, super_admin, inspector, exam/compliance
+    // officer, bursar) must NEVER be self-assignable — those are created by the
+    // school onboarding flow or by an existing admin (AuthService.createUser).
+    private static SELF_SIGNUP_ROLES = new Set(['student', 'parent', 'teacher']);
+
     static async signup(data: any) {
         return await prisma.$transaction(async (tx) => {
+            // SECURITY: do not trust the client-supplied role. Without this guard a
+            // visitor could POST { role: "super_admin" } and self-create a platform
+            // operator account that sees every school (privilege escalation).
+            const requestedRole = String(data.role || 'student').toLowerCase().trim();
+            if (!this.SELF_SIGNUP_ROLES.has(requestedRole)) {
+                throw Object.assign(
+                    new Error('Invalid role for self-registration. Allowed: student, parent, teacher.'),
+                    { status: 403 }
+                );
+            }
+
             const hashedPassword = await bcrypt.hash(data.password, 10);
-            const role = this.mapRole(data.role || 'student');
+            const role = this.mapRole(requestedRole);
 
             let schoolGeneratedId = null;
             if (data.school_id && data.branch_id) {
@@ -198,8 +215,14 @@ export class AuthService {
     static async login(identifier: string, password: string) {
         const normalizedIdentifier = identifier.trim().toLowerCase();
         
-        // Find user by email OR school_generated_id
-        const user = await (prisma.user.findFirst as any)({
+        // Find ALL accounts matching the identifier (email OR school_generated_id).
+        // A generated ID can legitimately collide across schools/branches — e.g. in
+        // the SHARED demo school every visitor's "Lekki" branch admin is
+        // OLISKEY_LEKKI_ADM_0001 (same branch code, number resets per branch). So we
+        // must not assume the first match is the right person: we pick the candidate
+        // whose PASSWORD actually matches. This is also correct for live schools that
+        // happen to share a school/branch code.
+        const candidates = await (prisma.user.findMany as any)({
             where: {
                 OR: [
                     { email: { equals: normalizedIdentifier, mode: 'insensitive' } },
@@ -212,15 +235,20 @@ export class AuthService {
             }
         });
 
-        if (!user) {
+        if (!candidates || candidates.length === 0) {
             console.warn(`❌ [Auth] Login failed: User not found for identifier: ${identifier}`);
             throw new Error('Invalid credentials');
         }
 
-        // Compare password
-        const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) {
-            console.warn(`❌ [Auth] Login failed: Password mismatch for user: ${user.email} (ID: ${user.school_generated_id})`);
+        let user: any = null;
+        for (const c of candidates) {
+            if (c.password_hash && await bcrypt.compare(password, c.password_hash)) {
+                user = c;
+                break;
+            }
+        }
+        if (!user) {
+            console.warn(`❌ [Auth] Login failed: Password mismatch across ${candidates.length} account(s) for identifier: ${identifier}`);
             throw new Error('Invalid credentials');
         }
 
@@ -385,14 +413,27 @@ export class AuthService {
 
             if (!user) throw new Error('User not found');
 
-            // 4. Generate new tokens (Rotate refresh token)
+            // 4. Generate new tokens (Rotate refresh token).
+            // Preserve the SESSION's branch scope carried in the (signed) refresh
+            // token instead of rebuilding it from the raw DB row. Demo sessions run
+            // in a per-session virtual branch that the persistent user row does NOT
+            // carry, so rebuilding from the DB user would silently switch the active
+            // branch on every refresh — making all branch-scoped data vanish until
+            // re-login. The refresh token is server-signed, so its branch claims
+            // cannot be forged; for real users it equals the DB branch (no change).
+            const sessionUser = {
+                ...user,
+                branch_id: decoded.branch_id ?? user.branch_id,
+                allowed_branch_ids: decoded.allowed_branch_ids ?? user.allowed_branch_ids ?? [],
+            };
+
             // Optional: revoke old session
             await (prisma as any).userSession.update({
                 where: { id: session.id },
                 data: { is_active: false }
             });
 
-            return await this.generateTokens(user);
+            return await this.generateTokens(sessionUser);
         } catch (err: any) {
             console.error('[AuthService] Refresh failed:', err.message);
             throw new Error('Refresh token invalid or expired');
@@ -427,9 +468,15 @@ export class AuthService {
                 where: { email: data.email.toLowerCase() }
             });
 
-            let isExisting = false;
             if (user) {
-                isExisting = true;
+                // An email belongs to exactly ONE person. We do NOT reuse/overwrite an
+                // existing account (that silently changed someone's role + credentials and
+                // made them disappear from their original list). Reject clearly so the new
+                // account is always genuinely new and the shown credentials always work.
+                throw Object.assign(
+                    new Error(`This email is already registered to ${user.full_name || 'another account'}. Please use a different email.`),
+                    { status: 409 }
+                );
             } else {
                 // 2. Create new user
                 const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -522,11 +569,19 @@ export class AuthService {
             }
 
             SocketService.emitToSchool(data.school_id, 'auth:updated', { action: 'user_created', userId: user.id });
+            // The username the admin is shown MUST be a real login identifier.
+            // login() matches by email OR school_generated_id — never by a derived
+            // "first-initial + name" handle. So we surface the global ID as the
+            // username (falling back to email if ID generation failed) and echo the
+            // initial password so the credentials shown actually work at sign-in.
             return {
                 id: user.id,
                 email: user.email,
-                schoolGeneratedId,
-                linked: isExisting
+                school_generated_id: schoolGeneratedId,
+                schoolGeneratedId, // back-compat for any camelCase consumer
+                username: schoolGeneratedId || user.email,
+                initial_password: data.password || null,
+                linked: false // creation always yields a brand-new account now
             };
         });
     }
@@ -956,19 +1011,42 @@ export class AuthService {
                 include: { school: true, branch: true }
             });
 
+            // (school_id, code) is UNIQUE, so only one branch in the demo school can
+            // carry the readable "MAIN" code. The demo is a shared sandbox (the demo
+            // user id above is the same for every visitor), so converge every session
+            // on that single MAIN branch: reuse it when it exists, otherwise create
+            // this session's virtual branch as MAIN.
+            //
+            // The previous code INSERTed a per-IP `demo-v-<ip>` branch hardcoded to
+            // code "MAIN" with `ON CONFLICT (id)` — which never matches the (school_id,
+            // code) constraint, so the SECOND visitor onward crashed with a 400
+            // unique-violation and could never enter the demo.
+            const existingMain = await prisma.branch.findFirst({
+                where: { school_id: this.DEMO_SCHOOL_ID, code: branchCode },
+                select: { id: true }
+            });
+            const effectiveBranchId = existingMain?.id || virtualBranchId;
+
             // If not found, it might be the global one or we need to seed
             if (!demoUser) {
                 console.log(`[AUTH] 🏗️ Sandbox user not found, initializing virtual branch and seeding...`);
-                
-                await prisma.$executeRaw`
-                    INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
-                    VALUES (${virtualBranchId}, ${virtualBranchName}, ${branchCode}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
-                    ON CONFLICT (id) DO UPDATE SET name = ${virtualBranchName}, code = ${branchCode}, last_active_at = NOW(), updated_at = NOW()
-                `;
 
-                await DemoSeederService.seedBranchData(this.DEMO_SCHOOL_ID, virtualBranchId, ipHash);
-                
-                demoUser = await (prisma.user.findUnique as any)({ 
+                if (!existingMain) {
+                    await prisma.$executeRaw`
+                        INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
+                        VALUES (${virtualBranchId}, ${virtualBranchName}, ${branchCode}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
+                        ON CONFLICT (id) DO UPDATE SET name = ${virtualBranchName}, last_active_at = NOW(), updated_at = NOW()
+                    `;
+                } else {
+                    // Keep the shared MAIN branch marked active.
+                    await prisma.$executeRaw`
+                        UPDATE "Branch" SET last_active_at = NOW(), updated_at = NOW() WHERE id = ${effectiveBranchId}
+                    `;
+                }
+
+                await DemoSeederService.seedBranchData(this.DEMO_SCHOOL_ID, effectiveBranchId, ipHash);
+
+                demoUser = await (prisma.user.findUnique as any)({
                     where: { id: persistenceId },
                     include: { school: true, branch: true }
                 });
@@ -980,11 +1058,18 @@ export class AuthService {
 
             console.log(`[AUTH] ✅ Demo user verified: ${demoUser.full_name} (${demoUser.id})`);
 
-            // Override the user's branch for this session
+            // Override the user's branch for this session. The demo user row is
+            // per-visitor (keyed by IP), so any branches the admin assigned to this
+            // user belong to THIS sandbox — preserve them (merged with the sandbox
+            // root) so e.g. a teacher granted a second branch can actually switch to
+            // it. Hard-coding [virtualBranchId] here previously erased the grant.
+            const assignedBranches = Array.isArray((demoUser as any).allowed_branch_ids)
+                ? (demoUser as any).allowed_branch_ids
+                : [];
             const sessionUser = {
                 ...demoUser,
-                branch_id: virtualBranchId,
-                allowed_branch_ids: [virtualBranchId],
+                branch_id: effectiveBranchId,
+                allowed_branch_ids: Array.from(new Set([effectiveBranchId, ...assignedBranches])),
                 is_demo: true,
                 demo_ip: ip
             };

@@ -5,9 +5,14 @@ import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 import {
     getSchoolDocuments, getExternalIntegrations, getThirdPartyApps, getAppInstallations,
-    getTeacherSalaries, getBudgets, getPtaMeetings, getAccessibilitySettings,
+    updateExternalIntegration, syncExternalIntegration, installApp, uninstallApp,
+    getTeacherSalaries, getBudgets, createBudget, getPtaMeetings, getAccessibilitySettings,
     getPayslips, getPaymentTransactions, getLeaveRequestsTop, getEmptyList, getArrears
 } from '../controllers/misc.controller';
+import { getVerificationRequests, reviewVerificationRequest } from '../controllers/idVerification.controller';
+import { getComplianceChecks, runComplianceChecks } from '../controllers/compliance.controller';
+import { getActiveBranchId } from '../controllers/auth.controller';
+import globalForumRoutes from './globalForum.routes';
 import userRoutes from './user.routes';
 import schoolRoutes from './school.routes';
 import inviteRoutes from './invite.routes';
@@ -86,6 +91,11 @@ router.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'School SaaS API' });
 });
 
+// Branch-aware Global ID for the active branch. Mounted OUTSIDE '/auth' on purpose:
+// the API client strips the X-Branch-Id header from all '/auth/*' calls, which would
+// make this always resolve to the home branch.
+router.get('/active-branch-id', authenticate, getActiveBranchId);
+
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/schools', schoolRoutes);
@@ -112,6 +122,7 @@ router.use('/exams', examRoutes);
 router.use('/quizzes', quizRoutes);
 router.use('/lesson-plans', lessonPlanRoutes);
 router.use('/forum', forumRoutes);
+router.use('/global-forum', globalForumRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/timetables', timetableRoutes);
 router.use('/virtual-classes', virtualClassRoutes);
@@ -166,10 +177,15 @@ router.use('/pwa', authenticate, pwaRoutes);
 // Tenant-scoped read endpoints consumed by the admin UI via api.from(...)
 router.get('/school-documents', authenticate, requireTenant, getSchoolDocuments);
 router.get('/external-integrations', authenticate, requireTenant, getExternalIntegrations);
+router.put('/external-integrations/:id', authenticate, requireTenant, updateExternalIntegration);
+router.post('/external-integrations/:id/sync', authenticate, requireTenant, syncExternalIntegration);
 router.get('/third-party-apps', authenticate, getThirdPartyApps);
 router.get('/app-installations', authenticate, requireTenant, getAppInstallations);
+router.post('/app-installations', authenticate, requireTenant, installApp);
+router.delete('/app-installations/by-app/:appId', authenticate, requireTenant, uninstallApp);
 router.get('/teacher-salaries', authenticate, requireTenant, getTeacherSalaries);
 router.get('/payroll/budgets', authenticate, requireTenant, getBudgets);
+router.post('/payroll/budgets', authenticate, requireTenant, createBudget);
 router.get('/community/pta-meetings', authenticate, requireTenant, getPtaMeetings);
 router.get('/accessibility-settings', authenticate, getAccessibilitySettings);
 router.get('/payslips', authenticate, requireTenant, getPayslips);
@@ -179,7 +195,10 @@ router.get('/leave-balances', authenticate, requireTenant, getEmptyList);
 router.get('/scholarships', authenticate, requireTenant, getEmptyList);
 router.get('/scholarship-applications', authenticate, requireTenant, getEmptyList);
 router.get('/scholarship-recipients', authenticate, requireTenant, getEmptyList);
-router.get('/id-verification-requests', authenticate, requireTenant, getEmptyList);
+router.get('/id-verification-requests', authenticate, requireTenant, getVerificationRequests);
+router.put('/id-verification-requests/:id', authenticate, requireTenant, reviewVerificationRequest);
+router.get('/compliance-checklists', authenticate, requireTenant, getComplianceChecks);
+router.post('/compliance-checklists/run', authenticate, requireTenant, runComplianceChecks);
 router.get('/arrears', authenticate, requireTenant, getArrears);
 router.get('/sponsorships', authenticate, requireTenant, getEmptyList);
 router.get('/sponsorship-requests', authenticate, requireTenant, getEmptyList);

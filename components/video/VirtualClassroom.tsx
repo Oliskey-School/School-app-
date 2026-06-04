@@ -3,13 +3,15 @@ import { VirtualClass } from '../../types-additional';
 import { toast } from 'react-hot-toast';
 import { VideoCameraIcon, CalendarIcon, ClockIcon } from '../../constants';
 import api from '../../lib/api';
+import LiveClassRoom from './LiveClassRoom';
 
 interface VirtualClassroomProps {
     userRole: 'teacher' | 'student';
     userId: string;
+    displayName?: string;
 }
 
-const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId }) => {
+const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId, displayName }) => {
     const [classes, setClasses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showJitsi, setShowJitsi] = useState(false);
@@ -44,36 +46,20 @@ const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId })
     };
 
     if (showJitsi && selectedClass) {
-        // Internal Jitsi Meet integration
-        const domain = "meet.jit.si";
-        const roomName = `OliskeyClass_${selectedClass.id}`;
-        const jitsiUrl = `https://${domain}/${roomName}`;
-
+        // Same shared room as the teacher (keyed by session id), so the student
+        // actually sees/hears the teacher and classmates.
         return (
-            <div className="fixed inset-0 bg-black z-[100] flex flex-col">
-                <div className="flex items-center justify-between bg-slate-900 text-white p-4 border-b border-slate-800">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                        <h2 className="font-bold text-lg">{selectedClass.subject}</h2>
-                        <span className="text-slate-400 text-sm hidden md:inline">| {selectedClass.topic || 'Class Session'}</span>
-                    </div>
-                    <button
-                        onClick={() => {
-                            setShowJitsi(false);
-                            setSelectedClass(null);
-                        }}
-                        className="px-6 py-2 bg-red-600 rounded-xl hover:bg-red-700 font-bold transition-all active:scale-95 shadow-lg shadow-red-900/20"
-                    >
-                        Leave Class
-                    </button>
-                </div>
-                <iframe
-                    src={jitsiUrl}
-                    allow="camera; microphone; fullscreen; display-capture"
-                    className="w-full flex-1"
-                    title="Virtual Classroom"
-                />
-            </div>
+            <LiveClassRoom
+                sessionId={selectedClass.id}
+                displayName={displayName || 'Student'}
+                subject={selectedClass.subject}
+                topic={selectedClass.topic || 'Class Session'}
+                actionLabel="Leave Class"
+                onExit={() => {
+                    setShowJitsi(false);
+                    setSelectedClass(null);
+                }}
+            />
         );
     }
 
@@ -113,14 +99,18 @@ const VirtualClassroom: React.FC<VirtualClassroomProps> = ({ userRole, userId })
                                 <ClockIcon className="h-4 w-4 text-slate-400" />
                                 <span className="font-medium">{new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            {session.teacher && (
-                                <div className="flex items-center space-x-2 pt-1 border-t border-slate-200">
-                                    <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
-                                        {session.teacher.name.charAt(0)}
+                            {session.teacher && (() => {
+                                // Backend returns full_name; fall back defensively.
+                                const teacherName = session.teacher.full_name || session.teacher.name || 'Teacher';
+                                return (
+                                    <div className="flex items-center space-x-2 pt-1 border-t border-slate-200">
+                                        <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
+                                            {teacherName.charAt(0)}
+                                        </div>
+                                        <p className="text-xs font-semibold">Teacher: {teacherName}</p>
                                     </div>
-                                    <p className="text-xs font-semibold">Teacher: {session.teacher.name}</p>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </div>
 
                         <button

@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import { BehaviorService } from '../services/behavior.service';
 import prisma from '../config/database';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getBehaviorNotes = async (req: any, res: Response) => {
     try {
-        const { schoolId, branchId } = req.query;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const notes = await BehaviorService.getNotesBySchool(
-            schoolId as string || req.user.school_id, 
-            branchId as string
+            req.user.school_id,
+            branchId
         );
         res.json(notes);
     } catch (error: any) {
@@ -17,7 +18,7 @@ export const getBehaviorNotes = async (req: any, res: Response) => {
 
 export const createBehaviorNote = async (req: any, res: Response) => {
     try {
-        const { schoolId, branchId } = req.query;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id || req.body.branch_id) as string);
         let teacherId = req.body.teacher_id || req.body.teacherId;
 
         // If teacherId is not provided, try to find it from the logged-in user
@@ -35,7 +36,7 @@ export const createBehaviorNote = async (req: any, res: Response) => {
         }
         
         const note = await BehaviorService.createNote(
-            schoolId as string || req.user.school_id,
+            req.user.school_id,
             branchId as string,
             teacherId,
             req.body

@@ -20,6 +20,19 @@ export class QuizService {
                 if (filters.classId) where.class_id = filters.classId;
                 if (filters.subjectId) where.subject_id = filters.subjectId;
                 if (filters.teacherId) where.teacher_id = filters.teacherId;
+
+                // Student scoping: a student only sees PUBLISHED quizzes for the
+                // class(es) they're enrolled in (or matching their grade).
+                if (filters.forStudent) {
+                    where.is_published = true;
+                    const classIds: string[] = Array.isArray(filters.studentClassIds) ? filters.studentClassIds : [];
+                    const grade = filters.studentGrade;
+                    const classConds: any[] = [];
+                    if (classIds.length) classConds.push({ class_id: { in: classIds } });
+                    if (grade !== null && grade !== undefined) classConds.push({ class: { grade: Number(grade) } });
+                    // If we have no class/grade info, match nothing rather than leak all.
+                    where.AND = [...(where.AND || []), classConds.length ? { OR: classConds } : { id: '__none__' }];
+                }
             } catch (e) {
                 // Ignore parse errors
             }
@@ -28,8 +41,9 @@ export class QuizService {
         return await prisma.quiz.findMany({
             where,
             include: {
-                class: { select: { id: true, name: true } },
-                subject: { select: { id: true, name: true } }
+                class: { select: { id: true, name: true, grade: true, section: true } },
+                subject: { select: { id: true, name: true } },
+                _count: { select: { questions: true } }
             },
             orderBy: { created_at: 'desc' }
         });
@@ -128,14 +142,14 @@ export class QuizService {
     }
 
     static async updateQuizStatus(schoolId: string, branchId: string | undefined, id: string, data: { is_published?: boolean, status?: string }) {
+        // Scope by id + school_id only. Branch is intentionally NOT part of the
+        // filter: a quiz created under one effective branch could otherwise fail
+        // to toggle if the teacher's current branch context differs, which would
+        // make "Publish" appear to do nothing. school_id still enforces isolation.
         const where: any = {
             id,
             school_id: schoolId
         };
-
-        if (branchId && branchId !== 'all') {
-            where.branch_id = branchId;
-        }
 
         const quiz = await prisma.quiz.update({
             where,

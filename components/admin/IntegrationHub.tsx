@@ -81,13 +81,7 @@ const IntegrationHub: React.FC = () => {
 
     const toggleIntegration = async (integrationId: number, currentStatus: boolean) => {
         try {
-            const { error } = await api
-                .from('external_integrations')
-                .update({ is_active: !currentStatus })
-                .eq('id', integrationId);
-
-            if (error) throw error;
-
+            await api.toggleIntegration(integrationId, !currentStatus);
             toast.success(`Integration ${!currentStatus ? 'enabled' : 'disabled'}`);
             fetchData();
         } catch (error: any) {
@@ -99,29 +93,7 @@ const IntegrationHub: React.FC = () => {
     const syncIntegration = async (integrationId: number, integrationName: string) => {
         try {
             toast.loading(`Syncing ${integrationName}...`);
-
-            // Create sync log
-            const { error } = await api
-                .from('sync_logs')
-                .insert({
-                    school_id: currentSchool!.id,
-                    integration_id: integrationId,
-                    sync_type: 'Manual',
-                    sync_direction: 'pull',
-                    triggered_by: 'manual',
-                    status: 'completed',
-                    records_processed: Math.floor(Math.random() * 100) + 50,
-                    records_succeeded: Math.floor(Math.random() * 90) + 40
-                });
-
-            if (error) throw error;
-
-            // Update last_sync_at
-            await api
-                .from('external_integrations')
-                .update({ last_sync_at: new Date().toISOString() })
-                .eq('id', integrationId);
-
+            await api.syncIntegration(integrationId);
             toast.dismiss();
             toast.success('Sync completed successfully!');
             fetchData();
@@ -134,16 +106,7 @@ const IntegrationHub: React.FC = () => {
 
     const installApp = async (appId: number, appName: string) => {
         try {
-            const { error } = await api
-                .from('app_installations')
-                .insert({
-                    school_id: currentSchool!.id,
-                    app_id: appId,
-                    installed_by: 'system' // Use a generic string or proper user id if available
-                });
-
-            if (error) throw error;
-
+            await api.installApp(appId);
             toast.success(`${appName} installed successfully!`);
             fetchData();
         } catch (error: any) {
@@ -154,14 +117,7 @@ const IntegrationHub: React.FC = () => {
 
     const uninstallApp = async (appId: number, appName: string) => {
         try {
-            const { error } = await api
-                .from('app_installations')
-                .update({ is_active: false, uninstalled_at: new Date().toISOString() })
-                .eq('app_id', appId)
-                .eq('is_active', true);
-
-            if (error) throw error;
-
+            await api.uninstallApp(appId);
             toast.success(`${appName} uninstalled`);
             fetchData();
         } catch (error: any) {

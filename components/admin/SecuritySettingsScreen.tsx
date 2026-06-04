@@ -25,41 +25,30 @@ const SecuritySettingsScreen: React.FC = () => {
 
         const fetchLoginHistory = async () => {
             if (!currentSchool?.id) return;
-            let query = api
-                .from('audit_logs')
-                .select('*')
-                .eq('school_id', currentSchool.id)
-                .eq('type', 'login');
+            try {
+                // Use the real audit-logs endpoint (school + branch scoped on the
+                // backend). The old Supabase-style query builder isn't supported here.
+                const logs = await api.getAuditLogs(currentSchool.id, 20, currentBranchId || undefined);
+                const loginLogs = (logs || []).filter((log: any) =>
+                    /login|token/i.test(log.action || log.type || '')
+                ).slice(0, 5);
 
-            if (currentBranchId && currentBranchId !== 'all') {
-                query = query.eq('branch_id', currentBranchId);
-            }
-
-            const { data, error } = await query
-                .order('created_at', { ascending: false })
-                .limit(5);
-
-            if (error) {
-                console.error("Error fetching login history:", error);
-                toast.error(`Error fetching login history: ${error.message} `);
-                return;
-            }
-
-            if (data) {
-                setLoginHistory(data.map(log => ({
+                setLoginHistory(loginLogs.map((log: any) => ({
                     id: log.id,
-                    user: (log as any).user_name || 'System',
+                    user: log.user_name || log.user?.full_name || 'System',
                     action: 'Logged In',
                     time: new Date(log.created_at).toLocaleString(),
                     device: log.metadata?.device || 'Unknown Device',
                     location: log.metadata?.location || 'Unknown Location',
-                    isCurrent: false // Assuming fetched logs are not current session
+                    isCurrent: false
                 })));
+            } catch (error: any) {
+                console.error("Error fetching login history:", error);
             }
         };
 
         fetchLoginHistory();
-    }, [currentSchool]);
+    }, [currentSchool, currentBranchId]);
 
     const handleSavePolicy = async () => {
         if (!currentSchool?.id) {
@@ -68,17 +57,15 @@ const SecuritySettingsScreen: React.FC = () => {
         }
         setIsLoading(true);
         try {
-            const { error } = await api
-                .from('schools')
-                .update({
-                    settings: {
-                        ...(currentSchool.settings || {}),
-                        security: { ...(currentSchool.settings?.security || {}), passwordPolicy }
-                    }
-                })
-                .eq('id', currentSchool.id);
-
-            if (error) throw error;
+            // Persist via the real schools endpoint instead of the unsupported
+            // Supabase-style .from().update().eq() chain (which threw
+            // "api.from(...).update(...).eq is not a function").
+            await api.updateSchool(currentSchool.id, {
+                settings: {
+                    ...(currentSchool.settings || {}),
+                    security: { ...(currentSchool.settings?.security || {}), passwordPolicy }
+                }
+            });
             toast.success('Security settings saved');
         } catch (error: any) {
             toast.error(`Error: ${error.message} `);

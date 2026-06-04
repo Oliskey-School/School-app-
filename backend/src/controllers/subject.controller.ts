@@ -1,10 +1,11 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SubjectService } from '../services/subject.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getSubjects = async (req: AuthRequest, res: Response) => {
     try {
-        const branchId = req.user.branch_id || req.query.branch_id as string || req.query.branchId as string;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await SubjectService.getSubjects(req.user.school_id, branchId);
         res.json(result);
     } catch (error: any) {
@@ -28,7 +29,9 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
         if (!name) {
             return res.status(400).json({ message: 'Subject name is required' });
         }
-        const result = await SubjectService.createSubject(req.user.school_id, name);
+        // Create the subject in the admin's ACTIVE branch so it stays isolated.
+        const branchId = getEffectiveBranchId(req.user, req.body.branch_id);
+        const result = await SubjectService.createSubject(req.user.school_id, branchId, name);
         res.status(201).json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

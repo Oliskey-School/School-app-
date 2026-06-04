@@ -4,8 +4,12 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
+import { initSentry } from './lib/sentry';
 // @ts-ignore
 // import { registerSW } from 'virtual:pwa-register';
+
+// Start crash reporting as early as possible (no-op unless VITE_SENTRY_DSN is set).
+initSentry();
 
 // Register PWA Service Worker for extremely fast loading
 // Service worker is registered via UpdatePrompt component in App.tsx

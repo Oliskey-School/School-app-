@@ -46,11 +46,14 @@ const EditParentProfileScreen: React.FC<EditParentProfileScreenProps> = ({ onPro
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             const file = event.target.files[0];
+            // Instant local preview...
             const reader = new FileReader();
             reader.onloadend = () => {
                 setAvatar(reader.result as string);
             };
             reader.readAsDataURL(file);
+            // ...then upload to get a persistent URL that is saved (not a huge base64 blob).
+            api.uploadAvatar(file).then(({ url }) => { if (url) setAvatar(url); }).catch(() => { });
         }
     };
 

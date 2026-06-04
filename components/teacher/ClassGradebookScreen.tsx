@@ -172,7 +172,9 @@ const ClassGradebookScreen: React.FC<{
             const merged: GradebookEntry[] = [];
 
             for (const s of studentData) {
-                const rc = await api.getReportCard(s.id, currentTerm?.id || currentTerm?.name, currentSession, currentBranchId);
+                // Read by term NAME — report cards are stored keyed by term name,
+                // so reads and writes must use the same key for drafts to reload.
+                const rc = await api.getReportCard(s.id, currentTerm?.name, currentSession, currentBranchId);
                 // The backend now stores academic records in rc.academic_records
                 const academicRecords = rc?.academic_records || [];
                 // Find record for this subject
@@ -269,7 +271,7 @@ const ClassGradebookScreen: React.FC<{
             let successCount = 0;
 
             for (const entry of students.filter(s => s.isDirty || status === 'Submitted')) {
-                const rc = await api.getReportCard(entry.studentId, currentTerm?.id || currentTerm?.name, currentSession, currentBranchId);
+                const rc = await api.getReportCard(entry.studentId, currentTerm?.name, currentSession, currentBranchId);
 
                 let academicRecords = rc?.academic_records || [];
 
@@ -299,8 +301,10 @@ const ClassGradebookScreen: React.FC<{
                     attendance: rc?.attendance || { total: 0, present: 0, absent: 0, late: 0 },
                     skills: rc?.skills || {},
                     psychomotor: rc?.psychomotor || {},
-                    teacherComment: rc?.teacherComment || '',
-                    principalComment: rc?.principalComment || '',
+                    // The API returns these in snake_case; reading only camelCase here
+                    // silently wiped existing comments on every grade save. Preserve them.
+                    teacherComment: rc?.teacherComment ?? rc?.teacher_comment ?? '',
+                    principalComment: rc?.principalComment ?? rc?.principal_comment ?? '',
                     academicRecords
                 };
 

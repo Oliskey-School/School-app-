@@ -32,7 +32,7 @@ export const createParent = async (req: AuthRequest, res: Response) => {
         const result = await ParentService.createParent(req.user.school_id, branchId, req.body, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
-        res.status(400).json({ message: error.message });
+        res.status(error.status || 400).json({ message: error.message });
     }
 };
 

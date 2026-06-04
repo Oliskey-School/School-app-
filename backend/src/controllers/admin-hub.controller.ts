@@ -18,7 +18,7 @@ export class AdminHubController {
     // Reports
     static async getSavedReports(req: Request, res: Response) {
         try {
-            const reports = await CustomReportService.getSavedReports(req.query.schoolId as string);
+            const reports = await CustomReportService.getSavedReports((req as any).user.school_id);
             res.json(reports);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -27,7 +27,7 @@ export class AdminHubController {
 
     static async createSavedReport(req: Request, res: Response) {
         try {
-            const report = await CustomReportService.createSavedReport(req.query.schoolId as string, req.body);
+            const report = await CustomReportService.createSavedReport((req as any).user.school_id, req.body);
             res.json(report);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -36,7 +36,7 @@ export class AdminHubController {
 
     static async deleteSavedReport(req: Request, res: Response) {
         try {
-            await CustomReportService.deleteSavedReport(req.query.schoolId as string, req.params.id as string);
+            await CustomReportService.deleteSavedReport((req as any).user.school_id, req.params.id as string);
             res.json({ success: true });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -46,7 +46,7 @@ export class AdminHubController {
     // Data Requests
     static async getDataRequests(req: Request, res: Response) {
         try {
-            const requests = await DataRequestService.getRequests(req.query.schoolId as string);
+            const requests = await DataRequestService.getRequests((req as any).user.school_id);
             res.json(requests);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -56,7 +56,7 @@ export class AdminHubController {
     static async createDataRequest(req: Request, res: Response) {
         try {
             const request = await DataRequestService.createRequest(
-                req.query.schoolId as string,
+                (req as any).user.school_id,
                 req.query.branchId as string,
                 req.body
             );
@@ -79,7 +79,7 @@ export class AdminHubController {
     static async getInvoices(req: Request, res: Response) {
         try {
             const invoices = await InvoiceService.getInvoices(
-                req.query.schoolId as string,
+                (req as any).user.school_id,
                 req.query.branchId as string
             );
             res.json(invoices);
@@ -91,7 +91,7 @@ export class AdminHubController {
     static async createInvoice(req: Request, res: Response) {
         try {
             const invoice = await InvoiceService.createInvoice(
-                req.query.schoolId as string,
+                (req as any).user.school_id,
                 req.query.branchId as string,
                 req.body
             );
@@ -159,7 +159,7 @@ export class AdminHubController {
     // School Config (Late Arrival)
     static async getSchoolConfig(req: Request, res: Response) {
         try {
-            const schoolId = req.query.schoolId as string;
+            const schoolId = (req as any).user.school_id;
             const school = await SchoolService.getSchoolById(schoolId, schoolId);
             res.json(school?.settings || {});
         } catch (error: any) {
@@ -169,7 +169,7 @@ export class AdminHubController {
 
     static async updateSchoolConfig(req: Request, res: Response) {
         try {
-            const schoolId = req.query.schoolId as string;
+            const schoolId = (req as any).user.school_id;
             const school = await SchoolService.getSchoolById(schoolId, schoolId);
             const currentSettings = (school?.settings as any) || {};
             const updatedSettings = { ...currentSettings, ...req.body };
@@ -184,7 +184,7 @@ export class AdminHubController {
     // Analytics
     static async getEnrollmentTrends(req: Request, res: Response) {
         try {
-            const trends = await AnalyticsService.getEnrollmentTrends(req.query.schoolId as string);
+            const trends = await AnalyticsService.getEnrollmentTrends((req as any).user.school_id);
             res.json(trends);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -194,7 +194,7 @@ export class AdminHubController {
     // Parental Consent
     static async getConsents(req: Request, res: Response) {
         try {
-            const consents = await ConsentService.getConsents(req.query.schoolId as string);
+            const consents = await ConsentService.getConsents((req as any).user.school_id);
             res.json(consents);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -236,7 +236,7 @@ export class AdminHubController {
     // Kanban Board
     static async getKanbanBoard(req: Request, res: Response) {
         try {
-            const board = await KanbanService.getBoard(req.query.schoolId as string);
+            const board = await KanbanService.getBoard((req as any).user.school_id);
             res.json(board);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -274,7 +274,7 @@ export class AdminHubController {
     static async getHealthLogs(req: Request, res: Response) {
         try {
             const logs = await HealthService.getHealthLogs(
-                req.query.schoolId as string,
+                (req as any).user.school_id,
                 req.query.studentId as string
             );
             res.json(logs);
@@ -285,7 +285,7 @@ export class AdminHubController {
 
     static async createHealthLog(req: Request, res: Response) {
         try {
-            const log = await HealthService.createHealthLog(req.query.schoolId as string, req.body);
+            const log = await HealthService.createHealthLog((req as any).user.school_id, req.body);
             res.json(log);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -303,7 +303,7 @@ export class AdminHubController {
 
     static async deleteHealthLog(req: Request, res: Response) {
         try {
-            await HealthService.deleteHealthLog(req.params.id as string, req.query.schoolId as string);
+            await HealthService.deleteHealthLog(req.params.id as string, (req as any).user.school_id);
             res.json({ success: true });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -312,7 +312,7 @@ export class AdminHubController {
     // Emergency Alerts
     static async getEmergencyAlerts(req: Request, res: Response) {
         try {
-            const alerts = await SafetyService.getEmergencyAlerts(req.query.schoolId as string);
+            const alerts = await SafetyService.getEmergencyAlerts((req as any).user.school_id);
             res.json(alerts);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -321,7 +321,7 @@ export class AdminHubController {
 
     static async createEmergencyAlert(req: Request, res: Response) {
         try {
-            const alert = await SafetyService.createEmergencyAlert(req.query.schoolId as string, req.body);
+            const alert = await SafetyService.createEmergencyAlert((req as any).user.school_id, req.body);
             res.json(alert);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -340,7 +340,7 @@ export class AdminHubController {
     // Health Incidents
     static async getHealthIncidents(req: Request, res: Response) {
         try {
-            const incidents = await SafetyService.getHealthIncidents(req.query.schoolId as string);
+            const incidents = await SafetyService.getHealthIncidents((req as any).user.school_id);
             res.json(incidents);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -349,7 +349,7 @@ export class AdminHubController {
 
     static async createHealthIncident(req: Request, res: Response) {
         try {
-            const incident = await SafetyService.createHealthIncident(req.query.schoolId as string, req.body);
+            const incident = await SafetyService.createHealthIncident((req as any).user.school_id, req.body);
             res.json(incident);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -368,7 +368,7 @@ export class AdminHubController {
     // Emergency Drills
     static async getEmergencyDrills(req: Request, res: Response) {
         try {
-            const drills = await SafetyService.getEmergencyDrills(req.query.schoolId as string);
+            const drills = await SafetyService.getEmergencyDrills((req as any).user.school_id);
             res.json(drills);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -377,7 +377,7 @@ export class AdminHubController {
 
     static async createEmergencyDrill(req: Request, res: Response) {
         try {
-            const drill = await SafetyService.createEmergencyDrill(req.query.schoolId as string, req.body);
+            const drill = await SafetyService.createEmergencyDrill((req as any).user.school_id, req.body);
             res.json(drill);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -387,7 +387,7 @@ export class AdminHubController {
     // Safeguarding Policies
     static async getSafeguardingPolicies(req: Request, res: Response) {
         try {
-            const policies = await SafetyService.getSafeguardingPolicies(req.query.schoolId as string);
+            const policies = await SafetyService.getSafeguardingPolicies((req as any).user.school_id);
             res.json(policies);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -396,7 +396,7 @@ export class AdminHubController {
 
     static async createSafeguardingPolicy(req: Request, res: Response) {
         try {
-            const policy = await SafetyService.createSafeguardingPolicy(req.query.schoolId as string, req.body);
+            const policy = await SafetyService.createSafeguardingPolicy((req as any).user.school_id, req.body);
             res.json(policy);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -415,7 +415,7 @@ export class AdminHubController {
     // Governance & Compliance
     static async getGovernanceStats(req: Request, res: Response) {
         try {
-            const stats = await GovernanceService.getGovernanceStats(req.query.schoolId as string);
+            const stats = await GovernanceService.getGovernanceStats((req as any).user.school_id);
             res.json(stats);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -424,7 +424,7 @@ export class AdminHubController {
 
     static async getComplianceMetrics(req: Request, res: Response) {
         try {
-            const metrics = await GovernanceService.getComplianceMetrics(req.query.schoolId as string);
+            const metrics = await GovernanceService.getComplianceMetrics((req as any).user.school_id);
             res.json(metrics);
         } catch (error: any) {
             res.status(500).json({ error: error.message });
@@ -433,7 +433,7 @@ export class AdminHubController {
 
     static async getValidationAuditCount(req: Request, res: Response) {
         try {
-            const count = await GovernanceService.getValidationAuditCount(req.query.schoolId as string);
+            const count = await GovernanceService.getValidationAuditCount((req as any).user.school_id);
             res.json({ count });
         } catch (error: any) {
             res.status(500).json({ error: error.message });

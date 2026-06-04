@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
+import { BranchIdentityService } from '../services/branchIdentity.service';
 import { generateToken } from '../middleware/csrf.middleware';
 
 const COOKIE_OPTIONS: any = {
@@ -111,7 +112,9 @@ export const disable2FA = async (req: Request, res: Response) => {
 
 export const refresh = async (req: Request, res: Response) => {
     try {
-        const refreshToken = req.cookies.refresh_token || req.body.refreshToken;
+        // Prefer the per-tab refresh token sent in the body over the shared cookie,
+        // so refreshing in one tab can't rotate (and revoke) another tab's session.
+        const refreshToken = req.body.refreshToken || req.cookies.refresh_token;
         if (!refreshToken) {
             console.warn('⚠️ [Auth] Refresh attempt without token (Cookie or Body)');
             throw new Error('Refresh token is required');
@@ -157,7 +160,7 @@ export const createUser = async (req: Request, res: Response) => {
         res.status(201).json(user);
     } catch (error: any) {
         console.error('Create User Error:', error);
-        res.status(400).json({ message: error.message });
+        res.status(error.status || 400).json({ message: error.message });
     }
 };
 
@@ -353,6 +356,20 @@ export const getMe = async (req: Request, res: Response) => {
         res.json(user);
     } catch (error: any) {
         res.status(401).json({ message: 'Unauthorized' });
+    }
+};
+
+// Returns the Global ID the caller carries in their CURRENTLY ACTIVE branch
+// (from the X-Branch-Id header, validated by the auth middleware). Used by the
+// dashboard header to show e.g. OLISKEY_LEKKI_TCH_0001 the moment you switch.
+export const getActiveBranchId = async (req: Request, res: Response) => {
+    try {
+        const user = (req as any).user;
+        const branchId = user?.active_branch_id;
+        const school_generated_id = await BranchIdentityService.resolveForUser(user, branchId);
+        res.json({ school_generated_id, branch_id: branchId });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
     }
 };
 

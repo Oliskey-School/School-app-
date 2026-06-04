@@ -16,12 +16,13 @@ import { Copy as CopyIcon, RefreshCw as RefreshIcon } from 'lucide-react';
 import EditProfileScreen from './EditProfileScreen';
 import NotificationsSettingsScreen from './NotificationsSettingsScreen';
 import PersonalSecuritySettingsScreen from './PersonalSecuritySettingsScreen';
+import SystemSettingsScreen from './SystemSettingsScreen';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
 import { toast } from 'react-hot-toast';
 
-type SettingView = 'editProfile' | 'notificationsSettings' | 'personalSecuritySettings' | null;
+type SettingView = 'editProfile' | 'notificationsSettings' | 'personalSecuritySettings' | 'systemSettings' | null;
 
 interface ProfileSettingsProps {
     onLogout: () => void;
@@ -85,6 +86,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                 return <NotificationsSettingsScreen />;
             case 'personalSecuritySettings':
                 return <PersonalSecuritySettingsScreen navigateTo={navigateTo} />;
+            case 'systemSettings':
+                return <SystemSettingsScreen navigateTo={navigateTo} />;
             default:
                 return <SettingsPlaceholder />;
         }
@@ -153,7 +156,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm p-2">
-                        <button onClick={() => navigateTo('systemSettings', 'System Settings')} className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg">
+                        <button onClick={() => setActiveSetting('systemSettings')} className={`w-full flex items-center justify-between p-3 text-left rounded-lg transition-colors ${activeSetting === 'systemSettings' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
                             <div className="flex items-center space-x-4">
                                 <div className="p-2 rounded-lg bg-gray-100 text-gray-500"><SettingsIcon className="h-5 w-5" /></div>
                                 <div>
@@ -225,7 +228,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout, navigateTo 
                             <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
                         </button>
                         <h2 className="font-bold text-lg text-gray-800 ml-2">
-                            {settingsItems.find(i => i.id === activeSetting)?.label}
+                            {activeSetting === 'systemSettings' ? 'System Settings' : settingsItems.find(i => i.id === activeSetting)?.label}
                         </h2>
                     </div>
                 )}

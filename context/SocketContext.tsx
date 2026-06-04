@@ -116,8 +116,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on('academic:updated', () => {
         queryClient.invalidateQueries({ queryKey: ['academic'] });
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        queryClient.invalidateQueries({ queryKey: ['quizzes'] });
         dispatchLegacyUpdate('academic');
         dispatchLegacyUpdate('analytics');
+        // Quiz publish/unpublish rides on academic:updated — refresh quiz lists
+        // so students see a newly published exam/quiz appear (or disappear) live.
+        dispatchLegacyUpdate('quizzes');
     });
 
     socket.on('exam:updated', () => {

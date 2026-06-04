@@ -83,70 +83,78 @@ const ReportCardPreview: React.FC<ReportCardPreviewProps> = ({ student, schoolId
     const fetchMergedData = async () => {
         if (!student?.id) return;
         const targetId = schoolId || currentSchool?.id || user?.user_metadata?.school_id || (student as any).school_id;
-        if (!targetId) return;
+        if (!targetId) {
+            // Without a school context we still render the card shell rather than a
+            // blank screen, so the admin always sees *something* to act on.
+            setDynamicReport(buildEmptyReport());
+            setIsLoading(false);
+            return;
+        }
 
         setIsLoading(true);
         try {
-            // 1. Fetch Class subjects via API
-            const classesResponse = await api.getClasses(targetId);
-            const myClass = classesResponse.find((c: any) => c.grade === student.grade);
-            const subjects = myClass?.subjects || [];
+            // Single source of truth: the backend already merges the teacher's saved
+            // scores, comments, attendance, skills and psychomotor into one record.
+            // Using it directly (instead of re-merging classes + grades on the client)
+            // is what makes the preview actually show the submitted report.
+            const branchId = (student as any).branchId || (student as any).branch_id || null;
+            const report = await api.getReportCardDetails(student.id, term, session, branchId);
 
-            // 2. Fetch latest scores via API
-            const performance = await api.getGrades([student.id], undefined, term);
-            setAcademicPerformance(performance);
-
-            // 3. Fetch Master Report Card via API
-            const reportCards = await api.getReportCards(targetId);
-            const reportData = reportCards.find((r: any) => 
-                r.student_id === student.id && 
-                r.term === term && 
-                r.session === session
-            );
-
-            // 4. Merge Logic
-            const finalSubjects = subjects.length > 0
-                ? subjects
-                : Array.from(new Set((performance || []).map((p: any) => p.subject))).filter(Boolean);
-
-            const mergedRecords = finalSubjects.map(subject => {
-                const perf = performance?.find((p: any) => p.subject?.toLowerCase() === (subject as string)?.toLowerCase());
-                const test1 = perf?.test1 || 0;
-                const test2 = perf?.test2 || 0;
-                const exam = perf?.exam_score || (perf?.score || 0);
-                const total = test1 + test2 + exam;
-                const grade = getGrade(total);
-
+            const rawRecords: any[] = Array.isArray(report?.academic_records) ? report.academic_records : [];
+            const mergedRecords = rawRecords.map((g: any) => {
+                const test1 = Number(g.test1 ?? g.ca ?? 0) || 0;
+                const test2 = Number(g.test2 ?? 0) || 0;
+                const exam = Number(g.exam ?? g.exam_score ?? 0) || 0;
+                const total = Number(g.total ?? (test1 + test2 + exam)) || 0;
+                const grade = g.grade && g.grade !== '—' ? g.grade : getGrade(total);
                 return {
-                    subject,
+                    subject: g.subject,
                     test1,
                     test2,
                     exam,
                     total,
                     grade,
-                    remark: getRemark(grade)
+                    remark: g.remark && g.remark !== '—' ? g.remark : getRemark(grade)
                 };
             });
 
+            setAcademicPerformance(mergedRecords);
             setDynamicReport({
                 term,
                 session,
-                status: (reportData as any)?.status || 'Draft',
-                attendance: (reportData as any)?.attendance || { present: 0, total: 0, absent: 0, late: 0 },
-                skills: (reportData as any)?.skills || {},
-                psychomotor: (reportData as any)?.psychomotor || {},
-                teacherComment: (reportData as any)?.teacher_comment || "No comment yet.",
-                principalComment: (reportData as any)?.principal_comment || "No comment yet.",
+                status: (report as any)?.status || 'Draft',
+                attendance: (report as any)?.attendance || { present: 0, total: 0, absent: 0, late: 0 },
+                skills: (report as any)?.skills || {},
+                psychomotor: (report as any)?.psychomotor || {},
+                teacherComment: (report as any)?.teacher_comment || "No comment yet.",
+                principalComment: (report as any)?.principal_comment || "No comment yet.",
                 academicRecords: mergedRecords as any,
-                position: (reportData as any)?.position || '-',
-                totalStudents: (reportData as any)?.total_students || '-'
+                position: (report as any)?.position || '-',
+                totalStudents: (report as any)?.total_students || '-'
             });
         } catch (err) {
             console.error('[Preview] Critical fetch error:', err);
+            // Never leave the preview blank on error — render the card shell so the
+            // admin sees the student/school header and can retry with the refresh button.
+            setDynamicReport(buildEmptyReport());
         } finally {
             setIsLoading(false);
         }
     };
+
+    const buildEmptyReport = (): ReportCard => ({
+        term,
+        session,
+        status: (student?.reportCards?.[0]?.status as any) || 'Draft',
+        attendance: { present: 0, total: 0, absent: 0, late: 0 } as any,
+        skills: {},
+        psychomotor: {},
+        teacherComment: "No comment yet.",
+        principalComment: "No comment yet.",
+        academicRecords: [] as any,
+        position: '-',
+        totalStudents: '-'
+    } as any);
 
     useEffect(() => {
         if (!student?.id) return;

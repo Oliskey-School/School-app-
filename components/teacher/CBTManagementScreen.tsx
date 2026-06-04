@@ -185,7 +185,9 @@ const CBTManagementScreen: React.FC<CBTManagementScreenProps> = ({ navigateTo, t
                 total_marks: totalMarks,
                 teacher_id: activeTeacherId,
                 school_id: activeSchoolId,
-                is_published: true,
+                // Start as a draft — the teacher publishes deliberately from the
+                // list, and it persists until they choose to unpublish.
+                is_published: false,
                 type: uploadType,
                 is_cbt: true,
                 questions: questionsPayload

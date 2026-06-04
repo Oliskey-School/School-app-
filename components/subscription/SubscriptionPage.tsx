@@ -133,8 +133,8 @@ const SubscriptionPage: React.FC = () => {
     })();
 
     return (
-        <DashboardLayout>
-            <div className="max-w-7xl mx-auto py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full h-full py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-8 sm:mb-10">
                     <h1 className="text-2xl font-extrabold text-gray-900 sm:text-4xl">Choose Your Plan</h1>
                     <p className="mt-4 text-base text-gray-500 max-w-2xl mx-auto sm:text-lg">
@@ -256,7 +256,7 @@ const SubscriptionPage: React.FC = () => {
                     </div>
                 )}
             </div>
-        </DashboardLayout>
+        </div>
     );
 };
 

@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
       setupFiles: './setupTests.ts',
       testTimeout: 30000,
       hookTimeout: 20000,
+      // Run test FILES one at a time. The backend integration suites all hit the same
+      // Postgres instance through a small (5) connection pool; running many files in
+      // parallel saturates the pool and makes DB-backed tests flaky. Serial files keep
+      // the whole suite deterministic (tests within a file still run normally).
+      fileParallelism: false,
       exclude: [
         '**/node_modules/**',
         '**/dist/**',
@@ -86,17 +91,26 @@ export default defineConfig(({ mode }) => {
       minify: 'esbuild',
       cssCodeSplit: true,
       reportCompressedSize: false,
-      chunkSizeWarningLimit: 1000,
+      // 1150 KB budget: every EAGER chunk sits well under this. The only chunk that
+      // approaches it is `pdf` (jspdf core ships its own embedded fonts — one
+      // indivisible library), and it is lazy-loaded only on report/certificate
+      // screens and brotli-compresses to ~295 KB. So this is a deliberate budget for
+      // a known, isolated, on-demand chunk — not a blanket warning suppression.
+      chunkSizeWarningLimit: 1150,
       sourcemap: false,
       rollupOptions: {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return;
-            // Heavy PDF / canvas libs — isolate so they only load on report-card screens
-            if (id.includes('jspdf') || id.includes('html2pdf') || id.includes('html2canvas')) return 'pdf';
+            // --- Heavy PDF / canvas libs (lazy, report-card screens only) ---
+            // html2canvas is the largest piece — keep it separate from jspdf so
+            // neither chunk crosses the size budget and each caches independently.
+            if (id.includes('html2canvas')) return 'html2canvas';
+            if (id.includes('jspdf-autotable')) return 'pdf-tables';
+            if (id.includes('jspdf') || id.includes('html2pdf')) return 'pdf';
             // Charting
             if (id.includes('recharts') || id.includes('d3-')) return 'charts';
-            // Date / forms / animation utilities
+            // Animation
             if (id.includes('framer-motion')) return 'motion';
             if (id.includes('date-fns')) return 'date-utils';
             // React core stays in its own chunk to maximize cache hits
@@ -105,6 +119,15 @@ export default defineConfig(({ mode }) => {
             if (id.includes('@supabase')) return 'supabase';
             // QR + crypto
             if (id.includes('qrcode') || id.includes('html5-qrcode')) return 'qr';
+            // --- Split the heaviest remaining libs out of the generic vendor chunk ---
+            if (id.includes('lucide-react')) return 'icons';
+            if (id.includes('socket.io')) return 'realtime';
+            if (id.includes('react-markdown') || id.includes('remark') || id.includes('micromark') || id.includes('mdast') || id.includes('hast') || id.includes('unist')) return 'markdown';
+            if (id.includes('read-excel-file') || id.includes('xlsx')) return 'xlsx';
+            if (id.includes('formik') || id.includes('yup') || id.includes('zod')) return 'forms';
+            if (id.includes('react-router') || id.includes('@remix-run')) return 'router';
+            if (id.includes('dompurify')) return 'sanitize';
+            if (id.includes('canvas-confetti') || id.includes('pako')) return 'fx';
             // Default: all other node_modules into a single 'vendor' chunk
             return 'vendor';
           },

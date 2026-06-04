@@ -67,6 +67,8 @@ const EditTeacherProfileScreen: React.FC<EditTeacherProfileScreenProps> = ({ onP
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // Upload to get a persistent URL (replaces the local preview once ready).
+            api.uploadAvatar(file).then(({ url }) => { if (url) setAvatar(url); }).catch(() => { });
             // Compress Image
             const reader = new FileReader();
             reader.onload = (event) => {

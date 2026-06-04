@@ -12,6 +12,9 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', UserController.getUsers);
+// Self-service: any authenticated user may edit THEIR OWN profile (name/phone/avatar).
+// Self-scoped to req.user.id — no id in the path, so no IDOR.
+router.put('/me/profile', UserController.updateMyProfile);
 router.get('/:id', UserController.getUserById);
 router.get('/email/:email', UserController.getUserByEmail);
 // Mutations are admin-only: prevents privilege escalation / arbitrary account edits

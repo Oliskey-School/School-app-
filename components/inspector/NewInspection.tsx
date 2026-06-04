@@ -248,7 +248,7 @@ export const NewInspection: React.FC<Props> = ({
                     
                     {state.signatureInspector ? (
                       <div className="relative group">
-                         <img src={state.signatureInspector} className="h-32 mx-auto grayscale hover:grayscale-0 transition-all cursor-pointer" onClick={() => setShowSignaturePad('inspector')} />
+                         <img src={state.signatureInspector} alt="Inspector signature" className="h-32 mx-auto grayscale hover:grayscale-0 transition-all cursor-pointer" onClick={() => setShowSignaturePad('inspector')} />
                          <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-[2rem]">
                             <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Update Signature</span>
                          </div>
@@ -275,7 +275,7 @@ export const NewInspection: React.FC<Props> = ({
                     
                     {state.signatureSchool ? (
                       <div className="relative group">
-                         <img src={state.signatureSchool} className="h-32 mx-auto grayscale hover:grayscale-0 transition-all cursor-pointer" onClick={() => setShowSignaturePad('school')} />
+                         <img src={state.signatureSchool} alt="School principal signature" className="h-32 mx-auto grayscale hover:grayscale-0 transition-all cursor-pointer" onClick={() => setShowSignaturePad('school')} />
                          <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-[2rem]">
                             <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Update Signature</span>
                          </div>

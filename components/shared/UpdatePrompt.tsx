@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { APP_VERSION } from '../../lib/config';
+import { api } from '../../lib/api';
 
 interface UpdatePromptProps {
     forced?: boolean;
@@ -32,6 +33,20 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
         !!(targetVersion && sessionStorage.getItem(`update_dismissed_${targetVersion}`) === 'true')
     );
 
+    // Pull the REAL latest published version from the backend so the prompt always
+    // reflects the actual current release (not a stale hard-coded string).
+    const [latestVersion, setLatestVersion] = useState<string | null>(null);
+    React.useEffect(() => {
+        if (forced) return; // forced already carries the authoritative targetVersion
+        let active = true;
+        api.getAppVersions()
+            .then((list: any[]) => {
+                if (active && Array.isArray(list) && list[0]?.version) setLatestVersion(list[0].version);
+            })
+            .catch(() => { /* non-blocking — fall back to APP_VERSION */ });
+        return () => { active = false; };
+    }, [forced]);
+
     const close = () => {
         setNeedRefresh(false);
         if (forced && targetVersion) {
@@ -43,9 +58,24 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
 
     // Show if PWA needs refresh OR if forced from parent AND not dismissed
     const show = (needRefresh || forced) && !locallyDismissed;
+
+    // Coordinate with the install prompt so the two cards never stack on top of
+    // each other — while any update prompt is visible we bump a global counter the
+    // install prompt watches, so prompts appear one after the other.
+    React.useEffect(() => {
+        if (!show) return;
+        const w = window as any;
+        w.__updatePromptCount = (w.__updatePromptCount || 0) + 1;
+        window.dispatchEvent(new Event('update_prompt_changed'));
+        return () => {
+            w.__updatePromptCount = Math.max(0, (w.__updatePromptCount || 1) - 1);
+            window.dispatchEvent(new Event('update_prompt_changed'));
+        };
+    }, [show]);
+
     if (!show) return null;
 
-    const displayVersion = targetVersion || (needRefresh ? 'Update Found' : APP_VERSION);
+    const displayVersion = targetVersion || latestVersion || APP_VERSION;
 
     return (
         <div
@@ -107,9 +137,9 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                                     lineHeight: 1.5,
                                 }}
                             >
-                                {forced 
+                                {forced
                                     ? `Version ${targetVersion} is now available. Please update to stay in sync.`
-                                    : "A new version with latest improvements is ready."
+                                    : `A new version (v${displayVersion}) with the latest improvements is ready.`
                                 }
                             </p>
                         </div>
@@ -196,7 +226,7 @@ export default function UpdatePrompt({ forced = false, targetVersion }: UpdatePr
                 >
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: forced ? '#ef4444' : '#10b981' }}></div>
                     <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>
-                        {forced ? `Mandatory platform sync (v${targetVersion})` : 'App cache ready for reload'}
+                        {forced ? `Mandatory platform sync (v${targetVersion})` : `Latest release v${displayVersion} ready to install`}
                     </span>
                 </div>
             </div>

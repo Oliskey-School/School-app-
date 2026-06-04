@@ -510,7 +510,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
                 case 'messages': setViewStack([{ view: 'adminMessages', props: {}, title: 'Messages' }]); break;
                 case 'communication': setViewStack([{ view: 'communicationHub', props: {}, title: 'Communication Hub' }]); break;
                 case 'analytics': setViewStack([{ view: 'analytics', props: {}, title: 'School Analytics' }]); break;
-                case 'settings': setViewStack([{ view: 'systemSettings', props: {}, title: 'System Settings' }]); break;
+                case 'settings': setViewStack([{ view: 'profileSettings', props: {}, title: 'Profile Settings' }]); break;
                 case 'feeManagement': setViewStack([{ view: 'feeManagement', props: {}, title: 'Fee Management' }]); break;
                 case 'staffManagement': setViewStack([{ view: 'teacherList', props: {}, title: 'Manage Teachers' }]); break;
                 default: setViewStack([{ view: 'overview', props: {}, title: 'Admin Dashboard' }]);
@@ -582,12 +582,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         );
     };
 
+    // Hide header and sidebar for upgrade/subscription views
+    const hideLayoutNav = currentNavigation.view === 'upgrade' || currentNavigation.view === 'subscription';
+
     return (
         <DashboardLayout
             title={currentNavigation.title}
             onBack={viewStack.length > 1 ? handleBack : undefined}
             activeScreen={activeBottomNav}
             setActiveScreen={handleBottomNavClick}
+            hideHeader={hideLayoutNav}
+            hideSidebar={hideLayoutNav}
+            hidePadding={hideLayoutNav}
         >
             {/* Database Connection Error */}
             {dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}

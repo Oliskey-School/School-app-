@@ -16,14 +16,20 @@ export interface AuthRequest extends Request {
  * - Strict header-JWT consistency checks
  */
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    // Lead DevSecOps: Extract from secure HttpOnly cookies, fallback to Bearer for mobile/API clients
-    let token = req.cookies?.access_token;
-    
+    // Prefer the per-tab Bearer token over the shared cookie. Cookies are shared by
+    // ALL tabs of the same site, so reading the cookie first made a second tab (e.g.
+    // a different demo role) silently adopt whichever identity last logged in or
+    // refreshed in another tab — which showed empty data until re-login. The
+    // Authorization header is set per tab from that tab's own sessionStorage, so it
+    // is the authoritative source; the cookie is only a fallback for clients that
+    // can't send the header.
+    let token: string | undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+    }
     if (!token) {
-        const authHeader = req.headers.authorization;
-        if (authHeader?.startsWith('Bearer ')) {
-            token = authHeader.split(' ')[1];
-        }
+        token = req.cookies?.access_token;
     }
 
     if (!token) {
@@ -58,6 +64,23 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 where: { id: DEMO_SCHOOL_ID }
             });
 
+            // Re-read the demo user's editable profile fields from the DB so that
+            // profile edits (name / phone / avatar) made in this session show up
+            // (the JWT carries only the values from login time).
+            const demoDbUser = await prisma.user.findUnique({
+                where: { id: decoded.id },
+                select: { full_name: true, avatar_url: true, phone: true },
+            }).catch(() => null);
+
+            // Within their private sandbox a demo visitor may switch to the root branch
+            // or any branch they created ("<root>__<rand>"); honor that active branch.
+            const demoSessionRoot = (decoded.branch_id || '').split('__')[0];
+            const demoHeaderBranch = req.headers['x-branch-id'] as string | undefined;
+            const demoActiveBranch = (demoHeaderBranch && demoSessionRoot &&
+                (demoHeaderBranch === demoSessionRoot || demoHeaderBranch.startsWith(demoSessionRoot + '__')))
+                ? demoHeaderBranch
+                : decoded.branch_id;
+
             req.user = {
                 id: decoded.id,
                 email: decoded.email,
@@ -65,16 +88,18 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
                 school_id: DEMO_SCHOOL_ID,
                 branch_id: decoded.branch_id,
                 allowed_branch_ids: decoded.allowed_branch_ids || [],
-                active_branch_id: decoded.branch_id,
+                active_branch_id: demoActiveBranch,
                 school_generated_id: decoded.school_generated_id,
-                full_name: decoded.full_name,
+                full_name: demoDbUser?.full_name ?? decoded.full_name,
+                avatar_url: demoDbUser?.avatar_url ?? null,
+                phone: demoDbUser?.phone ?? null,
                 is_demo: true,
                 school: demoSchool // Add school object
             };
-            
+
             // Set Postgres context for RLS policies (demo mode)
             req.school_id = DEMO_SCHOOL_ID;
-            req.branch_id = decoded.branch_id || null;
+            req.branch_id = demoActiveBranch || null;
             
             console.log(`🛡️ [Auth] Demo token validated — identity: ${req.user.role} (${req.user.email})`);
             return next();
@@ -115,7 +140,16 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         // remain scoped by school_id, so this cannot cross tenants.
         if (headerBranchId && user.branch_id) {
             const allowedBranches = [user.branch_id, ...(user.allowed_branch_ids || [])];
-            if (!allowedBranches.includes(headerBranchId)) {
+            // Demo sandboxes: the visitor owns their own private sandbox and, as its
+            // admin/proprietor, may operate in the sandbox root OR any branch they
+            // created inside it ("<root>__<child>"). Teachers/students remain limited
+            // to their explicitly assigned branches. Live schools are unaffected.
+            const isSandboxOwner = user.school_id === DEMO_SCHOOL_ID
+                && ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+            const sandboxRoot = isSandboxOwner ? String(user.branch_id).split('__')[0] : null;
+            const inOwnSandbox = !!sandboxRoot
+                && (headerBranchId === sandboxRoot || headerBranchId.startsWith(sandboxRoot + '__'));
+            if (!allowedBranches.includes(headerBranchId) && !inOwnSandbox) {
                 console.error(`🚨 [Security] Unauthorized branch access attempt: ${user.id} tried branch ${headerBranchId}`);
                 return res.status(403).json({ message: 'User not authorized to access this branch' });
             }
@@ -123,8 +157,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         console.log(`✅ [Auth Success] User: ${user.email}`);
 
-        // Extract phone from whichever profile is available
-        const phone = user.teacher_profile?.phone || user.parent_profile?.phone || null;
+        // Phone now lives on the core user (all roles); fall back to a role profile.
+        const phone = user.phone || user.teacher_profile?.phone || user.parent_profile?.phone || null;
 
         // Return the role-specific school_generated_id so that the Admin dashboard
         // does not accidentally display a teacher's ID stored in the User row.

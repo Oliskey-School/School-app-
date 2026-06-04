@@ -2,8 +2,33 @@ import prisma from '../config/database';
 
 export class VirtualClassService {
     static async createSession(sessionData: any) {
+        // The controller uses `class_id` for a teacher access check, but it is NOT a
+        // column on VirtualClassSession. Passing it (or any other stray field the
+        // frontend sends) makes prisma.create() fail with "Unknown argument". So we
+        // build the row from the model's known fields only.
+        const {
+            school_id, branch_id, teacher_id, title, subject, topic, description,
+            meeting_url, platform, start_time, end_time, status, meeting_id, password, recording_url,
+        } = sessionData || {};
+
         return prisma.virtualClassSession.create({
-            data: sessionData
+            data: {
+                school_id,
+                branch_id: branch_id ?? null,
+                teacher_id: teacher_id ?? null,
+                title,
+                subject: subject ?? null,
+                topic: topic ?? null,
+                description: description ?? null,
+                meeting_url: meeting_url ?? null,
+                ...(platform ? { platform } : {}),
+                start_time,
+                end_time: end_time ?? null,
+                ...(status ? { status } : {}),
+                meeting_id: meeting_id ?? null,
+                password: password ?? null,
+                recording_url: recording_url ?? null,
+            },
         });
     }
 
@@ -14,8 +39,14 @@ export class VirtualClassService {
             where.teacher_id = teacherId;
         }
 
+        // Include school-wide sessions (branch_id null) so a class a teacher starts
+        // without a branch still appears for students whose branch is set. Matching
+        // only the exact branch made live classes show "No sessions found".
         if (branchId && branchId !== 'all') {
-            where.branch_id = branchId;
+            where.OR = [
+                { branch_id: branchId },
+                { branch_id: null }
+            ];
         }
 
         return prisma.virtualClassSession.findMany({

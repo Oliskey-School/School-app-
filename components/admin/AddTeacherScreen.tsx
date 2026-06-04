@@ -24,6 +24,7 @@ import { sendVerificationEmail } from '../../lib/auth';
 import CredentialsModal from '../ui/CredentialsModal';
 import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
+import { useBranch } from '../../context/BranchContext';
 import { useTenantLimit } from '../../hooks/useTenantLimit';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
@@ -137,10 +138,14 @@ const MultiSelect: React.FC<{
 const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forceUpdate, handleBack }) => {
     const { profile } = useProfile();
     const { currentSchool, currentBranchId } = useAuth();
+    const { currentBranch } = useBranch();
 
     // Triple-layer schoolId detection
     const schoolId = profile?.schoolId || currentSchool?.id;
-    const branchId = currentBranchId || profile.branchId || null;
+    // Use the ACTIVE branch (the one the admin is currently viewing/switched into),
+    // NOT their home branch — so a teacher created while viewing Lekki is created in
+    // Lekki (correct branch ID, branch-scoped classes/subjects), not Main.
+    const branchId = currentBranch?.id || currentBranchId || profile.branchId || null;
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -199,8 +204,10 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             if (sData) sData.forEach((s: any) => { dbSubjectIdMap[s.name] = s.id; });
             setSubjectIdMap(dbSubjectIdMap);
 
-            // Fetch Classes - Always fetch all classes across all branches for Admin visibility
-            const cData = await api.getClasses(schoolId, 'all', true);
+            // Fetch Classes scoped to the ACTIVE branch — each branch has its own
+            // classes, so a teacher assigned in Lekki picks from Lekki's classes, not
+            // Main's. (Falls back to all if no active branch is set.)
+            const cData = await api.getClasses(schoolId, branchId || 'all', true);
             {
                 const processedClasses = (cData || []).map((c: any) => ({
                     id: c.id,
@@ -245,14 +252,22 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
                 // Default selection if editing
                 if (teacherToEdit) {
-                    const currentBranches = (teacherToEdit as any).allowed_branch_ids || (teacherToEdit as any).branch_id ? [(teacherToEdit as any).branch_id] : [];
+                    // Show ALL assigned branches. The previous expression had a
+                    // precedence bug that always collapsed to just the home branch,
+                    // so a second assigned branch (e.g. Lekki) never appeared here.
+                    const assigned = (teacherToEdit as any).allowed_branch_ids;
+                    const currentBranches = Array.isArray(assigned) && assigned.length > 0
+                        ? assigned
+                        : ((teacherToEdit as any).branch_id ? [(teacherToEdit as any).branch_id] : []);
                     const currentBranchNames = bData
                         .filter((b: any) => currentBranches.includes(b.id))
                         .map((b: any) => b.name);
                     setSelectedBranchNames(currentBranchNames);
-                } else if (currentBranchId) {
-                    const currentBranch = bData.find((b: any) => b.id === currentBranchId);
-                    if (currentBranch) setSelectedBranchNames([currentBranch.name]);
+                } else if (branchId) {
+                    // New teacher defaults to the ADMIN's ACTIVE branch (e.g. Lekki),
+                    // so they're created in the branch the admin is actually viewing.
+                    const activeBranch = bData.find((b: any) => b.id === branchId);
+                    if (activeBranch) setSelectedBranchNames([activeBranch.name]);
                 }
             }
         } catch (err) {
@@ -264,7 +279,7 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
 
     useEffect(() => {
         fetchRefs();
-    }, [schoolId]);
+    }, [schoolId, branchId]);
 
     useAutoSync(['subjects', 'classes'], () => {
         console.log('🔄 [AddTeacher] Real-time auto-sync triggered');

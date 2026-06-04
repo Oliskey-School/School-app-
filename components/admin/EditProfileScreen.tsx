@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { UserIcon, MailIcon, PhoneIcon, CameraIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
 import { useUserIdentity } from '../../lib/hooks/useUserIdentity';
+import { api } from '../../lib/api';
 
 const EditProfileScreen: React.FC = () => {
     const { profile, updateProfile, isLoading } = useProfile();
@@ -26,6 +27,8 @@ const EditProfileScreen: React.FC = () => {
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // Upload to get a persistent URL (replaces the local preview once ready).
+            api.uploadAvatar(file).then(({ url }) => { if (url) setAvatar(url); }).catch(() => { });
             const reader = new FileReader();
             reader.onload = (event) => {
                 const img = new Image();

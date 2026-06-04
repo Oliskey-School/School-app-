@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { config } from './config/env';
 import { doubleSubmitCookieMiddleware, csrfErrorHandler } from './middleware/csrf.middleware';
+import { Sentry, sentryEnabled } from './config/instrument';
 import routes from './routes';
 
 const app = express();
@@ -46,8 +47,9 @@ app.use(cors({
             return callback(null, true);
         }
 
-        // In non-prod, allow localhost variants for developer flexibility
-        if (!IS_PROD && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        // In non-prod, allow localhost variants (and host.docker.internal, which
+        // vite.config also allows) for developer flexibility / Docker-based testing.
+        if (!IS_PROD && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('host.docker.internal'))) {
             return callback(null, true);
         }
 
@@ -62,8 +64,10 @@ app.use(cors({
 
 // 2. Core Middlewares
 app.use(cookieParser(config.jwtSecret));
-// Default body limit: 2 MB. Upload routes that need more should mount their own multer/raw parser.
-const BODY_LIMIT = process.env.BODY_LIMIT || '2mb';
+// Body limit. Profile/student photos are submitted inline as base64 data-URLs, which
+// inflate a ~5 MB photo to ~7 MB of text — 2 MB was rejecting them ("request entity
+// too large"). 15 MB comfortably fits a phone photo; uploads are still rate-limited.
+const BODY_LIMIT = process.env.BODY_LIMIT || '15mb';
 app.use(express.json({ limit: BODY_LIMIT }));
 app.use(express.urlencoded({ limit: BODY_LIMIT, extended: true }));
 
@@ -178,6 +182,12 @@ app.use((req, res) => {
         message: `Route ${req.originalUrl} does not exist on this server.` 
     });
 });
+
+// 8b. Sentry error capture (no-op unless SENTRY_DSN is set). Must come AFTER all
+// routes and BEFORE our own error handler so it sees errors passed via next(err).
+if (sentryEnabled) {
+    Sentry.setupExpressErrorHandler(app);
+}
 
 // 9. Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {

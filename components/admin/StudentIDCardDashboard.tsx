@@ -171,7 +171,7 @@ const StudentIDCardDashboard: React.FC = () => {
                                             <div className="flex items-center space-x-3">
                                                 <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
                                                     {student.avatar_url ? (
-                                                        <img src={student.avatar_url} className="w-full h-full object-cover" />
+                                                        <img src={student.avatar_url} alt={`${student.full_name || 'Student'} photo`} className="w-full h-full object-cover" />
                                                     ) : (
                                                         <span className="text-indigo-600 font-bold">{student.full_name.charAt(0)}</span>
                                                     )}

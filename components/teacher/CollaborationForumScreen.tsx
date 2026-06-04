@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ForumTopic } from '../../types';
-import { ChevronRightIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon } from '../../constants';
+import { ChevronRightIcon, PlusIcon, UserGroupIcon, ShieldCheckIcon, GlobeIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
@@ -91,6 +91,18 @@ const CollaborationForumScreen: React.FC<CollaborationForumScreenProps> = ({ nav
           <h3 className="font-bold text-lg text-purple-800">Teacher Forum</h3>
           <p className="text-sm text-purple-700">Share ideas, ask questions, and collaborate with your peers.</p>
         </div>
+
+        <button
+          onClick={() => navigateTo('globalForum', 'Global Teacher Community')}
+          className="w-full bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl text-left border border-indigo-200 mb-4 flex items-center gap-3 hover:ring-2 hover:ring-indigo-200 transition-all"
+        >
+          <GlobeIcon className="h-9 w-9 text-indigo-500 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="font-bold text-indigo-800">Global Teacher Community</h3>
+            <p className="text-sm text-indigo-700">Connect with teachers from other schools across the platform.</p>
+          </div>
+          <ChevronRightIcon className="h-5 w-5 text-indigo-400 flex-shrink-0" />
+        </button>
 
         {loading ? (
           <div className="flex justify-center p-8">

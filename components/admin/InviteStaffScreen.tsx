@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { API_BASE_URL } from '../../lib/config';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'react-hot-toast';
 import {
@@ -79,39 +78,20 @@ const InviteStaffScreen: React.FC<InviteStaffScreenProps> = ({ handleBack, navig
         setIsInviting(true);
 
         try {
-            // First, validate with the RPC function
-            const { error: validationError } = await api.rpc('invite_staff_member', {
-                p_school_id: profile.schoolId,
-                p_email: invitationForm.email,
-                p_role: invitationForm.role,
-                p_full_name: invitationForm.fullName,
-                p_branch_id: invitationForm.branchId || null
+            // Call the real invite endpoint directly. The previous code hit a
+            // non-existent /rpc/invite_staff_member route (and api.auth, which
+            // doesn't exist) — both threw before the invite could be sent. The
+            // HybridApiClient attaches the auth token automatically.
+            const result: any = await api.post('/invite-user', {
+                email: invitationForm.email,
+                school_id: profile.schoolId,
+                role: invitationForm.role,
+                full_name: invitationForm.fullName,
+                branch_id: invitationForm.branchId || null,
             });
 
-            if (validationError) throw validationError;
-
-            // Use the admin API to send the invitation (with auth token)
-            const { data: sessionData } = await api.auth.getSession();
-            const token = sessionData.session?.access_token;
-            const apiBase = API_BASE_URL;
-            const response = await fetch(`${apiBase}/invite-user`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                    email: invitationForm.email,
-                    school_id: profile.schoolId,
-                    role: invitationForm.role,
-                    full_name: invitationForm.fullName,
-                    branch_id: invitationForm.branchId || null,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to send invitation');
+            if (result && result.success === false) {
+                throw new Error(result.message || 'Failed to send invitation');
             }
 
             toast.success(`Invitation sent to ${invitationForm.email}!`);

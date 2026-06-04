@@ -55,9 +55,15 @@ export const createUserAccount = async (
       avatar_url: avatarUrl
     });
 
-    return { 
-      username: data.school_generated_id || username, 
-      password: data.initial_password || password, 
+    // IMPORTANT: the shown username must be something the user can actually log in
+    // with. Sign-in accepts the global ID (school_generated_id) or the email — NOT
+    // the locally-derived "aoliskey.lee" handle (which is stored nowhere). So we show
+    // the global ID, and fall back to the email if the ID wasn't generated. We never
+    // show the fabricated local handle, which previously caused "Invalid credentials".
+    const loginUsername = data.username || data.school_generated_id || email;
+    return {
+      username: loginUsername,
+      password: data.initial_password || password,
       userId: data.id,
       schoolGeneratedId: data.school_generated_id
     };

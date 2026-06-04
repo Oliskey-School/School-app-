@@ -306,6 +306,13 @@ class ExpressApiClient {
         return this.get('/auth/me');
     }
 
+    // The Global ID the user carries in their CURRENTLY ACTIVE branch (sent via the
+    // X-Branch-Id header). Drives the live, branch-aware ID badge in the header.
+    async getActiveBranchId(): Promise<{ school_generated_id: string; branch_id: string | null }> {
+        // NOT under /auth — the client strips the branch header from /auth/* calls.
+        return this.get('/active-branch-id');
+    }
+
     async signup(data: any): Promise<any> {
         return this.post('/auth/signup', data);
     }
@@ -320,16 +327,32 @@ class ExpressApiClient {
     }
 
     async refreshToken(): Promise<any> {
-        const refreshToken = sessionStorage.getItem('auth_refresh_token') || localStorage.getItem('auth_refresh_token');
-        const result = await this.post<any>('/auth/refresh', { refreshToken });
-        if (!result || !result.token) {
-            throw new Error('Failed to refresh session');
+        // Single-flight: if a refresh is already running, every caller awaits the
+        // SAME promise. Without this, the many requests that fire when you return
+        // to an idle tab each try to refresh at once — and because the backend
+        // rotates the refresh token (invalidating the previous one) on first use,
+        // every refresh after the first fails with "session revoked" and logs you
+        // out. De-duplicating means exactly one refresh happens per expiry.
+        if (this.refreshPromise) return this.refreshPromise;
+
+        this.refreshPromise = (async () => {
+            const refreshToken = sessionStorage.getItem('auth_refresh_token') || localStorage.getItem('auth_refresh_token');
+            const result = await this.post<any>('/auth/refresh', { refreshToken });
+            if (!result || !result.token) {
+                throw new Error('Failed to refresh session');
+            }
+            sessionStorage.setItem('auth_token', result.token);
+            if (result.refreshToken) {
+                sessionStorage.setItem('auth_refresh_token', result.refreshToken);
+            }
+            return result;
+        })();
+
+        try {
+            return await this.refreshPromise;
+        } finally {
+            this.refreshPromise = null;
         }
-        sessionStorage.setItem('auth_token', result.token);
-        if (result.refreshToken) {
-            sessionStorage.setItem('auth_refresh_token', result.refreshToken);
-        }
-        return result;
     }
 
     async submitGameScore(data: any): Promise<any> {
@@ -443,6 +466,11 @@ class ExpressApiClient {
 
     async updateUser(userId: string, data: any): Promise<any> {
         return this.put(`/users/${userId}`, data);
+    }
+
+    /** Self-service: edit the authenticated user's own profile (name/phone/avatar). */
+    async updateMyProfile(data: { full_name?: string; name?: string; phone?: string; avatar_url?: string; avatarUrl?: string }): Promise<any> {
+        return this.put('/users/me/profile', data);
     }
 
     async deleteUser(userId: string): Promise<any> {
@@ -1535,6 +1563,18 @@ class ExpressApiClient {
         return this.get(`/payroll/budgets?${queryParams.toString()}`);
     }
 
+    async createBudget(data: any): Promise<any> {
+        return this.post('/payroll/budgets', data);
+    }
+
+    // Finance Dashboard analytics (revenue / expenses / collection rate).
+    // Backed by GET /fees/analytics which expects periodType + date range.
+    async getFinancialAnalytics(periodType: string, startDate: string, endDate: string, branchId?: string): Promise<any> {
+        const queryParams = new URLSearchParams({ periodType, startDate, endDate });
+        if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
+        return this.get(`/fees/analytics?${queryParams.toString()}`);
+    }
+
     // ============================================
     // ACADEMICS & CURRICULUM
     // ============================================
@@ -1574,6 +1614,16 @@ class ExpressApiClient {
 
     async createVirtualClassSession(data: any): Promise<any> {
         return await this.post('/virtual-classes', data);
+    }
+
+    // Live (status 'active') sessions only — drives the student "Join Live Class" button.
+    async getActiveVirtualClasses(branchId?: string): Promise<any[]> {
+        const qs = branchId && branchId !== 'all' ? `?branchId=${encodeURIComponent(branchId)}` : '';
+        return await this.get(`/virtual-classes/active${qs}`);
+    }
+
+    async endVirtualClassSession(sessionId: string): Promise<any> {
+        return await this.post(`/virtual-classes/${sessionId}/end`, {});
     }
 
     async recordVirtualAttendance(sessionId: string, studentId: string): Promise<any> {
@@ -1695,7 +1745,28 @@ class ExpressApiClient {
 
     async getCBTExams(teacherId?: string): Promise<any[]> {
         const query = teacherId ? `?teacherId=${teacherId}` : '';
-        return this.get(`/cbt/exams${query}`);
+        const raw = await this.get<any[]>(`/cbt/exams${query}`);
+        // The backend returns raw quiz rows (snake_case). The CBT management
+        // screen expects the camelCase CBTExam shape, so map it here — otherwise
+        // status shows "Draft" forever and mins/marks/questions render blank.
+        return (Array.isArray(raw) ? raw : []).map((q: any) => ({
+            id: q.id,
+            title: q.title,
+            description: q.type || q.description || 'Test',
+            className: q.class?.name || (q.class?.grade != null ? `Grade ${q.class.grade}${q.class.section || ''}` : ''),
+            subjectName: q.subject?.name || '',
+            subjectId: q.subject_id,
+            classId: q.class_id,
+            durationMinutes: q.time_limit ?? q.duration_minutes ?? 0,
+            totalMarks: q.total_marks ?? 0,
+            totalQuestions: q._count?.questions ?? q.total_questions ?? 0,
+            isPublished: !!q.is_published,
+            isCbt: q.is_cbt,
+            type: q.type,
+            status: q.status,
+            teacherId: q.teacher_id,
+            createdAt: q.created_at,
+        }));
     }
 
     async getBehaviorNotesByStudent(studentId: string): Promise<any[]> {
@@ -2069,6 +2140,28 @@ class ExpressApiClient {
     async deleteTransportStop(id: string): Promise<void> {
         await this.delete(`/transport/stops/${id}`);
     }
+    // Vendor Management — backed by the full CRUD /vendors route module.
+    async getVendors(): Promise<any[]> {
+        try {
+            const result = await this.get<any>('/vendors');
+            return Array.isArray(result) ? result : (result?.data || []);
+        } catch (err) {
+            return [];
+        }
+    }
+
+    async createVendor(data: any): Promise<any> {
+        return this.post('/vendors', data);
+    }
+
+    async updateVendor(id: string, data: any): Promise<any> {
+        return this.put(`/vendors/${id}`, data);
+    }
+
+    async deleteVendor(id: string): Promise<void> {
+        await this.delete(`/vendors/${id}`);
+    }
+
     async getAssets(): Promise<any[]> {
         try {
             const result = await this.get<any>('/infrastructure/assets');
@@ -2476,6 +2569,31 @@ class ExpressApiClient {
         return this.post('/forum/posts', data);
     }
 
+    // --- Global Teacher Community (cross-school; only message + first name shown) ---
+    async getGlobalForumTopics(): Promise<any[]> {
+        return this.get('/global-forum/topics');
+    }
+
+    async createGlobalForumTopic(data: { title: string; content?: string }): Promise<any> {
+        return this.post('/global-forum/topics', data);
+    }
+
+    async getGlobalForumPosts(topicId: string): Promise<any[]> {
+        return this.get(`/global-forum/topics/${topicId}/posts`);
+    }
+
+    async createGlobalForumPost(data: { topic_id: string; content: string }): Promise<any> {
+        return this.post('/global-forum/posts', data);
+    }
+
+    async deleteGlobalForumTopic(topicId: string): Promise<any> {
+        return this.delete(`/global-forum/topics/${topicId}`);
+    }
+
+    async deleteGlobalForumPost(postId: string): Promise<any> {
+        return this.delete(`/global-forum/posts/${postId}`);
+    }
+
     async getCommunityResources(...args: any[]): Promise<any[]> {
         return [];
     }
@@ -2655,6 +2773,120 @@ class ExpressApiClient {
     }
 
     // ============================================
+    // ADMIN SCREENS — methods previously missing (caused "is not a function" crashes)
+    // ============================================
+
+    // Timetables (Admin TimetableScreen) -> GET /timetables
+    async getTimetables(schoolId: string, branchId?: string): Promise<any[]> {
+        const qs = new URLSearchParams();
+        if (schoolId) qs.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') qs.append('branchId', branchId);
+        try { return await this.get(`/timetables?${qs.toString()}`); } catch { return []; }
+    }
+
+    // SaaS plan management -> /plans (SuperAdmin)
+    async createPlan(data: any): Promise<any> { return this.post('/plans', data); }
+    async updatePlan(id: string, data: any): Promise<any> { return this.put(`/plans/${id}`, data); }
+    async deletePlan(id: string): Promise<void> { await this.delete(`/plans/${id}`); }
+
+    // SaaS platform notifications -> /notifications/platform
+    async getPlatformNotifications(): Promise<any[]> {
+        try { return await this.get('/notifications/platform/all'); } catch { return []; }
+    }
+    async sendPlatformNotification(data: any): Promise<any> {
+        return this.post('/notifications/platform', data);
+    }
+
+    // Student <-> class assignment (Admin StudentProfileAdminView) -> /students/:id/(assign|remove)-class
+    async assignStudentToClass(studentId: string, classId: string): Promise<any> {
+        return this.post(`/students/${studentId}/assign-class`, { classId });
+    }
+    async removeStudentFromClass(studentId: string, classId: string): Promise<any> {
+        return this.post(`/students/${studentId}/remove-class`, { classId });
+    }
+
+    // Role permissions (Admin UserRolesScreen) -> /admin-hub/roles/permissions.
+    // The screen passes an ARRAY of { role, permission_id, enabled }; the endpoint
+    // handles one at a time, so we fan out the writes.
+    async updateRolePermissions(updates: any): Promise<any> {
+        const items = Array.isArray(updates) ? updates : [updates];
+        return Promise.all(items.map(u => this.post('/admin-hub/roles/permissions', u)));
+    }
+
+    // SaaS school bulk operations -> /schools/bulk
+    async updateSchoolStatusBulk(ids: string[], status: string): Promise<any> {
+        return this.put('/schools/bulk/status', { ids, status });
+    }
+    async deleteSchoolsBulk(ids: string[]): Promise<any> {
+        return this.delete('/schools/bulk', { body: JSON.stringify({ ids }) });
+    }
+
+    // School performance report (Admin ReportsScreen) -> GET /academic/performance
+    async getSchoolPerformance(schoolId: string, branchId?: string): Promise<any[]> {
+        const qs = new URLSearchParams();
+        if (schoolId) qs.append('schoolId', schoolId);
+        if (branchId && branchId !== 'all') qs.append('branchId', branchId);
+        try { return await this.get(`/academic/performance?${qs.toString()}`); } catch { return []; }
+    }
+
+    // System settings (Admin AcademicSettingsScreen) — stored in the School.settings JSON,
+    // surfaced as a { key, value }[] list so the screen can read/write named keys.
+    async getSystemSettings(schoolId: string, keys: string[], _branchId?: string | null): Promise<any[]> {
+        try {
+            const school = await this.getSchoolById(schoolId);
+            const settings = (school?.settings as any) || {};
+            return (keys || []).map(key => ({ key, value: settings[key] ?? null }));
+        } catch {
+            return (keys || []).map(key => ({ key, value: null }));
+        }
+    }
+    async updateSystemSettings(schoolId: string, items: { key: string; value: any }[], _branchId?: string | null): Promise<any> {
+        const school = await this.getSchoolById(schoolId);
+        const settings = { ...((school?.settings as any) || {}) };
+        for (const it of (items || [])) settings[it.key] = it.value;
+        return this.updateSchool(schoolId, { settings });
+    }
+
+    // Safe demo-mode helper (was called as an optional method; now always defined).
+    isDemoMode(): boolean {
+        try {
+            return typeof sessionStorage !== 'undefined' && sessionStorage.getItem('is_demo_mode') === 'true';
+        } catch {
+            return false;
+        }
+    }
+
+    // Integration Hub actions
+    async toggleIntegration(id: string | number, isActive: boolean): Promise<any> {
+        return this.put(`/external-integrations/${id}`, { is_active: isActive });
+    }
+    async syncIntegration(id: string | number): Promise<any> {
+        return this.post(`/external-integrations/${id}/sync`, {});
+    }
+    async installApp(appId: string | number): Promise<any> {
+        return this.post('/app-installations', { app_id: appId });
+    }
+    async uninstallApp(appId: string | number): Promise<any> {
+        return this.delete(`/app-installations/by-app/${appId}`);
+    }
+
+    // ID Verification (Admin IDVerificationPanel)
+    async getVerificationRequests(): Promise<any[]> {
+        try { return await this.get('/id-verification-requests'); } catch { return []; }
+    }
+    async reviewVerificationRequest(id: string, status: string, notes?: string): Promise<any> {
+        return this.put(`/id-verification-requests/${id}`, { status, notes });
+    }
+
+    // Compliance Checks (Admin ComplianceChecklist)
+    async getComplianceChecks(): Promise<any[]> {
+        try { return await this.get('/compliance-checklists'); } catch { return []; }
+    }
+    async runComplianceChecks(): Promise<any> {
+        return this.post('/compliance-checklists/run', {});
+    }
+
+    // ============================================
     // SCHOLARSHIPS
     // ============================================
     async getScholarships(schoolId: string): Promise<any[]> {
@@ -2741,7 +2973,9 @@ class ExpressApiClient {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('category', category);
-        return this.post('/media/upload', formData);
+        // The backend returns { publicUrl }; normalise to { url } for all callers.
+        const res = await this.post<any>('/media/upload', formData);
+        return { url: res?.url || res?.publicUrl || res?.location || '' };
     }
 
     async uploadAvatar(file: File): Promise<{ url: string }> {
@@ -3308,7 +3542,11 @@ class ExpressApiClient {
     from(table: string) {
         const endpoint = `/${table.replace(/_/g, '-')}`;
         const queryParams = new URLSearchParams();
-        
+        // The mutation is deferred until the chain is awaited (then()), so filters
+        // chained AFTER it — Supabase style `.update(data).eq('id', x)` — are applied.
+        let pendingOp: 'select' | 'insert' | 'update' | 'upsert' | 'delete' = 'select';
+        let pendingPayload: any = undefined;
+
         const builder = {
             select: (columns: string = '*') => {
                 if (columns !== '*') queryParams.append('columns', columns);
@@ -3368,58 +3606,40 @@ class ExpressApiClient {
                 return builder;
             },
             
-            // Execution Methods
+            // Execution — runs on await. Dispatches the right HTTP verb based on the
+            // pending operation so a mutation followed by .eq(...) filters works.
             then: async (onfulfilled?: (value: { data: any; error: any }) => any) => {
+                let result: { data: any; error: any };
                 try {
-                    const url = `${endpoint}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-                    const data = await this.get(url);
-                    const result = { data, error: null };
-                    return onfulfilled ? onfulfilled(result) : result;
+                    let data: any;
+                    if (pendingOp === 'insert') {
+                        data = await this.post(endpoint, pendingPayload);
+                    } else if (pendingOp === 'upsert') {
+                        data = await this.post(`${endpoint}/upsert`, pendingPayload);
+                    } else if (pendingOp === 'update') {
+                        const id = queryParams.get('id');
+                        data = await this.put(id ? `${endpoint}/${id}` : endpoint, pendingPayload);
+                    } else if (pendingOp === 'delete') {
+                        const id = queryParams.get('id');
+                        data = await this.delete(id ? `${endpoint}/${id}` : endpoint);
+                    } else {
+                        const url = `${endpoint}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+                        data = await this.get(url);
+                    }
+                    result = { data, error: null };
                 } catch (error: any) {
-                    const result = { data: null, error };
-                    return onfulfilled ? onfulfilled(result) : result;
+                    result = { data: null, error };
                 }
+                return onfulfilled ? onfulfilled(result) : result;
             },
 
-            // Mutations
-            insert: async (data: any) => {
-                try {
-                    const res = await this.post(endpoint, data);
-                    return { data: res, error: null };
-                } catch (error: any) {
-                    return { data: null, error };
-                }
-            },
-            update: async (data: any) => {
-                try {
-                    // Update usually requires filters in the chain. 
-                    // For simplicity, we assume .eq('id', ...) was called and extracted to queryParams
-                    const id = queryParams.get('id');
-                    const url = id ? `${endpoint}/${id}` : endpoint;
-                    const res = await this.put(url, data);
-                    return { data: res, error: null };
-                } catch (error: any) {
-                    return { data: null, error };
-                }
-            },
-            upsert: async (data: any) => {
-                try {
-                    const res = await this.post(`${endpoint}/upsert`, data);
-                    return { data: res, error: null };
-                } catch (error: any) {
-                    return { data: null, error };
-                }
-            },
-            delete: async () => {
-                try {
-                    const id = queryParams.get('id');
-                    const url = id ? `${endpoint}/${id}` : endpoint;
-                    const res = await this.delete(url);
-                    return { data: res, error: null };
-                } catch (error: any) {
-                    return { data: null, error };
-                }
-            }
+            // Mutations — record the op + payload and return the builder so callers can
+            // chain filters afterward (e.g. .update({...}).eq('id', x)). The HTTP call
+            // fires when the chain is awaited via then() above.
+            insert: (data: any) => { pendingOp = 'insert'; pendingPayload = data; return builder; },
+            update: (data: any) => { pendingOp = 'update'; pendingPayload = data; return builder; },
+            upsert: (data: any) => { pendingOp = 'upsert'; pendingPayload = data; return builder; },
+            delete: () => { pendingOp = 'delete'; return builder; },
         };
 
         return builder as any;

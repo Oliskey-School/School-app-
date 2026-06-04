@@ -225,7 +225,12 @@ export class ParentService {
 
                 loginId = schoolGeneratedId || email;
             } else {
-                loginId = user.school_generated_id || user.email;
+                // Email already belongs to someone — don't reuse/overwrite their account
+                // (that is how a parent ended up carrying another user's teacher ID).
+                throw Object.assign(
+                    new Error(`This email is already registered to ${user.full_name || 'another account'}. Please use a different email.`),
+                    { status: 409 }
+                );
             }
 
             const parent = await (tx.parent.upsert as any)({

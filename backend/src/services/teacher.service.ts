@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { IdGeneratorService } from './idGenerator.service';
+import { BranchIdentityService } from './branchIdentity.service';
 import { PrismaClient, Role } from '../../generated/prisma-client';
 import { SocketService } from './socket.service';
 import { config } from '../config/env';
@@ -36,47 +37,34 @@ export class TeacherService {
                 where: { email: email?.toLowerCase() }
             });
 
+            // An email belongs to exactly ONE person. If it already exists we do NOT
+            // hijack/convert that account (the old behaviour silently flipped a parent
+            // into a teacher and replaced their ID — making the original person vanish
+            // from their list). Reject with a clear message so each user keeps their own
+            // account + unique ID, and the shown credentials always belong to this new user.
             if (user) {
-                // If user exists, ensure they have the TEACHER role
-                if (user.role !== Role.TEACHER) {
-                    await tx.user.update({
-                        where: { id: user.id },
-                        data: { role: Role.TEACHER }
-                    });
-                }
-                // Update existing user details if needed.
-                // Admin-created teachers are activated immediately so they can sign in
-                // with the generated credentials — no email confirmation gate.
-                await tx.user.update({
-                    where: { id: user.id },
-                    data: {
-                        full_name: effectiveName,
-                        school_id: schoolId,
-                        branch_id: branchId || user.branch_id,
-                        avatar_url: avatar_url || user.avatar_url,
-                        school_generated_id: schoolGeneratedId || user.school_generated_id,
-                        email_verified: true,
-                        password_hash: hashedPassword,
-                        initial_password: generatedPassword
-                    }
-                });
-            } else {
-                // Create User if doesn't exist
-                user = await tx.user.create({
-                    data: {
-                        email: email?.toLowerCase() || `${schoolGeneratedId || 'temp_teacher'}@school.com`,
-                        password_hash: hashedPassword,
-                        full_name: effectiveName,
-                        role: Role.TEACHER,
-                        school_id: schoolId,
-                        branch_id: branchId || null,
-                        allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
-                        school_generated_id: schoolGeneratedId,
-                        initial_password: generatedPassword,
-                        email_verified: true // Admin-created teachers are verified by default
-                    }
-                });
+                throw Object.assign(
+                    new Error(`This email is already registered to ${user.full_name || 'another account'}. Please use a different email.`),
+                    { status: 409 }
+                );
             }
+
+            // Create the new teacher user. Admin-created teachers are verified immediately
+            // so they can sign in right away with the generated credentials.
+            user = await tx.user.create({
+                data: {
+                    email: email?.toLowerCase() || `${schoolGeneratedId || 'temp_teacher'}@school.com`,
+                    password_hash: hashedPassword,
+                    full_name: effectiveName,
+                    role: Role.TEACHER,
+                    school_id: schoolId,
+                    branch_id: branchId || null,
+                    allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
+                    school_generated_id: schoolGeneratedId,
+                    initial_password: generatedPassword,
+                    email_verified: true
+                }
+            });
 
             // 4. Create or Update Teacher Record
             const teacher = await tx.teacher.upsert({
@@ -198,10 +186,15 @@ export class TeacherService {
         const teachers = await prisma.teacher.findMany({
             where: {
                 school_id: schoolId,
-                OR: (branchId && branchId !== 'all') ? [
-                    { branch_id: branchId },
-                    { branch_id: null }
-                ] : undefined
+                // Include teachers whose PRIMARY branch is this branch OR who were
+                // assigned to it (allowed_branch_ids), so the staff list matches the
+                // staff count and a multi-branch teacher appears in each of theirs.
+                ...((branchId && branchId !== 'all') ? {
+                    OR: [
+                        { branch_id: branchId },
+                        { allowed_branch_ids: { has: branchId } }
+                    ]
+                } : {})
             },
             include: {
                 user: true
@@ -209,11 +202,33 @@ export class TeacherService {
             orderBy: { full_name: 'asc' }
         });
 
-        // Ensure we use the User account email as source of truth
-        return teachers.map(t => ({
-            ...t,
-            email: t.user?.email || t.email
-        }));
+        // Show each teacher's Global ID FOR THE ACTIVE BRANCH. A teacher whose
+        // PRIMARY branch is this branch keeps their stored id; one who is merely
+        // ASSIGNED here (allowed_branch_ids) is shown with THIS branch's id (e.g.
+        // OLISKEY_LEKKI_TCH_xxxx in Lekki) instead of their home/Main id — so a
+        // Main teacher assigned to Lekki never appears as "MAIN_TCH" in Lekki.
+        const scoped = branchId && branchId !== 'all';
+        // SEQUENTIAL: allocate per-branch ids one-by-one so each teacher gets a
+        // distinct number. Parallel resolution let two teachers grab the same id.
+        const out: any[] = [];
+        for (const t of teachers as any[]) {
+            let displayId = t.school_generated_id;
+            if (scoped && t.branch_id !== branchId && t.user_id) {
+                try {
+                    displayId = await BranchIdentityService.resolveForUser(
+                        { id: t.user_id, school_id: schoolId, branch_id: t.branch_id, school_generated_id: t.school_generated_id, role: 'TEACHER' },
+                        branchId
+                    );
+                } catch { /* keep home id on failure */ }
+            }
+            out.push({
+                ...t,
+                email: t.user?.email || t.email,
+                school_generated_id: displayId,
+                user: t.user ? { ...t.user, school_generated_id: displayId } : t.user,
+            });
+        }
+        return out;
     }
 
     static async getTeacherById(schoolId: string, branchId: string | undefined, id: string) {
@@ -314,13 +329,19 @@ export class TeacherService {
                 throw new Error('Teacher record not found');
             }
 
-            // Sync email and name to User table if provided and different
-            // Sync identity fields to User table for global persistence
-            if (email || name || full_name || avatar_url) {
+            // Sync identity fields to the User table for global persistence. The
+            // assigned branches MUST be synced here too: the auth token / branch
+            // switcher read allowed_branch_ids from the USER row, not the Teacher
+            // row, so without this a multi-branch assignment never reaches the
+            // teacher's session and their switcher only shows their home branch.
+            if (email || name || full_name || avatar_url || allowed_branch_ids !== undefined) {
                 const userUpdate: any = {};
                 if (email) userUpdate.email = email.toLowerCase();
                 if (name || full_name) userUpdate.full_name = name || full_name;
                 if (avatar_url !== undefined) userUpdate.avatar_url = avatar_url;
+                if (allowed_branch_ids !== undefined) {
+                    userUpdate.allowed_branch_ids = Array.isArray(allowed_branch_ids) ? allowed_branch_ids : [];
+                }
 
                 if (teacher.user_id) {
                     await tx.user.update({

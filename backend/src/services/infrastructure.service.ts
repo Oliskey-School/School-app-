@@ -1,11 +1,32 @@
 import prisma from '../config/database';
 import { SocketService } from './socket.service';
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+/**
+ * Run a command WITHOUT a shell (spawn, no shell:true) so arguments — including
+ * the DB URL and file paths — can never be interpreted as shell metacharacters.
+ * Optionally pipes a file to stdin or captures stdout to a file.
+ */
+const runCommand = (
+    cmd: string,
+    args: string[],
+    opts: { stdoutFile?: string; stdinFile?: string } = {}
+): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        const stdout = opts.stdoutFile ? fs.createWriteStream(opts.stdoutFile) : 'pipe';
+        const stdin = opts.stdinFile ? fs.createReadStream(opts.stdinFile) : 'ignore';
+        const child = spawn(cmd, args, { stdio: [stdin as any, stdout as any, 'pipe'] });
+        let stderr = '';
+        child.stderr?.on('data', (d) => { stderr += d.toString(); });
+        child.on('error', reject);
+        child.on('close', (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(stderr || `${cmd} exited with code ${code}`));
+        });
+    });
+};
 
 export class InfrastructureService {
     static async getFacilities(schoolId: string) {
@@ -197,10 +218,9 @@ export class InfrastructureService {
         const dbUrl = process.env.DATABASE_URL || '';
         
         try {
-            // Attempt real backup if pg_dump is available
-            // In many environments pg_dump might not be in PATH, so we fallback to a mock if it fails
-            const command = `pg_dump "${dbUrl}" > "${filePath}"`;
-            await execAsync(command);
+            // Attempt real backup if pg_dump is available. No shell: the DB URL is an
+            // argument and the output path is a write stream, so neither can inject.
+            await runCommand('pg_dump', [dbUrl], { stdoutFile: filePath });
             
             const stats = fs.statSync(filePath);
             
@@ -240,8 +260,8 @@ export class InfrastructureService {
         const dbUrl = process.env.DATABASE_URL || '';
         
         try {
-            const command = `psql "${dbUrl}" < "${backup.file_path}"`;
-            await execAsync(command);
+            // No shell: DB URL is an argument, the backup file is piped via stdin.
+            await runCommand('psql', [dbUrl], { stdinFile: backup.file_path });
             return { success: true, message: 'Restore completed successfully' };
         } catch (error: any) {
             console.error('[Restore] psql failed:', error.message);

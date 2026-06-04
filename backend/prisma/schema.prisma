@@ -230,6 +230,7 @@ model Student {
   avatar_url              String?
   status                  String                    @default("Active")
   attendance_status       String                    @default("Present")
+  verification_status     String                    @default("pending")
   created_by              String?
   created_at              DateTime                  @default(now())
   updated_at              DateTime                  @updatedAt
@@ -998,6 +999,7 @@ model VirtualClassSession {
   school_id     String
   branch_id     String?
   teacher_id    String?
+  class_id      String?
   title         String
   subject       String?
   topic         String?
@@ -2293,6 +2295,22 @@ model Complaint {
   @@index([school_id, parent_id])
 }
 
+// Documents uploaded against a student record (report cards, certificates, etc.).
+// Scalar tenant columns only (no enforced relations) to keep the model self-contained;
+// scoping is enforced in StudentService by always filtering on school_id + student_id.
+model StudentDocument {
+  id         String   @id @default(uuid())
+  student_id String
+  school_id  String
+  name       String
+  url        String
+  type       String?
+  size       String?
+  created_at DateTime @default(now())
+
+  @@index([school_id, student_id])
+}
+
 model TeacherEvaluation {
   id               String   @id @default(uuid())
   teacher_id       String
@@ -2313,6 +2331,104 @@ model AppVersion {
   description String?
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
+}
+
+model IdVerificationRequest {
+  id            String    @id @default(uuid())
+  school_id     String
+  branch_id     String?
+  student_id    String
+  user_id       String?
+  full_name     String
+  document_type String    @default("Student ID")
+  status        String    @default("pending")
+  notes         String?
+  reviewed_by   String?
+  reviewed_at   DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @default(now()) @updatedAt
+
+  @@unique([school_id, student_id])
+  @@index([school_id, branch_id])
+}
+
+model ComplianceCheck {
+  id              String    @id @default(uuid())
+  school_id       String
+  branch_id       String?
+  check_key       String
+  check_name      String
+  description     String?
+  check_frequency String    @default("Daily")
+  last_result     String    @default("Pending")
+  last_run_at     DateTime?
+  details         Json?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @default(now()) @updatedAt
+
+  @@unique([school_id, check_key])
+}
+
+// ============================================
+// GLOBAL TEACHER COMMUNITY (cross-school)
+// Deliberately NOT scoped by school_id/branch_id: this is the one place where
+// teachers from different schools share a space. Only the message text + a
+// non-identifying author label (first name + role) is ever stored/returned —
+// never school, branch, IDs, contact, or any other tenant data. This is an
+// owner-sanctioned, explicit exception to strict tenant isolation.
+// ============================================
+
+model GlobalForumTopic {
+  id            String   @id @default(uuid())
+  title         String
+  content       String?
+  author_id     String?
+  author_name   String?
+  author_role   String?  @default("teacher")
+  post_count    Int      @default(0)
+  is_locked     Boolean  @default(false)
+  last_activity DateTime @default(now())
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now()) @updatedAt
+
+  @@index([last_activity])
+}
+
+model GlobalForumPost {
+  id          String   @id @default(uuid())
+  topic_id    String
+  author_id   String?
+  author_name String?
+  author_role String?  @default("teacher")
+  content     String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  @@index([topic_id])
+}
+
+// ============================================
+// PER-BRANCH IDENTITY
+// A user (e.g. a teacher assigned to multiple branches) gets a stable, unique
+// Global ID PER branch: {SCHOOL}_{BRANCH}_{ROLE}_{NUMBER}. The number reuses the
+// user's home number when it's free in the target branch, otherwise the next
+// available number for that branch+role. This row reserves it so it never moves.
+// ============================================
+
+model BranchUserIdentity {
+  id                  String   @id @default(uuid())
+  school_id           String
+  branch_id           String
+  user_id             String
+  role                String
+  number              Int
+  school_generated_id String
+  created_at          DateTime @default(now())
+  updated_at          DateTime @default(now()) @updatedAt
+
+  @@unique([user_id, branch_id])
+  @@unique([school_id, branch_id, role, number])
+  @@index([school_id, branch_id])
 }
 
 // ============================================

@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { RefreshIcon, ExclamationCircleIcon } from '../../constants';
+import { reportError } from '../../lib/sentry';
 
 interface Props {
     children: ReactNode;
@@ -23,6 +24,7 @@ class ErrorBoundary extends Component<Props, State> {
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error("Uncaught error:", error, errorInfo);
+        reportError(error, { componentStack: errorInfo.componentStack });
     }
 
     public handleRetry = () => {

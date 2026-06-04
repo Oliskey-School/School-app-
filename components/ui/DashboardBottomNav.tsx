@@ -3,11 +3,16 @@
 import React from 'react';
 // FIX: Corrected import for MessagesIcon and added HomeIcon and SettingsIcon.
 import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon } from '../../constants';
-import { LayoutDashboard, Wallet, ShieldCheck, BookOpen, Beaker, Users } from 'lucide-react';
+import { LayoutDashboard, Wallet, ShieldCheck, BookOpen, Beaker, Users, Building2 } from 'lucide-react';
 
 const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, label: string, isActive: boolean, onClick: () => void, activeColor: string }> = ({ icon, label, isActive, onClick, activeColor }) => (
-  <button onClick={onClick} className={`flex-1 flex flex-col items-center justify-center space-y-1 transition-colors duration-200 ${isActive ? activeColor : 'text-gray-500'}`}>
-    {React.cloneElement(icon, { className: `h-6 w-6` })}
+  <button
+    onClick={onClick}
+    aria-current={isActive ? 'page' : undefined}
+    aria-label={label}
+    className={`flex-1 flex flex-col items-center justify-center space-y-1 transition-colors duration-200 ${isActive ? activeColor : 'text-gray-500'}`}
+  >
+    {React.cloneElement(icon, { className: `h-6 w-6`, 'aria-hidden': true } as any)}
     <span className="text-xs font-medium">{label}</span>
   </button>
 );
@@ -15,9 +20,9 @@ const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, labe
 export const AdminBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen: string, setActiveScreen: (screen: string) => void }) => {
   const navItems = [
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
+    { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
     { id: 'feeManagement', icon: <DocumentTextIcon />, label: 'Fees' },
     { id: 'analytics', icon: <AnalyticsIcon />, label: 'Analytics' },
-    { id: 'messages', icon: <MessagesIcon />, label: 'Messages' },
     { id: 'settings', icon: <SettingsIcon />, label: 'Settings' },
   ];
   return (

@@ -284,13 +284,18 @@ export class DashboardService {
                 workloadData
             ] = await Promise.all([
                 prisma.student.count({ where: { ...baseWhere, status: 'Active' } }),
-                prisma.teacher.count({ 
+                prisma.teacher.count({
                     where: {
                         school_id: schoolId,
-                        OR: effectiveBranchId ? [
-                            { branch_id: effectiveBranchId },
-                            { branch_id: null }
-                        ] : undefined
+                        // A teacher counts toward a branch if it's their primary branch
+                        // OR the admin assigned them to it (allowed_branch_ids). This is
+                        // why a teacher added to Lekki now shows in Lekki's staff total.
+                        ...(effectiveBranchId ? {
+                            OR: [
+                                { branch_id: effectiveBranchId },
+                                { allowed_branch_ids: { has: effectiveBranchId } }
+                            ]
+                        } : {})
                     }
                 }),
                 prisma.parent.count({ where: baseWhere }),

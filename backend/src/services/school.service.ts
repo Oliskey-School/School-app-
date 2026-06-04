@@ -195,9 +195,13 @@ export class SchoolService {
         });
     }
 
-    static async getBranches(schoolId: string, branchId?: string) {
+    static async getBranches(schoolId: string, branchId?: string, demoRoot?: string) {
         const where: any = { school_id: schoolId };
-        if (branchId) {
+        if (demoRoot) {
+            // Demo session: only this visitor's sandbox — the root branch and any
+            // branches they created within it ("<root>__<rand>").
+            where.OR = [{ id: demoRoot }, { id: { startsWith: demoRoot + '__' } }];
+        } else if (branchId) {
             where.id = branchId;
         }
         const branches = await prisma.branch.findMany({
@@ -216,33 +220,91 @@ export class SchoolService {
         return branches.map((b) => ({ ...b, user_count: countMap.get(b.id) || 0 }));
     }
 
-    static async createBranch(schoolId: string, data: any) {
+    static async createBranch(schoolId: string, data: any, demoRoot?: string) {
         console.log('[SchoolService] Creating branch. Input data:', JSON.stringify(data, null, 2));
         return await prisma.$transaction(async (tx) => {
             if (data.is_main) {
+                // Unset the existing "main" only within the relevant scope: the demo
+                // visitor's own sandbox, or the whole school for a live school.
+                const mainWhere: any = { school_id: schoolId };
+                if (demoRoot) mainWhere.OR = [{ id: demoRoot }, { id: { startsWith: demoRoot + '__' } }];
                 await tx.branch.updateMany({
-                    where: { school_id: schoolId },
+                    where: mainWhere,
                     data: { is_main: false }
                 });
             }
-            
-            // Robust code generation
-            const generatedCode = data.code && typeof data.code === 'string' && data.code.trim() !== ''
-                ? data.code.toUpperCase().replace(/[^A-Z0-9]/g, '')
-                : (data.name ? data.name.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '') : 'BRCH') + Math.floor(Math.random() * 1000);
 
-            const { code, ...rest } = data;
-            const branchData = {
+            // Prefer the owner-typed code. If blank, derive a CLEAN code from the first
+            // word of the name (no random suffix) — e.g. "Lekki phase 1" -> "LEKKI".
+            const generatedCode = data.code && typeof data.code === 'string' && data.code.trim() !== ''
+                ? data.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+                : (data.name
+                    ? (String(data.name).trim().split(/\s+/)[0].replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10) || 'BRANCH')
+                    : 'BRANCH');
+
+            const { code, id: _ignoredId, ...rest } = data;
+            const branchData: any = {
                 ...rest,
                 school_id: schoolId,
                 code: generatedCode
             };
+
+            // Demo branches live as children of the visitor's sandbox root so they stay
+            // isolated to that session and never appear in another visitor's demo.
+            if (demoRoot) {
+                branchData.id = `${demoRoot}__${Math.random().toString(36).slice(2, 10)}`;
+            }
 
             console.log('[SchoolService] Creating branch with data:', JSON.stringify(branchData, null, 2));
 
             const branch = await tx.branch.create({
                 data: branchData
             });
+
+            // Clone the STRUCTURE (classes + subjects) from the main branch so the new
+            // branch starts as a full, empty environment: same setup, zero records.
+            // Each copy is a brand-new row scoped to the new branch — fully independent
+            // (editing one branch never affects another). No students, enrollments,
+            // grades, or fees are copied.
+            try {
+                let sourceBranchId: string | undefined;
+                if (demoRoot) {
+                    sourceBranchId = demoRoot; // the demo sandbox root acts as "main"
+                } else {
+                    const main = await tx.branch.findFirst({
+                        where: { school_id: schoolId, is_main: true, id: { not: branch.id } },
+                        select: { id: true },
+                    });
+                    sourceBranchId = main?.id;
+                }
+
+                if (sourceBranchId && sourceBranchId !== branch.id) {
+                    const srcSubjects = await tx.subject.findMany({ where: { school_id: schoolId, branch_id: sourceBranchId } });
+                    if (srcSubjects.length) {
+                        await tx.subject.createMany({
+                            data: srcSubjects.map((s: any) => ({
+                                school_id: schoolId, branch_id: branch.id,
+                                name: s.name, code: s.code, description: s.description, curriculum_type: s.curriculum_type,
+                            })),
+                        });
+                    }
+
+                    const srcClasses = await tx.class.findMany({ where: { school_id: schoolId, branch_id: sourceBranchId } });
+                    if (srcClasses.length) {
+                        await tx.class.createMany({
+                            data: srcClasses.map((c: any) => ({
+                                school_id: schoolId, branch_id: branch.id,
+                                name: c.name, grade: c.grade, section: c.section,
+                                department: c.department, level_category: c.level_category,
+                            })),
+                        });
+                    }
+                    console.log(`[SchoolService] Cloned ${srcSubjects.length} subjects + ${srcClasses.length} classes into new branch ${branch.id}`);
+                }
+            } catch (cloneErr: any) {
+                console.warn('[SchoolService] Branch structure clone failed (non-fatal):', cloneErr.message);
+            }
+
             SocketService.emitToSchool(schoolId, 'school:updated', { action: 'create_branch', branchId: branch.id });
             return branch;
         });
@@ -255,11 +317,17 @@ export class SchoolService {
         delete sanitizedUpdates.code;
 
         return await prisma.$transaction(async (tx) => {
+            // Ownership: the branch MUST belong to the caller's school — blocks
+            // cross-tenant edits via a guessed/leaked branch id.
+            const owned = await tx.branch.findFirst({ where: { id, school_id: schoolId }, select: { id: true, name: true } });
+            if (!owned) {
+                throw Object.assign(new Error('Branch not found in your school'), { status: 404 });
+            }
+
             // Once members have IDs based on this branch, the NAME is frozen (the ID's
             // branch identity must stay consistent). Everything else stays editable.
             if (typeof sanitizedUpdates.name === 'string') {
-                const existing = await tx.branch.findUnique({ where: { id }, select: { name: true } });
-                if (existing && sanitizedUpdates.name !== existing.name) {
+                if (sanitizedUpdates.name !== owned.name) {
                     const idHolders = await tx.user.count({
                         where: { school_id: schoolId, branch_id: id, NOT: { school_generated_id: null } },
                     });
@@ -288,12 +356,16 @@ export class SchoolService {
     }
 
     static async deleteBranch(schoolId: string, id: string) {
-        const result = await prisma.branch.delete({
-            where: { id: id }
+        // Scope by school_id so a branch can only be deleted within its own tenant.
+        const result = await prisma.branch.deleteMany({
+            where: { id, school_id: schoolId }
         });
+        if (result.count === 0) {
+            throw Object.assign(new Error('Branch not found in your school'), { status: 404 });
+        }
 
         SocketService.emitToSchool(schoolId, 'school:updated', { action: 'delete_branch', branchId: id });
-        return result;
+        return { id };
     }
 
     static async getSchoolPolicies(schoolId: string) {

@@ -129,7 +129,7 @@ export const InspectionSummaryView: React.FC<Props> = ({
                           <div className="flex -space-x-4">
                              {responses[field.id].slice(0, 3).map((img: string, idx: number) => (
                                <div key={idx} className="w-14 h-14 rounded-xl border-4 border-white overflow-hidden bg-slate-100">
-                                  <img src={img} className="w-full h-full object-cover" />
+                                  <img src={img} alt={`Inspection evidence ${idx + 1}`} className="w-full h-full object-cover" />
                                </div>
                              ))}
                           </div>

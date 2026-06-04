@@ -24,7 +24,7 @@ export const enrollStudent = async (req: AuthRequest, res: Response) => {
         if (error.message.includes('User already registered') || error.message.includes('Auth creation failed')) {
             return res.status(409).json({ message: error.message });
         }
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
     }
 };
 
@@ -62,6 +62,10 @@ export const getStudentById = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.query.branchId as string);
         const result = await StudentService.getStudentById(req.user.school_id, branchId, req.params.id as string);
+        if (!result) {
+            // Not found OR outside the caller's school/branch — never reveal which.
+            return res.status(404).json({ message: 'Student not found' });
+        }
         res.json(result);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

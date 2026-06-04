@@ -19,6 +19,23 @@ export const getQuizzes = async (req: AuthRequest, res: Response): Promise<void>
                 res.status(200).json([]);
                 return;
             }
+        } else if (req.user.role === 'STUDENT') {
+            // A student only sees published quizzes for their own class(es)/grade.
+            const student = await prisma.student.findUnique({
+                where: { user_id: req.user.id },
+                select: { id: true, grade: true }
+            });
+            if (!student) {
+                res.status(200).json([]);
+                return;
+            }
+            const enrollments = await prisma.studentEnrollment.findMany({
+                where: { student_id: student.id, status: 'Active' },
+                select: { class_id: true }
+            });
+            filters.forStudent = true;
+            filters.studentClassIds = enrollments.map(e => e.class_id);
+            filters.studentGrade = student.grade;
         }
 
         const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);

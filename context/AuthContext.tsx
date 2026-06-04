@@ -348,6 +348,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Explicitly set the token first to ensure any immediate API calls have it
                 sessionStorage.setItem('auth_token', token);
                 if (refreshToken) sessionStorage.setItem('auth_refresh_token', refreshToken);
+                // Keep the persisted dashboard role in lockstep with the NEW token's role,
+                // so a later reload doesn't restore a stale role that mismatches the token
+                // (which would make the backend reject role-gated actions).
+                sessionStorage.setItem('active_dashboard_role', dashType);
 
                 await signIn(dashType, { ...userData, token, refreshToken });
             }

@@ -14,8 +14,10 @@ export const useAutoSync = (tables: string[], onUpdate: () => void) => {
         if (tables.length === 0) return;
 
         const handleRealtimeUpdate = (event: any) => {
-            const { table } = event.detail;
-            if (tables.includes(table) || tables.includes('*')) {
+            const { table } = event.detail || {};
+            // '__all__' is a global refresh signal (e.g. a branch switch) that every
+            // screen must honor regardless of which tables it normally watches.
+            if (table === '__all__' || tables.includes(table) || tables.includes('*')) {
                 console.log(`🔄 [AutoSync Triggered via Global Channel] Table: ${table}`);
                 onUpdate();
             }

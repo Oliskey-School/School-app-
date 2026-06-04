@@ -5,7 +5,7 @@ import { lazyWithRetry } from '../../lib/lazyRetry';
 import { api } from '../../lib/api';
 import { DashboardType, Student, StudentAssignment } from '../../types';
 import { formatSchoolId } from '../../utils/idFormatter';
-import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon } from '../../constants';
+import { THEME_CONFIG, ClockIcon, ClipboardListIcon, BellIcon, ChartBarIcon, ChevronRightIcon, SUBJECT_COLORS, BookOpenIcon, MegaphoneIcon, AttendanceSummaryIcon, CalendarIcon, ElearningIcon, StudyBuddyIcon, SparklesIcon, ReceiptIcon, AwardIcon, HelpIcon, GameControllerIcon, VideoIcon } from '../../constants';
 import Header from '../ui/Header';
 import { StudentBottomNav } from '../ui/DashboardBottomNav';
 // import { mockNotifications } from '../../data'; // REMOVED
@@ -233,6 +233,8 @@ const Overview: React.FC<{
     const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
     const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    // The live class (if any) currently running for this student's branch.
+    const [liveClass, setLiveClass] = useState<any | null>(null);
 
     const fetchData = useCallback(async () => {
         try {
@@ -262,6 +264,38 @@ const Overview: React.FC<{
             fetchData();
         }
     }, [student, fetchData]);
+
+    // Keep the "Join Live Class" button in sync: check on load, and react instantly
+    // when a teacher starts (show) or ends (hide) a live class.
+    const fetchLiveClass = useCallback(async () => {
+        try {
+            const sessions = await api.getActiveVirtualClasses(currentBranchId || undefined);
+            setLiveClass(Array.isArray(sessions) && sessions.length > 0 ? sessions[0] : null);
+        } catch {
+            /* non-fatal — button simply won't show */
+        }
+    }, [currentBranchId]);
+
+    useEffect(() => {
+        fetchLiveClass();
+    }, [fetchLiveClass]);
+
+    useEffect(() => {
+        // Show the button straight from the start event and keep it shown — do NOT
+        // re-fetch here, or a slower/empty query could wipe it after a split second.
+        const onStarted = (e: any) => {
+            const d = e?.detail || {};
+            setLiveClass({ id: d.sessionId, subject: d.subject, topic: d.topic, title: d.title });
+        };
+        // Only the explicit "class ended" signal removes the button.
+        const onEnded = () => setLiveClass(null);
+        window.addEventListener('virtual-class:started', onStarted);
+        window.addEventListener('virtual-class:ended', onEnded);
+        return () => {
+            window.removeEventListener('virtual-class:started', onStarted);
+            window.removeEventListener('virtual-class:ended', onEnded);
+        };
+    }, []);
 
     const quickAccessItems = [
         { label: 'Subjects', icon: <BookOpenIcon />, action: () => navigateTo('subjects', 'My Subjects') },
@@ -312,6 +346,31 @@ const Overview: React.FC<{
                 <div className="lg:col-span-1 space-y-6">
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-2 px-1">Quick Actions</h3>
+                        {liveClass && (
+                            <button
+                                onClick={() => navigateTo('liveClass', 'Virtual Classroom', { userRole: 'student', userId: student.id, displayName: student.name })}
+                                style={{ animation: 'liveClassGlow 1.8s ease-in-out infinite' }}
+                                className="w-full mb-3 flex items-center gap-3 p-4 rounded-2xl text-white bg-gradient-to-r from-red-500 to-rose-600 active:scale-[0.98] transition-transform"
+                            >
+                                <style>{`@keyframes liveClassGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.45); } 50% { box-shadow: 0 0 18px 4px rgba(239,68,68,0.65); } }`}</style>
+                                <span className="relative flex-shrink-0">
+                                    <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-30 animate-ping"></span>
+                                    <span className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/20">
+                                        <VideoIcon className="w-6 h-6" />
+                                    </span>
+                                </span>
+                                <span className="flex-1 text-left">
+                                    <span className="flex items-center gap-2 font-bold leading-tight">
+                                        <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                                        Join Live Class
+                                    </span>
+                                    <span className="block text-xs opacity-90 truncate">
+                                        {liveClass.subject || liveClass.title || 'Class is live now'}
+                                    </span>
+                                </span>
+                                <ChevronRightIcon className="w-5 h-5 opacity-90" />
+                            </button>
+                        )}
                         <div className="grid grid-cols-3 gap-3 text-center">
                             {quickAccessItems.map(item => (
                                 <button key={item.label} onClick={item.action} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-2 hover:bg-orange-100 transition-colors">

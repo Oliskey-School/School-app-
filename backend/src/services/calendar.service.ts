@@ -2,9 +2,14 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class CalendarService {
-    static async getCalendarEvents(schoolId: string, parentId?: string) {
+    static async getCalendarEvents(schoolId: string, branchId?: string, parentId?: string) {
+        const where: any = { school_id: schoolId };
+        // Branch isolation: this branch's events plus any school-wide ones.
+        if (branchId && branchId !== 'all') {
+            where.OR = [{ branch_id: branchId }, { branch_id: null }];
+        }
         const events = await prisma.event.findMany({
-            where: { school_id: schoolId },
+            where,
             include: {
                 rsvps: parentId ? { where: { parent_id: parentId } } : false
             },
@@ -47,10 +52,11 @@ export class CalendarService {
         return result;
     }
 
-    static async createCalendarEvent(schoolId: string, eventData: any) {
+    static async createCalendarEvent(schoolId: string, branchId: string | undefined, eventData: any) {
         const event = await prisma.event.create({
             data: {
                 school_id: schoolId,
+                branch_id: branchId && branchId !== 'all' ? branchId : null,
                 title: eventData.title,
                 date: new Date(eventData.date),
                 type: eventData.type || 'General',

@@ -38,9 +38,12 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
       const filteredQuizzes = (quizzesData || [])
         .filter((q: any) => {
           if (!q.is_published) return false;
-          const isCbt = q.is_cbt === true;
-          if (activeCategory === 'cbt' && !isCbt) return false;
-          if (activeCategory === 'quiz' && isCbt) return false;
+          // EXAM / TEST go to the "CBT & Examinations" tab; everything else
+          // (CBT QUIZ + regular practice quizzes) goes to "Assessments & Quizzes".
+          const t = (q.type || '').toUpperCase();
+          const isExam = t === 'EXAM' || t === 'TEST';
+          if (activeCategory === 'cbt' && !isExam) return false;
+          if (activeCategory === 'quiz' && isExam) return false;
           return true;
         })
         .map((q: any) => ({
@@ -48,7 +51,7 @@ const QuizzesScreen: React.FC<QuizzesScreenProps> = ({ navigateTo, student }) =>
           title: q.title,
           subject: q.subject?.name || q.subject_id || 'General',
           className: q.class ? `Grade ${q.class.grade}${q.class.section || ''}` : `Grade ${q.grade || ''}`,
-          durationMinutes: q.duration_minutes,
+          durationMinutes: q.time_limit ?? q.duration_minutes,
           submission: subMap[q.id],
           type: 'quiz',
           originalType: q.type,

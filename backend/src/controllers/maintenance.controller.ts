@@ -1,11 +1,12 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
+import { getEffectiveBranchId } from '../utils/branchScope';
 
 export const getTickets = async (req: AuthRequest, res: Response) => {
     try {
         const schoolId = req.user.school_id;
-        const { branchId } = req.query;
+        const branchId = getEffectiveBranchId(req.user, (req.query.branchId || req.query.branch_id) as string);
         const result = await MaintenanceService.getTickets(schoolId, branchId as string);
         res.json(Array.isArray(result) ? result : []);
     } catch (error: any) {
