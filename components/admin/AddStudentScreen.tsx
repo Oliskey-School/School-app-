@@ -608,6 +608,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 curriculum_type: curriculumType,
                 school_id: schoolId,
                 address: studentAddress,
+                subjects: subjects, // per-student subject assignment (admin-picked)
                 schoolBusId: selectedBusId || undefined,
                 parentId: !showNewParentForm ? selectedParentId : undefined,
                 parentName: showNewParentForm ? guardianName : undefined,
@@ -638,7 +639,8 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                     school_id: schoolId,
                     address: studentAddress || null,
                     admission_number: admissionNumber || null,
-                    school_bus_id: selectedBusId || null
+                    school_bus_id: selectedBusId || null,
+                    subjects: subjects, // per-student subject assignment (admin-picked)
                 } as any);
 
                 // Sync Enrollments

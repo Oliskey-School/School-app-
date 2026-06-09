@@ -230,6 +230,10 @@ model Student {
   address                 String?
   admission_number        String?
   curriculum_type         String?
+  // Per-student subject assignment (admin-picked on the Edit Student screen). When
+  // set, this is the authoritative subject list for the student everywhere (My
+  // Subjects, results). Empty = inherit the enrolled class's subjects.
+  assigned_subjects       String[]                  @default([])
   avatar_url              String?
   status                  String                    @default("Active")
   attendance_status       String                    @default("Present")

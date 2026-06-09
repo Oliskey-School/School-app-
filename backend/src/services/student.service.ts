@@ -114,6 +114,9 @@ export class StudentService {
                     section: enrollmentData.section ?? 'A',
                     curriculum_type: curriculumType,
                     status: initialStatus,
+                    assigned_subjects: Array.isArray(enrollmentData.subjects)
+                        ? enrollmentData.subjects.map((s: any) => (typeof s === 'string' ? s : (s?.name || s?.id))).filter(Boolean)
+                        : [],
                     created_by: creatorId,
                     updated_at: new Date()
                 },
@@ -619,6 +622,15 @@ export class StudentService {
                         studentUpdates[field] = updates[field];
                     }
                 }
+            }
+
+            // Per-student subjects picked by the admin (accept `subjects` or
+            // `assigned_subjects`; tolerate arrays of strings or {name}/{id} objects).
+            const subjArr = updates.assigned_subjects ?? updates.subjects;
+            if (Array.isArray(subjArr)) {
+                studentUpdates.assigned_subjects = subjArr
+                    .map((s: any) => (typeof s === 'string' ? s : (s?.name || s?.id)))
+                    .filter(Boolean);
             }
 
             console.log('🛠️ [StudentService] Final update payload:', studentUpdates);
@@ -1155,6 +1167,26 @@ export class StudentService {
     }
 
     static async getMySubjects(schoolId: string, studentId: string) {
+        // 0. PER-STUDENT ASSIGNMENT WINS. If the admin picked subjects for this
+        // student on the Edit Student screen, that is the authoritative list shown
+        // everywhere the student's subjects are read. Names map to the school's real
+        // Subject records where possible; any extra names are returned as-is so the
+        // admin's choice always shows.
+        const studentRec = await prisma.student.findFirst({
+            where: { id: studentId, school_id: schoolId },
+            select: { assigned_subjects: true } as any
+        }) as any;
+        const assigned: string[] = (studentRec?.assigned_subjects || []).filter(Boolean);
+        if (assigned.length > 0) {
+            const records = await prisma.subject.findMany({
+                where: { school_id: schoolId, name: { in: assigned } }
+            });
+            const byName = new Map(records.map(r => [r.name.toLowerCase(), r]));
+            return assigned.map(name =>
+                byName.get(name.toLowerCase()) || { id: name, name, school_id: schoolId }
+            );
+        }
+
         // 1. Get student's active enrollments with their classes and subjects
         const enrollments = await prisma.studentEnrollment.findMany({
             where: { 
