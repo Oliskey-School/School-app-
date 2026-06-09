@@ -694,6 +694,10 @@ class ExpressApiClient {
         await this.delete(`/students/${id}`);
     }
 
+    async getNextAdmissionNumber(): Promise<{ admissionNumber: string }> {
+        return this.get('/students/next-admission-number');
+    }
+
     async enrollStudent(data: any): Promise<any> {
         return this.post('/students/enroll', data);
     }
@@ -1123,11 +1127,12 @@ class ExpressApiClient {
     // ============================================
     // CLASSES
     // ============================================
-    async getClasses(schoolId?: string, branchId?: string, includeAll: boolean = false): Promise<any[]> {
+    async getClasses(schoolId?: string, branchId?: string, includeAll: boolean = false, viewAll: boolean = false): Promise<any[]> {
         const queryParams = new URLSearchParams();
         if (schoolId) queryParams.append('schoolId', schoolId);
         if (branchId && branchId !== 'all') queryParams.append('branchId', branchId);
         if (includeAll) queryParams.append('includeAll', 'true');
+        if (viewAll) queryParams.append('viewAll', 'true');
         
         try {
             return await this.get(`/classes?${queryParams.toString()}`);

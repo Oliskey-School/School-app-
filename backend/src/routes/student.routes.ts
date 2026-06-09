@@ -32,7 +32,8 @@ import {
     getStudentSubjects,
     getMyDocuments,
     addMyDocument,
-    getStudentsBySubject
+    getStudentsBySubject,
+    getNextAdmissionNumber
 } from '../controllers/student.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { enforceTenant } from '../middleware/tenant.middleware';
@@ -69,6 +70,7 @@ router.post('/:id/approve', authenticate, approveStudent);
 router.post('/link-guardian', authenticate, linkGuardian);
 router.post('/unlink-guardian', authenticate, unlinkGuardian);
 
+router.get('/next-admission-number', authenticate, getNextAdmissionNumber);
 router.get('/pending-approvals', authenticate, getPendingApprovals);
 router.get('/class/:classId', authenticate, getStudentsByClassId);
 router.get('/by-class', authenticate, getStudentsByClass);

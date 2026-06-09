@@ -61,7 +61,7 @@ const TopStudentsList: React.FC<{ students: TopStudent[] }> = ({ students }) => 
                   Checking imports: `import { ChartBarIcon, TrophyIcon, TrendingUpIcon, SUBJECT_COLORS, gradeColors } from '../../constants';`
                   It does NOT import UserIcon. I must add it to imports first. 
                */}
-              <span className="text-sm font-bold">{student.name.charAt(0)}</span>
+              <span className="text-sm font-bold">{student.name?.charAt(0) || '?'}</span>
             </div>
           )}
           <div className="flex-grow">

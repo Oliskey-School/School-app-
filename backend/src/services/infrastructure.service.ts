@@ -152,6 +152,11 @@ export class InfrastructureService {
     static async createDocument(schoolId: string, data: any) {
         const type = data.document_type || data.type || 'General';
         const urlToSave = data.url || data.file_url || '';
+        
+        // Mapping status for compliance documents as requested: "MISSING" -> "UPLOADED"
+        // If it's a new upload, we set it to UPLOADED.
+        const complianceTypes = ['CAC', 'FireSafety', 'MinistryApproval', 'BuildingPlan'];
+        const status = complianceTypes.includes(type) ? 'UPLOADED' : (data.verification_status || 'Pending');
 
         return (prisma as any).schoolDocument.upsert({
             where: {
@@ -165,7 +170,7 @@ export class InfrastructureService {
                 ...(urlToSave !== '' && { url: urlToSave }),
                 ...(data.branch_id && { branch_id: data.branch_id }),
                 ...(data.expiry_date !== undefined && { expiry_date: data.expiry_date }),
-                ...(data.verification_status && { verification_status: data.verification_status }),
+                verification_status: status,
                 updated_at: new Date()
             },
             create: {
@@ -175,7 +180,7 @@ export class InfrastructureService {
                 school_id: schoolId,
                 branch_id: data.branch_id || null,
                 expiry_date: data.expiry_date || null,
-                verification_status: data.verification_status || 'Pending'
+                verification_status: status
             }
         });
     }

@@ -2,6 +2,45 @@ import prisma from '../config/database';
 import { SocketService } from './socket.service';
 
 export class AcademicService {
+    private static async getCurriculumSettings(schoolId: string) {
+        const school = await prisma.school.findUnique({
+            where: { id: schoolId },
+            select: { curricula_config: true }
+        });
+
+        const curricula = school?.curricula_config || ['NIGERIAN'];
+        
+        // Default to Nigerian settings if multiple are selected but first one is Nigerian
+        // In a real system, this might be more complex (per-class or per-student track)
+        if (curricula.includes('BRITISH') && !curricula.includes('NIGERIAN')) {
+            return {
+                ca_percent: 0.3,
+                exam_percent: 0.7,
+                grading: (score: number) => {
+                    if (score >= 90) return { grade: 'A*', remark: 'Distinction' };
+                    if (score >= 80) return { grade: 'A', remark: 'Excellent' };
+                    if (score >= 70) return { grade: 'B', remark: 'Very Good' };
+                    if (score >= 60) return { grade: 'C', remark: 'Good' };
+                    if (score >= 50) return { grade: 'D', remark: 'Pass' };
+                    return { grade: 'U', remark: 'Ungraded' };
+                }
+            };
+        }
+
+        // Default Nigerian Settings
+        return {
+            ca_percent: 0.4,
+            exam_percent: 0.6,
+            grading: (score: number) => {
+                if (score >= 70) return { grade: 'A', remark: 'Excellent' };
+                if (score >= 60) return { grade: 'B', remark: 'Very Good' };
+                if (score >= 50) return { grade: 'C', remark: 'Good' };
+                if (score >= 45) return { grade: 'D', remark: 'Pass' };
+                return { grade: 'F', remark: 'Fail' };
+            }
+        };
+    }
+
     static async saveGrade(schoolId: string, branchId: string | undefined, studentId: string | number, subject: string, term: string, score: number, session: string) {
         const id = String(studentId);
 
@@ -132,16 +171,21 @@ export class AcademicService {
                 metrics: { overallGPA: 0, passRate: 0, topPerformer: 'N/A', improvement: 0 }
             };
         }
+        const totalStudents = data.length;
+        const settings = await this.getCurriculumSettings(schoolId);
 
         const computeGrade = (score: number): string => {
-            if (score >= 70) return 'A';
-            if (score >= 60) return 'B';
-            if (score >= 50) return 'C';
-            if (score >= 45) return 'D';
-            return 'F';
+            return settings.grading(score).grade;
         };
 
-        const gradeMap: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
+        const gradeMap: Record<string, number> = {};
+        // Initialize gradeMap based on curriculum
+        if (settings.ca_percent === 0.3) {
+            ['A*', 'A', 'B', 'C', 'D', 'U'].forEach(g => gradeMap[g] = 0);
+        } else {
+            ['A', 'B', 'C', 'D', 'F'].forEach(g => gradeMap[g] = 0);
+        }
+
         const subjectMap: Record<string, { total: number, scores: number[], passed: number }> = {};
         const classMap: Record<string, { total: number, scores: number[], passed: number }> = {};
         let totalScore = 0;
@@ -166,8 +210,6 @@ export class AcademicService {
             classMap[className].scores.push(item.score || 0);
             if ((item.score || 0) >= 50) classMap[className].passed++;
         });
-
-        const totalStudents = data.length;
 
         const gradeDistribution = Object.entries(gradeMap).map(([grade, count]) => ({
             grade,
@@ -203,6 +245,8 @@ export class AcademicService {
     }
 
     static async getPerformance(schoolId: string, branchId: string | undefined, term: string | undefined, session: string | undefined, classId: string | undefined) {
+        const settings = await this.getCurriculumSettings(schoolId);
+        
         const whereClause: any = {
             school_id: schoolId
         };
@@ -230,31 +274,13 @@ export class AcademicService {
             studentMap.set(record.student_id, existing);
         });
 
-        const getGrade = (score: number) => {
-            if (score >= 70) return 'A';
-            if (score >= 60) return 'B';
-            if (score >= 50) return 'C';
-            if (score >= 45) return 'D';
-            return 'F';
-        };
-
-        const getRemark = (grade: string) => {
-            switch (grade) {
-                case 'A': return 'Excellent';
-                case 'B': return 'Very Good';
-                case 'C': return 'Good';
-                case 'D': return 'Pass';
-                default: return 'Fail';
-            }
-        };
-
         const performance = Array.from(studentMap.entries()).map(([studentId, records]) => {
             const academicRecords = records.map((r) => {
                 const score = r.score || 0;
-                const ca = Math.round(score * 0.4);
-                const exam = Math.round(score * 0.6);
+                const ca = Math.round(score * settings.ca_percent);
+                const exam = Math.round(score * settings.exam_percent);
                 const total = ca + exam;
-                const grade = getGrade(total);
+                const gradingResult = settings.grading(total);
                 return {
                     student_id: r.student_id,
                     subject: r.subject,
@@ -266,8 +292,8 @@ export class AcademicService {
                     ca,
                     exam,
                     total,
-                    grade,
-                    remark: getRemark(grade)
+                    grade: gradingResult.grade,
+                    remark: gradingResult.remark
                 };
             });
 
@@ -283,6 +309,8 @@ export class AcademicService {
     }
 
     static async getReportCardDetails(schoolId: string, studentId: string, term: string, session: string) {
+        const settings = await this.getCurriculumSettings(schoolId);
+
         // 1. Get basic ReportCard record if it exists
         const reportBase = await prisma.reportCard.findFirst({
             where: {
@@ -318,26 +346,19 @@ export class AcademicService {
             remark: g.remark || '—'
         })) : grades.map(g => {
             const score = g.score || 0;
-            const ca = Math.round(score * 0.4);
-            const exam = Math.round(score * 0.6);
+            const ca = Math.round(score * settings.ca_percent);
+            const exam = Math.round(score * settings.exam_percent);
             const total = ca + exam;
             
-            const getGrade = (s: number) => {
-                if (s >= 70) return 'A';
-                if (s >= 60) return 'B';
-                if (s >= 50) return 'C';
-                if (s >= 45) return 'D';
-                return 'F';
-            };
-            const gr = getGrade(total);
+            const gradingResult = settings.grading(total);
 
             return {
                 subject: g.subject,
                 ca,
                 exam,
                 total,
-                grade: gr,
-                remark: gr === 'A' ? 'Excellent' : gr === 'B' ? 'Very Good' : gr === 'C' ? 'Good' : gr === 'D' ? 'Pass' : 'Fail'
+                grade: gradingResult.grade,
+                remark: gradingResult.remark
             };
         });
 

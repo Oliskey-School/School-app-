@@ -77,9 +77,16 @@ export class StudentService {
 
             // 2. Generate School ID (only if not pending)
             let schoolGeneratedId: string | null = null;
+            let admissionNumber = enrollmentData.admission_number || enrollmentData.admissionNumber;
+
             if (schoolId && branchId && !isTeacherAdded) {
                 try {
-                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'student');
+                    schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'student', tx);
+                    
+                    if (!admissionNumber) {
+                        admissionNumber = await IdGeneratorService.generateAdmissionNumber(schoolId, tx);
+                    }
+
                     await tx.user.update({
                         where: { id: user.id },
                         data: { school_generated_id: schoolGeneratedId }
@@ -102,7 +109,7 @@ export class StudentService {
                     dob: dateOfBirth ? new Date(dateOfBirth) : null,
                     gender: gender,
                     address: enrollmentData.address || enrollmentData.studentAddress || null,
-                    admission_number: enrollmentData.admission_number || enrollmentData.admissionNumber || null,
+                    admission_number: admissionNumber || null,
                     grade: enrollmentData.grade ?? 1,
                     section: enrollmentData.section ?? 'A',
                     curriculum_type: curriculumType,
@@ -116,7 +123,7 @@ export class StudentService {
                     dob: dateOfBirth ? new Date(dateOfBirth) : null,
                     gender: gender,
                     address: enrollmentData.address || enrollmentData.studentAddress || null,
-                    admission_number: enrollmentData.admission_number || enrollmentData.admissionNumber || null,
+                    admission_number: admissionNumber || null,
                     grade: enrollmentData.grade ?? 1,
                     section: enrollmentData.section ?? 'A',
                     curriculum_type: curriculumType,
@@ -429,7 +436,12 @@ export class StudentService {
 
             let schoolGeneratedId = student.school_generated_id;
             if (!schoolGeneratedId && branchId) {
-                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'student');
+                schoolGeneratedId = await IdGeneratorService.generateSchoolId(schoolId, branchId, 'student', tx);
+            }
+
+            let admissionNumber = student.admission_number;
+            if (!admissionNumber) {
+                admissionNumber = await IdGeneratorService.generateAdmissionNumber(schoolId, tx);
             }
 
             await tx.user.update({
@@ -446,7 +458,8 @@ export class StudentService {
                 where: { id: student.id },
                 data: {
                     status: 'Active',
-                    school_generated_id: schoolGeneratedId
+                    school_generated_id: schoolGeneratedId,
+                    admission_number: admissionNumber
                 }
             });
 
@@ -592,15 +605,23 @@ export class StudentService {
             const allowedFields = [
                 'full_name', 'email', 'grade', 'section', 'department', 'gender',
                 'dob', 'address', 'admission_number', 'curriculum_type', 'avatar_url',
-                'status', 'attendance_status', 'branch_id', 'school_generated_id'
+                'status', 'attendance_status', 'branch_id', 'school_generated_id', 'school_bus_id'
             ];
+
+            // Explicitly pick only valid fields to avoid Prisma errors
             for (const field of allowedFields) {
                 if (updates[field] !== undefined) {
-                    studentUpdates[field] = field === 'dob' && updates.dob
-                        ? new Date(updates.dob)
-                        : updates[field];
+                    if (field === 'dob') {
+                        studentUpdates[field] = updates.dob ? new Date(updates.dob) : null;
+                    } else if (field === 'grade') {
+                        studentUpdates[field] = updates.grade !== null ? Number(updates.grade) : null;
+                    } else {
+                        studentUpdates[field] = updates[field];
+                    }
                 }
             }
+
+            console.log('🛠️ [StudentService] Final update payload:', studentUpdates);
 
             const updatedStudent = await tx.student.update({
                 where: { id: student.id },

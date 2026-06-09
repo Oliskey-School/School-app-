@@ -236,6 +236,7 @@ export interface Parent {
   email?: string; // TEXT
   phone?: string; // TEXT
   avatarUrl?: string; // avatar_url TEXT
+  avatar_url?: string;
 
   // Additional Info (Database Fields)
   address?: string; // TEXT (⚠️ orphaned - not in form)

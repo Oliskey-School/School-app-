@@ -163,7 +163,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             //   5) reload the whole app so it re-initialises and re-fetches everything
             //      with the new active School + Branch headers.
             // Only the auth token + selected_branch_id persist (the master session).
-            try { queryClient.clear(); } catch { /* noop */ }
+            try { await import('../lib/react-query').then(m => m.clearQueryCache()); } catch { /* noop */ }
             try { (api as any).invalidateCache?.(); } catch { /* noop */ }
             try { await offlineStorage.clearAll(); } catch { /* noop */ }
             try {

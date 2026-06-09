@@ -44,7 +44,7 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
         let teacherId = undefined;
         const role = String(req.user.role || '').toUpperCase();
 
-        if (role === 'TEACHER') {
+        if (role === 'TEACHER' && req.query.viewAll !== 'true') {
             const teacher = await prisma.teacher.findUnique({
                 where: { user_id: req.user.id },
                 select: { id: true }

@@ -14,7 +14,7 @@ export class DemoSeederService {
      * Runs quickly on server startup or when trigged to ensure the Demo subset is seeded.
      */
     static async ensureDemoData() {
-        console.log('🌱 [Maintenance] Ensuring Global Demo School Baseline...');
+        console.log('🌱 [Maintenance] Ensuring Oliskey School App Baseline...');
         try {
             const demoSchoolId = AuthService.DEMO_SCHOOL_ID;
             const demoBranchId = AuthService.DEMO_BRANCH_ID;
@@ -36,7 +36,7 @@ export class DemoSeederService {
             await prisma.school.upsert({
                 where: { id: demoSchoolId },
                 update: {
-                    name: 'Global Demo School',
+                    name: 'Oliskey School App',
                     code: 'OLISKEY',
                     slug: 'global-demo-school',
                     is_active: true,
@@ -44,7 +44,7 @@ export class DemoSeederService {
                 },
                 create: {
                     id: demoSchoolId,
-                    name: 'Global Demo School',
+                    name: 'Oliskey School App',
                     code: 'OLISKEY',
                     slug: 'global-demo-school',
                     subscription_status: 'active',
@@ -325,6 +325,8 @@ export class DemoSeederService {
                             create: {
                                 id: topicId,
                                 subject_id: sub.id,
+                                school_id: schoolId,
+                                branch_id: branchId,
                                 term: '1', // Matches SubjectsScreen.tsx Term 1
                                 week_number: t.week,
                                 title: t.title,
@@ -339,6 +341,8 @@ export class DemoSeederService {
                             create: {
                                 id: `topic-${sub.id}-T2-W${t.week}`,
                                 subject_id: sub.id,
+                                school_id: schoolId,
+                                branch_id: branchId,
                                 term: '2',
                                 week_number: t.week,
                                 title: `${t.title} (Advanced)`,
@@ -472,6 +476,8 @@ export class DemoSeederService {
                     for (const a of assignments) {
                         await tx.assignment.create({
                             data: {
+                                school_id: schoolId,
+                                branch_id: branchId,
                                 title: a.title,
                                 description: a.desc,
                                 subject: teacherClasses[0].subjectName,

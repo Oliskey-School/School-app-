@@ -1,10 +1,24 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { StudentService } from '../services/student.service';
+import { IdGeneratorService } from '../services/idGenerator.service';
 import { ExtracurricularService } from '../services/extracurricular.service';
 import { SubjectService } from '../services/subject.service';
 import { getEffectiveBranchId } from '../utils/branchScope';
 import prisma from '../config/database';
+
+export const getNextAdmissionNumber = async (req: AuthRequest, res: Response) => {
+    try {
+        const schoolId = req.user.school_id;
+        if (!schoolId) {
+            return res.status(400).json({ message: 'School ID is required' });
+        }
+        const admissionNumber = await IdGeneratorService.generateAdmissionNumber(schoolId);
+        res.json({ admissionNumber });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
 
 export const enrollStudent = async (req: AuthRequest, res: Response) => {
     try {

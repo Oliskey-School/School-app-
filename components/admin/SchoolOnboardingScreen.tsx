@@ -50,13 +50,18 @@ const SchoolOnboardingScreen: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'profile' | 'compliance' | 'curriculum'>('profile');
 
     useEffect(() => {
-        fetchSchoolData();
-    }, []);
+        if (currentSchool?.id) {
+            fetchSchoolData();
+        }
+    }, [currentSchool?.id]);
 
     const fetchSchoolData = async () => {
+        if (!currentSchool?.id) return;
+        
+        setLoading(true);
         try {
-            // Fetch School Profile
-            const schoolData = await api.getSchoolInfo(currentSchool?.id || '');
+            // Fetch School Profile - strictly from DB
+            const schoolData = await api.getSchoolInfo(currentSchool.id);
 
             if (schoolData) {
                 setProfile({
@@ -130,7 +135,7 @@ const SchoolOnboardingScreen: React.FC = () => {
                 school_id: profile.id as string,
                 document_type: type as any,
                 file_url: result.url,
-                verification_status: 'pending'
+                verification_status: 'UPLOADED'
             });
 
             toast.success(`${type} uploaded successfully!`);
@@ -262,7 +267,10 @@ const SchoolOnboardingScreen: React.FC = () => {
                                             {isVerified ? (
                                                 <CheckCircleIcon className="text-green-500 w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
                                             ) : (
-                                                <div className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${existing?.verification_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-500'
+                                                <div className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                                    existing?.verification_status === 'UPLOADED' ? 'bg-blue-100 text-blue-800' : 
+                                                    existing?.verification_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                                    'bg-gray-100 text-gray-500'
                                                     }`}>
                                                     {existing?.verification_status || 'missing'}
                                                 </div>

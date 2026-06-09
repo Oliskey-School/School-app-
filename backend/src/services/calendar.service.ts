@@ -4,9 +4,9 @@ import { SocketService } from './socket.service';
 export class CalendarService {
     static async getCalendarEvents(schoolId: string, branchId?: string, parentId?: string) {
         const where: any = { school_id: schoolId };
-        // Branch isolation: this branch's events plus any school-wide ones.
+        // Branch isolation: this branch's events.
         if (branchId && branchId !== 'all') {
-            where.OR = [{ branch_id: branchId }, { branch_id: null }];
+            where.branch_id = branchId;
         }
         const events = await prisma.event.findMany({
             where,

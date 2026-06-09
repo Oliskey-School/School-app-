@@ -27,7 +27,7 @@ export class IdGeneratorService {
         schoolId: string,
         branchId: string,
         role: string,
-        tx?: Prisma.TransactionClient
+        tx?: any
     ): Promise<string> {
         const roleKey = role.toLowerCase();
         const roleCode = ROLE_CODES[roleKey] || role.substring(0, 3).toUpperCase();
@@ -77,11 +77,73 @@ export class IdGeneratorService {
         return `${schoolCode}_${branchCode}_${roleCode}_${paddedNumber}`;
     }
 
+    /**
+     * Generates a unique student admission number.
+     * Format: PREFIX/YEAR/SEQUENCE (e.g., CHS/2026/0001)
+     */
+    static async generateAdmissionNumber(
+        schoolId: string,
+        tx?: any
+    ): Promise<string> {
+        const db = tx || prisma;
+
+        // 1. Get school info
+        const school = await db.school.findUnique({
+            where: { id: schoolId },
+            select: { name: true }
+        });
+
+        if (!school) {
+            throw new Error(`IdGenerator: Cannot find school for school_id=${schoolId}`);
+        }
+
+        // 2. Generate Acronym Prefix
+        const prefix = school.name
+            .split(/\s+/)
+            .filter(word => word.length > 0)
+            .map(word => word[0].toUpperCase())
+            .join('');
+
+        // 3. Get current year
+        const currentYear = new Date().getFullYear().toString();
+
+        // 4. Find students for this school in this year to get the next sequence
+        const students = await db.student.findMany({
+            where: {
+                school_id: schoolId,
+                admission_number: {
+                    startsWith: `${prefix}/${currentYear}/`
+                }
+            },
+            select: { admission_number: true }
+        });
+
+        let nextSequence = 1;
+        if (students.length > 0) {
+            let maxSequence = 0;
+            students.forEach(s => {
+                if (s.admission_number) {
+                    const parts = s.admission_number.split('/');
+                    const sequencePart = parts[parts.length - 1];
+                    const num = parseInt(sequencePart);
+                    if (!isNaN(num) && num > maxSequence) {
+                        maxSequence = num;
+                    }
+                }
+            });
+            nextSequence = maxSequence + 1;
+        }
+
+        // 5. Format: PREFIX/YEAR/SEQUENCE
+        const paddedSequence = String(nextSequence).padStart(4, '0');
+        return `${prefix}/${currentYear}/${paddedSequence}`;
+    }
+
     private static async getNextSequence(
         schoolId: string,
         branchId: string,
         role: string,
-        tx?: Prisma.TransactionClient
+        tx?: any
     ): Promise<number> {
         const db = tx || prisma;
         const roleKey = role.toLowerCase();

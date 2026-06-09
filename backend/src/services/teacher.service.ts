@@ -519,8 +519,14 @@ export class TeacherService {
 
         if (!teacher) return [];
 
+        // Scope to the ACTIVE branch so a multi-branch teacher's check-ins in Main
+        // don't also appear under Lekki (and vice-versa). Without this the history was
+        // identical in every branch.
         return await prisma.teacherAttendance.findMany({
-            where: { teacher_id: teacher.id },
+            where: {
+                teacher_id: teacher.id,
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+            },
             orderBy: { date: 'desc' },
             take: limit
         });
@@ -796,7 +802,12 @@ export class TeacherService {
         }
 
         const classTeachers = await prisma.classTeacher.findMany({
-            where: { teacher_id: teacherId },
+            // Only the teacher's classes IN THE ACTIVE BRANCH, so "My Students" doesn't
+            // pull in students from classes the teacher runs in another branch.
+            where: {
+                teacher_id: teacherId,
+                ...(branchId && branchId !== 'all' ? { class: { branch_id: branchId } } : {})
+            },
             include: {
                 class: true
             }
@@ -1002,6 +1013,7 @@ export class TeacherService {
         return await prisma.substituteAssignment.findMany({
             where: {
                 school_id: schoolId,
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}),
                 status: 'Pending'
             },
             orderBy: { date: 'asc' }

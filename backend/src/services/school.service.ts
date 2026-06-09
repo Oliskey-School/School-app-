@@ -55,13 +55,16 @@ export class SchoolService {
     }
 
     static async getSchoolById(schoolId: string, id: string) {
+        // RELIABILITY: Support 'current' or empty ID to refer to the authenticated tenant.
+        // If the ID passed is the school_generated_id of an admin (OLISKEY_MAIN_ADM_0001),
+        // we strictly fall back to the schoolId carried in the verified JWT.
+        const targetId = (!id || id === 'current' || id === 'me' || id.includes('_ADM_')) ? schoolId : id;
+
         return await prisma.school.findFirst({
             where: {
-                id: id,
-                AND: [
-                    { id: id },
-                    { id: schoolId }
-                ]
+                id: targetId,
+                // SECURITY: Multi-tenant isolation. A user can only ever read their own school.
+                AND: { id: schoolId }
             }
         });
     }

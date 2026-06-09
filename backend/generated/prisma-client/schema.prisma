@@ -178,7 +178,7 @@ model User {
   password_hash          String
   full_name              String
   role                   Role                   @default(STUDENT)
-  school_id              String?
+  school_id              String
   branch_id              String?
   allowed_branch_ids     String[]               @default([])
   email_verified         Boolean                @default(false)
@@ -206,9 +206,12 @@ model User {
   student_profile        Student?               @relation("UserToStudent")
   teacher_profile        Teacher?               @relation("UserToTeacher")
   branch                 Branch?                @relation(fields: [branch_id], references: [id])
-  school                 School?                @relation(fields: [school_id], references: [id])
+  school                 School                 @relation(fields: [school_id], references: [id])
   sessions               UserSession[]
   verification_codes     VerificationCode[]
+  created_by             String?
+  updated_by             String?
+  deleted_at             DateTime?
 }
 
 model Student {
@@ -264,6 +267,8 @@ model Student {
   health_incidents        HealthIncident[]
   id_cards                StudentIDCard[]
   payment_plans           PaymentPlan[]
+  updated_by              String?
+  deleted_at              DateTime?
 }
 
 model Teacher {
@@ -318,10 +323,13 @@ model Teacher {
   salaries                 TeacherSalary[]
   timetables               Timetable[]
   virtual_classes          VirtualClassSession[]
+  created_by               String?
+  updated_by               String?
+  deleted_at               DateTime?
 }
 
 model TeacherAttendance {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   teacher_id      String
   school_id       String
   branch_id       String?
@@ -329,10 +337,13 @@ model TeacherAttendance {
   status          String
   check_in        String?
   check_out       String?
-  approval_status String   @default("pending")
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  teacher         Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  approval_status String    @default("pending")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  teacher         Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 
   @@unique([teacher_id, date])
 }
@@ -363,23 +374,28 @@ model Parent {
   children            ParentChild[]
   conferences         ParentTeacherConference[]
   savings_plans       SavingsPlan[]
+  updated_by          String?
+  deleted_at          DateTime?
 }
 
 model ParentChild {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   parent_id  String
   student_id String
   school_id  String
   branch_id  String?
-  created_at DateTime @default(now())
-  parent     Parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade)
-  student    Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  parent     Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  student    Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([parent_id, student_id])
 }
 
 model AcademicPerformance {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   student_id   String
   school_id    String
   branch_id    String?
@@ -387,40 +403,50 @@ model AcademicPerformance {
   score        Float
   term         String
   session      String
-  created_at   DateTime @default(now())
-  last_updated DateTime @default(now())
-  student      Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_at   DateTime  @default(now())
+  last_updated DateTime  @default(now())
+  student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 
   @@unique([school_id, student_id, subject, term, session])
 }
 
 model BehaviorNote {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   student_id     String
   teacher_id     String
   school_id      String
   branch_id      String?
   note           String
   category       String
-  type           String   @default("neutral")
-  points         Int      @default(0)
-  parent_visible Boolean  @default(true)
-  date           DateTime @default(now())
-  created_at     DateTime @default(now())
-  student        Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  teacher        Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  type           String    @default("neutral")
+  points         Int       @default(0)
+  parent_visible Boolean   @default(true)
+  date           DateTime  @default(now())
+  created_at     DateTime  @default(now())
+  student        Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  teacher        Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model SchoolMembership {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   user_id    String
   base_role  Role
-  is_active  Boolean  @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  is_active  Boolean   @default(true)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([school_id, user_id])
 }
@@ -446,53 +472,67 @@ model Class {
   enrollments    StudentEnrollment[]
   timetables     Timetable[]
   subjects       Subject[]           @relation("ClassToSubject")
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model StudentEnrollment {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   student_id      String
   class_id        String
   school_id       String
   branch_id       String?
-  is_primary      Boolean  @default(false)
-  enrollment_date DateTime @default(now())
-  status          String   @default("Active")
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  class           Class    @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  student         Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  is_primary      Boolean   @default(false)
+  enrollment_date DateTime  @default(now())
+  status          String    @default("Active")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  class           Class     @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  student         Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 
   @@unique([student_id, class_id])
 }
 
 model ClassTeacher {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   class_id   String
   teacher_id String
   subject_id String?
-  is_primary Boolean  @default(false)
+  is_primary Boolean   @default(false)
   school_id  String
   branch_id  String?
-  created_at DateTime @default(now())
-  branch     Branch?  @relation(fields: [branch_id], references: [id])
-  class      Class    @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  subject    Subject? @relation(fields: [subject_id], references: [id])
-  teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  branch     Branch?   @relation(fields: [branch_id], references: [id])
+  class      Class     @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  subject    Subject?  @relation(fields: [subject_id], references: [id])
+  teacher    Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([class_id, teacher_id, subject_id])
 }
 
 model Attendance {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   student_id String
   class_id   String
-  date       DateTime @db.Date
+  date       DateTime  @db.Date
   status     String
   remark     String?
-  created_at DateTime @default(now())
-  class      Class    @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  student    Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  class      Class     @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  student    Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([student_id, class_id, date])
 }
@@ -512,6 +552,11 @@ model Assignment {
   class          Class                  @relation(fields: [class_id], references: [id], onDelete: Cascade)
   teacher        Teacher?               @relation(fields: [teacher_id], references: [id])
   submissions    AssignmentSubmission[]
+  school_id      String
+  branch_id      String?
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model AssignmentSubmission {
@@ -527,12 +572,17 @@ model AssignmentSubmission {
   created_at      DateTime   @default(now())
   assignment      Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
   student         Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id       String
+  branch_id       String?
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 
   @@unique([student_id, assignment_id])
 }
 
 model ReportCard {
-  id                      String   @id @default(uuid())
+  id                      String    @id @default(uuid())
   school_id               String
   student_id              String
   branch_id               String?
@@ -547,13 +597,16 @@ model ReportCard {
   principal_remark        String?
   teacher_remark          String?
   academic_records        Json?
-  status                  String   @default("Draft")
-  is_published            Boolean  @default(false)
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  branch                  Branch?  @relation(fields: [branch_id], references: [id])
-  school                  School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student                 Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  status                  String    @default("Draft")
+  is_published            Boolean   @default(false)
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  branch                  Branch?   @relation(fields: [branch_id], references: [id])
+  school                  School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student                 Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by              String?
+  updated_by              String?
+  deleted_at              DateTime?
 }
 
 model Fee {
@@ -568,56 +621,69 @@ model Fee {
   updated_at      DateTime     @updatedAt
   school          School       @relation(fields: [school_id], references: [id], onDelete: Cascade)
   student_fees    StudentFee[]
+  branch_id       String?
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 }
 
 model StudentFee {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   student_id  String
   fee_id      String?
-  paid_amount Float    @default(0)
-  status      String   @default("Pending")
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  paid_amount Float     @default(0)
+  status      String    @default("Pending")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
   amount      Float
   branch_id   String?
   due_date    DateTime
   school_id   String
   title       String
-  fee         Fee?     @relation(fields: [fee_id], references: [id])
-  student     Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  fee         Fee?      @relation(fields: [fee_id], references: [id])
+  student     Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model Payment {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   school_id      String
   branch_id      String?
   student_id     String?
   fee_id         String?
   amount         Float
-  payment_date   DateTime @default(now())
+  payment_date   DateTime  @default(now())
   payment_method String
   reference      String?
-  status         String   @default("Completed")
+  status         String    @default("Completed")
   purpose        String?
   metadata       Json?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  school         School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model Announcement {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   branch_id  String?
   title      String
   content    String
   category   String
-  is_pinned  Boolean  @default(false)
+  is_pinned  Boolean   @default(false)
   image_url  String?
   audience   String[]
-  created_at DateTime @default(now())
-  branch     Branch?  @relation(fields: [branch_id], references: [id])
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  branch     Branch?   @relation(fields: [branch_id], references: [id])
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model Event {
@@ -633,66 +699,86 @@ model Event {
   created_at   DateTime    @default(now())
   school       School      @relation(fields: [school_id], references: [id], onDelete: Cascade)
   rsvps        EventRSVP[]
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model EventRSVP {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   event_id   String
   parent_id  String
   status     String
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  event      Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  parent     Parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  event      Event     @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  parent     Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([event_id, parent_id])
 }
 
 model SavingsPlan {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   school_id      String
   parent_id      String
   student_id     String
   target_amount  Float
-  current_amount Float    @default(0)
+  current_amount Float     @default(0)
   target_date    DateTime
   frequency      String
-  is_active      Boolean  @default(true)
-  is_deleted     Boolean  @default(false)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  parent         Parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade)
-  school         School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student        Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  is_active      Boolean   @default(true)
+  is_deleted     Boolean   @default(false)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  parent         Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student        Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  branch_id      String?
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model TeacherOfficeHour {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   teacher_id  String
   day_of_week Int
   start_time  String
   end_time    String
-  created_at  DateTime @default(now())
-  teacher     Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_at  DateTime  @default(now())
+  teacher     Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model Notification {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   branch_id  String?
   user_id    String?
   title      String
   message    String
-  category   String   @default("System")
+  category   String    @default("System")
   audience   String[]
-  is_read    Boolean  @default(false)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  is_read    Boolean   @default(false)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model Appointment {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   school_id   String
   branch_id   String?
   parent_id   String?
@@ -701,10 +787,13 @@ model Appointment {
   title       String
   description String?
   date        DateTime
-  status      String   @default("Pending")
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  status      String    @default("Pending")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model VolunteeringOpportunity {
@@ -723,6 +812,9 @@ model VolunteeringOpportunity {
   updated_at   DateTime          @updatedAt
   signups      VolunteerSignup[]
   school       School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model VolunteerSignup {
@@ -737,6 +829,9 @@ model VolunteerSignup {
   created_at     DateTime                @default(now())
   opportunity    VolunteeringOpportunity @relation(fields: [opportunity_id], references: [id], onDelete: Cascade)
   school         School                  @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model VerificationCode {
@@ -751,6 +846,11 @@ model VerificationCode {
   attempts   Int       @default(0)
   ip_address String?
   user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@index([user_id])
   @@index([email])
@@ -758,17 +858,20 @@ model VerificationCode {
 }
 
 model TransportBus {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   school_id    String
   branch_id    String?
   name         String
   driver_name  String?
   plate_number String?
-  capacity     Int      @default(0)
-  status       String   @default("active")
+  capacity     Int       @default(0)
+  status       String    @default("active")
   route_name   String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model TransportRoute {
@@ -790,6 +893,9 @@ model TransportRoute {
   branch              Branch?               @relation(fields: [branch_id], references: [id])
   school              School                @relation(fields: [school_id], references: [id], onDelete: Cascade)
   stops               TransportStop[]
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
 }
 
 model TransportStop {
@@ -802,6 +908,11 @@ model TransportStop {
   created_at   DateTime       @default(now())
   updated_at   DateTime       @updatedAt
   route        TransportRoute @relation(fields: [route_id], references: [id], onDelete: Cascade)
+  school_id    String
+  branch_id    String?
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model TransportAssignment {
@@ -815,6 +926,11 @@ model TransportAssignment {
   updated_at    DateTime       @updatedAt
   route         TransportRoute @relation(fields: [route_id], references: [id], onDelete: Cascade)
   student       Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id     String
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model Hostel {
@@ -831,6 +947,9 @@ model Hostel {
   school       School             @relation(fields: [school_id], references: [id], onDelete: Cascade)
   rooms        HostelRoom[]
   visitor_logs HostelVisitorLog[]
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model HostelRoom {
@@ -845,6 +964,11 @@ model HostelRoom {
   updated_at    DateTime           @updatedAt
   allocations   HostelAllocation[]
   hostel        Hostel             @relation(fields: [hostel_id], references: [id], onDelete: Cascade)
+  school_id     String
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model HostelAllocation {
@@ -859,22 +983,32 @@ model HostelAllocation {
   updated_at    DateTime   @updatedAt
   room          HostelRoom @relation(fields: [room_id], references: [id], onDelete: Cascade)
   student       Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id     String
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model HostelVisitorLog {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   hostel_id    String
   student_id   String
   visitor_name String
   relationship String?
-  visit_date   DateTime @default(now())
+  visit_date   DateTime  @default(now())
   check_in     String?
   check_out    String?
   purpose      String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  hostel       Hostel   @relation(fields: [hostel_id], references: [id], onDelete: Cascade)
-  student      Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  hostel       Hostel    @relation(fields: [hostel_id], references: [id], onDelete: Cascade)
+  student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id    String
+  branch_id    String?
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model Subject {
@@ -893,6 +1027,9 @@ model Subject {
   branch            Branch?           @relation(fields: [branch_id], references: [id])
   school            School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
   classes           Class[]           @relation("ClassToSubject")
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model ExamBody {
@@ -908,6 +1045,9 @@ model ExamBody {
   branch        Branch?            @relation(fields: [branch_id], references: [id])
   school        School             @relation(fields: [school_id], references: [id], onDelete: Cascade)
   registrations ExamRegistration[]
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model ExamRegistration {
@@ -927,6 +1067,9 @@ model ExamRegistration {
   branch       Branch?   @relation(fields: [branch_id], references: [id])
   exam_body    ExamBody  @relation(fields: [exam_body_id], references: [id], onDelete: Cascade)
   school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model Exam {
@@ -952,10 +1095,13 @@ model Exam {
   branch        Branch?      @relation(fields: [branch_id], references: [id])
   school        School       @relation(fields: [school_id], references: [id], onDelete: Cascade)
   results       ExamResult[]
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model ExamResult {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   branch_id  String?
   exam_id    String
@@ -965,16 +1111,19 @@ model ExamResult {
   grade      String?
   remarks    String?
   max_score  Float?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  branch     Branch?  @relation(fields: [branch_id], references: [id])
-  exam       Exam     @relation(fields: [exam_id], references: [id], onDelete: Cascade)
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student    Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  branch     Branch?   @relation(fields: [branch_id], references: [id])
+  exam       Exam      @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student    Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model Timetable {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   school_id   String
   branch_id   String?
   class_id    String?
@@ -986,12 +1135,15 @@ model Timetable {
   end_time    String
   room        String?
   notes       String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  branch      Branch?  @relation(fields: [branch_id], references: [id])
-  class       Class?   @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher     Teacher? @relation(fields: [teacher_id], references: [id])
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  branch      Branch?   @relation(fields: [branch_id], references: [id])
+  class       Class?    @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher     Teacher?  @relation(fields: [teacher_id], references: [id])
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model VirtualClassSession {
@@ -1018,6 +1170,9 @@ model VirtualClassSession {
   branch        Branch?                  @relation(fields: [branch_id], references: [id])
   school        School                   @relation(fields: [school_id], references: [id], onDelete: Cascade)
   teacher       Teacher?                 @relation(fields: [teacher_id], references: [id])
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model VirtualClassAttendance {
@@ -1029,12 +1184,17 @@ model VirtualClassAttendance {
   duration   Int?
   session    VirtualClassSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
   student    Student             @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([session_id, student_id])
 }
 
 model Resource {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   school_id      String
   branch_id      String?
   teacher_id     String?
@@ -1049,10 +1209,13 @@ model Resource {
   subject        String?
   class_id       String?
   tags           String[]
-  download_count Int      @default(0)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  teacher        Teacher? @relation(fields: [teacher_id], references: [id])
+  download_count Int       @default(0)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  teacher        Teacher?  @relation(fields: [teacher_id], references: [id])
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model AnonymousReport {
@@ -1070,53 +1233,66 @@ model AnonymousReport {
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model MenstrualSupportRequest {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   school_id    String
   branch_id    String?
   student_id   String?
-  is_anonymous Boolean  @default(true)
-  status       String   @default("pending")
+  is_anonymous Boolean   @default(true)
+  status       String    @default("pending")
   notes        String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model HealthLog {
-  id                      String   @id @default(uuid())
+  id                      String    @id @default(uuid())
   school_id               String
   branch_id               String?
   student_id              String?
   log_type                String
-  logged_date             DateTime @default(now())
+  logged_date             DateTime  @default(now())
   temperature             Float?
   symptoms                String[]
   condition               String?
   medication_administered Json?
   notes                   String?
-  parent_notified         Boolean  @default(false)
+  parent_notified         Boolean   @default(false)
   logged_by               String?
-  follow_up               Boolean  @default(false)
-  created_at              DateTime @default(now())
-  updated_at              DateTime @updatedAt
-  student                 Student? @relation(fields: [student_id], references: [id])
+  follow_up               Boolean   @default(false)
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  student                 Student?  @relation(fields: [student_id], references: [id])
+  created_by              String?
+  updated_by              String?
+  deleted_at              DateTime?
 }
 
 model ComplianceReport {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   school_id   String
-  status      String   @default("pending")
-  score       Int      @default(0)
-  check_date  DateTime @default(now())
+  status      String    @default("pending")
+  score       Int       @default(0)
+  check_date  DateTime  @default(now())
   report_data Json?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model AuditLog {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   school_id          String
   branch_id          String?
   user_id            String?
@@ -1130,12 +1306,15 @@ model AuditLog {
   metadata           Json?
   ip_address         String?
   user_agent         String?
-  status             String   @default("Success")
-  risk_level         String   @default("Low")
-  is_sensitive       Boolean  @default(false)
-  performed_at       DateTime @default(now())
-  created_at         DateTime @default(now())
-  user               User?    @relation(fields: [user_id], references: [id])
+  status             String    @default("Success")
+  risk_level         String    @default("Low")
+  is_sensitive       Boolean   @default(false)
+  performed_at       DateTime  @default(now())
+  created_at         DateTime  @default(now())
+  user               User?     @relation(fields: [user_id], references: [id])
+  created_by         String?
+  updated_by         String?
+  deleted_at         DateTime?
 }
 
 model ForumTopic {
@@ -1156,6 +1335,9 @@ model ForumTopic {
   created_at        DateTime    @default(now())
   updated_at        DateTime    @updatedAt
   posts             ForumPost[]
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model ForumPost {
@@ -1172,10 +1354,13 @@ model ForumPost {
   created_at        DateTime   @default(now())
   updated_at        DateTime   @updatedAt
   topic             ForumTopic @relation(fields: [topic_id], references: [id], onDelete: Cascade)
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model GeneratedResource {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   school_id    String
   branch_id    String?
   teacher_id   String
@@ -1185,12 +1370,15 @@ model GeneratedResource {
   content_type String
   content      String?
   metadata     Json?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model LessonNote {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   branch_id  String?
   teacher_id String
@@ -1201,12 +1389,15 @@ model LessonNote {
   title      String
   content    String
   file_url   String?
-  status     String   @default("pending")
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  class      Class    @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  status     String    @default("pending")
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  class      Class     @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher    Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model Quiz {
@@ -1232,27 +1423,33 @@ model Quiz {
   teacher      Teacher          @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
   questions    QuizQuestion[]
   submissions  QuizSubmission[]
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model QuizQuestion {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   quiz_id        String
   school_id      String
   branch_id      String?
   question_text  String
-  question_type  String   @default("multiple_choice")
+  question_type  String    @default("multiple_choice")
   options        Json?
   correct_answer String
   explanation    String?
-  points         Float    @default(1)
+  points         Float     @default(1)
   order_index    Int
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  quiz           Quiz     @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  quiz           Quiz      @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model QuizSubmission {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   quiz_id          String
   student_id       String
   school_id        String
@@ -1260,26 +1457,32 @@ model QuizSubmission {
   score            Float
   total_questions  Int
   answers          Json?
-  status           String   @default("graded")
-  focus_violations Int      @default(0)
-  submitted_at     DateTime @default(now())
-  created_at       DateTime @default(now())
-  quiz             Quiz     @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
-  student          Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  status           String    @default("graded")
+  focus_violations Int       @default(0)
+  submitted_at     DateTime  @default(now())
+  created_at       DateTime  @default(now())
+  quiz             Quiz      @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  student          Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model PTAMeeting {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   branch_id  String?
   title      String
   date       DateTime
   time       String
   agenda     Json?
-  is_past    Boolean  @default(false)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  is_past    Boolean   @default(false)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model Message {
@@ -1296,18 +1499,26 @@ model Message {
   receiver    User      @relation("ReceivedMessages", fields: [receiver_id], references: [id], onDelete: Cascade)
   school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   sender      User      @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model CurriculumTopic {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   subject_id  String
   term        String
   week_number Int
   title       String
   content     String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  subject     Subject  @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  subject     Subject   @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model ExtracurricularActivity {
@@ -1323,6 +1534,9 @@ model ExtracurricularActivity {
   school       School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
   events       ExtracurricularEvent[]
   participants StudentActivity[]
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model StudentActivity {
@@ -1332,6 +1546,11 @@ model StudentActivity {
   joined_at   DateTime                @default(now())
   activity    ExtracurricularActivity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
   student     Student                 @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 
   @@unique([student_id, activity_id])
 }
@@ -1346,33 +1565,46 @@ model ExtracurricularEvent {
   created_at  DateTime                @default(now())
   updated_at  DateTime                @updatedAt
   activity    ExtracurricularActivity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model Achievement {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   student_id  String
   title       String
   description String?
-  date        DateTime @default(now())
+  date        DateTime  @default(now())
   type        String?
   icon        String?
   color       String?
-  created_at  DateTime @default(now())
-  student     Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_at  DateTime  @default(now())
+  student     Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model Budget {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   school_id        String
   branch_id        String?
   fiscal_year      String
   category         String
   allocated_amount Float
-  spent_amount     Float    @default(0)
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-  branch           Branch?  @relation(fields: [branch_id], references: [id])
-  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  spent_amount     Float     @default(0)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  branch           Branch?   @relation(fields: [branch_id], references: [id])
+  school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model TeacherSalary {
@@ -1390,6 +1622,9 @@ model TeacherSalary {
   components        SalaryComponent[]
   school            School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
   teacher           Teacher           @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model SalaryComponent {
@@ -1404,6 +1639,11 @@ model SalaryComponent {
   created_at        DateTime      @default(now())
   updated_at        DateTime      @updatedAt
   teacher_salary    TeacherSalary @relation(fields: [teacher_salary_id], references: [id], onDelete: Cascade)
+  school_id         String
+  branch_id         String?
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model Payslip {
@@ -1430,46 +1670,62 @@ model Payslip {
   school           School               @relation(fields: [school_id], references: [id], onDelete: Cascade)
   teacher          Teacher              @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
   PayslipItem      PayslipItem[]
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model PayslipItem {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   payslip_id String
   item_type  String
   item_name  String
   amount     Float
-  is_taxable Boolean  @default(true)
-  created_at DateTime @default(now())
-  payslip    Payslip  @relation(fields: [payslip_id], references: [id], onDelete: Cascade)
+  is_taxable Boolean   @default(true)
+  created_at DateTime  @default(now())
+  payslip    Payslip   @relation(fields: [payslip_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model PaymentTransaction {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   payslip_id     String
   amount         Float
-  payment_date   DateTime @default(now())
+  payment_date   DateTime  @default(now())
   payment_method String
-  status         String   @default("Completed")
+  status         String    @default("Completed")
   reference      String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  Payslip        Payslip  @relation(fields: [payslip_id], references: [id], onDelete: Cascade)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  Payslip        Payslip   @relation(fields: [payslip_id], references: [id], onDelete: Cascade)
+  school_id      String
+  branch_id      String?
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model SalaryArrear {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   teacher_id  String
   school_id   String
   branch_id   String?
   amount_owed Float
   reason      String?
   due_date    DateTime
-  status      String   @default("Pending")
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  branch      Branch?  @relation(fields: [branch_id], references: [id])
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher     Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  status      String    @default("Pending")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  branch      Branch?   @relation(fields: [branch_id], references: [id])
+  school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher     Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model Plan {
@@ -1504,7 +1760,7 @@ model SecureAnonymousReport {
   id                    String    @id @default(uuid())
   report_hash           String    @unique
   track_code            String    @unique
-  school_id             String?
+  school_id             String
   category              String
   severity              String    @default("Medium")
   description_encrypted String
@@ -1514,27 +1770,35 @@ model SecureAnonymousReport {
   resolved_at           DateTime?
   created_at            DateTime  @default(now())
   updated_at            DateTime  @updatedAt
-  school                School?   @relation(fields: [school_id], references: [id])
+  school                School    @relation(fields: [school_id], references: [id])
+  branch_id             String?
+  created_by            String?
+  updated_by            String?
+  deleted_at            DateTime?
 }
 
 model GameScore {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   game_id    String
   game_name  String
   player_id  String
   score      Int
-  school_id  String?
+  school_id  String
   metadata   Json?
-  created_at DateTime @default(now())
-  player     User     @relation(fields: [player_id], references: [id])
-  school     School?  @relation(fields: [school_id], references: [id])
+  created_at DateTime  @default(now())
+  player     User      @relation(fields: [player_id], references: [id])
+  school     School    @relation(fields: [school_id], references: [id])
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@index([game_id, score(sort: Desc)])
   @@index([school_id, game_id])
 }
 
 model EducationalGame {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
   description String?
   game_type   String
@@ -1542,21 +1806,29 @@ model EducationalGame {
   metadata    Json?
   teacher_id  String
   school_id   String
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  school      School   @relation(fields: [school_id], references: [id])
-  teacher     Teacher  @relation(fields: [teacher_id], references: [id])
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  school      School    @relation(fields: [school_id], references: [id])
+  teacher     Teacher   @relation(fields: [teacher_id], references: [id])
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model SchoolGallery {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   file_url   String
   caption    String?
   category   String?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  school     School   @relation(fields: [school_id], references: [id])
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  school     School    @relation(fields: [school_id], references: [id])
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model Curriculum {
@@ -1568,6 +1840,10 @@ model Curriculum {
   updated_at      DateTime        @updatedAt
   academic_tracks AcademicTrack[]
   school          School          @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id       String?
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 }
 
 model AcademicTrack {
@@ -1581,6 +1857,10 @@ model AcademicTrack {
   curriculum    Curriculum @relation(fields: [curriculum_id], references: [id], onDelete: Cascade)
   school        School     @relation(fields: [school_id], references: [id], onDelete: Cascade)
   student       Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 
   @@unique([student_id, curriculum_id])
 }
@@ -1598,33 +1878,47 @@ model ChatRoom {
   messages        ChatMessage[]
   participants    ChatParticipant[]
   school          School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id       String?
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 }
 
 model ChatParticipant {
-  id        String   @id @default(uuid())
-  room_id   String
-  user_id   String
-  role      String   @default("member")
-  joined_at DateTime @default(now())
-  room      ChatRoom @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid())
+  room_id    String
+  user_id    String
+  role       String    @default("member")
+  joined_at  DateTime  @default(now())
+  room       ChatRoom  @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([room_id, user_id])
 }
 
 model ChatMessage {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   room_id    String
   sender_id  String
   content    String
-  type       String   @default("text")
-  is_read    Boolean  @default(false)
-  is_deleted Boolean  @default(false)
-  is_edited  Boolean  @default(false)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  room       ChatRoom @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  sender     User     @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+  type       String    @default("text")
+  is_read    Boolean   @default(false)
+  is_deleted Boolean   @default(false)
+  is_edited  Boolean   @default(false)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  room       ChatRoom  @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sender     User      @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model LeaveType {
@@ -1637,6 +1931,10 @@ model LeaveType {
   updated_at   DateTime       @updatedAt
   requests     LeaveRequest[]
   school       School         @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id    String?
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model LeaveRequest {
@@ -1657,10 +1955,13 @@ model LeaveRequest {
   updated_at     DateTime  @updatedAt
   type           LeaveType @relation(fields: [leave_type_id], references: [id])
   teacher        Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model LessonPlan {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   school_id       String
   branch_id       String?
   teacher_id      String
@@ -1675,10 +1976,13 @@ model LessonPlan {
   differentiation String?
   assessment      String?
   content         String?
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher         Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  school          School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher         Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 }
 
 model PDCourse {
@@ -1695,6 +1999,10 @@ model PDCourse {
   PDCertificate  PDCertificate[]
   school         School          @relation(fields: [school_id], references: [id], onDelete: Cascade)
   enrollments    PDEnrollment[]
+  branch_id      String?
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model PDEnrollment {
@@ -1707,6 +2015,11 @@ model PDEnrollment {
   completed_at        DateTime?
   course              PDCourse  @relation(fields: [course_id], references: [id], onDelete: Cascade)
   teacher             Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  school_id           String
+  branch_id           String?
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
 }
 
 model PDBadge {
@@ -1717,63 +2030,92 @@ model PDBadge {
   points      Int            @default(0)
   created_at  DateTime       @default(now())
   teachers    TeacherBadge[]
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model TeacherBadge {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   teacher_id String
   badge_id   String
-  earned_at  DateTime @default(now())
-  badge      PDBadge  @relation(fields: [badge_id], references: [id], onDelete: Cascade)
-  teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  earned_at  DateTime  @default(now())
+  badge      PDBadge   @relation(fields: [badge_id], references: [id], onDelete: Cascade)
+  teacher    Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@unique([teacher_id, badge_id])
 }
 
 model TeacherRecognition {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   teacher_id    String
   recognizer_id String
   reason        String
-  points        Int      @default(0)
-  is_public     Boolean  @default(true)
-  created_at    DateTime @default(now())
-  recognizer    Teacher  @relation("GivenRecognitions", fields: [recognizer_id], references: [id], onDelete: Cascade)
-  teacher       Teacher  @relation("TeacherRecognitions", fields: [teacher_id], references: [id], onDelete: Cascade)
+  points        Int       @default(0)
+  is_public     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  recognizer    Teacher   @relation("GivenRecognitions", fields: [recognizer_id], references: [id], onDelete: Cascade)
+  teacher       Teacher   @relation("TeacherRecognitions", fields: [teacher_id], references: [id], onDelete: Cascade)
+  school_id     String
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model MentoringMatch {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   mentor_id    String
   mentee_id    String
   subject_area String?
-  status       String   @default("Active")
-  created_at   DateTime @default(now())
-  mentee       Teacher  @relation("MenteeMatches", fields: [mentee_id], references: [id], onDelete: Cascade)
-  mentor       Teacher  @relation("MentorMatches", fields: [mentor_id], references: [id], onDelete: Cascade)
+  status       String    @default("Active")
+  created_at   DateTime  @default(now())
+  mentee       Teacher   @relation("MenteeMatches", fields: [mentee_id], references: [id], onDelete: Cascade)
+  mentor       Teacher   @relation("MentorMatches", fields: [mentor_id], references: [id], onDelete: Cascade)
+  school_id    String
+  branch_id    String?
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model SubstituteAssignment {
-  id                    String   @id @default(uuid())
+  id                    String    @id @default(uuid())
   school_id             String
   original_teacher_id   String
   substitute_teacher_id String
   class_id              String
   subject_id            String?
   date                  DateTime
-  status                String   @default("Pending")
-  created_at            DateTime @default(now())
-  school                School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  status                String    @default("Pending")
+  created_at            DateTime  @default(now())
+  school                School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id             String?
+  created_by            String?
+  updated_by            String?
+  deleted_at            DateTime?
 }
 
 model PDCertificate {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   teacher_id String
   course_id  String
-  issued_at  DateTime @default(now())
+  issued_at  DateTime  @default(now())
   file_url   String?
-  pd_course  PDCourse @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  teacher    Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  pd_course  PDCourse  @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  teacher    Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  school_id  String
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model InspectionTemplate {
@@ -1808,6 +2150,10 @@ model Inspection {
   escalations         InspectionEscalation[]
   photos              InspectionPhoto[]
   responses           InspectionResponse[]
+  branch_id           String?
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
 }
 
 model InspectionResponse {
@@ -1819,6 +2165,11 @@ model InspectionResponse {
   is_violation  Boolean    @default(false)
   comment       String?
   inspection    Inspection @relation(fields: [inspection_id], references: [id], onDelete: Cascade)
+  school_id     String
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model InspectionPhoto {
@@ -1829,6 +2180,11 @@ model InspectionPhoto {
   annotation    Json?
   caption       String?
   inspection    Inspection @relation(fields: [inspection_id], references: [id], onDelete: Cascade)
+  school_id     String
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model InspectionEscalation {
@@ -1839,17 +2195,26 @@ model InspectionEscalation {
   status        String     @default("open")
   resolved_at   DateTime?
   inspection    Inspection @relation(fields: [inspection_id], references: [id], onDelete: Cascade)
+  school_id     String
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model SchoolPolicy {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   school_id   String
   title       String
   description String?
   url         String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model PermissionSlip {
@@ -1862,21 +2227,29 @@ model PermissionSlip {
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
   school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model Facility {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   name       String
   code       String?
   type       String?
   location   String?
-  status     String   @default("available")
+  status     String    @default("available")
   capacity   Int?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
   assets     Asset[]
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model Asset {
@@ -1899,36 +2272,46 @@ model Asset {
   facility            Facility?           @relation(fields: [facility_id], references: [id])
   school              School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
   maintenance_tickets MaintenanceTicket[]
+  branch_id           String?
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
 }
 
 model MaintenanceTicket {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   school_id         String
   branch_id         String?
   asset_id          String
   ticket_number     String?
   issue_title       String
   issue_description String?
-  priority          String   @default("Medium")
-  status            String   @default("Open")
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
-  asset             Asset    @relation(fields: [asset_id], references: [id], onDelete: Cascade)
-  school            School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  priority          String    @default("Medium")
+  status            String    @default("Open")
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  asset             Asset     @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+  school            School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model SchoolDocument {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   school_id           String
   branch_id           String?
   name                String
   type                String?
   url                 String
   expiry_date         String?
-  verification_status String   @default("Pending")
-  created_at          DateTime @default(now())
-  updated_at          DateTime @updatedAt
-  school              School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  verification_status String    @default("Pending")
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  school              School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
 
   @@unique([school_id, type])
 }
@@ -1944,48 +2327,65 @@ model VisitorLog {
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
   school        School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 }
 
 model EmergencyAlert {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   school_id        String
   title            String
   message          String
-  alert_type       String   @default("general")
-  severity         String   @default("warning")
+  alert_type       String    @default("general")
+  severity         String    @default("warning")
   target_audiences String[]
   sent_by          String?
-  sent_at          DateTime @default(now())
-  created_at       DateTime @default(now())
-  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  sent_at          DateTime  @default(now())
+  created_at       DateTime  @default(now())
+  school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 
   @@index([school_id, sent_at])
 }
 
 model UserSession {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   user_id     String
-  token_id    String?  @unique
+  token_id    String?   @unique
   ip_address  String?
   user_agent  String?
   device_type String?
   location    String?
-  last_active DateTime @default(now())
-  created_at  DateTime @default(now())
-  is_active   Boolean  @default(true)
-  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  last_active DateTime  @default(now())
+  created_at  DateTime  @default(now())
+  is_active   Boolean   @default(true)
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model SavedReport {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   school_id   String
   name        String
   description String?
   data_source String
   fields      String[]
   filters     Json?
-  created_at  DateTime @default(now())
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_at  DateTime  @default(now())
+  school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model DataRequest {
@@ -2000,6 +2400,9 @@ model DataRequest {
   requested_at    DateTime  @default(now())
   completed_at    DateTime?
   school          School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 }
 
 model Invoice {
@@ -2017,10 +2420,13 @@ model Invoice {
   metadata       Json?
   school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   student        Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model Backup {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   school_id   String
   title       String?
   description String?
@@ -2029,10 +2435,14 @@ model Backup {
   filename    String?
   file_path   String?
   size        Int?
-  status      String   @default("Completed")
-  created_at  DateTime @default(now())
-  updated_at  DateTime @default(now()) @updatedAt
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  status      String    @default("Completed")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now()) @updatedAt
+  school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model ParentalConsent {
@@ -2048,26 +2458,39 @@ model ParentalConsent {
   updated_at   DateTime  @updatedAt
   school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  branch_id    String?
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model NotificationSetting {
-  id          String   @id @default(uuid())
-  user_id     String   @unique
-  digest_time String   @default("19:00")
+  id          String    @id @default(uuid())
+  user_id     String    @unique
+  digest_time String    @default("19:00")
   categories  Json
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model KanbanColumn {
-  id        String       @id @default(uuid())
-  school_id String
-  title     String
-  color     String
-  order     Int          @default(0)
-  school    School       @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  tasks     KanbanTask[]
+  id         String       @id @default(uuid())
+  school_id  String
+  title      String
+  color      String
+  order      Int          @default(0)
+  school     School       @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  tasks      KanbanTask[]
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 }
 
 model KanbanTask {
@@ -2083,38 +2506,46 @@ model KanbanTask {
   created_at  DateTime     @default(now())
   updated_at  DateTime     @updatedAt
   column      KanbanColumn @relation(fields: [column_id], references: [id], onDelete: Cascade)
+  school_id   String
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 }
 
 model HealthIncident {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   school_id       String
   branch_id       String?
   student_id      String?
-  incident_date   DateTime @default(now())
+  incident_date   DateTime  @default(now())
   incident_type   String
   description     String
   action_taken    String?
   location        String?
-  severity        String   @default("low")
+  severity        String    @default("low")
   reported_by     String?
   witnesses       String[]
-  parent_notified Boolean  @default(false)
-  status          String   @default("resolved")
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student         Student? @relation(fields: [student_id], references: [id])
+  parent_notified Boolean   @default(false)
+  status          String    @default("resolved")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  school          School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student         Student?  @relation(fields: [student_id], references: [id])
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 
   @@index([school_id, incident_date])
   @@map("health_incident_logs")
 }
 
 model EmergencyDrill {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   school_id    String
   branch_id    String?
   drill_type   String
-  drill_date   DateTime @default(now())
+  drill_date   DateTime  @default(now())
   start_time   String?
   end_time     String?
   duration     Int?
@@ -2122,9 +2553,12 @@ model EmergencyDrill {
   outcome      String?
   notes        String?
   conducted_by String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  school       School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 
   @@index([school_id, drill_date])
   @@map("emergency_drills")
@@ -2144,13 +2578,16 @@ model SafeguardingPolicy {
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
   school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 
   @@index([school_id])
   @@map("safeguarding_policies")
 }
 
 model Vendor {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   school_id      String
   branch_id      String?
   vendor_name    String
@@ -2159,11 +2596,14 @@ model Vendor {
   contact_person String?
   email          String?
   phone          String?
-  rating         Float    @default(0)
-  status         String   @default("Active")
-  created_at     DateTime @default(now())
-  updated_at     DateTime @default(now()) @updatedAt
-  school         School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  rating         Float     @default(0)
+  status         String    @default("Active")
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now()) @updatedAt
+  school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model ExternalIntegration {
@@ -2180,21 +2620,30 @@ model ExternalIntegration {
   created_at                 DateTime  @default(now())
   updated_at                 DateTime  @default(now()) @updatedAt
   school                     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id                  String?
+  created_by                 String?
+  updated_by                 String?
+  deleted_at                 DateTime?
 }
 
 model ThirdPartyApp {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   app_name       String
-  app_slug       String   @unique
+  app_slug       String    @unique
   developer_name String?
   category       String?
   description    String?
-  is_verified    Boolean  @default(false)
-  is_published   Boolean  @default(true)
-  total_installs Int      @default(0)
-  rating         Float    @default(0)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @default(now()) @updatedAt
+  is_verified    Boolean   @default(false)
+  is_published   Boolean   @default(true)
+  total_installs Int       @default(0)
+  rating         Float     @default(0)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now()) @updatedAt
+  school_id      String
+  branch_id      String?
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model AppInstallation {
@@ -2206,58 +2655,74 @@ model AppInstallation {
   installed_at   DateTime  @default(now())
   uninstalled_at DateTime?
   school         School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id      String?
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 }
 
 model SyncLog {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   school_id         String
   integration_id    String
   sync_type         String?
   sync_direction    String?
   triggered_by      String?
-  status            String   @default("pending")
-  records_processed Int      @default(0)
-  records_succeeded Int      @default(0)
+  status            String    @default("pending")
+  records_processed Int       @default(0)
+  records_succeeded Int       @default(0)
   error_message     String?
-  created_at        DateTime @default(now())
+  created_at        DateTime  @default(now())
+  branch_id         String?
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model TeacherAvailability {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   teacher_id      String
   school_id       String
   date            DateTime
   time_start      String
   time_end        String
-  is_available    Boolean  @default(true)
+  is_available    Boolean   @default(true)
   location        String?
   conference_type String?
-  created_at      DateTime @default(now())
-  school          School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher         Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_at      DateTime  @default(now())
+  school          School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher         Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  branch_id       String?
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 }
 
 model ParentTeacherConference {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   school_id        String
   parent_id        String
   teacher_id       String
   student_id       String
   scheduled_date   DateTime
   scheduled_time   String
-  duration_minutes Int      @default(30)
-  conference_type  String   @default("In-Person")
+  duration_minutes Int       @default(30)
+  conference_type  String    @default("In-Person")
   meeting_link     String?
   location         String?
-  status           String   @default("Scheduled")
+  status           String    @default("Scheduled")
   parent_notes     String?
   teacher_notes    String?
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-  parent           Parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade)
-  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student          Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  teacher          Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  parent           Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student          Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  teacher          Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model CounselingAppointment {
@@ -2275,22 +2740,30 @@ model CounselingAppointment {
   counselor        Teacher?  @relation("CounselorAppointments", fields: [counselor_id], references: [id])
   school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
   student          Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model Complaint {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   school_id  String
   parent_id  String
   category   String
-  rating     Int      @default(0)
+  rating     Int       @default(0)
   comment    String
   image_url  String?
-  status     String   @default("Submitted")
+  status     String    @default("Submitted")
   timeline   Json?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  parent     Parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade)
-  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  parent     Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@index([school_id, parent_id])
 }
@@ -2299,30 +2772,37 @@ model Complaint {
 // Scalar tenant columns only (no enforced relations) to keep the model self-contained;
 // scoping is enforced in StudentService by always filtering on school_id + student_id.
 model StudentDocument {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   student_id String
   school_id  String
   name       String
   url        String
   type       String?
   size       String?
-  created_at DateTime @default(now())
+  created_at DateTime  @default(now())
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@index([school_id, student_id])
 }
 
 model TeacherEvaluation {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   teacher_id       String
   school_id        String
   branch_id        String?
-  rating           Int      @default(0)
+  rating           Int       @default(0)
   feedback         String
   performance_data Json?
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-  school           School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  teacher          Teacher  @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  school           School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  teacher          Teacher   @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model AppVersion {
@@ -2347,6 +2827,9 @@ model IdVerificationRequest {
   reviewed_at   DateTime?
   created_at    DateTime  @default(now())
   updated_at    DateTime  @default(now()) @updatedAt
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 
   @@unique([school_id, student_id])
   @@index([school_id, branch_id])
@@ -2365,6 +2848,9 @@ model ComplianceCheck {
   details         Json?
   created_at      DateTime  @default(now())
   updated_at      DateTime  @default(now()) @updatedAt
+  created_by      String?
+  updated_by      String?
+  deleted_at      DateTime?
 
   @@unique([school_id, check_key])
 }
@@ -2416,15 +2902,18 @@ model GlobalForumPost {
 // ============================================
 
 model BranchUserIdentity {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   school_id           String
   branch_id           String
   user_id             String
   role                String
   number              Int
   school_generated_id String
-  created_at          DateTime @default(now())
-  updated_at          DateTime @default(now()) @updatedAt
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @default(now()) @updatedAt
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
 
   @@unique([user_id, branch_id])
   @@unique([school_id, branch_id, role, number])
@@ -2449,6 +2938,10 @@ model RadioContent {
   created_at       DateTime         @default(now())
   updated_at       DateTime         @updatedAt
   broadcasts       RadioBroadcast[]
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model RadioPartner {
@@ -2464,6 +2957,10 @@ model RadioPartner {
   created_at         DateTime         @default(now())
   updated_at         DateTime         @updatedAt
   broadcasts         RadioBroadcast[]
+  branch_id          String?
+  created_by         String?
+  updated_by         String?
+  deleted_at         DateTime?
 }
 
 model RadioBroadcast {
@@ -2480,6 +2977,10 @@ model RadioBroadcast {
   updated_at          DateTime     @updatedAt
   radio_content       RadioContent @relation(fields: [content_id], references: [id], onDelete: Cascade)
   radio_partner       RadioPartner @relation(fields: [partner_id], references: [id], onDelete: Cascade)
+  branch_id           String?
+  created_by          String?
+  updated_by          String?
+  deleted_at          DateTime?
 }
 
 model IVRLesson {
@@ -2496,6 +2997,10 @@ model IVRLesson {
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
   calls            IVRCall[]
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model IVRCall {
@@ -2508,6 +3013,10 @@ model IVRCall {
   initiated_at          DateTime  @default(now())
   completed_at          DateTime?
   ivr_lesson            IVRLesson @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  branch_id             String?
+  created_by            String?
+  updated_by            String?
+  deleted_at            DateTime?
 }
 
 model SMSLesson {
@@ -2523,6 +3032,10 @@ model SMSLesson {
   created_at   DateTime      @default(now())
   updated_at   DateTime      @updatedAt
   schedules    SMSSchedule[]
+  branch_id    String?
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 }
 
 model SMSSchedule {
@@ -2540,6 +3053,10 @@ model SMSSchedule {
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
   sms_lesson       SMSLesson @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model USSDMenuStructure {
@@ -2558,6 +3075,10 @@ model USSDMenuStructure {
   sessions          USSDSession[]
   parent_menu       USSDMenuStructure?  @relation("MenuHierarchy", fields: [parent_menu_id], references: [id])
   child_menus       USSDMenuStructure[] @relation("MenuHierarchy")
+  branch_id         String?
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 }
 
 model USSDSession {
@@ -2570,27 +3091,39 @@ model USSDSession {
   started_at       DateTime           @default(now())
   last_interaction DateTime           @default(now())
   ussd_menu        USSDMenuStructure? @relation(fields: [current_menu_id], references: [id])
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model USSDTransaction {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   school_id        String
   phone_number     String
   transaction_type String
-  amount           Float    @default(0)
-  status           String   @default("Pending")
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
+  amount           Float     @default(0)
+  status           String    @default("Pending")
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  branch_id        String?
+  created_by       String?
+  updated_by       String?
+  deleted_at       DateTime?
 }
 
 model RolePermission {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   school_id     String
   role          String
   permission_id String
-  enabled       Boolean  @default(true)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  enabled       Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  branch_id     String?
+  created_by    String?
+  updated_by    String?
+  deleted_at    DateTime?
 
   @@unique([school_id, role, permission_id])
 }
@@ -2617,8 +3150,12 @@ model StudentIDCard {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  school  School  @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  school     School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student    Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  branch_id  String?
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@index([school_id])
   @@index([student_id])
@@ -2636,6 +3173,11 @@ model PaymentPlan {
   updated_at        DateTime      @updatedAt
   student           Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
   installments      Installment[]
+  school_id         String
+  branch_id         String?
+  created_by        String?
+  updated_by        String?
+  deleted_at        DateTime?
 
   @@index([student_id])
   @@index([fee_id])
@@ -2652,24 +3194,33 @@ model Installment {
   transaction_id     Int?
   created_at         DateTime    @default(now())
   payment_plan       PaymentPlan @relation(fields: [payment_plan_id], references: [id], onDelete: Cascade)
+  school_id          String
+  branch_id          String?
+  created_by         String?
+  updated_by         String?
+  deleted_at         DateTime?
 
   @@index([payment_plan_id])
   @@index([due_date])
 }
 
 model StoreProduct {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   school_id   String
   name        String
   description String?
   category    String?
   price       Float
-  stock       Int      @default(0)
+  stock       Int       @default(0)
   image_url   String?
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  school      School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  school      School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  branch_id   String?
+  created_by  String?
+  updated_by  String?
+  deleted_at  DateTime?
 
   @@index([school_id])
   @@index([category])
@@ -2687,6 +3238,10 @@ model StoreOrder {
   updated_at     DateTime         @updatedAt
   school         School           @relation(fields: [school_id], references: [id], onDelete: Cascade)
   items          StoreOrderItem[]
+  branch_id      String?
+  created_by     String?
+  updated_by     String?
+  deleted_at     DateTime?
 
   @@index([school_id])
   @@index([status])
@@ -2700,6 +3255,11 @@ model StoreOrderItem {
   unit_price   Float
   subtotal     Float
   order        StoreOrder @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  school_id    String
+  branch_id    String?
+  created_by   String?
+  updated_by   String?
+  deleted_at   DateTime?
 
   @@index([order_id])
 }
@@ -2740,14 +3300,17 @@ model AcademicCalendar {
 // know which users installed the app and to sync the "Not Now" dismissal
 // across a user's devices.
 model PwaInstallEvent {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   user_id    String
-  school_id  String?
+  school_id  String
   branch_id  String?
   action     String // shown | install_clicked | installed | dismissed | instructions_shown | prompt_declined
   platform   String? // ios | android | desktop | other
   user_agent String?
-  created_at DateTime @default(now())
+  created_at DateTime  @default(now())
+  created_by String?
+  updated_by String?
+  deleted_at DateTime?
 
   @@index([user_id])
   @@index([school_id])

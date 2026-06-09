@@ -379,7 +379,12 @@ export class AuthService {
                     create: {
                         user_id: user.id,
                         token_id: tokenId,
-                        is_active: true
+                        is_active: true,
+                        // school_id is required on UserSession; without it the upsert
+                        // failed (swallowed by the catch) so sessions never persisted
+                        // and token refresh always failed. We're inside if(user.school_id).
+                        school_id: user.school_id,
+                        branch_id: user.branch_id ?? null
                     }
                 });
             } catch (err) {
@@ -1066,10 +1071,29 @@ export class AuthService {
             const assignedBranches = Array.isArray((demoUser as any).allowed_branch_ids)
                 ? (demoUser as any).allowed_branch_ids
                 : [];
+
+            // Authorise the WHOLE sandbox: the demo's sub-branches (e.g. "Lekki") are
+            // ids shaped "<root>__<rand>". Without listing them in allowed_branch_ids,
+            // the frontend treated them as unauthorised and snapped the view back to
+            // Main on every refresh, and actions fell back to the Main branch. List
+            // every branch under this sandbox root so switching + actions stick.
+            const sandboxRoot = String(effectiveBranchId).split('__')[0];
+            let sandboxBranchIds: string[] = [];
+            try {
+                const rows = await prisma.branch.findMany({
+                    where: {
+                        school_id: this.DEMO_SCHOOL_ID,
+                        OR: [{ id: sandboxRoot }, { id: { startsWith: sandboxRoot + '__' } }]
+                    },
+                    select: { id: true }
+                });
+                sandboxBranchIds = rows.map(r => r.id);
+            } catch { /* fall back to root only */ }
+
             const sessionUser = {
                 ...demoUser,
                 branch_id: effectiveBranchId,
-                allowed_branch_ids: Array.from(new Set([effectiveBranchId, ...assignedBranches])),
+                allowed_branch_ids: Array.from(new Set([effectiveBranchId, ...sandboxBranchIds, ...assignedBranches])),
                 is_demo: true,
                 demo_ip: ip
             };

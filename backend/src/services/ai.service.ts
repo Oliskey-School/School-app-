@@ -9,10 +9,7 @@ export class AiService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId;
         }
 
         return prisma.generatedResource.findMany({
@@ -30,10 +27,7 @@ export class AiService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId;
         }
 
         const existing = await prisma.generatedResource.findFirst({ where });

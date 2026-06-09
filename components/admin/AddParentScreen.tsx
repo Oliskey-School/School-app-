@@ -103,10 +103,17 @@ const AddParentScreen: React.FC<AddParentScreenProps> = ({ parentToEdit, forceUp
     // Error Mapping Utility
     const mapErrorToUserMessage = (error: any): string => {
         const msg = error.message || error.toString();
+        
+        // Log all errors for easier debugging
+        console.error('🔍 [AddParentScreen] Error Details for Mapping:', { msg, error });
+
+        if (msg.includes('not found')) return 'One or more of the student IDs provided were not found in this school.';
         if (msg.includes('permission denied')) return 'Administrative privileges required to perform this action.';
         if (msg.includes('duplicate key')) return 'A parent with this email already exists.';
         if (msg.includes('network')) return 'Network connection issue. Please check your internet.';
         if (msg.includes('timeout')) return 'Request timed out due to slow connection. Please try again.';
+        
+        console.warn('⚠️ [AddParentScreen] Unmapped error encountered:', msg);
         return 'An unexpected error occurred. Please try again.';
     };
 

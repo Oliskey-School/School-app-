@@ -27,11 +27,13 @@ export const getParentsByClassId = async (req: AuthRequest, res: Response) => {
 };
 
 export const createParent = async (req: AuthRequest, res: Response) => {
+    console.log('📡 [ParentController] createParent called with body:', JSON.stringify(req.body));
     try {
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.createParent(req.user.school_id, branchId, req.body, req.user.id);
         res.status(201).json(result);
     } catch (error: any) {
+        console.error('🔥 [ParentController] createParent Error Details:', error);
         res.status(error.status || 400).json({ message: error.message });
     }
 };
@@ -113,12 +115,20 @@ export const getChildrenForParent = async (req: AuthRequest, res: Response) => {
 export const linkChild = async (req: AuthRequest, res: Response) => {
     try {
         const { parentId, studentId } = req.body;
-        console.log('📡 [ParentController] linkChild called with:', { parentId, studentId });
+        console.log('📡 [ParentController] linkChild called with:', { parentId, studentId, body: req.body });
+        
+        if (!parentId || !studentId) {
+            return res.status(400).json({ message: 'parentId and studentId are required' });
+        }
+
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
         const result = await ParentService.linkChild(req.user.school_id, branchId, parentId, studentId);
         res.status(201).json(result);
     } catch (error: any) {
-        console.error('❌ [ParentController] linkChild error:', error.message);
+        console.error('❌ [ParentController] linkChild error details:', { 
+            message: error.message, 
+            stack: error.stack 
+        });
         res.status(500).json({ message: error.message });
     }
 };

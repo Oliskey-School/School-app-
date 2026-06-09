@@ -32,11 +32,16 @@ export class DashboardService {
                     timetablePreview,
                     recentActivity
                 ] = await Promise.all([
-                    // 1. Count classes assigned to this teacher
+                    // 1. Count classes assigned to this teacher IN THE ACTIVE BRANCH only.
+                    // Without the class branch filter the count summed every branch, so a
+                    // teacher's "2 classes" from Main still showed after switching to Lekki.
                     prisma.classTeacher.count({
-                        where: { teacher_id: teacherId }
+                        where: {
+                            teacher_id: teacherId,
+                            ...(effectiveBranchId ? { class: { branch_id: effectiveBranchId } } : {})
+                        }
                     }),
-                    // 2. Count unique students in classes assigned to this teacher (Active only)
+                    // 2. Count unique students in this teacher's classes IN THE ACTIVE BRANCH (Active only)
                     prisma.student.count({
                         where: {
                             school_id: schoolId,
@@ -44,6 +49,7 @@ export class DashboardService {
                             enrollments: {
                                 some: {
                                     class: {
+                                        ...(effectiveBranchId ? { branch_id: effectiveBranchId } : {}),
                                         teachers: {
                                             some: { teacher_id: teacherId }
                                         }

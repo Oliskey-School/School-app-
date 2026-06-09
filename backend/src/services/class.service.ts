@@ -34,10 +34,7 @@ export class ClassService {
 
             // Only filter by branch when a specific branch is requested
             if (branchId && branchId !== 'all') {
-                whereClause.OR = [
-                    { branch_id: branchId },
-                    { branch_id: null }
-                ];
+                whereClause.branch_id = branchId;
             }
 
             let classes;

@@ -173,6 +173,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     const [availableParents, setAvailableParents] = useState<any[]>([]);
     const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
     const [searchParentTerm, setSearchParentTerm] = useState('');
+    const [parentImageErrors, setParentImageErrors] = useState<Record<string, boolean>>({});
     const [showNewParentForm, setShowNewParentForm] = useState(true);
     const [admissionNumber, setAdmissionNumber] = useState(''); // ⚠️ Added orphaned field
     const [studentAddress, setStudentAddress] = useState(''); // ⚠️ Added orphaned field
@@ -220,8 +221,6 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     // record yet. For those, we emit a placeholder id (`__create__:grade:section:branch`)
     // and materialize a real class record on submit. Teachers keep the assigned-only view.
     const availableClasses = useMemo(() => {
-        if (isTeacherRole) return branchScopedClasses;
-
         const branchId = selectedBranchId || null;
         const existingByKey = new Map<string, any>();
         branchScopedClasses.forEach(cls => {
@@ -316,6 +315,16 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     }, [autoFillKey]);
 
     useEffect(() => {
+        if (studentToEdit) {
+            setAdmissionNumber(studentToEdit.admission_number || '');
+        } else if (schoolId) {
+            api.getNextAdmissionNumber()
+                .then(res => setAdmissionNumber(res.admissionNumber))
+                .catch(err => console.error("Error pre-fetching admission number:", err));
+        }
+    }, [schoolId, studentToEdit]);
+
+    useEffect(() => {
         const loadParents = async () => {
             if (schoolId) {
                 try {
@@ -339,7 +348,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     useEffect(() => {
         const loadClasses = async () => {
             try {
-                const classes = await api.getClasses(schoolId, 'all', true);
+                const classes = await api.getClasses(schoolId, 'all', true, true);
                 setAllClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);
@@ -351,7 +360,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     useAutoSync(['classes'], () => {
         const loadClasses = async () => {
             try {
-                const classes = await api.getClasses(schoolId, 'all', true);
+                const classes = await api.getClasses(schoolId, 'all', true, true);
                 setAllClasses(classes || []);
             } catch (err) {
                 console.error("Error loading classes:", err);
@@ -432,62 +441,63 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
     }, [selectedBranchId, availableClasses, allClasses.length]);
 
     useEffect(() => {
-        if (studentToEdit) {
-            setSelectedImage(studentToEdit.avatarUrl || (studentToEdit as any).avatar_url || null);
-            setFullName(studentToEdit.name || studentToEdit.full_name || '');
-            
-            // Format DOB for HTML date input (YYYY-MM-DD)
-            const rawDob = studentToEdit.dob || studentToEdit.birthday || studentToEdit.dateOfBirth || '';
-            let formattedDob = '';
-            if (rawDob) {
-                try {
-                    const dateObj = new Date(rawDob);
-                    if (!isNaN(dateObj.getTime())) {
-                        formattedDob = dateObj.toISOString().split('T')[0];
-                    }
-                } catch (e) {
-                    console.warn('Failed to parse DOB:', rawDob);
-                    formattedDob = '';
-                }
-            }
-            setBirthday(formattedDob);
-            setDepartment(studentToEdit.department || '');
-            setCurriculumType((studentToEdit as any).curriculum_type || 'Nigerian');
-
-            // Fetch Student Details (including Enrollments and Guardian Info)
-            const fetchDetails = async () => {
-                try {
-                    const studentData = await api.getStudentById(studentToEdit.id);
-                    if (studentData) {
-                        // Set Enrollments
-                        if (studentData.enrollments) {
-                            setSelectedClassIds(studentData.enrollments.map((e: any) => e.class_id));
-                        }
-
-                        // Set Guardian Info
-                        if (studentData.parents && studentData.parents.length > 0) {
-                            const p = studentData.parents[0].parent;
-                            if (p) {
-                                setSelectedParentId(p.id);
-                                setGuardianName(p.full_name || p.name || '');
-                                setGuardianEmail(p.email || '');
-                                setGuardianPhone(p.phone || '');
-                                setShowNewParentForm(false);
+        if (!studentToEdit) return;
+        
+        const loadFreshData = async () => {
+            setIsLoading(true);
+            try {
+                const studentData = await api.getStudentById(studentToEdit.id);
+                if (studentData) {
+                    setSelectedImage(studentData.avatarUrl || studentData.avatar_url || null);
+                    setFullName(studentData.name || studentData.full_name || '');
+                    
+                    // Format DOB for HTML date input (YYYY-MM-DD)
+                    const rawDob = studentData.dob || studentData.birthday || studentData.dateOfBirth || '';
+                    if (rawDob) {
+                        try {
+                            const dateObj = new Date(rawDob);
+                            if (!isNaN(dateObj.getTime())) {
+                                setBirthday(dateObj.toISOString().split('T')[0]);
                             }
+                        } catch (e) {
+                            console.warn('Failed to parse DOB:', rawDob);
                         }
                     }
-                } catch (err) {
-                    console.error("Error fetching student details:", err);
+                    
+                    setDepartment(studentData.department || '');
+                    setCurriculumType((studentData as any).curriculum_type || 'Nigerian');
+                    setAdmissionNumber(studentData.admission_number || '');
+                    setStudentAddress(studentData.address || '');
+                    setGender(studentData.gender || '');
+                    setSelectedBusId(studentData.school_bus_id || (studentData as any).schoolBusId || null);
+                    setSelectedBranchId(studentData.branch_id || '');
+
+                    // Set Enrollments
+                    if (studentData.enrollments) {
+                        setSelectedClassIds(studentData.enrollments.map((e: any) => e.class_id));
+                    }
+
+                    // Set Guardian Info
+                    if (studentData.parents && studentData.parents.length > 0) {
+                        const p = studentData.parents[0].parent;
+                        if (p) {
+                            setSelectedParentId(p.id);
+                            setGuardianName(p.full_name || p.name || '');
+                            setGuardianEmail(p.email || '');
+                            setGuardianPhone(p.phone || '');
+                            setShowNewParentForm(false);
+                        }
+                    }
                 }
-            };
+            } catch (err) {
+                console.error("Error fetching fresh student data:", err);
+                toast.error("Failed to load student details");
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-            fetchDetails();
-
-            // ⚠️ Set orphaned fields if available
-            setAdmissionNumber(studentToEdit.admission_number || '');
-            setStudentAddress(studentToEdit.address || '');
-            setGender(studentToEdit.gender || '');
-        }
+        loadFreshData();
     }, [studentToEdit]);
 
     const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -883,15 +893,16 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
 
                                 {/* ⚠️ Added orphaned database fields */}
                                 <div>
-                                    <label htmlFor="admissionNumber" className="block text-sm font-medium text-gray-700 mb-1">Admission Number <span className="text-gray-400 text-xs">(Optional)</span></label>
+                                    <label htmlFor="admissionNumber" className="block text-sm font-medium text-gray-700 mb-1">Admission Number</label>
                                     <input
                                         type="text"
                                         name="admissionNumber"
                                         id="admissionNumber"
-                                        value={admissionNumber}
-                                        onChange={e => setAdmissionNumber(e.target.value)}
-                                        className="w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="ADM-2024-001"
+                                        value={studentToEdit ? (admissionNumber || 'Loading...') : (admissionNumber || 'Generating...')}
+                                        onChange={e => !studentToEdit && setAdmissionNumber(e.target.value)}
+                                        readOnly={!!studentToEdit}
+                                        className={`w-full px-3 py-3 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 ${studentToEdit ? 'cursor-not-allowed opacity-75' : ''}`}
+                                        placeholder={studentToEdit ? 'Loading...' : 'Generating...'}
                                     />
                                 </div>
 
@@ -957,9 +968,19 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                                                         onClick={() => setSelectedParentId(parent.id)}
                                                         className={`w-full text-left p-3 flex items-center gap-3 transition-colors ${selectedParentId === parent.id ? 'bg-indigo-50 border-indigo-200' : 'hover:bg-white'}`}
                                                     >
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${selectedParentId === parent.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                                            {(parent.name || parent.full_name || '?').charAt(0)}
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden text-xs font-bold ${selectedParentId === parent.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                                            {parent.avatar_url && !parentImageErrors[parent.id] ? (
+                                                                <img 
+                                                                    src={parent.avatar_url} 
+                                                                    alt={parent.full_name || parent.name} 
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={() => setParentImageErrors(prev => ({...prev, [parent.id]: true}))}
+                                                                />
+                                                            ) : (
+                                                                (parent.name || parent.full_name || '?').charAt(0)
+                                                            )}
                                                         </div>
+
                                                         <div className="min-w-0">
                                                             <p className="text-sm font-bold text-gray-800 truncate">{parent.name || parent.full_name || 'Unnamed Parent'}</p>
                                                             <p className="text-[10px] text-gray-500 truncate">{parent.email || parent.school_generated_id}</p>

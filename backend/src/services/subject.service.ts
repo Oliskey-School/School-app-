@@ -4,9 +4,9 @@ import { SocketService } from './socket.service';
 export class SubjectService {
     static async getSubjects(schoolId: string, branchId?: string) {
         const where: any = { school_id: schoolId };
-        // Branch isolation: only this branch's subjects (plus any school-wide ones).
+        // Branch isolation: only this branch's subjects.
         if (branchId && branchId !== 'all') {
-            where.OR = [{ branch_id: branchId }, { branch_id: null }];
+            where.branch_id = branchId;
         }
         return await prisma.subject.findMany({
             where,

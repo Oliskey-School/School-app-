@@ -6,6 +6,41 @@ import { Role } from '../../generated/prisma-client';
 import { SocketService } from './socket.service';
 
 export class ParentService {
+    // Helper to normalize and resolve student IDs
+    private static async resolveStudentIds(schoolId: string, studentIds: any): Promise<string[]> {
+        const ids = Array.isArray(studentIds) 
+            ? studentIds 
+            : (typeof studentIds === 'string' ? studentIds.split(',').map(s => s.trim()) : []);
+        
+        const validIds = ids.filter(id => id.length > 0);
+        if (validIds.length === 0) return [];
+
+        const students = await prisma.student.findMany({
+            where: {
+                school_id: schoolId,
+                OR: [
+                    { id: { in: validIds } },
+                    { school_generated_id: { in: validIds } }
+                ]
+            },
+            select: { id: true, school_generated_id: true }
+        });
+
+        // Validate that ALL provided IDs were found
+        const foundIds = new Set([
+            ...students.map(s => s.id),
+            ...students.map(s => s.school_generated_id).filter(Boolean) as string[]
+        ]);
+        
+        for (const id of validIds) {
+            if (!foundIds.has(id)) {
+                throw new Error(`Student with ID or Code '${id}' not found in this school.`);
+            }
+        }
+
+        return students.map(s => s.id);
+    }
+
     static async getParents(schoolId: string, branchId?: string) {
         const parents = await (prisma.parent.findMany as any)({
             where: {
@@ -13,6 +48,11 @@ export class ParentService {
                 branch_id: branchId && branchId !== 'all' ? branchId : undefined
             },
             include: {
+                user: {
+                    select: {
+                        avatar_url: true
+                    }
+                },
                 children: {
                     include: {
                         student: true
@@ -24,6 +64,7 @@ export class ParentService {
 
         return (parents || []).map((p: any) => ({
             ...p,
+            avatar_url: p.avatar_url || p.user?.avatar_url,
             childIds: p.children?.map((pc: any) => pc.student_id) || [],
             childrenNames: p.children?.map((pc: any) => pc.student?.full_name).filter(Boolean) || []
         }));
@@ -43,19 +84,10 @@ export class ParentService {
         if (!parent) throw new Error('Parent profile not found');
         const resolvedParentId = parent.id;
 
-        // 2. Resolve student ID if it's a school_generated_id
-        let studentId = studentIdOrCode;
-        if (!studentIdOrCode.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-            const student = await prisma.student.findFirst({
-                where: {
-                    school_id: schoolId,
-                    school_generated_id: studentIdOrCode
-                },
-                select: { id: true }
-            });
-            if (!student) throw new Error(`Student with ID ${studentIdOrCode} not found`);
-            studentId = student.id;
-        }
+        // 2. Resolve student IDs (using the new helper)
+        const studentIds = await this.resolveStudentIds(schoolId, studentIdOrCode);
+        if (studentIds.length === 0) throw new Error(`Student not found or not linked to this school.`);
+        const studentId = studentIds[0];
 
         console.log('🛠️ [ParentService] Manually linking child to parent:', { resolvedParentId, studentId });
         
@@ -191,6 +223,17 @@ export class ParentService {
                 where: { email: email.toLowerCase() }
             });
 
+            // The email already belongs to an account — do NOT reuse/overwrite it
+            // (reusing is how a parent ended up carrying another user's teacher ID and
+            // how created users went missing). Reject so each person keeps their own
+            // account + unique ID, and the shown credentials always work.
+            if (user) {
+                throw Object.assign(
+                    new Error(`This email is already registered to ${user.full_name || 'another account'}. Please use a different email.`),
+                    { status: 409 }
+                );
+            }
+
             let generatedPassword: string | null = null;
             let loginId: string | null = null;
 
@@ -225,12 +268,16 @@ export class ParentService {
 
                 loginId = schoolGeneratedId || email;
             } else {
-                // Email already belongs to someone — don't reuse/overwrite their account
-                // (that is how a parent ended up carrying another user's teacher ID).
-                throw Object.assign(
-                    new Error(`This email is already registered to ${user.full_name || 'another account'}. Please use a different email.`),
-                    { status: 409 }
-                );
+                // Email already belongs to someone. 
+                // Allow reusing the account if they belong to the same school (e.g. a Teacher who is also a Parent)
+                if (user.school_id !== schoolId && user.school_id !== null) {
+                    throw Object.assign(
+                        new Error(`This email is already registered to ${user.full_name || 'another account'} in a different school. Please use a different email.`),
+                        { status: 409 }
+                    );
+                }
+                
+                loginId = user.school_generated_id || user.email;
             }
 
             const parent = await (tx.parent.upsert as any)({
@@ -265,37 +312,30 @@ export class ParentService {
 
             // 3. Link Children if provided
             const { childIds } = parentData;
-            if (childIds && Array.isArray(childIds) && childIds.length > 0) {
-                console.log(`🔗 [ParentService] Attempting to link ${childIds.length} students to parent ${parent.id}`);
+            if (childIds) {
+                console.log(`🔗 [ParentService] Attempting to link students to parent ${parent.id}`);
                 
-                // Resolve student IDs (handles both UUIDs and school_generated_ids)
-                const students = await tx.student.findMany({
-                    where: {
-                        school_id: schoolId,
-                        OR: [
-                            { id: { in: childIds } },
-                            { school_generated_id: { in: childIds } }
-                        ]
-                    },
-                    select: { id: true, full_name: true, school_generated_id: true }
-                });
+                const studentIds = await this.resolveStudentIds(schoolId, childIds);
 
-                if (students.length > 0) {
-                    const relations = students.map(s => ({
-                        parent_id: parent.id,
-                        student_id: s.id,
-                        school_id: schoolId,
-                        branch_id: branchId && branchId !== 'all' ? branchId : null
-                    }));
-
-                    const linkedResult = await (tx.parentChild.createMany as any)({
-                        data: relations,
-                        skipDuplicates: true
-                    });
-                    
-                    console.log(`✅ [ParentService] Successfully linked students. Count: ${linkedResult.count || 0}`);
-                } else {
-                    console.warn(`⚠️ [ParentService] No matching students found for IDs: ${childIds.join(', ')}`);
+                if (studentIds.length > 0) {
+                    for (const sid of studentIds) {
+                        await (tx.parentChild.upsert as any)({
+                            where: {
+                                parent_id_student_id: {
+                                    parent_id: parent.id,
+                                    student_id: sid
+                                }
+                            },
+                            update: {},
+                            create: {
+                                parent_id: parent.id,
+                                student_id: sid,
+                                school_id: schoolId,
+                                branch_id: branchId && branchId !== 'all' ? branchId : null
+                            }
+                        });
+                    }
+                    console.log(`✅ [ParentService] Successfully linked ${studentIds.length} students.`);
                 }
             }
 
@@ -375,6 +415,11 @@ export class ParentService {
                 } : {})
             },
             include: {
+                user: {
+                    select: {
+                        avatar_url: true
+                    }
+                },
                 children: {
                     include: {
                         student: true
@@ -387,6 +432,7 @@ export class ParentService {
 
         return {
             ...parent,
+            avatar_url: parent.avatar_url || (parent as any).user?.avatar_url,
             childIds: parent.children?.map((pc: any) => pc.student_id) || []
         };
     }
@@ -441,36 +487,30 @@ export class ParentService {
             }
 
             // Handle children updates if provided
-            if (childIds !== undefined && Array.isArray(childIds)) {
+            if (childIds !== undefined) {
                 // 1. Delete existing links
                 await (tx.parentChild.deleteMany as any)({
-                    where: { parent_id: id }
+                    where: { parent_id: parent.id }
                 });
 
                 // 2. Create new links if not empty
-                if (childIds.length > 0) {
-                    const students = await tx.student.findMany({
-                        where: {
-                            school_id: schoolId,
-                            OR: [
-                                { id: { in: childIds } },
-                                { school_generated_id: { in: childIds } }
-                            ]
-                        },
-                        select: { id: true }
-                    });
-
-                    if (students.length > 0) {
-                        const relations = students.map(s => ({
-                            parent_id: id,
-                            student_id: s.id,
-                            school_id: schoolId,
-                            branch_id: branchId && branchId !== 'all' ? branchId : null
-                        }));
-
-                        await (tx.parentChild.createMany as any)({
-                            data: relations,
-                            skipDuplicates: true
+                const studentIds = await this.resolveStudentIds(schoolId, childIds);
+                if (studentIds.length > 0) {
+                    for (const sid of studentIds) {
+                        await (tx.parentChild.upsert as any)({
+                            where: {
+                                parent_id_student_id: {
+                                    parent_id: parent.id,
+                                    student_id: sid
+                                }
+                            },
+                            update: {},
+                            create: {
+                                parent_id: parent.id,
+                                student_id: sid,
+                                school_id: schoolId,
+                                branch_id: branchId && branchId !== 'all' ? branchId : null
+                            }
                         });
                     }
                 }
@@ -943,7 +983,7 @@ export class ParentService {
                     { user_id: userId },
                     { audience: { hasSome: ['parent', 'all'] } }
                 ],
-                ...(branchId && branchId !== 'all' ? { OR: [{ branch_id: branchId }, { branch_id: null }] } : {})
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
             },
             orderBy: { created_at: 'desc' }
         });

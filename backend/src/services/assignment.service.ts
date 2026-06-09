@@ -10,10 +10,7 @@ export class AssignmentService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.class.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.class.branch_id = branchId;
         }
 
         if (classId) where.class_id = classId;
@@ -68,6 +65,9 @@ export class AssignmentService {
             insertData.is_published = true;
         }
 
+        insertData.school_id = schoolId;
+        insertData.branch_id = branchId && branchId !== 'all' ? branchId : null;
+
         if (!insertData.subject && mainData.subject_id) {
             insertData.subject = mainData.subject_id;
         }
@@ -82,10 +82,7 @@ export class AssignmentService {
         };
 
         if (branchId && branchId !== 'all') {
-            classWhere.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            classWhere.branch_id = branchId;
         }
 
         const targetClass = await prisma.class.findFirst({ where: classWhere });
@@ -100,7 +97,7 @@ export class AssignmentService {
                     teacher_id: insertData.teacher_id,
                     class_id: insertData.class_id,
                     ...(branchId && branchId !== 'all'
-                        ? { OR: [{ branch_id: branchId }, { branch_id: null }] }
+                        ? { branch_id: branchId }
                         : {})
                 }
             });
@@ -129,10 +126,7 @@ export class AssignmentService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.assignment.class.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.assignment.class.branch_id = branchId;
         }
 
         return await prisma.assignmentSubmission.findMany({

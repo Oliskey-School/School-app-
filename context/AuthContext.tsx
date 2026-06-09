@@ -116,23 +116,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (cachedUser) {
             try {
                 const userData = JSON.parse(cachedUser);
-                React.startTransition(() => {
-                    setUser(userData);
+                
+                // STALENESS PROTECTION: If the cached data has a mock name but we are not in 
+                // demo mode (or vice-versa), do not load it optimistically.
+                const isCachedDemo = !!(userData.is_demo || userData.isDemo);
+                const currentIsDemo = sessionStorage.getItem('is_demo_mode') === 'true';
+                const hasMockName = userData.school?.name === 'Global Demo School';
 
-                    // Priority: Session (tab-specific) > Default role
-                    const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
-                    if (savedRole) {
-                        setRole(savedRole);
-                    } else {
-                        setRole(getDashboardTypeFromUserType(userData.role));
-                    }
+                if (isCachedDemo === currentIsDemo && (!hasMockName || currentIsDemo)) {
+                    React.startTransition(() => {
+                        setUser(userData);
 
-                    if (userData.school) {
-                        setCurrentSchool(userData.school);
-                        setCurrentBranchId(userData.branch_id || userData.school.branch_id);
-                    }
-                });
-                console.log("⚡ [Auth] Optimistic load from cache...");
+                        // Priority: Session (tab-specific) > Default role
+                        const savedRole = sessionStorage.getItem('active_dashboard_role') as DashboardType;
+                        if (savedRole) {
+                            setRole(savedRole);
+                        } else {
+                            setRole(getDashboardTypeFromUserType(userData.role));
+                        }
+
+                        if (userData.school) {
+                            setCurrentSchool(userData.school);
+                            setCurrentBranchId(userData.branch_id || userData.school.branch_id);
+                        }
+                    });
+                    console.log("⚡ [Auth] Optimistic load from cache...");
+                } else {
+                    console.log("⚠️ [Auth] Cache ignored (potential mock/stale data detected)");
+                    localStorage.removeItem('cached_user_profile');
+                }
             } catch (e) {
                 console.warn("Failed to parse cached user");
             }

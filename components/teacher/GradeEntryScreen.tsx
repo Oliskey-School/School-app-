@@ -40,12 +40,13 @@ const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
 
     // Parse Class Name
     const gradeSection = React.useMemo(() => {
+        if (!exam.className) return { grade: 0, section: 'A' };
         const gradeMatch = exam.className.match(/\d+/);
         const sectionMatch = exam.className.match(/[A-Z]/);
-        if (!gradeMatch || !sectionMatch) return null;
+        
         return {
-            grade: parseInt(gradeMatch[0], 10),
-            section: sectionMatch[0]
+            grade: gradeMatch ? parseInt(gradeMatch[0], 10) : 0,
+            section: sectionMatch ? sectionMatch[0] : 'A'
         };
     }, [exam.className]);
 

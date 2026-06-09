@@ -153,7 +153,9 @@ export class NotificationService {
                 data: {
                     user_id: userId,
                     categories: defaultCategories,
-                    digest_time: '19:00'
+                    digest_time: '19:00',
+                    school_id: 'GLOBAL', // Fallback for demo
+                    branch_id: 'GLOBAL'
                 }
             });
         }
