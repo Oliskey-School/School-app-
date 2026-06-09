@@ -996,7 +996,9 @@ export class TeacherService {
                 mentor_id: data.mentor_id,
                 mentee_id: teacher.id,
                 subject_area: data.subject_area,
-                status: 'Active'
+                status: 'Active',
+                school_id: teacher.school_id,
+                branch_id: teacher.branch_id
             }
         });
     }
@@ -1025,11 +1027,15 @@ export class TeacherService {
         });
     }
 
-    static async createSubstituteRequest(schoolId: string, teacherId: string, data: any) {
+    static async createSubstituteRequest(schoolId: string, userId: string, data: any) {
+        // Resolve the requesting teacher so we store the teacher id (not the user id)
+        // and stamp the request with the teacher's branch for per-branch isolation.
+        const teacher = await prisma.teacher.findFirst({ where: { user_id: userId, school_id: schoolId } });
         const result = await prisma.substituteAssignment.create({
             data: {
                 school_id: schoolId,
-                original_teacher_id: teacherId,
+                branch_id: data.branch_id || teacher?.branch_id || null,
+                original_teacher_id: teacher?.id || userId,
                 substitute_teacher_id: data.substitute_teacher_id,
                 class_id: data.class_id,
                 subject_id: data.subject_id,
