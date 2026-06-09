@@ -33,6 +33,7 @@ vi.mock('../../../lib/api', () => {
     }),
     get: vi.fn().mockResolvedValue({}),
     post: vi.fn().mockResolvedValue({}),
+    getNextAdmissionNumber: vi.fn().mockResolvedValue({ admissionNumber: 'ADM-0001' }),
   };
 
   const mockSupabase = {
