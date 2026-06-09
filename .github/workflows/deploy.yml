@@ -85,10 +85,14 @@ jobs:
         run: npm ci
 
       # --- Apply pending Prisma migrations ---
+      # The schema declares both url (DATABASE_URL) and directUrl (DIRECT_URL).
+      # Migrations should use the DIRECT connection (Supabase port 5432, session
+      # mode); fall back to DATABASE_URL if a dedicated DIRECT_URL secret is absent.
       - name: Run database migrations
         run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL || secrets.DATABASE_URL }}
 
       # --- Frontend → Vercel ---
       - name: Deploy frontend to Vercel
