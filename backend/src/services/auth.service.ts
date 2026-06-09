@@ -337,7 +337,7 @@ export class AuthService {
             }
         }
 
-        const payload = {
+        const payload: any = {
             id: user.id,
             email: user.email,
             role: user.role,
@@ -345,6 +345,16 @@ export class AuthService {
             branch_id: user.branch_id,
             allowed_branch_ids: allowedBranchIds
         };
+
+        // Mark demo tokens so the auth middleware routes them through the demo path,
+        // which authorises ANY branch inside the visitor's sandbox DYNAMICALLY (root
+        // or "<root>__<rand>"). Without this flag the token took the normal path and
+        // was validated against the FROZEN allowed_branch_ids from login — so a
+        // sub-branch created after login (or a stale token) 403'd, and the client
+        // then cleared the branch and silently fell back to Main.
+        if (user.is_demo) {
+            payload.is_demo = true;
+        }
 
         // Lead DevSecOps: Use short-lived Access Tokens (15m) and strictly enforce HS256
         const token = jwt.sign(payload, config.jwtSecret, { 

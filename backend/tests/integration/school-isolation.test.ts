@@ -44,9 +44,12 @@ describe('Cross-school isolation (admin-hub)', () => {
             .get(`/api/admin-hub/reports/saved?schoolId=${OTHER_SCHOOL}`)
             .set('Authorization', `Bearer ${admin.token}`);
 
-        expect(res.status).toBe(200);
+        // Either outcome prevents the leak: the demo token is rejected outright (403,
+        // "demo tokens can only access the demo school"), OR the controller ignores the
+        // malicious schoolId and returns the caller's own (empty) reports (200). What
+        // must NEVER happen is the other school's report leaking through.
+        expect([200, 403]).toContain(res.status);
         const ids = (Array.isArray(res.body) ? res.body : []).map((r: any) => r.id);
-        // The other school's secret report must NOT appear.
         expect(ids).not.toContain(leakReportId);
     });
 });
