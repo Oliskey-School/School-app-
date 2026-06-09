@@ -461,12 +461,17 @@ export class TeacherService {
         const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const checkIn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
-        const existing = await prisma.teacherAttendance.findUnique({
+        // Per-branch: a teacher checking in while focused on Lekki gets a SEPARATE
+        // record from their Main check-in (the unique key now includes branch_id).
+        // Without this, the day's single (teacher,date) row belonged to whichever
+        // branch checked in first, so a Lekki mark silently updated the Main row and
+        // never appeared in Lekki.
+        const effectiveBranch = branchId || teacher.branch_id;
+        const existing = await prisma.teacherAttendance.findFirst({
             where: {
-                teacher_id_date: {
-                    teacher_id: teacher.id,
-                    date: date
-                }
+                teacher_id: teacher.id,
+                date: date,
+                branch_id: effectiveBranch
             }
         });
 

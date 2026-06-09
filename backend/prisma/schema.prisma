@@ -349,7 +349,7 @@ model TeacherAttendance {
   updated_by               String?
   deleted_at               DateTime?
 
-  @@unique([teacher_id, date])
+  @@unique([teacher_id, date, branch_id])
 }
 
 model Parent {
