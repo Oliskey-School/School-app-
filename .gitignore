@@ -52,6 +52,7 @@ test_output_utf8.txt
 *.js
 *.ts
 !backend/src/**/*.ts
+!backend/tests/**/*.ts
 !lib/**/*.ts
 !components/**/*.ts
 !context/**/*.ts
