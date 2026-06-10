@@ -45,7 +45,9 @@ export class ExtracurricularService {
             },
             create: {
                 student_id: studentId,
-                activity_id: activityId
+                activity_id: activityId,
+                school_id: activity.school_id,
+                branch_id: activity.branch_id
             },
             update: {}
         });

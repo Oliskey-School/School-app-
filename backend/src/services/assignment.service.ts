@@ -182,7 +182,8 @@ export class AssignmentService {
                     assignment_id: assignmentId
                 }
             },
-            create: insertData,
+            // school_id/branch_id are required on create; never overwritten on update.
+            create: { ...insertData, school_id: schoolId, branch_id: (branchId && branchId !== 'all') ? branchId : null },
             update: insertData
         });
 

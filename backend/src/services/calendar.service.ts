@@ -24,7 +24,7 @@ export class CalendarService {
         }));
     }
 
-    static async rsvpToEvent(schoolId: string, eventId: string, parentId: string, status: string) {
+    static async rsvpToEvent(schoolId: string, eventId: string, parentUserId: string, status: string) {
         // Verify the event is in the caller's school before allowing RSVP write.
         const event = await prisma.event.findFirst({ where: { id: eventId, school_id: schoolId } });
         if (!event) {
@@ -32,6 +32,18 @@ export class CalendarService {
             err.statusCode = 404;
             throw err;
         }
+
+        // RSVP is keyed by the Parent record id, but the caller passes the user id.
+        const parent = await prisma.parent.findFirst({
+            where: { OR: [{ user_id: parentUserId }, { id: parentUserId }], school_id: schoolId },
+            select: { id: true }
+        });
+        if (!parent) {
+            const err: any = new Error('Parent profile not found');
+            err.statusCode = 404;
+            throw err;
+        }
+        const parentId = parent.id;
 
         const result = await prisma.eventRSVP.upsert({
             where: {
@@ -44,7 +56,9 @@ export class CalendarService {
             create: {
                 event_id: eventId,
                 parent_id: parentId,
-                status
+                status,
+                school_id: event.school_id,
+                branch_id: event.branch_id
             }
         });
 

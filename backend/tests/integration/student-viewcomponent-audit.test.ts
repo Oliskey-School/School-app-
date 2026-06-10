@@ -14,6 +14,7 @@ import { config } from '../../src/config/env';
 
 const S = 'sva-school', M = 'sva-main';
 const SUID = 'sva-stu-u', SID = 'sva-stu';
+let ASG = '', ACT = '';
 
 const tok = () => jwt.sign(
   { id: SUID, email: 'sva-stu@x.com', role: 'STUDENT', school_id: S, branch_id: M, allowed_branch_ids: [] },
@@ -24,7 +25,7 @@ const post = (path: string, body: any) =>
   request(app).post(path).set('Authorization', `Bearer ${tok()}`).set('X-Branch-Id', M).send(body);
 
 async function cleanup() {
-  for (const m of ['studentDocument', 'studentEnrollment', 'student', 'class', 'schoolMembership', 'user', 'branch'] as const) {
+  for (const m of ['studentActivity', 'extracurricularActivity', 'assignmentSubmission', 'assignment', 'studentDocument', 'studentEnrollment', 'student', 'class', 'schoolMembership', 'user', 'branch'] as const) {
     await (prisma as any)[m]?.deleteMany?.({ where: { school_id: S } }).catch(() => {});
   }
   await prisma.school.delete({ where: { id: S } }).catch(() => {});
@@ -39,6 +40,8 @@ describe('Student viewComponent audit', () => {
     const u = await prisma.user.create({ data: { id: SUID, email: 'sva-stu@x.com', password_hash: 'x', full_name: 'Audit Student', role: 'STUDENT' as any, school_id: S, branch_id: M, school_generated_id: 'SVA_SVAM_STU_0001' } });
     await prisma.student.create({ data: { id: SID, user_id: u.id, school_id: S, branch_id: M, full_name: 'Audit Student', grade: 7, school_generated_id: 'SVA_SVAM_STU_0001', assigned_subjects: ['Mathematics', 'English'] } });
     await prisma.studentEnrollment.create({ data: { student_id: SID, class_id: cls.id, school_id: S, branch_id: M } as any }).catch(() => {});
+    ASG = (await prisma.assignment.create({ data: { school_id: S, branch_id: M, class_id: cls.id, title: 'Essay', subject: 'English', description: 'Write', due_date: new Date(Date.now() + 1e9) } as any })).id;
+    ACT = (await (prisma as any).extracurricularActivity.create({ data: { school_id: S, branch_id: M, name: 'Chess Club', category: 'Club' } })).id;
   }, 120000);
 
   afterAll(cleanup, 120000);
@@ -70,6 +73,25 @@ describe('Student viewComponent audit', () => {
     const arr = Array.isArray(res.body) ? res.body : (res.body?.data || []);
     const names = arr.map((s: any) => s.name || s);
     expect(names).toEqual(expect.arrayContaining(['Mathematics', 'English']));
+  });
+
+  it('submit-assignment button persists a submission scoped to the school', async () => {
+    const res = await post(`/api/assignments/${ASG}/submit`, { text_submission: 'My answer', file_url: 'a.png' });
+    if (![200, 201].includes(res.status)) console.log('submit-assignment:', res.status, JSON.stringify(res.body).slice(0, 200));
+    expect([200, 201]).toContain(res.status);
+    const rows = await (prisma as any).assignmentSubmission.findMany({ where: { assignment_id: ASG } });
+    expect(rows.length).toBe(1);
+    expect(rows[0].school_id).toBe(S);
+    expect(rows[0].branch_id).toBe(M);
+  });
+
+  it('join-activity button persists a membership scoped to the school', async () => {
+    const res = await post('/api/extracurriculars/join', { activityId: ACT });
+    if (![200, 201].includes(res.status)) console.log('join-activity:', res.status, JSON.stringify(res.body).slice(0, 200));
+    expect([200, 201]).toContain(res.status);
+    const rows = await (prisma as any).studentActivity.findMany({ where: { activity_id: ACT } });
+    expect(rows.length).toBe(1);
+    expect(rows[0].school_id).toBe(S);
   });
 
   it('upload-document button persists a real row in the database', async () => {

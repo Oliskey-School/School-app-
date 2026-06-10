@@ -18,7 +18,7 @@ const PU = 'pva-par-u', PID = 'pva-par';
 const SU = 'pva-stu-u', SID = 'pva-stu';
 const SU2 = 'pva-stu2-u', SID2 = 'pva-stu2';
 const TU = 'pva-tch-u', TID = 'pva-tch';
-let FEEID = '', OPPID = '';
+let FEEID = '', OPPID = '', EVTID = '';
 
 const tok = () => jwt.sign(
   { id: PU, email: 'pva-par@x.com', role: 'PARENT', school_id: S, branch_id: M, allowed_branch_ids: [] },
@@ -29,7 +29,7 @@ const post = (path: string, body: any) =>
   request(app).post(path).set('Authorization', `Bearer ${tok()}`).set('X-Branch-Id', M).send(body);
 
 async function cleanup() {
-  for (const m of ['savingsPlan', 'payment', 'message', 'complaint', 'volunteerSignup', 'volunteeringOpportunity',
+  for (const m of ['eventRSVP', 'event', 'savingsPlan', 'payment', 'message', 'complaint', 'volunteerSignup', 'volunteeringOpportunity',
     'appointment', 'parentChild', 'studentFee', 'student', 'teacher', 'parent', 'class', 'schoolMembership', 'user', 'branch'] as const) {
     await (prisma as any)[m]?.deleteMany?.({ where: { school_id: S } }).catch(() => {});
   }
@@ -57,6 +57,7 @@ describe('Parent viewComponent audit', () => {
     // a fee + a volunteering opportunity
     FEEID = (await prisma.studentFee.create({ data: { student_id: SID, school_id: S, branch_id: M, title: 'Term 1', amount: 1000, due_date: new Date() } as any })).id;
     OPPID = (await prisma.volunteeringOpportunity.create({ data: { school_id: S, branch_id: M, title: 'Sports Day', slots_total: 5 } as any })).id;
+    EVTID = (await prisma.event.create({ data: { school_id: S, branch_id: M, title: 'Open Day', date: new Date(), type: 'General' } as any })).id;
   }, 120000);
 
   afterAll(cleanup, 120000);
@@ -97,6 +98,7 @@ describe('Parent viewComponent audit', () => {
     ['Volunteer Signup', '/api/parents/volunteer-signup', { opportunity_id: () => OPPID, full_name: 'Audit Parent' }],
     ['Create Savings Plan', '/api/parents/savings/plans', { student_id: SID, target_amount: 5000, target_date: new Date(Date.now() + 1e10).toISOString(), frequency: 'Monthly' }],
     ['Link Child', '/api/parents/link-child', { parentId: PID, studentId: SID2 }],
+    ['RSVP to Event', '/api/calendar/rsvp', { eventId: () => EVTID, status: 'Going' }],
   ];
 
   for (const [label, path, body] of WRITES) {
