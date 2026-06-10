@@ -1,21 +1,28 @@
 
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 // FIX: Corrected import for MessagesIcon and added HomeIcon and SettingsIcon.
 import { HomeIcon, BellIcon, UserIcon as ProfileIcon, DocumentTextIcon, PhoneIcon, PlayIcon, AnalyticsIcon, MegaphoneIcon, SettingsIcon, MessagesIcon, ElearningIcon, SparklesIcon, UserGroupIcon, GameControllerIcon, ChartBarIcon, ClockIcon } from '../../constants';
 import { LayoutDashboard, Wallet, ShieldCheck, BookOpen, Beaker, Users, Building2 } from 'lucide-react';
 
-const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, label: string, isActive: boolean, onClick: () => void, activeColor: string }> = ({ icon, label, isActive, onClick, activeColor }) => (
+const NavItem: React.FC<{ icon: React.ReactElement<{ className?: string }>, label: string, navId?: string, isActive: boolean, onClick: () => void, activeColor: string }> = ({ icon, label, navId, isActive, onClick, activeColor }) => {
+  const { t } = useTranslation();
+  // Translate by the stable nav id (falls back to the English label for any id
+  // without a key yet), so the bottom nav follows the chosen language everywhere.
+  const text = navId ? t(`nav.${navId}`, { defaultValue: label }) : label;
+  return (
   <button
     onClick={onClick}
     aria-current={isActive ? 'page' : undefined}
-    aria-label={label}
+    aria-label={text}
     className={`flex-1 flex flex-col items-center justify-center space-y-1 transition-colors duration-200 ${isActive ? activeColor : 'text-gray-500'}`}
   >
     {React.cloneElement(icon, { className: `h-6 w-6`, 'aria-hidden': true } as any)}
-    <span className="text-xs font-medium">{label}</span>
+    <span className="text-xs font-medium">{text}</span>
   </button>
-);
+  );
+};
 
 export const AdminBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen: string, setActiveScreen: (screen: string) => void }) => {
   const navItems = [
@@ -28,7 +35,7 @@ export const AdminBottomNav = ({ activeScreen, setActiveScreen }: { activeScreen
   return (
     <div className="w-full bg-white/95 backdrop-blur-sm border-t border-gray-100 p-2 flex justify-around items-center print:hidden">
       {navItems.map(item => (
-        <NavItem key={item.id} icon={item.icon} label={item.label} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
+        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
       ))}
     </div>
   );
@@ -45,7 +52,7 @@ export const TeacherBottomNav = ({ activeScreen, setActiveScreen }: { activeScre
   return (
     <div className="w-full bg-white/95 backdrop-blur-sm border-t border-gray-100 p-2 flex justify-around items-center print:hidden">
       {navItems.map(item => (
-        <NavItem key={item.id} icon={item.icon} label={item.label} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-[#7B61FF]" />
+        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-[#7B61FF]" />
       ))}
     </div>
   );
@@ -62,7 +69,7 @@ export const ParentBottomNav = ({ activeScreen, setActiveScreen }: { activeScree
   return (
     <div className="w-full bg-white/95 backdrop-blur-sm border-t border-gray-100 p-2 flex justify-around items-center print:hidden">
       {navItems.map(item => (
-        <NavItem key={item.id} icon={item.icon} label={item.label} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-[#4CAF50]" />
+        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-[#4CAF50]" />
       ))}
     </div>
   );
@@ -79,7 +86,7 @@ export const StudentBottomNav = ({ activeScreen, setActiveScreen }: { activeScre
   return (
     <div className="w-full bg-white/95 backdrop-blur-sm border-t border-gray-100 p-2 flex justify-around items-center print:hidden">
       {navItems.map(item => (
-        <NavItem key={item.id} icon={item.icon} label={item.label} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-[#FF9800]" />
+        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-[#FF9800]" />
       ))}
     </div>
   );
@@ -97,7 +104,7 @@ export const ProprietorBottomNav = ({ activeScreen, setActiveScreen }: { activeS
   return (
     <div className="w-full bg-white/95 backdrop-blur-sm border-t border-gray-100 p-2 flex justify-around items-center print:hidden">
       {navItems.map(item => (
-        <NavItem key={item.id} icon={item.icon} label={item.label} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
+        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
       ))}
     </div>
   );
@@ -112,7 +119,7 @@ export const InspectorBottomNav = ({ activeScreen, setActiveScreen }: { activeSc
   return (
     <div className="w-full bg-white/95 backdrop-blur-sm border-t border-gray-100 p-2 flex justify-around items-center print:hidden">
       {navItems.map(item => (
-        <NavItem key={item.id} icon={item.icon} label={item.label} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
+        <NavItem key={item.id} icon={item.icon} label={item.label} navId={item.id} isActive={activeScreen === item.id} onClick={() => setActiveScreen(item.id)} activeColor="text-indigo-600" />
       ))}
     </div>
   );

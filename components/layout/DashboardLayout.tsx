@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
+import { useTranslation } from 'react-i18next';
 import { AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar, InspectorSidebar } from '../ui/DashboardSidebar';
 import { AdminBottomNav, TeacherBottomNav, ParentBottomNav, StudentBottomNav, InspectorBottomNav } from '../ui/DashboardBottomNav';
 import { X } from 'lucide-react';
@@ -29,6 +30,7 @@ import { useProfile } from '../../context/ProfileContext';
 import { useAutoSync } from '../../hooks/useAutoSync';
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBack, activeScreen = 'home', setActiveScreen = () => { }, hideHeader = false, hideSidebar = false, hidePadding = false, onLogout }) => {
+    const { t } = useTranslation();
     const { user, role, signOut, currentSchool, isDemo, switchDemoRole } = useAuth();
     const { profile, refreshProfile } = useProfile(); // Use Profile Context
     const { activeBranchGeneratedId } = useBranch(); // Branch-aware Global ID for the header
@@ -176,7 +178,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                     <div className="flex-shrink-0 bg-gradient-to-r from-blue-700 to-indigo-700 text-white px-4 py-2 flex items-center justify-between gap-2 text-xs font-medium z-30">
                         <span className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />
-                            Demo Mode — changes reset daily
+                            {t('dashboard.demoMode')}
                         </span>
                         <button
                             onClick={() => {
@@ -185,7 +187,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
                             }}
                             className="bg-white text-blue-700 font-bold px-3 py-1 rounded-lg text-[10px] hover:bg-blue-50 transition flex-shrink-0"
                         >
-                            Create Your School
+                            {t('dashboard.createYourSchool')}
                         </button>
                     </div>
                 )}

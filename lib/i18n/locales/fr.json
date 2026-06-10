@@ -64,7 +64,16 @@
     "quizzes": "Quiz",
     "games": "Jeux",
     "feeStatus": "État des frais",
-    "more": "Plus"
+    "fees": "Frais",
+    "more": "Plus",
+    "overview": "Aperçu",
+    "finance": "Finances",
+    "compliance": "Audit",
+    "academic": "Scolaire",
+    "stem": "STEM",
+    "people": "Personnes",
+    "schoolSearch": "Recherche",
+    "inspectionHistory": "Historique"
   },
   "roles": {
     "admin": "Administrateur scolaire",
@@ -84,6 +93,7 @@
     "totalStudents": "Total des élèves",
     "totalStaff": "Total du personnel",
     "totalParents": "Total des parents",
-    "demoMode": "Mode démo — les modifications sont réinitialisées chaque jour"
+    "demoMode": "Mode démo — les modifications sont réinitialisées chaque jour",
+    "createYourSchool": "Créez votre école"
   }
 }

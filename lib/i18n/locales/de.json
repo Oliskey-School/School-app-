@@ -64,7 +64,16 @@
     "quizzes": "Quizze",
     "games": "Spiele",
     "feeStatus": "Gebührenstatus",
-    "more": "Mehr"
+    "fees": "Gebühren",
+    "more": "Mehr",
+    "overview": "Übersicht",
+    "finance": "Finanzen",
+    "compliance": "Prüfung",
+    "academic": "Akademisch",
+    "stem": "MINT",
+    "people": "Personen",
+    "schoolSearch": "Suche",
+    "inspectionHistory": "Verlauf"
   },
   "roles": {
     "admin": "Schulverwalter",
@@ -84,6 +93,7 @@
     "totalStudents": "Schüler insgesamt",
     "totalStaff": "Personal insgesamt",
     "totalParents": "Eltern insgesamt",
-    "demoMode": "Demo-Modus — Änderungen werden täglich zurückgesetzt"
+    "demoMode": "Demo-Modus — Änderungen werden täglich zurückgesetzt",
+    "createYourSchool": "Erstellen Sie Ihre Schule"
   }
 }

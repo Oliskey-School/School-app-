@@ -64,7 +64,16 @@
     "quizzes": "الاختبارات",
     "games": "الألعاب",
     "feeStatus": "حالة الرسوم",
-    "more": "المزيد"
+    "fees": "الرسوم",
+    "more": "المزيد",
+    "overview": "نظرة عامة",
+    "finance": "المالية",
+    "compliance": "تدقيق",
+    "academic": "أكاديمي",
+    "stem": "العلوم والتقنية",
+    "people": "الأشخاص",
+    "schoolSearch": "بحث",
+    "inspectionHistory": "السجل"
   },
   "roles": {
     "admin": "مدير المدرسة",
@@ -84,6 +93,7 @@
     "totalStudents": "إجمالي الطلاب",
     "totalStaff": "إجمالي الموظفين",
     "totalParents": "إجمالي أولياء الأمور",
-    "demoMode": "الوضع التجريبي — تتم إعادة ضبط التغييرات يوميًا"
+    "demoMode": "الوضع التجريبي — تتم إعادة ضبط التغييرات يوميًا",
+    "createYourSchool": "أنشئ مدرستك"
   }
 }

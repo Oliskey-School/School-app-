@@ -64,7 +64,16 @@
     "quizzes": "测验",
     "games": "游戏",
     "feeStatus": "费用状态",
-    "more": "更多"
+    "fees": "费用",
+    "more": "更多",
+    "overview": "概览",
+    "finance": "财务",
+    "compliance": "审计",
+    "academic": "学术",
+    "stem": "STEM",
+    "people": "人员",
+    "schoolSearch": "搜索",
+    "inspectionHistory": "历史"
   },
   "roles": {
     "admin": "学校管理员",
@@ -84,6 +93,7 @@
     "totalStudents": "学生总数",
     "totalStaff": "教职工总数",
     "totalParents": "家长总数",
-    "demoMode": "演示模式 — 更改每天重置"
+    "demoMode": "演示模式 — 更改每天重置",
+    "createYourSchool": "创建您的学校"
   }
 }

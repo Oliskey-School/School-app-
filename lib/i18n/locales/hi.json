@@ -64,7 +64,16 @@
     "quizzes": "प्रश्नोत्तरी",
     "games": "खेल",
     "feeStatus": "शुल्क स्थिति",
-    "more": "अधिक"
+    "fees": "शुल्क",
+    "more": "अधिक",
+    "overview": "अवलोकन",
+    "finance": "वित्त",
+    "compliance": "ऑडिट",
+    "academic": "शैक्षणिक",
+    "stem": "STEM",
+    "people": "लोग",
+    "schoolSearch": "खोज",
+    "inspectionHistory": "इतिहास"
   },
   "roles": {
     "admin": "स्कूल प्रशासक",
@@ -84,6 +93,7 @@
     "totalStudents": "कुल छात्र",
     "totalStaff": "कुल कर्मचारी",
     "totalParents": "कुल अभिभावक",
-    "demoMode": "डेमो मोड — परिवर्तन प्रतिदिन रीसेट होते हैं"
+    "demoMode": "डेमो मोड — परिवर्तन प्रतिदिन रीसेट होते हैं",
+    "createYourSchool": "अपना स्कूल बनाएँ"
   }
 }

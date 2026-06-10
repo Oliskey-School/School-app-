@@ -64,7 +64,16 @@
     "quizzes": "Тесты",
     "games": "Игры",
     "feeStatus": "Статус оплаты",
-    "more": "Ещё"
+    "fees": "Оплата",
+    "more": "Ещё",
+    "overview": "Обзор",
+    "finance": "Финансы",
+    "compliance": "Аудит",
+    "academic": "Учёба",
+    "stem": "STEM",
+    "people": "Люди",
+    "schoolSearch": "Поиск",
+    "inspectionHistory": "История"
   },
   "roles": {
     "admin": "Школьный администратор",
@@ -84,6 +93,7 @@
     "totalStudents": "Всего учеников",
     "totalStaff": "Всего сотрудников",
     "totalParents": "Всего родителей",
-    "demoMode": "Демо-режим — изменения сбрасываются ежедневно"
+    "demoMode": "Демо-режим — изменения сбрасываются ежедневно",
+    "createYourSchool": "Создать свою школу"
   }
 }

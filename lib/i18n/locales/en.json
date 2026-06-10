@@ -64,7 +64,16 @@
     "quizzes": "Quizzes",
     "games": "Games",
     "feeStatus": "Fee Status",
-    "more": "More"
+    "fees": "Fees",
+    "more": "More",
+    "overview": "Overview",
+    "finance": "Finance",
+    "compliance": "Audit",
+    "academic": "Academic",
+    "stem": "STEM",
+    "people": "People",
+    "schoolSearch": "Search",
+    "inspectionHistory": "History"
   },
   "roles": {
     "admin": "School Admin",
@@ -84,6 +93,7 @@
     "totalStudents": "Total Students",
     "totalStaff": "Total Staff",
     "totalParents": "Total Parents",
-    "demoMode": "Demo Mode — changes reset daily"
+    "demoMode": "Demo Mode — changes reset daily",
+    "createYourSchool": "Create Your School"
   }
 }
