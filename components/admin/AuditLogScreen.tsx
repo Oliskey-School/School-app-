@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -102,7 +103,7 @@ const AuditLogScreen: React.FC = () => {
                 {/* Log Details */}
                 <div className="flex-grow pt-1">
                   <div className="flex items-center space-x-2">
-                    <img src={log.profiles?.avatar_url || 'https://via.placeholder.com/32'} alt={log.profiles?.name || log.user_email} className="w-6 h-6 rounded-full border border-gray-200" />
+                    <img src={log.profiles?.avatar_url || DEFAULT_AVATAR} alt={log.profiles?.name || log.user_email} className="w-6 h-6 rounded-full border border-gray-200" />
                     <p className="font-semibold text-gray-800">{log.profiles?.name || log.user_email || 'System User'}</p>
                   </div>
                   <p className="text-sm text-gray-600 mt-1">

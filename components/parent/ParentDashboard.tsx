@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
+import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { DashboardType, Student, StudentAttendance, AttendanceStatus, StudentAssignment } from '../../types';
 import {
     THEME_CONFIG,
@@ -541,7 +542,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                             id: s.id,
                             name: s.name || s.full_name || '',
                             email: s.email || '',
-                            avatarUrl: s.avatar_url || 'https://via.placeholder.com/150',
+                            avatarUrl: s.avatar_url || DEFAULT_AVATAR,
                             grade: s.grade,
                             section: s.section,
                             attendanceStatus: s.attendance_status || 'Present',

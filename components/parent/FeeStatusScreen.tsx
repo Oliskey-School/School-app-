@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
+import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { Fee } from '../../types';
 import { FeeCard } from '../payments/FeeCard';
 import { PaystackButton } from '../payments/PaystackWrapper';
@@ -265,7 +266,7 @@ const FeeStatusScreen: React.FC<FeeStatusScreenProps> = ({ parentId, currentUser
                                         ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 scale-[1.05]' 
                                         : 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50'}`}
                             >
-                                <img src={s.avatar_url || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full border-2 border-white/50" alt={s.name || 'Student'} />
+                                <img src={s.avatar_url || DEFAULT_AVATAR} className="w-6 h-6 rounded-full border-2 border-white/50" alt={s.name || 'Student'} />
                                 <span>{(s?.name || s?.full_name || 'Student').toString().split(' ')[0]}</span>
                             </button>
                         ))}

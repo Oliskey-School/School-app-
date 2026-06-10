@@ -34,7 +34,8 @@
   "overrides": {
     "xcode": {
       "uuid": "$uuid"
-    }
+    },
+    "shell-quote": "1.8.4"
   },
   "dependencies": {
     "@capacitor/android": "8.1.0",

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Student } from '../../types';
+import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { api } from '../../lib/api';
 import { SearchIcon } from '../../constants';
 import { useProfile } from '../../context/ProfileContext';
@@ -20,7 +21,7 @@ interface StudentNewChatScreenProps {
 
 const UserRow: React.FC<{ user: UserListItem, onSelect: () => void }> = ({ user, onSelect }) => (
     <button onClick={onSelect} className="w-full flex items-center p-3 space-x-4 text-left bg-white rounded-lg hover:bg-gray-50 transition-colors">
-        <img src={user.avatarUrl || 'https://via.placeholder.com/150'} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
+        <img src={user.avatarUrl || DEFAULT_AVATAR} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
         <div className="flex-grow">
             <p className="font-bold text-gray-800">{user.name}</p>
             <p className="text-sm text-gray-500">{user.subtitle}</p>

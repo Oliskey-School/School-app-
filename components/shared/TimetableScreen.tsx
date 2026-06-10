@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAutoSync } from '../../hooks/useAutoSync';
+import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { SUBJECT_COLORS, CalendarIcon, ChevronLeftIcon, RefreshIcon, THEME_CONFIG } from '../../constants';
 import { getGradeDisplayName } from '../../lib/schoolSystem';
 import { TimetableEntry, DashboardType } from '../../types';
@@ -301,7 +302,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                                 className={`flex items-center space-x-2 px-4 py-2 rounded-xl border-2 transition-all flex-shrink-0 ${selectedStudent?.id === s.id ? `${theme.mainBg} text-white border-transparent shadow-sm` : 'bg-white text-gray-700 border-gray-100 hover:border-indigo-300'
                                     }`}
                             >
-                                <img src={s.avatarUrl || 'https://via.placeholder.com/32'} className="w-6 h-6 rounded-full" alt={s.name} />
+                                <img src={s.avatarUrl || DEFAULT_AVATAR} className="w-6 h-6 rounded-full" alt={s.name} />
                                 <span className="font-semibold text-sm">{s.name}</span>
                             </button>
                         ))}

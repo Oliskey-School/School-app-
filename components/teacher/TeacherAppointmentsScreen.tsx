@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../lib/api';
 import { Appointment } from '../../types';
+import { DEFAULT_AVATAR } from '../../lib/avatar';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from '../../constants';
 import { toast } from 'react-hot-toast';
 
@@ -15,7 +16,7 @@ const AppointmentCard: React.FC<{
     // Backend returns { Student: { full_name }, Parent: { full_name, avatar_url } }
     const studentName = appointment.Student?.full_name || 'Unknown Student';
     const parentName = appointment.Parent?.full_name || 'Unknown Parent';
-    const parentAvatar = appointment.Parent?.avatar_url || 'https://via.placeholder.com/150';
+    const parentAvatar = appointment.Parent?.avatar_url || DEFAULT_AVATAR;
 
     return (
         <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">

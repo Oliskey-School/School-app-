@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Conversation } from '../../types';
+import { DEFAULT_AVATAR } from '../../lib/avatar';
 import ChatScreen from '../shared/ChatScreen';
 import { SearchIcon, PlusIcon, MessagesIcon } from '../../constants';
 import { api } from '../../lib/api';
@@ -70,7 +71,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                     return {
                         id: c.id,
                         displayName: c.name || displayUser?.name || displayUser?.full_name || 'Unknown',
-                        displayAvatar: c.name ? null : (displayUser?.avatar_url || 'https://via.placeholder.com/40'),
+                        displayAvatar: c.name ? null : (displayUser?.avatar_url || DEFAULT_AVATAR),
                         lastMessage: {
                             content: lastMsg?.content || 'No messages yet',
                             created_at: lastMsg?.created_at || c.created_at,
@@ -107,7 +108,7 @@ const AdminMessagesScreen: React.FC<AdminMessagesScreenProps> = ({ onSelectChat,
                     return {
                         id: c.id,
                         displayName: c.name || displayUser?.name || displayUser?.full_name || 'Unknown',
-                        displayAvatar: c.name ? null : (displayUser?.avatar_url || 'https://via.placeholder.com/40'),
+                        displayAvatar: c.name ? null : (displayUser?.avatar_url || DEFAULT_AVATAR),
                         lastMessage: {
                             content: lastMsg?.content || 'No messages yet',
                             created_at: lastMsg?.created_at || c.created_at,
