@@ -812,7 +812,9 @@ export class ParentService {
                     where: {
                         school_id: schoolId,
                         grade: student.grade,
-                        section: student.section
+                        // section is a required field on Class — only filter by it when the
+                        // student actually has one, otherwise Prisma rejects section: null.
+                        ...(student.section ? { section: student.section } : {})
                     },
                     select: { id: true }
                 });
