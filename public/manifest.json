@@ -3,7 +3,7 @@
     "short_name": "SchoolApp",
     "description": "Complete school management system for students, teachers, parents and administrators",
     "start_url": "/",
-    "display": "fullscreen",
+    "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#4F46E5",
     "orientation": "portrait-primary",

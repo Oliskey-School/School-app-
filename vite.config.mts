@@ -68,6 +68,10 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         },
+        // A valid, installable manifest. Chrome requires a 192px AND a 512px PNG
+        // icon (the previous config shipped only vite.svg, which failed install
+        // criteria so beforeinstallprompt never fired). A separate "maskable" icon
+        // gives Android an adaptive icon without cropping the "any" one.
         manifest: {
           name: 'Smart School Management App',
           short_name: 'SchoolApp',
@@ -75,12 +79,14 @@ export default defineConfig(({ mode }) => {
           theme_color: '#4F46E5',
           background_color: '#ffffff',
           display: 'standalone',
+          orientation: 'portrait-primary',
+          start_url: '/',
+          scope: '/',
           icons: [
-            {
-              src: 'vite.svg',
-              sizes: '192x192',
-              type: 'image/svg+xml'
-            }
+            { src: '/icons/app-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/icons/app-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/icons/app-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/icons/app-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
           ]
         }
       })
