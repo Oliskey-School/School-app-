@@ -5,8 +5,10 @@ import { useAuth } from '../../context/AuthContext';
 import { SchoolLogoIcon, THEME_CONFIG } from '../../constants';
 import { authenticateUser } from '../../lib/auth';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import SchoolSignup from './SchoolSignup';
 import EmailVerificationScreen from './EmailVerificationScreen';
+import LanguageSwitcher from '../shared/LanguageSwitcher';
 
 const EyeIcon = ({ size = 20 }: { size?: number }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -36,6 +38,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { signIn, signInWithGoogle, switchDemoRole, forgotPassword, resetPassword } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [showGoogleMock, setShowGoogleMock] = useState(false);
   
@@ -475,12 +478,17 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
       {/* Centered Card */}
       <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative">
 
+        {/* Language picker — available before sign-in for any user worldwide */}
+        <div className="absolute top-3 right-3 z-20">
+          <LanguageSwitcher variant="button" />
+        </div>
+
         {/* Top Header Section */}
         <div className="pt-8 pb-6 px-6 sm:px-8 flex flex-col items-center text-center">
           <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 mb-4">
             <SchoolLogoIcon className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
           </div>
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800">School Portal Sign In</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800">{t('auth.schoolPortalSignIn')}</h2>
         </div>
 
         {/* Form Section */}
@@ -491,7 +499,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
                 type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="Email or Username"
+                placeholder={t('auth.emailOrUsername')}
                 className="w-full px-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
                 required
                 autoComplete="off"
@@ -505,7 +513,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder={t('auth.password')}
                 className="w-full px-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none pr-12"
                 required
                 autoComplete="new-password"
@@ -525,7 +533,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
               disabled={isLoading}
               className="w-full py-2.5 sm:py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-70 text-sm sm:text-base"
             >
-              {isLoading ? 'Signing In...' : 'Sign In'}
+              {isLoading ? `${t('auth.signIn')}…` : t('auth.signIn')}
             </button>
 
             {/* Google OAuth enabled for custom backend bridging */}
@@ -590,7 +598,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
                 }}
                 className="text-[10px] sm:text-xs text-slate-400 hover:text-slate-600 font-medium"
               >
-                Forgot Password?
+                {t('auth.forgotPassword')}
               </button>
             </div>
           </form>
@@ -605,7 +613,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
               onClick={() => setView('demo')}
               className="w-full flex items-center justify-center gap-2 py-2 sm:py-2.5 text-blue-700 font-bold text-xs sm:text-sm hover:bg-blue-50 rounded-lg transition-colors group"
             >
-              <span className="group-hover:translate-x-1 transition-transform">{'>'}</span> Try Demo School
+              <span className="group-hover:translate-x-1 transition-transform">{'>'}</span> {t('auth.tryDemo')}
             </button>
 
             <button
@@ -613,7 +621,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
               onClick={onNavigateToCreateSchool}
               className="w-full flex items-center justify-center gap-2 py-2 sm:py-2.5 text-amber-600 font-bold text-xs sm:text-sm hover:bg-amber-50 rounded-lg transition-colors group"
             >
-              <span className="group-hover:translate-x-1 transition-transform">{'>'}</span> Create School Account
+              <span className="group-hover:translate-x-1 transition-transform">{'>'}</span> {t('auth.createSchool')}
             </button>
           </div>
         </div>
@@ -629,8 +637,8 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
       {/* Footer Info */}
       <div className="mt-6 sm:mt-8 text-center max-w-md px-4">
-        <h3 className="text-slate-800 font-bold text-[10px] sm:text-xs tracking-wider">PROFESSIONAL SCHOOL PORTAL</h3>
-        <p className="text-slate-400 text-[10px] sm:text-xs mt-1">Efficient & Modern Learning Management</p>
+        <h3 className="text-slate-800 font-bold text-[10px] sm:text-xs tracking-wider">{t('auth.professionalPortal')}</h3>
+        <p className="text-slate-400 text-[10px] sm:text-xs mt-1">{t('auth.modernLearning')}</p>
       </div>
     </div>
   );

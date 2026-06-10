@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { BranchIdentityService } from '../services/branchIdentity.service';
 import { generateToken } from '../middleware/csrf.middleware';
+import prisma from '../config/database';
 
 const COOKIE_OPTIONS: any = {
     httpOnly: true,
@@ -353,9 +354,41 @@ export const switchSchool = async (req: Request, res: Response) => {
 export const getMe = async (req: Request, res: Response) => {
     try {
         const user = (req as any).user;
-        res.json(user);
+        // Enrich with the account-saved UI language so it follows the user across
+        // devices. Best-effort: demo/short-lived sessions still return the token user.
+        let preferred_language: string | null = null;
+        try {
+            if (user?.id && !user?.is_demo) {
+                const row = await prisma.user.findUnique({
+                    where: { id: user.id },
+                    select: { preferred_language: true },
+                });
+                preferred_language = (row as any)?.preferred_language ?? null;
+            }
+        } catch { /* column may not be migrated yet — ignore */ }
+        res.json({ ...user, preferred_language });
     } catch (error: any) {
         res.status(401).json({ message: 'Unauthorized' });
+    }
+};
+
+// Saves the user's chosen UI language to their account so it follows them across
+// devices. The device also remembers it locally for instant load.
+export const updateLanguage = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.id;
+        const { language } = req.body || {};
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+        if (!language || typeof language !== 'string') {
+            return res.status(400).json({ message: 'language is required' });
+        }
+        await prisma.user.update({
+            where: { id: userId },
+            data: { preferred_language: language } as any,
+        });
+        res.json({ success: true, preferred_language: language });
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
     }
 };
 

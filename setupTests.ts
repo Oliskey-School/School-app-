@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import './lib/i18n'; // initialize translations so t() resolves to English in tests
 
 // Global API and Supabase mock
 vi.mock('./lib/api', () => {

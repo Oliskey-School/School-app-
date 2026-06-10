@@ -167,6 +167,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     userData.id = userData.userId;
                 }
 
+                // Apply the account's saved UI language so it follows the user to a new
+                // device. A live local choice (already in localStorage) is respected.
+                if (userData.preferred_language && !localStorage.getItem('app_language')) {
+                    import('../lib/i18n').then((m) => m.setAppLanguage(userData.preferred_language)).catch(() => {});
+                }
+
                 // Cache for next time
                 localStorage.setItem('cached_user_profile', JSON.stringify(userData));
 

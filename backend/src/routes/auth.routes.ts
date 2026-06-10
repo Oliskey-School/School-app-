@@ -80,6 +80,7 @@ router.post('/switch-school', authenticate, AuthController.switchSchool);
 
 router.get('/csrf-token', AuthController.getCsrfToken);
 router.get('/me', authenticate, AuthController.getMe);
+router.put('/language', authenticate, AuthController.updateLanguage);
 router.get('/check-email', AuthController.checkEmail);
 router.get('/check-username', AuthController.checkUsername);
 

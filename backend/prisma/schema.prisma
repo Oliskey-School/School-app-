@@ -188,6 +188,7 @@ model User {
   phone                  String?
   two_factor_enabled     Boolean                @default(false)
   two_factor_secret      String?
+  preferred_language     String?
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
   initial_password       String?

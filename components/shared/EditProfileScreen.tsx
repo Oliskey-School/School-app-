@@ -5,6 +5,8 @@ import { useProfile } from '../../context/ProfileContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { LockIcon, UserIcon, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface EditProfileScreenProps {
     onBack: () => void;
@@ -53,6 +55,7 @@ const InputField: React.FC<{ label: string, value: string, onChange?: (val: stri
 const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onProfileUpdate }) => {
     const { updateProfile } = useProfile();
     const { user: authUser } = useAuth();
+    const { t } = useTranslation();
     const [name, setName] = useState(user?.name || '');
     const [avatar, setAvatar] = useState(user?.avatarUrl || '');
     const [email, setEmail] = useState(user?.email || '');
@@ -266,6 +269,12 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onBack, user, onP
                         </div>
                         <InputField label="Full Name" value={name} onChange={setName} />
                         <InputField label="Email Address" value={email} type="email" readOnly />
+
+                        {/* Language preference — saved to the account, follows the user across devices */}
+                        <div className="w-full mb-4">
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 ml-1">{t('common.language')}</label>
+                            <LanguageSwitcher variant="inline" persistToAccount />
+                        </div>
 
                         {authUser?.user_metadata?.email_verified && (
                             <div className="mt-8 pt-8 border-t border-gray-100 space-y-6 w-full">

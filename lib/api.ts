@@ -327,6 +327,11 @@ class ExpressApiClient {
         return this.get('/auth/me');
     }
 
+    /** Persist the user's chosen UI language to their account (follows them across devices). */
+    async updatePreferredLanguage(language: string): Promise<any> {
+        return this.put('/auth/language', { language });
+    }
+
     // The Global ID the user carries in their CURRENTLY ACTIVE branch (sent via the
     // X-Branch-Id header). Drives the live, branch-aware ID badge in the header.
     async getActiveBranchId(): Promise<{ school_generated_id: string; branch_id: string | null }> {

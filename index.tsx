@@ -4,6 +4,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
+import './lib/i18n'; // initialize app-wide translations + RTL before first render
 import { initSentry } from './lib/sentry';
 // @ts-ignore
 // import { registerSW } from 'virtual:pwa-register';
