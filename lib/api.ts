@@ -1,6 +1,7 @@
 import { InspectionTemplate } from '../types/inspector';
 
 import { API_BASE_URL } from './config';
+import { getJwtExpiryMs } from './tokenUtils';
 
 console.log(`📡 [API-TEST] Base URL: ${API_BASE_URL}`);
 
@@ -103,7 +104,27 @@ class ExpressApiClient {
 
         const fetchPromise = (async () => {
             try {
-                const token = await getAuthToken();
+                let token = await getAuthToken();
+
+                // Pre-flight refresh: if the access token is already expired (or within a
+                // 15s skew), refresh BEFORE sending so the request doesn't go out with a
+                // dead token, get a 401, and log a console error before recovering. The
+                // reactive 401→refresh path below remains as a safety net for tokens that
+                // expire mid-flight or get revoked server-side. Single-flight refreshToken()
+                // dedupes concurrent callers (e.g. the notifications poller + a page load).
+                if (token && !endpoint.includes('/auth/') &&
+                    (sessionStorage.getItem('auth_refresh_token') || localStorage.getItem('auth_refresh_token'))) {
+                    const expMs = getJwtExpiryMs(token);
+                    if (expMs !== null && expMs - Date.now() < 15000) {
+                        try {
+                            const refreshed = await this.refreshToken();
+                            if (refreshed?.token) token = refreshed.token;
+                        } catch {
+                            // Fall through with the old token; the reactive 401 path handles it.
+                        }
+                    }
+                }
+
                 const selectedBranchId = localStorage.getItem('selected_branch_id');
                 const shouldAttachBranchHeader = !!selectedBranchId &&
                     selectedBranchId !== 'all' &&
