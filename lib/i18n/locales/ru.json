@@ -41,7 +41,11 @@
     "backToSignIn": "Вернуться ко входу",
     "professionalPortal": "ПРОФЕССИОНАЛЬНЫЙ ШКОЛЬНЫЙ ПОРТАЛ",
     "modernLearning": "Эффективное и современное управление обучением",
-    "yourEmailAddress": "Ваш адрес эл. почты"
+    "yourEmailAddress": "Ваш адрес эл. почты",
+    "demoPortalSubtitle": "Войдите в демо-портал",
+    "featuredPortals": "Избранные порталы",
+    "specializedPortals": "Специализированные порталы",
+    "backToSchoolSignIn": "Назад ко входу в школу"
   },
   "nav": {
     "home": "Главная",

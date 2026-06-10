@@ -41,7 +41,11 @@
     "backToSignIn": "العودة إلى تسجيل الدخول",
     "professionalPortal": "بوابة المدرسة الاحترافية",
     "modernLearning": "إدارة تعلم حديثة وفعّالة",
-    "yourEmailAddress": "بريدك الإلكتروني"
+    "yourEmailAddress": "بريدك الإلكتروني",
+    "demoPortalSubtitle": "سجّل الدخول إلى بوابتك التجريبية",
+    "featuredPortals": "البوابات المميزة",
+    "specializedPortals": "البوابات المتخصصة",
+    "backToSchoolSignIn": "العودة إلى تسجيل دخول المدرسة"
   },
   "nav": {
     "home": "الرئيسية",

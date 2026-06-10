@@ -41,7 +41,11 @@
     "backToSignIn": "Back to Sign In",
     "professionalPortal": "PROFESSIONAL SCHOOL PORTAL",
     "modernLearning": "Efficient & Modern Learning Management",
-    "yourEmailAddress": "Your Email Address"
+    "yourEmailAddress": "Your Email Address",
+    "demoPortalSubtitle": "Sign in to your demo portal",
+    "featuredPortals": "Featured Portals",
+    "specializedPortals": "Specialized Portals",
+    "backToSchoolSignIn": "Back to School Sign In"
   },
   "nav": {
     "home": "Home",

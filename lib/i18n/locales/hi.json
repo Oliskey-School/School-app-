@@ -41,7 +41,11 @@
     "backToSignIn": "साइन इन पर वापस जाएँ",
     "professionalPortal": "पेशेवर स्कूल पोर्टल",
     "modernLearning": "कुशल और आधुनिक शिक्षण प्रबंधन",
-    "yourEmailAddress": "आपका ईमेल पता"
+    "yourEmailAddress": "आपका ईमेल पता",
+    "demoPortalSubtitle": "अपने डेमो पोर्टल में साइन इन करें",
+    "featuredPortals": "विशेष पोर्टल",
+    "specializedPortals": "विशेषीकृत पोर्टल",
+    "backToSchoolSignIn": "स्कूल साइन इन पर वापस जाएँ"
   },
   "nav": {
     "home": "होम",

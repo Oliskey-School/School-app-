@@ -409,12 +409,12 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
             <SchoolLogoIcon className="w-8 h-8 text-white" />
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
-          <p className="text-sm text-slate-500 mt-1 mb-8">Sign in to your demo portal</p>
+          <h2 className="text-2xl font-bold text-slate-800">{t('auth.welcomeBack')}</h2>
+          <p className="text-sm text-slate-500 mt-1 mb-8">{t('auth.demoPortalSubtitle')}</p>
 
           {/* Featured Roles Section */}
           <div className="w-full mb-6">
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Featured Portals</h3>
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">{t('auth.featuredPortals')}</h3>
             <div className="grid grid-cols-2 gap-3 w-full">
               {['admin', 'teacher', 'student', 'parent'].map((key) => {
                 const account = DEMO_ACCOUNTS[key];
@@ -429,7 +429,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
                     <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:scale-110 transition-transform">
                       <SchoolLogoIcon className="w-8 h-8" />
                     </div>
-                    <span className="capitalize text-lg mb-1">{key}</span>
+                    <span className="text-lg mb-1">{t(`roles.${key}`, { defaultValue: key })}</span>
                     <span className="text-[10px] font-medium opacity-70 line-clamp-1">{account.name}</span>
                   </button>
                 );
@@ -439,7 +439,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
 
           {/* Other Roles Section */}
           <div className="w-full">
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Specialized Portals</h3>
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">{t('auth.specializedPortals')}</h3>
             <div className="grid grid-cols-2 gap-2 w-full">
               {DEMO_ROLES_ORDER.filter(k => !['admin', 'teacher', 'student', 'parent'].includes(k)).map((key) => {
                 const account = DEMO_ACCOUNTS[key];
@@ -463,7 +463,7 @@ const Login: React.FC<{ onNavigateToSignup: () => void; onNavigateToCreateSchool
             onClick={() => setView('login')}
             className="mt-8 text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors"
           >
-            Back to School Sign In
+            {t('auth.backToSchoolSignIn')}
           </button>
 
         </div>

@@ -41,7 +41,11 @@
     "backToSignIn": "Retour à la connexion",
     "professionalPortal": "PORTAIL SCOLAIRE PROFESSIONNEL",
     "modernLearning": "Gestion de l'apprentissage moderne et efficace",
-    "yourEmailAddress": "Votre adresse e-mail"
+    "yourEmailAddress": "Votre adresse e-mail",
+    "demoPortalSubtitle": "Connectez-vous à votre portail démo",
+    "featuredPortals": "Portails en vedette",
+    "specializedPortals": "Portails spécialisés",
+    "backToSchoolSignIn": "Retour à la connexion scolaire"
   },
   "nav": {
     "home": "Accueil",

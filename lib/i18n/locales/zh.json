@@ -41,7 +41,11 @@
     "backToSignIn": "返回登录",
     "professionalPortal": "专业学校门户",
     "modernLearning": "高效现代的学习管理",
-    "yourEmailAddress": "您的电子邮箱"
+    "yourEmailAddress": "您的电子邮箱",
+    "demoPortalSubtitle": "登录您的演示门户",
+    "featuredPortals": "推荐门户",
+    "specializedPortals": "专业门户",
+    "backToSchoolSignIn": "返回学校登录"
   },
   "nav": {
     "home": "首页",
