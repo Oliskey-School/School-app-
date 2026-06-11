@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
+import translateRoutes from './translate.routes';
 import onboardingRoutes from './onboarding.routes';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
@@ -95,6 +96,9 @@ router.get('/health', (req, res) => {
 // the API client strips the X-Branch-Id header from all '/auth/*' calls, which would
 // make this always resolve to the home branch.
 router.get('/active-branch-id', authenticate, getActiveBranchId);
+
+// Public whole-app translation endpoint (no auth — login/demo screens use it).
+router.use('/translate', translateRoutes);
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);

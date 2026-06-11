@@ -82,11 +82,14 @@ app.use((req, _res, next) => {
 // to handle cross-site cookie blocking on mobile browsers.
 app.use((req, res, next) => {
     const path = req.originalUrl || req.path;
-    const isAuthAction = path.includes('/api/auth/refresh') || 
-                        path.includes('/api/auth/logout') || 
+    const isAuthAction = path.includes('/api/auth/refresh') ||
+                        path.includes('/api/auth/logout') ||
                         path.includes('/api/auth/csrf-token') ||
                         path.includes('/api/auth/login') ||
-                        path.includes('/api/auth/demo/login');
+                        path.includes('/api/auth/demo/login') ||
+                        // Public, non-mutating UI translation. Must work before login
+                        // (demo/login screens) where no auth header or CSRF cookie exists.
+                        path.includes('/api/translate');
 
     // Lead DevSecOps: If the request has a valid Authorization header, skip CSRF.
     // Bearer tokens are added manually via JS and are not automatically sent by browsers

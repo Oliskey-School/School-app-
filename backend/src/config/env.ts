@@ -36,7 +36,14 @@ export const config = {
     env: NODE_ENV,
     isProduction: IS_PRODUCTION,
     demoSchoolId: resolvedDemoSchoolId,
-    demoBranchId: resolvedDemoBranchId
+    demoBranchId: resolvedDemoBranchId,
+    // Google Cloud Translation API key powering the whole-app auto-translation
+    // layer. Server-side only — accepts the canonical name or a couple of common
+    // aliases so existing deployments don't need to rename their secret.
+    googleTranslateApiKey: process.env.GOOGLE_TRANSLATE_API_KEY
+        || process.env.GOOGLE_API_KEY
+        || process.env.GEMINI_API_KEY
+        || ''
 };
 
 // Backward-compat constants

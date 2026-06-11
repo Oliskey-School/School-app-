@@ -5,12 +5,17 @@ import { queryClient, idbPersister } from './lib/react-query';
 import App from './App';
 import './index.css';
 import './lib/i18n'; // initialize app-wide translations + RTL before first render
+import { startAutoTranslate } from './lib/i18n/autoTranslate'; // whole-app live translation
 import { initSentry } from './lib/sentry';
 // @ts-ignore
 // import { registerSW } from 'virtual:pwa-register';
 
 // Start crash reporting as early as possible (no-op unless VITE_SENTRY_DSN is set).
 initSentry();
+
+// Begin translating every rendered screen into the user's chosen language.
+// No-op while the language is English; activates the moment a language is picked.
+startAutoTranslate();
 
 // Register PWA Service Worker for extremely fast loading
 // Service worker is registered via UpdatePrompt component in App.tsx
