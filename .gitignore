@@ -86,3 +86,6 @@ test_output_utf8.txt
 !backend/README.md
 .vercel
 *.tmp*
+
+# Server-side translation cache (regenerated at runtime)
+backend/.cache/
