@@ -44,10 +44,19 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let started = false;
 
+// Retry bookkeeping for transient backend failures (cold start / offline).
+const retryCounts = new Map<string, number>();
+const MAX_RETRIES = 4;
+let attemptRound = 1;
+
 /* --------------------------------- cache -------------------------------- */
 
+// Bump this when cache semantics change. v2 discards any English-poisoned
+// entries written by an earlier version that cached degraded (failed) responses.
+const CACHE_VERSION = 'v2';
+
 function cacheStoreKey(lang: string) {
-    return `auto_tr_${lang}`;
+    return `auto_tr_${CACHE_VERSION}_${lang}`;
 }
 
 function langCache(lang: string): Map<string, string> {
@@ -178,6 +187,7 @@ async function flush() {
     if (pending.size > 0 && !flushTimer) flushTimer = setTimeout(flush, 200);
 
     let translations: string[] = texts;
+    let degraded = false;
     try {
         const res = await fetch('/api/translate', {
             method: 'POST',
@@ -187,11 +197,35 @@ async function flush() {
         if (res.ok) {
             const json = await res.json();
             if (Array.isArray(json?.translations)) translations = json.translations;
+            // Backend signals it fell back to English (cold start / upstream error).
+            if (json?.degraded) degraded = true;
+        } else {
+            degraded = true;
         }
-    } catch { /* offline / error — leave English, will retry on next visit */ }
+    } catch {
+        degraded = true; // offline / network error
+    }
 
     // Language may have changed while the request was in flight.
     if (lang !== currentLang) return;
+
+    // On failure, DO NOT cache (never poison the cache with English) — re-queue
+    // for a bounded number of retries with backoff, then give up gracefully.
+    if (degraded) {
+        texts.forEach((src) => {
+            const tries = (retryCounts.get(src) || 0) + 1;
+            if (tries <= MAX_RETRIES) {
+                retryCounts.set(src, tries);
+                pending.add(src); // nodesByText mapping is still intact
+            } else {
+                nodesByText.delete(src);
+            }
+        });
+        if (pending.size > 0 && !flushTimer) {
+            flushTimer = setTimeout(flush, 1500 * Math.min(4, attemptRound++));
+        }
+        return;
+    }
 
     const cache = langCache(lang);
     texts.forEach((src, i) => {
@@ -212,6 +246,7 @@ async function flush() {
             nodesByText.delete(src);
         }
     });
+    attemptRound = 1; // healthy again — reset backoff
     persistCacheSoon(lang);
 }
 
