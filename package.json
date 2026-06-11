@@ -13,6 +13,7 @@
     "test:ui": "vitest --ui",
     "test:clean": "npx rimraf .playwright-results .playwright-report && npx playwright test",
     "kill-ports": "node scripts/kill-ports.js",
+    "pretranslate": "node scripts/pretranslate.mjs",
     "server": "nodemon",
     "start": "npx tsx backend/src/server.ts",
     "db:migrate": "npx prisma migrate dev --schema=backend/prisma/schema.prisma",
