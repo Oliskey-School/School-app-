@@ -93,7 +93,13 @@
     "totalStudents": "学生总数",
     "totalStaff": "教职工总数",
     "totalParents": "家长总数",
+    "academicLevels": "学段",
+    "commandCenter": "这是您学校的指挥中心。",
+    "last30Days": "近30天",
     "demoMode": "演示模式 — 更改每天重置",
     "createYourSchool": "创建您的学校"
+  },
+  "pwa": {
+    "installApp": "安装应用"
   }
 }

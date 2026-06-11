@@ -93,7 +93,13 @@
     "totalStudents": "कुल छात्र",
     "totalStaff": "कुल कर्मचारी",
     "totalParents": "कुल अभिभावक",
+    "academicLevels": "शैक्षणिक स्तर",
+    "commandCenter": "यह आपके स्कूल का कमांड सेंटर है।",
+    "last30Days": "पिछले 30 दिन",
     "demoMode": "डेमो मोड — परिवर्तन प्रतिदिन रीसेट होते हैं",
     "createYourSchool": "अपना स्कूल बनाएँ"
+  },
+  "pwa": {
+    "installApp": "ऐप इंस्टॉल करें"
   }
 }

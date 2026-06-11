@@ -5,6 +5,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { useTranslation } from 'react-i18next';
+import InstallAppButton from '../shared/InstallAppButton';
 import { AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar, InspectorSidebar } from '../ui/DashboardSidebar';
 import { AdminBottomNav, TeacherBottomNav, ParentBottomNav, StudentBottomNav, InspectorBottomNav } from '../ui/DashboardBottomNav';
 import { X } from 'lucide-react';
@@ -224,6 +225,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
                 {/* Demo Role Switcher Pill — REMOVED PER USER REQUEST */}
             </div>
+
+            {/* Always-visible install button — web version only (self-hides once installed) */}
+            <InstallAppButton />
         </div>
     );
 };

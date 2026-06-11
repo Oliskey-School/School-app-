@@ -93,7 +93,13 @@
     "totalStudents": "إجمالي الطلاب",
     "totalStaff": "إجمالي الموظفين",
     "totalParents": "إجمالي أولياء الأمور",
+    "academicLevels": "المستويات الأكاديمية",
+    "commandCenter": "هذا هو مركز قيادة مدرستك.",
+    "last30Days": "آخر 30 يومًا",
     "demoMode": "الوضع التجريبي — تتم إعادة ضبط التغييرات يوميًا",
     "createYourSchool": "أنشئ مدرستك"
+  },
+  "pwa": {
+    "installApp": "تثبيت التطبيق"
   }
 }

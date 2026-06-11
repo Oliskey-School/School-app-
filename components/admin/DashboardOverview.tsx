@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import PremiumLoader from '../ui/PremiumLoader';
 import {
@@ -61,7 +62,9 @@ const StatCard: React.FC<{
     onClick: () => void;
     trend: string;
     trendColor: string;
-}> = ({ label, value, icon, colorClasses, onClick, trend, trendColor }) => (
+}> = ({ label, value, icon, colorClasses, onClick, trend, trendColor }) => {
+    const { t } = useTranslation();
+    return (
     <button onClick={onClick} className={`w-full text-left p-4 sm:p-6 rounded-3xl text-white relative overflow-hidden transition-transform transform hover:-translate-y-1 ${colorClasses}`}>
         {React.cloneElement(icon, { className: "absolute -right-6 -bottom-6 h-24 sm:h-32 w-24 sm:w-32 text-white/10" })}
         <div className="relative z-10">
@@ -75,11 +78,12 @@ const StatCard: React.FC<{
             <div className={`mt-1 sm:mt-2 text-xs sm:text-sm font-bold flex items-center space-x-1 ${trendColor}`}>
                 {trend.startsWith('+') ? <ArrowUpIcon className="w-4 h-4 sm:w-5 sm:h-5" /> : <ArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
                 <span>{trend}</span>
-                <span className="text-white/70 font-medium ml-1 hidden xs:inline">last 30 days</span>
+                <span className="text-white/70 font-medium ml-1 hidden xs:inline">{t('dashboard.last30Days')}</span>
             </div>
         </div>
     </button>
-);
+    );
+};
 
 
 const QuickActionCard: React.FC<{ label: string; icon: React.ReactElement<{ className?: string }>; onClick: () => void; color: string; }> = ({ label, icon, onClick, color }) => (
@@ -283,6 +287,7 @@ interface DashboardOverviewProps {
 }
 
 const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handleBack, forceUpdate, schoolId, currentBranchId, isMainBranch }) => {
+    const { t } = useTranslation();
     const { currentSchool, user } = useAuth();
     const { profile } = useProfile();
     const navigate = useNavigate();
@@ -380,14 +385,14 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({ navigateTo, handl
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 rounded-3xl">
                         <h2 className="text-2xl font-bold text-white mb-1">
-                            Welcome, {user?.full_name?.split(' ')[0] || profile?.full_name?.split(' ')[0] || 'Admin'}!
+                            {t('dashboard.welcome', { name: user?.full_name?.split(' ')[0] || profile?.full_name?.split(' ')[0] || 'Admin' })}
                         </h2>
-                        <p className="text-white/80">Here's your school's command center.</p>
+                        <p className="text-white/80">{t('dashboard.commandCenter')}</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                            <StatCard label="Total Students" value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={formatTrend(studentTrend)} trendColor="text-blue-200" />
-                            <StatCard label="Total Staff" value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={formatTrend(teacherTrend)} trendColor="text-purple-200" />
-                            <StatCard label="Total Parents" value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={formatTrend(parentTrend)} trendColor="text-orange-200" />
-                            <StatCard label="Academic Levels" value={stats?.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={formatTrend(classTrend)} trendColor="text-indigo-200" />
+                            <StatCard label={t('dashboard.totalStudents')} value={totalStudents} icon={<StudentsIcon />} colorClasses="bg-gradient-to-br from-blue-500 to-blue-700" onClick={() => navigateTo('studentList', 'Manage Students', {})} trend={formatTrend(studentTrend)} trendColor="text-blue-200" />
+                            <StatCard label={t('dashboard.totalStaff')} value={totalStaff} icon={<StaffIcon />} colorClasses="bg-gradient-to-br from-purple-400 to-purple-600" onClick={() => navigateTo('teacherList', 'Manage Teachers', {})} trend={formatTrend(teacherTrend)} trendColor="text-purple-200" />
+                            <StatCard label={t('dashboard.totalParents')} value={totalParents} icon={<UsersIcon />} colorClasses="bg-gradient-to-br from-orange-400 to-orange-600" onClick={() => navigateTo('parentList', 'Manage Parents', {})} trend={formatTrend(parentTrend)} trendColor="text-orange-200" />
+                            <StatCard label={t('dashboard.academicLevels')} value={stats?.totalAcademicLevels || 0} icon={<ViewGridIcon />} colorClasses="bg-gradient-to-br from-indigo-400 to-indigo-600" onClick={() => navigateTo('classList', 'Manage Classes', {})} trend={formatTrend(classTrend)} trendColor="text-indigo-200" />
                         </div>
                     </div>
 

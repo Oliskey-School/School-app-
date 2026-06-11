@@ -93,7 +93,13 @@
     "totalStudents": "Total Students",
     "totalStaff": "Total Staff",
     "totalParents": "Total Parents",
+    "academicLevels": "Academic Levels",
+    "commandCenter": "Here's your school's command center.",
+    "last30Days": "last 30 days",
     "demoMode": "Demo Mode — changes reset daily",
     "createYourSchool": "Create Your School"
+  },
+  "pwa": {
+    "installApp": "Install App"
   }
 }

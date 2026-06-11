@@ -93,7 +93,13 @@
     "totalStudents": "Schüler insgesamt",
     "totalStaff": "Personal insgesamt",
     "totalParents": "Eltern insgesamt",
+    "academicLevels": "Klassenstufen",
+    "commandCenter": "Hier ist die Kommandozentrale Ihrer Schule.",
+    "last30Days": "letzte 30 Tage",
     "demoMode": "Demo-Modus — Änderungen werden täglich zurückgesetzt",
     "createYourSchool": "Erstellen Sie Ihre Schule"
+  },
+  "pwa": {
+    "installApp": "App installieren"
   }
 }
