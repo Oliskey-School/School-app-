@@ -189,8 +189,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         return sessionStorage.getItem('admin_activeBottomNav') || 'home';
     });
     const [viewStack, setViewStack] = useState<ViewStackItem[]>(() => {
-        const saved = sessionStorage.getItem('admin_viewStack');
-        return saved ? JSON.parse(saved) : [{ view: 'overview', props: {}, title: 'Admin Dashboard' }];
+        const DEFAULT_STACK: ViewStackItem[] = [{ view: 'overview', props: {}, title: 'Admin Dashboard' }];
+        try {
+            const saved = sessionStorage.getItem('admin_viewStack');
+            if (!saved) return DEFAULT_STACK;
+            const parsed = JSON.parse(saved);
+            // Guard against an empty/corrupt persisted stack — otherwise the
+            // current view resolves to undefined and the dashboard crashes.
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((p) => p && typeof p.view === 'string')) {
+                return parsed;
+            }
+            return DEFAULT_STACK;
+        } catch {
+            return DEFAULT_STACK;
+        }
     });
     const [version, setVersion] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -518,7 +530,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         });
     };
 
-    const currentNavigation = viewStack[viewStack.length - 1];
+    // Always resolve to a valid view — never let an empty stack crash the dashboard.
+    const currentNavigation = viewStack[viewStack.length - 1]
+        || { view: 'overview', props: {}, title: 'Admin Dashboard' };
     const ComponentToRender = viewComponents[currentNavigation.view];
 
     const commonProps = {
