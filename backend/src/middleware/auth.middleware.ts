@@ -134,11 +134,22 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             return res.status(403).json({ message: 'School header does not match authenticated school' });
         }
 
+        // A SCHOOL-LEVEL admin manages the whole school and may operate in ANY of
+        // its branches. This is true whether their home branch is the Main Branch
+        // OR they have no fixed branch. Onboarding pins the owner admin to the Main
+        // Branch, so we must NOT treat that pin as a single-branch lock — otherwise
+        // switching to a sub-branch is rejected and the UI bounces back to main.
+        // A BRANCH admin (home branch is a sub-branch) stays locked to their branch.
+        const roleUpper = (user.role || '').toUpperCase();
+        const isSchoolLevelAdmin =
+            ['ADMIN', 'PROPRIETOR', 'SUPER_ADMIN'].includes(roleUpper)
+            && (!user.branch_id || user.branch?.is_main === true);
+
         // If X-Branch-Id header is provided, a BRANCH-SCOPED user must be authorized
-        // for that exact branch. Unrestricted users (main admin / super admin /
-        // proprietor — no fixed branch_id) may filter to any branch; their queries
-        // remain scoped by school_id, so this cannot cross tenants.
-        if (headerBranchId && user.branch_id) {
+        // for that exact branch. Unrestricted users (school-level admin / super admin /
+        // proprietor) may filter to any branch; their queries remain scoped by
+        // school_id, so this cannot cross tenants.
+        if (headerBranchId && user.branch_id && !isSchoolLevelAdmin) {
             const allowedBranches = [user.branch_id, ...(user.allowed_branch_ids || [])];
             // Demo sandboxes: the visitor owns their own private sandbox and, as its
             // admin/proprietor, may operate in the sandbox root OR any branch they
@@ -189,6 +200,10 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
             // user is authorized for it, else their primary branch). Used to enforce
             // session-based isolation for multi-branch teachers.
             active_branch_id: effectiveBranchId,
+            // School-level admins can act in any branch of their school; branch admins
+            // (home branch is a sub-branch) cannot. Consumed by getEffectiveBranchId so
+            // a main admin pinned to the Main Branch is not hard-locked to it.
+            is_main_admin: isSchoolLevelAdmin,
             school_generated_id: roleAwareGeneratedId,
             full_name: user.full_name,
             phone: phone,

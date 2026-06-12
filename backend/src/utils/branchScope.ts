@@ -64,7 +64,10 @@ export function getEffectiveBranchId(user: any, requestedId?: string | null, hea
 
     // 2. SINGLE-BRANCH scoped users (branch admin, single-branch teacher/student/parent):
     //    hard-locked to their profile branch. Query/header overrides are ignored.
-    if (user.branch_id) {
+    //    EXCEPTION: a school-level admin (is_main_admin) is pinned to the Main Branch
+    //    by onboarding but actually manages the whole school — they must be able to
+    //    operate in the branch they have switched to, so they fall through to (3).
+    if (user.branch_id && !user.is_main_admin) {
         return user.branch_id;
     }
 

@@ -58,7 +58,9 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        const canIncludeAll = ['ADMIN', 'SUPER_ADMIN', 'PROPRIETOR'].includes(role) && !req.user.branch_id;
+        // A school-level admin can view all branches even though onboarding pins
+        // them to the Main Branch (is_main_admin), not just admins with no branch.
+        const canIncludeAll = ['ADMIN', 'SUPER_ADMIN', 'PROPRIETOR'].includes(role) && (!req.user.branch_id || req.user.is_main_admin);
         const includeAll = canIncludeAll && (req.query.includeAll === 'true' || req.query.include_all === 'true');
         const branchId = getEffectiveBranchId(req.user, (req.query.branch_id || req.query.branchId) as string);
         const result = await ClassService.getClasses(req.user.school_id, includeAll ? undefined : branchId, teacherId);

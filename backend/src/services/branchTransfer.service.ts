@@ -17,8 +17,9 @@ import { getDemoSessionRoot } from '../utils/branchScope';
 export function isMainAdmin(user: any): boolean {
     const role = (user?.role || '').toLowerCase();
     if (role === 'superadmin' || role === 'proprietor') return true;
-    // Main school admin = admin with NO fixed branch.
-    return role === 'admin' && !user?.branch_id;
+    // Main school admin = admin with NO fixed branch OR pinned to the Main Branch
+    // (onboarding pins the owner admin to Main; is_main_admin is set by auth mw).
+    return role === 'admin' && (!user?.branch_id || !!user?.is_main_admin);
 }
 
 /**
