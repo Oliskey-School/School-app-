@@ -14,7 +14,7 @@ import { config } from '../../src/config/env';
 
 const S = 'sva-school', M = 'sva-main';
 const SUID = 'sva-stu-u', SID = 'sva-stu';
-let ASG = '', ACT = '';
+let ASG = '', ACT = '', QUIZ = '';
 
 const tok = () => jwt.sign(
   { id: SUID, email: 'sva-stu@x.com', role: 'STUDENT', school_id: S, branch_id: M, allowed_branch_ids: [] },
@@ -25,7 +25,7 @@ const post = (path: string, body: any) =>
   request(app).post(path).set('Authorization', `Bearer ${tok()}`).set('X-Branch-Id', M).send(body);
 
 async function cleanup() {
-  for (const m of ['studentActivity', 'extracurricularActivity', 'assignmentSubmission', 'assignment', 'studentDocument', 'studentEnrollment', 'student', 'class', 'schoolMembership', 'user', 'branch'] as const) {
+  for (const m of ['quizSubmission', 'quizQuestion', 'quiz', 'studentActivity', 'extracurricularActivity', 'assignmentSubmission', 'assignment', 'studentDocument', 'studentEnrollment', 'student', 'teacher', 'subject', 'class', 'schoolMembership', 'user', 'branch'] as const) {
     await (prisma as any)[m]?.deleteMany?.({ where: { school_id: S } }).catch(() => {});
   }
   await prisma.school.delete({ where: { id: S } }).catch(() => {});
@@ -42,6 +42,11 @@ describe('Student viewComponent audit', () => {
     await prisma.studentEnrollment.create({ data: { student_id: SID, class_id: cls.id, school_id: S, branch_id: M } as any }).catch(() => {});
     ASG = (await prisma.assignment.create({ data: { school_id: S, branch_id: M, class_id: cls.id, title: 'Essay', subject: 'English', description: 'Write', due_date: new Date(Date.now() + 1e9) } as any })).id;
     ACT = (await (prisma as any).extracurricularActivity.create({ data: { school_id: S, branch_id: M, name: 'Chess Club', category: 'Club' } })).id;
+    // a teacher + subject + quiz so the student can submit a quiz result
+    const tu = await prisma.user.create({ data: { id: 'sva-tch-u', email: 'sva-tch@x.com', password_hash: 'x', full_name: 'Quiz Teacher', role: 'TEACHER' as any, school_id: S, branch_id: M } });
+    const tch = await prisma.teacher.create({ data: { id: 'sva-tch', user_id: tu.id, school_id: S, branch_id: M, full_name: 'Quiz Teacher', subject_specialty: [], curriculum_eligibility: ['Nigerian'] } });
+    const subj = await (prisma as any).subject.create({ data: { school_id: S, branch_id: M, name: 'Mathematics', code: 'MTH' } });
+    QUIZ = (await (prisma as any).quiz.create({ data: { school_id: S, branch_id: M, teacher_id: tch.id, class_id: cls.id, subject_id: subj.id, title: 'Algebra Quiz', total_marks: 10, is_published: true, status: 'published' } })).id;
   }, 120000);
 
   afterAll(cleanup, 120000);
@@ -101,5 +106,18 @@ describe('Student viewComponent audit', () => {
     const rows = await (prisma as any).studentDocument.findMany({ where: { student_id: SID } });
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].school_id).toBe(S);
+  });
+
+  it('submit-quiz button persists a graded submission scoped to the school', async () => {
+    const res = await post('/api/quizzes/submit', {
+      quiz_id: QUIZ, student_id: SID, score: 8, total_questions: 10,
+      answers: { q1: 'a', q2: 'b' }, status: 'graded',
+    });
+    if (![200, 201].includes(res.status)) console.log('submit-quiz:', res.status, JSON.stringify(res.body).slice(0, 200));
+    expect([200, 201]).toContain(res.status);
+    const rows = await (prisma as any).quizSubmission.findMany({ where: { quiz_id: QUIZ, student_id: SID } });
+    expect(rows.length).toBe(1);
+    expect(rows[0].school_id).toBe(S);
+    expect(rows[0].score).toBe(8);
   });
 });
