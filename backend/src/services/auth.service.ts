@@ -609,6 +609,10 @@ export class AuthService {
     }
 
     static async switchSchool(userId: string, schoolId: string) {
+        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (!targetUser) throw new Error('User not found');
+        const isSuperAdmin = (targetUser.role || '').toUpperCase() === 'SUPER_ADMIN';
+
         const membership = await prisma.schoolMembership.findUnique({
             where: {
                 school_id_user_id: {
@@ -618,18 +622,29 @@ export class AuthService {
             }
         });
 
-        if (!membership || !membership.is_active) {
+        // SUPER_ADMIN (platform operator) may enter any school for support; everyone
+        // else must hold an active membership — preserving strict tenant isolation.
+        if (!isSuperAdmin && (!membership || !membership.is_active)) {
             throw new Error('Not an active member of this school');
         }
 
+        // Realign branch_id to the TARGET school. Without this the user keeps the
+        // OLD school's branch_id, so every row they create lands on a branch that
+        // belongs to a different school (and branch resolution bounces them around).
+        // Prefer the branch named on their membership, else the school's Main Branch.
+        const mainBranch = await prisma.branch.findFirst({
+            where: { school_id: schoolId, is_main: true }
+        });
+        const targetBranchId = membership?.branch_id || mainBranch?.id || null;
+
         const user = await prisma.user.update({
             where: { id: userId },
-            data: { school_id: schoolId }
+            data: { school_id: schoolId, branch_id: targetBranchId }
         });
 
         const { token, refreshToken } = await this.generateTokens(user);
         SocketService.emitToSchool(schoolId, 'auth:updated', { action: 'switch_school', userId });
-        return { token, refreshToken, user: { ...user, role: membership.base_role } };
+        return { token, refreshToken, user: { ...user, role: membership?.base_role || user.role } };
     }
 
     static async updatePassword(userId: string, currentPassword: string, newPassword: string) {
