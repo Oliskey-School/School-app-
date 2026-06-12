@@ -27,6 +27,10 @@ dist-ssr
 .env.local
 .env.production
 .env*
+# ...but keep the placeholder TEMPLATES tracked (no real secrets in these):
+!.env.example
+!.env.production.example
+!backend/.env.production.example
 
 # Owner-only secrets folder
 owner/secrets/
