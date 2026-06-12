@@ -341,7 +341,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
     workloadCalculator: WorkloadCalculator,
   };
 
-  const currentNavigation = viewStack[viewStack.length - 1];
+  // Always resolve to a valid view — never let an empty/corrupt stack crash the dashboard.
+  const currentNavigation = viewStack[viewStack.length - 1]
+    || { view: 'overview', props: {}, title: 'Dashboard' };
   const ComponentToRender = viewComponents[currentNavigation.view as keyof typeof viewComponents];
 
   // --- AUDIT SYSTEM EXPOSURE ---
