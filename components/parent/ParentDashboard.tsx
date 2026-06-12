@@ -578,7 +578,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         if (schoolId) initData();
     }, [schoolId, initData]);
 
-    useEffect(() => { const currentView = viewStack[viewStack.length - 1]; setIsHomePage(currentView.view === 'dashboard' && !isSearchOpen); }, [viewStack, isSearchOpen, setIsHomePage]);
+    useEffect(() => { const currentView = viewStack[viewStack.length - 1]; setIsHomePage(currentView?.view === 'dashboard' && !isSearchOpen); }, [viewStack, isSearchOpen, setIsHomePage]);
 
     const navigateTo = (view: string, title: string, props: any = {}) => {
         React.startTransition(() => {
@@ -682,8 +682,10 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
         };
     }, [navigateTo, viewComponents]);
 
-    const currentNavigation = viewStack[viewStack.length - 1];
-    
+    // Always resolve to a valid view — never let an empty/corrupt stack crash the dashboard.
+    const currentNavigation = viewStack[viewStack.length - 1]
+        || { view: 'dashboard', props: {}, title: 'Dashboard' };
+
     // Safety check for Component rendering
     const ComponentToRender = viewComponents[currentNavigation.view] || (() => (
         <div className="flex flex-col items-center justify-center h-[60vh] p-8 text-center bg-gray-50 rounded-3xl m-4">
