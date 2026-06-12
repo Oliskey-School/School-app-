@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../ui/Header';
 import { useProfile } from '../../context/ProfileContext';
+import { api } from '../../lib/api';
 import {
     SchoolLogoIcon,
     ClipboardListIcon,
@@ -22,16 +23,43 @@ const ExamOfficerDashboard: React.FC<ExamOfficerDashboardProps> = ({ onLogout, s
     
     if (!profile) return <div className="p-8 text-center text-gray-500 font-medium">Loading exam dashboard...</div>;
 
+    // Real stats from the database — start at zero, fill from the API (no mock data).
     const [examStats, setExamStats] = useState({
-        upcomingExams: 4,
-        totalCandidates: 450,
-        completedExams: 12,
-        pendingResults: 2
+        upcomingExams: 0,
+        totalCandidates: 0,
+        completedExams: 0,
+        pendingResults: 0
     });
 
     useEffect(() => {
-        setIsHomePage(true);
+        setIsHomePage?.(true);
     }, [setIsHomePage]);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const [examsRes, stats] = await Promise.all([
+                    api.get('/exams').catch(() => []),
+                    api.getDashboardStats().catch(() => null),
+                ]);
+                if (!active) return;
+                const exams: any[] = Array.isArray(examsRes) ? examsRes : ((examsRes as any)?.data || []);
+                const now = Date.now();
+                const isPast = (e: any) => e?.date && new Date(e.date).getTime() < now;
+                const isPublished = (e: any) => e?.results_published || e?.published || e?.is_published || e?.status === 'completed';
+                setExamStats({
+                    upcomingExams: exams.filter((e) => e?.date && new Date(e.date).getTime() >= now).length,
+                    completedExams: exams.filter(isPast).length,
+                    pendingResults: exams.filter((e) => isPast(e) && !isPublished(e)).length,
+                    totalCandidates: (stats?.totalStudents ?? stats?.students ?? stats?.studentCount ?? 0) as number,
+                });
+            } catch {
+                /* leave zeros — never show fabricated numbers */
+            }
+        })();
+        return () => { active = false; };
+    }, []);
 
     const StatCard: React.FC<{
         title: string;
