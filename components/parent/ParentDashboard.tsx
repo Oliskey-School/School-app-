@@ -28,6 +28,7 @@ import {
 import { formatSchoolId } from '../../utils/idFormatter';
 import PremiumLoader from '../ui/PremiumLoader';
 import PremiumModal from '../ui/PremiumModal';
+import ErrorBoundary from '../ui/ErrorBoundary';
 import SchoolContextSwitcher from '../ui/SchoolContextSwitcher';
 
 
@@ -750,9 +751,16 @@ const ParentDashboard: React.FC<ParentDashboardProps> = ({ onLogout, setIsHomePa
                     </div>
                 </div>
 
-                <Suspense fallback={<DashboardSuspenseFallback />}>
-                    <ComponentToRender {...commonProps} {...currentNavigation.props} />
-                </Suspense>
+                <ErrorBoundary
+                    key={currentNavigation.view}
+                    title={`${currentNavigation.title} Error`}
+                    message="We encountered an issue while rendering this screen. This could be due to a data mismatch or a temporary connection issue."
+                    onReset={forceUpdate}
+                >
+                    <Suspense fallback={<DashboardSuspenseFallback />}>
+                        <ComponentToRender {...commonProps} {...currentNavigation.props} />
+                    </Suspense>
+                </ErrorBoundary>
             </div>
             <Suspense fallback={<DashboardSuspenseFallback />}>
                 {isSearchOpen && <GlobalSearchScreen onClose={() => setIsSearchOpen(false)} navigateTo={navigateTo} dashboardType={DashboardType.Parent} />}

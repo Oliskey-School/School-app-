@@ -4,6 +4,7 @@ import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { formatSchoolId } from '../../utils/idFormatter';
 import PremiumLoader from '../ui/PremiumLoader';
+import ErrorBoundary from '../ui/ErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { useAutoSync } from '../../hooks/useAutoSync';
@@ -410,13 +411,20 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onLogout, setIsHome
       setActiveScreen={handleBottomNavClick}
     >
       <div key={`${viewStack.length}-${version}`} className="w-full h-full">
-        {ComponentToRender ? (
-          <Suspense fallback={<DashboardSuspenseFallback />}>
-            <ComponentToRender {...currentNavigation.props} {...commonProps} />
-          </Suspense>
-        ) : (
-          <div className="p-6 text-center text-gray-500">View not found: {currentNavigation.view}</div>
-        )}
+        <ErrorBoundary
+          key={currentNavigation.view}
+          title={`${currentNavigation.title} Error`}
+          message="We encountered an issue while rendering this screen. This could be due to a data mismatch or a temporary connection issue."
+          onReset={forceUpdate}
+        >
+          {ComponentToRender ? (
+            <Suspense fallback={<DashboardSuspenseFallback />}>
+              <ComponentToRender {...currentNavigation.props} {...commonProps} />
+            </Suspense>
+          ) : (
+            <div className="p-6 text-center text-gray-500">View not found: {currentNavigation.view}</div>
+          )}
+        </ErrorBoundary>
       </div>
       <Suspense fallback={<DashboardSuspenseFallback />}>
         {isSearchOpen && (
