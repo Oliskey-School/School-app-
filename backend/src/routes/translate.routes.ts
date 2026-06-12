@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { translate } from '../controllers/translate.controller';
+import { translate, collect, progress } from '../controllers/translate.controller';
 
 const router = Router();
 
@@ -15,5 +15,9 @@ const translateLimiter = rateLimit({
 
 // Public on purpose: login/demo screens translate before authentication.
 router.post('/', translateLimiter, translate);
+
+// Harvest discovered UI strings for the background crawler, and report progress.
+router.post('/collect', translateLimiter, collect);
+router.get('/progress', progress);
 
 export default router;

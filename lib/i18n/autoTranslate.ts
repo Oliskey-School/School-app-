@@ -49,6 +49,35 @@ const retryCounts = new Map<string, number>();
 const MAX_RETRIES = 4;
 let attemptRound = 1;
 
+// String harvesting: report every English UI string the app renders to the
+// backend so the background crawler can translate it into ALL languages over
+// time — even while the user stays on English. De-duped; sent in idle batches.
+const harvested = new Set<string>();   // everything we've ever sent this session
+let collectQueue = new Set<string>();
+let collectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function harvest(core: string) {
+    if (harvested.has(core) || collectQueue.has(core)) return;
+    collectQueue.add(core);
+    if (!collectTimer) collectTimer = setTimeout(flushCollect, 4000);
+}
+
+async function flushCollect() {
+    collectTimer = null;
+    if (collectQueue.size === 0) return;
+    const texts = Array.from(collectQueue).slice(0, 500);
+    collectQueue = new Set(Array.from(collectQueue).slice(500));
+    texts.forEach((t) => harvested.add(t));
+    try {
+        await fetch('/api/translate/collect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ texts }),
+        });
+    } catch { /* offline — these strings will be re-seen and re-sent next visit */ }
+    if (collectQueue.size > 0 && !collectTimer) collectTimer = setTimeout(flushCollect, 4000);
+}
+
 /* --------------------------------- cache -------------------------------- */
 
 // Bump this when cache semantics change. v2 discards any English-poisoned
@@ -144,6 +173,10 @@ function applyToNode(node: Text) {
         registry.delete(node);
         return;
     }
+
+    // Report this string for background translation into every language,
+    // regardless of the current language (harvest even while on English).
+    harvest(core);
 
     if (currentLang === DEFAULT_LANGUAGE) {
         // Restore English exactly.

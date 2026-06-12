@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { translateBatch } from '../services/translate.service';
+import { translateBatch, addToCorpus, crawlProgress } from '../services/translate.service';
 
 const MAX_TEXTS = 200;       // per request
 const MAX_LEN = 5000;        // per string (Google segment limit guard)
@@ -33,6 +33,10 @@ export async function translate(req: Request, res: Response) {
             typeof t === 'string' ? t.slice(0, MAX_LEN) : String(t ?? '').slice(0, MAX_LEN)
         );
 
+        // Every requested string is also a string the app renders — feed the
+        // background crawler so it gets translated into ALL languages over time.
+        try { addToCorpus(clean); } catch { /* non-fatal */ }
+
         const translations = await translateBatch(clean, target);
         return res.json({ translations });
     } catch (err: any) {
@@ -40,5 +44,34 @@ export async function translate(req: Request, res: Response) {
         // Soft-fail: return originals so the UI degrades to English, never errors.
         const texts = Array.isArray(req.body?.texts) ? req.body.texts : [];
         return res.status(200).json({ translations: texts, degraded: true });
+    }
+}
+
+/**
+ * POST /api/translate/collect
+ * Body: { texts: string[] }
+ * Registers English UI strings the frontend has rendered so the background
+ * crawler can translate them into every language over time. Public + cheap.
+ */
+export async function collect(req: Request, res: Response) {
+    try {
+        const { texts } = req.body || {};
+        if (!Array.isArray(texts)) return res.status(400).json({ error: 'texts must be an array' });
+        const clean = texts.filter((t) => typeof t === 'string').map((t) => t.slice(0, MAX_LEN));
+        const added = addToCorpus(clean);
+        return res.json({ ok: true, added });
+    } catch {
+        return res.status(200).json({ ok: false });
+    }
+}
+
+/** GET /api/translate/progress — how far the auto-translation has filled. */
+export async function progress(_req: Request, res: Response) {
+    try {
+        const p = crawlProgress();
+        const percent = p.total ? Math.round((p.done / p.total) * 100) : 0;
+        return res.json({ ...p, percent });
+    } catch {
+        return res.status(200).json({ strings: 0, languages: 0, done: 0, total: 0, percent: 0 });
     }
 }

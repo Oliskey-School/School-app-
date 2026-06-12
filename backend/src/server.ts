@@ -41,6 +41,15 @@ const start = async () => {
             } catch (err) {
                 console.warn('⚠️ [DemoReset] Could not initialize reset service:', err);
             }
+
+            // Start the background auto-translation crawler: steadily fills every
+            // language for every UI string the app has seen, resuming daily within quota.
+            try {
+                const { startAutoCrawl } = require('./services/translate.service');
+                startAutoCrawl();
+            } catch (err) {
+                console.warn('⚠️ [translate-crawl] Could not start crawler:', err);
+            }
         });
 
         // Handle server errors (e.g. port already in use)
