@@ -17,10 +17,10 @@ export const GradebookGrid: React.FC<{
     subject: string, 
     term: string, 
     curriculum: CurriculumType 
-}> = ({ students, subject, term, curriculum }) => {
+}> = ({ students = [], subject, term, curriculum }) => {
     const { currentSchool } = useAuth();
     const [marks, setMarks] = useState<Record<string, { ca: number, exam: number }>>(
-        Object.fromEntries(students.map(s => [s.id, { ca: s.ca, exam: s.exam }]))
+        Object.fromEntries((students || []).map(s => [s.id, { ca: s.ca, exam: s.exam }]))
     );
     const [saving, setSaving] = useState<string | null>(null);
 

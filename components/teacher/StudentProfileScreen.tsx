@@ -13,6 +13,7 @@ interface StudentProfileScreenProps {
 }
 
 const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({ student, navigateTo, handleBack, teacherId }) => {
+    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student to view their profile.</div>;
     const { user } = useAuth();
     const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
     const [academicRecords, setAcademicRecords] = useState<any[]>([]);

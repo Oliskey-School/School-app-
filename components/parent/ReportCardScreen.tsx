@@ -189,6 +189,7 @@ interface ReportCardScreenProps {
 }
 
 const ReportCardScreen: React.FC<ReportCardScreenProps> = ({ student }) => {
+    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a child to view their report card.</div>;
     const { currentSchool } = useAuth();
     const publishedReportsSummary = useMemo(() =>
         (student.reportCards || []).filter(r => r.status === 'Published'),

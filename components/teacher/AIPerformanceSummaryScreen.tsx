@@ -15,7 +15,7 @@ interface AIPerformanceSummaryScreenProps {
     students: Student[];
 }
 
-const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({ students }) => {
+const AIPerformanceSummaryScreen: React.FC<AIPerformanceSummaryScreenProps> = ({ students = [] }) => {
     const [summary, setSummary] = useState<SummaryData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

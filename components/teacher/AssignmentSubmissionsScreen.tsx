@@ -71,6 +71,7 @@ const NotSubmittedCard: React.FC<{ student: Student; onRemind: (student: Student
 );
 
 const AssignmentSubmissionsScreen: React.FC<AssignmentSubmissionsScreenProps> = ({ assignment, navigateTo, handleBack, forceUpdate, schoolId }) => {
+    if (!assignment) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select an assignment to view submissions.</div>;
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [allClassStudents, setAllClassStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);

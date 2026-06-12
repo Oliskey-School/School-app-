@@ -18,6 +18,7 @@ interface AIParentingTipsScreenProps {
 }
 
 const AIParentingTipsScreen: React.FC<AIParentingTipsScreenProps> = ({ student }) => {
+    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a child to see tailored parenting tips.</div>;
     const [tips, setTips] = useState<Tip[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

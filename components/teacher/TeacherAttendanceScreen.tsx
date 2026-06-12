@@ -47,6 +47,7 @@ interface TeacherMarkAttendanceScreenProps {
 }
 
 const TeacherMarkAttendanceScreen: React.FC<TeacherMarkAttendanceScreenProps> = ({ classInfo, currentBranchId }) => {
+    if (!classInfo) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a class to mark attendance.</div>;
     const theme = THEME_CONFIG[DashboardType.Teacher];
     const { profile } = useProfile();
     const [students, setStudents] = useState<Student[]>([]);

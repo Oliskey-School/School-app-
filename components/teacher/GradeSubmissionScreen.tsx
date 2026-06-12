@@ -31,6 +31,7 @@ interface GradeSubmissionScreenProps {
 }
 
 const GradeSubmissionScreen: React.FC<GradeSubmissionScreenProps> = ({ submission, assignment, onGrade }) => {
+  if (!submission) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a submission to grade.</div>;
   const [grade, setGrade] = useState<string>(submission.grade?.toString() || '');
   const [feedback, setFeedback] = useState<string>(submission.feedback || '');
   const [isGenerating, setIsGenerating] = useState(false);

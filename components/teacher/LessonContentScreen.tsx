@@ -23,6 +23,7 @@ const DocumentSection: React.FC<{ title: string; icon: React.ReactNode; children
 
 
 const LessonContentScreen: React.FC<{ lessonPlan: GeneratedLessonPlan; detailedNote?: DetailedNote; context?: any }> = ({ lessonPlan, detailedNote, context }) => {
+  if (!lessonPlan) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Open a lesson to view its content.</div>;
   const { currentSchool, user } = useAuth();
   const [isPublishing, setIsPublishing] = useState(false);
 

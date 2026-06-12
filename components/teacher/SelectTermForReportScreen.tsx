@@ -9,6 +9,7 @@ interface SelectTermForReportScreenProps {
 }
 
 const SelectTermForReportScreen: React.FC<SelectTermForReportScreenProps> = ({ student, navigateTo, handleBack }) => {
+  if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student first.</div>;
   const terms = ["First Term", "Second Term", "Third Term"];
   
   // Helper to map grade number to class label

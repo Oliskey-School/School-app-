@@ -169,6 +169,7 @@ const TermContent: React.FC<{
 };
 
 const LessonPlanDetailScreen: React.FC<{ resources: GeneratedResources; navigateTo: (view: string, title: string, props?: any) => void; }> = ({ resources, navigateTo }) => {
+    if (!resources) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Open a lesson plan to view its details.</div>;
     const [currentResources, setCurrentResources] = useState<GeneratedResources>(resources);
     const [activeTerm, setActiveTerm] = useState<string>(resources.terms[0]?.term || '');
     const [toastMessage, setToastMessage] = useState('');

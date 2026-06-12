@@ -31,6 +31,7 @@ interface GradeEntryScreenProps {
 }
 
 const GradeEntryScreen: React.FC<GradeEntryScreenProps> = ({ exam }) => {
+    if (!exam) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select an exam to enter grades.</div>;
     const { currentSchool } = useAuth();
     const [scores, setScores] = useState<{ [studentId: string | number]: string }>({});
     const [students, setStudents] = useState<Student[]>([]);

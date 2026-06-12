@@ -13,6 +13,7 @@ interface ClassDetailScreenProps {
 }
 
 const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ classInfo, navigateTo }) => {
+  if (!classInfo) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a class to view its details.</div>;
   const { profile } = useProfile();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);

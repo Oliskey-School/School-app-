@@ -14,6 +14,7 @@ interface StudentCBTPlayerScreenProps {
 }
 
 const StudentCBTPlayerScreen: React.FC<StudentCBTPlayerScreenProps> = ({ test, studentId, handleBack }) => {
+    if (!test) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a test to begin.</div>;
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [answers, setAnswers] = useState<{ [key: string]: string }>({});
     const [timeLeft, setTimeLeft] = useState((test?.duration || 0) * 60); // in seconds

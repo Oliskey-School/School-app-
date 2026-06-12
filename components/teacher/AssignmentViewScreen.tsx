@@ -8,6 +8,7 @@ interface AssignmentViewScreenProps {
 }
 
 const AssignmentViewScreen: React.FC<AssignmentViewScreenProps> = ({ assessment }) => {
+    if (!assessment) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Open an assignment to view it.</div>;
 
     const handlePrint = () => {
         window.print();

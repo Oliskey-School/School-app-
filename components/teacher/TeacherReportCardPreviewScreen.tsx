@@ -26,6 +26,7 @@ const InfoField: React.FC<{ label: string; value: string | number }> = ({ label,
 );
 
 const TeacherReportCardPreviewScreen: React.FC<TeacherReportCardPreviewScreenProps> = ({ student, handleBack, onPublish }) => {
+    if (!student) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a student to preview their report card.</div>;
     const { user: authUser } = useAuth();
     const [currentUserTeacher, setCurrentUserTeacher] = useState<Teacher | null>(null);
     const { classes: teacherClasses, subjects: teacherSubjects, loading: loadingPermissions } = useTeacherClasses();

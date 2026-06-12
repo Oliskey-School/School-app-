@@ -8,6 +8,7 @@ interface CBTScoresScreenProps {
 }
 
 const CBTScoresScreen: React.FC<CBTScoresScreenProps> = ({ test }) => {
+    if (!test) return <div className="flex items-center justify-center min-h-[40vh] p-8 text-center text-gray-500">Select a test to view scores.</div>;
     const [results, setResults] = useState<CBTResult[]>([]);
     const [loading, setLoading] = useState(true);
 
