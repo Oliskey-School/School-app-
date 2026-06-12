@@ -10,7 +10,7 @@ export class SaaSAnalyticsService {
             payments
         ] = await Promise.all([
             prisma.school.count(),
-            prisma.school.count({ where: { status: 'active' } }),
+            prisma.school.count({ where: { is_active: true } }),
             prisma.user.count(),
             prisma.school.count({ where: { subscription_status: 'active' } }),
             prisma.payment.findMany({
