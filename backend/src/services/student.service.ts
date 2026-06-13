@@ -37,10 +37,11 @@ export class StudentService {
         const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         return await prisma.$transaction(async (tx) => {
-            // If the admin explicitly typed an email, make sure it isn't already taken by
-            // another account — never reuse/convert an existing user into a student.
+            // If the admin explicitly typed an email, make sure it isn't already taken
+            // IN THIS SCHOOL + BRANCH (email is unique per school+branch, not globally) —
+            // never reuse/convert an existing user into a student.
             if (enrollmentData.email) {
-                const existing = await tx.user.findUnique({ where: { email: studentEmail } });
+                const existing = await tx.user.findFirst({ where: { email: studentEmail, school_id: schoolId, branch_id: branchId ?? null } });
                 if (existing) {
                     throw Object.assign(
                         new Error(`This email is already registered to ${existing.full_name || 'another account'}. Please use a different email.`),
@@ -49,10 +50,10 @@ export class StudentService {
                 }
             }
 
-            // 1. Create or Find User
-            const user = await (tx.user.upsert as any)({
-                where: { email: studentEmail },
-                create: {
+            // 1. Create the User. The email is unique per school+branch and the duplicate
+            //    check above already rejected a clash in this branch, so this is a create.
+            const user = await (tx.user.create as any)({
+                data: {
                     email: studentEmail,
                     password_hash: hashedPassword,
                     full_name: fullName,
@@ -60,16 +61,6 @@ export class StudentService {
                     school_id: schoolId,
                     branch_id: branchId || null,
                     email_verified: true, // System created accounts should be pre-verified
-                    initial_password: isTeacherAdded ? null : generatedPassword,
-                    updated_at: new Date()
-                },
-                update: {
-                    full_name: fullName,
-                    role: Role.STUDENT,
-                    password_hash: hashedPassword,
-                    school_id: schoolId,
-                    branch_id: branchId || null,
-                    email_verified: true, // Ensure even updated ones are verified if system enrolled
                     initial_password: isTeacherAdded ? null : generatedPassword,
                     updated_at: new Date()
                 }
@@ -141,8 +132,10 @@ export class StudentService {
             let parentCredentials = null;
 
             if (!parentIdToLink && parentEmail) {
-                let parentUser = await tx.user.findUnique({
-                    where: { email: parentEmail.toLowerCase() }
+                // Look up the parent within THIS school + branch (email is unique per
+                // school+branch). Reuse the existing parent here, else create one.
+                let parentUser = await tx.user.findFirst({
+                    where: { email: parentEmail.toLowerCase(), school_id: schoolId, branch_id: branchId ?? null }
                 });
 
                 if (!parentUser) {

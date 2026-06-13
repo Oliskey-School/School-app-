@@ -29,7 +29,7 @@ router.post('/invite-user', authenticate, requireRole(['admin', 'proprietor']), 
         console.log(`[LocalInvite] Inviting ${email} as ${role} for school ${school_id}`);
 
         // Check if user already exists
-        let user = await prisma.user.findUnique({
+        let user = await prisma.user.findFirst({
             where: { email: email.toLowerCase() }
         });
 

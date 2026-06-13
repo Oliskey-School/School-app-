@@ -219,11 +219,14 @@ export class ParentService {
         }
 
         const result = await prisma.$transaction(async (tx) => {
-            let user = await tx.user.findUnique({
-                where: { email: email.toLowerCase() }
+            // Email is unique per school+branch — only reject a duplicate WITHIN this
+            // same school + branch. The same email is free to be its own account in a
+            // different school or branch.
+            let user = await tx.user.findFirst({
+                where: { email: email.toLowerCase(), school_id: schoolId, branch_id: branchId ?? null }
             });
 
-            // The email already belongs to an account — do NOT reuse/overwrite it
+            // The email already belongs to an account IN THIS BRANCH — do NOT reuse/overwrite it
             // (reusing is how a parent ended up carrying another user's teacher ID and
             // how created users went missing). Reject so each person keeps their own
             // account + unique ID, and the shown credentials always work.

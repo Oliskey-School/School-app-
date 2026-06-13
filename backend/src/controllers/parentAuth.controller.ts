@@ -27,7 +27,7 @@ export class ParentAuthController {
                 return res.status(404).json({ success: false, message: 'Parent account not found' });
             }
 
-            const user = await prisma.user.findUnique({
+            const user = await prisma.user.findFirst({
                 where: { id: parent.user_id }
             });
 
@@ -83,7 +83,7 @@ export class ParentAuthController {
                 return res.status(404).json({ success: false, message: 'Parent account not found' });
             }
 
-            const user = await prisma.user.findUnique({
+            const user = await prisma.user.findFirst({
                 where: { id: parent.user_id }
             });
 
@@ -143,7 +143,7 @@ export class ParentAuthController {
                 return res.status(404).json({ success: false, message: 'Parent account not found' });
             }
 
-            const user = await prisma.user.findUnique({
+            const user = await prisma.user.findFirst({
                 where: { id: parent.user_id }
             });
 
@@ -195,7 +195,7 @@ export class ParentAuthController {
                 return res.status(404).json({ success: false, message: 'Parent account not found' });
             }
 
-            const user = await prisma.user.findUnique({
+            const user = await prisma.user.findFirst({
                 where: { id: parent.user_id }
             });
 

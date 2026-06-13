@@ -174,7 +174,11 @@ model Branch {
 
 model User {
   id                     String                 @id @default(uuid())
-  email                  String                 @unique
+  // Email is unique per school+branch (see @@unique below), not globally — the same
+  // person/email may hold a separate, independent account in a different school or
+  // branch (true multi-tenant isolation). Login resolves the account by email +
+  // password (matching across candidates when an email exists in several tenants).
+  email                  String
   password_hash          String
   full_name              String
   role                   Role                   @default(STUDENT)
@@ -213,6 +217,12 @@ model User {
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+
+  // Email is unique within a school + branch (not globally) — the same email is a
+  // separate, independent account in a different school OR branch ("each branch has
+  // its own rows"). An index on email keeps login lookups fast.
+  @@unique([school_id, branch_id, email])
+  @@index([email])
 }
 
 model Student {

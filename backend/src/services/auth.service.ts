@@ -30,7 +30,7 @@ export class AuthService {
      * Lead DevSecOps: 2FA Enforcement for High-Privilege Roles
      */
     static async generate2FASecret(userId: string) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await prisma.user.findFirst({ where: { id: userId } });
         if (!user) throw new Error('User not found');
 
         const secret = authenticator.generateSecret();
@@ -47,7 +47,7 @@ export class AuthService {
     }
 
     static async verifyAndEnable2FA(userId: string, code: string) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await prisma.user.findFirst({ where: { id: userId } });
         if (!user || !user.two_factor_secret) throw new Error('2FA not initiated');
 
         const isValid = authenticator.verify({
@@ -104,7 +104,7 @@ export class AuthService {
     }
 
     static async checkEmail(email: string) {
-        const user = await prisma.user.findUnique({
+        const user = await prisma.user.findFirst({
             where: { email: email.toLowerCase() }
         });
         return { exists: !!user, user };
@@ -289,7 +289,7 @@ export class AuthService {
             const decoded = jwt.verify(mfaToken, config.jwtSecret) as any;
             if (decoded.purpose !== 'mfa_verification') throw new Error('Invalid MFA token');
 
-            const user = await prisma.user.findUnique({
+            const user = await prisma.user.findFirst({
                 where: { id: decoded.id },
                 include: { school: true, branch: true }
             });
@@ -421,7 +421,7 @@ export class AuthService {
             }
 
             // 3. Find user
-            const user = await prisma.user.findUnique({
+            const user = await prisma.user.findFirst({
                 where: { id: decoded.id },
                 include: { school: true, branch: true }
             });
@@ -479,7 +479,7 @@ export class AuthService {
     static async createUser(data: any) {
         return await prisma.$transaction(async (tx) => {
             // 1. Check if user exists
-            let user = await tx.user.findUnique({
+            let user = await tx.user.findFirst({
                 where: { email: data.email.toLowerCase() }
             });
 
@@ -609,7 +609,7 @@ export class AuthService {
     }
 
     static async switchSchool(userId: string, schoolId: string) {
-        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+        const targetUser = await prisma.user.findFirst({ where: { id: userId } });
         if (!targetUser) throw new Error('User not found');
         const isSuperAdmin = (targetUser.role || '').toUpperCase() === 'SUPER_ADMIN';
 
@@ -752,7 +752,7 @@ export class AuthService {
      * Forgot Password Flow - Part 1: Request Reset
      */
     static async forgotPassword(email: string) {
-        const user = await prisma.user.findUnique({
+        const user = await prisma.user.findFirst({
             where: { email: email.toLowerCase() }
         });
 
@@ -843,7 +843,7 @@ export class AuthService {
     }
 
     static async resendVerification(email: string) {
-        const user = await prisma.user.findUnique({
+        const user = await prisma.user.findFirst({
             where: { email: email.toLowerCase() }
         });
 
@@ -885,7 +885,7 @@ export class AuthService {
                 data: { email_verified: true }
             });
 
-            const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+            const user = await prisma.user.findFirst({ where: { id: decoded.userId } });
             
             if (user && user.school_id) {
                 // Activate the new school
@@ -919,7 +919,7 @@ export class AuthService {
             throw new Error('The new email is the same as your current email.');
         }
 
-        const taken = await prisma.user.findUnique({ where: { email: normalized } });
+        const taken = await prisma.user.findFirst({ where: { email: normalized } });
         if (taken && taken.id !== userId) {
             throw new Error('That email is already in use by another account.');
         }
@@ -966,7 +966,7 @@ export class AuthService {
             data: { email_verified: true }
         });
 
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await prisma.user.findFirst({ where: { id: userId } });
         if (!user) throw new Error('User not found');
 
         const { token, refreshToken } = await this.generateTokens(user);

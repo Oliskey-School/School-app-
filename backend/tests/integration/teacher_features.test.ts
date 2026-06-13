@@ -163,7 +163,16 @@ vi.mock('../../src/config/database', () => {
                 }
                 return Promise.resolve({ id: 'test-user-id', email: email || 'teacher@school.com', role: 'TEACHER' });
             }),
-            findFirst: vi.fn().mockResolvedValue({ id: 'test-user-id', email: 'teacher@school.com', role: 'TEACHER' }),
+            findFirst: vi.fn().mockImplementation((args: any) => {
+                // Mirror findUnique: a brand-new account email has no existing row, so
+                // the create-time duplicate check (now school+branch scoped via findFirst)
+                // must return null and allow creation.
+                const email: string = args?.where?.email || '';
+                if (email.includes('newteacher') || email.includes('newparent') || email.includes('newuser')) {
+                    return Promise.resolve(null);
+                }
+                return Promise.resolve({ id: 'test-user-id', email: email || 'teacher@school.com', role: 'TEACHER' });
+            }),
             findMany: vi.fn().mockResolvedValue([]),
             create: vi.fn().mockResolvedValue({ id: 'test-user-id', email: 'newteacher@school.com', role: 'TEACHER' }),
             update: vi.fn().mockResolvedValue({ id: 'test-user-id' }),

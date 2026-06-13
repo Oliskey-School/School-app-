@@ -154,7 +154,7 @@ export class DemoSeederService {
                     ...extraStudents.map(s => ({ email: s.email, id: getPersistenceId('STUDENT', s.index) })),
                 ];
                 for (const u of seedIdentities) {
-                    const existing = await tx.user.findUnique({ where: { email: u.email } });
+                    const existing = await tx.user.findFirst({ where: { email: u.email } });
                     if (existing && existing.id !== u.id) {
                         await tx.user.delete({ where: { id: existing.id } });
                     }

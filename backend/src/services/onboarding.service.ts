@@ -63,14 +63,10 @@ export class OnboardingService {
             }
         }
 
-        // Check for existing admin email
-        const existingUser = await prisma.user.findUnique({
-            where: { email: data.adminEmail }
-        });
-        if (existingUser) {
-            await EmailService.sendAccountLookupEmail(data.adminEmail);
-            throw new Error('This email is already associated with an account. We have sent an email to your inbox listing all accounts linked to this email address. Please check your inbox.');
-        }
+        // Email is unique per school+branch, so one person may own SEVERAL schools
+        // with the same email — each school gets its own admin account row. We only
+        // block if this exact email is already an owner of a school with the SAME
+        // code (handled above), not globally.
 
         const schoolSlug = data.schoolName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') + '-' + Date.now().toString(36);
         const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);

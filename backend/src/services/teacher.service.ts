@@ -32,12 +32,13 @@ export class TeacherService {
         const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         return await prisma.$transaction(async (tx) => {
-            // 3. Check if user already exists
-            let user = await tx.user.findUnique({
-                where: { email: email?.toLowerCase() }
+            // 3. Check if a user with this email already exists IN THIS SCHOOL + BRANCH
+            //    (email is unique per school+branch, not globally).
+            let user = await tx.user.findFirst({
+                where: { email: email?.toLowerCase(), school_id: schoolId, branch_id: branchId ?? null }
             });
 
-            // An email belongs to exactly ONE person. If it already exists we do NOT
+            // An email belongs to exactly ONE person IN THIS BRANCH. If it already exists we do NOT
             // hijack/convert that account (the old behaviour silently flipped a parent
             // into a teacher and replaced their ID — making the original person vanish
             // from their list). Reject with a clear message so each user keeps their own
