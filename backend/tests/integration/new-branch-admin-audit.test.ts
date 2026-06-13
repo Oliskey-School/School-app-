@@ -130,7 +130,7 @@ describe('New branch — admin viewComponent audit', () => {
     const res = await post('/api/students/enroll', NEW, { firstName: 'New', lastName: 'Campus', email, grade: 7, branch_id: NEW });
     if (![200, 201].includes(res.status)) console.log('enroll failed:', res.status, JSON.stringify(res.body));
     expect([200, 201]).toContain(res.status);
-    const u = await prisma.user.findUnique({ where: { email }, select: { branch_id: true, school_generated_id: true } });
+    const u = await prisma.user.findFirst({ where: { email }, select: { branch_id: true, school_generated_id: true } });
     expect(u?.branch_id).toBe(NEW);                          // stored in the new branch
     expect(u?.school_generated_id).toContain('_NEWB_');      // carries the new branch code
     // not visible from Main

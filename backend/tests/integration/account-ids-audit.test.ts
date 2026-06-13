@@ -40,7 +40,7 @@ async function cleanup() {
 const codeOf = (gid: string) => gid.split('_').slice(-2, -1)[0];
 const numOf = (gid: string) => parseInt(gid.split('_').pop() as string, 10);
 const idForEmail = async (email: string) =>
-  (await prisma.user.findUnique({ where: { email }, select: { school_generated_id: true } }))?.school_generated_id || '';
+  (await prisma.user.findFirst({ where: { email }, select: { school_generated_id: true } }))?.school_generated_id || '';
 
 describe('Account creation & IDs', () => {
   beforeAll(async () => {
@@ -77,13 +77,13 @@ describe('Account creation & IDs', () => {
     await expect(StudentService.enrollStudent(S, B1, { firstName: 'Dup', lastName: 'X', email: 't1@acid.com' }, 'ADMIN', ADMIN))
       .rejects.toThrow(/already registered/i);
     // the original teacher is still intact (was NOT converted/deleted)
-    const t1 = await prisma.user.findUnique({ where: { email: 't1@acid.com' } });
+    const t1 = await prisma.user.findFirst({ where: { email: 't1@acid.com' } });
     expect(t1?.role).toBe('TEACHER');
   });
 
   it('teachers ASSIGNED to another branch show THAT branch code + DISTINCT numbers (no duplicates)', async () => {
-    const u1 = await prisma.user.findUnique({ where: { email: 't1@acid.com' } });
-    const u2 = await prisma.user.findUnique({ where: { email: 't2@acid.com' } });
+    const u1 = await prisma.user.findFirst({ where: { email: 't1@acid.com' } });
+    const u2 = await prisma.user.findFirst({ where: { email: 't2@acid.com' } });
     for (const u of [u1, u2]) {
       await prisma.user.update({ where: { id: u!.id }, data: { allowed_branch_ids: [B2] } });
       await prisma.teacher.updateMany({ where: { user_id: u!.id }, data: { allowed_branch_ids: [B2] } });
@@ -101,7 +101,7 @@ describe('Account creation & IDs', () => {
   });
 
   it('a PARENT resolved in another branch keeps PAR letters (never TCH)', async () => {
-    const par = await prisma.user.findUnique({ where: { email: 'par1@acid.com' } });
+    const par = await prisma.user.findFirst({ where: { email: 'par1@acid.com' } });
     const resolved = await BranchIdentityService.resolveForUser(
       { id: par!.id, school_id: S, branch_id: B1, school_generated_id: par!.school_generated_id, role: 'PARENT' },
       B2
