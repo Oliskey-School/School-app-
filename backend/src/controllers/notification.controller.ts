@@ -77,7 +77,12 @@ export const getNotificationSettings = async (req: AuthRequest, res: Response) =
 export const updateNotificationSettings = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user.id;
-        const result = await NotificationService.updateSettingsByUserId(userId, req.body);
+        const result = await NotificationService.updateSettingsByUserId(
+            userId,
+            req.body,
+            req.user.school_id,
+            (req.user as any).active_branch_id ?? req.user.branch_id ?? null
+        );
         res.json(result.categories);
     } catch (error: any) {
         res.status(500).json({ message: error.message });

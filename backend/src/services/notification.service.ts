@@ -163,17 +163,33 @@ export class NotificationService {
         return settings;
     }
 
-    static async updateSettingsByUserId(userId: string, data: any) {
+    static async updateSettingsByUserId(userId: string, data: any, schoolId?: string, branchId?: string | null) {
+        // Demo / virtual sessions: the user may not be a real DB row, so the FK on
+        // NotificationSetting would fail. Persisting isn't meaningful (demo resets
+        // daily) — return the preferences as a successful no-op.
+        const owner = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, school_id: true } });
+        if (!owner) {
+            return { categories: data, digest_time: data?.digest_time || '19:00' };
+        }
+
+        // school_id is REQUIRED on NotificationSetting — was missing, causing the
+        // "Failed to save preferences" 500. Resolve it (from the request, else the user).
+        const sid = schoolId || owner.school_id;
+
         return await prisma.notificationSetting.upsert({
             where: { user_id: userId },
             update: {
                 categories: data,
+                school_id: sid,
+                ...(branchId !== undefined ? { branch_id: branchId } : {}),
                 updated_at: new Date()
             },
             create: {
                 user_id: userId,
                 categories: data,
-                digest_time: '19:00'
+                school_id: sid,
+                branch_id: branchId ?? null,
+                digest_time: data?.digest_time || '19:00'
             }
         });
     }
