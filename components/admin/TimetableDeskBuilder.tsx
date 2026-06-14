@@ -131,9 +131,11 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         if (/(primary|pry|basic|grade)\s*[123]\b/.test(name) || (!isNaN(g) && g >= 1 && g <= 3)) return 'lowerPrimary';
         return 'creche';
     };
-    // Only show level tabs that actually have classes in this branch.
+    // Upper Primary, Junior and Senior always show (the core levels admins build for);
+    // Creche/Lower Primary only appear when the branch actually has such classes.
+    const ALWAYS_SHOWN = new Set<LevelKey>(['upperPrimary', 'junior', 'senior']);
     const availableLevels = useMemo(
-        () => LEVELS.filter(l => classes.some(c => levelOf(c) === l.key)),
+        () => LEVELS.filter(l => ALWAYS_SHOWN.has(l.key) || classes.some(c => levelOf(c) === l.key)),
         [classes]
     );
     const levelClasses = useMemo(
