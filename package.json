@@ -3,7 +3,6 @@
   "version": "0.5.44",
   "scripts": {
     "dev": "vite",
-    "predev": "npm run clean",
     "build": "vite build",
     "postinstall": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma",
     "vercel-build": "npx prisma generate && npx prisma generate --schema=backend/prisma/schema.prisma && vite build",
@@ -25,7 +24,7 @@
     "db:backup": "docker exec school-app-db pg_dump -U postgres school_app > database_backup.sql",
     "db:restore": "docker exec -i school-app-db psql -U postgres school_app < database_backup.sql",
     "start:all": "concurrently \"npm run dev\" \"npm run server\"",
-    "prestart:all": "npm run kill-ports && npm run clean",
+    "prestart:all": "npm run kill-ports",
     "clean": "npx rimraf node_modules/.vite .vite",
     "setup": "npm install && echo '\n✅ Dependencies installed!\n\nNext steps:\n1. Run: npm run db:migrate\n2. Run: npm run db:seed\n3. Run: npm run start:all\n4. Visit: http://localhost:5173\n'"
   },

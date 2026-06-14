@@ -37,11 +37,40 @@ export default defineConfig(({ mode }) => {
       ],
     },
     cacheDir: '.vite',
+    // Pre-bundle the heavy, always-used dependencies up front so the FIRST page load
+    // doesn't trigger on-the-fly discovery + a mid-session re-optimize (which forces a
+    // full browser reload). Combined with NOT wiping the .vite cache on every start
+    // (see package.json), warm restarts load fast.
+    optimizeDeps: {
+      include: [
+        'react', 'react-dom', 'react-dom/client', 'react/jsx-runtime',
+        'react-router-dom',
+        '@tanstack/react-query', '@tanstack/react-query-persist-client',
+        'recharts',
+        'framer-motion',
+        'lucide-react',
+        'date-fns',
+        'i18next', 'react-i18next', 'i18next-browser-languagedetector',
+        'socket.io-client',
+        'dompurify',
+        'react-hot-toast',
+      ],
+    },
     server: {
       port: 3000,
       strictPort: true,
       host: '0.0.0.0',
       allowedHosts: ['host.docker.internal', 'localhost', '172.18.0.1'],
+      // Pre-transform the entry + the login and role dashboards while the dev server
+      // boots, so the first navigation paints sooner instead of compiling on click.
+      warmup: {
+        clientFiles: [
+          './index.tsx',
+          './App.tsx',
+          './components/auth/Login.tsx',
+          './components/DashboardRouter.tsx',
+        ],
+      },
       proxy: {
         '/api': {
           target: 'http://localhost:5000',
