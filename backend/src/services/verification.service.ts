@@ -57,16 +57,20 @@ export class VerificationService {
 
         // Store the code (hashed for security)
         const hashedCode = await bcrypt.hash(code, 10);
-        
+
+        // school_id is required on VerificationCode — resolve it from the user.
+        const owner = await prisma.user.findUnique({ where: { id: userId }, select: { school_id: true } });
+
         await prisma.verificationCode.create({
             data: {
                 user_id: userId,
+                school_id: owner?.school_id,
                 email: email.toLowerCase(),
                 code: hashedCode,
                 purpose,
                 expires_at: expiresAt,
                 ip_address: ipAddress ? ipAddress : undefined
-            }
+            } as any
         });
 
         // Send email with the plain code (we need to send it plain for user to enter)

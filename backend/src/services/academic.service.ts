@@ -459,7 +459,13 @@ export class AcademicService {
     }
 
     static async upsertReportCard(studentId: string, schoolId: string, data: any) {
-        const { term, session, academicRecords, status, attendance, skills, psychomotor, teacherComment, principalComment } = data;
+        const { academicRecords, status, attendance, skills, psychomotor, teacherComment, principalComment } = data;
+        // session/term are REQUIRED on AcademicPerformance — default them when the
+        // caller omits them so the save never 500s. Nigerian sessions start in September.
+        const term = data.term || 'First Term';
+        const now = new Date();
+        const startYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        const session = data.session || `${startYear}/${startYear + 1}`;
 
         return await prisma.$transaction(async (tx) => {
             // 0. Clean up existing AcademicPerformance records for this term/session that are NOT in the new list
