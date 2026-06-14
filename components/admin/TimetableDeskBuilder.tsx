@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Sparkles, Save, GripVertical, X, AlertTriangle, ArrowLeft, Users } from 'lucide-react';
+import { Calendar, Sparkles, Save, GripVertical, X, AlertTriangle, ArrowLeft, Users, Search } from 'lucide-react';
 
 /**
  * Desktop drag-and-drop timetable builder.
@@ -25,6 +25,15 @@ interface Props {
 
 interface Cell { subject: string; teacher_id?: string; id?: string; }
 type Grid = Record<string, Cell>; // key: `${classId}|${day}|${periodIdx}`
+
+type LevelKey = 'creche' | 'lowerPrimary' | 'upperPrimary' | 'junior' | 'senior';
+const LEVELS: { key: LevelKey; label: string }[] = [
+    { key: 'creche', label: 'Creche / Nursery' },
+    { key: 'lowerPrimary', label: 'Lower Primary (P1–3)' },
+    { key: 'upperPrimary', label: 'Upper Primary (P4–6)' },
+    { key: 'junior', label: 'Junior (JSS)' },
+    { key: 'senior', label: 'Senior (SSS)' },
+];
 
 const DAYS = [
     { d: 1, label: 'Mon' }, { d: 2, label: 'Tue' }, { d: 3, label: 'Wed' },
@@ -66,8 +75,9 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     const [subjects, setSubjects] = useState<string[]>([]);
     const [teachers, setTeachers] = useState<any[]>([]);
     const [grid, setGrid] = useState<Grid>({});
-    const [level, setLevel] = useState<'junior' | 'senior'>('senior');
+    const [levelKey, setLevelKey] = useState<LevelKey>('senior');
     const [day, setDay] = useState<number>(1);
+    const [subjectQuery, setSubjectQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const dragSubject = useRef<string | null>(null);
@@ -111,16 +121,37 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         return () => { active = false; };
     }, [sid, bid]);
 
-    // Junior = grade <= 9 (JSS / primary), Senior = grade >= 10 (SSS). Falls back to name.
-    const isSenior = (c: any) => {
+    // Classify a class into a Nigerian school level, by name first then grade.
+    const levelOf = (c: any): LevelKey => {
+        const name = String(c?.name || '').toLowerCase();
         const g = Number(c?.grade);
-        if (!isNaN(g) && g > 0) return g >= 10;
-        return /sss|senior|ss\s*\d/i.test(String(c?.name || ''));
+        if (/sss|senior|ss\s*[123]/.test(name) || (!isNaN(g) && g >= 10)) return 'senior';
+        if (/jss|junior|js\s*[123]/.test(name) || (!isNaN(g) && g >= 7 && g <= 9)) return 'junior';
+        if (/(primary|pry|basic|grade)\s*[456]\b/.test(name) || (!isNaN(g) && g >= 4 && g <= 6)) return 'upperPrimary';
+        if (/(primary|pry|basic|grade)\s*[123]\b/.test(name) || (!isNaN(g) && g >= 1 && g <= 3)) return 'lowerPrimary';
+        return 'creche';
     };
+    // Only show level tabs that actually have classes in this branch.
+    const availableLevels = useMemo(
+        () => LEVELS.filter(l => classes.some(c => levelOf(c) === l.key)),
+        [classes]
+    );
     const levelClasses = useMemo(
-        () => classes.filter(c => (level === 'senior' ? isSenior(c) : !isSenior(c)))
+        () => classes.filter(c => levelOf(c) === levelKey)
             .sort((a, b) => (a.grade || 0) - (b.grade || 0) || String(a.name).localeCompare(String(b.name))),
-        [classes, level]
+        [classes, levelKey]
+    );
+    // Once classes load, default to the first level that has classes (prefer Senior).
+    useEffect(() => {
+        if (availableLevels.length === 0) return;
+        if (!availableLevels.some(l => l.key === levelKey)) {
+            setLevelKey((availableLevels.find(l => l.key === 'senior') || availableLevels[0]).key);
+        }
+    }, [availableLevels]); // eslint-disable-line
+
+    const filteredSubjects = useMemo(
+        () => subjects.filter(s => s.toLowerCase().includes(subjectQuery.trim().toLowerCase())),
+        [subjects, subjectQuery]
     );
 
     const teacherName = (id?: string) => teachers.find(t => t.id === id)?.full_name || teachers.find(t => t.id === id)?.name || '';
@@ -178,7 +209,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
             }
             return next;
         });
-        toast.success(`Auto-filled ${DAYS.find(d => d.d === day)?.label} for ${level === 'senior' ? 'Senior' : 'Junior'} classes.`);
+        toast.success(`Auto-filled ${DAYS.find(d => d.d === day)?.label} for ${LEVELS.find(l => l.key === levelKey)?.label} classes.`);
     };
 
     // --- save: create/update every filled cell across ALL days ---
@@ -250,11 +281,11 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
 
             {/* Level toggle + Day tabs */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div className="inline-flex rounded-xl bg-slate-100 p-1">
-                    {(['junior', 'senior'] as const).map(l => (
-                        <button key={l} onClick={() => setLevel(l)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${level === l ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
-                            {l === 'junior' ? 'Junior (JSS)' : 'Senior (SSS)'}
+                <div className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1">
+                    {(availableLevels.length ? availableLevels : LEVELS.filter(l => l.key === 'senior')).map(l => (
+                        <button key={l.key} onClick={() => setLevelKey(l.key)}
+                            className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${levelKey === l.key ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
+                            {l.label}
                         </button>
                     ))}
                 </div>
@@ -280,9 +311,19 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                 <div className="lg:w-52 flex-none">
                     <div className="rounded-2xl border border-slate-200 bg-white p-3 lg:sticky lg:top-4">
                         <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2 px-1">Subjects — drag in</p>
+                        <div className="relative mb-2">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                            <input
+                                value={subjectQuery}
+                                onChange={e => setSubjectQuery(e.target.value)}
+                                placeholder="Search subjects…"
+                                className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            />
+                        </div>
                         {subjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-4">No subjects yet. Add subjects first.</p>}
-                        <div className="flex lg:flex-col flex-wrap gap-2">
-                            {subjects.map(s => (
+                        {subjects.length > 0 && filteredSubjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-3">No subject matches “{subjectQuery}”.</p>}
+                        <div className="flex lg:flex-col flex-wrap gap-2 max-h-[60vh] overflow-y-auto">
+                            {filteredSubjects.map(s => (
                                 <div key={s} draggable onDragStart={() => { dragSubject.current = s; }}
                                     className={`cursor-grab active:cursor-grabbing select-none flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${subjectColor(s)}`}>
                                     <GripVertical className="h-3 w-3 opacity-50" /> {s}
@@ -297,7 +338,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                     {levelClasses.length === 0 ? (
                         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
                             <Users className="h-6 w-6 mx-auto mb-2 text-slate-300" />
-                            No {level === 'senior' ? 'senior (SSS)' : 'junior (JSS)'} classes found in this branch.
+                            No {LEVELS.find(l => l.key === levelKey)?.label} classes found in this branch.
                         </div>
                     ) : (
                         <div className="min-w-[640px] rounded-2xl border border-slate-200 bg-white overflow-hidden">
