@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import DashboardLayout from '../layout/DashboardLayout';
-import { Check, Users } from 'lucide-react';
+import { Check, Users, ArrowLeft } from 'lucide-react';
 
 type PlanKey = 'free' | 'basic' | 'advanced';
 
@@ -59,23 +59,52 @@ interface TermInfo {
 const formatNaira = (n: number) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
 const formatDate = (iso: string | null | undefined) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
-const SubscriptionPage: React.FC = () => {
+interface SubscriptionPageProps {
+    navigateTo?: (view: string, title?: string, props?: any) => void;
+    handleBack?: () => void;
+    onBack?: () => void;
+}
+
+const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleBack, onBack }) => {
     const { user, currentSchool, refreshCurrentSchool } = useAuth() as any;
     const currentPlanKey = (currentSchool?.plan_type as PlanKey) || 'free';
 
     const [selectedPlan, setSelectedPlan] = useState<PlanKey>(currentPlanKey === 'free' ? 'basic' : currentPlanKey);
-    const [studentCount, setStudentCount] = useState<number>(currentSchool?.student_count || 50);
+    // Default to THIS school's actual student count so they pay for their own
+    // students. Still editable — they can lower it to pay for fewer if they wish.
+    const [studentCount, setStudentCount] = useState<number>(currentSchool?.student_count || 0);
     const [term, setTerm] = useState<TermInfo | null>(null);
     const [loading, setLoading] = useState(false);
+    const studentCountTouched = useRef(false);
 
     const selected = PLANS.find(p => p.key === selectedPlan)!;
     const total = selected.rate * Math.max(0, studentCount);
+
+    const goBack = () => {
+        if (handleBack) return handleBack();
+        if (onBack) return onBack();
+        if (navigateTo) return navigateTo('overview', 'Admin Dashboard');
+    };
 
     useEffect(() => {
         api.get<{ term: TermInfo | null }>('/subscription/current-term')
             .then(r => setTerm(r.term))
             .catch(() => setTerm(null));
     }, []);
+
+    // Pre-fill the number of students with the school's real student count.
+    useEffect(() => {
+        if (currentSchool?.student_count) {
+            if (!studentCountTouched.current) setStudentCount(currentSchool.student_count);
+            return;
+        }
+        api.getDashboardStats?.()
+            .then((s: any) => {
+                const n = s?.totalStudents ?? s?.students ?? s?.studentCount ?? s?.student_count;
+                if (!studentCountTouched.current && typeof n === 'number' && n > 0) setStudentCount(n);
+            })
+            .catch(() => {});
+    }, [currentSchool]);
 
     const config = useMemo(() => ({
         reference: `OLISKEY_TERM_${Date.now()}`,
@@ -135,6 +164,14 @@ const SubscriptionPage: React.FC = () => {
     return (
         <div className="w-full h-full py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
+                <button
+                    type="button"
+                    onClick={goBack}
+                    className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back
+                </button>
                 <div className="text-center mb-8 sm:mb-10">
                     <h1 className="text-2xl font-extrabold text-gray-900 sm:text-4xl">Choose Your Plan</h1>
                     <p className="mt-4 text-base text-gray-500 max-w-2xl mx-auto sm:text-lg">
@@ -206,7 +243,7 @@ const SubscriptionPage: React.FC = () => {
                                     type="number"
                                     min={1}
                                     value={studentCount}
-                                    onChange={e => setStudentCount(Math.max(0, parseInt(e.target.value || '0', 10)))}
+                                    onChange={e => { studentCountTouched.current = true; setStudentCount(Math.max(0, parseInt(e.target.value || '0', 10))); }}
                                     className="w-full border border-slate-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                                 <p className="mt-2 text-xs text-slate-500">
