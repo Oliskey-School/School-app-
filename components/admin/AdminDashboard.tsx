@@ -28,6 +28,7 @@ const TeacherListScreen = lazyWithRetry(() => import('./TeacherListScreen'));
 const TeacherPerformanceScreen = lazyWithRetry(() => import('./TeacherPerformanceScreen'));
 const TimetableGeneratorScreen = lazyWithRetry(() => import('./TimetableGeneratorScreen'));
 const TimetableCreationPage = lazyWithRetry(() => import('./TimetableCreationPage'));
+const TimetableDeskBuilder = lazyWithRetry(() => import('./TimetableDeskBuilder'));
 const TimetableEditor = lazyWithRetry(() => import('./TimetableEditor'));
 const TeacherAttendanceScreen = lazyWithRetry(() => import('./TeacherAttendanceScreen'));
 const TeacherAttendanceApproval = lazyWithRetry(() => import('./TeacherAttendanceApproval'));
@@ -310,6 +311,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         teacherPerformance: TeacherPerformanceScreen,
         timetable: TimetableGeneratorScreen,
         timetableGenerator: TimetableGeneratorScreen,
+        timetableBuilder: TimetableDeskBuilder,
         timetableEditor: TimetableEditor,
         timetableCreator: TimetableCreator,
         aiTimetableCreator: TimetableCreationPage,

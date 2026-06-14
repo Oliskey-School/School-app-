@@ -251,13 +251,22 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => handleOpenPage()}
-                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-2"
-                    >
-                        <PlusIcon className="w-5 h-5" />
-                        Create Global Timetable
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => navigateTo('timetableBuilder', 'Timetable Builder')}
+                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-200 transition-all flex items-center gap-2"
+                        >
+                            <PlusIcon className="w-5 h-5" />
+                            Create Global Timetable
+                        </button>
+                        <button
+                            onClick={() => handleOpenPage()}
+                            className="px-4 py-3 bg-white border border-indigo-200 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-50 transition-all flex items-center gap-2"
+                        >
+                            <SparklesIcon className="w-5 h-5" />
+                            Classic AI Generator
+                        </button>
+                    </div>
                 </div>
 
                 {/* DASHBOARD GRID */}
