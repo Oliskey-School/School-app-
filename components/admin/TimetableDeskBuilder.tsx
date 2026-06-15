@@ -154,11 +154,14 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         }
         return 'creche';
     };
-    // Upper Primary, Junior and Senior always show (the core levels admins build for);
-    // Creche/Lower Primary only appear when the branch actually has such classes.
-    const ALWAYS_SHOWN = new Set<LevelKey>(['lowerPrimary', 'upperPrimary', 'junior', 'senior']);
+    // Show ONLY the levels that actually have classes in this branch — no empty
+    // "No classes found" tabs. A level appears automatically once it has a class
+    // (so adding classes in Manage Classes makes its tab show up here).
     const availableLevels = useMemo(
-        () => LEVELS.filter(l => ALWAYS_SHOWN.has(l.key) || classes.some(c => levelOf(c) === l.key)),
+        () => {
+            const populated = LEVELS.filter(l => classes.some(c => levelOf(c) === l.key));
+            return populated.length ? populated : LEVELS;
+        },
         [classes]
     );
     const levelClasses = useMemo(
