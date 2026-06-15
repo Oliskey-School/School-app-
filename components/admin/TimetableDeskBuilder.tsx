@@ -27,14 +27,16 @@ interface Props {
 interface Cell { subject: string; teacher_id?: string; id?: string; }
 type Grid = Record<string, Cell>; // key: `${classId}|${day}|${periodIdx}`
 
-// Stages match the Manage Students "By Stage" grouping exactly (same labels + order).
-type LevelKey = 'preschool' | 'lowerPrimary' | 'upperPrimary' | 'junior' | 'senior';
+// Full school-stage structure (matches Manage Classes naming).
+type LevelKey = 'creche' | 'preNursery' | 'nursery' | 'lowerPrimary' | 'upperPrimary' | 'junior' | 'senior';
 const LEVELS: { key: LevelKey; label: string }[] = [
     { key: 'senior', label: 'Senior Secondary' },
     { key: 'junior', label: 'Junior Secondary' },
     { key: 'upperPrimary', label: 'Upper Primary' },
     { key: 'lowerPrimary', label: 'Lower Primary' },
-    { key: 'preschool', label: 'Preschool / Nursery' },
+    { key: 'nursery', label: 'Nursery' },
+    { key: 'preNursery', label: 'Pre-Nursery' },
+    { key: 'creche', label: 'Creche' },
 ];
 
 const DAYS = [
@@ -128,21 +130,33 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         return () => { active = false; };
     }, [sid, bid]);
 
-    // Grade-based, identical to the Manage Students screen so the stages line up:
-    //  <=0/none = Preschool, 1–3 = Lower Primary, 4–6 = Upper Primary,
-    //  7–9 = Junior Secondary, >=10 = Senior Secondary.
+    // Classify by the class NAME first (what the admin typed in Manage Classes), then
+    // fall back to grade. Order matters: "Pre-Nursery" must be checked before "Nursery".
     const levelOf = (c: any): LevelKey => {
+        const name = String(c?.name || '').toLowerCase();
+        if (/\bsss?\b|senior/.test(name)) return 'senior';
+        if (/\bjss?\b|junior/.test(name)) return 'junior';
+        if (/(primary|pry|basic|grade)\s*0*[456]\b/.test(name)) return 'upperPrimary';
+        if (/(primary|pry|basic|grade)\s*0*[123]\b/.test(name)) return 'lowerPrimary';
+        if (/pre[-\s]?nursery|pre[-\s]?kg|reception/.test(name)) return 'preNursery';
+        if (/nursery|kg|kindergarten/.test(name)) return 'nursery';
+        if (/creche|crèche|day\s*care/.test(name)) return 'creche';
+        // grade fallback (demo numbering: Creche -3, Pre-Nursery -2, Nursery -1..0,
+        // Primary 1-6, JSS 7-9, SSS 10-12)
         const g = Number(c?.grade);
-        if (isNaN(g)) return 'preschool';
-        if (g >= 10) return 'senior';
-        if (g >= 7) return 'junior';
-        if (g >= 4) return 'upperPrimary';
-        if (g >= 1) return 'lowerPrimary';
-        return 'preschool';
+        if (!isNaN(g)) {
+            if (g >= 10) return 'senior';
+            if (g >= 7) return 'junior';
+            if (g >= 4) return 'upperPrimary';
+            if (g >= 1) return 'lowerPrimary';
+            if (g >= -1) return 'nursery';
+            if (g === -2) return 'preNursery';
+        }
+        return 'creche';
     };
     // Upper Primary, Junior and Senior always show (the core levels admins build for);
     // Creche/Lower Primary only appear when the branch actually has such classes.
-    const ALWAYS_SHOWN = new Set<LevelKey>(['upperPrimary', 'junior', 'senior']);
+    const ALWAYS_SHOWN = new Set<LevelKey>(['lowerPrimary', 'upperPrimary', 'junior', 'senior']);
     const availableLevels = useMemo(
         () => LEVELS.filter(l => ALWAYS_SHOWN.has(l.key) || classes.some(c => levelOf(c) === l.key)),
         [classes]
@@ -370,7 +384,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                 <div className="bg-slate-50 border-b border-r border-slate-200 p-2 text-[11px] font-bold uppercase text-slate-400">Period</div>
                                 {levelClasses.map(c => (
                                     <div key={c.id} className="bg-slate-50 border-b border-r border-slate-200 p-2 text-center">
-                                        <p className="text-sm font-bold text-slate-800">{c.name}</p>
+                                        <p className="text-sm font-bold text-slate-800">{c.name}{c.section ? ` ${c.section}` : ''}</p>
                                         <p className="text-[10px] text-slate-400">{c.section ? `Section ${c.section}` : `Grade ${c.grade ?? '—'}`}</p>
                                     </div>
                                 ))}
