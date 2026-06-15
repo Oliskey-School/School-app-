@@ -27,13 +27,14 @@ interface Props {
 interface Cell { subject: string; teacher_id?: string; id?: string; }
 type Grid = Record<string, Cell>; // key: `${classId}|${day}|${periodIdx}`
 
-type LevelKey = 'creche' | 'lowerPrimary' | 'upperPrimary' | 'junior' | 'senior';
+// Stages match the Manage Students "By Stage" grouping exactly (same labels + order).
+type LevelKey = 'preschool' | 'lowerPrimary' | 'upperPrimary' | 'junior' | 'senior';
 const LEVELS: { key: LevelKey; label: string }[] = [
-    { key: 'creche', label: 'Creche / Nursery' },
-    { key: 'lowerPrimary', label: 'Lower Primary (P1–3)' },
-    { key: 'upperPrimary', label: 'Upper Primary (P4–6)' },
-    { key: 'junior', label: 'Junior (JSS)' },
-    { key: 'senior', label: 'Senior (SSS)' },
+    { key: 'senior', label: 'Senior Secondary' },
+    { key: 'junior', label: 'Junior Secondary' },
+    { key: 'upperPrimary', label: 'Upper Primary' },
+    { key: 'lowerPrimary', label: 'Lower Primary' },
+    { key: 'preschool', label: 'Preschool / Nursery' },
 ];
 
 const DAYS = [
@@ -79,6 +80,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     const [levelKey, setLevelKey] = useState<LevelKey>('senior');
     const [day, setDay] = useState<number>(1);
     const [subjectQuery, setSubjectQuery] = useState('');
+    const [paletteOpen, setPaletteOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const dragSubject = useRef<string | null>(null);
@@ -126,15 +128,17 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         return () => { active = false; };
     }, [sid, bid]);
 
-    // Classify a class into a Nigerian school level, by name first then grade.
+    // Grade-based, identical to the Manage Students screen so the stages line up:
+    //  <=0/none = Preschool, 1–3 = Lower Primary, 4–6 = Upper Primary,
+    //  7–9 = Junior Secondary, >=10 = Senior Secondary.
     const levelOf = (c: any): LevelKey => {
-        const name = String(c?.name || '').toLowerCase();
         const g = Number(c?.grade);
-        if (/sss|senior|ss\s*[123]/.test(name) || (!isNaN(g) && g >= 10)) return 'senior';
-        if (/jss|junior|js\s*[123]/.test(name) || (!isNaN(g) && g >= 7 && g <= 9)) return 'junior';
-        if (/(primary|pry|basic|grade)\s*[456]\b/.test(name) || (!isNaN(g) && g >= 4 && g <= 6)) return 'upperPrimary';
-        if (/(primary|pry|basic|grade)\s*[123]\b/.test(name) || (!isNaN(g) && g >= 1 && g <= 3)) return 'lowerPrimary';
-        return 'creche';
+        if (isNaN(g)) return 'preschool';
+        if (g >= 10) return 'senior';
+        if (g >= 7) return 'junior';
+        if (g >= 4) return 'upperPrimary';
+        if (g >= 1) return 'lowerPrimary';
+        return 'preschool';
     };
     // Upper Primary, Junior and Senior always show (the core levels admins build for);
     // Creche/Lower Primary only appear when the branch actually has such classes.
@@ -160,6 +164,12 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         () => subjects.filter(s => s.toLowerCase().includes(subjectQuery.trim().toLowerCase())),
         [subjects, subjectQuery]
     );
+    // Collapsed by default to keep the palette compact: show a few chips; expand on
+    // "Show all", and searching reveals every match. So the long list stays hidden
+    // until the user actually wants it.
+    const querying = subjectQuery.trim().length > 0;
+    const COLLAPSED_COUNT = 6;
+    const visibleSubjects = querying ? filteredSubjects : (paletteOpen ? subjects : subjects.slice(0, COLLAPSED_COUNT));
 
     const teacherName = (id?: string) => teachers.find(t => t.id === id)?.full_name || teachers.find(t => t.id === id)?.name || '';
     const teachersForSubject = (subject: string) =>
@@ -328,15 +338,21 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                             />
                         </div>
                         {subjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-4">No subjects yet. Add subjects first.</p>}
-                        {subjects.length > 0 && filteredSubjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-3">No subject matches “{subjectQuery}”.</p>}
-                        <div className="flex lg:flex-col flex-wrap gap-2 max-h-[60vh] overflow-y-auto">
-                            {filteredSubjects.map(s => (
+                        {querying && filteredSubjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-3">No subject matches “{subjectQuery}”.</p>}
+                        <div className={`flex lg:flex-col flex-wrap gap-2 ${(paletteOpen || querying) ? 'max-h-[60vh] overflow-y-auto' : ''}`}>
+                            {visibleSubjects.map(s => (
                                 <div key={s} draggable onDragStart={() => { dragSubject.current = s; }}
                                     className={`cursor-grab active:cursor-grabbing select-none flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${subjectColor(s)}`}>
                                     <GripVertical className="h-3 w-3 opacity-50" /> {s}
                                 </div>
                             ))}
                         </div>
+                        {!querying && subjects.length > COLLAPSED_COUNT && (
+                            <button onClick={() => setPaletteOpen(o => !o)}
+                                className="mt-2 w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                                {paletteOpen ? 'Show less ▴' : `Show all ${subjects.length} ▾`}
+                            </button>
+                        )}
                     </div>
                 </div>
 
