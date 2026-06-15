@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Calendar, Sparkles, Save, GripVertical, X, AlertTriangle, ArrowLeft, Users, Search } from 'lucide-react';
 import { SUBJECTS_LIST } from '../../constants';
 import { loadSchedule, teachingPeriods, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
+import { getSubjectsForGrade } from '../../lib/schoolSystem';
+import EditTimesModal from './EditTimesModal';
 
 /**
  * Desktop drag-and-drop timetable builder.
@@ -75,7 +77,9 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     // Teaching periods come from the SHARED schedule so the times match the
     // Timetable Editor (breaks excluded here — the Builder only places lessons).
     const [periods, setPeriods] = useState<PeriodDef[]>(teachingPeriods(DEFAULT_PERIODS));
-    useEffect(() => { setPeriods(teachingPeriods(loadSchedule(sid))); }, [sid]);
+    const [scheduleVersion, setScheduleVersion] = useState(0);
+    const [editingTimes, setEditingTimes] = useState(false);
+    useEffect(() => { setPeriods(teachingPeriods(loadSchedule(sid))); }, [sid, scheduleVersion]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const dragSubject = useRef<string | null>(null);
@@ -177,9 +181,24 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     // Collapsed by default to keep the palette compact: show a few chips; expand on
     // "Show all", and searching reveals every match. So the long list stays hidden
     // until the user actually wants it.
+    // Subjects appropriate for the level on screen (so Generate + the palette use the
+    // class's own subjects, not the whole catalogue).
+    const levelGrade: Record<LevelKey, number> = {
+        senior: 12, junior: 9, upperPrimary: 6, lowerPrimary: 3, nursery: 1, preNursery: 0, creche: 0,
+    };
+    const levelSubjects = useMemo(() => {
+        const subs = getSubjectsForGrade(levelGrade[levelKey] ?? 9);
+        return (Array.isArray(subs) && subs.length) ? subs : subjects;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [levelKey, subjects]);
+
     const querying = subjectQuery.trim().length > 0;
     const COLLAPSED_COUNT = 6;
-    const visibleSubjects = querying ? filteredSubjects : (paletteOpen ? subjects : subjects.slice(0, COLLAPSED_COUNT));
+    // Collapsed palette shows the class's own subjects; "Show all" reveals the full
+    // catalogue; searching filters across everything.
+    const visibleSubjects = querying
+        ? filteredSubjects
+        : (paletteOpen ? subjects : (levelSubjects.length ? levelSubjects : subjects.slice(0, COLLAPSED_COUNT)));
 
     const teacherName = (id?: string) => teachers.find(t => t.id === id)?.full_name || teachers.find(t => t.id === id)?.name || '';
     const teachersForSubject = (subject: string) =>
@@ -215,28 +234,33 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     const clearCell = (classId: string, p: number) =>
         setGrid(prev => { const n = { ...prev }; const k = cellKey(classId, day, p); if (n[k]?.id) n[k] = { ...n[k], subject: '', teacher_id: undefined }; else delete n[k]; return n; });
 
-    // --- auto-generate (the "AI" button): round-robin, clash-avoiding, this day+level ---
+    const shuffled = <T,>(arr: T[]): T[] => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; }
+        return a;
+    };
+
+    // --- "Generate with AI": scatter the class's subjects FRESH on every click,
+    // overwriting the active day's grid, avoiding the same teacher twice per period.
     const autoGenerate = () => {
-        if (subjects.length === 0 || levelClasses.length === 0) { toast.error('Add subjects and classes first.'); return; }
+        const pool = (levelSubjects.length ? levelSubjects : subjects);
+        if (pool.length === 0 || levelClasses.length === 0) { toast.error('Add subjects and classes first.'); return; }
         setGrid(prev => {
             const next = { ...prev };
             for (let p = 0; p < periods.length; p++) {
+                const order = shuffled(pool);              // different scatter each click
                 const usedTeachers = new Set<string>();
                 levelClasses.forEach((c, ci) => {
-                    const k = cellKey(c.id, day, p);
-                    if (next[k]?.subject) { if (next[k].teacher_id) usedTeachers.add(next[k].teacher_id!); return; }
-                    // pick a subject for this cell (rotate so classes differ)
-                    const subject = subjects[(p + ci) % subjects.length];
-                    // pick a teacher for the subject who isn't already used this period
+                    const subject = String(order[ci % order.length]);
                     const candidates = teachersForSubject(subject);
                     const free = candidates.find(t => !usedTeachers.has(t.id)) || candidates[0];
                     if (free) usedTeachers.add(free.id);
-                    next[k] = { ...next[k], subject, teacher_id: free?.id };
+                    next[cellKey(c.id, day, p)] = { ...next[cellKey(c.id, day, p)], subject, teacher_id: free?.id };
                 });
             }
             return next;
         });
-        toast.success(`Auto-filled ${DAYS.find(d => d.d === day)?.label} for ${LEVELS.find(l => l.key === levelKey)?.label} classes.`);
+        toast.success(`Scattered ${DAYS.find(d => d.d === day)?.label} for ${LEVELS.find(l => l.key === levelKey)?.label}.`);
     };
 
     // --- save: create/update every filled cell across ALL days ---
@@ -297,6 +321,9 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button onClick={() => setEditingTimes(true)} className="inline-flex items-center gap-2 rounded-xl bg-amber-50 text-amber-700 px-3 py-2.5 text-sm font-semibold hover:bg-amber-100">
+                        ⏱ Edit Times
+                    </button>
                     <button onClick={autoGenerate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95">
                         <Sparkles className="h-4 w-4" /> Generate with AI
                     </button>
@@ -428,6 +455,13 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                     <p className="mt-3 text-xs text-slate-400">{filledCount} period{filledCount === 1 ? '' : 's'} set across the week. Conflicts are highlighted in red.</p>
                 </div>
             </div>
+
+            <EditTimesModal
+                schoolId={sid}
+                open={editingTimes}
+                onClose={() => setEditingTimes(false)}
+                onSaved={() => setScheduleVersion(v => v + 1)}
+            />
         </div>
     );
 };

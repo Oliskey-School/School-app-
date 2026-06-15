@@ -744,14 +744,6 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     </div>
 
                     <div className="flex items-center space-x-3 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
-                        <button
-                            onClick={() => openTimesEditor('All')}
-                            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 font-bold text-xs"
-                        >
-                            ⏱ Edit Times
-                        </button>
-
-                        <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
 
                         <button
                             onClick={handlePublishClick}
@@ -933,48 +925,6 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     )}
                 </main>
 
-                {editingBreaks && (
-                    <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4" onClick={() => setEditingBreaks(false)}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900">Edit Period &amp; Break Times</h3>
-                                    <p className="text-xs text-gray-500">{editDay === 'All' ? 'Applies to all weekdays (the default).' : `Custom times for ${editDay} only.`}</p>
-                                </div>
-                                <button onClick={() => setEditingBreaks(false)} className="text-gray-400 hover:text-gray-700"><XCircleIcon className="w-6 h-6" /></button>
-                            </div>
-                            {/* Day selector: All days (base) or a specific day (e.g. Wed/Fri different times) */}
-                            <div className="px-5 pt-4 flex flex-wrap gap-2">
-                                {['All', ...DAYS].map(d => (
-                                    <button key={d} onClick={() => openTimesEditor(d)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${editDay === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'}`}>
-                                        {d === 'All' ? 'All days' : d.slice(0, 3)}
-                                        {d !== 'All' && hasDayOverride(userSchoolId || undefined, d) && <span className="ml-1 text-amber-500">•</span>}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="p-5 space-y-2">
-                                {modalPeriods.map((p, i) => (
-                                    <div key={i} className={`flex items-center gap-3 rounded-xl border p-2.5 ${p.isBreak ? 'border-amber-200 bg-amber-50' : 'border-gray-200'}`}>
-                                        <span className={`flex-1 text-sm font-semibold ${p.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>{p.name}</span>
-                                        <input type="time" value={p.start} onChange={e => updateBreakTime(i, 'start', e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm" />
-                                        <span className="text-gray-400">–</span>
-                                        <input type="time" value={p.end} onChange={e => updateBreakTime(i, 'end', e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm" />
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="p-5 border-t border-gray-100 flex justify-between gap-2">
-                                {editDay !== 'All'
-                                    ? <button onClick={resetDayToBase} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Reset {editDay.slice(0,3)} to default</button>
-                                    : <span />}
-                                <div className="flex gap-2">
-                                    <button onClick={() => setEditingBreaks(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
-                                    <button onClick={saveBreakTimes} className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Save times</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );
