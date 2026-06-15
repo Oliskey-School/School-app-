@@ -598,10 +598,13 @@ export class StudentService {
             }
 
             const studentUpdates: any = {};
+            // NOTE: only real Student scalar columns. 'school_bus_id' is NOT a field
+            // on Student — including it made Prisma reject the whole update (it could
+            // not match the input type and flagged branch_id as unknown).
             const allowedFields = [
                 'full_name', 'email', 'grade', 'section', 'department', 'gender',
                 'dob', 'address', 'admission_number', 'curriculum_type', 'avatar_url',
-                'status', 'attendance_status', 'branch_id', 'school_generated_id', 'school_bus_id'
+                'status', 'attendance_status', 'branch_id', 'school_generated_id'
             ];
 
             // Explicitly pick only valid fields to avoid Prisma errors
