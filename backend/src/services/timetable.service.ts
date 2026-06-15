@@ -27,10 +27,27 @@ export class TimetableService {
     }
 
     static async createTimetable(schoolId: string, data: any) {
+        // Whitelist real Timetable columns — callers may send UI-only fields like
+        // `day` (string), `period_index` or `status` which are NOT columns. Map a day
+        // NAME to day_of_week (1=Mon..7=Sun) when day_of_week isn't given.
+        const DOW: Record<string, number> = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7 };
+        const dow = data.day_of_week != null
+            ? Number(data.day_of_week)
+            : (typeof data.day === 'string' ? (DOW[data.day.toLowerCase()] ?? null) : null);
+
         const entry = await prisma.timetable.create({
             data: {
-                ...data,
-                school_id: schoolId
+                school_id: schoolId,
+                branch_id: (data.branch_id && data.branch_id !== 'all') ? data.branch_id : null,
+                class_id: data.class_id ?? null,
+                class_name: data.class_name ?? null,
+                subject: data.subject,
+                teacher_id: data.teacher_id ?? null,
+                day_of_week: dow,
+                start_time: data.start_time,
+                end_time: data.end_time,
+                room: data.room ?? null,
+                notes: data.notes ?? null,
             }
         });
 
