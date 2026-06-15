@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Sparkles, Save, GripVertical, X, AlertTriangle, ArrowLeft, Users, Search } from 'lucide-react';
 import { SUBJECTS_LIST } from '../../constants';
+import { loadSchedule, teachingPeriods, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
 
 /**
  * Desktop drag-and-drop timetable builder.
@@ -44,18 +45,6 @@ const DAYS = [
     { d: 4, label: 'Thu' }, { d: 5, label: 'Fri' },
 ];
 
-// 8 periods with default times (admin can refine later; the grid is what matters).
-const PERIODS = [
-    { label: 'Period 1', start: '08:00', end: '08:40' },
-    { label: 'Period 2', start: '08:40', end: '09:20' },
-    { label: 'Period 3', start: '09:20', end: '10:00' },
-    { label: 'Period 4', start: '10:20', end: '11:00' },
-    { label: 'Period 5', start: '11:00', end: '11:40' },
-    { label: 'Period 6', start: '11:40', end: '12:20' },
-    { label: 'Period 7', start: '13:00', end: '13:40' },
-    { label: 'Period 8', start: '13:40', end: '14:20' },
-];
-
 const cellKey = (classId: string, day: number, p: number) => `${classId}|${day}|${p}`;
 
 const SUBJECT_COLORS = [
@@ -83,6 +72,10 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     const [day, setDay] = useState<number>(1);
     const [subjectQuery, setSubjectQuery] = useState('');
     const [paletteOpen, setPaletteOpen] = useState(false);
+    // Teaching periods come from the SHARED schedule so the times match the
+    // Timetable Editor (breaks excluded here — the Builder only places lessons).
+    const [periods, setPeriods] = useState<PeriodDef[]>(teachingPeriods(DEFAULT_PERIODS));
+    useEffect(() => { setPeriods(teachingPeriods(loadSchedule(sid))); }, [sid]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const dragSubject = useRef<string | null>(null);
@@ -115,7 +108,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                 const g: Grid = {};
                 const byKey: Record<string, any> = {};
                 for (const slot of (Array.isArray(existing) ? existing : [])) {
-                    const startIdx = PERIODS.findIndex(p => p.start === (slot.start_time || '').slice(0, 5));
+                    const startIdx = periods.findIndex(p => p.start === (slot.start_time || '').slice(0, 5));
                     if (slot.class_id && slot.day_of_week && startIdx >= 0) {
                         const k = cellKey(slot.class_id, slot.day_of_week, startIdx);
                         g[k] = { subject: slot.subject, teacher_id: slot.teacher_id || undefined, id: slot.id };
@@ -199,7 +192,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     // --- conflicts: same teacher in >1 class at the same period on this day ---
     const conflicts = useMemo(() => {
         const set = new Set<string>();
-        for (let p = 0; p < PERIODS.length; p++) {
+        for (let p = 0; p < periods.length; p++) {
             const seen: Record<string, string[]> = {};
             for (const c of levelClasses) {
                 const cell = grid[cellKey(c.id, day, p)];
@@ -227,7 +220,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         if (subjects.length === 0 || levelClasses.length === 0) { toast.error('Add subjects and classes first.'); return; }
         setGrid(prev => {
             const next = { ...prev };
-            for (let p = 0; p < PERIODS.length; p++) {
+            for (let p = 0; p < periods.length; p++) {
                 const usedTeachers = new Set<string>();
                 levelClasses.forEach((c, ci) => {
                     const k = cellKey(c.id, day, p);
@@ -255,7 +248,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                 const cell = grid[key];
                 if (!cell?.subject) continue;
                 const [classId, dStr, pStr] = key.split('|');
-                const p = PERIODS[Number(pStr)];
+                const p = periods[Number(pStr)];
                 const cls = classes.find(c => c.id === classId);
                 const payload: any = {
                     class_id: classId,
@@ -393,7 +386,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                 ))}
                             </div>
                             {/* period rows */}
-                            {PERIODS.map((per, p) => (
+                            {periods.map((per, p) => (
                                 <div key={p} className="grid" style={{ gridTemplateColumns: `90px repeat(${levelClasses.length}, minmax(0,1fr))` }}>
                                     <div className="border-b border-r border-slate-200 p-2 bg-slate-50/60">
                                         <p className="text-xs font-bold text-slate-700">P{p + 1}</p>

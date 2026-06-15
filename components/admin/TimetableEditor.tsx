@@ -5,6 +5,7 @@ import { SUBJECT_COLORS } from '../../constants';
 import { TimetableEntry } from '../../types';
 import { api } from '../../lib/api';
 import { notifyClass } from '../../lib/database';
+import { loadSchedule, saveSchedule, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
 
 // --- TYPES ---
 type Timetable = { [key: string]: string | null };
@@ -30,18 +31,9 @@ const formatTime12Hour = (timeStr: string) => {
     return `${h}:${minutes} ${ampm}`;
 };
 
-const PERIODS = [
-    { name: 'Period 1', start: '09:00', end: '09:45' },
-    { name: 'Period 2', start: '09:45', end: '10:30' },
-    { name: 'Period 3', start: '10:30', end: '11:15' },
-    { name: 'Short Break', start: '11:15', end: '11:30', isBreak: true },
-    { name: 'Period 4', start: '11:30', end: '12:15' },
-    { name: 'Period 5', start: '12:15', end: '13:00' },
-    { name: 'Long Break', start: '13:00', end: '13:45', isBreak: true },
-    { name: 'Period 6', start: '13:45', end: '14:30' },
-    { name: 'Period 7', start: '14:30', end: '15:15' },
-    { name: 'Period 8', start: '15:15', end: '16:00' },
-];
+// The period structure (incl. breaks) comes from the SHARED schedule so the
+// Editor matches the Timetable Builder and break times are editable/persisted.
+const PERIODS: PeriodDef[] = DEFAULT_PERIODS;
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -306,6 +298,9 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     const status = currentSchedule.status || 'Draft';
 
     const [teachers, setTeachers] = useState<string[]>(['Mr. Anderson', 'Ms. Davis', 'Mrs. Wilson', 'Mr. Brown', 'Dr. Clark']);
+    // Shared, editable period schedule (incl. breaks). Loaded once we know the school.
+    const [periods, setPeriods] = useState<PeriodDef[]>(DEFAULT_PERIODS);
+    const [editingBreaks, setEditingBreaks] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -338,7 +333,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 // Single-class legacy mode
                 setSchedules([{
                     className: timetableData.className || '',
-                    timetable: timetableData.schedule || {},
+                    // loadTimetable passes `timetable`; older callers pass `schedule`.
+                    timetable: timetableData.timetable || timetableData.schedule || {},
                     teacherAssignments: timetableData.teacherAssignments || {},
                     status: timetableData.status || 'Draft',
                     issues: timetableData.suggestions || []
@@ -369,6 +365,21 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
         };
         fetchContext();
     }, []);
+
+    // Load the editable, persisted period schedule for this school (shared with the
+    // Timetable Builder) once we know the school id.
+    useEffect(() => {
+        if (userSchoolId) setPeriods(loadSchedule(userSchoolId));
+    }, [userSchoolId]);
+
+    const updateBreakTime = (index: number, field: 'start' | 'end', value: string) => {
+        setPeriods(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+    };
+    const saveBreakTimes = () => {
+        saveSchedule(periods, userSchoolId || undefined);
+        setEditingBreaks(false);
+        setToastMessage('Break times saved.');
+    };
 
     // ... (rest of code)
 
@@ -425,8 +436,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     const conflictData = await api.checkTimetableConflict({
                         teacherId: teacher.id,
                         day: day,
-                        startTime: PERIODS[periodIndex].start,
-                        endTime: PERIODS[periodIndex].end,
+                        startTime: periods[periodIndex].start,
+                        endTime: periods[periodIndex].end,
                         excludeClassId: selectedClass
                     });
 
@@ -505,8 +516,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
         // 1. Prepare entries and validate conflicts first
         for (const day of DAYS) {
-            for (let i = 0; i < PERIODS.length; i++) {
-                if (PERIODS[i].isBreak) continue;
+            for (let i = 0; i < periods.length; i++) {
+                if (periods[i].isBreak) continue;
                 const key = `${day}-${i}`;
                 const subject = schedTimetable[key];
                 const teacherName = schedAssignments[key];
@@ -525,8 +536,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                              const conflictData = await api.checkTimetableConflict({
                                  teacherId: teacher.id,
                                  day: day,
-                                 startTime: PERIODS[i].start,
-                                 endTime: PERIODS[i].end,
+                                 startTime: periods[i].start,
+                                 endTime: periods[i].end,
                                  excludeClassId: className
                              });
 
@@ -542,8 +553,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     entries.push({
                         day: day,
                         period_index: i,
-                        start_time: PERIODS[i].start,
-                        end_time: PERIODS[i].end,
+                        start_time: periods[i].start,
+                        end_time: periods[i].end,
                         subject,
                         class_name: className,
                         teacher_id: teacherId,
@@ -589,7 +600,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 subjects: Object.keys(SUBJECT_COLORS),
                 teachers: teacherData, // Now includes employment_type, available_days, subject_specialization
                 days: DAYS,
-                periodsPerDay: PERIODS.length
+                periodsPerDay: periods.length
             });
 
             if (result && result.schedule) {
@@ -631,7 +642,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     // Mobile specific handlers
     const handleMobileSlotClick = (periodName: string) => {
         // Map name to index
-        const idx = PERIODS.findIndex(p => p.name === periodName);
+        const idx = periods.findIndex(p => p.name === periodName);
         if (idx !== -1) {
             setEditingSlot({ day: selectedDay, period: idx.toString() });
         }
@@ -700,6 +711,13 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-xs"
                         >
                             <SparklesIcon className="w-4 h-4" /> AI Auto-Fill
+                        </button>
+
+                        <button
+                            onClick={() => setEditingBreaks(true)}
+                            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 font-bold text-xs"
+                        >
+                            ⏱ Edit Break Times
                         </button>
 
                         <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
@@ -831,7 +849,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                             <div className="flex-1 overflow-y-auto p-4 md:p-6">
                                 <MobileDayEditor
                                     day={selectedDay}
-                                    periods={PERIODS}
+                                    periods={periods}
                                     timetable={timetable}
                                     onEditSlot={handleMobileSlotClick}
                                 />
@@ -841,11 +859,11 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         // DESKTOP GRID VIEW
                         <div className="p-8 h-full overflow-visible pr-16 min-w-max pt-6">
                             <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden inline-block min-w-full rounded-tl-none">
-                                <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `100px repeat(${PERIODS.length}, minmax(130px, 1fr))` }}>
+                                <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `100px repeat(${periods.length}, minmax(130px, 1fr))` }}>
 
                                     {/* Header Row */}
                                     <div className="bg-gray-50/80 backdrop-blur p-4 z-10 sticky top-0 left-0 border-b border-gray-200"></div> {/* Corner */}
-                                    {PERIODS.map(period => (
+                                    {periods.map(period => (
                                         <div key={period.name} className="text-center py-4 px-2 bg-gray-50/80 backdrop-blur z-10 sticky top-0 border-b border-gray-200">
                                             <div className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-1">{period.name}</div>
                                             <div className="text-[10px] font-medium text-gray-400 bg-white inline-block px-2 py-0.5 rounded-full border border-gray-100 shadow-sm">
@@ -860,7 +878,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                             <div className="bg-white font-bold text-gray-800 text-xs uppercase tracking-widest flex items-center justify-center p-4 border-r border-gray-100 writing-vertical-lr rotate-180 md:rotate-0 md:writing-horizontal-tb sticky left-0 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
                                                 {day.slice(0, 3)}
                                             </div>
-                                            {PERIODS.map((period, index) => (
+                                            {periods.map((period, index) => (
                                                 <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem]">
                                                     <TimetableCell
                                                         isBreak={period.isBreak}
@@ -878,6 +896,34 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         </div>
                     )}
                 </main>
+
+                {editingBreaks && (
+                    <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4" onClick={() => setEditingBreaks(false)}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Edit Period & Break Times</h3>
+                                    <p className="text-xs text-gray-500">Applies to every class in this school.</p>
+                                </div>
+                                <button onClick={() => setEditingBreaks(false)} className="text-gray-400 hover:text-gray-700"><XCircleIcon className="w-6 h-6" /></button>
+                            </div>
+                            <div className="p-5 space-y-2">
+                                {periods.map((p, i) => (
+                                    <div key={i} className={`flex items-center gap-3 rounded-xl border p-2.5 ${p.isBreak ? 'border-amber-200 bg-amber-50' : 'border-gray-200'}`}>
+                                        <span className={`flex-1 text-sm font-semibold ${p.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>{p.name}</span>
+                                        <input type="time" value={p.start} onChange={e => updateBreakTime(i, 'start', e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm" />
+                                        <span className="text-gray-400">–</span>
+                                        <input type="time" value={p.end} onChange={e => updateBreakTime(i, 'end', e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm" />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
+                                <button onClick={() => { setPeriods(loadSchedule(userSchoolId || undefined)); setEditingBreaks(false); }} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
+                                <button onClick={saveBreakTimes} className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Save times</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 
 import { useAuth } from '../../context/AuthContext';
+import { loadSchedule, dayName } from '../../lib/timetableSchedule';
 import {
     CalendarIcon,
     SparklesIcon,
@@ -182,30 +183,28 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                 return t ? t.name : 'Unknown Teacher';
             };
 
-            data.forEach((entry) => {
-                // Map database format to UI format: "Monday-Period 1"
-                // Assuming simple mapping for now as per previous logic
-                const PERIODS = [
-                    { name: 'Period 1', start: '09:00' },
-                    { name: 'Period 2', start: '09:45' },
-                    { name: 'Period 3', start: '10:30' },
-                    { name: 'Period 4', start: '11:30' },
-                    { name: 'Period 5', start: '12:15' },
-                    { name: 'Period 6', start: '13:45' },
-                    { name: 'Period 7', start: '14:30' },
-                    { name: 'Period 8', start: '15:15' },
-                ];
-
-                const period = PERIODS.find(p => p.start === entry.start_time);
-                if (period) {
-                    const key = `${entry.day}-${period.name}`;
+            // Map saved rows into the Editor grid robustly: per day, dedupe by start
+            // time (keep the latest, so re-saves don't pile up), sort, and place the
+            // Nth teaching slot into the Nth teaching period — independent of the exact
+            // times. Key format matches the Editor: `${DayName}-${fullScheduleIndex}`.
+            const schedule = loadSchedule(schoolId);
+            const teaching = schedule.map((p, i) => ({ p, i })).filter(x => !x.p.isBreak);
+            const seen = new Map<string, any>();
+            (data || []).forEach((e: any) => {
+                const d = e.day_of_week ? dayName(Number(e.day_of_week)) : (e.day || 'Monday');
+                seen.set(`${d}|${(e.start_time || '').slice(0, 5)}`, { ...e, _day: d });
+            });
+            const byDay: { [d: string]: any[] } = {};
+            seen.forEach((e) => { (byDay[e._day] = byDay[e._day] || []).push(e); });
+            Object.keys(byDay).forEach((dName) => {
+                byDay[dName].sort((a, b) => String(a.start_time || '').localeCompare(String(b.start_time || '')));
+                byDay[dName].forEach((entry, order) => {
+                    if (order >= teaching.length) return;
+                    const key = `${dName}-${teaching[order].i}`;
                     timetableMap[key] = entry.subject;
                     subjectsSet.add(entry.subject);
-
-                    if (entry.teacher_id) {
-                        teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
-                    }
-                }
+                    if (entry.teacher_id) teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
+                });
             });
 
             const timetableData = {
