@@ -51,6 +51,33 @@ export function saveSchedule(periods: PeriodDef[], schoolId?: string, branchId?:
     try { localStorage.setItem(storeKey(schoolId, branchId), JSON.stringify(periods)); } catch { /* ignore */ }
 }
 
+// --- Per-day overrides: a specific day (e.g. Wed/Fri) can have different times. ---
+const dayKey = (schoolId: string | undefined, day: string) => `${storeKey(schoolId)}_day_${day}`;
+
+/** The schedule for a specific day — its override if set, otherwise the base. */
+export function loadDaySchedule(schoolId: string | undefined, day: string): PeriodDef[] {
+    try {
+        const raw = localStorage.getItem(dayKey(schoolId, day));
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length) return parsed;
+        }
+    } catch { /* ignore */ }
+    return loadSchedule(schoolId);
+}
+
+export function saveDaySchedule(periods: PeriodDef[], schoolId: string | undefined, day: string) {
+    try { localStorage.setItem(dayKey(schoolId, day), JSON.stringify(periods)); } catch { /* ignore */ }
+}
+
+export function hasDayOverride(schoolId: string | undefined, day: string): boolean {
+    try { return !!localStorage.getItem(dayKey(schoolId, day)); } catch { return false; }
+}
+
+export function clearDayOverride(schoolId: string | undefined, day: string) {
+    try { localStorage.removeItem(dayKey(schoolId, day)); } catch { /* ignore */ }
+}
+
 /** Only the teaching periods (no breaks) — what the Builder drops subjects into. */
 export const teachingPeriods = (periods: PeriodDef[]) => periods.filter((p) => !p.isBreak);
 

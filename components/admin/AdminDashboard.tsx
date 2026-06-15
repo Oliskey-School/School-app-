@@ -600,6 +600,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
 
     // Hide header and sidebar for upgrade/subscription views
     const hideLayoutNav = currentNavigation.view === 'upgrade' || currentNavigation.view === 'subscription';
+    // The timetable grids want the full width (no side padding / max-width), but keep
+    // the header + sidebar.
+    const fullWidthViews = ['timetableEditor', 'timetableBuilder'];
+    const hidePadding = hideLayoutNav || fullWidthViews.includes(currentNavigation.view);
 
     return (
         <DashboardLayout
@@ -609,7 +613,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             setActiveScreen={handleBottomNavClick}
             hideHeader={hideLayoutNav}
             hideSidebar={hideLayoutNav}
-            hidePadding={hideLayoutNav}
+            hidePadding={hidePadding}
         >
             {/* Database Connection Error */}
             {dbStatus === 'error' && <div className="bg-red-600 text-white text-[10px] sm:text-xs py-1 px-4 mb-4 rounded-lg text-center font-medium">Database Connection Error</div>}

@@ -5,7 +5,7 @@ import { SUBJECT_COLORS } from '../../constants';
 import { TimetableEntry } from '../../types';
 import { api } from '../../lib/api';
 import { notifyClass } from '../../lib/database';
-import { loadSchedule, saveSchedule, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
+import { loadSchedule, saveSchedule, loadDaySchedule, saveDaySchedule, clearDayOverride, hasDayOverride, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
 import { getSubjectsForGrade } from '../../lib/schoolSystem';
 
 // Map a class NAME to a representative grade so we can show the right subjects.
@@ -321,6 +321,11 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     // Shared, editable period schedule (incl. breaks). Loaded once we know the school.
     const [periods, setPeriods] = useState<PeriodDef[]>(DEFAULT_PERIODS);
     const [editingBreaks, setEditingBreaks] = useState(false);
+    // Per-day times: which day the times modal is editing ('All' = base), the draft
+    // being edited, and a version counter to re-read overrides after a save.
+    const [editDay, setEditDay] = useState<string>('All');
+    const [modalPeriods, setModalPeriods] = useState<PeriodDef[]>(DEFAULT_PERIODS);
+    const [scheduleVersion, setScheduleVersion] = useState(0);
     const [toastMessage, setToastMessage] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -390,15 +395,38 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     // Timetable Builder) once we know the school id.
     useEffect(() => {
         if (userSchoolId) setPeriods(loadSchedule(userSchoolId));
-    }, [userSchoolId]);
+    }, [userSchoolId, scheduleVersion]);
 
+    // Effective times for each weekday — a day's override if set, else the base.
+    const dayPeriodsMap = useMemo(() => {
+        const map: { [day: string]: PeriodDef[] } = {};
+        DAYS.forEach(d => { map[d] = userSchoolId ? loadDaySchedule(userSchoolId, d) : periods; });
+        return map;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userSchoolId, periods, scheduleVersion]);
+
+    const openTimesEditor = (day: string) => {
+        setEditDay(day);
+        setModalPeriods(day === 'All' ? loadSchedule(userSchoolId || undefined) : loadDaySchedule(userSchoolId || undefined, day));
+        setEditingBreaks(true);
+    };
     const updateBreakTime = (index: number, field: 'start' | 'end', value: string) => {
-        setPeriods(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+        setModalPeriods(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
     };
     const saveBreakTimes = () => {
-        saveSchedule(periods, userSchoolId || undefined);
+        if (editDay === 'All') {
+            saveSchedule(modalPeriods, userSchoolId || undefined);
+            setPeriods(modalPeriods);
+        } else {
+            saveDaySchedule(modalPeriods, userSchoolId || undefined, editDay);
+        }
+        setScheduleVersion(v => v + 1);
         setEditingBreaks(false);
-        setToastMessage('Break times saved.');
+        setToastMessage(editDay === 'All' ? 'Times saved for all days.' : `Times saved for ${editDay}.`);
+    };
+    const resetDayToBase = () => {
+        if (editDay !== 'All') { clearDayOverride(userSchoolId || undefined, editDay); setScheduleVersion(v => v + 1); }
+        setModalPeriods(loadSchedule(userSchoolId || undefined));
     };
 
     // ... (rest of code)
@@ -536,8 +564,10 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
 
         // 1. Prepare entries and validate conflicts first
         for (const day of DAYS) {
+            const dpForDay = dayPeriodsMap[day] || periods; // this day's times (override or base)
             for (let i = 0; i < periods.length; i++) {
                 if (periods[i].isBreak) continue;
+                const slot = dpForDay[i] || periods[i];
                 const key = `${day}-${i}`;
                 const subject = schedTimetable[key];
                 const teacherName = schedAssignments[key];
@@ -556,8 +586,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                              const conflictData = await api.checkTimetableConflict({
                                  teacherId: teacher.id,
                                  day: day,
-                                 startTime: periods[i].start,
-                                 endTime: periods[i].end,
+                                 startTime: slot.start,
+                                 endTime: slot.end,
                                  excludeClassId: className
                              });
 
@@ -573,8 +603,8 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     entries.push({
                         day: day,
                         period_index: i,
-                        start_time: periods[i].start,
-                        end_time: periods[i].end,
+                        start_time: slot.start,
+                        end_time: slot.end,
                         subject,
                         class_name: className,
                         teacher_id: teacherId,
@@ -707,30 +737,18 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         </div>
                     </div>
 
-                    {/* Class Name Input */}
+                    {/* Class Name (fixed — set by the class you opened) */}
                     <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
                         <span className="text-xs font-bold text-gray-400 uppercase">Class:</span>
-                        <input
-                            type="text"
-                            value={selectedClass}
-                            onChange={(e) => {
-                                const newSchedules = [...schedules];
-                                if (newSchedules[activeIndex]) {
-                                    newSchedules[activeIndex].className = e.target.value;
-                                    setSchedules(newSchedules);
-                                }
-                            }}
-                            placeholder="e.g. Grade 5A"
-                            className="bg-transparent text-sm font-bold text-gray-800 focus:outline-none w-32"
-                        />
+                        <span className="text-sm font-bold text-gray-800">{selectedClass || '—'}</span>
                     </div>
 
                     <div className="flex items-center space-x-3 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
                         <button
-                            onClick={() => setEditingBreaks(true)}
+                            onClick={() => openTimesEditor('All')}
                             className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 font-bold text-xs"
                         >
-                            ⏱ Edit Break Times
+                            ⏱ Edit Times
                         </button>
 
                         <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
@@ -886,13 +904,18 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                     ))}
 
                                     {/* Data Rows */}
-                                    {DAYS.map(day => (
+                                    {DAYS.map(day => {
+                                        const dp = dayPeriodsMap[day] || periods;
+                                        const override = !!userSchoolId && hasDayOverride(userSchoolId, day);
+                                        return (
                                         <React.Fragment key={day}>
-                                            <div className="bg-white font-bold text-gray-800 text-xs uppercase tracking-widest flex items-center justify-center p-4 border-r border-gray-100 writing-vertical-lr rotate-180 md:rotate-0 md:writing-horizontal-tb sticky left-0 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
-                                                {day.slice(0, 3)}
+                                            <div className="bg-white font-bold text-gray-800 text-xs uppercase tracking-widest flex flex-col items-center justify-center p-4 border-r border-gray-100 sticky left-0 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
+                                                <span>{day.slice(0, 3)}</span>
+                                                {override && <span className="text-[9px] text-amber-600 normal-case font-semibold mt-1">{dp[0]?.start}–{dp[dp.length - 1]?.end}</span>}
                                             </div>
                                             {periods.map((period, index) => (
-                                                <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem]">
+                                                <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem] relative">
+                                                    {!period.isBreak && override && <span className="absolute top-0.5 left-1 text-[8px] text-amber-500 font-semibold z-10">{dp[index]?.start}</span>}
                                                     <TimetableCell
                                                         isBreak={period.isBreak}
                                                         subject={period.isBreak ? period.name : timetable[`${day}-${index}`] || null}
@@ -903,7 +926,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                                 </div>
                                             ))}
                                         </React.Fragment>
-                                    ))}
+                                    ); })}
                                 </div>
                             </div>
                         </div>
@@ -915,13 +938,23 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-900">Edit Period & Break Times</h3>
-                                    <p className="text-xs text-gray-500">Applies to every class in this school.</p>
+                                    <h3 className="text-lg font-bold text-gray-900">Edit Period &amp; Break Times</h3>
+                                    <p className="text-xs text-gray-500">{editDay === 'All' ? 'Applies to all weekdays (the default).' : `Custom times for ${editDay} only.`}</p>
                                 </div>
                                 <button onClick={() => setEditingBreaks(false)} className="text-gray-400 hover:text-gray-700"><XCircleIcon className="w-6 h-6" /></button>
                             </div>
+                            {/* Day selector: All days (base) or a specific day (e.g. Wed/Fri different times) */}
+                            <div className="px-5 pt-4 flex flex-wrap gap-2">
+                                {['All', ...DAYS].map(d => (
+                                    <button key={d} onClick={() => openTimesEditor(d)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${editDay === d ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'}`}>
+                                        {d === 'All' ? 'All days' : d.slice(0, 3)}
+                                        {d !== 'All' && hasDayOverride(userSchoolId || undefined, d) && <span className="ml-1 text-amber-500">•</span>}
+                                    </button>
+                                ))}
+                            </div>
                             <div className="p-5 space-y-2">
-                                {periods.map((p, i) => (
+                                {modalPeriods.map((p, i) => (
                                     <div key={i} className={`flex items-center gap-3 rounded-xl border p-2.5 ${p.isBreak ? 'border-amber-200 bg-amber-50' : 'border-gray-200'}`}>
                                         <span className={`flex-1 text-sm font-semibold ${p.isBreak ? 'text-amber-700' : 'text-gray-700'}`}>{p.name}</span>
                                         <input type="time" value={p.start} onChange={e => updateBreakTime(i, 'start', e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-sm" />
@@ -930,9 +963,14 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                     </div>
                                 ))}
                             </div>
-                            <div className="p-5 border-t border-gray-100 flex justify-end gap-2">
-                                <button onClick={() => { setPeriods(loadSchedule(userSchoolId || undefined)); setEditingBreaks(false); }} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
-                                <button onClick={saveBreakTimes} className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Save times</button>
+                            <div className="p-5 border-t border-gray-100 flex justify-between gap-2">
+                                {editDay !== 'All'
+                                    ? <button onClick={resetDayToBase} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Reset {editDay.slice(0,3)} to default</button>
+                                    : <span />}
+                                <div className="flex gap-2">
+                                    <button onClick={() => setEditingBreaks(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
+                                    <button onClick={saveBreakTimes} className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Save times</button>
+                                </div>
                             </div>
                         </div>
                     </div>
