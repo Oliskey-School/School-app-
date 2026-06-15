@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { XCircleIcon, SparklesIcon, BriefcaseIcon, CheckCircleIcon, PlusIcon, EditIcon, CalendarIcon, SaveIcon, CloudUploadIcon, RefreshIcon, ChevronLeftIcon } from '../../constants';
 import { SUBJECT_COLORS } from '../../constants';
@@ -6,6 +6,19 @@ import { TimetableEntry } from '../../types';
 import { api } from '../../lib/api';
 import { notifyClass } from '../../lib/database';
 import { loadSchedule, saveSchedule, DEFAULT_PERIODS, PeriodDef } from '../../lib/timetableSchedule';
+import { getSubjectsForGrade } from '../../lib/schoolSystem';
+
+// Map a class NAME to a representative grade so we can show the right subjects.
+const gradeForClassName = (name: string): number => {
+    const n = (name || '').toLowerCase();
+    if (/sss|senior/.test(n)) return 12;            // Senior Secondary
+    if (/jss|junior/.test(n)) return 9;             // Junior Secondary
+    if (/(primary|pry|basic|grade)\s*0*[456]\b/.test(n)) return 6; // Upper Primary
+    if (/(primary|pry|basic|grade)\s*0*[123]\b/.test(n)) return 3; // Lower Primary
+    if (/pre[-\s]?nursery/.test(n)) return 0;
+    if (/nursery|kg|kindergarten/.test(n)) return 1;
+    return 0;                                        // creche / unknown -> early years
+};
 
 // --- TYPES ---
 type Timetable = { [key: string]: string | null };
@@ -296,6 +309,13 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     const teacherAssignments = currentSchedule.teacherAssignments || {};
     const selectedClass = currentSchedule.className || '';
     const status = currentSchedule.status || 'Draft';
+
+    // Subjects palette shows what's relevant for the class on screen (its level),
+    // not the entire catalogue. Falls back to all subjects if the level is unknown.
+    const paletteSubjects = useMemo(() => {
+        const subs = getSubjectsForGrade(gradeForClassName(selectedClass));
+        return (Array.isArray(subs) && subs.length) ? subs : Object.keys(SUBJECT_COLORS);
+    }, [selectedClass]);
 
     const [teachers, setTeachers] = useState<string[]>(['Mr. Anderson', 'Ms. Davis', 'Mrs. Wilson', 'Mr. Brown', 'Dr. Clark']);
     // Shared, editable period schedule (incl. breaks). Loaded once we know the school.
@@ -664,7 +684,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 isOpen={!!editingSlot}
                 onClose={() => setEditingSlot(null)}
                 onSelect={handleMobileSubjectSelect}
-                subjects={Object.keys(SUBJECT_COLORS)}
+                subjects={paletteSubjects}
             />
 
             {/* HEADER */}
@@ -682,7 +702,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                         {status}
                                     </span>
                                 </h2>
-                                <p className="text-gray-500 text-xs md:text-sm font-medium">Drag subjects, AI Auto-Fill, or Tap to edit</p>
+                                <p className="text-gray-500 text-xs md:text-sm font-medium">Drag subjects, or Tap to edit</p>
                             </div>
                         </div>
                     </div>
@@ -706,13 +726,6 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     </div>
 
                     <div className="flex items-center space-x-3 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
-                        <button
-                            onClick={() => setShowAiModal(true)}
-                            className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 font-bold text-xs"
-                        >
-                            <SparklesIcon className="w-4 h-4" /> AI Auto-Fill
-                        </button>
-
                         <button
                             onClick={() => setEditingBreaks(true)}
                             className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 font-bold text-xs"
@@ -796,7 +809,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         <div>
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Subjects Palette</h3>
                             <div className="grid grid-cols-2 gap-3">
-                                {Object.keys(SUBJECT_COLORS).map(subject => (
+                                {paletteSubjects.map(subject => (
                                     <DraggableSubject key={subject} subjectName={subject} />
                                 ))}
                             </div>
