@@ -7,6 +7,9 @@ import { getGradeDisplayName } from '../../lib/schoolSystem';
 import { TimetableEntry, DashboardType } from '../../types';
 import { offlineStorage } from '../../lib/offlineStorage';
 import { api } from '../../lib/api';
+import { loadSchedule, loadDaySchedule, dayName, PeriodDef } from '../../lib/timetableSchedule';
+
+const DEPARTMENTS = ['Science', 'Art', 'Commercial'];
 
 // --- CONSTANTS & HELPERS (Matched with Admin UI) ---
 const formatTime12Hour = (timeStr: string) => {
@@ -19,18 +22,8 @@ const formatTime12Hour = (timeStr: string) => {
     return `${h}:${minutes} ${ampm}`;
 };
 
-const PERIODS = [
-    { name: 'Period 1', start: '09:00', end: '09:45' },
-    { name: 'Period 2', start: '09:45', end: '10:30' },
-    { name: 'Period 3', start: '10:30', end: '11:15' },
-    { name: 'Short Break', start: '11:15', end: '11:30', isBreak: true },
-    { name: 'Period 4', start: '11:30', end: '12:15' },
-    { name: 'Period 5', start: '12:15', end: '13:00' },
-    { name: 'Long Break', start: '13:00', end: '13:45', isBreak: true },
-    { name: 'Period 6', start: '13:45', end: '14:30' },
-    { name: 'Period 7', start: '14:30', end: '15:15' },
-    { name: 'Period 8', start: '15:15', end: '16:00' },
-];
+// Period structure comes from the SHARED schedule (set by the admin in the
+// Timetable Builder) so students/teachers/parents see the published times.
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -67,10 +60,10 @@ const TimetableCell: React.FC<{ subject: string | null; teacher: string | null; 
     );
 };
 
-const MobileDayView: React.FC<{ day: string; timetable: { [key: string]: string | null }; teacherAssignments: { [key: string]: string | null } }> = ({ day, timetable, teacherAssignments }) => {
+const MobileDayView: React.FC<{ day: string; periods: PeriodDef[]; timetable: { [key: string]: string | null }; teacherAssignments: { [key: string]: string | null } }> = ({ day, periods, timetable, teacherAssignments }) => {
     return (
         <div className="space-y-4 pb-24">
-            {PERIODS.map((period, idx) => {
+            {periods.map((period, idx) => {
                 if (period.isBreak) return (
                     <div key={idx} className="flex items-center justify-center py-4 bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed">
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{period.name}</span>
@@ -127,6 +120,11 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [selectedDay, setSelectedDay] = useState(DAYS[(new Date().getDay() - 1)] || 'Monday');
 
+    // Period structure from the shared schedule (published by the admin). The
+    // selected day may have its own custom times.
+    const periods = useMemo(() => loadSchedule(schoolId), [schoolId]);
+    const dayPeriods = useMemo(() => loadDaySchedule(schoolId, selectedDay), [schoolId, selectedDay]);
+
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', handleResize);
@@ -161,14 +159,28 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             let targetClassName = '';
             let targetTeacherId = '';
 
+            // Resolve a student's REAL class name from their actual class record
+            // (match grade + section), since the timetable is stored by the class
+            // name the admin typed — which may not equal getGradeDisplayName(grade).
+            const resolveClassName = async (sid: string | undefined, grade: any, section: any): Promise<string> => {
+                try {
+                    const classes = await api.getClasses(sid, currentBranchId || undefined);
+                    const list = Array.isArray(classes) ? classes : [];
+                    const match = list.find(c => Number(c.grade) === Number(grade) && String(c.section || '') === String(section || ''))
+                        || list.find(c => Number(c.grade) === Number(grade));
+                    if (match?.name) return match.name;
+                } catch { /* fall back below */ }
+                return getGradeDisplayName(grade);
+            };
+
             // 2. Identify Target Class/Teacher
             if (context.userType === 'student') {
                 const studentProfile = await api.getMyStudentProfile();
                 if (studentProfile) {
-                    targetClassName = getGradeDisplayName(studentProfile.grade);
+                    targetClassName = await resolveClassName(studentProfile.school_id || schoolId, studentProfile.grade, studentProfile.section);
                 }
             } else if (context.userType === 'parent' && selectedStudent) {
-                targetClassName = getGradeDisplayName(selectedStudent.grade);
+                targetClassName = await resolveClassName(selectedStudent.school_id || schoolId, selectedStudent.grade, selectedStudent.section);
             } else if (context.userType === 'teacher') {
                 targetTeacherId = String(context.userId);
             }
@@ -181,23 +193,39 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
             );
 
             if (data && data.length > 0) {
-                // 4. Transform Data
+                // 4. Transform Data — map each saved row to its day + teaching period
+                //    by ORDER (robust to exact times), via the shared schedule. Tag
+                //    department rows (SSS Science/Art/Commercial) into one cell.
                 const newTimetable: { [key: string]: string | null } = {};
                 const newTeachers: { [key: string]: string | null } = {};
 
-                const getPeriodName = (start: string) => {
-                    const timeShort = start.substring(0, 5);
-                    const p = PERIODS.find(p => p.start === timeShort);
-                    return p ? p.name : null;
-                };
-
-                data.forEach((entry: any) => {
-                    const pName = getPeriodName(entry.start_time);
-                    if (pName) {
-                        const key = `${entry.day}-${pName}`;
-                        newTimetable[key] = entry.subject;
-                        newTeachers[key] = entry.teacher?.name || entry.teacher_name || null;
-                    }
+                const schedule = loadSchedule(schoolId);
+                const teaching = schedule.filter(p => !p.isBreak);
+                const byDay: { [d: string]: { [st: string]: any[] } } = {};
+                data.forEach((e: any) => {
+                    const d = e.day_of_week ? dayName(Number(e.day_of_week)) : (e.day || 'Monday');
+                    const st = (e.start_time || '').slice(0, 5);
+                    byDay[d] = byDay[d] || {};
+                    byDay[d][st] = byDay[d][st] || [];
+                    byDay[d][st].push(e);
+                });
+                Object.keys(byDay).forEach((d) => {
+                    const times = Object.keys(byDay[d]).sort();
+                    times.forEach((st, order) => {
+                        if (order >= teaching.length) return;
+                        const key = `${d}-${teaching[order].name}`;
+                        const rows = byDay[d][st];
+                        const teacherName = (r: any) => r.teacher?.name || r.teacher_name || null;
+                        const deptRows = rows.filter(r => DEPARTMENTS.includes(r.notes));
+                        if (deptRows.length > 0) {
+                            newTimetable[key] = deptRows.map(r => `${r.notes}: ${r.subject}`).join(' · ');
+                            newTeachers[key] = null;
+                        } else {
+                            const entry = rows[rows.length - 1];
+                            newTimetable[key] = entry.subject;
+                            newTeachers[key] = teacherName(entry);
+                        }
+                    });
                 });
 
                 const finalClassName = data[0].class_name || className;
@@ -324,15 +352,15 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                             ))}
                         </div>
                         <div className="flex-1 overflow-y-auto p-4">
-                            <MobileDayView day={selectedDay} timetable={timetable} teacherAssignments={teacherAssignments} />
+                            <MobileDayView day={selectedDay} periods={dayPeriods} timetable={timetable} teacherAssignments={teacherAssignments} />
                         </div>
                     </div>
                 ) : (
                     <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden min-w-[1000px]">
-                        <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `80px repeat(${PERIODS.length}, 1fr)` }}>
+                        <div className="grid gap-[1px] bg-gray-100" style={{ gridTemplateColumns: `80px repeat(${periods.length}, 1fr)` }}>
                             {/* Header Row */}
                             <div className="bg-gray-50/80 backdrop-blur p-4 z-10 sticky top-0 left-0 border-b border-gray-200"></div>
-                            {PERIODS.map(period => (
+                            {periods.map(period => (
                                 <div key={period.name} className="text-center py-4 px-2 bg-gray-50/80 backdrop-blur z-10 sticky top-0 border-b border-gray-200">
                                     <div className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-1">{period.name}</div>
                                     <div className="text-[10px] font-medium text-gray-400 bg-white inline-block px-2 py-0.5 rounded-full border border-gray-100 shadow-sm">
@@ -347,7 +375,7 @@ const TimetableScreen: React.FC<TimetableScreenProps> = ({ context, schoolId, cu
                                     <div className="bg-white font-bold text-gray-800 text-xs uppercase tracking-widest flex items-center justify-center p-4 border-r border-gray-100 sticky left-0 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.02)]">
                                         {day.slice(0, 3)}
                                     </div>
-                                    {PERIODS.map(period => (
+                                    {periods.map(period => (
                                         <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem]">
                                             <TimetableCell
                                                 isBreak={period.isBreak}
