@@ -310,6 +310,26 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     const selectedClass = currentSchedule.className || '';
     const status = currentSchedule.status || 'Draft';
 
+    // SSS classes split into departments — a period can run Science, Art and
+    // Commercial subjects at once so each student attends their department class.
+    const DEPARTMENTS = ['Science', 'Art', 'Commercial'];
+    const isSeniorClass = /sss|senior/i.test(selectedClass);
+    // deptCells: { `${day}-${index}`: { Science?: {subject,teacher}, Art?:..., Commercial?:... } }
+    const deptCells: { [key: string]: { [dept: string]: { subject: string; teacher?: string } } } = currentSchedule.deptCells || {};
+    const [deptEditKey, setDeptEditKey] = useState<string | null>(null);
+    const setDeptCellsState = (next: any) => {
+        const ns = [...schedules];
+        if (ns[activeIndex]) { ns[activeIndex] = { ...ns[activeIndex], deptCells: next }; setSchedules(ns); }
+    };
+    const updateDeptEntry = (key: string, dept: string, field: 'subject' | 'teacher', value: string) => {
+        const cur = { ...(deptCells[key] || {}) };
+        cur[dept] = { ...(cur[dept] || { subject: '' }), [field]: value } as any;
+        setDeptCellsState({ ...deptCells, [key]: cur });
+    };
+    const clearDeptCell = (key: string) => {
+        const n = { ...deptCells }; delete n[key]; setDeptCellsState(n);
+    };
+
     // Subjects palette shows what's relevant for the class on screen (its level),
     // not the entire catalogue. Falls back to all subjects if the level is unknown.
     const paletteSubjects = useMemo(() => {
@@ -361,6 +381,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                     // loadTimetable passes `timetable`; older callers pass `schedule`.
                     timetable: timetableData.timetable || timetableData.schedule || {},
                     teacherAssignments: timetableData.teacherAssignments || {},
+                    deptCells: timetableData.deptCells || {},
                     status: timetableData.status || 'Draft',
                     issues: timetableData.suggestions || []
                 }]);
@@ -569,6 +590,23 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                 if (periods[i].isBreak) continue;
                 const slot = dpForDay[i] || periods[i];
                 const key = `${day}-${i}`;
+
+                // SSS department split: one row per department (tagged in `notes`).
+                const dep = (sched.deptCells || {})[key];
+                if (dep && DEPARTMENTS.some(d => dep[d]?.subject)) {
+                    for (const d of DEPARTMENTS) {
+                        const e = dep[d];
+                        if (!e?.subject) continue;
+                        const t = (window as any).__teacherData?.find((tt: any) => tt.name === e.teacher);
+                        entries.push({
+                            day, period_index: i, start_time: slot.start, end_time: slot.end,
+                            subject: e.subject, class_name: className, teacher_id: t?.id || null,
+                            notes: d, status: statusToSave, school_id: userSchoolId,
+                        });
+                    }
+                    continue;
+                }
+
                 const subject = schedTimetable[key];
                 const teacherName = schedAssignments[key];
 
@@ -905,18 +943,38 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                                 <span>{day.slice(0, 3)}</span>
                                                 {override && <span className="text-[9px] text-amber-600 normal-case font-semibold mt-1">{dp[0]?.start}–{dp[dp.length - 1]?.end}</span>}
                                             </div>
-                                            {periods.map((period, index) => (
+                                            {periods.map((period, index) => {
+                                                const cellK = `${day}-${index}`;
+                                                const depts = deptCells[cellK];
+                                                const hasDepts = !period.isBreak && depts && Object.keys(depts).length > 0;
+                                                return (
                                                 <div key={`${day}-${period.name}`} className="bg-white min-h-[6rem] relative">
                                                     {!period.isBreak && override && <span className="absolute top-0.5 left-1 text-[8px] text-amber-500 font-semibold z-10">{dp[index]?.start}</span>}
-                                                    <TimetableCell
-                                                        isBreak={period.isBreak}
-                                                        subject={period.isBreak ? period.name : timetable[`${day}-${index}`] || null}
-                                                        teacher={teacherAssignments[`${day}-${index}`] || null}
-                                                        onDrop={(e) => handleDrop(day, index, e)}
-                                                        onClear={() => clearCell(day, index)}
-                                                    />
+                                                    {/* SSS: split a period into department subjects */}
+                                                    {isSeniorClass && !period.isBreak && (
+                                                        <button onClick={() => setDeptEditKey(cellK)} title="Split by department"
+                                                            className="absolute top-0.5 right-0.5 z-20 text-[9px] font-bold text-indigo-500 bg-white/80 rounded px-1 hover:bg-indigo-50">⊞</button>
+                                                    )}
+                                                    {hasDepts ? (
+                                                        <div className="h-full min-h-[80px] rounded-xl border border-indigo-200 bg-indigo-50/40 p-1 flex flex-col gap-0.5">
+                                                            {DEPARTMENTS.filter(d => depts[d]?.subject).map(d => (
+                                                                <div key={d} className="rounded bg-white px-1.5 py-0.5 text-[10px] leading-tight">
+                                                                    <span className="font-bold text-indigo-600">{d.slice(0, 3)}:</span> <span className="text-gray-800">{depts[d].subject}</span>
+                                                                    {depts[d].teacher && <span className="block text-[8px] text-gray-500 truncate">{depts[d].teacher}</span>}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <TimetableCell
+                                                            isBreak={period.isBreak}
+                                                            subject={period.isBreak ? period.name : timetable[cellK] || null}
+                                                            teacher={teacherAssignments[cellK] || null}
+                                                            onDrop={(e) => handleDrop(day, index, e)}
+                                                            onClear={() => clearCell(day, index)}
+                                                        />
+                                                    )}
                                                 </div>
-                                            ))}
+                                            ); })}
                                         </React.Fragment>
                                     ); })}
                                 </div>
@@ -924,6 +982,47 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         </div>
                     )}
                 </main>
+
+                {/* Department split editor (SSS): set Science / Art / Commercial subjects for one period */}
+                {deptEditKey && (
+                    <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4" onClick={() => setDeptEditKey(null)}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Split period by department</h3>
+                                    <p className="text-xs text-gray-500">Each department's students attend their own subject this period. Leave blank to skip a department.</p>
+                                </div>
+                                <button onClick={() => setDeptEditKey(null)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
+                            </div>
+                            <div className="p-5 space-y-3">
+                                {DEPARTMENTS.map(dept => {
+                                    const entry = deptCells[deptEditKey]?.[dept] || { subject: '', teacher: '' };
+                                    return (
+                                        <div key={dept} className="rounded-xl border border-gray-200 p-3">
+                                            <p className="text-xs font-bold text-indigo-600 mb-2">{dept}</p>
+                                            <div className="flex gap-2">
+                                                <select value={entry.subject} onChange={e => updateDeptEntry(deptEditKey, dept, 'subject', e.target.value)}
+                                                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+                                                    <option value="">— subject —</option>
+                                                    {paletteSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
+                                                <select value={entry.teacher || ''} onChange={e => updateDeptEntry(deptEditKey, dept, 'teacher', e.target.value)}
+                                                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+                                                    <option value="">— teacher —</option>
+                                                    {teachers.map(t => <option key={t} value={t}>{t}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="p-5 border-t border-gray-100 flex justify-between gap-2">
+                                <button onClick={() => { clearDeptCell(deptEditKey); setDeptEditKey(null); }} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Clear split</button>
+                                <button onClick={() => setDeptEditKey(null)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Done</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </div>

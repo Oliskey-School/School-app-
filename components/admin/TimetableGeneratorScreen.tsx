@@ -187,23 +187,37 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
             // time (keep the latest, so re-saves don't pile up), sort, and place the
             // Nth teaching slot into the Nth teaching period — independent of the exact
             // times. Key format matches the Editor: `${DayName}-${fullScheduleIndex}`.
+            const DEPARTMENTS = ['Science', 'Art', 'Commercial'];
             const schedule = loadSchedule(schoolId);
             const teaching = schedule.map((p, i) => ({ p, i })).filter(x => !x.p.isBreak);
-            const seen = new Map<string, any>();
+            const deptMap: { [key: string]: { [dept: string]: { subject: string; teacher: string } } } = {};
+            // Group rows by day -> start_time (a period may hold several rows: the
+            // department split for SSS). Duplicate rows (no `notes`) collapse to the last.
+            const byDay: { [d: string]: { [st: string]: any[] } } = {};
             (data || []).forEach((e: any) => {
                 const d = e.day_of_week ? dayName(Number(e.day_of_week)) : (e.day || 'Monday');
-                seen.set(`${d}|${(e.start_time || '').slice(0, 5)}`, { ...e, _day: d });
+                const st = (e.start_time || '').slice(0, 5);
+                byDay[d] = byDay[d] || {};
+                byDay[d][st] = byDay[d][st] || [];
+                byDay[d][st].push(e);
             });
-            const byDay: { [d: string]: any[] } = {};
-            seen.forEach((e) => { (byDay[e._day] = byDay[e._day] || []).push(e); });
             Object.keys(byDay).forEach((dName) => {
-                byDay[dName].sort((a, b) => String(a.start_time || '').localeCompare(String(b.start_time || '')));
-                byDay[dName].forEach((entry, order) => {
+                const times = Object.keys(byDay[dName]).sort();
+                times.forEach((st, order) => {
                     if (order >= teaching.length) return;
                     const key = `${dName}-${teaching[order].i}`;
-                    timetableMap[key] = entry.subject;
-                    subjectsSet.add(entry.subject);
-                    if (entry.teacher_id) teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
+                    const rows = byDay[dName][st];
+                    const deptRows = rows.filter(r => DEPARTMENTS.includes(r.notes));
+                    if (deptRows.length > 0) {
+                        const cell: { [dept: string]: { subject: string; teacher: string } } = {};
+                        deptRows.forEach(r => { cell[r.notes] = { subject: r.subject, teacher: r.teacher_id ? getTeacherName(r.teacher_id) : '' }; subjectsSet.add(r.subject); });
+                        deptMap[key] = cell;
+                    } else {
+                        const entry = rows[rows.length - 1];
+                        timetableMap[key] = entry.subject;
+                        subjectsSet.add(entry.subject);
+                        if (entry.teacher_id) teacherAssignmentsMap[key] = getTeacherName(entry.teacher_id);
+                    }
                 });
             });
 
@@ -212,6 +226,7 @@ const TimetableGeneratorScreen: React.FC<TimetableGeneratorScreenProps> = ({ sch
                 subjects: Array.from(subjectsSet),
                 timetable: timetableMap,
                 teacherAssignments: teacherAssignmentsMap,
+                deptCells: deptMap,
                 suggestions: [],
                 teacherLoad: [],
                 status: data.length > 0 ? data[0].status : 'Draft',
