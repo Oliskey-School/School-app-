@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, Sparkles, Save, GripVertical, X, AlertTriangle, ArrowLeft, Users, Search } from 'lucide-react';
+import { SUBJECTS_LIST } from '../../constants';
 
 /**
  * Desktop drag-and-drop timetable builder.
@@ -100,7 +101,11 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                 setTeachers(Array.isArray(tch) ? tch : []);
                 const subNames = (Array.isArray(subs) ? subs : [])
                     .map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean);
-                setSubjects(Array.from(new Set(subNames)));
+                // Merge the school's own subjects (first) with the full curriculum
+                // catalog so EVERY subject is draggable and searchable — not just the
+                // handful already saved in this school.
+                const catalog = (SUBJECTS_LIST || []).map((s: any) => s?.name).filter(Boolean);
+                setSubjects(Array.from(new Set([...subNames, ...catalog])));
 
                 // seed the grid from existing slots, keyed by class + day + start_time
                 const g: Grid = {};
