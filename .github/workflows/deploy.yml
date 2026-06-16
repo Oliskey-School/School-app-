@@ -1,11 +1,13 @@
-name: CI / Production Deploy
+name: CI
+
+# Continuous integration only — lint, test and build on every PR and push to main.
+# Deployment to a host is NOT done here (Vercel / Railway / Supabase steps removed).
+# Add your host's deploy steps here when you're ready, or deploy from your host directly.
 
 on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   pull_request:
     branches:
       - main
@@ -15,13 +17,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ----------------------------------------------------------------
-  # 1. Continuous integration — runs on every PR and push to main.
-  # ----------------------------------------------------------------
   ci:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
@@ -53,70 +52,6 @@ jobs:
 
       - name: Production build (frontend)
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://placeholder.supabase.co
-          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
 
       - name: Security audit (high+)
         run: npm audit --omit=dev --audit-level=high || true
-
-  # ----------------------------------------------------------------
-  # 2. Production deploy — only on tagged releases (vX.Y.Z).
-  # ----------------------------------------------------------------
-  deploy:
-    name: Deploy to production
-    needs: ci
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    environment:
-      name: production
-      url: https://school-app-oliskeylee.vercel.app
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      # --- Apply pending Prisma migrations ---
-      # The schema declares both url (DATABASE_URL) and directUrl (DIRECT_URL).
-      # Migrations should use the DIRECT connection (Supabase port 5432, session
-      # mode); fall back to DATABASE_URL if a dedicated DIRECT_URL secret is absent.
-      - name: Run database migrations
-        run: npx prisma migrate deploy --schema=backend/prisma/schema.prisma
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL || secrets.DATABASE_URL }}
-
-      # --- Frontend → Vercel ---
-      - name: Deploy frontend to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-
-      # --- Backend → Railway ---
-      - name: Deploy backend to Railway
-        uses: bervProject/railway-deploy@main
-        with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: school-app-backend
-
-      # --- Post-deploy smoke test ---
-      - name: Smoke test
-        run: |
-          sleep 15
-          curl --fail --silent --show-error https://school-app-production-a59a.up.railway.app/health
-          curl --fail --silent --show-error https://school-app-oliskeylee.vercel.app/
-
-      - name: Notify on failure
-        if: failure()
-        run: echo "::error::Deployment failed for ${{ github.ref_name }}"
