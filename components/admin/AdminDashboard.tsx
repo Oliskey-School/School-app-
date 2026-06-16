@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import DashboardLayout from '../layout/DashboardLayout';
 import ErrorBoundary from '../ui/ErrorBoundary';
+import { MainAdminOnly } from '../shared/MainAdminOnly';
 import { useProfile } from '../../context/ProfileContext';
 import PremiumLoader from '../ui/PremiumLoader';
 import { api } from '../../lib/api';
@@ -53,6 +54,7 @@ const AdminStudentListForReport = lazyWithRetry(() => import('./AdminStudentList
 const AdminStudentReportCardScreen = lazyWithRetry(() => import('./AdminStudentReportCardScreen'));
 const SystemSettingsScreen = lazyWithRetry(() => import('./SystemSettingsScreen'));
 const AcademicSettingsScreen = lazyWithRetry(() => import('./AcademicSettingsScreen'));
+const BranchAcademicsScreen = lazyWithRetry(() => import('./BranchAcademicsScreen'));
 const FinancialSettingsScreen = lazyWithRetry(() => import('./FinancialSettingsScreen'));
 const CommunicationSettingsScreen = lazyWithRetry(() => import('./CommunicationSettingsScreen'));
 const BrandingSettingsScreen = lazyWithRetry(() => import('./BrandingSettingsScreen'));
@@ -337,6 +339,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
         viewStudentReport: AdminStudentReportCardScreen,
         systemSettings: SystemSettingsScreen,
         academicSettings: AcademicSettingsScreen,
+        branchAcademics: BranchAcademicsScreen,
+        termsAndGrading: BranchAcademicsScreen,
         financialSettings: FinancialSettingsScreen,
         communicationSettings: CommunicationSettingsScreen,
         brandingSettings: BrandingSettingsScreen,
@@ -591,9 +595,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, setIsHomePage
             </Suspense>
         );
 
+        // School-wide settings (identity, branding, plan, branches) are main-admin only.
+        const MAIN_ADMIN_ONLY_VIEWS = ['schoolManagement', 'brandingSettings', 'manageSchoolInfo', 'schoolInfo', 'subscription', 'upgrade'];
+        const view = <ComponentToRender {...currentNavigation.props} {...commonProps} />;
         return (
             <Suspense fallback={<DashboardSkeletonLoader type="overview" />}>
-                <ComponentToRender {...currentNavigation.props} {...commonProps} />
+                {MAIN_ADMIN_ONLY_VIEWS.includes(currentNavigation.view)
+                    ? <MainAdminOnly title="This screen" onBack={handleBack}>{view}</MainAdminOnly>
+                    : view}
             </Suspense>
         );
     };

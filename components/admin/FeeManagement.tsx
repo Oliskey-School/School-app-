@@ -22,7 +22,9 @@ const AssignFeeSchema = Yup.object().shape({
 const FeeManagement: React.FC<any> = (props) => {
   const { currentSchool, currentBranchId } = useAuth();
   const schoolId = currentSchool?.id;
-  const branchId = currentBranchId;
+  // Use the ACTIVE branch the admin has switched into (passed down as a prop), not
+  // their home branch — otherwise a branch admin in Lekki would load Main's fees.
+  const branchId = props?.currentBranchId || currentBranchId;
 
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(true);

@@ -242,7 +242,9 @@ const App: React.FC = () => {
             <ErrorBoundary>
               <Suspense fallback={<LoadingScreen />}>
                 <AuthenticatedApp />
-                <PWAInstallPrompt />
+                {/* Install entry point is the persistent InstallAppButton (in DashboardLayout),
+                    always visible on the web version until installed. The one-time PWAInstallPrompt
+                    card was removed so there is exactly one install banner. */}
                 <UpdatePrompt />
               </Suspense>
             </ErrorBoundary>

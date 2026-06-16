@@ -5,6 +5,7 @@ import { BranchIdentityService } from './branchIdentity.service';
 import { PrismaClient, Role } from '../../generated/prisma-client';
 import { SocketService } from './socket.service';
 import { config } from '../config/env';
+import { canEditTeacherIdentity, canAssignTeacherToBranch, canAssignTeacherClassesInBranch, forbidden, RequesterLike } from '../utils/permissions';
 
 export class TeacherService {
     static async createTeacher(schoolId: string, branchId: string | undefined, data: any) {
@@ -63,6 +64,7 @@ export class TeacherService {
                     allowed_branch_ids: data.allowed_branch_ids || (branchId ? [branchId] : []),
                     school_generated_id: schoolGeneratedId,
                     initial_password: generatedPassword,
+                    avatar_url: avatar_url || null,
                     email_verified: true
                 }
             });
@@ -237,13 +239,8 @@ export class TeacherService {
             where: {
                 id: id,
                 school_id: schoolId,
-                // Allow teachers in the specific branch OR global teachers (branch_id: null)
-                ...(branchId && branchId !== 'all' ? {
-                    OR: [
-                        { branch_id: branchId },
-                        { branch_id: null }
-                    ]
-                } : {})
+                // Strict branch isolation: only this branch (untagged → All Branches only).
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
             },
             include: {
                 user: true,
@@ -270,7 +267,7 @@ export class TeacherService {
         return null;
     }
 
-    static async updateTeacher(schoolId: string, branchId: string | undefined, id: string, updates: any) {
+    static async updateTeacher(schoolId: string, branchId: string | undefined, id: string, updates: any, requester?: RequesterLike) {
         const {
             name,
             full_name,
@@ -328,6 +325,19 @@ export class TeacherService {
 
             if (!teacher) {
                 throw new Error('Teacher record not found');
+            }
+
+            // Branch governance: the teacher RECORD (identity + qualifications + photo +
+            // login + allowed branches) is owned by the teacher's HOME branch and the
+            // Main Admin. A branch admin the teacher is merely assigned to manages their
+            // classes/subjects (ClassTeacher) and scheduling (Timetable) instead — they
+            // cannot edit the teacher record here.
+            if (requester && !canEditTeacherIdentity(requester, teacher)) {
+                throw forbidden("This teacher's profile is managed by their home branch or the main admin. You can assign their classes, subjects and timetable, but not edit their details.");
+            }
+            // Lending to additional branches is likewise main-admin / home-branch only.
+            if (allowed_branch_ids !== undefined && requester && !canAssignTeacherToBranch(requester, teacher)) {
+                throw forbidden('Only the main admin or the teacher\'s home branch can change which branches a teacher is assigned to.');
             }
 
             // Sync identity fields to the User table for global persistence. The
@@ -430,6 +440,56 @@ export class TeacherService {
                 ...updatedTeacher,
                 email: updatedTeacher.user?.email || updatedTeacher.email
             };
+        });
+    }
+
+    /**
+     * Assign a teacher to classes/subjects WITHIN one branch — without touching their
+     * identity or their assignments in any OTHER branch. A branch admin uses this to give
+     * a lent teacher branch-specific classes; the teacher then sees them when working in
+     * that branch. `classes` is [{ classId, subjectId? }] (or plain class id strings).
+     */
+    static async assignBranchClasses(schoolId: string, branchId: string | undefined, id: string, classes: any[], requester?: RequesterLike) {
+        if (!branchId || branchId === 'all') throw forbidden('Select a specific branch before assigning classes to a teacher.');
+
+        return await prisma.$transaction(async (tx) => {
+            const teacher = await tx.teacher.findFirst({ where: { OR: [{ id }, { user_id: id }], school_id: schoolId } });
+            if (!teacher) throw new Error('Teacher record not found');
+
+            if (requester && !canAssignTeacherClassesInBranch(requester, teacher, branchId)) {
+                throw forbidden('You can only assign classes/subjects for a teacher who is assigned to your branch.');
+            }
+
+            // Replace ONLY this branch's assignments for this teacher.
+            await tx.classTeacher.deleteMany({ where: { teacher_id: teacher.id, branch_id: branchId } });
+
+            const seen = new Set<string>();
+            for (const item of (Array.isArray(classes) ? classes : [])) {
+                const classId = typeof item === 'string' ? item : item?.classId;
+                const subjectId = typeof item === 'string' ? undefined : item?.subjectId;
+                if (!classId) continue;
+                const key = `${classId}:${subjectId || 'none'}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+
+                // The class must belong to THIS branch (you can only assign your branch's classes).
+                const cls = await tx.class.findFirst({ where: { id: classId, school_id: schoolId, branch_id: branchId } });
+                if (!cls) continue;
+                await tx.classTeacher.create({
+                    data: {
+                        school: { connect: { id: schoolId } },
+                        branch: { connect: { id: branchId } },
+                        teacher: { connect: { id: teacher.id } },
+                        class: { connect: { id: classId } },
+                        subject: subjectId ? { connect: { id: subjectId } } : undefined,
+                        is_primary: false,
+                    },
+                });
+            }
+
+            SocketService.emitToSchool(schoolId, 'teacher:updated', { action: 'branch-classes', teacherId: teacher.id, branchId });
+            const rows = await tx.classTeacher.findMany({ where: { teacher_id: teacher.id, branch_id: branchId }, include: { class: true, subject: true } });
+            return { teacher_id: teacher.id, branch_id: branchId, assignments: rows };
         });
     }
 

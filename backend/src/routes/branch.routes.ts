@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getBranches, createBranch, updateBranch, deleteBranch, getAuthorizedBranches, transferUser } from '../controllers/branch.controller';
+import { getBranches, createBranch, updateBranch, deleteBranch, getAuthorizedBranches, transferUser, getBranchOptions } from '../controllers/branch.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/tenant.middleware';
 
@@ -12,6 +12,7 @@ const router = Router();
 router.get('/', authenticate, getBranches);
 // Specific routes BEFORE any '/:id' params.
 router.get('/authorized', authenticate, getAuthorizedBranches);
+router.get('/options', authenticate, getBranchOptions);
 router.post('/transfer-user', authenticate, transferUser);
 // Writes: admins only (the controller/service additionally scope by school_id).
 router.post('/', authenticate, requireRole(ADMIN_ROLES), createBranch);

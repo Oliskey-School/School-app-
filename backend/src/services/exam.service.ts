@@ -10,10 +10,7 @@ export class ExamService {
         }
 
         if (branchId && branchId !== 'all') {
-            whereClause.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            whereClause.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
         }
 
         return await prisma.exam.findMany({

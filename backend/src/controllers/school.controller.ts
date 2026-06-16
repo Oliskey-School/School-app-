@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SchoolService } from '../services/school.service';
+import { isMainAdmin } from '../utils/permissions';
 
 export const getPilotOnboarding = async (req: AuthRequest, res: Response) => {
     try {
@@ -75,6 +76,8 @@ export const listSchools = async (req: Request, res: Response) => {
 };
 export const updateSchool = async (req: AuthRequest, res: Response) => {
     try {
+        // School identity & branding is a school-wide setting — Main Admin only.
+        if (!isMainAdmin(req.user)) return res.status(403).json({ message: 'Only the main admin can change school settings.' });
         const result = await SchoolService.updateSchool(req.user.school_id, req.params.id as string, req.body);
         res.json(result);
     } catch (error: any) {
@@ -97,6 +100,8 @@ export const updateMySchool = async (req: AuthRequest, res: Response) => {
 
 export const updateSchoolSubscription = async (req: AuthRequest, res: Response) => {
     try {
+        // Plan / subscription is school-wide — Main Admin only.
+        if (!isMainAdmin(req.user)) return res.status(403).json({ message: 'Only the main admin can change the subscription/plan.' });
         const schoolId = req.user.school_id;
         if (!schoolId) return res.status(400).json({ message: 'School context required' });
 

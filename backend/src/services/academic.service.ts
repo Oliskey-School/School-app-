@@ -1,8 +1,26 @@
 import prisma from '../config/database';
 import { SocketService } from './socket.service';
+import { AcademicSettingsService } from './academicSettings.service';
 
 export class AcademicService {
-    private static async getCurriculumSettings(schoolId: string) {
+    private static async getCurriculumSettings(schoolId: string, branchId?: string) {
+        // Configured academics win over the curriculum default: if this branch (or the
+        // school) has a saved grading scheme, build the grading function from its bands.
+        const raw = (branchId ? await AcademicSettingsService.getRaw(schoolId, branchId) : null)
+            || await AcademicSettingsService.getRaw(schoolId, null);
+        const cfg = raw?.grading as any;
+        if (cfg && Array.isArray(cfg.bands) && cfg.bands.length) {
+            const bands = [...cfg.bands].sort((a: any, b: any) => b.min - a.min);
+            return {
+                ca_percent: typeof cfg.ca_percent === 'number' ? cfg.ca_percent : 0.4,
+                exam_percent: typeof cfg.exam_percent === 'number' ? cfg.exam_percent : 0.6,
+                grading: (score: number) => {
+                    const band = bands.find((b: any) => score >= b.min && score <= b.max) || bands[bands.length - 1];
+                    return { grade: band.grade, remark: band.remark };
+                },
+            };
+        }
+
         const school = await prisma.school.findUnique({
             where: { id: schoolId },
             select: { curricula_config: true }
@@ -413,8 +431,9 @@ export class AcademicService {
         return await this.getReportCardDetails(schoolId, studentId, term, session);
     }
 
-    static async getAcademicTerms(schoolId: string) {
-        // The Nigerian academic session is ALWAYS three terms. We return all three
+    static async getAcademicTerms(schoolId: string, branchId?: string) {
+        // Term names come from the configured academics (branch override → school
+        // default → the built-in three Nigerian terms). We return all of them
         // for the current session plus any session that already has data, so the
         // gradebook/report card can pick any term. The `id` is a stable, name-based
         // key (`"<session>|<term>"`) — report cards are keyed by term NAME, so the
@@ -435,7 +454,10 @@ export class AcademicService {
             ...existing.map(e => e.session).filter(Boolean) as string[],
         ]));
 
-        const TERM_NAMES = ['First Term', 'Second Term', 'Third Term'];
+        const eff = await AcademicSettingsService.getEffective(schoolId, branchId);
+        const TERM_NAMES = (Array.isArray(eff.terms) && eff.terms.length)
+            ? [...eff.terms].sort((a, b) => (a.order || 0) - (b.order || 0)).map(t => t.name)
+            : ['First Term', 'Second Term', 'Third Term'];
         const result: any[] = [];
         for (const session of sessions) {
             const sy = parseInt(String(session).split('/')[0], 10) || startYear;
@@ -450,8 +472,8 @@ export class AcademicService {
                     name,
                     academic_year: session,
                     is_current: session === currentSession && i === 0,
-                    start_date: windows[i].start,
-                    end_date: windows[i].end,
+                    start_date: windows[i]?.start,
+                    end_date: windows[i]?.end,
                 });
             });
         }

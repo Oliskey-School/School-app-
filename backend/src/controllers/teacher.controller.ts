@@ -75,10 +75,21 @@ export const getTeacherById = async (req: AuthRequest, res: Response) => {
 export const updateTeacher = async (req: AuthRequest, res: Response) => {
     try {
         const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
-        const result = await TeacherService.updateTeacher(req.user.school_id, branchId, req.params.id as string, req.body);
+        const result = await TeacherService.updateTeacher(req.user.school_id, branchId, req.params.id as string, req.body, req.user);
         res.json(result);
     } catch (error: any) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
+    }
+};
+
+// Branch admin assigns a (lent) teacher to classes/subjects in THEIR branch only.
+export const assignTeacherBranchClasses = async (req: AuthRequest, res: Response) => {
+    try {
+        const branchId = getEffectiveBranchId(req.user, req.body?.branch_id);
+        const result = await TeacherService.assignBranchClasses(req.user.school_id, branchId, req.params.id as string, req.body?.classes || [], req.user);
+        res.json(result);
+    } catch (error: any) {
+        res.status(error.status || 500).json({ message: error.message });
     }
 };
 

@@ -174,7 +174,11 @@ model Branch {
 
 model User {
   id                     String                 @id @default(uuid())
-  email                  String                 @unique
+  // Email is unique per school+branch (see @@unique below), not globally — the same
+  // person/email may hold a separate, independent account in a different school or
+  // branch (true multi-tenant isolation). Login resolves the account by email +
+  // password (matching across candidates when an email exists in several tenants).
+  email                  String
   password_hash          String
   full_name              String
   role                   Role                   @default(STUDENT)
@@ -188,6 +192,7 @@ model User {
   phone                  String?
   two_factor_enabled     Boolean                @default(false)
   two_factor_secret      String?
+  preferred_language     String?
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
   initial_password       String?
@@ -212,6 +217,12 @@ model User {
   created_by             String?
   updated_by             String?
   deleted_at             DateTime?
+
+  // Email is unique within a school + branch (not globally) — the same email is a
+  // separate, independent account in a different school OR branch ("each branch has
+  // its own rows"). An index on email keeps login lookups fast.
+  @@unique([school_id, branch_id, email])
+  @@index([email])
 }
 
 model Student {
@@ -1139,6 +1150,7 @@ model Timetable {
   end_time    String
   room        String?
   notes       String?
+  status      String    @default("Draft")
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
   branch      Branch?   @relation(fields: [branch_id], references: [id])
@@ -1848,6 +1860,24 @@ model Curriculum {
   created_by      String?
   updated_by      String?
   deleted_at      DateTime?
+}
+
+// Configurable academics. One row per (school, branch). branch_id NULL = the school
+// default; a row with a branch_id is that branch's override. `terms` and `grading`
+// are JSON so the shape can evolve without migrations:
+//   terms:   [{ name, order, start_date?, end_date?, is_current? }]
+//   grading: { ca_percent, exam_percent, bands: [{ min, max, grade, remark }] }
+model AcademicSettings {
+  id         String   @id @default(uuid())
+  school_id  String
+  branch_id  String?
+  terms      Json?
+  grading    Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([school_id, branch_id])
+  @@index([school_id])
 }
 
 model AcademicTrack {

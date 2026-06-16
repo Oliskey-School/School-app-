@@ -1150,6 +1150,7 @@ model Timetable {
   end_time    String
   room        String?
   notes       String?
+  status      String   @default("Draft")
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
   branch      Branch?  @relation(fields: [branch_id], references: [id])
@@ -1859,6 +1860,24 @@ model Curriculum {
   created_by               String?
   updated_by               String?
   deleted_at               DateTime?
+}
+
+// Configurable academics. One row per (school, branch). branch_id NULL = the school
+// default; a row with a branch_id is that branch's override. `terms` and `grading`
+// are JSON so the shape can evolve without migrations:
+//   terms:   [{ name, order, start_date?, end_date?, is_current? }]
+//   grading: { ca_percent, exam_percent, bands: [{ min, max, grade, remark }] }
+model AcademicSettings {
+  id         String   @id @default(uuid())
+  school_id  String
+  branch_id  String?
+  terms      Json?
+  grading    Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([school_id, branch_id])
+  @@index([school_id])
 }
 
 model AcademicTrack {

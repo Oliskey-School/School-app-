@@ -6,10 +6,7 @@ export class ForumService {
         const where: any = { school_id: schoolId };
 
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
         }
 
         return prisma.forumTopic.findMany({

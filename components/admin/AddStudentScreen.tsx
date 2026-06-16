@@ -608,6 +608,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 curriculum_type: curriculumType,
                 school_id: schoolId,
                 address: studentAddress,
+                avatar_url: avatarUrl, // persisted to the student + user so the photo shows everywhere
                 subjects: subjects, // per-student subject assignment (admin-picked)
                 schoolBusId: selectedBusId || undefined,
                 parentId: !showNewParentForm ? selectedParentId : undefined,

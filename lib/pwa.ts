@@ -58,52 +58,57 @@ export function registerServiceWorker() {
     });
 }
 
-// Hook for PWA install prompt
+// Hook for PWA install prompt. The `beforeinstallprompt` event is captured EAGERLY
+// at app startup (see index.tsx) and stashed on `window.__deferredInstallPrompt`,
+// because this hook lives in a lazy-loaded component that mounts long after the
+// browser fires the event. We read that stash and react to the custom events it
+// dispatches — so the install button reliably has a live prompt to fire.
+function getStashedPrompt(): BeforeInstallPromptEvent | null {
+    if (typeof window === 'undefined') return null;
+    return ((window as any).__deferredInstallPrompt as BeforeInstallPromptEvent) || null;
+}
+
 export function usePWAInstall() {
-    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(getStashedPrompt);
     const [isInstalled, setIsInstalled] = useState(false);
 
     useEffect(() => {
-        // Check if already installed
         if (window.matchMedia('(display-mode: standalone)').matches) {
             setIsInstalled(true);
         }
+        // Pick up an event that may have fired before this hook mounted.
+        setDeferredPrompt(getStashedPrompt());
 
-        const handleBeforeInstall = (e: Event) => {
-            e.preventDefault();
-            setDeferredPrompt(e as BeforeInstallPromptEvent);
-        };
+        const onAvailable = () => setDeferredPrompt(getStashedPrompt());
+        const onInstalled = () => { setIsInstalled(true); setDeferredPrompt(null); };
 
-        const handleAppInstalled = () => {
-            setIsInstalled(true);
-            setDeferredPrompt(null);
-        };
-
-        window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-        window.addEventListener('appinstalled', handleAppInstalled);
+        window.addEventListener('pwa-install-available', onAvailable);
+        window.addEventListener('pwa-installed', onInstalled);
+        window.addEventListener('appinstalled', onInstalled);
 
         return () => {
-            window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-            window.removeEventListener('appinstalled', handleAppInstalled);
+            window.removeEventListener('pwa-install-available', onAvailable);
+            window.removeEventListener('pwa-installed', onInstalled);
+            window.removeEventListener('appinstalled', onInstalled);
         };
     }, []);
 
     const promptInstall = async () => {
-        if (!deferredPrompt) return false;
+        const prompt = deferredPrompt || getStashedPrompt();
+        if (!prompt) return false;
 
-        await deferredPrompt.prompt();
-        const choiceResult = await deferredPrompt.userChoice;
+        await prompt.prompt();
+        const choiceResult = await prompt.userChoice;
 
-        if (choiceResult.outcome === 'accepted') {
-            setDeferredPrompt(null);
-            return true;
-        }
+        // A prompt can only be used once — clear it either way.
+        (window as any).__deferredInstallPrompt = null;
+        setDeferredPrompt(null);
 
-        return false;
+        return choiceResult.outcome === 'accepted';
     };
 
     return {
-        canInstall: !!deferredPrompt,
+        canInstall: !!(deferredPrompt || getStashedPrompt()),
         isInstalled,
         promptInstall
     };

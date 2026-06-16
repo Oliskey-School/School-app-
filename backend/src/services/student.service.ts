@@ -31,6 +31,11 @@ export class StudentService {
 
         const fullName = `${firstName} ${lastName}`;
         const studentEmail = enrollmentData.email?.toLowerCase() || `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 1000)}@student.school.com`;
+        // Profile photo: the Add Student screen sends it as avatar_url / avatarUrl, and
+        // (for back-compat) inside documentUrls.passportPhoto. Persist it on BOTH the
+        // user row and the student row so it shows in headers, lists and the profile.
+        const incomingAvatar = enrollmentData.avatar_url || enrollmentData.avatarUrl
+            || enrollmentData.documentUrls?.passportPhoto || null;
         
         // Use a dummy password if pending, real one if active
         const generatedPassword = isTeacherAdded ? 'pending' : (enrollmentData.password || 'student' + Math.floor(1000 + Math.random() * 9000));
@@ -62,6 +67,7 @@ export class StudentService {
                     branch_id: branchId || null,
                     email_verified: true, // System created accounts should be pre-verified
                     initial_password: isTeacherAdded ? null : generatedPassword,
+                    avatar_url: incomingAvatar,
                     updated_at: new Date()
                 }
             });
@@ -105,6 +111,7 @@ export class StudentService {
                     section: enrollmentData.section ?? 'A',
                     curriculum_type: curriculumType,
                     status: initialStatus,
+                    avatar_url: incomingAvatar,
                     assigned_subjects: Array.isArray(enrollmentData.subjects)
                         ? enrollmentData.subjects.map((s: any) => (typeof s === 'string' ? s : (s?.name || s?.id))).filter(Boolean)
                         : [],
@@ -122,6 +129,8 @@ export class StudentService {
                     section: enrollmentData.section ?? 'A',
                     curriculum_type: curriculumType,
                     status: initialStatus,
+                    // Only overwrite the photo when a new one was supplied.
+                    ...(incomingAvatar ? { avatar_url: incomingAvatar } : {}),
                     created_by: creatorId,
                     updated_at: new Date()
                 }
@@ -519,14 +528,11 @@ export class StudentService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
         }
 
         if (classId) {
-            where.enrollments = { 
+            where.enrollments = {
                 some: { 
                     class_id: classId, 
                     ...(queryStatus ? { status: queryStatus } : {})
@@ -1088,6 +1094,11 @@ export class StudentService {
             const classNames = enrollments.map(e => e.class.name);
             console.log(`   ✅ Found ${enrollments.length} active classes: ${classNames.join(', ')}`);
 
+            // Student's department (Science/Art/Commercial) — used to pick the right
+            // subject for SSS periods that are split across departments.
+            const studentRec = await prisma.student.findUnique({ where: { id: studentId }, select: { department: true } });
+            const studentDept = studentRec?.department || null;
+
             console.log('   [2/5] Running dashboard queries parallelly (timetable, assignments, quizzes, stats, notifications)...');
             const [timetable, assignments, quizzes, stats, notifications] = await Promise.all([
                 // Today's Timetable (from all sections student is in)
@@ -1147,8 +1158,31 @@ export class StudentService {
             ]);
             console.log('   ✅ All queries completed successfully');
 
+            // Resolve department-split periods (SSS Science/Art/Commercial) to the
+            // student's own department, drop duplicate rows, and sort by time. A student
+            // with no department set still sees all options for that period.
+            const DEPARTMENTS = ['Science', 'Art', 'Commercial'];
+            const byPeriod: Record<string, any[]> = {};
+            for (const t of (timetable as any[])) (byPeriod[t.start_time || ''] ||= []).push(t);
+            const resolvedTimetable: any[] = [];
+            const seenSlots = new Set<string>();
+            for (const rows of Object.values(byPeriod)) {
+                const deptRows = rows.filter((r: any) => DEPARTMENTS.includes(r.notes));
+                const nonDept = rows.filter((r: any) => !DEPARTMENTS.includes(r.notes));
+                const chosen = (deptRows.length > 0 && studentDept)
+                    ? [...deptRows.filter((r: any) => r.notes === studentDept), ...nonDept]
+                    : rows;
+                for (const r of chosen) {
+                    const k = `${r.class_id || r.class_name}|${r.start_time}|${r.subject}|${r.notes || ''}`;
+                    if (seenSlots.has(k)) continue;
+                    seenSlots.add(k);
+                    resolvedTimetable.push(r);
+                }
+            }
+            resolvedTimetable.sort((a, b) => String(a.start_time || '').localeCompare(String(b.start_time || '')));
+
             return {
-                timetable,
+                timetable: resolvedTimetable,
                 assignments,
                 quizzes,
                 stats,
@@ -1420,13 +1454,8 @@ export class StudentService {
         return await prisma.student.findMany({
             where: {
                 school_id: schoolId,
-                // Allow students in the specific branch OR global students (branch_id: null)
-                ...(branchId && branchId !== 'all' ? {
-                    OR: [
-                        { branch_id: branchId },
-                        { branch_id: null }
-                    ]
-                } : {}),
+                // Strict branch isolation: only this branch (untagged → All Branches only).
+                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {}),
                 status: 'Pending'
             },
             include: {

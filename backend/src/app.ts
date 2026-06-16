@@ -1,9 +1,11 @@
 
 import './config/env';
+import crypto from 'crypto';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
@@ -14,8 +16,22 @@ import routes from './routes';
 
 const app = express();
 
-// Trust reverse proxy (Railway/Vercel) for rate limiting & accurate IPs
-app.set('trust proxy', 1);
+// Trust reverse proxy for rate limiting & accurate client IPs. Behind a WAF +
+// load balancer there can be several hops — set TRUST_PROXY to the hop count
+// (e.g. 2 for WAF→LB) so req.ip is the REAL client and rate-limits/WAF logging
+// aren't fooled. Defaults to 1.
+app.set('trust proxy', Number.isFinite(Number(process.env.TRUST_PROXY)) ? Number(process.env.TRUST_PROXY) : 1);
+
+// Gzip responses — smaller payloads = faster TTFB and less work per node, which
+// makes horizontal scaling / load balancing cheaper. Honour `x-no-compression`
+// (e.g. for streaming) and skip already-tiny bodies (compression's own default).
+app.use(compression({
+    filter: (req, res) => (req.headers['x-no-compression'] ? false : compression.filter(req, res)),
+}));
+
+// Identify our own traffic so a WAF can allow-list it and cut false positives on
+// legitimate API calls (large base64 photo uploads, JSON with rich text, etc.).
+app.use((_req, res, next) => { res.setHeader('X-App', 'oliskey-api'); next(); });
 
 // 1. CORS - MUST BE FIRST for proper preflight handling
 // Strict allowlist. Extra origins can be supplied via CORS_ALLOWED_ORIGINS (comma-separated).
@@ -119,17 +135,28 @@ app.use((req, _res, next) => {
 app.use(morgan(IS_PROD ? 'combined' : 'dev'));
 
 // 4. Security Headers
+// Fresh per-request CSP nonce — exposed on res.locals.cspNonce so any HTML this
+// server renders can tag its <script nonce="..."> and run under a strict CSP
+// without 'unsafe-inline'. (The SPA itself is served by Vercel — see vercel.json.)
+app.use((_req, res, next) => {
+    res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
+    next();
+});
+
 app.use(helmet({
     contentSecurityPolicy: {
+        useDefaults: true,
         directives: {
             defaultSrc: ["'self'"],
-            // scriptSrc intentionally strict: no 'unsafe-inline'. The SPA is served by Vercel,
-            // not this Express server, so CSP here protects API error pages / dev surfaces only.
-            scriptSrc: ["'self'"],
-            // styleSrc keeps 'unsafe-inline' for Tailwind's inline runtime styles and dynamicallySetInnerHTML <style> blocks.
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https://api.dicebear.com", "https://*.railway.app", "https://*.supabase.co"],
-            connectSrc: ["'self'", "https://*.vercel.app", "https://*.railway.app", "https://*.supabase.co"],
+            // Strict: no 'unsafe-inline'. Inline scripts must carry the per-request nonce.
+            scriptSrc: ["'self'", (_req, res: any) => `'nonce-${res.locals.cspNonce}'`],
+            // Tailwind runtime + injected <style> blocks need inline styles + Google Fonts.
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https://api.dicebear.com", "https://*.railway.app", "https://*.supabase.co", "https://cdn-icons-png.flaticon.com"],
+            connectSrc: ["'self'", "https://*.vercel.app", "https://*.railway.app", "https://*.supabase.co", "https://generativelanguage.googleapis.com", "https://api.paystack.co", "https://*.ingest.sentry.io", "wss://*.supabase.co"],
+            // Payment widgets render in iframes.
+            frameSrc: ["'self'", "https://js.paystack.co", "https://checkout.flutterwave.com"],
             objectSrc: ["'none'"],
             frameAncestors: ["'none'"],
             baseUri: ["'self'"],
@@ -170,6 +197,21 @@ app.get('/', (req, res) => {
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'School SaaS Backend' });
+});
+
+// Load-balancer / orchestrator probes. Unauthenticated, dependency-free and fast
+// so a WAF/LB can allow-list them and pull unhealthy nodes quickly.
+//  - /live  : the process is up (liveness). Never touches the DB.
+//  - /ready : the node can serve traffic (readiness). Quick DB ping.
+app.get('/live', (_req, res) => { res.status(200).json({ status: 'live' }); });
+app.get('/ready', async (_req, res) => {
+    try {
+        const { default: prisma } = await import('./config/database');
+        await prisma.$queryRaw`SELECT 1`;
+        res.status(200).json({ status: 'ready' });
+    } catch {
+        res.status(503).json({ status: 'not-ready' });
+    }
 });
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

@@ -47,7 +47,81 @@ const DAYS = [
     { d: 4, label: 'Thu' }, { d: 5, label: 'Fri' },
 ];
 
+// Canonical class structure per level — the columns ALWAYS shown (one per standard
+// class), regardless of how many class records exist. A level shows exactly these
+// columns: Lower Primary = Primary 1-3, Upper Primary = Primary 4-6, JSS 1-3, SSS 1-3,
+// etc. Demo grade convention: Creche -3, Pre-Nursery -2, Nursery 1/2 = -1/0,
+// Primary 1-6 = 1-6, JSS 1-3 = 7-9, SSS 1-3 = 10-12.
+const CANONICAL: Record<LevelKey, { grade: number; name: string }[]> = {
+    senior: [{ grade: 10, name: 'SSS 1' }, { grade: 11, name: 'SSS 2' }, { grade: 12, name: 'SSS 3' }],
+    junior: [{ grade: 7, name: 'JSS 1' }, { grade: 8, name: 'JSS 2' }, { grade: 9, name: 'JSS 3' }],
+    upperPrimary: [{ grade: 4, name: 'Primary 4' }, { grade: 5, name: 'Primary 5' }, { grade: 6, name: 'Primary 6' }],
+    lowerPrimary: [{ grade: 1, name: 'Primary 1' }, { grade: 2, name: 'Primary 2' }, { grade: 3, name: 'Primary 3' }],
+    nursery: [{ grade: -1, name: 'Nursery 1' }, { grade: 0, name: 'Nursery 2' }],
+    preNursery: [{ grade: -2, name: 'Pre-Nursery' }],
+    creche: [{ grade: -3, name: 'Creche' }],
+};
+
+const normName = (s: any) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+// A rendered grid column: bound to a real class when one exists, otherwise a virtual
+// column (`__create__:grade:name`) that is materialised into a real class on Save.
+interface Col { id: string; name: string; grade: number; section?: string; classId?: string; isVirtual: boolean; }
+
+// Build the canonical columns for one level. Duplicate class records collapse to a
+// single column (prefer one in the active branch); a missing standard class becomes a
+// virtual column so it can still be filled and auto-created on Save.
+function buildColumns(levelKey: LevelKey, classes: any[], bid?: string): Col[] {
+    return CANONICAL[levelKey].map(slot => {
+        const matches = classes.filter(c => Number(c.grade) === slot.grade || normName(c.name) === normName(slot.name));
+        const chosen = matches.find(c => c.branch_id === bid) || matches[0];
+        return {
+            id: chosen?.id || `__create__:${slot.grade}:${slot.name}`,
+            name: slot.name,
+            grade: slot.grade,
+            section: chosen?.section,
+            classId: chosen?.id,
+            isVirtual: !chosen,
+        };
+    });
+}
+
+// Map ANY existing class id (and class name) to the canonical column id that now
+// represents it, across every level. Lets saved lessons reload even when the demo
+// re-creates classes with fresh ids, or when duplicates were collapsed into one column.
+function buildClassIndex(classes: any[], bid?: string) {
+    const idToCol: Record<string, string> = {};
+    const nameToCol: Record<string, string> = {};
+    (Object.keys(CANONICAL) as LevelKey[]).forEach(lk => {
+        buildColumns(lk, classes, bid).forEach(col => {
+            nameToCol[normName(col.name)] = col.id;
+            classes
+                .filter(c => Number(c.grade) === col.grade || normName(c.name) === normName(col.name))
+                .forEach(c => { idToCol[c.id] = col.id; });
+        });
+    });
+    return { idToCol, nameToCol };
+}
+
 const cellKey = (classId: string, day: number, p: number) => `${classId}|${day}|${p}`;
+
+// Senior Secondary subjects are department-specific — combine the core + every track
+// (Science / Arts / Commercial) so the palette shows the FULL senior subject list.
+const seniorAllSubjects = (grade: number): string[] => Array.from(new Set([
+    ...getSubjectsForGrade(grade),
+    ...getSubjectsForGrade(grade, 'Science'),
+    ...getSubjectsForGrade(grade, 'Arts'),
+    ...getSubjectsForGrade(grade, 'Commercial'),
+]));
+
+// Every standard curriculum subject across all levels — used to tell an admin-added
+// custom subject apart from a built-in one (so customs can be surfaced on every class).
+const ALL_CURRICULUM = new Set<string>(
+    [
+        ...getSubjectsForGrade(0), ...getSubjectsForGrade(3), ...getSubjectsForGrade(6),
+        ...getSubjectsForGrade(9), ...seniorAllSubjects(12),
+    ].map(s => s.toLowerCase())
+);
 
 const SUBJECT_COLORS = [
     'bg-indigo-100 text-indigo-800 border-indigo-200',
@@ -68,6 +142,11 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
 
     const [classes, setClasses] = useState<any[]>([]);
     const [subjects, setSubjects] = useState<string[]>([]);
+    // Admin-added subjects (saved to the school) that aren't part of a standard
+    // curriculum — surfaced on every class palette.
+    const [customSubjects, setCustomSubjects] = useState<string[]>([]);
+    const [newSubject, setNewSubject] = useState('');
+    const [addingSubject, setAddingSubject] = useState(false);
     const [teachers, setTeachers] = useState<any[]>([]);
     const [grid, setGrid] = useState<Grid>({});
     const [levelKey, setLevelKey] = useState<LevelKey>('senior');
@@ -85,46 +164,62 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     const dragSubject = useRef<string | null>(null);
 
     // --- load classes, subjects, teachers, existing timetable ---
-    useEffect(() => {
+    // Extracted so Save can re-seed the grid afterwards (cells then carry their saved
+    // ids, so re-saving updates rows instead of creating duplicates).
+    const loadData = async () => {
         if (!sid) return;
-        let active = true;
-        (async () => {
-            setLoading(true);
-            try {
-                const [cls, subs, tch, existing] = await Promise.all([
-                    api.getClasses(sid, bid).catch(() => []),
-                    api.getSubjects(sid, bid).catch(() => []),
-                    api.getTeachers(sid, bid).catch(() => []),
-                    api.getTimetable(bid).catch(() => []),
-                ]);
-                if (!active) return;
-                setClasses(Array.isArray(cls) ? cls : []);
-                setTeachers(Array.isArray(tch) ? tch : []);
-                const subNames = (Array.isArray(subs) ? subs : [])
-                    .map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean);
-                // Merge the school's own subjects (first) with the full curriculum
-                // catalog so EVERY subject is draggable and searchable — not just the
-                // handful already saved in this school.
-                const catalog = (SUBJECTS_LIST || []).map((s: any) => s?.name).filter(Boolean);
-                setSubjects(Array.from(new Set([...subNames, ...catalog])));
+        setLoading(true);
+        try {
+            const [cls, subs, tch, existing] = await Promise.all([
+                api.getClasses(sid, bid).catch(() => []),
+                api.getSubjects(sid, bid).catch(() => []),
+                api.getTeachers(sid, bid).catch(() => []),
+                api.getTimetable(bid).catch(() => []),
+            ]);
+            setClasses(Array.isArray(cls) ? cls : []);
+            setTeachers(Array.isArray(tch) ? tch : []);
+            const subNames = (Array.isArray(subs) ? subs : [])
+                .map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean);
+            // Merge the school's own subjects (first) with the full curriculum
+            // catalog so EVERY subject is draggable and searchable — not just the
+            // handful already saved in this school.
+            const catalog = (SUBJECTS_LIST || []).map((s: any) => s?.name).filter(Boolean);
+            setSubjects(Array.from(new Set([...subNames, ...catalog])));
+            // A school subject that isn't in any standard curriculum is an admin-added
+            // custom subject — keep it so it shows on every class palette.
+            setCustomSubjects(Array.from(new Set(
+                subNames.filter((n: string) => !ALL_CURRICULUM.has(String(n).toLowerCase()))
+            )));
 
-                // seed the grid from existing slots, keyed by class + day + start_time
-                const g: Grid = {};
-                const byKey: Record<string, any> = {};
-                for (const slot of (Array.isArray(existing) ? existing : [])) {
-                    const startIdx = periods.findIndex(p => p.start === (slot.start_time || '').slice(0, 5));
-                    if (slot.class_id && slot.day_of_week && startIdx >= 0) {
-                        const k = cellKey(slot.class_id, slot.day_of_week, startIdx);
-                        g[k] = { subject: slot.subject, teacher_id: slot.teacher_id || undefined, id: slot.id };
-                        byKey[k] = slot;
-                    }
+            // Seed the grid from existing slots. Match each saved lesson to its
+            // canonical column by class id first, then by class NAME — so lessons
+            // reload even after the demo re-creates classes with new ids or after
+            // duplicate classes were collapsed into one column. Resolve period index
+            // against the saved schedule directly (not the `periods` state, which may
+            // not have settled yet on first mount).
+            const livePeriods = teachingPeriods(loadSchedule(sid));
+            const { idToCol, nameToCol } = buildClassIndex(Array.isArray(cls) ? cls : [], bid);
+            const g: Grid = {};
+            for (const slot of (Array.isArray(existing) ? existing : [])) {
+                const startIdx = livePeriods.findIndex(p => p.start === (slot.start_time || '').slice(0, 5));
+                const colId = (slot.class_id && idToCol[slot.class_id]) || nameToCol[normName(slot.class_name)];
+                if (colId && slot.day_of_week && startIdx >= 0) {
+                    g[cellKey(colId, slot.day_of_week, startIdx)] = {
+                        subject: slot.subject, teacher_id: slot.teacher_id || undefined, id: slot.id,
+                    };
                 }
-                setGrid(g);
-            } finally {
-                if (active) setLoading(false);
             }
-        })();
+            setGrid(g);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        let active = true;
+        if (sid && active) loadData();
         return () => { active = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sid, bid]);
 
     // Classify by the class NAME first (what the admin typed in Manage Classes), then
@@ -161,11 +256,31 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         },
         [classes]
     );
-    const levelClasses = useMemo(
-        () => classes.filter(c => levelOf(c) === levelKey)
-            .sort((a, b) => (a.grade || 0) - (b.grade || 0) || String(a.name).localeCompare(String(b.name))),
-        [classes, levelKey]
+    // Canonical columns for the active level (always the standard set, deduped).
+    const levelColumns = useMemo(() => buildColumns(levelKey, classes, bid), [classes, levelKey, bid]);
+    // Every column across all levels — used by Save to resolve a cell's class name and
+    // to materialise virtual columns into real classes.
+    const allColumns = useMemo(
+        () => (Object.keys(CANONICAL) as LevelKey[]).flatMap(lk => buildColumns(lk, classes, bid)),
+        [classes, bid]
     );
+    const colMeta = useMemo(() => { const m: Record<string, Col> = {}; allColumns.forEach(c => { m[c.id] = c; }); return m; }, [allColumns]);
+
+    // Responsive: on narrow screens show ONE class column at a time (with a class
+    // picker); on wide screens (lg+) show every class side by side.
+    const [isWide, setIsWide] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
+    useEffect(() => {
+        const onResize = () => setIsWide(window.innerWidth >= 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+    const [mobileClassIdx, setMobileClassIdx] = useState(0);
+    useEffect(() => { setMobileClassIdx(i => (i >= levelColumns.length ? 0 : i)); }, [levelColumns.length, levelKey]);
+    const activeMobileIdx = Math.min(mobileClassIdx, Math.max(0, levelColumns.length - 1));
+    const shownColumns = (isWide || levelColumns.length <= 1)
+        ? levelColumns
+        : (levelColumns[activeMobileIdx] ? [levelColumns[activeMobileIdx]] : levelColumns);
+    const gridCols = `${isWide ? 88 : 64}px repeat(${shownColumns.length}, minmax(0, 1fr))`;
     // Once classes load, default to the first level that has classes (prefer Senior).
     useEffect(() => {
         if (availableLevels.length === 0) return;
@@ -174,31 +289,34 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         }
     }, [availableLevels]); // eslint-disable-line
 
-    const filteredSubjects = useMemo(
-        () => subjects.filter(s => s.toLowerCase().includes(subjectQuery.trim().toLowerCase())),
-        [subjects, subjectQuery]
-    );
-    // Collapsed by default to keep the palette compact: show a few chips; expand on
-    // "Show all", and searching reveals every match. So the long list stays hidden
-    // until the user actually wants it.
-    // Subjects appropriate for the level on screen (so Generate + the palette use the
-    // class's own subjects, not the whole catalogue).
+    // Subjects appropriate for the level on screen — the palette and Generate use this
+    // class's OWN subjects (plus any custom subjects the admin added globally).
     const levelGrade: Record<LevelKey, number> = {
         senior: 12, junior: 9, upperPrimary: 6, lowerPrimary: 3, nursery: 1, preNursery: 0, creche: 0,
     };
     const levelSubjects = useMemo(() => {
-        const subs = getSubjectsForGrade(levelGrade[levelKey] ?? 9);
-        return (Array.isArray(subs) && subs.length) ? subs : subjects;
+        const grade = levelGrade[levelKey] ?? 9;
+        // Senior = full list across all departments; other levels = their curriculum.
+        const base = levelKey === 'senior' ? seniorAllSubjects(grade) : getSubjectsForGrade(grade);
+        const list = (Array.isArray(base) && base.length) ? base : subjects;
+        // Admin-added custom subjects appear on every class.
+        return Array.from(new Set([...list, ...customSubjects]));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [levelKey, subjects]);
+    }, [levelKey, subjects, customSubjects]);
+
+    // Search stays within this class's subjects.
+    const filteredSubjects = useMemo(
+        () => levelSubjects.filter(s => s.toLowerCase().includes(subjectQuery.trim().toLowerCase())),
+        [levelSubjects, subjectQuery]
+    );
 
     const querying = subjectQuery.trim().length > 0;
-    const COLLAPSED_COUNT = 6;
-    // Collapsed palette shows the class's own subjects; "Show all" reveals the full
-    // catalogue; searching filters across everything.
+    const COLLAPSED_COUNT = 5;
+    // Palette shows ONLY this class's subjects: first 5 when collapsed; "Show all"
+    // reveals the rest of the class's subjects; search filters within them.
     const visibleSubjects = querying
         ? filteredSubjects
-        : (paletteOpen ? subjects : (levelSubjects.length ? levelSubjects : subjects.slice(0, COLLAPSED_COUNT)));
+        : (paletteOpen ? levelSubjects : levelSubjects.slice(0, COLLAPSED_COUNT));
 
     const teacherName = (id?: string) => teachers.find(t => t.id === id)?.full_name || teachers.find(t => t.id === id)?.name || '';
     const teachersForSubject = (subject: string) =>
@@ -213,14 +331,14 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         const set = new Set<string>();
         for (let p = 0; p < periods.length; p++) {
             const seen: Record<string, string[]> = {};
-            for (const c of levelClasses) {
+            for (const c of levelColumns) {
                 const cell = grid[cellKey(c.id, day, p)];
                 if (cell?.teacher_id) (seen[cell.teacher_id] ||= []).push(cellKey(c.id, day, p));
             }
             for (const tid in seen) if (seen[tid].length > 1) seen[tid].forEach(k => set.add(k));
         }
         return set;
-    }, [grid, levelClasses, day]);
+    }, [grid, levelColumns, day]);
 
     // --- drag & drop ---
     const onDrop = (classId: string, p: number) => {
@@ -244,13 +362,13 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
     // overwriting the active day's grid, avoiding the same teacher twice per period.
     const autoGenerate = () => {
         const pool = (levelSubjects.length ? levelSubjects : subjects);
-        if (pool.length === 0 || levelClasses.length === 0) { toast.error('Add subjects and classes first.'); return; }
+        if (pool.length === 0 || levelColumns.length === 0) { toast.error('Add subjects and classes first.'); return; }
         setGrid(prev => {
             const next = { ...prev };
             for (let p = 0; p < periods.length; p++) {
                 const order = shuffled(pool);              // different scatter each click
                 const usedTeachers = new Set<string>();
-                levelClasses.forEach((c, ci) => {
+                levelColumns.forEach((c, ci) => {
                     const subject = String(order[ci % order.length]);
                     const candidates = teachersForSubject(subject);
                     const free = candidates.find(t => !usedTeachers.has(t.id)) || candidates[0];
@@ -263,35 +381,88 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
         toast.success(`Scattered ${DAYS.find(d => d.d === day)?.label} for ${LEVELS.find(l => l.key === levelKey)?.label}.`);
     };
 
+    // --- add a custom subject (saved to the school, shown on every class) ---
+    const addSubject = async () => {
+        const name = newSubject.trim();
+        if (!name) return;
+        if (levelSubjects.some(s => s.toLowerCase() === name.toLowerCase())) {
+            toast.error('That subject is already in the list.');
+            return;
+        }
+        setAddingSubject(true);
+        try {
+            await api.createSubject({ name });
+            setCustomSubjects(prev => Array.from(new Set([...prev, name])));
+            setNewSubject('');
+            toast.success(`Added “${name}”.`);
+        } catch {
+            toast.error('Could not add subject. Please try again.');
+        } finally {
+            setAddingSubject(false);
+        }
+    };
+
     // --- save: create/update every filled cell across ALL days ---
+    // Virtual columns (standard classes that don't exist yet, e.g. a fresh Primary 6)
+    // are materialised into a real class up-front; the lesson writes then run in
+    // parallel batches so saving a full week stays fast even with many classes.
     const save = async () => {
         setSaving(true);
         let ok = 0, fail = 0;
         try {
-            for (const key in grid) {
-                const cell = grid[key];
-                if (!cell?.subject) continue;
-                const [classId, dStr, pStr] = key.split('|');
-                const p = periods[Number(pStr)];
-                const cls = classes.find(c => c.id === classId);
-                const payload: any = {
-                    class_id: classId,
-                    class_name: cls?.name,
-                    subject: cell.subject,
-                    teacher_id: cell.teacher_id || null,
-                    day_of_week: Number(dStr),
-                    start_time: p.start,
-                    end_time: p.end,
-                    branch_id: bid,
-                };
+            // 1. Collect filled cells.
+            const cells = Object.keys(grid)
+                .map(key => ({ key, cell: grid[key], parts: key.split('|') }))
+                .filter(x => x.cell?.subject);
+
+            // 2. Materialise every virtual column ONCE (sequential — there are few, and
+            //    creating the same class twice in parallel would duplicate it).
+            const createdClassIds: Record<string, string> = {};
+            for (const colId of Array.from(new Set(cells.map(c => c.parts[0])))) {
+                if (!colId.startsWith('__create__:')) continue;
+                const meta = colMeta[colId];
                 try {
-                    if (cell.id) await api.updateTimetable(cell.id, payload);
-                    else await api.createTimetable(payload);
-                    ok++;
-                } catch { fail++; }
+                    const created = await api.createClass({
+                        name: meta?.name || colId.split(':')[2] || 'Class',
+                        grade: meta?.grade ?? Number(colId.split(':')[1]),
+                        section: 'A',
+                        school_id: sid,
+                        branch_id: bid || null,
+                    });
+                    if (created?.id) createdClassIds[colId] = created.id;
+                } catch { /* its cells will be counted as failures below */ }
             }
+
+            // 3. Write lessons in parallel batches.
+            const BATCH = 20;
+            for (let i = 0; i < cells.length; i += BATCH) {
+                const results = await Promise.allSettled(cells.slice(i, i + BATCH).map(({ cell, parts }) => {
+                    const [colId, dStr, pStr] = parts;
+                    const classId = colId.startsWith('__create__:') ? createdClassIds[colId] : colId;
+                    if (!classId) return Promise.reject(new Error('no class'));
+                    const p = periods[Number(pStr)];
+                    const meta = colMeta[colId];
+                    const payload: any = {
+                        class_id: classId,
+                        class_name: meta?.name || classes.find(c => c.id === classId)?.name,
+                        subject: cell.subject,
+                        teacher_id: cell.teacher_id || null,
+                        day_of_week: Number(dStr),
+                        start_time: p.start,
+                        end_time: p.end,
+                        branch_id: bid,
+                    };
+                    return cell.id ? api.updateTimetable(cell.id, payload) : api.createTimetable(payload);
+                }));
+                for (const r of results) (r.status === 'fulfilled' ? ok++ : fail++);
+            }
+
             if (fail === 0) toast.success(`Timetable saved (${ok} periods).`);
             else toast.error(`Saved ${ok}, ${fail} failed.`);
+            // Re-load so cells pick up their saved ids (and any classes just created)
+            // — re-saving then updates rows instead of duplicating them, and confirms
+            // the lessons actually persisted.
+            await loadData();
         } finally {
             setSaving(false);
         }
@@ -320,12 +491,12 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button onClick={() => setEditingTimes(true)} className="inline-flex items-center gap-2 rounded-xl bg-amber-50 text-amber-700 px-3 py-2.5 text-sm font-semibold hover:bg-amber-100">
                         ⏱ Edit Times
                     </button>
                     <button onClick={autoGenerate} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95">
-                        <Sparkles className="h-4 w-4" /> Generate with AI
+                        <Sparkles className="h-4 w-4" /> <span className="whitespace-nowrap">Generate with AI</span>
                     </button>
                     <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:bg-slate-300">
                         <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save'}
@@ -335,18 +506,18 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
 
             {/* Level toggle + Day tabs */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1">
+                <div className="flex flex-nowrap overflow-x-auto max-w-full rounded-xl bg-slate-100 p-1">
                     {(availableLevels.length ? availableLevels : LEVELS.filter(l => l.key === 'senior')).map(l => (
                         <button key={l.key} onClick={() => setLevelKey(l.key)}
-                            className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${levelKey === l.key ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
+                            className={`flex-none whitespace-nowrap px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${levelKey === l.key ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
                             {l.label}
                         </button>
                     ))}
                 </div>
-                <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                <div className="flex flex-nowrap overflow-x-auto rounded-xl bg-slate-100 p-1">
                     {DAYS.map(({ d, label }) => (
                         <button key={d} onClick={() => setDay(d)}
-                            className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${day === d ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
+                            className={`flex-none px-3.5 py-1.5 rounded-lg text-sm font-semibold transition ${day === d ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
                             {label}
                         </button>
                     ))}
@@ -374,7 +545,7 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                 className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
                             />
                         </div>
-                        {subjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-4">No subjects yet. Add subjects first.</p>}
+                        {levelSubjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-4">No subjects yet. Add subjects first.</p>}
                         {querying && filteredSubjects.length === 0 && <p className="text-xs text-slate-400 px-1 py-3">No subject matches “{subjectQuery}”.</p>}
                         <div className={`flex lg:flex-col flex-wrap gap-2 ${(paletteOpen || querying) ? 'max-h-[60vh] overflow-y-auto' : ''}`}>
                             {visibleSubjects.map(s => (
@@ -384,72 +555,106 @@ const TimetableDeskBuilder: React.FC<Props> = ({ schoolId, currentBranchId, navi
                                 </div>
                             ))}
                         </div>
-                        {!querying && subjects.length > COLLAPSED_COUNT && (
+                        {!querying && levelSubjects.length > COLLAPSED_COUNT && (
                             <button onClick={() => setPaletteOpen(o => !o)}
                                 className="mt-2 w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-                                {paletteOpen ? 'Show less ▴' : `Show all ${subjects.length} ▾`}
+                                {paletteOpen ? 'Show less ▴' : `Show all ${levelSubjects.length} ▾`}
                             </button>
                         )}
+
+                        {/* Add a custom subject (saved to the school, shown on every class) */}
+                        <div className="mt-3 pt-3 border-t border-slate-100">
+                            <div className="flex items-center gap-1.5">
+                                <input
+                                    value={newSubject}
+                                    onChange={e => setNewSubject(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') addSubject(); }}
+                                    placeholder="Add a subject…"
+                                    className="flex-1 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                />
+                                <button
+                                    onClick={addSubject}
+                                    disabled={addingSubject || !newSubject.trim()}
+                                    className="flex-none rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:bg-slate-300">
+                                    {addingSubject ? '…' : 'Add'}
+                                </button>
+                            </div>
+                            <p className="mt-1 text-[10px] text-slate-400">Saved to your school and shown on every class.</p>
+                        </div>
                     </div>
                 </div>
 
                 {/* Grid */}
-                <div className="flex-1 overflow-x-auto">
-                    {levelClasses.length === 0 ? (
+                <div className="flex-1 min-w-0">
+                    {/* Mobile/tablet: pick ONE class to view (wide screens show all) */}
+                    {!isWide && levelColumns.length > 1 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 -mx-1 px-1">
+                            {levelColumns.map((c, i) => (
+                                <button key={c.id} onClick={() => setMobileClassIdx(i)}
+                                    className={`flex-none px-3 py-1.5 rounded-lg text-sm font-semibold transition ${i === activeMobileIdx ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                    {c.name}{c.section ? ` ${c.section}` : ' A'}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {levelColumns.length === 0 ? (
                         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
                             <Users className="h-6 w-6 mx-auto mb-2 text-slate-300" />
                             No {LEVELS.find(l => l.key === levelKey)?.label} classes found in this branch.
                         </div>
                     ) : (
-                        <div className="min-w-[640px] rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                            {/* header row: class names */}
-                            <div className="grid" style={{ gridTemplateColumns: `90px repeat(${levelClasses.length}, minmax(0,1fr))` }}>
-                                <div className="bg-slate-50 border-b border-r border-slate-200 p-2 text-[11px] font-bold uppercase text-slate-400">Period</div>
-                                {levelClasses.map(c => (
-                                    <div key={c.id} className="bg-slate-50 border-b border-r border-slate-200 p-2 text-center">
-                                        <p className="text-sm font-bold text-slate-800">{c.name}{c.section ? ` ${c.section}` : ''}</p>
-                                        <p className="text-[10px] text-slate-400">{c.section ? `Section ${c.section}` : `Grade ${c.grade ?? '—'}`}</p>
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                            <div className={isWide ? 'min-w-[680px]' : 'min-w-full'}>
+                                {/* header row: class names (Period column sticks while scrolling) */}
+                                <div className="grid" style={{ gridTemplateColumns: gridCols }}>
+                                    <div className="sticky left-0 z-20 bg-slate-50 border-b border-r border-slate-200 p-2 text-[11px] font-bold uppercase text-slate-400 flex items-center">Period</div>
+                                    {shownColumns.map(c => (
+                                        <div key={c.id} className="bg-slate-50 border-b border-r border-slate-200 p-2 text-center">
+                                            <p className="text-sm font-bold text-slate-800 truncate">{c.name}{c.section ? ` ${c.section}` : ' A'}</p>
+                                            <p className="text-[10px] text-slate-400">{c.section ? `Section ${c.section}` : `Grade ${c.grade ?? '—'}`}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* period rows */}
+                                {periods.map((per, p) => (
+                                    <div key={p} className="grid" style={{ gridTemplateColumns: gridCols }}>
+                                        <div className="sticky left-0 z-10 border-b border-r border-slate-200 p-2 bg-slate-50">
+                                            <p className="text-xs font-bold text-slate-700">P{p + 1}</p>
+                                            <p className="text-[10px] text-slate-400">{per.start}</p>
+                                        </div>
+                                        {shownColumns.map(c => {
+                                            const k = cellKey(c.id, day, p);
+                                            const cell = grid[k];
+                                            const conflict = conflicts.has(k);
+                                            return (
+                                                <div key={c.id}
+                                                    onDragOver={e => e.preventDefault()}
+                                                    onDrop={() => onDrop(c.id, p)}
+                                                    className={`border-b border-r border-slate-200 p-1.5 min-h-[72px] transition ${conflict ? 'bg-rose-50 ring-1 ring-inset ring-rose-300' : 'hover:bg-indigo-50/40'}`}>
+                                                    {cell?.subject ? (
+                                                        <div className={`rounded-lg border p-1.5 ${conflict ? 'border-rose-300 bg-white' : subjectColor(cell.subject)}`}>
+                                                            <div className="flex items-start justify-between gap-1">
+                                                                <span className="text-xs font-bold leading-tight break-words">{cell.subject}</span>
+                                                                <button onClick={() => clearCell(c.id, p)} className="flex-none text-slate-400 hover:text-rose-600"><X className="h-3 w-3" /></button>
+                                                            </div>
+                                                            <select value={cell.teacher_id || ''} onChange={e => setTeacher(c.id, p, e.target.value)}
+                                                                className={`mt-1 w-full bg-white/70 rounded border text-[10px] px-1 py-0.5 focus:outline-none ${conflict ? 'border-rose-300 text-rose-700' : 'border-slate-200 text-slate-600'}`}>
+                                                                <option value="">— teacher —</option>
+                                                                {teachers.map(t => (
+                                                                    <option key={t.id} value={t.id}>{t.full_name || t.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-full w-full rounded-lg border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-300 min-h-[56px]">drop</div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 ))}
                             </div>
-                            {/* period rows */}
-                            {periods.map((per, p) => (
-                                <div key={p} className="grid" style={{ gridTemplateColumns: `90px repeat(${levelClasses.length}, minmax(0,1fr))` }}>
-                                    <div className="border-b border-r border-slate-200 p-2 bg-slate-50/60">
-                                        <p className="text-xs font-bold text-slate-700">P{p + 1}</p>
-                                        <p className="text-[10px] text-slate-400">{per.start}</p>
-                                    </div>
-                                    {levelClasses.map(c => {
-                                        const k = cellKey(c.id, day, p);
-                                        const cell = grid[k];
-                                        const conflict = conflicts.has(k);
-                                        return (
-                                            <div key={c.id}
-                                                onDragOver={e => e.preventDefault()}
-                                                onDrop={() => onDrop(c.id, p)}
-                                                className={`border-b border-r border-slate-200 p-1.5 min-h-[64px] transition ${conflict ? 'bg-rose-50 ring-1 ring-inset ring-rose-300' : 'hover:bg-indigo-50/40'}`}>
-                                                {cell?.subject ? (
-                                                    <div className={`rounded-lg border p-1.5 ${conflict ? 'border-rose-300 bg-white' : subjectColor(cell.subject)}`}>
-                                                        <div className="flex items-start justify-between gap-1">
-                                                            <span className="text-xs font-bold leading-tight">{cell.subject}</span>
-                                                            <button onClick={() => clearCell(c.id, p)} className="text-slate-400 hover:text-rose-600"><X className="h-3 w-3" /></button>
-                                                        </div>
-                                                        <select value={cell.teacher_id || ''} onChange={e => setTeacher(c.id, p, e.target.value)}
-                                                            className={`mt-1 w-full bg-white/70 rounded border text-[10px] px-1 py-0.5 focus:outline-none ${conflict ? 'border-rose-300 text-rose-700' : 'border-slate-200 text-slate-600'}`}>
-                                                            <option value="">— teacher —</option>
-                                                            {teachers.map(t => (
-                                                                <option key={t.id} value={t.id}>{t.full_name || t.name}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                ) : (
-                                                    <div className="h-full w-full rounded-lg border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-300">drop</div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ))}
                         </div>
                     )}
                     <p className="mt-3 text-xs text-slate-400">{filledCount} period{filledCount === 1 ? '' : 's'} set across the week. Conflicts are highlighted in red.</p>

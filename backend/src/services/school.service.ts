@@ -223,6 +223,21 @@ export class SchoolService {
         return branches.map((b) => ({ ...b, user_count: countMap.get(b.id) || 0 }));
     }
 
+    /**
+     * Lightweight list of ALL branches in the school (id + name + code), for assignment
+     * pickers — e.g. a home-branch admin lending a teacher to other branches. Branch
+     * names aren't sensitive and this never returns branch data, only the labels.
+     */
+    static async getBranchOptions(schoolId: string, demoRoot?: string) {
+        const where: any = { school_id: schoolId };
+        if (demoRoot) where.OR = [{ id: demoRoot }, { id: { startsWith: demoRoot + '__' } }];
+        return prisma.branch.findMany({
+            where,
+            select: { id: true, name: true, code: true, is_main: true },
+            orderBy: { is_main: 'desc' },
+        });
+    }
+
     static async createBranch(schoolId: string, data: any, demoRoot?: string) {
         console.log('[SchoolService] Creating branch. Input data:', JSON.stringify(data, null, 2));
         return await prisma.$transaction(async (tx) => {

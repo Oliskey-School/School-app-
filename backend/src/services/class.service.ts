@@ -156,10 +156,7 @@ export class ClassService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId; // strict: untagged rows only in All Branches
         }
 
         if (teacherId) {
@@ -190,10 +187,7 @@ export class ClassService {
         };
 
         if (branchId && branchId !== 'all') {
-            classWhere.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            classWhere.branch_id = branchId; // strict: untagged rows only in All Branches
         }
 
         if (teacherId) {

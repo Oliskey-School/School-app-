@@ -4,6 +4,7 @@ import {
     getReportCardDetails, getCurricula, getAcademicTracks, getAcademicTerms, 
     upsertReportCard, getReportCardByCriteria, getCurriculumTopics, syncCurriculumData 
 } from '../controllers/academic.controller';
+import { getAcademicSettings, saveAcademicSettings } from '../controllers/academicSettings.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 
@@ -11,6 +12,10 @@ const router = Router();
 
 router.use(authenticate);
 router.use(requireTenant);
+
+// Configurable academics (terms + grading) — effective values + editor save.
+router.get('/settings', getAcademicSettings);
+router.put('/settings', saveAcademicSettings);
 
 router.get('/subjects', getSubjects);
 router.get('/analytics', getAnalytics);

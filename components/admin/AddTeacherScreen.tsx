@@ -16,7 +16,7 @@ import {
     DEFAULT_STANDARD_CLASSES,
     getFormattedClassName
 } from '../../constants';
-import { Teacher } from '../../types';
+import { Teacher, DashboardType } from '../../types';
 import { api } from '../../lib/api';
 import { sendVerificationEmail } from '../../lib/auth';
 
@@ -137,8 +137,20 @@ const MultiSelect: React.FC<{
 
 const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forceUpdate, handleBack }) => {
     const { profile } = useProfile();
-    const { currentSchool, currentBranchId } = useAuth();
-    const { currentBranch } = useBranch();
+    const { currentSchool, currentBranchId, role } = useAuth();
+    const { currentBranch, isMainAdmin: branchIsMain } = useBranch();
+
+    // Branch governance: a teacher's profile (identity, qualifications, photo, login,
+    // assigned branches) is editable only by the MAIN admin or the teacher's HOME branch.
+    // A branch admin the teacher is merely lent to assigns classes/subjects/scheduling via
+    // the Timetable & Class screens — not here. (The backend enforces this regardless.)
+    const myBranchId = currentBranchId || (profile as any)?.branchId || null;
+    // A main admin's branch_id is truthy (Main branch), so use the backend is_main_admin
+    // signal (via BranchContext) instead of inferring from the branch id.
+    const isMainAdmin = role === DashboardType.Proprietor || role === DashboardType.SuperAdmin
+        || (role === DashboardType.Admin && branchIsMain !== false);
+    const teacherHomeBranch = (teacherToEdit as any)?.branch_id || null;
+    const canEditIdentity = !teacherToEdit || isMainAdmin || (!!myBranchId && myBranchId === teacherHomeBranch);
 
     // Triple-layer schoolId detection
     const schoolId = profile?.schoolId || currentSchool?.id;
@@ -242,7 +254,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             }
 
             // Fetch Branches
-            const bData = await api.getBranches(schoolId);
+            // Use the full branch list (labels only) so a home-branch admin can lend the
+            // teacher to other branches — the backend allows main + home to assign branches.
+            const bData = await api.getBranchOptions();
             if (bData) {
                 const bNames = bData.map((b: any) => b.name);
                 setBranches(bNames);
@@ -440,6 +454,16 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 }
             });
 
+            // Branch admin (not home/main): can ONLY assign this teacher to classes &
+            // subjects in THEIR branch. Identity is locked, so skip the full update and
+            // save just the branch assignments (replaces this branch's links only).
+            if (!canEditIdentity && teacherToEdit) {
+                await api.assignTeacherBranchClasses(teacherToEdit.id, classSubjectLinks);
+                toast.success('Classes & subjects assigned for this branch.');
+                handleBack();
+                return;
+            }
+
             const payload = {
                 full_name: name,
                 email,
@@ -491,7 +515,13 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                 onUpgrade={navigateToSubscription}
             />
             <form onSubmit={handleSubmit} className="flex-grow flex flex-col">
-                <main className="flex-grow p-4 space-y-6 overflow-y-auto">
+                {!canEditIdentity && (
+                    <div className="mx-4 mt-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+                        This teacher's profile (name, email, qualifications) is managed by their home branch and is read-only here.
+                        You <span className="font-semibold">can</span> assign them to <span className="font-semibold">Subjects &amp; Classes</span> for your branch below — saved separately from their other branches, and shown to them when they're in your branch.
+                    </div>
+                )}
+                <main className={`flex-grow p-4 space-y-6 overflow-y-auto ${!canEditIdentity ? 'pointer-events-none select-none' : ''}`}>
                     <div className="flex justify-center">
                         <div className="relative">
                             <div className="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-gray-100 shadow-sm">
@@ -536,20 +566,25 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                             options={branches}
                         />
 
-                        <MultiSelect
-                            label="Subjects"
-                            selected={subjects}
-                            setSelected={setSubjects}
-                            placeholder={loadingRefs ? "Loading subjects..." : "Select subjects..."}
-                            options={filteredSubjectOptions}
-                        />
-                        <MultiSelect
-                            label="Classes"
-                            selected={classes}
-                            setSelected={setClasses}
-                            placeholder={loadingRefs ? "Loading classes..." : "Select classes..."}
-                            options={validClasses}
-                        />
+                        {/* Subjects & Classes stay editable for a branch admin (identity above
+                            is locked). For a branch admin we highlight + re-enable this block. */}
+                        <div className={!canEditIdentity ? 'pointer-events-auto rounded-xl ring-2 ring-indigo-200 bg-indigo-50/30 p-3 space-y-4' : 'space-y-4'}>
+                            {!canEditIdentity && <p className="text-xs font-semibold text-indigo-700">Assign for your branch</p>}
+                            <MultiSelect
+                                label="Subjects"
+                                selected={subjects}
+                                setSelected={setSubjects}
+                                placeholder={loadingRefs ? "Loading subjects..." : "Select subjects..."}
+                                options={filteredSubjectOptions}
+                            />
+                            <MultiSelect
+                                label="Classes"
+                                selected={classes}
+                                setSelected={setClasses}
+                                placeholder={loadingRefs ? "Loading classes..." : "Select classes..."}
+                                options={validClasses}
+                            />
+                        </div>
 
                         {/* Curriculum Section */}
                         <div className="pt-2 border-t border-gray-100">
@@ -652,9 +687,9 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
+                        className={`w-full flex justify-center py-3 px-4 rounded-lg text-white ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} transition-colors`}
                     >
-                        {isLoading ? 'Saving...' : (teacherToEdit ? 'Update Teacher' : 'Save Teacher')}
+                        {isLoading ? 'Saving...' : (!canEditIdentity ? 'Assign Classes & Subjects to my branch' : (teacherToEdit ? 'Update Teacher' : 'Save Teacher'))}
                     </button>
                 </div>
             </form>

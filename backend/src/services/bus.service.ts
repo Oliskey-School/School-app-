@@ -6,10 +6,7 @@ export class BusService {
         const where: any = { school_id: schoolId };
         
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
         }
 
         const buses = await prisma.transportBus.findMany({
@@ -51,10 +48,7 @@ export class BusService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
         }
 
         const bus = await prisma.transportBus.update({
@@ -73,10 +67,7 @@ export class BusService {
         };
 
         if (branchId && branchId !== 'all') {
-            where.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            where.branch_id = branchId; // strict branch isolation (untagged → All Branches only)
         }
 
         await prisma.transportBus.delete({

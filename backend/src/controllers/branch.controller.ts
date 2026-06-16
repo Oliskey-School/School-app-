@@ -2,7 +2,17 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SchoolService } from '../services/school.service';
 import { getEffectiveBranchId, getDemoSessionRoot } from '../utils/branchScope';
+import { isMainAdmin } from '../utils/permissions';
 import * as BranchTransfer from '../services/branchTransfer.service';
+
+// Creating, renaming or removing branches is a school-wide action — Main Admin only.
+const requireMainAdmin = (req: AuthRequest, res: Response): boolean => {
+    if (!isMainAdmin(req.user)) {
+        res.status(403).json({ message: 'Only the main admin can manage branches.' });
+        return false;
+    }
+    return true;
+};
 
 export const getBranches = async (req: AuthRequest, res: Response) => {
     try {
@@ -22,8 +32,21 @@ export const getBranches = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// All branch labels in the school — for assignment pickers (any admin), e.g. a
+// home-branch admin lending a teacher to another branch.
+export const getBranchOptions = async (req: AuthRequest, res: Response) => {
+    try {
+        const demoRoot = getDemoSessionRoot(req.user);
+        const result = await SchoolService.getBranchOptions(req.user.school_id, demoRoot);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const createBranch = async (req: AuthRequest, res: Response) => {
     try {
+        if (!requireMainAdmin(req, res)) return;
         const branchData = req.body;
         // In a demo session, new branches are scoped to the visitor's sandbox.
         const demoRoot = getDemoSessionRoot(req.user);
@@ -36,6 +59,7 @@ export const createBranch = async (req: AuthRequest, res: Response) => {
 
 export const updateBranch = async (req: AuthRequest, res: Response) => {
     try {
+        if (!requireMainAdmin(req, res)) return;
         const id = req.params.id as string;
         const updates = req.body;
         const result = await SchoolService.updateBranch(req.user.school_id, id, updates);
@@ -47,6 +71,7 @@ export const updateBranch = async (req: AuthRequest, res: Response) => {
 
 export const deleteBranch = async (req: AuthRequest, res: Response) => {
     try {
+        if (!requireMainAdmin(req, res)) return;
         const id = req.params.id as string;
         await SchoolService.deleteBranch(req.user.school_id, id);
         res.status(204).send();

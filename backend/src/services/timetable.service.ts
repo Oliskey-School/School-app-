@@ -5,11 +5,11 @@ export class TimetableService {
     static async getTimetable(schoolId: string, branchId: string | undefined, className?: string, teacherId?: string) {
         const whereClause: any = { school_id: schoolId };
 
+        // Strict branch isolation: a specific branch shows ONLY its own rows. Untagged
+        // (branch_id: null) rows appear only in the "All Branches" view (branchId
+        // undefined), never inside a single branch.
         if (branchId && branchId !== 'all') {
-            whereClause.OR = [
-                { branch_id: branchId },
-                { branch_id: null }
-            ];
+            whereClause.branch_id = branchId;
         }
 
         if (className) {
@@ -48,6 +48,9 @@ export class TimetableService {
                 end_time: data.end_time,
                 room: data.room ?? null,
                 notes: data.notes ?? null,
+                // Publish state — only the Editor's "Publish Live" sends 'Published';
+                // everything else (Builder save, draft) stays 'Draft'.
+                status: data.status === 'Published' ? 'Published' : 'Draft',
             }
         });
 

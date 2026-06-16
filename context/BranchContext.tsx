@@ -21,6 +21,11 @@ interface BranchContextType {
     /** The user's Global ID in the CURRENTLY active branch (e.g. OLISKEY_LEKKI_TCH_0001).
      *  Updates live when the branch is switched. Null until resolved. */
     activeBranchGeneratedId: string | null;
+    /** True when the user is a school-level (MAIN) admin who manages the whole school,
+     *  rather than a single branch. Resolved from the backend (is_main_admin). Null
+     *  until resolved. The home branch_id is truthy for both, so this is the only
+     *  reliable signal for school-wide settings gating. */
+    isMainAdmin: boolean | null;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
@@ -32,6 +37,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [activeBranchGeneratedId, setActiveBranchGeneratedId] = useState<string | null>(null);
+    const [isMainAdmin, setIsMainAdmin] = useState<boolean | null>(null);
 
     // A teacher's authorized branches = their primary branch plus any extra
     // branches the main admin explicitly assigned (allowed_branch_ids).
@@ -132,7 +138,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!user || !currentSchool) { setActiveBranchGeneratedId(null); return; }
         let cancelled = false;
         api.getActiveBranchId()
-            .then(res => { if (!cancelled) setActiveBranchGeneratedId(res?.school_generated_id || null); })
+            .then(res => {
+                if (cancelled) return;
+                setActiveBranchGeneratedId(res?.school_generated_id || null);
+                if (typeof res?.is_main_admin === 'boolean') setIsMainAdmin(res.is_main_admin);
+            })
             .catch(() => { if (!cancelled) setActiveBranchGeneratedId(null); });
         return () => { cancelled = true; };
     }, [currentBranch?.id, user, currentSchool]);
@@ -179,7 +189,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     return (
-        <BranchContext.Provider value={{ currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches, allowAllOption, activeBranchGeneratedId }}>
+        <BranchContext.Provider value={{ currentBranch, branches, switchBranch, refreshBranches, isLoading, canSwitchBranches, allowAllOption, activeBranchGeneratedId, isMainAdmin }}>
             {children}
         </BranchContext.Provider>
     );

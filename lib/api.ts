@@ -254,8 +254,14 @@ class ExpressApiClient {
                         body: errorText
                     });
 
-                    // Stale branch selection may cause auth failures for user-specific branch scope.
-                    if (response.status === 403 && errorMessage.toLowerCase().includes('branch') && selectedBranchId && !options._retryWithoutBranch) {
+                    // Only drop the active branch when the server says the SELECTED branch
+                    // itself is unauthorized/stale ("User not authorized to access this
+                    // branch"). A generic permission 403 that merely mentions "branch"
+                    // (e.g. "managed by their home branch", "only the main admin can manage
+                    // branches") must NOT wipe the user's branch selection — doing so used to
+                    // bounce a branch admin back to the Main branch after a denied action.
+                    const isUnauthorizedBranch = /not authorized to access this branch/i.test(errorMessage);
+                    if (response.status === 403 && isUnauthorizedBranch && selectedBranchId && !options._retryWithoutBranch) {
                         console.warn('[API] Clearing stale selected_branch_id due to branch authorization failure and retrying without branch scope.');
                         localStorage.removeItem('selected_branch_id');
                         const retryHeaders = { ...((options.headers as any) || {}) } as Record<string, string>;
@@ -334,7 +340,7 @@ class ExpressApiClient {
 
     // The Global ID the user carries in their CURRENTLY ACTIVE branch (sent via the
     // X-Branch-Id header). Drives the live, branch-aware ID badge in the header.
-    async getActiveBranchId(): Promise<{ school_generated_id: string; branch_id: string | null }> {
+    async getActiveBranchId(): Promise<{ school_generated_id: string; branch_id: string | null; is_main_admin?: boolean }> {
         // NOT under /auth — the client strips the branch header from /auth/* calls.
         return this.get('/active-branch-id');
     }
@@ -606,6 +612,29 @@ class ExpressApiClient {
             console.warn('[API] getAuthorizedBranches failed:', err);
             return [];
         }
+    }
+
+    /** All branch labels in the school (id/name/code) — for assignment pickers (e.g. lending a teacher). */
+    async getBranchOptions(): Promise<any[]> {
+        try {
+            return await this.get('/branches/options');
+        } catch (err) {
+            console.warn('[API] getBranchOptions failed:', err);
+            return [];
+        }
+    }
+
+    /** Configurable academics (terms + grading). scope 'school' = the school default. */
+    async getAcademicSettings(scope?: 'school' | 'branch', branchId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (scope) params.append('scope', scope);
+        if (branchId) params.append('branchId', branchId);
+        const qs = params.toString();
+        return this.get(`/academic/settings${qs ? `?${qs}` : ''}`);
+    }
+
+    async saveAcademicSettings(data: { terms?: any[]; grading?: any; scope?: 'school' | 'branch'; branch_id?: string }): Promise<any> {
+        return this.put('/academic/settings', data);
     }
 
     /** Main-admin-only: transfer a user's primary branch and/or set additional authorized branches. */
@@ -982,6 +1011,12 @@ class ExpressApiClient {
 
     async updateTeacher(id: string, data: any): Promise<any> {
         return this.put(`/teachers/${id}`, data);
+    }
+
+    // Branch admin: assign a lent teacher to classes/subjects in the active branch only
+    // (never touches their identity or other branches' assignments).
+    async assignTeacherBranchClasses(id: string, classes: any[]): Promise<any> {
+        return this.put(`/teachers/${id}/branch-classes`, { classes });
     }
 
     async deleteTeacher(id: string): Promise<any> {

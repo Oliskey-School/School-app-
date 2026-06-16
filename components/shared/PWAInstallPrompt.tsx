@@ -234,8 +234,9 @@ export default function PWAInstallPrompt() {
                                     lineHeight: 1.5,
                                 }}
                             >
-                                Install for quick access and offline use.
-                                Works even without internet!
+                                Install on your phone to use the app offline — it keeps
+                                working without internet and automatically syncs your changes
+                                once you're back online.
                             </p>
                         </div>
                     </div>
@@ -347,7 +348,7 @@ export default function PWAInstallPrompt() {
                         </svg>
                     </div>
                     <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
-                        Fast, reliable, and works offline
+                        Works offline · syncs automatically when you reconnect
                     </span>
                 </div>
             </div>

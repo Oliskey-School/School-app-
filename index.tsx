@@ -10,6 +10,23 @@ import { initSentry } from './lib/sentry';
 // @ts-ignore
 // import { registerSW } from 'virtual:pwa-register';
 
+// Capture the PWA install prompt as EARLY as possible. The browser fires
+// `beforeinstallprompt` once, shortly after the page becomes installable — long
+// before the (lazy-loaded) install card mounts. We stash the event on `window` so
+// the install button can fire the REAL native install later. Without this eager
+// capture the event is missed entirely and "Install" never installs anything.
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    (window as any).__deferredInstallPrompt = e;
+    window.dispatchEvent(new Event('pwa-install-available'));
+  });
+  window.addEventListener('appinstalled', () => {
+    (window as any).__deferredInstallPrompt = null;
+    window.dispatchEvent(new Event('pwa-installed'));
+  });
+}
+
 // Start crash reporting as early as possible (no-op unless VITE_SENTRY_DSN is set).
 initSentry();
 

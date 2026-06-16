@@ -331,11 +331,34 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
     };
 
     // Subjects palette shows what's relevant for the class on screen (its level),
-    // not the entire catalogue. Falls back to all subjects if the level is unknown.
+    // not the entire catalogue. Senior classes combine every department so the FULL
+    // senior subject list is available. Falls back to all subjects if level is unknown.
     const paletteSubjects = useMemo(() => {
-        const subs = getSubjectsForGrade(gradeForClassName(selectedClass));
+        const grade = gradeForClassName(selectedClass);
+        const subs = (isSeniorClass || (grade >= 12 && grade <= 14))
+            ? Array.from(new Set([
+                ...getSubjectsForGrade(grade),
+                ...getSubjectsForGrade(grade, 'Science'),
+                ...getSubjectsForGrade(grade, 'Arts'),
+                ...getSubjectsForGrade(grade, 'Commercial'),
+            ]))
+            : getSubjectsForGrade(grade);
         return (Array.isArray(subs) && subs.length) ? subs : Object.keys(SUBJECT_COLORS);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedClass]);
+
+    // Subjects for one department's dropdown in the split editor — only that track's
+    // subjects (core + specialism), not the whole class list. UI uses 'Art'; the
+    // curriculum helper uses 'Arts'.
+    const deptSubjects = (dept: string): string[] => {
+        const grade = gradeForClassName(selectedClass);
+        const subs = getSubjectsForGrade(grade, dept === 'Art' ? 'Arts' : dept);
+        return (Array.isArray(subs) && subs.length) ? subs : paletteSubjects;
+    };
+
+    // Palette collapses to 6 chips; "Show all" reveals the rest.
+    const [paletteOpen, setPaletteOpen] = useState(false);
+    const PALETTE_COLLAPSED = 6;
 
     const [teachers, setTeachers] = useState<string[]>(['Mr. Anderson', 'Ms. Davis', 'Mrs. Wilson', 'Mr. Brown', 'Dr. Clark']);
     // Shared, editable period schedule (incl. breaks). Loaded once we know the school.
@@ -857,10 +880,16 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                         <div>
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Subjects Palette</h3>
                             <div className="grid grid-cols-2 gap-3">
-                                {paletteSubjects.map(subject => (
+                                {(paletteOpen ? paletteSubjects : paletteSubjects.slice(0, PALETTE_COLLAPSED)).map(subject => (
                                     <DraggableSubject key={subject} subjectName={subject} />
                                 ))}
                             </div>
+                            {paletteSubjects.length > PALETTE_COLLAPSED && (
+                                <button onClick={() => setPaletteOpen(o => !o)}
+                                    className="mt-3 w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                                    {paletteOpen ? 'Show less ▴' : `Show all ${paletteSubjects.length} ▾`}
+                                </button>
+                            )}
                         </div>
                         {/* Teachers List could go here */}
                     </aside>
@@ -1004,7 +1033,7 @@ const TimetableEditor: React.FC<TimetableEditorProps> = ({ timetableData, naviga
                                                 <select value={entry.subject} onChange={e => updateDeptEntry(deptEditKey, dept, 'subject', e.target.value)}
                                                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
                                                     <option value="">— subject —</option>
-                                                    {paletteSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    {deptSubjects(dept).map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
                                                 <select value={entry.teacher || ''} onChange={e => updateDeptEntry(deptEditKey, dept, 'teacher', e.target.value)}
                                                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm">

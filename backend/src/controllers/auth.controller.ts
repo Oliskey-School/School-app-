@@ -400,7 +400,9 @@ export const getActiveBranchId = async (req: Request, res: Response) => {
         const user = (req as any).user;
         const branchId = user?.active_branch_id;
         const school_generated_id = await BranchIdentityService.resolveForUser(user, branchId);
-        res.json({ school_generated_id, branch_id: branchId });
+        // is_main_admin lets the frontend reliably tell a school-level (main) admin from a
+        // branch admin — their home branch_id is truthy either way, so the UI can't infer it.
+        res.json({ school_generated_id, branch_id: branchId, is_main_admin: !!user?.is_main_admin });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
     }

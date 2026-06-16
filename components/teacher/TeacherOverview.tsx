@@ -111,7 +111,21 @@ const TeacherOverview: React.FC<TeacherOverviewProps> = ({ navigateTo, currentUs
                     })
                 ]);
 
-                setTodaySchedule(scheduleRes || []);
+                // "Today's Schedule" = only the lessons assigned to THIS teacher for
+                // the current weekday. getTimetable returns the teacher's whole week, so
+                // filter to today's day (1=Mon..7=Sun), drop duplicate rows, and sort by time.
+                const todayNum = (() => { const d = new Date().getDay(); return d === 0 ? 7 : d; })();
+                const seen = new Set<string>();
+                const todays = (Array.isArray(scheduleRes) ? scheduleRes : [])
+                    .filter((e: any) => Number(e.day_of_week) === todayNum)
+                    .filter((e: any) => {
+                        const k = `${e.class_id || e.class_name}|${e.start_time}|${e.subject}|${e.notes || ''}`;
+                        if (seen.has(k)) return false;
+                        seen.add(k);
+                        return true;
+                    })
+                    .sort((a: any, b: any) => String(a.start_time || '').localeCompare(String(b.start_time || '')));
+                setTodaySchedule(todays);
                 setUngradedAssignments((assignmentsRes || []).slice(0, 3));
             } catch (err) {
                 console.error('❌ Error fetching overview data:', err);

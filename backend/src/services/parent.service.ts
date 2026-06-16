@@ -213,7 +213,8 @@ export class ParentService {
 
     static async createParent(schoolId: string, branchId: string | undefined, parentData: any, creatorId?: string) {
         const { email, full_name, phone, address, occupation, relationship, emergency_contact, sendCredentials = true } = parentData;
-        
+        const incomingAvatar = parentData.avatar_url || parentData.avatarUrl || null;
+
         if (!email || !full_name) {
             throw new Error('Email and full name are required');
         }
@@ -265,6 +266,7 @@ export class ParentService {
                         school_generated_id: schoolGeneratedId,
                         email_verified: true,
                         initial_password: generatedPassword,
+                        avatar_url: incomingAvatar,
                         updated_at: new Date()
                     }
                 });
@@ -296,6 +298,7 @@ export class ParentService {
                     occupation,
                     relationship,
                     emergency_contact,
+                    avatar_url: incomingAvatar,
                     school_generated_id: user.school_generated_id,
                     created_by: creatorId,
                     updated_at: new Date()
@@ -471,21 +474,15 @@ export class ParentService {
                 data: data
             });
 
-            if (parentData.school_generated_id !== undefined || parentData.full_name !== undefined) {
-                const userData: any = {};
-                if (parentData.school_generated_id !== undefined) userData.school_generated_id = parentData.school_generated_id;
-                if (parentData.full_name !== undefined) userData.full_name = parentData.full_name;
-
+            if (parentData.school_generated_id !== undefined || parentData.full_name !== undefined || parentData.avatar_url !== undefined) {
+                // Mirror to the users table so the header avatar / global lists update too.
                 if (updatedParent.user_id) {
-                    await tx.user.update({
-                        where: { id: updatedParent.user_id },
-                        data: {
-                            full_name: parentData.full_name,
-                            email: parentData.email,
-                            avatar_url: parentData.avatar_url,
-                            school_generated_id: parentData.school_generated_id
-                        }
-                    });
+                    const userData: any = {};
+                    if (parentData.full_name !== undefined) userData.full_name = parentData.full_name;
+                    if (parentData.email !== undefined) userData.email = parentData.email;
+                    if (parentData.avatar_url !== undefined) userData.avatar_url = parentData.avatar_url;
+                    if (parentData.school_generated_id !== undefined) userData.school_generated_id = parentData.school_generated_id;
+                    await tx.user.update({ where: { id: updatedParent.user_id }, data: userData });
                 }
             }
 

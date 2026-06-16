@@ -5,10 +5,10 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { DashboardType } from '../../types';
 import { THEME_CONFIG } from '../../constants';
 import { useTranslation } from 'react-i18next';
-import InstallAppButton from '../shared/InstallAppButton';
 import { AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar, InspectorSidebar } from '../ui/DashboardSidebar';
 import { AdminBottomNav, TeacherBottomNav, ParentBottomNav, StudentBottomNav, InspectorBottomNav } from '../ui/DashboardBottomNav';
 import { X } from 'lucide-react';
+import InstallAppButton from '../shared/InstallAppButton';
 import { BranchSwitcher } from '../shared/BranchSwitcher';
 import { useBranch } from '../../context/BranchContext';
 import { formatSchoolId } from '../../utils/idFormatter';
@@ -225,8 +225,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, onBa
 
                 {/* Demo Role Switcher Pill — REMOVED PER USER REQUEST */}
             </div>
-
-            {/* Always-visible install button — web version only (self-hides once installed) */}
+            {/* Single, ALWAYS-VISIBLE install banner for the web version — it stays on screen
+                until the app is installed (then self-hides). The one-time pop-up card was
+                removed so there is exactly one, persistent install entry point. */}
             <InstallAppButton />
         </div>
     );

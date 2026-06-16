@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createTeacher, getAllTeachers, getTeacherById, updateTeacher, deleteTeacher, submitMyAttendance, getMyHistory, getTeacherAttendance, getMyProfile, saveTeacherAttendance, approveTeacherAttendance, getMyStudentsWithCredentials, getPendingStudents, getMyAppointments, updateMyAppointmentStatus, getMyBadges, getMyRecognitions, getMyMentoring, createMyMentoring, getTeacherCertificates, getSubstituteRequests, createSubstituteRequest, getTeacherEvaluation, submitTeacherEvaluation, getTeacherPerformance } from '../controllers/teacher.controller';
+import { createTeacher, getAllTeachers, getTeacherById, updateTeacher, deleteTeacher, submitMyAttendance, getMyHistory, getTeacherAttendance, getMyProfile, saveTeacherAttendance, approveTeacherAttendance, getMyStudentsWithCredentials, getPendingStudents, getMyAppointments, updateMyAppointmentStatus, getMyBadges, getMyRecognitions, getMyMentoring, createMyMentoring, getTeacherCertificates, getSubstituteRequests, createSubstituteRequest, getTeacherEvaluation, submitTeacherEvaluation, getTeacherPerformance, assignTeacherBranchClasses } from '../controllers/teacher.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { requirePlanCapacity } from '../middleware/plan.middleware';
 
@@ -147,6 +147,8 @@ router.get('/:id/appointments', authenticate, async (req: any, res) => {
 });
 router.get('/:id', authenticate, getTeacherById);
 router.put('/:id', authenticate, updateTeacher);
+// Branch admin assigns a lent teacher to classes/subjects in THEIR branch only.
+router.put('/:id/branch-classes', authenticate, assignTeacherBranchClasses);
 router.get('/:id/evaluation', authenticate, getTeacherEvaluation);
 router.post('/:id/evaluation', authenticate, submitTeacherEvaluation);
 router.get('/:id/performance', authenticate, getTeacherPerformance);

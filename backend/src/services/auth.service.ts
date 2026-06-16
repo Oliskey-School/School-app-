@@ -1063,9 +1063,9 @@ export class AuthService {
 
                 if (!existingMain) {
                     await prisma.$executeRaw`
-                        INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, last_active_at, updated_at)
-                        VALUES (${virtualBranchId}, ${virtualBranchName}, ${branchCode}, ${this.DEMO_SCHOOL_ID}, true, NOW(), NOW())
-                        ON CONFLICT (id) DO UPDATE SET name = ${virtualBranchName}, last_active_at = NOW(), updated_at = NOW()
+                        INSERT INTO "Branch" (id, name, code, school_id, is_demo_virtual, is_main, last_active_at, updated_at)
+                        VALUES (${virtualBranchId}, ${virtualBranchName}, ${branchCode}, ${this.DEMO_SCHOOL_ID}, true, true, NOW(), NOW())
+                        ON CONFLICT (id) DO UPDATE SET name = ${virtualBranchName}, is_main = true, last_active_at = NOW(), updated_at = NOW()
                     `;
                 } else {
                     // Keep the shared MAIN branch marked active.
