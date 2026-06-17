@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sparkles, RotateCcw, Check, Layers, Square } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Appearance — the in-Settings control for the app's look.
@@ -17,7 +18,10 @@ export type Appearance = { mode: 'normal' | 'glass'; accent: string; glass: Glas
 
 const DEFAULT_GLASS: GlassParams = { blur: 18, opacity: 0.62, sheen: 0.55, saturate: 180, shadow: 0.12 };
 const DEFAULTS: Appearance = { mode: 'glass', accent: 'indigo', glass: DEFAULT_GLASS };
-const STORAGE_KEY = 'oliskey:appearance';
+const KEY_BASE = 'oliskey:appearance';
+/** Per-user (+role) storage key, so each person's look is isolated — even on a
+ *  shared device, Teacher A's choice never affects Teacher B or a student. */
+const scopeKey = (scope: string) => `${KEY_BASE}:${scope || 'guest'}`;
 
 const SHADE_KEYS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'];
 
@@ -47,9 +51,9 @@ function applyAppearance(a: Appearance) {
   root.style.setProperty('--lg-shadow', `${g.shadow}`);
 }
 
-function loadAppearance(): Appearance {
+function loadAppearance(scope: string): Appearance {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(scopeKey(scope));
     if (raw) {
       const p = JSON.parse(raw);
       return {
@@ -62,10 +66,35 @@ function loadAppearance(): Appearance {
   return DEFAULTS;
 }
 
-/** Apply saved appearance on app start (call once, very early). */
-export function initLiquidGlass() {
-  applyAppearance(loadAppearance());
+function saveAppearance(a: Appearance, scope: string) {
+  try { localStorage.setItem(scopeKey(scope), JSON.stringify(a)); } catch { /* ignore */ }
 }
+
+/** Apply one specific user's saved look. */
+export function applyScopedAppearance(scope: string) {
+  applyAppearance(loadAppearance(scope));
+}
+
+/** App start (before login): apply the neutral default so nobody inherits the
+ *  previous user's look on a shared device. The signed-in user's own choice is
+ *  applied by <AppearanceSync /> once their identity is known. */
+export function initLiquidGlass() {
+  applyAppearance(DEFAULTS);
+}
+
+/** Per-user + per-role scope. */
+function useScope(): string {
+  const auth = useAuth() as any;
+  return `${auth?.user?.id || 'guest'}:${auth?.role || ''}`;
+}
+
+/** Invisible helper: applies the signed-in user's saved appearance, and re-applies
+ *  it whenever the user (or role) changes — so each person only sees their own look. */
+export const AppearanceSync: React.FC = () => {
+  const scope = useScope();
+  useEffect(() => { applyScopedAppearance(scope); }, [scope]);
+  return null;
+};
 
 const Slider: React.FC<{
   label: string; min: number; max: number; step: number; value: number; display: string; onChange: (v: number) => void;
@@ -84,19 +113,20 @@ const Slider: React.FC<{
 );
 
 const AppearancePanel: React.FC = () => {
+  const scope = useScope();
   const [a, setA] = useState<Appearance>(DEFAULTS);
 
   useEffect(() => {
-    const init = loadAppearance();
+    const init = loadAppearance(scope);
     setA(init);
     applyAppearance(init);
-  }, []);
+  }, [scope]);
 
   const save = useCallback((next: Appearance) => {
     applyAppearance(next);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    saveAppearance(next, scope);
     setA(next);
-  }, []);
+  }, [scope]);
 
   const update = (patch: Partial<Appearance>) => save({ ...a, ...patch });
   const updateGlass = (patch: Partial<GlassParams>) => save({ ...a, glass: { ...a.glass, ...patch } });

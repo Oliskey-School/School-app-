@@ -48,6 +48,13 @@ test('Appearance: theme toggle + accent re-theme, persisted', async ({ page, bas
     await page.getByRole('button', { name: 'Emerald' }).click();
     expect(await accent600(page), 'accent did not re-theme').toBe('5 150 105');
 
+    // The choice is saved under a PER-USER key (so it can't leak to other users on a
+    // shared device) — never the old global key.
+    const keys = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('oliskey:appearance')));
+    expect(keys.length, 'no appearance key saved').toBeGreaterThan(0);
+    expect(keys.includes('oliskey:appearance'), 'used the old shared global key (not isolated)').toBe(false);
+    expect(keys.every((k) => k.length > 'oliskey:appearance:'.length), 'appearance key is not user-scoped').toBe(true);
+
     // The whole app is now emerald — capture the dashboard.
     await page.evaluate(() => (window as any).ADMIN_NAVIGATE('dashboard', 'Dashboard', {}));
     await page.waitForTimeout(2000);

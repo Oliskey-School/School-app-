@@ -3,6 +3,7 @@ import { DashboardType } from './types';
 import { requestNotificationPermission } from './components/shared/notifications';
 import { realtimeService } from './services/RealtimeService';
 import { OfflineIndicator } from './components/shared/OfflineIndicator';
+import { AppearanceSync } from './components/shared/LiquidGlassControl';
 import { Toaster } from 'react-hot-toast';
 import PremiumLoader from './components/ui/PremiumLoader';
 import { runMigrations, initialDataHydration, isInitialHydrationComplete } from './lib/migrationManager';
@@ -234,6 +235,8 @@ const App: React.FC = () => {
     <>
       <Toaster position="top-right" />
       <OfflineIndicator />
+      {/* Applies each signed-in user's OWN saved appearance (per user + role). */}
+      <AppearanceSync />
       {isInitializing ? (
         <PremiumLoader message={initMessage} fullScreen={true} />
       ) : (
