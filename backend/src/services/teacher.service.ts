@@ -239,8 +239,15 @@ export class TeacherService {
             where: {
                 id: id,
                 school_id: schoolId,
-                // Strict branch isolation: only this branch (untagged → All Branches only).
-                ...(branchId && branchId !== 'all' ? { branch_id: branchId } : {})
+                // Branch isolation, but a branch admin must also be able to open a teacher
+                // who was LENT to their branch (home elsewhere, assigned here) so they can
+                // manage that teacher's classes/subjects for this branch.
+                ...(branchId && branchId !== 'all' ? {
+                    OR: [
+                        { branch_id: branchId },
+                        { allowed_branch_ids: { has: branchId } },
+                    ]
+                } : {})
             },
             include: {
                 user: true,

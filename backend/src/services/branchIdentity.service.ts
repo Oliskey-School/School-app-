@@ -69,36 +69,53 @@ export class BranchIdentityService {
         const roleCode = this.roleCodeFor(user, parsed.role);
         const prefix = `${parsed.school}_${branchCode}_${roleCode}_`;
 
-        // 3. Is the user's home NUMBER free in this branch+role?
-        const candidate = `${prefix}${this.pad(parsed.number)}`;
-        const takenRows = await prisma.$queryRawUnsafe<any[]>(
-            `SELECT 1
-               FROM "BranchUserIdentity"
-              WHERE school_generated_id = $1 AND user_id <> $2
-              UNION ALL
-             SELECT 1 FROM "User" WHERE school_generated_id = $1 AND id <> $2
-              LIMIT 1`,
-            candidate, user.id
+        // 3. Allocate the NUMBER for this (branch, role):
+        //    (a) reuse the lowest "leftover" slot — a number that was issued before but
+        //        whose user no longer exists (e.g. a deleted teacher) — otherwise
+        //    (b) the next number after the LAST one ever issued in this branch.
+        // "In use" = a reserved per-branch id whose user still exists, OR a home id
+        // already shaped for this branch.
+        const usedRows = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT bui.number AS n
+               FROM "BranchUserIdentity" bui
+               JOIN "User" u ON u.id = bui.user_id
+              WHERE bui.school_id = $1 AND bui.branch_id = $2 AND bui.role = $3
+              UNION
+             SELECT CAST(NULLIF(regexp_replace(split_part(school_generated_id, '_', 4), '\\D', '', 'g'), '') AS INTEGER) AS n
+               FROM "User"
+              WHERE school_generated_id LIKE $4`,
+            user.school_id, branchId, roleCode, `${prefix}%`
         ).catch(() => [] as any[]);
+        const used = new Set<number>(
+            usedRows.map((r: any) => Number(r.n)).filter((n: number) => Number.isFinite(n) && n > 0)
+        );
 
-        let number = parsed.number;
-        if (takenRows.length > 0) {
-            // 4. Taken → next available number for this branch+role. Consider both the
-            //    reserved per-branch IDs and any home IDs already shaped for this branch.
-            const maxRows = await prisma.$queryRawUnsafe<any[]>(
-                `SELECT MAX(n) AS max FROM (
-                    SELECT number AS n FROM "BranchUserIdentity"
-                     WHERE school_id = $1 AND branch_id = $2 AND role = $3
-                    UNION ALL
-                    SELECT CAST(NULLIF(regexp_replace(split_part(school_generated_id, '_', 4), '\\D', '', 'g'), '') AS INTEGER) AS n
-                      FROM "User"
-                     WHERE school_generated_id LIKE $4
-                 ) t`,
-                user.school_id, branchId, roleCode, `${prefix}%`
-            ).catch(() => [{ max: parsed.number }]);
-            const max = Number(maxRows[0]?.max) || parsed.number;
-            number = max + 1;
+        const maxRows = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT COALESCE(MAX(n), 0) AS max FROM (
+                SELECT number AS n FROM "BranchUserIdentity"
+                 WHERE school_id = $1 AND branch_id = $2 AND role = $3
+                UNION ALL
+                SELECT CAST(NULLIF(regexp_replace(split_part(school_generated_id, '_', 4), '\\D', '', 'g'), '') AS INTEGER) AS n
+                  FROM "User"
+                 WHERE school_generated_id LIKE $4
+             ) t`,
+            user.school_id, branchId, roleCode, `${prefix}%`
+        ).catch(() => [{ max: 0 }]);
+        const maxNum = Number(maxRows[0]?.max) || 0;
+
+        let number = maxNum + 1;                 // (b) one past the last id in this branch
+        for (let n = 1; n <= maxNum; n += 1) {   // (a) prefer the lowest freed/leftover slot
+            if (!used.has(n)) { number = n; break; }
         }
+
+        // Free any stale reservation still holding this number (its user is gone) so
+        // recycling it cannot collide with a leftover row.
+        await prisma.$executeRawUnsafe(
+            `DELETE FROM "BranchUserIdentity" bui
+              WHERE bui.school_id = $1 AND bui.branch_id = $2 AND bui.role = $3 AND bui.number = $4
+                AND NOT EXISTS (SELECT 1 FROM "User" u WHERE u.id = bui.user_id)`,
+            user.school_id, branchId, roleCode, number
+        ).catch(() => { /* noop */ });
 
         const finalId = `${prefix}${this.pad(number)}`;
 

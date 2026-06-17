@@ -353,18 +353,36 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             if (editId) {
                 (async () => {
                     try {
-                        const full = await api.getTeacherById(editId);
+                        const full: any = await api.getTeacherById(editId);
                         if (!full) return;
-                        const subs = (full.subjects || (full as any).subject_specialty || [])
+                        // Identity fields come straight from the teacher's HOME record, so a
+                        // branch admin editing a lent teacher sees their real name/phone/etc.
+                        // (read-only for them) instead of blank fields.
+                        if (full.full_name || full.name) setName(full.full_name || full.name);
+                        if (full.email || full.user?.email) setEmail(full.email || full.user?.email);
+                        if (full.phone || full.user?.phone) setPhone(full.phone || full.user?.phone);
+                        if (full.curriculum_type) setPrimaryCurriculum(full.curriculum_type);
+
+                        const subs = (full.subjects || full.subject_specialty || [])
                             .map((s: any) => (typeof s === 'string' ? s : s?.subject || s?.name))
                             .filter(Boolean);
                         if (subs.length) setSubjects(Array.from(new Set(subs)) as string[]);
-                        const cls = ((full as any).classes || [])
+                        const cls = (full.classes || [])
                             .map((c: any) => (typeof c === 'string' ? c : c?.class?.name || c?.name))
                             .filter(Boolean);
                         if (cls.length) setClasses(Array.from(new Set(cls)) as string[]);
+
+                        // Assigned Branches from the home record, mapped to names.
+                        const allowed: string[] = (Array.isArray(full.allowed_branch_ids) && full.allowed_branch_ids.length)
+                            ? full.allowed_branch_ids
+                            : (full.branch_id ? [full.branch_id] : []);
+                        if (allowed.length) {
+                            const opts = await api.getBranchOptions().catch(() => []);
+                            const names = (opts || []).filter((b: any) => allowed.includes(b.id)).map((b: any) => b.name);
+                            if (names.length) setSelectedBranchNames(names);
+                        }
                     } catch (e) {
-                        console.warn('[AddTeacher] Could not refresh teacher assignments from DB:', e);
+                        console.warn('[AddTeacher] Could not refresh teacher data from DB:', e);
                     }
                 })();
             }
