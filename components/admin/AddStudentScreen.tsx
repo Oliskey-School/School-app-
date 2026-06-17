@@ -514,7 +514,9 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
         }
     };
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-    const { isLimitReached, currentCount, maxLimit, isPremium } = useTenantLimit();
+    // Cap students at the PAID capacity (per-student billing) — adding beyond it prompts
+    // to pay for more seats, instead of the generic all-users limit.
+    const { isLimitReached, currentCount, maxLimit, isPremium } = useTenantLimit('students');
 
     const navigate = useNavigate();
     const navigateToSubscription = () => {
@@ -749,6 +751,7 @@ const AddStudentScreen: React.FC<AddStudentScreenProps> = ({ studentToEdit, forc
                 onClose={() => setShowUpgradeModal(false)}
                 currentCount={currentCount}
                 limit={maxLimit}
+                isPaidCapacity={isPremium}
                 onUpgrade={navigateToSubscription}
             />
             <form onSubmit={handleSubmit} className="flex-grow flex flex-col">

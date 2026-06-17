@@ -22,23 +22,32 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     const isPremium = currentSchool?.is_premium || currentSchool?.id === OLISKEY_DEMO_SCHOOL_ID;
     const planType = currentSchool?.id === OLISKEY_DEMO_SCHOOL_ID ? 'premium' : (currentSchool?.plan_type || 'free');
 
-    // Limits based on plan (can be expanded)
-    const MAX_LIMIT = isPremium ? Infinity : FREE_TIER_LIMIT;
+    // Paid plans (basic/advanced) are billed PER STUDENT, so the student cap is exactly
+    // what the school PAID for (school.student_count). To enrol beyond it they must pay
+    // for the extra seats. Users/teachers stay uncapped on paid plans; Free caps at 10.
+    const PAID_STUDENT_CAPACITY = currentSchool?.student_count || 0;
+    const MAX_LIMIT = (entity === 'students' && isPremium)
+        ? (PAID_STUDENT_CAPACITY > 0 ? PAID_STUDENT_CAPACITY : Infinity)
+        : (isPremium ? Infinity : FREE_TIER_LIMIT);
 
     const fetchCount = useCallback(async () => {
         if (!isAuthenticated || !currentSchool?.id) return;
 
         try {
             setLoading(true);
-            // Fetch users from the backend API
             const users = await api.getUsers(currentSchool.id);
-            setCount(users?.length || 0);
+            // Count only the relevant entity. For students that means student accounts,
+            // so the per-student cap is measured against actual students (not all users).
+            const relevant = entity === 'students'
+                ? (users || []).filter((u: any) => String(u.role || u.dashboard_type || '').toLowerCase().includes('student'))
+                : (users || []);
+            setCount(relevant.length);
         } catch (err) {
             console.error('Error fetching tenant usage:', err);
         } finally {
             setLoading(false);
         }
-    }, [isAuthenticated, currentSchool?.id]);
+    }, [isAuthenticated, currentSchool?.id, entity]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -49,7 +58,9 @@ export const useTenantLimit = (entity: 'users' | 'students' | 'teachers' = 'user
     return {
         currentCount: count,
         maxLimit: MAX_LIMIT,
-        isLimitReached: !isPremium && count >= MAX_LIMIT,
+        // count >= MAX_LIMIT works for every case: Free caps at 10, paid students cap at
+        // the paid capacity, and uncapped entities have MAX_LIMIT = Infinity (never hit).
+        isLimitReached: count >= MAX_LIMIT,
         isPremium,
         planType,
         loading,

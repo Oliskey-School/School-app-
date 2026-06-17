@@ -7,6 +7,9 @@ interface UpgradeModalProps {
     currentCount: number;
     limit: number;
     onUpgrade: () => void;
+    /** True when the school is on a PAID plan and has used all the student seats it paid
+     *  for (per-student billing) — vs. the Free-tier all-users cap. */
+    isPaidCapacity?: boolean;
 }
 
 const UpgradeModal: React.FC<UpgradeModalProps> = ({
@@ -14,7 +17,8 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
     onClose,
     currentCount,
     limit,
-    onUpgrade
+    onUpgrade,
+    isPaidCapacity = false
 }) => {
     if (!isOpen) return null;
 
@@ -46,20 +50,35 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
                             </div>
 
                             <h3 className="text-2xl font-bold leading-6 text-gray-900 mb-2">
-                                Limit Reached
+                                {isPaidCapacity ? 'Student Seats Full' : 'Limit Reached'}
                             </h3>
 
                             <div className="mt-2">
-                                <p className="text-sm text-gray-500">
-                                    You've reached the free tier limit of <span className="font-bold text-gray-900">{limit} users</span>.
-                                    You currently have <span className="font-bold text-red-600">{currentCount} users</span>.
-                                </p>
-                                <p className="text-sm text-gray-500 mt-2">
-                                    Upgrade to Premium to add unlimited students, teachers, and parents.
-                                </p>
+                                {isPaidCapacity ? (
+                                    <>
+                                        <p className="text-sm text-gray-500">
+                                            You've used all <span className="font-bold text-gray-900">{limit} student seats</span> you've paid for
+                                            (<span className="font-bold text-red-600">{currentCount}</span> enrolled).
+                                        </p>
+                                        <p className="text-sm text-gray-500 mt-2">
+                                            To add more students, pay for the extra seats. You can buy several at once so you
+                                            don't have to pay again each time you enrol a student.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-gray-500">
+                                            You've reached the free tier limit of <span className="font-bold text-gray-900">{limit} users</span>.
+                                            You currently have <span className="font-bold text-red-600">{currentCount} users</span>.
+                                        </p>
+                                        <p className="text-sm text-gray-500 mt-2">
+                                            Upgrade to a paid plan to add more students, teachers, and parents.
+                                        </p>
+                                    </>
+                                )}
                             </div>
 
-                            <div className="mt-6 w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <div className={`mt-6 w-full bg-gray-50 rounded-xl p-4 border border-gray-100 ${isPaidCapacity ? 'hidden' : ''}`}>
                                 <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 text-left">Premium Benefits</h4>
                                 <ul className="space-y-2 text-sm text-left">
                                     {[
@@ -83,7 +102,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
                                     className="w-full inline-flex justify-center rounded-xl border border-transparent bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all transform active:scale-95"
                                     onClick={onUpgrade}
                                 >
-                                    Upgrade to Premium - ₦5,000/mo
+                                    {isPaidCapacity ? 'Pay for more students' : 'Choose a plan'}
                                 </button>
                                 <button
                                     type="button"
