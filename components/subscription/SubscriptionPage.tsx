@@ -76,6 +76,9 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
     const [term, setTerm] = useState<TermInfo | null>(null);
     const [loading, setLoading] = useState(false);
     const studentCountTouched = useRef(false);
+    // They can never bill for FEWER students than the school actually has — paying less
+    // would leave existing students uncovered. The input floor is the live student count.
+    const [minStudents, setMinStudents] = useState<number>(Math.max(1, currentSchool?.student_count || 1));
 
     const selected = PLANS.find(p => p.key === selectedPlan)!;
     const total = selected.rate * Math.max(0, studentCount);
@@ -92,17 +95,18 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
             .catch(() => setTerm(null));
     }, []);
 
-    // Pre-fill the number of students with the school's real student count.
+    // Pre-fill the number of students with the school's real student count AND use it as
+    // the minimum that can be billed.
     useEffect(() => {
-        if (currentSchool?.student_count) {
-            if (!studentCountTouched.current) setStudentCount(currentSchool.student_count);
-            return;
-        }
+        const applyCount = (n: any) => {
+            if (!(typeof n === 'number' && n > 0)) return;
+            setMinStudents(Math.max(1, n));
+            // Never let the billed count sit below the real count.
+            setStudentCount(prev => (studentCountTouched.current ? Math.max(prev, n) : n));
+        };
+        if (currentSchool?.student_count) { applyCount(currentSchool.student_count); return; }
         api.getDashboardStats?.()
-            .then((s: any) => {
-                const n = s?.totalStudents ?? s?.students ?? s?.studentCount ?? s?.student_count;
-                if (!studentCountTouched.current && typeof n === 'number' && n > 0) setStudentCount(n);
-            })
+            .then((s: any) => applyCount(s?.totalStudents ?? s?.students ?? s?.studentCount ?? s?.student_count))
             .catch(() => {});
     }, [currentSchool]);
 
@@ -145,6 +149,11 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
         }
         if (studentCount <= 0) {
             toast.error('Enter the number of students to bill.');
+            return;
+        }
+        if (studentCount < minStudents) {
+            toast.error(`You have ${minStudents} students — you can't pay for fewer. Bill for at least ${minStudents}.`);
+            setStudentCount(minStudents);
             return;
         }
         // react-paystack v5/v6 signature drift — typings disagree with runtime.
@@ -241,13 +250,16 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ navigateTo, handleB
                                 <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">Number of students</label>
                                 <input
                                     type="number"
-                                    min={1}
+                                    min={minStudents}
                                     value={studentCount}
-                                    onChange={e => { studentCountTouched.current = true; setStudentCount(Math.max(0, parseInt(e.target.value || '0', 10))); }}
+                                    onChange={e => { studentCountTouched.current = true; setStudentCount(Math.max(minStudents, parseInt(e.target.value || String(minStudents), 10))); }}
                                     className="w-full border border-slate-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                                 <p className="mt-2 text-xs text-slate-500">
                                     {formatNaira(selected.rate)} × {studentCount} students = <strong>{formatNaira(total)}</strong> for one term
+                                </p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    You currently have <strong>{minStudents}</strong> student{minStudents === 1 ? '' : 's'} — you must bill for at least this many. Add more now to avoid paying again later.
                                 </p>
                             </div>
                             <div className="text-left sm:text-right">
