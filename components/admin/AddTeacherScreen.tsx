@@ -344,6 +344,30 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             if ((teacherToEdit as any).curriculum_eligibility) {
                 setCurriculumEligibility((teacherToEdit as any).curriculum_eligibility.map((c: string) => c.toUpperCase()));
             }
+
+            // Always refresh the assigned Subjects + Classes straight from the database.
+            // The list row passed into this form usually has NO assignments, which is why
+            // they showed empty when you re-opened it. Fetching the teacher's real record
+            // makes the previously-assigned subjects/classes persist and display.
+            const editId = (teacherToEdit as any).id;
+            if (editId) {
+                (async () => {
+                    try {
+                        const full = await api.getTeacherById(editId);
+                        if (!full) return;
+                        const subs = (full.subjects || (full as any).subject_specialty || [])
+                            .map((s: any) => (typeof s === 'string' ? s : s?.subject || s?.name))
+                            .filter(Boolean);
+                        if (subs.length) setSubjects(Array.from(new Set(subs)) as string[]);
+                        const cls = ((full as any).classes || [])
+                            .map((c: any) => (typeof c === 'string' ? c : c?.class?.name || c?.name))
+                            .filter(Boolean);
+                        if (cls.length) setClasses(Array.from(new Set(cls)) as string[]);
+                    } catch (e) {
+                        console.warn('[AddTeacher] Could not refresh teacher assignments from DB:', e);
+                    }
+                })();
+            }
         }
     }, [teacherToEdit]);
 
