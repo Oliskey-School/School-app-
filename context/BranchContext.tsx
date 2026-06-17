@@ -97,12 +97,20 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 } else if (canSwitchBranches && (savedBranchId === 'all' || (!savedBranchId && !assignedBranchId))) {
                     setCurrentBranch(null);
                 } else {
-                    const branchToSelect =
-                        visible.find((b: Branch) => b.id === savedBranchId) ||
-                        visible.find((b: Branch) => b.id === assignedBranchId) ||
-                        visible[0];
-
-                    setCurrentBranch(branchToSelect);
+                    setCurrentBranch(prev => {
+                        const found = visible.find((b: Branch) => b.id === savedBranchId);
+                        // Don't let a transient/incomplete branch list bounce an
+                        // already-correct selection back to the FIRST branch (which is the
+                        // Main branch) — e.g. right after creating a user. If we're already
+                        // sitting on the saved branch, keep it even when this particular
+                        // response didn't include it; prefer the current selection over
+                        // silently defaulting to Main.
+                        if (!found && prev && savedBranchId && prev.id === savedBranchId) return prev;
+                        return found
+                            || visible.find((b: Branch) => b.id === assignedBranchId)
+                            || prev
+                            || visible[0];
+                    });
                 }
             }
             // NOTE: if the fetch returns empty we intentionally do nothing — we keep

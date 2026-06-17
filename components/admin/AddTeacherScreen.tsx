@@ -216,10 +216,26 @@ const AddTeacherScreen: React.FC<AddTeacherScreenProps> = ({ teacherToEdit, forc
             if (sData) sData.forEach((s: any) => { dbSubjectIdMap[s.name] = s.id; });
             setSubjectIdMap(dbSubjectIdMap);
 
-            // Fetch Classes scoped to the ACTIVE branch — each branch has its own
-            // classes, so a teacher assigned in Lekki picks from Lekki's classes, not
-            // Main's. (Falls back to all if no active branch is set.)
-            const cData = await api.getClasses(schoolId, branchId || 'all', true);
+            // Keep branches clean: a teacher may only be given classes from THEIR OWN
+            // branch(es). We fetch the active-branch classes, then HARD-filter to the
+            // teacher's branch ids so another branch's class (e.g. an ikorodu class) can
+            // never be assigned to a Lekki teacher. School-wide classes (no branch) stay.
+            const teacherBranchIds: string[] = (() => {
+                if (teacherToEdit) {
+                    const assigned = (teacherToEdit as any).allowed_branch_ids;
+                    if (Array.isArray(assigned) && assigned.length) return assigned as string[];
+                    const home = (teacherToEdit as any).branch_id;
+                    return home ? [home] : [];
+                }
+                return branchId ? [branchId] : [];
+            })();
+            const cDataRaw = await api.getClasses(schoolId, branchId || 'all', true);
+            const cData = (cDataRaw || []).filter((c: any) => {
+                const cb = c.branch_id ?? c.branch?.id ?? null;
+                if (cb == null) return true;                     // school-wide class — always allowed
+                if (teacherBranchIds.length === 0) return false; // unknown teacher branch → standard levels only
+                return teacherBranchIds.includes(cb);
+            });
             {
                 const processedClasses = (cData || []).map((c: any) => ({
                     id: c.id,
