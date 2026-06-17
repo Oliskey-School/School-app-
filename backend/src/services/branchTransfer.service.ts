@@ -36,13 +36,19 @@ export async function getAuthorizedBranches(user: any) {
     // access to it — not a standalone "allowed branches" list, and not the whole demo
     // sandbox. This is what keeps a teacher's switcher to only their real branches.
     if (String(user.role || '').toUpperCase() === 'TEACHER') {
-        const teacher = await prisma.teacher.findFirst({
+        const teacher: any = await prisma.teacher.findFirst({
             where: { user_id: user.id },
             include: { classes: { include: { class: { select: { branch_id: true } } } } },
         });
         const ids = new Set<string>();
-        if (user.branch_id) ids.add(user.branch_id);
-        for (const ct of (((teacher as any)?.classes) || [])) {
+        if (user.branch_id) ids.add(user.branch_id);                                  // home branch
+        // Branches the admin assigned them to (the "Assigned Branches" field). Read FRESH
+        // from the DB teacher record so a just-added branch shows immediately without the
+        // teacher re-logging in; also honour the token's copy as a fallback.
+        for (const b of (teacher?.allowed_branch_ids || [])) if (b) ids.add(b);
+        for (const b of (user.allowed_branch_ids || [])) if (b) ids.add(b);
+        // Branches where they actually have a class assigned.
+        for (const ct of ((teacher?.classes) || [])) {
             const b = ct?.class?.branch_id;
             if (b) ids.add(b);
         }
